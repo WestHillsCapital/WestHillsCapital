@@ -1,0 +1,29 @@
+packages:
+  "framer-motion": "For elegant page transitions and scroll animations matching the premium aesthetic"
+  "clsx": "Utility for constructing className strings conditionally"
+  "tailwind-merge": "Utility for merging tailwind classes without style conflicts"
+  "date-fns": "For formatting available appointment slots elegantly"
+  "react-hook-form": "For robust form state management in scheduling and IRA forms"
+  "@hookform/resolvers": "For Zod schema validation with react-hook-form"
+  "lucide-react": "For crisp, modern SVG icons"
+
+images:
+  - path: "artifacts/west-hills-capital/public/images/hero-bg.png"
+    description: "Elegant abstract background with warm off-white tones and extremely subtle, soft muted gold light leaks. Highly professional, minimalist, luxury finance aesthetic. No text or sharp objects."
+    aspect_ratio: "16:9"
+  - path: "artifacts/west-hills-capital/public/images/gold-eagle.png"
+    description: "High quality, perfectly lit front face of a 1 oz American Gold Eagle coin isolated on a pure white background. Minimalist shadow."
+    aspect_ratio: "1:1"
+  - path: "artifacts/west-hills-capital/public/images/gold-buffalo.png"
+    description: "High quality, perfectly lit front face of a 1 oz American Gold Buffalo coin isolated on a pure white background. Minimalist shadow."
+    aspect_ratio: "1:1"
+  - path: "artifacts/west-hills-capital/public/images/silver-eagle.png"
+    description: "High quality, perfectly lit front face of a 1 oz American Silver Eagle coin isolated on a pure white background. Minimalist shadow."
+    aspect_ratio: "1:1"
+  - path: "artifacts/west-hills-capital/public/images/vault-interior.png"
+    description: "A highly secure, immaculately clean physical precious metals vault interior, out of focus. Deep navy and cool tones. Professional, quiet, highly secure atmosphere."
+    aspect_ratio: "16:9"
+
+notes:
+  - "Custom fetch hooks are used for API calls to avoid dependency on codegen that may not have run successfully yet."
+  - "Mock data fallbacks are implemented in the API hooks so the UI is fully visible even if the backend is not yet fully serving the endpoints."

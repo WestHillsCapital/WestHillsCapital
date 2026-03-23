@@ -1,0 +1,422 @@
+Build a production-ready website for West Hills Capital using Next.js and deployable to Vercel. This is NOT an e-commerce site. Do not use checkout, payments, carts, Stripe, Plaid, WooCommerce-style patterns, or automated trade execution. The site is a high-trust capital allocation website for physical gold and silver. Its primary goal is to convert serious visitors into scheduled allocation calls.
+
+Core business model
+
+West Hills Capital helps long-term investors buy physical gold and silver with transparent pricing and disciplined execution. All transactions require verbal confirmation and cleared funds. The website should feel calm, professional, modern, trustworthy, and serious. No hype, no fear marketing, no countdown timers, no “limited supply” language, no flashy gold graphics, no aggressive sales language.
+
+Brand tone and visual direction
+
+Tone:
+
+Calm reassurance
+
+Quiet seriousness
+
+Transparent
+
+Professional
+
+Minimalist
+
+Not institutional and cold, but also not salesy
+
+Hero headline:
+Physical Gold and Silver — As True as Time.
+
+Suggested visual style:
+
+White or warm off-white background
+
+Deep navy accents
+
+Muted gold highlights
+
+Clean serif headlines
+
+Modern sans-serif body text
+
+High whitespace
+
+Elegant, understated layout
+
+Responsive on mobile and desktop
+
+Required pages
+
+Create these pages:
+
+Home
+
+Live Pricing
+
+Schedule Allocation Call
+
+IRA Allocation
+
+About
+
+Disclosures
+
+Primary CTA
+
+Site-wide primary CTA:
+Schedule Allocation Call
+
+Secondary CTA:
+View Live Pricing
+
+Phone number should be visible in header/footer:
+800-867-6768
+
+Include supporting text where appropriate:
+We will call you from 800-867-6768.
+
+Homepage requirements
+
+Build a polished homepage with these sections:
+
+Hero
+
+Headline:
+Physical Gold and Silver — As True as Time.
+
+Subheadline:
+Transparent pricing. Disciplined execution. Guided allocation support for long-term investors.
+
+Buttons:
+
+Schedule Allocation Call
+
+View Live Pricing
+
+Grounded approach section
+
+Include copy about gold and silver being tangible stores of value, and West Hills Capital focusing on disciplined allocation into widely recognized, highly liquid products with clarity and transparency.
+
+Transparent pricing overview
+
+Explain that pricing is updated regularly, spreads are published clearly, and trades are confirmed directly with a representative before execution.
+
+Physical delivery and IRA section
+
+Explain that both direct physical delivery and IRA allocations are supported, but all trades require a phone call and cleared funds.
+
+Operating principles
+
+Show a clean list:
+
+Transparent spreads
+
+No leverage
+
+No gimmicks
+
+No speculative positioning
+
+Direct wholesale execution
+
+Clear documentation and confirmation
+
+Buyback support
+
+Stewardship section
+
+Include a calm stewardship message around treating client capital seriously.
+
+Live Pricing page requirements
+
+This page is one of the most important pages on the site.
+
+Featured products
+
+Show only these 3 featured products prominently:
+
+1 oz Gold American Eagle
+
+1 oz Gold American Buffalo
+
+1 oz Silver American Eagle
+
+Display for each product:
+
+Product image
+
+Product name
+
+Spot price
+
+Final product price
+
+Spread %
+
+IRA eligible
+
+Estimated delivery window
+
+“Discuss Allocation” button or “Schedule Allocation Call” button
+
+Pricing logic
+
+Apply these rules:
+
+Gold products = spot + 2%
+
+Silver products = spot + 5%
+
+API requirements
+
+The site will eventually integrate with Dillon Gage API.
+For now, structure the code cleanly for API integration.
+
+Requirements for the pricing engine architecture:
+
+Server-side fetch pattern
+
+Cached pricing approach
+
+“Last updated” timestamp
+
+Graceful fallback if API is unavailable
+
+Never expose API keys client-side
+
+If possible, scaffold this with mock data now, but build it so I can easily replace with live API later.
+
+Spot ticker
+
+Spot prices should always be visible somewhere globally, preferably in the header or footer.
+Show:
+
+Gold Spot
+
+Silver Spot
+
+Last Updated timestamp
+
+Buyback section
+
+Add a section that can display buyback prices for the featured products with calm disclaimer language.
+
+Funding disclosure section
+
+Include this exact policy area in a clean design:
+
+Trades are confirmed directly with a representative prior to execution.
+
+Wire transfers must be received by the end of the next business day following trade confirmation.
+
+Personal and business checks are accepted. Execution and shipment occur only after funds are fully cleared and available without restriction.
+
+If funds are not received within the stated window, the trade may be canceled and must be reconfirmed at current market pricing.
+
+Schedule Allocation Call page requirements
+
+This page is the primary conversion page.
+
+Page structure
+
+Step 1: Prequalification form
+Fields:
+
+Allocation Type: Physical Delivery / IRA Rollover or Transfer / Not Sure
+
+Estimated Allocation Range: Under $50,000 / $50,000–$150,000 / $150,000–$500,000 / $500,000+
+
+Timeline: Ready to Move Forward / Within 30 Days / Researching
+
+State
+
+First Name
+
+Last Name
+
+Email
+
+Phone
+
+Button:
+Find Available Times
+
+Scheduling flow
+
+After form submission, the page should move to a second step where the user sees available appointment times.
+
+For now, if true Google Calendar availability is not wired yet, create a realistic mock scheduling flow with placeholder available slots and clear component architecture so real Google Calendar availability can be connected later.
+
+Scheduling rules
+
+Design the scheduling system around these eventual live rules:
+
+45-minute calls
+
+Monday–Friday
+
+9am–5pm Central
+
+15-minute buffer between calls
+
+Minimum 2-hour lead time
+
+Show next 10–12 available slots over next 14 days
+
+Confirmation state
+
+After booking, show a confirmation screen with:
+
+Scheduled time
+
+Confirmation text
+
+Reminder that West Hills Capital will call from 800-867-6768
+
+Include this text:
+Your allocation discussion is confirmed.
+
+During the call, we will review your intended allocation, confirm current pricing, and discuss execution steps.
+
+Trades are executed only after verbal confirmation and receipt of cleared funds.
+
+IRA Allocation page requirements
+
+Build a clean page specifically for IRA buyers.
+
+Include:
+
+Intro explaining rollover / transfer support
+
+Guided intake form similar to the scheduling form
+
+Explain that IRA allocations are executed only after funds are received and cleared by the custodian
+
+CTA to schedule an allocation call
+
+Use calm language. No fear-based retirement copy.
+
+About page requirements
+
+Build a strong founder-oriented About page with this positioning:
+
+Long-term interest and experience in physical metals
+
+Lessons learned in business
+
+Focus on discipline, transparency, and stewardship
+
+Long-term alignment with clients
+
+Use elevated but direct language. No defensive legal storytelling. No attacks on other dealers.
+
+Suggested structure:
+
+Led by Experience
+
+Lessons That Endure
+
+Commitment to Discipline
+
+Stewardship
+
+Closing idea:
+It is always your money. Now it is your real money.
+
+Disclosures page requirements
+
+Create a clean disclosures page with sections for:
+
+No advisory relationship
+
+Market risk
+
+Funding and settlement
+
+IRA timing
+
+Delivery windows
+
+Buyback terms
+
+Trade confirmation and cancellation
+
+Tone should be professional and calm, not dense legalese.
+
+Technical requirements
+
+Use Next.js with App Router
+
+Use TypeScript
+
+Use Tailwind CSS
+
+Build reusable components
+
+Organize code cleanly
+
+Make it responsive
+
+Make it easy to swap mock data for live API later
+
+Add comments where helpful
+
+Use environment variables for future secrets
+
+Keep architecture clean and simple
+
+Data / integration scaffolding
+
+For now:
+
+Use mock pricing data for the 3 featured products
+
+Use mock spot prices
+
+Use mock buyback prices
+
+Use mock delivery windows
+
+Use mock appointment slots
+
+But structure the code so the following can be integrated later:
+
+Dillon Gage API for pricing and delivery windows
+
+Google Calendar availability and booking
+
+Google Sheets lead logging
+
+Confirmation email sending
+
+Important non-negotiables
+
+Do NOT build:
+
+Cart
+
+Checkout
+
+Payment flow
+
+Stripe
+
+Plaid
+
+User accounts
+
+Dashboards
+
+Client logins
+
+Automated order execution
+
+This is a lead-generation and pricing-information site only.
+
+Final deliverable
+
+Generate the full site code with polished UI, realistic copy, clean architecture, and clear placeholders for future integrations.
+
+Also include:
+
+A brief README
+
+Notes on where to plug in pricing API
+
+Notes on where to plug in Google Calendar / Google Sheets / email logic
