@@ -24,6 +24,14 @@ export const GetSpotPricesResponse = zod.object({
   silver: zod.number().describe("Silver spot price per troy oz in USD"),
   lastUpdated: zod.string().describe("ISO 8601 timestamp of last update"),
   source: zod.string().describe("Data source identifier"),
+  goldChange: zod.number().optional().describe("Gold price change today in USD"),
+  goldChangePercent: zod.number().optional().describe("Gold price change today as percent"),
+  silverChange: zod.number().optional().describe("Silver price change today in USD"),
+  silverChangePercent: zod.number().optional().describe("Silver price change today as percent"),
+  goldBid: zod.number().optional(),
+  goldAsk: zod.number().optional(),
+  silverBid: zod.number().optional(),
+  silverAsk: zod.number().optional(),
 });
 
 /**

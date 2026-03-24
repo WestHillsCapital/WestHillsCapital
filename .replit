@@ -24,3 +24,8 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[userenv]
+
+[userenv.shared]
+DILLON_GAGE_API_KEY = "1119-323a3d2e5522dc91aafdb7c87e2b621a"

@@ -5,6 +5,14 @@ export interface SpotPrices {
   silver: number;
   lastUpdated: string;
   source: string;
+  goldChange?: number;
+  goldChangePercent?: number;
+  silverChange?: number;
+  silverChangePercent?: number;
+  goldBid?: number;
+  goldAsk?: number;
+  silverBid?: number;
+  silverAsk?: number;
 }
 
 export interface ProductPrice {
@@ -115,7 +123,7 @@ export function useSpotPrices() {
         return MOCK_SPOT_PRICES;
       }
     },
-    refetchInterval: 60000, // Refetch every minute
+    refetchInterval: 30000, // Refetch every 30 seconds (Dillon Gage live feed)
   });
 }
 

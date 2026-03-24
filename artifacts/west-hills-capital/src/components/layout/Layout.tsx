@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
-import { SpotTicker } from "../SpotTicker";
+import { SpotTicker } from "./SpotTicker";
 
 export function Layout({ children }: { children: ReactNode }) {
   return (
