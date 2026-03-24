@@ -11,9 +11,17 @@ const router: IRouter = Router();
 const DG_TOKEN = process.env.DILLON_GAGE_API_KEY;
 const DG_BASE = "https://connect.fiztrade.com/FizServices";
 
-// ─── Spread configuration ────────────────────────────────────────────────────
-const GOLD_SPREAD_PERCENT = 2;
-const SILVER_SPREAD_PERCENT = 5;
+// ─── Dillon Gage dealer premiums (USD per troy oz over spot bid) ─────────────
+// These reflect DG's wholesale price to West Hills Capital above spot.
+// Verified on 2026-03-24: Gold Eagle $4,545.47 (spot ~$4,483), Silver Eagle $74.90 (spot $71.05).
+// Update these when DG adjusts their dealer pricing, or replace entirely once
+// GetPricesForProducts is active (it will return the exact DG price per product).
+const GOLD_DG_PREMIUM_USD = 62.57;   // DG cost above spot for gold coins
+const SILVER_DG_PREMIUM_USD = 3.85;  // DG cost above spot for silver coins (ASE mint premium)
+
+// ─── West Hills Capital commission (applied on top of DG dealer cost) ────────
+const GOLD_COMMISSION_PERCENT = 2;   // 2% over DG dealer price
+const SILVER_COMMISSION_PERCENT = 5; // 5% over DG dealer price
 
 // ─── Buyback spread (below spot) ─────────────────────────────────────────────
 const GOLD_BUYBACK_SPREAD_PERCENT = 1;
@@ -115,10 +123,11 @@ router.get("/products", async (_req, res) => {
   try {
     const spot = await getLiveSpot();
 
-    const goldPrice = (price: number) =>
-      Math.round(price * (1 + GOLD_SPREAD_PERCENT / 100) * 100) / 100;
-    const silverPrice = (price: number) =>
-      Math.round(price * (1 + SILVER_SPREAD_PERCENT / 100) * 100) / 100;
+    // (spot + DG_premium) × (1 + WHC_commission)
+    const goldPrice = (spotBid: number) =>
+      Math.round((spotBid + GOLD_DG_PREMIUM_USD) * (1 + GOLD_COMMISSION_PERCENT / 100) * 100) / 100;
+    const silverPrice = (spotBid: number) =>
+      Math.round((spotBid + SILVER_DG_PREMIUM_USD) * (1 + SILVER_COMMISSION_PERCENT / 100) * 100) / 100;
 
     // ─── Product definitions ────────────────────────────────────────────────
     // Dillon Gage Fiztrade product codes (for use with GetPricesForProducts
@@ -133,7 +142,7 @@ router.get("/products", async (_req, res) => {
         metal: "gold" as const,
         weight: "1 troy oz",
         spotPrice: spot.gold,
-        spreadPercent: GOLD_SPREAD_PERCENT,
+        spreadPercent: GOLD_COMMISSION_PERCENT,
         finalPrice: goldPrice(spot.gold),
         iraEligible: true,
         deliveryWindow: "",
@@ -147,7 +156,7 @@ router.get("/products", async (_req, res) => {
         metal: "gold" as const,
         weight: "1 troy oz",
         spotPrice: spot.gold,
-        spreadPercent: GOLD_SPREAD_PERCENT,
+        spreadPercent: GOLD_COMMISSION_PERCENT,
         finalPrice: goldPrice(spot.gold),
         iraEligible: true,
         deliveryWindow: "",
@@ -161,7 +170,7 @@ router.get("/products", async (_req, res) => {
         metal: "silver" as const,
         weight: "1 troy oz",
         spotPrice: spot.silver,
-        spreadPercent: SILVER_SPREAD_PERCENT,
+        spreadPercent: SILVER_COMMISSION_PERCENT,
         finalPrice: silverPrice(spot.silver),
         iraEligible: true,
         deliveryWindow: "",
