@@ -8,11 +8,11 @@ export default function Home() {
   const { data: pricingData, isLoading: loadingProducts } = useProductPrices();
 
   const principles = [
-    "Transparent spreads with no hidden fees",
+    "Transparent, market-based pricing with no hidden fees",
     "No leverage or margin accounts",
     "No speculative positioning",
-    "Direct wholesale execution",
-    "Clear documentation and confirmation",
+    "Pricing confirmed at time of execution",
+    "Clear documentation and confirmation on every trade",
     "Reliable buyback support",
   ];
 
@@ -50,7 +50,7 @@ export default function Home() {
           {loadingProducts ? (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-[460px] rounded-2xl bg-white/50 animate-pulse border border-border/40" />
+                <div key={i} className="h-[480px] rounded-2xl bg-white/50 animate-pulse border border-border/40" />
               ))}
             </div>
           ) : (
@@ -60,12 +60,17 @@ export default function Home() {
                   key={product.id}
                   className="overflow-hidden group border border-border/40 shadow-sm hover:shadow-md transition-shadow duration-300 bg-white"
                 >
-                  {/* PRODUCT IMAGE — larger, cleaner */}
-                  <div className="h-56 bg-white flex items-center justify-center relative border-b border-border/20">
+                  {/*
+                    PRODUCT IMAGE AREA
+                    — clean white background for easy image replacement
+                    — swap product.imageUrl for any higher-quality image path later
+                    — consistent h-56 height, centered, object-contain, no clipping
+                  */}
+                  <div className="h-56 bg-white flex items-center justify-center relative border-b border-border/20 p-6">
                     <img
                       src={product.imageUrl}
                       alt={product.name}
-                      className="w-40 h-40 object-contain group-hover:scale-105 transition-transform duration-500"
+                      className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-500"
                     />
                     {product.iraEligible && (
                       <div className="absolute top-3 right-3 bg-white px-2.5 py-1 rounded-full border border-primary/20 text-xs font-semibold text-primary flex items-center gap-1.5 shadow-sm">
@@ -80,29 +85,29 @@ export default function Home() {
                     </div>
                     <h3 className="text-base font-bold mb-4 leading-snug">{product.name}</h3>
 
-                    {/* PRICING — clear labels */}
-                    <div className="space-y-1.5 mb-4">
-                      <div className="flex items-baseline justify-between">
-                        <span className="text-xs text-foreground/50">Price</span>
-                        <span className="text-2xl font-serif font-semibold text-foreground">
-                          ${product.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </span>
+                    {/* PRICING — final price dominant, references secondary */}
+                    <div className="mb-1">
+                      <div className="text-3xl font-serif font-semibold text-foreground mb-1">
+                        ${product.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </div>
-                      <div className="flex items-center justify-between text-xs text-foreground/50">
-                        <span>Spot</span>
+                    </div>
+                    <div className="space-y-1 mb-4 text-xs text-foreground/50">
+                      <div className="flex items-center justify-between">
+                        <span>Spot Reference</span>
                         <span>${product.spotPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                       </div>
-                      <div className="flex items-center justify-between text-xs text-foreground/50">
+                      <div className="flex items-center justify-between">
                         <span>Spread</span>
-                        <span>+{product.spreadPercent}% over spot</span>
+                        <span>
+                          Typical {product.metal.toLowerCase()} spread applied
+                        </span>
                       </div>
                     </div>
 
-                    <div className="text-xs text-foreground/50 border-t border-border/30 pt-3 mb-4">
+                    <div className="text-xs text-foreground/45 border-t border-border/30 pt-3 mb-4">
                       Estimated Delivery: {product.deliveryWindow}
                     </div>
 
-                    {/* SOFTER CTA per card */}
                     <Link href="/schedule">
                       <Button variant="outline" className="w-full h-9 text-sm border-primary/30 text-primary hover:bg-primary hover:text-white transition-colors">
                         Discuss Purchase
@@ -131,7 +136,7 @@ export default function Home() {
         </div>
       </section>
 
-      {/* HOW IT WORKS */}
+      {/* A GROUNDED APPROACH */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
@@ -146,7 +151,7 @@ export default function Home() {
               {
                 icon: <Scale className="w-7 h-7 text-primary" />,
                 title: "Transparent Pricing",
-                desc: "Clear spreads above spot price — you see exactly what you are paying before any purchase is confirmed.",
+                desc: "Pricing is based on live market conditions with a consistent, disclosed spread. Final pricing is confirmed at the time of execution — no surprises.",
               },
               {
                 icon: <Banknote className="w-7 h-7 text-primary" />,
@@ -232,7 +237,7 @@ export default function Home() {
       <section className="py-20 bg-primary/5">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-3xl lg:text-4xl font-serif font-semibold mb-5">
-            Ready to buy gold or silver?
+            Ready to discuss your purchase?
           </h2>
           <p className="text-foreground/60 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
             Every purchase begins with a private call to review your objectives, confirm current pricing, and establish delivery or IRA logistics. No automated execution. No pressure.
