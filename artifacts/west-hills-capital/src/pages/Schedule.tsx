@@ -33,7 +33,14 @@ export default function Schedule() {
   const form = useForm<PrequalFormValues>({
     resolver: zodResolver(prequalSchema),
     defaultValues: {
-      firstName: "", lastName: "", email: "", phone: "", state: "",
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      state: "",
+      allocationType: undefined,
+      allocationRange: undefined,
+      timeline: undefined,
     }
   });
 

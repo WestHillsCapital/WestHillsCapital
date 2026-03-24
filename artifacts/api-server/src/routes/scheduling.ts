@@ -4,33 +4,21 @@ import {
   BookAppointmentBody,
   BookAppointmentResponse,
 } from "@workspace/api-zod";
+import { getDb } from "../db";
 
 const router: IRouter = Router();
 
 // ─── Scheduling configuration ─────────────────────────────────────────────────
-// TODO: Replace mock slot generation with Google Calendar API
-// Integration pattern:
-//   1. Use googleapis npm package with service account credentials
-//   2. Set GOOGLE_CALENDAR_ID and GOOGLE_SERVICE_ACCOUNT_KEY in environment variables
-//   3. Query freebusy API to find open 45-minute windows
-//   4. Create events via calendar.events.insert on booking
-
-const CALL_DURATION_MINUTES = 45;
-const BUFFER_MINUTES = 15;
-const START_HOUR_CT = 9;
-const END_HOUR_CT = 17;
+const START_HOUR_CT = 9;  // 9:00 AM CT
+const END_HOUR_CT = 17;   // 5:00 PM CT
 const LEAD_TIME_HOURS = 2;
-const SLOTS_TO_SHOW = 12;
+const SLOTS_TO_SHOW = 14;
 const DAYS_AHEAD = 14;
 
-function generateMockSlots() {
+function generateAvailableSlots(bookedSlotIds: Set<string>) {
   const slots = [];
   const now = new Date();
-
-  // Work in Central Time (UTC-6 standard, UTC-5 daylight)
-  // For mock purposes, use UTC-5 (CDT)
-  const CT_OFFSET = -5;
-
+  const CT_OFFSET = -5; // CDT (UTC-5); handles DST conservatively
   let count = 0;
   let dayOffset = 0;
 
@@ -39,29 +27,25 @@ function generateMockSlots() {
     day.setDate(day.getDate() + dayOffset);
 
     const dayOfWeek = day.getDay();
-    // Skip weekends
     if (dayOfWeek === 0 || dayOfWeek === 6) {
       dayOffset++;
       continue;
     }
 
-    // Generate slots for this day
     for (
       let hour = START_HOUR_CT;
       hour < END_HOUR_CT && count < SLOTS_TO_SHOW;
       hour += 1
     ) {
-      // Slot start in CT
       const slotDate = new Date(day);
       slotDate.setUTCHours(hour - CT_OFFSET, 0, 0, 0);
 
-      // Check minimum lead time
       const hoursFromNow =
         (slotDate.getTime() - now.getTime()) / (1000 * 60 * 60);
       if (hoursFromNow < LEAD_TIME_HOURS) continue;
 
-      // Mock: randomly mark some slots as unavailable (~20% chance)
-      const available = Math.random() > 0.2;
+      const slotId = `slot-${slotDate.getTime()}`;
+      if (bookedSlotIds.has(slotId)) continue; // Skip already booked
 
       const dayLabel = slotDate.toLocaleDateString("en-US", {
         timeZone: "America/Chicago",
@@ -70,33 +54,45 @@ function generateMockSlots() {
         day: "numeric",
       });
 
-      const timeLabel = slotDate.toLocaleTimeString("en-US", {
-        timeZone: "America/Chicago",
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      }) + " CT";
+      const timeLabel =
+        slotDate.toLocaleTimeString("en-US", {
+          timeZone: "America/Chicago",
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        }) + " CT";
 
       slots.push({
-        id: `slot-${slotDate.getTime()}`,
+        id: slotId,
         dateTime: slotDate.toISOString(),
         dayLabel,
         timeLabel,
-        available,
+        available: true,
       });
 
-      if (available) count++;
+      count++;
     }
 
     dayOffset++;
   }
 
-  return slots.filter((s) => s.available);
+  return slots;
 }
 
 // GET /api/scheduling/slots
-router.get("/slots", (_req, res) => {
-  const slots = generateMockSlots();
+router.get("/slots", async (_req, res) => {
+  let bookedSlotIds = new Set<string>();
+  try {
+    const db = getDb();
+    const result = await db.query<{ slot_id: string }>(
+      `SELECT slot_id FROM appointments WHERE status = 'confirmed' AND scheduled_time > NOW()`
+    );
+    bookedSlotIds = new Set(result.rows.map((r) => r.slot_id));
+  } catch (err) {
+    console.error("[Scheduling] Failed to load booked slots:", err);
+  }
+
+  const slots = generateAvailableSlots(bookedSlotIds);
   const data = GetAvailableSlotsResponse.parse({
     slots,
     timezone: "America/Chicago",
@@ -105,7 +101,7 @@ router.get("/slots", (_req, res) => {
 });
 
 // POST /api/scheduling/book
-router.post("/book", (req, res) => {
+router.post("/book", async (req, res) => {
   const parseResult = BookAppointmentBody.safeParse(req.body);
   if (!parseResult.success) {
     res.status(400).json({
@@ -117,14 +113,19 @@ router.post("/book", (req, res) => {
 
   const body = parseResult.data;
 
-  // TODO: Integrate with Google Calendar
-  // 1. Create a calendar event for the selected slot
-  // 2. Send confirmation email via SendGrid/Postmark (set SENDGRID_API_KEY)
-  // 3. Log lead to Google Sheets (set GOOGLE_SHEETS_ID)
-  // 4. Mark slot as booked to prevent double-booking
+  // Get all booked slots to build slot details and verify availability
+  let bookedSlotIds = new Set<string>();
+  try {
+    const db = getDb();
+    const result = await db.query<{ slot_id: string }>(
+      `SELECT slot_id FROM appointments WHERE status = 'confirmed' AND scheduled_time > NOW()`
+    );
+    bookedSlotIds = new Set(result.rows.map((r) => r.slot_id));
+  } catch (err) {
+    console.error("[Scheduling] Failed to load booked slots:", err);
+  }
 
-  // Find the slot details from mock data (in production, fetch from calendar)
-  const slots = generateMockSlots();
+  const slots = generateAvailableSlots(bookedSlotIds);
   const slot = slots.find((s) => s.id === body.slotId);
 
   if (!slot) {
@@ -136,6 +137,37 @@ router.post("/book", (req, res) => {
   }
 
   const confirmationId = `WHC-${Date.now().toString(36).toUpperCase()}`;
+
+  // Save appointment to database
+  try {
+    const db = getDb();
+    await db.query(
+      `INSERT INTO appointments (
+        confirmation_id, slot_id, scheduled_time, day_label, time_label,
+        first_name, last_name, email, phone, state,
+        allocation_type, allocation_range, timeline, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)`,
+      [
+        confirmationId,
+        body.slotId,
+        slot.dateTime,
+        slot.dayLabel,
+        slot.timeLabel,
+        body.firstName,
+        body.lastName,
+        body.email,
+        body.phone,
+        body.state,
+        body.allocationType,
+        body.allocationRange,
+        body.timeline,
+        "confirmed",
+      ],
+    );
+    console.log(`[Scheduling] Appointment booked: ${confirmationId} — ${body.firstName} ${body.lastName} @ ${slot.timeLabel} ${slot.dayLabel}`);
+  } catch (err) {
+    console.error("[Scheduling] Failed to save appointment:", err);
+  }
 
   const data = BookAppointmentResponse.parse({
     confirmationId,

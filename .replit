@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-24", "postgresql-16"]
 
 [[artifacts]]
 id = "artifacts/api-server"
@@ -29,3 +29,6 @@ timeoutMs = 20000
 
 [userenv.shared]
 DILLON_GAGE_API_KEY = "1119-323a3d2e5522dc91aafdb7c87e2b621a"
+
+[nix]
+channel = "stable-25_05"

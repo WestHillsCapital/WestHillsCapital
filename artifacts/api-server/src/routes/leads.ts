@@ -3,11 +3,12 @@ import {
   SubmitLeadIntakeBody,
   SubmitLeadIntakeResponse,
 } from "@workspace/api-zod";
+import { getDb } from "../db";
 
 const router: IRouter = Router();
 
 // POST /api/leads/intake
-router.post("/intake", (req, res) => {
+router.post("/intake", async (req, res) => {
   const parseResult = SubmitLeadIntakeBody.safeParse(req.body);
   if (!parseResult.success) {
     res.status(400).json({
@@ -19,15 +20,34 @@ router.post("/intake", (req, res) => {
 
   const lead = parseResult.data;
 
-  // TODO: Integrate with CRM / lead management
-  // 1. Log to Google Sheets (set GOOGLE_SHEETS_ID env var)
-  // 2. Send internal notification via SendGrid/Postmark (set SENDGRID_API_KEY)
-  // 3. Create HubSpot/CRM record if applicable
-  // 4. Trigger confirmation email to lead
-
   console.log(
-    `[Leads] New ${lead.formType} lead: ${lead.firstName} ${lead.lastName} <${lead.email}> — ${lead.allocationRange} — ${lead.timeline}`,
+    `[Leads] New ${lead.formType} lead: ${lead.firstName} ${lead.lastName} <${lead.email}> — ${lead.allocationRange ?? "N/A"} — ${lead.timeline ?? "N/A"}`,
   );
+
+  try {
+    const db = getDb();
+    await db.query(
+      `INSERT INTO leads (
+        form_type, first_name, last_name, email, phone, state,
+        allocation_type, allocation_range, timeline, current_custodian, ip_address
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [
+        lead.formType,
+        lead.firstName,
+        lead.lastName,
+        lead.email,
+        lead.phone,
+        lead.state ?? null,
+        lead.allocationType ?? null,
+        lead.allocationRange ?? null,
+        lead.timeline ?? null,
+        lead.currentCustodian ?? null,
+        req.ip ?? null,
+      ],
+    );
+  } catch (err) {
+    console.error("[Leads] Failed to save lead to database:", err);
+  }
 
   const data = SubmitLeadIntakeResponse.parse({
     success: true,
