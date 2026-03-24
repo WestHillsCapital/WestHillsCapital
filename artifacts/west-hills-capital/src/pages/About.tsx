@@ -1,6 +1,10 @@
+import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import { ArrowRight, Phone } from "lucide-react";
+
 export default function About() {
   return (
-    <div className="w-full bg-background min-h-screen pt-16 pb-32">
+    <div className="w-full bg-background min-h-screen pt-16 pb-0">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
 
         <h1 className="text-4xl lg:text-5xl font-serif font-semibold mb-12 text-center">
@@ -53,6 +57,32 @@ export default function About() {
           </p>
         </div>
 
+      </div>
+
+      {/* BOTTOM CTA */}
+      <div className="bg-foreground text-white mt-20 py-20">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
+          <h2 className="text-3xl font-serif font-semibold mb-5 text-white">
+            Ready to start a conversation?
+          </h2>
+          <p className="text-white/65 text-lg mb-10 leading-relaxed">
+            Every allocation begins with a private call to review your objectives, confirm current pricing, and establish next steps. No automated execution. No pressure.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link href="/schedule">
+              <Button size="lg" className="h-12 px-10 group">
+                Schedule Allocation Call
+                <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+            <a href="tel:8008676768">
+              <Button variant="outline" size="lg" className="h-12 px-10 text-white border-white/20 hover:bg-white/10 hover:text-white">
+                <Phone className="mr-2 w-4 h-4" />
+                800-867-6768
+              </Button>
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );

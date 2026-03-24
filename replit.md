@@ -6,7 +6,7 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ## Project: West Hills Capital
 
-West Hills Capital is a physical gold and silver allocation company. The website is a production-ready, 6-page site with live pricing, a 2-step appointment scheduling flow, and an IRA allocation section. Primary CTA is "Schedule Allocation Call" — phone 800-867-6768.
+West Hills Capital is a physical gold and silver allocation company. The website is a production-ready, 6-page site with live Dillon Gage pricing, a 2-step appointment scheduling flow, and an IRA allocation section. Primary CTA is "Schedule Allocation Call" — phone 800-867-6768.
 
 ## Stack
 
@@ -15,12 +15,11 @@ West Hills Capital is a physical gold and silver allocation company. The website
 - **Package manager**: pnpm
 - **TypeScript version**: 5.9
 - **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
+- **Database**: PostgreSQL (Replit built-in, pg client)
+- **Validation**: Zod (`zod/v4`)
 - **Build**: esbuild (CJS bundle)
 - **Frontend**: React + Vite + Tailwind + shadcn
-- **Frontend packages**: react-hook-form, @hookform/resolvers, framer-motion, lucide-react, date-fns, tailwind-merge, clsx
+- **Frontend packages**: react-hook-form, @hookform/resolvers, lucide-react, date-fns, tailwind-merge, clsx
 
 ## Structure
 
@@ -31,20 +30,16 @@ artifacts-monorepo/
 │   └── west-hills-capital/     # React + Vite frontend (preview path: /)
 ├── lib/
 │   ├── api-spec/               # OpenAPI spec + Orval codegen config
-│   ├── api-client-react/       # Generated React Query hooks
 │   ├── api-zod/                # Generated Zod schemas from OpenAPI
-│   └── db/                     # Drizzle ORM schema + DB connection
-├── scripts/                    # Utility scripts
+│   └── ...
 ├── pnpm-workspace.yaml
-├── tsconfig.base.json
-├── tsconfig.json
-└── package.json
+└── tsconfig.json
 ```
 
 ## Pages
 
-1. **Home** (`/`) — Hero, principles, CTAs
-2. **Live Pricing** (`/pricing`) — Spot ticker, 3 product cards, buyback section
+1. **Home** (`/`) — Hero, live product prices, principles, CTAs
+2. **Live Pricing** (`/pricing`) — Spot ticker, 3 product cards with live pricing, buyback table
 3. **Schedule Allocation Call** (`/schedule`) — 2-step flow: intake form → slot picker → confirmation
 4. **IRA Allocation** (`/ira`) — IRA education + intake form
 5. **About** (`/about`) — Company story and philosophy
@@ -54,22 +49,63 @@ artifacts-monorepo/
 
 All routes mounted at `/api`:
 
-- `GET /api/pricing/spot` — Gold/silver spot prices (mock: gold $3,215, silver $32.45)
+- `GET /api/pricing/spot` — Live gold/silver spot prices from Dillon Gage Fiztrade API
 - `GET /api/pricing/products` — 3 featured products with spreads (gold +2%, silver +5%)
 - `GET /api/pricing/buyback` — Buyback prices (gold -1%, silver -3%)
-- `GET /api/scheduling/slots` — Available 45-min slots, Mon-Fri 9am-5pm CT over 14 days
-- `POST /api/scheduling/book` — Book a slot, returns confirmation ID
-- `POST /api/leads/intake` — Lead capture form submission
+- `GET /api/scheduling/slots` — Available slots, Mon-Fri 9am-5pm CT, 14 days ahead, excludes booked slots
+- `POST /api/scheduling/book` — Book a slot, persists to DB, returns confirmation ID
+- `POST /api/leads/intake` — Lead capture, persists to DB
 
 ## Key Files
 
 - `lib/api-spec/openapi.yaml` — Full API contract (source of truth)
-- `artifacts/api-server/src/routes/pricing.ts` — Pricing routes (TODO: replace mock with Dillon Gage API)
-- `artifacts/api-server/src/routes/scheduling.ts` — Scheduling routes (TODO: integrate Google Calendar)
-- `artifacts/api-server/src/routes/leads.ts` — Lead capture route (TODO: integrate CRM/email)
-- `artifacts/api-server/src/routes/index.ts` — Route mounting
+- `artifacts/api-server/src/routes/pricing.ts` — Live pricing via Dillon Gage Fiztrade API
+- `artifacts/api-server/src/routes/scheduling.ts` — Scheduling with DB persistence
+- `artifacts/api-server/src/routes/leads.ts` — Lead capture with DB persistence
+- `artifacts/api-server/src/db.ts` — PostgreSQL pool connection utility
 - `artifacts/west-hills-capital/src/App.tsx` — Frontend entry point and routing
+- `artifacts/west-hills-capital/src/components/layout/SpotTicker.tsx` — Live spot price bar (top of every page)
 - `artifacts/west-hills-capital/src/index.css` — Design theme (off-white / navy / gold)
+
+## Live Data Integration
+
+### Dillon Gage Fiztrade API
+
+- **Token**: stored as `DILLON_GAGE_API_KEY` env var
+- **Working endpoint**: `GET https://connect.fiztrade.com/FizServices/GetSpotPriceData/{token}` — returns live gold/silver/platinum/palladium prices with daily changes
+- **Account**: WEST HILLS CAPITAL, LLC — Account #167542
+- **Cache**: 5-second TTL in-memory cache on the backend
+- **Not yet configured**: `GetProductCatalog` and `GetPricesForProducts` return empty — products need to be set up in the Fiztrade web portal (connect.fiztrade.com) before these endpoints can be used
+
+### Pricing configuration
+
+- Gold spread: +2% over spot bid
+- Silver spread: +5% over spot bid
+- Gold buyback: -1% from spot
+- Silver buyback: -3% from spot
+
+## Database
+
+- **Platform**: Replit built-in PostgreSQL (`DATABASE_URL` env var)
+- **Tables**:
+  - `leads` — All form submissions from Schedule and IRA pages
+  - `appointments` — All booked calls with confirmation IDs, used to prevent double-booking
+
+## Email Notifications (Pending)
+
+- SendGrid integration was declined (user dismissed the Replit connector)
+- To add email confirmations later:
+  - Option A: Connect SendGrid via Replit integrations (ask agent to "add SendGrid email")
+  - Option B: Provide a `SENDGRID_API_KEY` directly so it can be stored as a secret
+- Hook points already exist in `leads.ts` and `scheduling.ts` (add send logic after DB inserts)
+
+## Google Calendar (Pending)
+
+- The scheduling system uses deterministic time slot generation (Mon-Fri 9am-5pm CT)
+- Booked slots are excluded via DB query — no double-booking is possible
+- To integrate real Google Calendar availability:
+  - Connect Google Calendar via Replit integrations (ask agent to "add Google Calendar")
+  - The agent will query freebusy and create calendar events on booking
 
 ## Business Rules
 
@@ -77,53 +113,4 @@ All routes mounted at `/api`:
 - ALL trades require verbal confirmation and cleared funds
 - Phone 800-867-6768 must appear in header, footer, and confirmation screens
 - No fear marketing, countdown timers, or "limited supply" language
-
-## TODO / Integration Roadmap
-
-- Replace mock spot prices with Dillon Gage API (`DILLON_GAGE_API_KEY` env var)
-- Replace mock scheduling slots with Google Calendar API (`GOOGLE_CALENDAR_ID`, `GOOGLE_SERVICE_ACCOUNT_KEY`)
-- Add lead CRM integration (`SENDGRID_API_KEY` for confirmations)
-- Add Google Sheets or HubSpot lead logging
-
-## TypeScript & Composite Projects
-
-Every package extends `tsconfig.base.json` which sets `composite: true`. The root `tsconfig.json` lists all packages as project references. This means:
-
-- **Always typecheck from the root** — run `pnpm run typecheck`
-- **`emitDeclarationOnly`** — actual JS bundling by esbuild/vite
-- **Project references** — cross-package imports require references arrays
-
-## Root Scripts
-
-- `pnpm run build` — typecheck then recursive build
-- `pnpm run typecheck` — `tsc --build --emitDeclarationOnly`
-
-## Packages
-
-### `artifacts/api-server` (`@workspace/api-server`)
-
-Express 5 API server. Routes in `src/routes/`, validated with `@workspace/api-zod`.
-
-### `artifacts/west-hills-capital` (`@workspace/west-hills-capital`)
-
-React + Vite frontend. Images in `public/images/`. API calls via fetch to `/api/*`.
-
-### `lib/api-spec` (`@workspace/api-spec`)
-
-OpenAPI 3.1 spec (`openapi.yaml`) and Orval config. Run codegen: `pnpm --filter @workspace/api-spec run codegen`
-
-### `lib/api-zod` (`@workspace/api-zod`)
-
-Generated Zod schemas from OpenAPI spec. Used by api-server for validation.
-
-### `lib/api-client-react` (`@workspace/api-client-react`)
-
-Generated React Query hooks (not currently used — frontend uses raw fetch).
-
-### `lib/db` (`@workspace/db`)
-
-Drizzle ORM + PostgreSQL. Push schema: `pnpm --filter @workspace/db run push`
-
-### `scripts` (`@workspace/scripts`)
-
-Utility scripts. Run: `pnpm --filter @workspace/scripts run <script>`
+- Products: 1oz Gold American Eagle, 1oz Gold American Buffalo, 1oz Silver American Eagle
