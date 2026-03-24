@@ -61,8 +61,11 @@ export default function Schedule() {
         
         <div className="text-center mb-10">
           <h1 className="text-4xl font-serif font-semibold mb-4">Schedule Allocation Call</h1>
-          <p className="text-foreground/70 text-lg">
+          <p className="text-foreground/70 text-lg mb-3">
             Trades are executed only after verbal confirmation and receipt of cleared funds. Schedule your private allocation discussion below.
+          </p>
+          <p className="text-sm font-medium text-foreground/60 bg-primary/8 border border-primary/20 inline-block px-4 py-2 rounded-lg">
+            We will call you from <strong className="text-primary">800-867-6768</strong>
           </p>
         </div>
 

@@ -1,98 +1,156 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, ShieldCheck, Scale, Banknote, History, CheckCircle2 } from "lucide-react";
-import { motion } from "framer-motion";
+import { Card, CardContent } from "@/components/ui/card";
+import { ArrowRight, ShieldCheck, Scale, Banknote, History, CheckCircle2, Shield } from "lucide-react";
+import { useProductPrices } from "@/hooks/use-pricing";
 
 export default function Home() {
+  const { data: pricingData, isLoading: loadingProducts } = useProductPrices();
+
   const principles = [
     "Transparent spreads with no hidden fees",
     "No leverage or margin accounts",
     "No speculative positioning",
     "Direct wholesale execution",
     "Clear documentation and confirmation",
-    "Reliable buyback support"
+    "Reliable buyback support",
   ];
 
   return (
     <div className="w-full flex flex-col min-h-screen">
-      {/* HERO SECTION */}
-      <section className="relative pt-24 pb-32 lg:pt-36 lg:pb-48 overflow-hidden">
+
+      {/* HERO + PRODUCTS ABOVE THE FOLD */}
+      <section className="relative pt-16 pb-0 overflow-hidden bg-background">
         <div className="absolute inset-0 z-0">
-          <img 
-            src={`${import.meta.env.BASE_URL}images/hero-bg.png`} 
-            alt="Elegant background" 
-            className="w-full h-full object-cover opacity-60"
+          <img
+            src={`${import.meta.env.BASE_URL}images/hero-bg.png`}
+            alt=""
+            className="w-full h-full object-cover opacity-30"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/80 to-background" />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/90 to-background" />
         </div>
-        
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-          <div className="max-w-3xl">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.7 }}
-            >
-              <h1 className="text-5xl sm:text-6xl lg:text-7xl font-serif font-semibold text-foreground leading-[1.1] mb-8">
-                Physical Gold and Silver <br/>
-                <span className="text-primary italic">— As True as Time.</span>
-              </h1>
-              <p className="text-lg sm:text-xl text-foreground/70 mb-10 max-w-2xl leading-relaxed">
-                Transparent pricing. Disciplined execution. Guided allocation support for long-term investors seeking the enduring stability of physical metals.
-              </p>
-              
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Link href="/schedule">
-                  <Button size="lg" className="w-full sm:w-auto h-14 text-base group">
-                    Schedule Allocation Call
-                    <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </Link>
-                <Link href="/pricing">
-                  <Button variant="outline" size="lg" className="w-full sm:w-auto h-14 text-base bg-white/50 backdrop-blur-sm">
-                    View Live Pricing
-                  </Button>
-                </Link>
-              </div>
-            </motion.div>
+          {/* HERO TEXT */}
+          <div className="text-center max-w-3xl mx-auto pt-10 pb-12">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-serif font-semibold text-foreground leading-[1.1] mb-6">
+              Physical Gold and Silver{" "}
+              <span className="text-primary italic">— As True as Time.</span>
+            </h1>
+            <p className="text-xl sm:text-2xl text-foreground/80 mb-2 font-medium">
+              Transparent pricing for physical delivery and IRA allocations.
+            </p>
+            <p className="text-base sm:text-lg text-foreground/55 mb-0">
+              Disciplined execution. No gimmicks. No short-term speculation.
+            </p>
+          </div>
+
+          {/* FEATURED PRODUCT CARDS */}
+          {loadingProducts ? (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-[420px] rounded-2xl bg-white/50 animate-pulse border border-border/40" />
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+              {pricingData?.products.map((product) => (
+                <Card key={product.id} className="overflow-hidden group border border-border/50 shadow-sm hover:shadow-md transition-shadow duration-300 bg-white">
+                  <div className="h-52 bg-[#F8F7F4] flex items-center justify-center relative border-b border-border/30">
+                    <img
+                      src={product.imageUrl}
+                      alt={product.name}
+                      className="w-36 h-36 object-contain drop-shadow-xl group-hover:scale-105 transition-transform duration-500"
+                    />
+                    {product.iraEligible && (
+                      <div className="absolute top-3 right-3 bg-white/95 backdrop-blur px-2.5 py-1 rounded-full border border-border shadow-sm text-xs font-semibold text-primary flex items-center gap-1.5">
+                        <Shield className="w-3 h-3" /> IRA Eligible
+                      </div>
+                    )}
+                  </div>
+                  <CardContent className="p-5">
+                    <div className="text-xs text-foreground/45 font-medium mb-1 uppercase tracking-wider">
+                      {product.weight} · {product.metal}
+                    </div>
+                    <h3 className="text-base font-bold mb-3 leading-snug">{product.name}</h3>
+                    <div className="flex items-end justify-between mb-1">
+                      <div>
+                        <div className="text-2xl font-serif font-semibold text-foreground">
+                          ${product.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </div>
+                        <div className="text-xs text-foreground/50 mt-0.5">
+                          Spot ${product.spotPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })} + {product.spreadPercent}%
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-xs text-foreground/55 mb-4 mt-2">
+                      Estimated Delivery: {product.deliveryWindow}
+                    </div>
+                    <Link href="/schedule">
+                      <Button className="w-full h-10 text-sm">
+                        Schedule Allocation Call
+                      </Button>
+                    </Link>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+
+          {/* SUB-HERO BUTTONS */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center pb-16">
+            <Link href="/schedule">
+              <Button size="lg" className="h-12 px-8 text-base group">
+                Schedule Allocation Call
+                <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+            <Link href="/pricing">
+              <Button variant="outline" size="lg" className="h-12 px-8 text-base bg-white/70 backdrop-blur-sm">
+                View Full Live Pricing
+              </Button>
+            </Link>
           </div>
         </div>
       </section>
 
-      {/* GROUNDED APPROACH SECTION */}
-      <section className="py-24 bg-white">
+      {/* GROUNDED APPROACH */}
+      <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center max-w-3xl mx-auto mb-16">
-            <h2 className="text-3xl lg:text-4xl font-serif font-semibold mb-6">A Grounded Approach</h2>
-            <p className="text-foreground/70 text-lg">
-              We reject the hype and fear-driven marketing common in the precious metals industry. Our focus is purely on the disciplined acquisition of physical assets.
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <h2 className="text-3xl lg:text-4xl font-serif font-semibold mb-5">A Grounded Approach</h2>
+            <p className="text-foreground/65 text-lg leading-relaxed">
+              We focus on the disciplined acquisition of physical assets — for direct delivery to your home or vault, or through an IRA rollover or transfer.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-7">
             {[
               {
-                icon: <Scale className="w-8 h-8 text-primary" />,
+                icon: <Scale className="w-7 h-7 text-primary" />,
                 title: "Transparent Execution",
-                desc: "We operate on clear, straightforward spreads above spot price. You know exactly what you are paying and what you are receiving."
+                desc: "Straightforward spreads above spot price. You know exactly what you are paying before any trade is confirmed.",
               },
               {
-                icon: <Banknote className="w-8 h-8 text-primary" />,
+                icon: <Banknote className="w-7 h-7 text-primary" />,
                 title: "Physical Delivery & IRA",
-                desc: "Whether taking direct delivery to your home or vault, or allocating through an IRA rollover, we guide the process with precision."
+                desc: "Whether taking direct delivery or allocating through an IRA rollover, we guide the process with care and precision.",
               },
               {
-                icon: <History className="w-8 h-8 text-primary" />,
+                icon: <History className="w-7 h-7 text-primary" />,
                 title: "Long-Term Perspective",
-                desc: "We view gold and silver not as speculative trades, but as foundational elements of a truly diversified, multi-generational portfolio."
-              }
+                desc: "We view gold and silver as foundational elements of a diversified, multi-generational portfolio — not short-term trades.",
+              },
             ].map((feature, i) => (
-              <div key={i} className="p-8 rounded-2xl bg-background border border-border/50 hover:shadow-lg transition-shadow duration-300 group">
-                <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-300">
+              <div
+                key={i}
+                className="p-7 rounded-2xl bg-background border border-border/50 hover:shadow-md transition-shadow duration-300 group"
+              >
+                <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-5 group-hover:scale-105 transition-transform duration-300">
                   {feature.icon}
                 </div>
-                <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
-                <p className="text-foreground/70 leading-relaxed">{feature.desc}</p>
+                <h3 className="text-lg font-bold mb-2">{feature.title}</h3>
+                <p className="text-foreground/65 leading-relaxed text-sm">{feature.desc}</p>
               </div>
             ))}
           </div>
@@ -100,26 +158,31 @@ export default function Home() {
       </section>
 
       {/* OPERATING PRINCIPLES */}
-      <section className="py-24 bg-foreground text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
+      <section className="py-20 bg-foreground text-white relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-[700px] h-[700px] bg-primary/5 rounded-full blur-3xl -translate-y-1/2 translate-x-1/3" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
             <div>
-              <h2 className="text-3xl lg:text-5xl font-serif font-semibold mb-8 text-white">Our Operating Principles</h2>
-              <p className="text-white/70 text-lg mb-8 leading-relaxed">
-                Trust is not granted; it is earned through consistent, transparent behavior. West Hills Capital enforces strict operational rules to protect our clients.
+              <h2 className="text-3xl lg:text-5xl font-serif font-semibold mb-7 text-white">
+                Our Operating Principles
+              </h2>
+              <p className="text-white/65 text-lg mb-8 leading-relaxed">
+                Trust is built through consistent, transparent behavior. These principles guide every allocation discussion and every trade we execute.
               </p>
-              <ul className="space-y-4">
+              <ul className="space-y-3">
                 {principles.map((p, i) => (
-                  <li key={i} className="flex items-center gap-3 text-white/90">
-                    <CheckCircle2 className="w-6 h-6 text-primary shrink-0" />
-                    <span className="text-lg">{p}</span>
+                  <li key={i} className="flex items-center gap-3 text-white/85">
+                    <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
+                    <span>{p}</span>
                   </li>
                 ))}
               </ul>
-              <div className="mt-12">
+              <div className="mt-10">
                 <Link href="/about">
-                  <Button variant="outline" className="text-white border-white/20 hover:bg-white/10 hover:text-white h-12 px-8">
+                  <Button
+                    variant="outline"
+                    className="text-white border-white/20 hover:bg-white/10 hover:text-white h-11 px-7"
+                  >
                     Read Our Story
                   </Button>
                 </Link>
@@ -127,17 +190,19 @@ export default function Home() {
             </div>
             <div className="relative">
               <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl relative">
-                <img 
-                  src={`${import.meta.env.BASE_URL}images/vault-interior.png`} 
-                  alt="Secure vault" 
+                <img
+                  src={`${import.meta.env.BASE_URL}images/vault-interior.png`}
+                  alt="Secure vault"
                   className="w-full h-full object-cover"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-foreground to-transparent opacity-60" />
-                <div className="absolute bottom-8 left-8 right-8">
-                  <div className="glass-panel p-6 rounded-xl border-white/10 bg-black/40">
-                    <ShieldCheck className="w-10 h-10 text-primary mb-4" />
-                    <h3 className="text-white font-serif text-xl mb-2">Commitment to Stewardship</h3>
-                    <p className="text-white/70 text-sm">We treat every allocation discussion with the gravity and respect your capital demands.</p>
+                <div className="absolute bottom-7 left-7 right-7">
+                  <div className="p-5 rounded-xl bg-black/50 border border-white/10 backdrop-blur-sm">
+                    <ShieldCheck className="w-9 h-9 text-primary mb-3" />
+                    <h3 className="text-white font-serif text-lg mb-1">Commitment to Stewardship</h3>
+                    <p className="text-white/65 text-sm">
+                      We treat every allocation discussion with the gravity and respect your capital demands.
+                    </p>
                   </div>
                 </div>
               </div>
@@ -146,21 +211,23 @@ export default function Home() {
         </div>
       </section>
 
-      {/* CTA SECTION */}
-      <section className="py-24 bg-primary/5">
+      {/* BOTTOM CTA */}
+      <section className="py-20 bg-primary/5">
         <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-3xl lg:text-4xl font-serif font-semibold mb-6">Ready to secure your allocation?</h2>
-          <p className="text-foreground/70 text-lg mb-10">
-            Every transaction begins with a private, 1-on-1 allocation call to discuss your objectives, confirm pricing, and establish logistics. No automated execution, no pressure.
+          <h2 className="text-3xl lg:text-4xl font-serif font-semibold mb-5">
+            Ready to discuss your allocation?
+          </h2>
+          <p className="text-foreground/65 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
+            Every transaction begins with a private one-on-one allocation call to review your objectives, confirm current pricing, and establish logistics. No automated execution. No pressure.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/schedule">
-              <Button size="lg" className="h-14 px-10 text-base shadow-xl">
-                Schedule Your Call
+              <Button size="lg" className="h-13 px-10 text-base shadow-md">
+                Schedule Allocation Call
               </Button>
             </Link>
             <a href="tel:8008676768">
-              <Button variant="outline" size="lg" className="h-14 px-10 text-base bg-white">
+              <Button variant="outline" size="lg" className="h-13 px-10 text-base bg-white">
                 Call 800-867-6768
               </Button>
             </a>

@@ -2,35 +2,43 @@ export default function About() {
   return (
     <div className="w-full bg-background min-h-screen pt-16 pb-32">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
-        
-        <h1 className="text-4xl lg:text-5xl font-serif font-semibold mb-12 text-center">About West Hills Capital</h1>
-        
+
+        <h1 className="text-4xl lg:text-5xl font-serif font-semibold mb-12 text-center">
+          About West Hills Capital
+        </h1>
+
         <div className="prose prose-lg prose-slate mx-auto text-foreground/80 leading-relaxed">
           <p className="text-xl text-foreground font-serif mb-12 text-center">
-            Our firm was built on a singular conviction: the disciplined acquisition of physical precious metals is the most reliable method for preserving multi-generational purchasing power.
+            Our firm was built on a singular conviction: the disciplined acquisition of physical precious metals is among the most reliable methods of preserving long-term purchasing power.
           </p>
 
           <h2 className="text-2xl font-serif font-semibold text-foreground mt-12 mb-6">Led by Experience</h2>
           <p>
-            West Hills Capital is not a marketing company masquerading as a financial firm. We are rooted in decades of experience analyzing capital markets, monetary policy, and hard asset execution. We observed an industry saturated with high-pressure sales tactics, leveraged gimmicks, and opaque pricing, and intentionally built the exact opposite.
+            West Hills Capital was founded by professionals with decades of experience in capital markets, monetary policy, and hard asset execution. We built the firm around a simple philosophy: clients deserve complete pricing transparency, no high-pressure tactics, and a straightforward process from first call to final delivery.
           </p>
 
           <h2 className="text-2xl font-serif font-semibold text-foreground mt-12 mb-6">Lessons That Endure</h2>
           <p>
-            Markets oscillate between periods of expansion and contraction, but the mathematical reality of fiat currency debasement remains constant. Physical gold and silver are not "get rich quick" trades; they are asymmetric insurance policies against systemic risk. 
+            Markets move through cycles of expansion and contraction, but the long-term dynamics of currency purchasing power have remained consistent throughout history. Physical gold and silver are not vehicles for speculation — they are enduring stores of value suited to long-term investors who want real assets they can hold, store, or pass forward.
           </p>
           <p>
-            Because we view metals through this lens, our approach to client allocation is fundamentally different. We prioritize highly liquid sovereign bullion coins, avoid numismatic "collectibles" carrying massive premiums, and execute trades with absolute transparency.
+            Because we approach metals through this lens, we prioritize highly liquid sovereign bullion coins, avoid numismatic products with outsized premiums, and execute every trade with complete transparency on price and structure.
           </p>
 
           <h2 className="text-2xl font-serif font-semibold text-foreground mt-12 mb-6">Commitment to Discipline</h2>
           <p>
-            A serious allocation requires a serious operating framework. 
+            A serious allocation requires a disciplined operating framework.
           </p>
           <ul className="space-y-2 mt-4 mb-8">
-            <li><strong>No Leverage:</strong> We do not offer or facilitate financed trades. If you cannot afford the asset outright, you should not be buying it.</li>
-            <li><strong>Cleared Funds Only:</strong> We execute physical market orders only after client funds are fully settled. We do not speculate on uncollected capital.</li>
-            <li><strong>Verbal Confirmation:</strong> Every significant allocation requires a voice-to-voice confirmation to ensure precise alignment on price and logistics.</li>
+            <li>
+              <strong>No Leverage:</strong> We do not offer or facilitate financed trades. Every allocation is funded with cleared capital.
+            </li>
+            <li>
+              <strong>Cleared Funds Only:</strong> We execute physical market orders only after client funds are fully settled.
+            </li>
+            <li>
+              <strong>Verbal Confirmation:</strong> Every allocation requires a voice-to-voice confirmation to ensure precise alignment on price and logistics before any trade is initiated.
+            </li>
           </ul>
 
           <div className="my-16 p-8 bg-foreground text-white rounded-2xl text-center">
@@ -41,7 +49,7 @@ export default function About() {
           </div>
 
           <p className="text-center">
-            We welcome the opportunity to discuss your allocation strategy.
+            We welcome the opportunity to discuss your allocation objectives.
           </p>
         </div>
 
