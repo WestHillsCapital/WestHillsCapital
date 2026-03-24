@@ -120,45 +120,51 @@ router.get("/products", async (_req, res) => {
     const silverPrice = (price: number) =>
       Math.round(price * (1 + SILVER_SPREAD_PERCENT / 100) * 100) / 100;
 
+    // ─── Product definitions ────────────────────────────────────────────────
+    // Dillon Gage Fiztrade product codes (for use with GetPricesForProducts
+    // once products are configured in the Fiztrade portal at connect.fiztrade.com):
+    //   1EAGLE  → 1 oz American Gold Eagle
+    //   1B      → 1 oz American Gold Buffalo
+    //   SE      → 1 oz American Silver Eagle (Random Year)
     const products = [
       {
         id: "gold-american-eagle-1oz",
-        name: "1 oz Gold American Eagle",
+        name: "1 oz American Gold Eagle",
         metal: "gold" as const,
         weight: "1 troy oz",
         spotPrice: spot.gold,
         spreadPercent: GOLD_SPREAD_PERCENT,
         finalPrice: goldPrice(spot.gold),
         iraEligible: true,
-        deliveryWindow: "5–10 business days",
+        deliveryWindow: "",
         imageUrl: "/images/gold-eagle.png",
         description:
           "The Gold American Eagle is the official gold bullion coin of the United States, struck from 91.67% pure gold. Among the most widely recognized and liquid coins in the world.",
       },
       {
         id: "gold-american-buffalo-1oz",
-        name: "1 oz Gold American Buffalo",
+        name: "1 oz American Gold Buffalo",
         metal: "gold" as const,
         weight: "1 troy oz",
         spotPrice: spot.gold,
         spreadPercent: GOLD_SPREAD_PERCENT,
         finalPrice: goldPrice(spot.gold),
         iraEligible: true,
-        deliveryWindow: "5–10 business days",
+        deliveryWindow: "",
         imageUrl: "/images/gold-buffalo.png",
         description:
           "The Gold American Buffalo is the first 24-karat gold coin struck by the United States Mint. At .9999 fine gold purity, it is one of the most refined gold coins available.",
       },
       {
         id: "silver-american-eagle-1oz",
-        name: "1 oz Silver American Eagle",
+        name: "1 oz American Silver Eagle",
         metal: "silver" as const,
         weight: "1 troy oz",
         spotPrice: spot.silver,
         spreadPercent: SILVER_SPREAD_PERCENT,
         finalPrice: silverPrice(spot.silver),
         iraEligible: true,
-        deliveryWindow: "5–10 business days",
+        deliveryWindow: "",
         imageUrl: "/images/silver-eagle.png",
         description:
           "The Silver American Eagle is the official silver bullion coin of the United States. At .999 fine silver, it is one of the most widely held and recognized silver coins globally.",

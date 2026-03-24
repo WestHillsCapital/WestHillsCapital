@@ -71,11 +71,22 @@ All routes mounted at `/api`:
 
 ### Dillon Gage Fiztrade API
 
-- **Token**: stored as `DILLON_GAGE_API_KEY` env var
+- **Production token**: stored as `DILLON_GAGE_API_KEY` env var (`1119-...`)
+- **Staging token**: `1466-...` — staged but not yet activated by Dillon Gage; staging environment is incomplete
 - **Working endpoint**: `GET https://connect.fiztrade.com/FizServices/GetSpotPriceData/{token}` — returns live gold/silver/platinum/palladium prices with daily changes
 - **Account**: WEST HILLS CAPITAL, LLC — Account #167542
 - **Cache**: 5-second TTL in-memory cache on the backend
-- **Not yet configured**: `GetProductCatalog` and `GetPricesForProducts` return empty — products need to be set up in the Fiztrade web portal (connect.fiztrade.com) before these endpoints can be used
+- **Blocked endpoints**: `GetProductCatalog` and `GetPricesForProducts` crash with 500 (NullReferenceException on Dillon Gage's server) because the 3 products have not been added as "favorites" in the Fiztrade portal (connect.fiztrade.com). Once configured, these endpoints will return product images, account-specific pricing, and availability.
+
+### Dillon Gage Product Codes (confirmed from existing WordPress site)
+
+These are the exact Fiztrade product codes for the 3 featured products. They are documented in `pricing.ts` and ready to use with `GetPricesForProducts` once portal setup is complete:
+
+| Product | Fiztrade Code |
+|---|---|
+| 1 oz American Gold Eagle | `1EAGLE` |
+| 1 oz American Gold Buffalo | `1B` |
+| 1 oz American Silver Eagle (Random Year) | `SE` |
 
 ### Pricing configuration
 
