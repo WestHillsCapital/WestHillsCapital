@@ -2,7 +2,7 @@ import { useProductPrices, useBuybackPrices } from "@/hooks/use-pricing";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
-import { Shield, Truck, ArrowRight } from "lucide-react";
+import { Shield, ArrowRight } from "lucide-react";
 
 export default function LivePricing() {
   const { data: pricingData, isLoading: loadingProducts } = useProductPrices();
@@ -64,7 +64,7 @@ export default function LivePricing() {
                     </div>
                     <h3 className="text-xl font-bold mb-4 leading-snug">{product.name}</h3>
 
-                    {/* PRICING — final price dominant, references secondary */}
+                    {/* PRICING — final price dominant, spot reference secondary */}
                     <div className="mb-2">
                       <div className="text-3xl font-serif font-semibold text-foreground">
                         ${product.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -75,17 +75,11 @@ export default function LivePricing() {
                         <span>Spot Reference</span>
                         <span>${product.spotPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span>Spread</span>
-                        <span>
-                          Typical {product.metal.toLowerCase()} spread applied
-                        </span>
-                      </div>
                     </div>
 
-                    <div className="flex items-center gap-2 text-sm text-foreground/50">
-                      <Truck className="w-4 h-4 text-primary/60 shrink-0" />
-                      Estimated Delivery: {product.deliveryWindow}
+                    <div className="flex items-center gap-2 text-sm text-green-600 font-medium">
+                      <div className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
+                      Available — Call to Confirm Pricing & Delivery
                     </div>
                   </CardContent>
                 </Card>

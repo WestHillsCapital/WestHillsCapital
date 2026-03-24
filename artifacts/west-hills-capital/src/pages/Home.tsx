@@ -85,7 +85,7 @@ export default function Home() {
                     </div>
                     <h3 className="text-base font-bold mb-4 leading-snug">{product.name}</h3>
 
-                    {/* PRICING — final price dominant, references secondary */}
+                    {/* PRICING — final price dominant, spot reference secondary */}
                     <div className="mb-1">
                       <div className="text-3xl font-serif font-semibold text-foreground mb-1">
                         ${product.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
@@ -96,16 +96,6 @@ export default function Home() {
                         <span>Spot Reference</span>
                         <span>${product.spotPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <span>Spread</span>
-                        <span>
-                          Typical {product.metal.toLowerCase()} spread applied
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="text-xs text-foreground/45 border-t border-border/30 pt-3 mb-4">
-                      Estimated Delivery: {product.deliveryWindow}
                     </div>
 
                     <Link href="/schedule">
