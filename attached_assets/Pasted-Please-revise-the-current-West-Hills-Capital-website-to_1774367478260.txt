@@ -1,0 +1,303 @@
+Please revise the current West Hills Capital website to improve clarity, conversion, language hierarchy, and CTA balance.
+Do NOT redesign the site or change the visual identity significantly.
+ Focus on copy, CTA language, product emphasis, and reducing overuse of “Schedule Allocation Call.”
+
+🎯 Core Objective
+The site must instantly communicate:
+👉 Users can buy physical gold and silver
+ 👉 With transparent pricing
+ 👉 For physical delivery or IRA accounts
+The site should feel like a disciplined capital allocation firm, not a retail bullion store and not a site pushing calls aggressively.
+
+🧠 Language Strategy (Very Important)
+Follow this progression across the site:
+Entry: Buy
+
+
+Trust: Pricing
+
+
+Engagement: Discuss
+
+
+Relationship: Allocate
+
+
+Do NOT remove “allocation” — but use it later in the user journey, not upfront everywhere.
+
+🔴 1. Reduce Overuse of “Schedule Allocation Call”
+This is currently too dominant and makes the site feel pushy.
+Required changes:
+Homepage
+Keep ONE main CTA below the featured product cards:
+ Schedule Allocation Call
+
+
+Keep ONE secondary action:
+ View Full Live Pricing
+
+
+Remove or reduce any extra repeated call buttons
+
+
+Featured product cards (homepage + pricing page)
+Replace:
+ “Schedule Allocation Call”
+With:
+ 👉 Discuss Purchase
+ OR
+ 👉 Call to Confirm Pricing
+Choose one and apply consistently.
+Live Pricing page
+Do NOT repeat large gold CTA buttons on every product card if visually heavy.
+Instead:
+Use a smaller, more subtle CTA per card: Discuss Purchase
+ OR
+
+
+Remove per-card buttons and use ONE section-wide CTA below the grid:
+ Discuss Your Allocation
+
+
+Choose the cleaner, more premium approach.
+
+🟢 2. Homepage — Improve First Impression
+Keep headline:
+Physical Gold and Silver — As True as Time
+Replace subheadline with:
+Buy physical gold and silver with transparent pricing for delivery or IRA accounts.
+Add supporting line:
+Disciplined execution. No gimmicks. No short-term speculation.
+
+🟢 3. Featured Products — Keep Them Primary
+Do NOT change layout significantly.
+Ensure the 3 featured products are clearly visible and central:
+1 oz Gold American Eagle
+
+
+1 oz Gold American Buffalo
+
+
+1 oz Silver American Eagle
+
+
+Each product card must clearly show (in this order):
+Product image
+
+
+Product name
+
+
+Final price
+
+
+Spot price
+
+
+Spread
+
+
+IRA eligibility
+
+
+Estimated delivery window
+
+
+Use clear labels:
+Spot: $X,XXX.XX
+
+
+Spread: +2% over spot (gold) / +5% over spot (silver)
+
+
+IRA Eligible
+
+
+Estimated Delivery: 5–10 Business Days
+
+
+Make cards easy to scan and more trustworthy.
+
+🟢 4. Improve Product Imagery
+Refactor product image presentation:
+Larger, cleaner images
+
+
+Consistent sizing and alignment
+
+
+White or subtle neutral background
+
+
+Remove generic or low-quality images
+
+
+Ensure component supports easy replacement with premium images (e.g. US Mint or high-quality alternatives)
+
+
+No clutter, no heavy shadows.
+
+🟢 5. Live Pricing Page Improvements
+Replace wording:
+“Schedule Call to Execute”
+With:
+Discuss Purchase
+ or
+ Confirm Pricing by Phone
+Remove:
+“In Stock”
+Replace with:
+Estimated Delivery: X–X Business Days
+Make spreads more visible:
+Gold: +2% over spot
+
+
+Silver: +5% over spot
+
+
+
+🟢 6. Scheduling Page Improvements
+Replace title:
+“Schedule Allocation Call”
+With:
+Schedule a Gold & Silver Consultation
+ OR
+ Schedule a Call to Review Your Purchase
+Choose one.
+Keep and highlight:
+We will call you from 800-867-6768
+
+🟢 7. IRA Page Language
+Simplify overly technical language.
+Use tone like:
+ IRA allocations require proper custodial coordination. We guide you through the process step-by-step.
+Avoid academic or procedural phrasing.
+
+🟢 8. About Page Tone
+Remove or soften any defensive or oppositional language.
+Replace with:
+confident
+
+
+grounded
+
+
+experienced
+
+
+forward-looking tone
+
+
+Maintain authority without criticizing others.
+
+🟢 9. Footer Cleanup
+Do NOT include any fake or placeholder address.
+Keep:
+phone number
+
+
+email
+
+
+hours
+
+
+navigation
+
+
+disclosures
+
+
+
+🟢 10. Global Language Rules
+Use “buy” when:
+explaining what users can do
+
+
+first impression messaging
+
+
+Use “pricing” when:
+building trust
+
+
+explaining transparency
+
+
+Use “discuss” when:
+inviting engagement
+
+
+replacing aggressive CTAs
+
+
+Use “allocation” when:
+describing philosophy
+
+
+deeper explanation
+
+
+post-intent sections
+
+
+
+🔴 11. Avoid These Completely
+urgency language (“act now”)
+
+
+scarcity tactics
+
+
+“exclusive” framing
+
+
+hype-driven gold marketing
+
+
+retail bullion tone
+
+
+
+🟢 12. Preserve Core Brand Language
+Keep:
+Physical Gold and Silver — As True as Time
+
+
+Transparent pricing
+
+
+Disciplined execution
+
+
+Physical delivery
+
+
+IRA allocation
+
+
+Long-term investors
+
+
+
+🎯 Final Goal
+After updates, the site should feel like:
+A place to buy gold and silver responsibly
+
+
+A place with clear pricing and structure
+
+
+A place where the call is a natural next step, not the main event
+
+
+
+📦 Deliverable
+Update all relevant pages.
+Then summarize:
+What was changed
+
+
+Why those changes improve clarity and conversion
+
+

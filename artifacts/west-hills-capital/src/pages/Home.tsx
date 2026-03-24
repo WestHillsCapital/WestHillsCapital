@@ -19,7 +19,7 @@ export default function Home() {
   return (
     <div className="w-full flex flex-col min-h-screen">
 
-      {/* HERO + PRODUCTS ABOVE THE FOLD */}
+      {/* HERO + PRODUCTS */}
       <section className="relative pt-16 pb-0 overflow-hidden bg-background">
         <div className="absolute inset-0 z-0">
           <img
@@ -31,64 +31,81 @@ export default function Home() {
         </div>
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+
           {/* HERO TEXT */}
-          <div className="text-center max-w-3xl mx-auto pt-10 pb-12">
+          <div className="text-center max-w-3xl mx-auto pt-10 pb-10">
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-serif font-semibold text-foreground leading-[1.1] mb-6">
               Physical Gold and Silver{" "}
               <span className="text-primary italic">— As True as Time.</span>
             </h1>
             <p className="text-xl sm:text-2xl text-foreground/80 mb-2 font-medium">
-              Transparent pricing for physical delivery and IRA allocations.
+              Buy physical gold and silver with transparent pricing for delivery or IRA accounts.
             </p>
-            <p className="text-base sm:text-lg text-foreground/55 mb-0">
+            <p className="text-base sm:text-lg text-foreground/50 mb-0">
               Disciplined execution. No gimmicks. No short-term speculation.
             </p>
           </div>
 
           {/* FEATURED PRODUCT CARDS */}
           {loadingProducts ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-[420px] rounded-2xl bg-white/50 animate-pulse border border-border/40" />
+                <div key={i} className="h-[460px] rounded-2xl bg-white/50 animate-pulse border border-border/40" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
               {pricingData?.products.map((product) => (
-                <Card key={product.id} className="overflow-hidden group border border-border/50 shadow-sm hover:shadow-md transition-shadow duration-300 bg-white">
-                  <div className="h-52 bg-[#F8F7F4] flex items-center justify-center relative border-b border-border/30">
+                <Card
+                  key={product.id}
+                  className="overflow-hidden group border border-border/40 shadow-sm hover:shadow-md transition-shadow duration-300 bg-white"
+                >
+                  {/* PRODUCT IMAGE — larger, cleaner */}
+                  <div className="h-56 bg-white flex items-center justify-center relative border-b border-border/20">
                     <img
                       src={product.imageUrl}
                       alt={product.name}
-                      className="w-36 h-36 object-contain drop-shadow-xl group-hover:scale-105 transition-transform duration-500"
+                      className="w-40 h-40 object-contain group-hover:scale-105 transition-transform duration-500"
                     />
                     {product.iraEligible && (
-                      <div className="absolute top-3 right-3 bg-white/95 backdrop-blur px-2.5 py-1 rounded-full border border-border shadow-sm text-xs font-semibold text-primary flex items-center gap-1.5">
+                      <div className="absolute top-3 right-3 bg-white px-2.5 py-1 rounded-full border border-primary/20 text-xs font-semibold text-primary flex items-center gap-1.5 shadow-sm">
                         <Shield className="w-3 h-3" /> IRA Eligible
                       </div>
                     )}
                   </div>
+
                   <CardContent className="p-5">
-                    <div className="text-xs text-foreground/45 font-medium mb-1 uppercase tracking-wider">
+                    <div className="text-xs text-foreground/40 font-medium mb-1 uppercase tracking-widest">
                       {product.weight} · {product.metal}
                     </div>
-                    <h3 className="text-base font-bold mb-3 leading-snug">{product.name}</h3>
-                    <div className="flex items-end justify-between mb-1">
-                      <div>
-                        <div className="text-2xl font-serif font-semibold text-foreground">
+                    <h3 className="text-base font-bold mb-4 leading-snug">{product.name}</h3>
+
+                    {/* PRICING — clear labels */}
+                    <div className="space-y-1.5 mb-4">
+                      <div className="flex items-baseline justify-between">
+                        <span className="text-xs text-foreground/50">Price</span>
+                        <span className="text-2xl font-serif font-semibold text-foreground">
                           ${product.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </div>
-                        <div className="text-xs text-foreground/50 mt-0.5">
-                          Spot ${product.spotPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })} + {product.spreadPercent}%
-                        </div>
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-foreground/50">
+                        <span>Spot</span>
+                        <span>${product.spotPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-foreground/50">
+                        <span>Spread</span>
+                        <span>+{product.spreadPercent}% over spot</span>
                       </div>
                     </div>
-                    <div className="text-xs text-foreground/55 mb-4 mt-2">
+
+                    <div className="text-xs text-foreground/50 border-t border-border/30 pt-3 mb-4">
                       Estimated Delivery: {product.deliveryWindow}
                     </div>
+
+                    {/* SOFTER CTA per card */}
                     <Link href="/schedule">
-                      <Button className="w-full h-10 text-sm">
-                        Schedule Allocation Call
+                      <Button variant="outline" className="w-full h-9 text-sm border-primary/30 text-primary hover:bg-primary hover:text-white transition-colors">
+                        Discuss Purchase
                       </Button>
                     </Link>
                   </CardContent>
@@ -97,7 +114,7 @@ export default function Home() {
             </div>
           )}
 
-          {/* SUB-HERO BUTTONS */}
+          {/* ONE PRIMARY + ONE SECONDARY CTA */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center pb-16">
             <Link href="/schedule">
               <Button size="lg" className="h-12 px-8 text-base group">
@@ -114,13 +131,13 @@ export default function Home() {
         </div>
       </section>
 
-      {/* GROUNDED APPROACH */}
+      {/* HOW IT WORKS */}
       <section className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center max-w-2xl mx-auto mb-14">
             <h2 className="text-3xl lg:text-4xl font-serif font-semibold mb-5">A Grounded Approach</h2>
-            <p className="text-foreground/65 text-lg leading-relaxed">
-              We focus on the disciplined acquisition of physical assets — for direct delivery to your home or vault, or through an IRA rollover or transfer.
+            <p className="text-foreground/60 text-lg leading-relaxed">
+              We help long-term investors buy physical gold and silver — for direct delivery to your home or vault, or through an IRA rollover or transfer. Transparent pricing. No pressure.
             </p>
           </div>
 
@@ -128,18 +145,18 @@ export default function Home() {
             {[
               {
                 icon: <Scale className="w-7 h-7 text-primary" />,
-                title: "Transparent Execution",
-                desc: "Straightforward spreads above spot price. You know exactly what you are paying before any trade is confirmed.",
+                title: "Transparent Pricing",
+                desc: "Clear spreads above spot price — you see exactly what you are paying before any purchase is confirmed.",
               },
               {
                 icon: <Banknote className="w-7 h-7 text-primary" />,
-                title: "Physical Delivery & IRA",
-                desc: "Whether taking direct delivery or allocating through an IRA rollover, we guide the process with care and precision.",
+                title: "Delivery or IRA",
+                desc: "Buy for physical delivery to your home or vault, or allocate through a tax-advantaged IRA rollover or transfer.",
               },
               {
                 icon: <History className="w-7 h-7 text-primary" />,
                 title: "Long-Term Perspective",
-                desc: "We view gold and silver as foundational elements of a diversified, multi-generational portfolio — not short-term trades.",
+                desc: "We approach gold and silver as foundational holdings for serious investors — not short-term trades or speculative positions.",
               },
             ].map((feature, i) => (
               <div
@@ -150,7 +167,7 @@ export default function Home() {
                   {feature.icon}
                 </div>
                 <h3 className="text-lg font-bold mb-2">{feature.title}</h3>
-                <p className="text-foreground/65 leading-relaxed text-sm">{feature.desc}</p>
+                <p className="text-foreground/60 leading-relaxed text-sm">{feature.desc}</p>
               </div>
             ))}
           </div>
@@ -166,12 +183,12 @@ export default function Home() {
               <h2 className="text-3xl lg:text-5xl font-serif font-semibold mb-7 text-white">
                 Our Operating Principles
               </h2>
-              <p className="text-white/65 text-lg mb-8 leading-relaxed">
-                Trust is built through consistent, transparent behavior. These principles guide every allocation discussion and every trade we execute.
+              <p className="text-white/60 text-lg mb-8 leading-relaxed">
+                Trust is built through consistent, transparent behavior. These principles guide every purchase discussion and every trade we execute on your behalf.
               </p>
               <ul className="space-y-3">
                 {principles.map((p, i) => (
-                  <li key={i} className="flex items-center gap-3 text-white/85">
+                  <li key={i} className="flex items-center gap-3 text-white/80">
                     <CheckCircle2 className="w-5 h-5 text-primary shrink-0" />
                     <span>{p}</span>
                   </li>
@@ -200,8 +217,8 @@ export default function Home() {
                   <div className="p-5 rounded-xl bg-black/50 border border-white/10 backdrop-blur-sm">
                     <ShieldCheck className="w-9 h-9 text-primary mb-3" />
                     <h3 className="text-white font-serif text-lg mb-1">Commitment to Stewardship</h3>
-                    <p className="text-white/65 text-sm">
-                      We treat every allocation discussion with the gravity and respect your capital demands.
+                    <p className="text-white/60 text-sm">
+                      We treat every purchase discussion with the gravity and respect your capital demands.
                     </p>
                   </div>
                 </div>
@@ -215,10 +232,10 @@ export default function Home() {
       <section className="py-20 bg-primary/5">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-3xl lg:text-4xl font-serif font-semibold mb-5">
-            Ready to discuss your allocation?
+            Ready to buy gold or silver?
           </h2>
-          <p className="text-foreground/65 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
-            Every transaction begins with a private one-on-one allocation call to review your objectives, confirm current pricing, and establish logistics. No automated execution. No pressure.
+          <p className="text-foreground/60 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
+            Every purchase begins with a private call to review your objectives, confirm current pricing, and establish delivery or IRA logistics. No automated execution. No pressure.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/schedule">
