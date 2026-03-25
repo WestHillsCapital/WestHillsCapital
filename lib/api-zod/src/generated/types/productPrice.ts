@@ -18,5 +18,6 @@ export interface ProductPrice {
   iraEligible: boolean;
   deliveryWindow: string;
   imageUrl: string;
+  reverseImageUrl?: string;
   description: string;
 }

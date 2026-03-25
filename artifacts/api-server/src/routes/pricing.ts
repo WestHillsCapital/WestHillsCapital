@@ -206,6 +206,16 @@ function pickImage(dgImages: { imgType: string; imgPath: string }[], code: strin
   return LOCAL_FALLBACK_IMAGES[code] ?? "/images/gold-eagle.png";
 }
 
+function pickReverseImage(dgImages: { imgType: string; imgPath: string }[]): string | undefined {
+  // Prefer rev250 (250x250) → reverse (600x600) for hover/flip
+  const preferred = ["rev250", "reverse"];
+  for (const type of preferred) {
+    const img = dgImages.find((i) => i.imgType === type);
+    if (img) return img.imgPath;
+  }
+  return undefined;
+}
+
 // GET /api/pricing/products
 router.get("/products", async (_req, res) => {
   try {
@@ -236,7 +246,7 @@ router.get("/products", async (_req, res) => {
         name: "1 oz American Gold Eagle",
         metal: "gold" as const,
         weight: "1 troy oz",
-        spotPrice: eagleDG ? eagleDG.tier1.ask : spot.goldAsk,
+        spotPrice: spot.goldBid,  // Market gold spot — visible reference, not dealer cost
         spreadPercent: GOLD_COMMISSION_PERCENT,
         finalPrice: eagleDG
           ? withCommission(eagleDG.tier1.ask, GOLD_COMMISSION_PERCENT)
@@ -244,6 +254,7 @@ router.get("/products", async (_req, res) => {
         iraEligible: eagleDG ? eagleDG.isIRAConnectBidEligible === "Y" : true,
         deliveryWindow: eagleDG?.availability ?? "",
         imageUrl: pickImage(eagleDG?.images ?? [], "1EAGLE"),
+        reverseImageUrl: pickReverseImage(eagleDG?.images ?? []),
         description:
           "The Gold American Eagle is the official gold bullion coin of the United States, struck from 91.67% pure gold. Among the most widely recognized and liquid coins in the world.",
       },
@@ -252,7 +263,7 @@ router.get("/products", async (_req, res) => {
         name: "1 oz American Gold Buffalo",
         metal: "gold" as const,
         weight: "1 troy oz",
-        spotPrice: buffDG ? buffDG.tier1.ask : spot.goldAsk,
+        spotPrice: spot.goldBid,  // Market gold spot
         spreadPercent: GOLD_COMMISSION_PERCENT,
         finalPrice: buffDG
           ? withCommission(buffDG.tier1.ask, GOLD_COMMISSION_PERCENT)
@@ -260,6 +271,7 @@ router.get("/products", async (_req, res) => {
         iraEligible: buffDG ? buffDG.isIRAConnectBidEligible === "Y" : true,
         deliveryWindow: buffDG?.availability ?? "",
         imageUrl: pickImage(buffDG?.images ?? [], "1B"),
+        reverseImageUrl: pickReverseImage(buffDG?.images ?? []),
         description:
           "The Gold American Buffalo is the first 24-karat gold coin struck by the United States Mint. At .9999 fine gold purity, it is one of the most refined gold coins available.",
       },
@@ -268,7 +280,7 @@ router.get("/products", async (_req, res) => {
         name: "1 oz American Silver Eagle",
         metal: "silver" as const,
         weight: "1 troy oz",
-        spotPrice: silverDG ? silverDG.tier1.ask : spot.silverAsk,
+        spotPrice: spot.silverBid,  // Market silver spot
         spreadPercent: SILVER_COMMISSION_PERCENT,
         finalPrice: silverDG
           ? withCommission(silverDG.tier1.ask, SILVER_COMMISSION_PERCENT)
@@ -276,6 +288,7 @@ router.get("/products", async (_req, res) => {
         iraEligible: silverDG ? silverDG.isIRAConnectBidEligible === "Y" : true,
         deliveryWindow: silverDG?.availability ?? "",
         imageUrl: pickImage(silverDG?.images ?? [], "SE"),
+        reverseImageUrl: pickReverseImage(silverDG?.images ?? []),
         description:
           "The Silver American Eagle is the official silver bullion coin of the United States. At .999 fine silver, it is one of the most widely held and recognized silver coins globally.",
       },

@@ -51,6 +51,7 @@ export const GetProductPricesResponse = zod.object({
       iraEligible: zod.boolean(),
       deliveryWindow: zod.string(),
       imageUrl: zod.string(),
+      reverseImageUrl: zod.string().optional(),
       description: zod.string(),
     }),
   ),
