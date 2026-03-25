@@ -40,8 +40,15 @@ export default function IRA() {
   return (
     <div className="w-full bg-background min-h-screen">
       {/* HEADER */}
-      <section className="bg-foreground text-white py-20">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+      <section className="relative bg-foreground text-white py-24 overflow-hidden">
+        <img
+          src={`${import.meta.env.BASE_URL}images/ira-banner.jpg`}
+          alt=""
+          aria-hidden="true"
+          className="absolute inset-0 w-full h-full object-cover object-center"
+        />
+        <div className="absolute inset-0 bg-foreground/80" />
+        <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h1 className="text-4xl lg:text-5xl font-serif font-semibold mb-5">
             Precious Metals IRA Allocation
           </h1>
