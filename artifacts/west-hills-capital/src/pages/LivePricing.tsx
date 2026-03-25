@@ -16,7 +16,7 @@ function ProductCard({ product, onZoom }: { product: Product; onZoom: (p: Produc
     <Card className="overflow-hidden group bg-white border border-border/40 shadow-sm hover:shadow-md transition-shadow duration-300">
       {/* IMAGE AREA */}
       <div
-        className="h-72 bg-white flex items-center justify-center relative border-b border-border/20 p-10 cursor-zoom-in select-none"
+        className="h-72 bg-white flex items-center justify-center relative p-10 cursor-zoom-in select-none"
         onMouseEnter={() => hasReverse && setShowReverse(true)}
         onMouseLeave={() => setShowReverse(false)}
         onClick={() => onZoom(product)}
