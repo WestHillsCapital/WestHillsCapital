@@ -66,11 +66,11 @@ export default function Home() {
                     — swap product.imageUrl for any higher-quality image path later
                     — consistent h-56 height, centered, object-contain, no clipping
                   */}
-                  <div className="h-56 bg-white flex items-center justify-center relative border-b border-border/20 p-6">
+                  <div className="h-56 bg-white flex items-center justify-center relative p-8">
                     <img
                       src={product.imageUrl}
                       alt={product.name}
-                      className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-500"
+                      className="w-40 h-40 object-contain group-hover:scale-105 transition-transform duration-500"
                     />
                     {product.iraEligible && (
                       <div className="absolute top-3 right-3 bg-white px-2.5 py-1 rounded-full border border-primary/20 text-xs font-semibold text-primary flex items-center gap-1.5 shadow-sm">
@@ -93,7 +93,7 @@ export default function Home() {
                     </div>
                     <div className="space-y-1 mb-4 text-xs text-foreground/50">
                       <div className="flex items-center justify-between">
-                        <span>Spot Reference</span>
+                        <span>{product.metal === "gold" ? "Gold Spot" : "Silver Spot"}</span>
                         <span>${product.spotPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                       </div>
                     </div>

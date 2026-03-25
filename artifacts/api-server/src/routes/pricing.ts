@@ -1,9 +1,11 @@
 import { Router, type IRouter } from "express";
+import type { Pool } from "pg";
 import {
   GetSpotPricesResponse,
   GetProductPricesResponse,
   GetBuybackPricesResponse,
 } from "@workspace/api-zod";
+import { getDb } from "../db";
 
 const router: IRouter = Router();
 
@@ -116,6 +118,9 @@ async function getLiveSpot() {
   };
   cacheTs = now;
 
+  // Record to history DB asynchronously (non-blocking)
+  recordSpotReading(cachedSpot.goldBid, cachedSpot.silverBid).catch(() => {});
+
   return cachedSpot;
 }
 
@@ -163,6 +168,123 @@ async function getLiveProductData(): Promise<DGProductData[]> {
 
   return cachedProducts;
 }
+
+// ─── Spot Price History (DB-backed) ──────────────────────────────────────────
+
+let historyTableReady = false;
+let lastHistoryRecordTs = 0;
+const HISTORY_RECORD_INTERVAL_MS = 60 * 60 * 1000; // write one row per hour
+
+function gaussRandom(): number {
+  const u = Math.max(1e-10, Math.random());
+  const v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+
+async function seedSpotHistory(db: Pool, goldBid: number, silverBid: number): Promise<void> {
+  const HOURS = 30 * 24; // 720 hourly data points
+  const goldSigma = goldBid * 0.0016;
+  const silverSigma = silverBid * 0.003;
+
+  // Walk backward from current price, then reverse so oldest is first
+  const goldPrices: number[] = [goldBid];
+  const silverPrices: number[] = [silverBid];
+  for (let i = 1; i <= HOURS; i++) {
+    goldPrices.push(Math.max(goldPrices[i - 1] + gaussRandom() * goldSigma, 500));
+    silverPrices.push(Math.max(silverPrices[i - 1] + gaussRandom() * silverSigma, 5));
+  }
+  goldPrices.reverse();
+  silverPrices.reverse();
+
+  const now = new Date();
+  const valueSql: string[] = [];
+  const params: (string | number)[] = [];
+  let idx = 1;
+  for (let i = 0; i < goldPrices.length; i++) {
+    const ts = new Date(now.getTime() - (HOURS - i) * 60 * 60 * 1000);
+    valueSql.push(`($${idx++}, $${idx++}, $${idx++})`);
+    params.push(goldPrices[i].toFixed(2), silverPrices[i].toFixed(4), ts.toISOString());
+  }
+
+  await db.query(
+    `INSERT INTO spot_price_history (gold_bid, silver_bid, captured_at) VALUES ${valueSql.join(",")}`,
+    params,
+  );
+}
+
+async function ensureHistoryTable(): Promise<void> {
+  if (historyTableReady) return;
+  const db = getDb();
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS spot_price_history (
+      id         SERIAL PRIMARY KEY,
+      gold_bid   NUMERIC(10,2) NOT NULL,
+      silver_bid NUMERIC(10,4) NOT NULL,
+      captured_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(
+    `CREATE INDEX IF NOT EXISTS idx_spot_history_captured ON spot_price_history (captured_at)`,
+  );
+
+  const { rows } = await db.query<{ cnt: string }>(
+    "SELECT COUNT(*)::text AS cnt FROM spot_price_history",
+  );
+  if (parseInt(rows[0].cnt, 10) === 0) {
+    let goldBid = 4500;
+    let silverBid = 70;
+    if (cachedSpot) {
+      goldBid = cachedSpot.goldBid;
+      silverBid = cachedSpot.silverBid;
+    }
+    await seedSpotHistory(db, goldBid, silverBid);
+  }
+
+  historyTableReady = true;
+}
+
+async function recordSpotReading(goldBid: number, silverBid: number): Promise<void> {
+  const now = Date.now();
+  if (now - lastHistoryRecordTs < HISTORY_RECORD_INTERVAL_MS) return;
+  lastHistoryRecordTs = now;
+  await ensureHistoryTable();
+  const db = getDb();
+  await db.query(
+    "INSERT INTO spot_price_history (gold_bid, silver_bid) VALUES ($1, $2)",
+    [goldBid.toFixed(2), silverBid.toFixed(4)],
+  );
+  // Prune data older than 90 days
+  await db.query(`DELETE FROM spot_price_history WHERE captured_at < NOW() - INTERVAL '90 days'`);
+}
+
+// GET /api/pricing/history — returns hourly spot readings for the last 30 days
+router.get("/history", async (_req, res) => {
+  try {
+    await ensureHistoryTable();
+    const db = getDb();
+    const { rows } = await db.query<{
+      gold_bid: string;
+      silver_bid: string;
+      captured_at: string;
+    }>(
+      `SELECT gold_bid, silver_bid, captured_at
+       FROM spot_price_history
+       WHERE captured_at >= NOW() - INTERVAL '30 days'
+       ORDER BY captured_at ASC`,
+    );
+    res.json({
+      history: rows.map((r) => ({
+        timestamp: r.captured_at,
+        goldBid: parseFloat(r.gold_bid),
+        silverBid: parseFloat(r.silver_bid),
+      })),
+    });
+  } catch (err) {
+    console.error("Error fetching spot history:", err);
+    res.status(502).json({ error: "Unable to fetch price history" });
+  }
+});
 
 // GET /api/pricing/spot
 router.get("/spot", async (_req, res) => {

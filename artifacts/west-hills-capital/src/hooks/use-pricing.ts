@@ -26,7 +26,18 @@ export interface ProductPrice {
   iraEligible: boolean;
   deliveryWindow: string;
   imageUrl: string;
+  reverseImageUrl?: string;
   description: string;
+}
+
+export interface SpotHistoryPoint {
+  timestamp: string;
+  goldBid: number;
+  silverBid: number;
+}
+
+export interface SpotHistoryResponse {
+  history: SpotHistoryPoint[];
 }
 
 export interface ProductPricesResponse {
@@ -143,6 +154,9 @@ export function useProductPrices() {
           products: data.products.map((p) => ({
             ...p,
             imageUrl: p.imageUrl.startsWith("/") ? `${BASE}${p.imageUrl}` : p.imageUrl,
+            reverseImageUrl: p.reverseImageUrl
+              ? p.reverseImageUrl.startsWith("/") ? `${BASE}${p.reverseImageUrl}` : p.reverseImageUrl
+              : undefined,
           })),
         };
       } catch (err) {
@@ -169,5 +183,18 @@ export function useBuybackPrices() {
       }
     },
     staleTime: 4000,
+  });
+}
+
+export function useSpotHistory() {
+  return useQuery({
+    queryKey: ["/api/pricing/history"],
+    queryFn: async () => {
+      const res = await fetch("/api/pricing/history");
+      if (!res.ok) throw new Error("Failed to fetch price history");
+      return (await res.json()) as SpotHistoryResponse;
+    },
+    staleTime: 5 * 60 * 1000,      // refresh every 5 minutes
+    refetchInterval: 5 * 60 * 1000,
   });
 }
