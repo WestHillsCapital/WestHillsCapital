@@ -247,4 +247,20 @@ router.get("/buyback", async (_req, res) => {
   }
 });
 
+// TEMP: test GetFeaturedProducts — remove after confirmed working
+router.get("/dg-probe", async (_req, res) => {
+  if (!DG_TOKEN) return res.status(500).json({ error: "No token" });
+  try {
+    const r = await fetch(`${DG_BASE}/GetFeaturedProducts/${DG_TOKEN}`, {
+      headers: { Accept: "application/json" },
+    });
+    const text = await r.text();
+    let body: unknown;
+    try { body = JSON.parse(text); } catch { body = text; }
+    res.json({ status: r.status, length: text.length, body });
+  } catch (e: unknown) {
+    res.status(500).json({ error: String(e) });
+  }
+});
+
 export default router;
