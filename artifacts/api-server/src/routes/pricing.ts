@@ -192,8 +192,12 @@ router.get("/spot", async (_req, res) => {
 // Local fallback image paths (used when DG CDN has no image for a product)
 const LOCAL_FALLBACK_IMAGES: Record<string, string> = {
   "1EAGLE": "/images/gold-eagle.png",
-  "1B":     "/images/gold-buffalo.png",
+  "1B":     "/images/gold-buffalo-obverse.png",
   "SE":     "/images/silver-eagle.png",
+};
+
+const LOCAL_FALLBACK_REVERSE_IMAGES: Record<string, string> = {
+  "1B": "/images/gold-buffalo-reverse.png",
 };
 
 function pickImage(dgImages: { imgType: string; imgPath: string }[], code: string): string {
@@ -206,14 +210,14 @@ function pickImage(dgImages: { imgType: string; imgPath: string }[], code: strin
   return LOCAL_FALLBACK_IMAGES[code] ?? "/images/gold-eagle.png";
 }
 
-function pickReverseImage(dgImages: { imgType: string; imgPath: string }[]): string | undefined {
-  // Prefer rev250 (250x250) → reverse (600x600) for hover/flip
+function pickReverseImage(dgImages: { imgType: string; imgPath: string }[], code: string): string | undefined {
+  // Prefer rev250 (250x250) → reverse (600x600) for hover/flip; fall back to local assets
   const preferred = ["rev250", "reverse"];
   for (const type of preferred) {
     const img = dgImages.find((i) => i.imgType === type);
     if (img) return img.imgPath;
   }
-  return undefined;
+  return LOCAL_FALLBACK_REVERSE_IMAGES[code];
 }
 
 // GET /api/pricing/products
@@ -254,7 +258,7 @@ router.get("/products", async (_req, res) => {
         iraEligible: eagleDG ? eagleDG.isIRAConnectBidEligible === "Y" : true,
         deliveryWindow: eagleDG?.availability ?? "",
         imageUrl: pickImage(eagleDG?.images ?? [], "1EAGLE"),
-        reverseImageUrl: pickReverseImage(eagleDG?.images ?? []),
+        reverseImageUrl: pickReverseImage(eagleDG?.images ?? [], "1EAGLE"),
         description:
           "The Gold American Eagle is the official gold bullion coin of the United States, struck from 91.67% pure gold. Among the most widely recognized and liquid coins in the world.",
       },
@@ -271,7 +275,7 @@ router.get("/products", async (_req, res) => {
         iraEligible: buffDG ? buffDG.isIRAConnectBidEligible === "Y" : true,
         deliveryWindow: buffDG?.availability ?? "",
         imageUrl: pickImage(buffDG?.images ?? [], "1B"),
-        reverseImageUrl: pickReverseImage(buffDG?.images ?? []),
+        reverseImageUrl: pickReverseImage(buffDG?.images ?? [], "1B"),
         description:
           "The Gold American Buffalo is the first 24-karat gold coin struck by the United States Mint. At .9999 fine gold purity, it is one of the most refined gold coins available.",
       },
@@ -288,7 +292,7 @@ router.get("/products", async (_req, res) => {
         iraEligible: silverDG ? silverDG.isIRAConnectBidEligible === "Y" : true,
         deliveryWindow: silverDG?.availability ?? "",
         imageUrl: pickImage(silverDG?.images ?? [], "SE"),
-        reverseImageUrl: pickReverseImage(silverDG?.images ?? []),
+        reverseImageUrl: pickReverseImage(silverDG?.images ?? [], "SE"),
         description:
           "The Silver American Eagle is the official silver bullion coin of the United States. At .999 fine silver, it is one of the most widely held and recognized silver coins globally.",
       },
