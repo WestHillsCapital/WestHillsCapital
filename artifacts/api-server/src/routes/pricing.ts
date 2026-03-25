@@ -199,6 +199,7 @@ const LOCAL_IMAGES: Record<string, string> = {
 const LOCAL_REVERSE_IMAGES: Record<string, string> = {
   "1EAGLE": "/images/gold-eagle-reverse.png",
   "1B":     "/images/gold-buffalo-reverse-clean.png",
+  "SE":     "/images/silver-eagle-reverse-clean.png",
 };
 
 function pickImage(_dgImages: { imgType: string; imgPath: string }[], code: string): string {
