@@ -3,9 +3,24 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, ShieldCheck, Scale, Banknote, History, CheckCircle2, Shield } from "lucide-react";
 import { useProductPrices } from "@/hooks/use-pricing";
+import { useRef, useState, useEffect } from "react";
 
 export default function Home() {
   const { data: pricingData, isLoading: loadingProducts } = useProductPrices();
+
+  const coinsPanRef = useRef<HTMLDivElement>(null);
+  const [coinsPanning, setCoinsPanning] = useState(false);
+
+  useEffect(() => {
+    const el = coinsPanRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setCoinsPanning(true); },
+      { threshold: 0.35 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   const principles = [
     "Transparent, market-based pricing with no hidden fees",
@@ -201,11 +216,15 @@ export default function Home() {
               </div>
             </div>
             <div className="relative">
-              <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl relative">
+              <div ref={coinsPanRef} className="aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl relative">
                 <img
                   src={`${import.meta.env.BASE_URL}images/coins-hero.jpg`}
                   alt="Gold and silver coins"
-                  className="w-full h-full object-cover object-center"
+                  className="w-full h-full object-cover"
+                  style={{
+                    objectPosition: coinsPanning ? "100% center" : "0% center",
+                    transition: "object-position 5s ease-in-out",
+                  }}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-foreground to-transparent opacity-60" />
                 <div className="absolute bottom-7 left-7 right-7">
