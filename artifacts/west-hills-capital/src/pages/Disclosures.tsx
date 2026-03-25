@@ -56,6 +56,55 @@ export default function Disclosures() {
             </p>
           </section>
 
+          <section id="privacy-policy" className="scroll-mt-24">
+            <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">Privacy Policy</h2>
+            <p className="mb-4">
+              West Hills Capital ("we," "our," or "us") is committed to protecting the personal information you share with us. This Privacy Policy describes how we collect, use, and safeguard information provided through our website and during the course of our client relationships.
+            </p>
+            <p className="mb-4">
+              <strong className="text-foreground">Information We Collect.</strong> When you schedule a call, submit an inquiry, or begin the allocation process, we collect your name, email address, phone number, and state of residence. We may also collect information about your investment interests and account type (personal or IRA) for the sole purpose of serving you appropriately.
+            </p>
+            <p className="mb-4">
+              <strong className="text-foreground">How We Use Your Information.</strong> We use your information exclusively to respond to your inquiry, schedule consultations, and process transactions you initiate with us. We do not sell, rent, trade, or share your personal information with third parties for marketing purposes. Information is shared with custodial or depository partners only when required to fulfill a transaction you have authorized.
+            </p>
+            <p className="mb-4">
+              <strong className="text-foreground">Data Security.</strong> We implement commercially reasonable safeguards to protect your information, including secure transmission protocols and access controls. However, no method of transmission over the internet is completely secure, and we cannot guarantee absolute security.
+            </p>
+            <p className="mb-4">
+              <strong className="text-foreground">Recorded Calls.</strong> Telephone conversations with West Hills Capital representatives may be recorded for compliance, quality assurance, and dispute-resolution purposes. By engaging in a telephone conversation with us, you consent to such recording.
+            </p>
+            <p>
+              <strong className="text-foreground">Contact.</strong> For questions regarding this Privacy Policy or to request removal of your information, please contact us at{" "}
+              <a href="mailto:info@westhillscapital.com" className="text-primary hover:underline">info@westhillscapital.com</a>{" "}
+              or call <a href="tel:8008676768" className="text-primary hover:underline">800-867-6768</a>.
+            </p>
+          </section>
+
+          <section id="terms-of-service" className="scroll-mt-24">
+            <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">Terms of Service</h2>
+            <p className="mb-4">
+              By accessing or using the West Hills Capital website (westhillscapital.com) or engaging our services, you agree to be bound by these Terms of Service. If you do not agree, please do not use our website or services.
+            </p>
+            <p className="mb-4">
+              <strong className="text-foreground">Informational Purpose.</strong> The content on this website — including spot price data, product descriptions, and educational materials — is provided for informational purposes only. It does not constitute a solicitation, offer to buy or sell, or financial advice of any kind. All pricing is indicative and subject to change without notice.
+            </p>
+            <p className="mb-4">
+              <strong className="text-foreground">No Automated Transactions.</strong> West Hills Capital does not execute automated purchases or sales through this website. All transactions are completed verbally on a recorded line and require explicit confirmation from an authorized client.
+            </p>
+            <p className="mb-4">
+              <strong className="text-foreground">Eligibility.</strong> Our services are available to U.S. residents who are 18 years of age or older. By using our website or engaging our services, you represent that you meet these eligibility requirements.
+            </p>
+            <p className="mb-4">
+              <strong className="text-foreground">Intellectual Property.</strong> All content on this website, including text, graphics, logos, and pricing tools, is the property of West Hills Capital or its content suppliers and is protected by applicable intellectual property laws. Unauthorized reproduction or distribution is prohibited.
+            </p>
+            <p className="mb-4">
+              <strong className="text-foreground">Limitation of Liability.</strong> To the maximum extent permitted by law, West Hills Capital shall not be liable for any indirect, incidental, special, or consequential damages arising out of or related to your use of this website or our services. Our total liability for any claim related to a transaction shall not exceed the amount of that transaction.
+            </p>
+            <p>
+              <strong className="text-foreground">Governing Law.</strong> These Terms of Service shall be governed by and construed in accordance with the laws of the State of Texas, without regard to its conflict of law provisions. Any disputes arising hereunder shall be subject to the exclusive jurisdiction of the courts located in Texas.
+            </p>
+          </section>
+
         </div>
       </div>
     </div>

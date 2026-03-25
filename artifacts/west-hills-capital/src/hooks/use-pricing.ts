@@ -123,9 +123,12 @@ export function useSpotPrices() {
         return MOCK_SPOT_PRICES;
       }
     },
+    staleTime: 4000,
     refetchInterval: 5000, // Refetch every 5 seconds (matches backend Dillon Gage cache TTL)
   });
 }
+
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export function useProductPrices() {
   return useQuery({
@@ -134,12 +137,20 @@ export function useProductPrices() {
       try {
         const res = await fetch("/api/pricing/products");
         if (!res.ok) throw new Error("Network response was not ok");
-        return (await res.json()) as ProductPricesResponse;
+        const data = (await res.json()) as ProductPricesResponse;
+        return {
+          ...data,
+          products: data.products.map((p) => ({
+            ...p,
+            imageUrl: p.imageUrl.startsWith("/") ? `${BASE}${p.imageUrl}` : p.imageUrl,
+          })),
+        };
       } catch (err) {
         console.warn("Failed to fetch product prices, using mock data", err);
         return MOCK_PRODUCTS;
       }
     },
+    staleTime: 4000,
     refetchInterval: 5000,
   });
 }
@@ -157,5 +168,6 @@ export function useBuybackPrices() {
         return MOCK_BUYBACK;
       }
     },
+    staleTime: 4000,
   });
 }

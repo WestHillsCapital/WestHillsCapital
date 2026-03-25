@@ -10,7 +10,9 @@ import { Layout } from "@/components/layout/Layout";
 function ScrollToTop() {
   const [location] = useLocation();
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    if (!window.location.hash) {
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    }
   }, [location]);
   return null;
 }

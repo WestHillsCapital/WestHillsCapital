@@ -235,12 +235,12 @@ export default function Home() {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/schedule">
-              <Button size="lg" className="h-13 px-10 text-base shadow-md">
+              <Button size="lg" className="h-12 px-10 text-base shadow-md">
                 Schedule Allocation Call
               </Button>
             </Link>
             <a href="tel:8008676768">
-              <Button variant="outline" size="lg" className="h-13 px-10 text-base bg-white">
+              <Button variant="outline" size="lg" className="h-12 px-10 text-base bg-white">
                 Call 800-867-6768
               </Button>
             </a>

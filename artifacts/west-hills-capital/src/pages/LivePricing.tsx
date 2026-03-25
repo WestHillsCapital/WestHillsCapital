@@ -33,11 +33,10 @@ export default function LivePricing() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
-              {pricingData?.products.map((product, idx) => (
+              {pricingData?.products.map((product) => (
                 <Card
                   key={product.id}
                   className="overflow-hidden group bg-white border border-border/40 shadow-sm hover:shadow-md transition-shadow duration-300"
-                  style={{ animationDelay: `${idx * 0.1}s` }}
                 >
                   {/*
                     PRODUCT IMAGE AREA

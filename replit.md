@@ -125,3 +125,15 @@ These are the exact Fiztrade product codes for the 3 featured products. They are
 - Phone 800-867-6768 must appear in header, footer, and confirmation screens
 - No fear marketing, countdown timers, or "limited supply" language
 - Products: 1oz Gold American Eagle, 1oz Gold American Buffalo, 1oz Silver American Eagle
+
+## Bug Fixes Applied
+
+- `h-13` non-standard Tailwind class in Home.tsx → corrected to `h-12`
+- Dead `animationDelay` style and unused `idx` variable removed from LivePricing.tsx product card map
+- API image URLs from `/api/pricing/products` return root-relative paths (e.g. `/images/gold-eagle.png`); `useProductPrices` hook now prepends `import.meta.env.BASE_URL` to correctly resolve them under the `/west-hills-capital/` base path
+- `staleTime: 4000` added to all three pricing queries (spot, products, buyback) to prevent unnecessary refetch flicker
+- State of Residence in Schedule.tsx converted from free-text Input to a native `<select>` with all 50 US states
+- State field in IRA.tsx also converted from free-text Input to a native `<select>` with all 50 US states
+- Privacy Policy and Terms of Service sections added to Disclosures.tsx with `id="privacy-policy"` and `id="terms-of-service"` anchors and `scroll-mt-24` for proper offset under the fixed header
+- Footer links updated to `/disclosures#privacy-policy` and `/disclosures#terms-of-service`
+- `ScrollToTop` in App.tsx updated to skip scrolling when `window.location.hash` is present so anchor links navigate correctly
