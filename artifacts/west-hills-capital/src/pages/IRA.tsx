@@ -45,6 +45,7 @@ export default function IRA() {
           src={`${import.meta.env.BASE_URL}images/ira-banner.jpg`}
           alt=""
           aria-hidden="true"
+          fetchPriority="high"
           className="absolute inset-0 w-full h-full object-cover object-center"
         />
         <div className="absolute inset-0 bg-foreground/80" />
