@@ -203,9 +203,9 @@ export default function Home() {
             <div className="relative">
               <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl relative">
                 <img
-                  src={`${import.meta.env.BASE_URL}images/vault-interior.png`}
-                  alt="Secure vault"
-                  className="w-full h-full object-cover"
+                  src={`${import.meta.env.BASE_URL}images/coins-hero.jpg`}
+                  alt="Gold and silver coins"
+                  className="w-full h-full object-cover object-center"
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-foreground to-transparent opacity-60" />
                 <div className="absolute bottom-7 left-7 right-7">
