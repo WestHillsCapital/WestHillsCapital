@@ -208,8 +208,8 @@ export default function Home() {
                   className="w-full h-full object-cover"
                   style={{ objectPosition: "28% center" }}
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-foreground to-transparent opacity-60" />
-                <div className="absolute bottom-7 left-7 right-7">
+                <div className="absolute inset-0 bg-gradient-to-t from-foreground to-transparent sm:opacity-60 opacity-30" />
+                <div className="hidden sm:block absolute bottom-7 left-7 right-7">
                   <div className="p-5 rounded-xl bg-black/50 border border-white/10 backdrop-blur-sm">
                     <ShieldCheck className="w-9 h-9 text-primary mb-3" />
                     <h3 className="text-white font-serif text-lg mb-1">Commitment to Stewardship</h3>
