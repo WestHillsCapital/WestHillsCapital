@@ -1,3 +1,27 @@
-<svg width="180" height="180" viewBox="0 0 180 180" fill="none" xmlns="http://www.w3.org/2000/svg">
-<rect width="180" height="180" rx="36" fill="#FF3C00"/>
+<svg width="200" height="200" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <clipPath id="ring1clip">
+      <circle cx="100" cy="72" r="46"/>
+    </clipPath>
+    <clipPath id="ring2clip">
+      <circle cx="68" cy="128" r="46"/>
+    </clipPath>
+    <clipPath id="ring3clip">
+      <circle cx="132" cy="128" r="46"/>
+    </clipPath>
+  </defs>
+
+  <!-- Ring 1 (top) — light gold -->
+  <circle cx="100" cy="72" r="46" fill="none" stroke="#C8A96E" stroke-width="14"/>
+  <!-- Ring 2 (bottom-left) — dark bronze -->
+  <circle cx="68" cy="128" r="46" fill="none" stroke="#7A6248" stroke-width="14"/>
+  <!-- Ring 3 (bottom-right) — medium gold -->
+  <circle cx="132" cy="128" r="46" fill="none" stroke="#A88A56" stroke-width="14"/>
+
+  <!-- Overlap weave: ring3 over ring1 (top-right intersection) -->
+  <circle cx="132" cy="128" r="46" fill="none" stroke="#A88A56" stroke-width="14" clip-path="url(#ring1clip)"/>
+  <!-- Overlap weave: ring1 over ring2 (top-left intersection) -->
+  <circle cx="100" cy="72" r="46" fill="none" stroke="#C8A96E" stroke-width="14" clip-path="url(#ring2clip)"/>
+  <!-- Overlap weave: ring2 over ring3 (bottom intersection) -->
+  <circle cx="68" cy="128" r="46" fill="none" stroke="#7A6248" stroke-width="14" clip-path="url(#ring3clip)"/>
 </svg>

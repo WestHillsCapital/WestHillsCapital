@@ -42,10 +42,12 @@ export function Navbar() {
         <div className="flex justify-between items-center h-20 lg:h-24">
           
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 group">
-            <span className="font-serif text-2xl lg:text-3xl font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
-              West Hills Capital
-            </span>
+          <Link href="/" className="flex items-center group">
+            <img
+              src="/images/logo.png"
+              alt="West Hills Capital"
+              className="h-10 lg:h-12 w-auto object-contain transition-opacity group-hover:opacity-80"
+            />
           </Link>
 
           {/* Desktop Nav */}
