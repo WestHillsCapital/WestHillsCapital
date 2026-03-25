@@ -123,7 +123,7 @@ export function useSpotPrices() {
         return MOCK_SPOT_PRICES;
       }
     },
-    refetchInterval: 15000, // Refetch every 15 seconds (Dillon Gage live feed)
+    refetchInterval: 5000, // Refetch every 5 seconds (matches backend Dillon Gage cache TTL)
   });
 }
 
@@ -140,7 +140,7 @@ export function useProductPrices() {
         return MOCK_PRODUCTS;
       }
     },
-    refetchInterval: 15000,
+    refetchInterval: 5000,
   });
 }
 
