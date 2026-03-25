@@ -140,7 +140,7 @@ export function useProductPrices() {
         return MOCK_PRODUCTS;
       }
     },
-    refetchInterval: 60000,
+    refetchInterval: 15000,
   });
 }
 
