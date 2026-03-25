@@ -11,15 +11,23 @@ const router: IRouter = Router();
 const DG_TOKEN = process.env.DILLON_GAGE_API_KEY;
 const DG_BASE = "https://connect.fiztrade.com/FizServices";
 
-// ─── Dillon Gage dealer premiums (USD per troy oz over spot bid) ─────────────
-// These reflect DG's wholesale price to West Hills Capital above spot.
-// Verified on 2026-03-24: Gold Eagle $4,545.47 (spot ~$4,483), Silver Eagle $74.90 (spot $71.05).
-// Update these when DG adjusts their dealer pricing, or replace entirely once
-// GetPricesForProducts is active (it will return the exact DG price per product).
-const GOLD_DG_PREMIUM_USD = 62.57;   // DG cost above spot for gold coins
-const SILVER_DG_PREMIUM_USD = 3.85;  // DG cost above spot for silver coins (ASE mint premium)
+// ─── Dillon Gage per-product dealer premiums (% over spot bid) ───────────────
+// DG prices each product at a specific percentage over spot. These rates are
+// confirmed by West Hills Capital's account pricing at connect.fiztrade.com.
+// Replace with live GetPricesForProducts values once the portal is configured —
+// that endpoint will return DG's exact per-product dealer price directly.
+//
+//   Gold Eagle  (Fiztrade: 1EAGLE) — DG charges WHC 1.5% over spot
+//   Gold Buffalo (Fiztrade: 1B)    — DG charges WHC 2.0% over spot
+//   Silver Eagle (Fiztrade: SE)    — DG charges WHC ~5.42% over spot (ASE mint premium)
+//
+const DG_PREMIUM_PERCENT = {
+  goldEagle:   1.5,   // confirmed 2026-03-25
+  goldBuffalo: 2.0,   // confirmed 2026-03-25
+  silverEagle: 5.42,  // derived: $74.90 DG / $71.05 spot on 2026-03-24
+};
 
-// ─── West Hills Capital commission (applied on top of DG dealer cost) ────────
+// ─── West Hills Capital commission (applied on top of DG dealer price) ───────
 const GOLD_COMMISSION_PERCENT = 2;   // 2% over DG dealer price
 const SILVER_COMMISSION_PERCENT = 5; // 5% over DG dealer price
 
@@ -123,11 +131,11 @@ router.get("/products", async (_req, res) => {
   try {
     const spot = await getLiveSpot();
 
-    // (spot + DG_premium) × (1 + WHC_commission)
-    const goldPrice = (spotBid: number) =>
-      Math.round((spotBid + GOLD_DG_PREMIUM_USD) * (1 + GOLD_COMMISSION_PERCENT / 100) * 100) / 100;
-    const silverPrice = (spotBid: number) =>
-      Math.round((spotBid + SILVER_DG_PREMIUM_USD) * (1 + SILVER_COMMISSION_PERCENT / 100) * 100) / 100;
+    // spot × (1 + DG_premium%) × (1 + WHC_commission%) — per product
+    const dgPrice = (spotBid: number, dgPremiumPct: number) =>
+      spotBid * (1 + dgPremiumPct / 100);
+    const finalPrice = (spotBid: number, dgPremiumPct: number, commissionPct: number) =>
+      Math.round(dgPrice(spotBid, dgPremiumPct) * (1 + commissionPct / 100) * 100) / 100;
 
     // ─── Product definitions ────────────────────────────────────────────────
     // Dillon Gage Fiztrade product codes (for use with GetPricesForProducts
@@ -143,7 +151,7 @@ router.get("/products", async (_req, res) => {
         weight: "1 troy oz",
         spotPrice: spot.gold,
         spreadPercent: GOLD_COMMISSION_PERCENT,
-        finalPrice: goldPrice(spot.gold),
+        finalPrice: finalPrice(spot.gold, DG_PREMIUM_PERCENT.goldEagle, GOLD_COMMISSION_PERCENT),
         iraEligible: true,
         deliveryWindow: "",
         imageUrl: "/images/gold-eagle.png",
@@ -157,7 +165,7 @@ router.get("/products", async (_req, res) => {
         weight: "1 troy oz",
         spotPrice: spot.gold,
         spreadPercent: GOLD_COMMISSION_PERCENT,
-        finalPrice: goldPrice(spot.gold),
+        finalPrice: finalPrice(spot.gold, DG_PREMIUM_PERCENT.goldBuffalo, GOLD_COMMISSION_PERCENT),
         iraEligible: true,
         deliveryWindow: "",
         imageUrl: "/images/gold-buffalo.png",
@@ -171,7 +179,7 @@ router.get("/products", async (_req, res) => {
         weight: "1 troy oz",
         spotPrice: spot.silver,
         spreadPercent: SILVER_COMMISSION_PERCENT,
-        finalPrice: silverPrice(spot.silver),
+        finalPrice: finalPrice(spot.silver, DG_PREMIUM_PERCENT.silverEagle, SILVER_COMMISSION_PERCENT),
         iraEligible: true,
         deliveryWindow: "",
         imageUrl: "/images/silver-eagle.png",
