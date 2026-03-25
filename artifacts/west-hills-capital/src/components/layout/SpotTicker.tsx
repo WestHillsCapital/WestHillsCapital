@@ -1,5 +1,5 @@
 import { useSpotPrices } from "@/hooks/use-pricing";
-import { TrendingUp, TrendingDown, Minus, Radio } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export function SpotTicker() {
@@ -33,18 +33,12 @@ export function SpotTicker() {
     <div className="w-full bg-[#1a1f2e] text-white text-xs py-2 px-4">
       <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
 
-        <div className="flex items-center gap-1.5 text-white/50">
-          <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
-          <span className="hidden sm:inline tracking-wide">Live Spot · Dillon Gage</span>
-          <span className="sm:hidden tracking-wide">Live Spot</span>
-        </div>
-
         <div className="flex items-center gap-5 sm:gap-8">
-          {/* Gold */}
+          {/* Gold Ask */}
           <div className="flex items-center gap-2">
             <span className="text-white/50 uppercase tracking-widest font-medium" style={{ fontSize: "10px" }}>Gold</span>
             <span className="font-semibold text-white tabular-nums">
-              ${spot.gold.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              ${(spot.goldAsk ?? spot.gold).toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </span>
             {spot.goldChange !== undefined && (
               <span className={cn("flex items-center gap-0.5 tabular-nums", changeColor(goldUp, goldFlat))}>
@@ -56,11 +50,11 @@ export function SpotTicker() {
 
           <div className="w-px h-4 bg-white/15" />
 
-          {/* Silver */}
+          {/* Silver Ask */}
           <div className="flex items-center gap-2">
             <span className="text-white/50 uppercase tracking-widest font-medium" style={{ fontSize: "10px" }}>Silver</span>
             <span className="font-semibold text-white tabular-nums">
-              ${spot.silver.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              ${(spot.silverAsk ?? spot.silver).toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </span>
             {spot.silverChange !== undefined && (
               <span className={cn("flex items-center gap-0.5 tabular-nums", changeColor(silverUp, silverFlat))}>
