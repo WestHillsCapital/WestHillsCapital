@@ -131,11 +131,12 @@ router.get("/products", async (_req, res) => {
   try {
     const spot = await getLiveSpot();
 
-    // spot × (1 + DG_premium%) × (1 + WHC_commission%) — per product
-    const dgPrice = (spotBid: number, dgPremiumPct: number) =>
-      spotBid * (1 + dgPremiumPct / 100);
-    const finalPrice = (spotBid: number, dgPremiumPct: number, commissionPct: number) =>
-      Math.round(dgPrice(spotBid, dgPremiumPct) * (1 + commissionPct / 100) * 100) / 100;
+    // Customers buy at Ask; WHC buys back at Bid.
+    // spot × (1 + DG_premium%) × (1 + WHC_commission%) — per product, based on Ask
+    const dgPrice = (spotAsk: number, dgPremiumPct: number) =>
+      spotAsk * (1 + dgPremiumPct / 100);
+    const calcFinalPrice = (spotAsk: number, dgPremiumPct: number, commissionPct: number) =>
+      Math.round(dgPrice(spotAsk, dgPremiumPct) * (1 + commissionPct / 100) * 100) / 100;
 
     // ─── Product definitions ────────────────────────────────────────────────
     // Dillon Gage Fiztrade product codes (for use with GetPricesForProducts
@@ -149,9 +150,9 @@ router.get("/products", async (_req, res) => {
         name: "1 oz American Gold Eagle",
         metal: "gold" as const,
         weight: "1 troy oz",
-        spotPrice: spot.gold,
+        spotPrice: spot.goldAsk,  // Ask: basis for customer buy prices
         spreadPercent: GOLD_COMMISSION_PERCENT,
-        finalPrice: finalPrice(spot.gold, DG_PREMIUM_PERCENT.goldEagle, GOLD_COMMISSION_PERCENT),
+        finalPrice: calcFinalPrice(spot.goldAsk, DG_PREMIUM_PERCENT.goldEagle, GOLD_COMMISSION_PERCENT),
         iraEligible: true,
         deliveryWindow: "",
         imageUrl: "/images/gold-eagle.png",
@@ -163,9 +164,9 @@ router.get("/products", async (_req, res) => {
         name: "1 oz American Gold Buffalo",
         metal: "gold" as const,
         weight: "1 troy oz",
-        spotPrice: spot.gold,
+        spotPrice: spot.goldAsk,  // Ask: basis for customer buy prices
         spreadPercent: GOLD_COMMISSION_PERCENT,
-        finalPrice: finalPrice(spot.gold, DG_PREMIUM_PERCENT.goldBuffalo, GOLD_COMMISSION_PERCENT),
+        finalPrice: calcFinalPrice(spot.goldAsk, DG_PREMIUM_PERCENT.goldBuffalo, GOLD_COMMISSION_PERCENT),
         iraEligible: true,
         deliveryWindow: "",
         imageUrl: "/images/gold-buffalo.png",
@@ -177,9 +178,9 @@ router.get("/products", async (_req, res) => {
         name: "1 oz American Silver Eagle",
         metal: "silver" as const,
         weight: "1 troy oz",
-        spotPrice: spot.silver,
+        spotPrice: spot.silverAsk,  // Ask: basis for customer buy prices
         spreadPercent: SILVER_COMMISSION_PERCENT,
-        finalPrice: finalPrice(spot.silver, DG_PREMIUM_PERCENT.silverEagle, SILVER_COMMISSION_PERCENT),
+        finalPrice: calcFinalPrice(spot.silverAsk, DG_PREMIUM_PERCENT.silverEagle, SILVER_COMMISSION_PERCENT),
         iraEligible: true,
         deliveryWindow: "",
         imageUrl: "/images/silver-eagle.png",
@@ -210,23 +211,24 @@ router.get("/buyback", async (_req, res) => {
     const silverBuyback = (price: number) =>
       Math.round(price * (1 - SILVER_BUYBACK_SPREAD_PERCENT / 100) * 100) / 100;
 
+    // WHC buys back at Bid — the lower of the two spot prices
     const prices = [
       {
         productId: "gold-american-eagle-1oz",
         productName: "1 oz Gold American Eagle",
-        buybackPrice: goldBuyback(spot.gold),
+        buybackPrice: goldBuyback(spot.goldBid),
         buybackSpreadPercent: GOLD_BUYBACK_SPREAD_PERCENT,
       },
       {
         productId: "gold-american-buffalo-1oz",
         productName: "1 oz Gold American Buffalo",
-        buybackPrice: goldBuyback(spot.gold),
+        buybackPrice: goldBuyback(spot.goldBid),
         buybackSpreadPercent: GOLD_BUYBACK_SPREAD_PERCENT,
       },
       {
         productId: "silver-american-eagle-1oz",
         productName: "1 oz Silver American Eagle",
-        buybackPrice: silverBuyback(spot.silver),
+        buybackPrice: silverBuyback(spot.silverBid),
         buybackSpreadPercent: SILVER_BUYBACK_SPREAD_PERCENT,
       },
     ];
