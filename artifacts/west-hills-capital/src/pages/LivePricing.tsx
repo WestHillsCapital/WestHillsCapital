@@ -27,7 +27,7 @@ function ProductCard({ product, onZoom }: { product: Product; onZoom: (p: Produc
           alt={product.name}
           className={`absolute inset-0 w-full h-full object-contain p-10 transition-opacity duration-400 ${showReverse ? "opacity-0" : "opacity-100"}`}
         />
-        {/* Reverse (only for Gold Eagle which has DG reverse image) */}
+        {/* Reverse (Gold Eagle + Gold Buffalo) */}
         {hasReverse && (
           <img
             src={product.reverseImageUrl}

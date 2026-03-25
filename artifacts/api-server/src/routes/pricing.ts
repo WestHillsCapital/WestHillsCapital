@@ -189,35 +189,26 @@ router.get("/spot", async (_req, res) => {
   }
 });
 
-// Local fallback image paths (used when DG CDN has no image for a product)
-const LOCAL_FALLBACK_IMAGES: Record<string, string> = {
+// Local images — background-removed transparent PNGs, used for all products
+const LOCAL_IMAGES: Record<string, string> = {
   "1EAGLE": "/images/gold-eagle.png",
-  "1B":     "/images/gold-buffalo-obverse.png",
-  "SE":     "/images/silver-eagle.png",
+  "1B":     "/images/gold-buffalo-obverse-clean.png",
+  "SE":     "/images/silver-eagle-clean.png",
 };
 
-const LOCAL_FALLBACK_REVERSE_IMAGES: Record<string, string> = {
-  "1B": "/images/gold-buffalo-reverse.png",
+const LOCAL_REVERSE_IMAGES: Record<string, string> = {
+  "1EAGLE": "/images/gold-eagle-reverse.png",
+  "1B":     "/images/gold-buffalo-reverse-clean.png",
 };
 
-function pickImage(dgImages: { imgType: string; imgPath: string }[], code: string): string {
-  // Prefer obv250 (250x250) → default → obverse (600x600) from DG CDN
-  const preferred = ["obv250", "default", "obverse"];
-  for (const type of preferred) {
-    const img = dgImages.find((i) => i.imgType === type);
-    if (img) return img.imgPath;
-  }
-  return LOCAL_FALLBACK_IMAGES[code] ?? "/images/gold-eagle.png";
+function pickImage(_dgImages: { imgType: string; imgPath: string }[], code: string): string {
+  // Always use local background-removed images
+  return LOCAL_IMAGES[code] ?? "/images/gold-eagle.png";
 }
 
-function pickReverseImage(dgImages: { imgType: string; imgPath: string }[], code: string): string | undefined {
-  // Prefer rev250 (250x250) → reverse (600x600) for hover/flip; fall back to local assets
-  const preferred = ["rev250", "reverse"];
-  for (const type of preferred) {
-    const img = dgImages.find((i) => i.imgType === type);
-    if (img) return img.imgPath;
-  }
-  return LOCAL_FALLBACK_REVERSE_IMAGES[code];
+function pickReverseImage(_dgImages: { imgType: string; imgPath: string }[], code: string): string | undefined {
+  // Always use local background-removed reverse images where available
+  return LOCAL_REVERSE_IMAGES[code];
 }
 
 // GET /api/pricing/products
