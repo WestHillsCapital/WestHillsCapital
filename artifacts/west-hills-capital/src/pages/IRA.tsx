@@ -49,7 +49,7 @@ export default function IRA() {
         />
         <div className="absolute inset-0 bg-foreground/80" />
         <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="text-4xl lg:text-5xl font-serif font-semibold mb-5">
+          <h1 className="text-4xl lg:text-5xl font-serif font-semibold mb-5 text-white">
             Precious Metals IRA Allocation
           </h1>
           <p className="text-lg text-white/70 leading-relaxed max-w-2xl mx-auto">
