@@ -89,19 +89,12 @@ export default function Home() {
                       ${product.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </div>
 
-                    <div className="space-y-1.5 text-xs text-foreground/45 border-t border-border/30 pt-3">
-                      {product.iraEligible && (
-                        <div className="flex items-center gap-1.5 text-primary font-medium">
-                          <Shield className="w-3 h-3" /> IRA Eligible
-                        </div>
-                      )}
-                      {product.deliveryWindow && (
-                        <div className="flex justify-between">
-                          <span>Est. Delivery</span>
-                          <span>{product.deliveryWindow}</span>
-                        </div>
-                      )}
-                    </div>
+                    {product.deliveryWindow && (
+                      <div className="flex justify-between text-xs text-foreground/45 border-t border-border/30 pt-3">
+                        <span>Est. Delivery</span>
+                        <span>{product.deliveryWindow}</span>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
