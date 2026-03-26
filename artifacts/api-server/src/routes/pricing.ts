@@ -258,102 +258,116 @@ async function recordSpotReading(goldBid: number, silverBid: number): Promise<vo
   await db.query(`DELETE FROM spot_price_history WHERE captured_at < NOW() - INTERVAL '90 days'`);
 }
 
-// ─── Long-term Historical Price Data ─────────────────────────────────────────
-// Annual average gold/silver bid prices (USD per troy oz), approximate
-// Sources: LBMA, Kitco, World Gold Council historical data
-// Gold prices were fixed ($35/oz Bretton Woods) until Aug 1971 — data starts then.
-
-const GOLD_ANNUAL: [number, number][] = [
-  [1971, 40],   [1972, 64],   [1973, 98],   [1974, 160],
-  [1975, 161],  [1976, 125],  [1977, 148],  [1978, 194],
-  [1979, 307],  [1980, 613],  [1981, 460],  [1982, 376],
-  [1983, 424],  [1984, 361],  [1985, 318],  [1986, 368],
-  [1987, 447],  [1988, 437],  [1989, 381],  [1990, 384],
-  [1991, 363],  [1992, 344],  [1993, 360],  [1994, 384],
-  [1995, 384],  [1996, 388],  [1997, 332],  [1998, 294],
-  [1999, 279],  [2000, 280],  [2001, 271],  [2002, 310],
-  [2003, 364],  [2004, 410],  [2005, 445],  [2006, 604],
-  [2007, 695],  [2008, 872],  [2009, 973],  [2010, 1225],
-  [2011, 1572], [2012, 1669], [2013, 1412], [2014, 1266],
-  [2015, 1160], [2016, 1251], [2017, 1257], [2018, 1269],
-  [2019, 1393], [2020, 1770], [2021, 1799], [2022, 1800],
-  [2023, 1941], [2024, 2386], [2025, 3100],
-];
-
-const SILVER_ANNUAL: [number, number][] = [
-  [1971, 1.55],  [1972, 1.68],  [1973, 2.56],  [1974, 4.71],
-  [1975, 4.42],  [1976, 4.35],  [1977, 4.62],  [1978, 5.40],
-  [1979, 11.09], [1980, 20.63], [1981, 10.52], [1982, 7.95],
-  [1983, 11.44], [1984, 8.14],  [1985, 6.14],  [1986, 5.47],
-  [1987, 7.01],  [1988, 6.53],  [1989, 5.50],  [1990, 4.82],
-  [1991, 4.06],  [1992, 3.95],  [1993, 4.31],  [1994, 5.28],
-  [1995, 5.20],  [1996, 5.20],  [1997, 4.90],  [1998, 5.55],
-  [1999, 5.22],  [2000, 4.95],  [2001, 4.37],  [2002, 4.60],
-  [2003, 4.88],  [2004, 6.66],  [2005, 7.31],  [2006, 11.55],
-  [2007, 13.38], [2008, 15.00], [2009, 14.99], [2010, 20.19],
-  [2011, 35.12], [2012, 31.15], [2013, 23.79], [2014, 19.08],
-  [2015, 15.68], [2016, 17.14], [2017, 17.05], [2018, 15.71],
-  [2019, 16.21], [2020, 20.55], [2021, 25.14], [2022, 21.73],
-  [2023, 23.44], [2024, 29.40], [2025, 38.00],
-];
-
-/** Deterministic noise: returns a value in [-1, 1] for a given integer seed */
-function deterministicNoise(seed: number): number {
-  const x = Math.sin(seed * 9301 + 49297) * 233280;
-  return (x - Math.floor(x)) * 2 - 1;
-}
+// ─── Yahoo Finance Historical Market Data ────────────────────────────────────
+// Real COMEX closing prices: GC=F (Gold Futures), SI=F (Silver Futures)
+// These track spot price extremely closely and are industry-standard benchmarks.
 
 type HistoryPoint = { timestamp: string; goldBid: number; silverBid: number };
 
-/** Build monthly synthetic historical data from 1971 to the current live spot price */
-function buildSyntheticHistory(): HistoryPoint[] {
-  const goldMap = new Map(GOLD_ANNUAL);
-  const silverMap = new Map(SILVER_ANNUAL);
-  const years = GOLD_ANNUAL.map(([y]) => y);
-  const startYear = years[0];
-  const endYear = years[years.length - 1];
-  const result: HistoryPoint[] = [];
-  let seed = 4217;
+const YF_BASE          = "https://query1.finance.yahoo.com/v8/finance/chart";
+const YF_SYMBOL_GOLD   = "GC=F";
+const YF_SYMBOL_SILVER = "SI=F";
 
-  for (let year = startYear; year <= endYear; year++) {
-    const g1 = goldMap.get(year) ?? 0;
-    const g2 = goldMap.get(year + 1) ?? g1;
-    const s1 = silverMap.get(year) ?? 0;
-    const s2 = silverMap.get(year + 1) ?? s1;
+/** Period → Yahoo Finance { range, interval } params */
+const YF_PERIOD_PARAMS: Record<string, { range: string; interval: string }> = {
+  "3M":  { range: "3mo", interval: "1d"  },
+  "6M":  { range: "6mo", interval: "1d"  },
+  "1Y":  { range: "1y",  interval: "1wk" },
+  "5Y":  { range: "5y",  interval: "1wk" },
+  "ALL": { range: "max", interval: "1mo" },
+};
 
-    for (let month = 0; month < 12; month++) {
-      const t = month / 12;
-      const gBase = g1 + (g2 - g1) * t;
-      const sBase = s1 + (s2 - s1) * t;
-      const gBid = Math.max(1, gBase + deterministicNoise(++seed) * gBase * 0.025);
-      const sBid = Math.max(0.5, sBase + deterministicNoise(++seed) * sBase * 0.04);
-      result.push({
-        timestamp: new Date(year, month, 1).toISOString(),
-        goldBid: parseFloat(gBid.toFixed(2)),
-        silverBid: parseFloat(sBid.toFixed(4)),
-      });
+interface YFChartResult {
+  timestamp: number[];
+  indicators: { quote: Array<{ close: (number | null)[] }> };
+}
+interface YFChartResponse {
+  chart: { result?: YFChartResult[]; error?: unknown };
+}
+
+/** Fetch one Yahoo Finance symbol → Map<day-unix-seconds, close-price> */
+async function fetchYFSymbol(symbol: string, range: string, interval: string): Promise<Map<number, number>> {
+  const url = `${YF_BASE}/${encodeURIComponent(symbol)}?interval=${interval}&range=${range}&includePrePost=false`;
+  const res = await fetch(url, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      "Accept": "application/json",
+    },
+    signal: AbortSignal.timeout(12_000),
+  });
+  if (!res.ok) throw new Error(`Yahoo Finance ${symbol}: HTTP ${res.status}`);
+  const json: YFChartResponse = await res.json();
+  const result = json.chart?.result?.[0];
+  if (!result) throw new Error(`Yahoo Finance ${symbol}: empty result`);
+
+  const map = new Map<number, number>();
+  result.timestamp.forEach((ts, i) => {
+    const close = result.indicators.quote[0].close[i];
+    if (close != null && close > 0) {
+      map.set(Math.floor(ts / 86400) * 86400, close); // normalise to day boundary
     }
-  }
+  });
+  return map;
+}
 
-  // Append current live price as the final data point
-  if (cachedSpot) {
-    result.push({
+/** Merge gold + silver maps into sorted HistoryPoint array */
+function mergeGoldSilver(
+  goldMap: Map<number, number>,
+  silverMap: Map<number, number>,
+  tolerance = 0,
+): HistoryPoint[] {
+  const points: HistoryPoint[] = [];
+  for (const [dayKey, goldBid] of goldMap) {
+    let silverBid = silverMap.get(dayKey);
+    if (silverBid == null && tolerance > 0) {
+      for (let d = 86400; d <= tolerance; d += 86400) {
+        silverBid = silverMap.get(dayKey + d) ?? silverMap.get(dayKey - d);
+        if (silverBid != null) break;
+      }
+    }
+    if (silverBid == null) continue;
+    points.push({
+      timestamp: new Date(dayKey * 1000).toISOString(),
+      goldBid:   parseFloat(goldBid.toFixed(2)),
+      silverBid: parseFloat(silverBid.toFixed(4)),
+    });
+  }
+  return points.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+}
+
+/** In-memory cache: key → { data, fetchedAt }. TTL = 6 h (prices don't change intraday historically) */
+const yfCache = new Map<string, { data: HistoryPoint[]; fetchedAt: number }>();
+const YF_CACHE_TTL = 6 * 60 * 60 * 1000;
+
+async function getYahooHistory(period: string): Promise<HistoryPoint[]> {
+  const params = YF_PERIOD_PARAMS[period];
+  if (!params) return [];
+
+  const cacheKey = `${period}:${params.interval}`;
+  const cached = yfCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < YF_CACHE_TTL) return cached.data;
+
+  const [goldMap, silverMap] = await Promise.all([
+    fetchYFSymbol(YF_SYMBOL_GOLD,   params.range, params.interval),
+    fetchYFSymbol(YF_SYMBOL_SILVER, params.range, params.interval),
+  ]);
+
+  // For monthly data allow ±3 days tolerance when matching timestamps
+  const tolerance = params.interval === "1mo" ? 3 * 86400 : 0;
+  const data = mergeGoldSilver(goldMap, silverMap, tolerance);
+
+  // Pin the last point to current live price so the chart ends at today's exact price
+  if (cachedSpot && data.length > 0) {
+    data.push({
       timestamp: new Date().toISOString(),
-      goldBid: cachedSpot.goldBid,
+      goldBid:   cachedSpot.goldBid,
       silverBid: cachedSpot.silverBid,
     });
   }
 
-  return result;
+  yfCache.set(cacheKey, { data, fetchedAt: Date.now() });
+  return data;
 }
-
-const PERIOD_CUTOFF_DAYS: Record<string, number | null> = {
-  "3M": 90,
-  "6M": 180,
-  "1Y": 365,
-  "5Y": 5 * 365,
-  "ALL": null,
-};
 
 const DB_PERIOD_INTERVAL: Record<string, string> = {
   "1D": "1 day",
@@ -366,7 +380,7 @@ router.get("/history", async (req, res) => {
   try {
     const period = typeof req.query.period === "string" ? req.query.period : "1M";
 
-    // Short periods (1D/1W/1M) — serve from DB hourly data
+    // Short periods (1D/1W/1M) — DB hourly data
     if (period in DB_PERIOD_INTERVAL) {
       await ensureHistoryTable();
       const db = getDb();
@@ -384,24 +398,15 @@ router.get("/history", async (req, res) => {
       return res.json({
         history: rows.map((r) => ({
           timestamp: r.captured_at,
-          goldBid: parseFloat(r.gold_bid),
+          goldBid:   parseFloat(r.gold_bid),
           silverBid: parseFloat(r.silver_bid),
         })),
       });
     }
 
-    // Longer periods — serve synthetic historical data
-    const allHistory = buildSyntheticHistory();
-    const cutoffDays = PERIOD_CUTOFF_DAYS[period] ?? null;
-
-    const filtered = cutoffDays === null
-      ? allHistory
-      : (() => {
-          const cutoff = Date.now() - cutoffDays * 24 * 60 * 60 * 1000;
-          return allHistory.filter((p) => new Date(p.timestamp).getTime() >= cutoff);
-        })();
-
-    return res.json({ history: filtered });
+    // Longer periods — real historical data from Yahoo Finance (COMEX)
+    const history = await getYahooHistory(period);
+    return res.json({ history });
   } catch (err) {
     console.error("Error fetching spot history:", err);
     res.status(502).json({ error: "Unable to fetch price history" });

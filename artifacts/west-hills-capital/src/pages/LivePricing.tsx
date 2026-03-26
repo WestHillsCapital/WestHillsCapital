@@ -309,7 +309,7 @@ function SpotChart() {
 
       {isSynthetic && (
         <p className="text-[10px] text-foreground/35 mt-3 text-right">
-          Historical data based on annual average market prices (LBMA/Kitco). Gold price was fixed until August 1971 (Bretton Woods). Monthly approximations shown.
+          Historical prices sourced from COMEX futures markets (GC=F / SI=F). Gold began trading freely after the Bretton Woods system ended in August 1971.
         </p>
       )}
     </div>
