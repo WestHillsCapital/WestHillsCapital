@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useProductPrices, useBuybackPrices, useSpotPrices, useSpotHistory } from "@/hooks/use-pricing";
+import { useProductPrices, useBuybackPrices, useSpotPrices, useSpotHistory, type ChartPeriod } from "@/hooks/use-pricing";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -14,7 +14,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
 
 type Product = NonNullable<ReturnType<typeof useProductPrices>["data"]>["products"][number];
 
@@ -134,49 +134,87 @@ function ZoomDialog({ product, onClose }: { product: Product | null; onClose: ()
 
 // ─── SPOT CHART ───────────────────────────────────────────────────────────────
 
+const PERIODS: ChartPeriod[] = ["1D", "1W", "1M", "3M", "6M", "1Y", "5Y", "ALL"];
+
+const PERIOD_DATE_FORMAT: Record<ChartPeriod, string> = {
+  "1D":  "h:mm a",
+  "1W":  "MMM d",
+  "1M":  "MMM d",
+  "3M":  "MMM d",
+  "6M":  "MMM yyyy",
+  "1Y":  "MMM yyyy",
+  "5Y":  "MMM yyyy",
+  "ALL": "yyyy",
+};
+
+const PERIOD_TOOLTIP_FORMAT: Record<ChartPeriod, string> = {
+  "1D":  "MMM d, h:mm a",
+  "1W":  "MMM d, yyyy",
+  "1M":  "MMM d, yyyy",
+  "3M":  "MMM d, yyyy",
+  "6M":  "MMM yyyy",
+  "1Y":  "MMM yyyy",
+  "5Y":  "MMM yyyy",
+  "ALL": "yyyy",
+};
+
+function formatSilverTick(v: number): string {
+  if (v >= 100) return `$${v.toFixed(0)}`;
+  if (v >= 10)  return `$${v.toFixed(0)}`;
+  if (v >= 1)   return `$${v.toFixed(1)}`;
+  return `$${v.toFixed(2)}`;
+}
+
 function SpotChart() {
-  const [period, setPeriod] = useState<"1W" | "1M">("1W");
-  const { data, isLoading } = useSpotHistory();
+  const [period, setPeriod] = useState<ChartPeriod>("1M");
+  const { data, isLoading } = useSpotHistory(period);
 
   const chartData = useMemo(() => {
     if (!data?.history?.length) return [];
-    const cutoff = subDays(new Date(), period === "1W" ? 7 : 30);
-    const filtered = data.history.filter((h) => new Date(h.timestamp) >= cutoff);
     // Sample to at most 200 points for smooth rendering
-    const step = Math.max(1, Math.floor(filtered.length / 200));
-    return filtered
-      .filter((_, i) => i % step === 0 || i === filtered.length - 1)
-      .map((h) => ({
-        ...h,
-        label: format(new Date(h.timestamp), period === "1W" ? "MM/dd HH:mm" : "MM/dd"),
+    const h = data.history;
+    const step = Math.max(1, Math.floor(h.length / 200));
+    const dateFmt = PERIOD_DATE_FORMAT[period];
+    return h
+      .filter((_, i) => i % step === 0 || i === h.length - 1)
+      .map((pt) => ({
+        ...pt,
+        label: format(new Date(pt.timestamp), dateFmt),
+        tooltipLabel: format(new Date(pt.timestamp), PERIOD_TOOLTIP_FORMAT[period]),
       }));
   }, [data, period]);
 
   const goldRange = useMemo((): [number, number] => {
-    if (!chartData.length) return [4000, 5000];
+    if (!chartData.length) return [3000, 5000];
     const vals = chartData.map((d) => d.goldBid);
     const min = Math.min(...vals);
     const max = Math.max(...vals);
-    const pad = Math.max((max - min) * 0.15, 30);
+    const pad = Math.max((max - min) * 0.12, 20);
     return [Math.floor(min - pad), Math.ceil(max + pad)];
   }, [chartData]);
 
   const silverRange = useMemo((): [number, number] => {
-    if (!chartData.length) return [60, 85];
+    if (!chartData.length) return [1, 80];
     const vals = chartData.map((d) => d.silverBid);
     const min = Math.min(...vals);
     const max = Math.max(...vals);
-    const pad = Math.max((max - min) * 0.15, 1);
-    return [Math.floor((min - pad) * 10) / 10, Math.ceil((max + pad) * 10) / 10];
+    const pad = Math.max((max - min) * 0.12, 0.5);
+    return [
+      Math.max(0, parseFloat((min - pad).toFixed(2))),
+      parseFloat((max + pad).toFixed(2)),
+    ];
   }, [chartData]);
 
+  const isSynthetic = period !== "1D" && period !== "1W" && period !== "1M";
+
   if (isLoading) {
-    return <div className="h-[280px] rounded-xl bg-muted/30 animate-pulse" />;
+    return <div className="h-[300px] rounded-xl bg-muted/30 animate-pulse" />;
   }
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      {/* Legend + period tabs */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
         <div className="flex items-center gap-4 text-xs text-foreground/50">
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-0.5 bg-amber-500 inline-block rounded" /> Gold (left axis)
@@ -185,12 +223,16 @@ function SpotChart() {
             <span className="w-3 h-0.5 bg-slate-400 inline-block rounded" /> Silver (right axis)
           </span>
         </div>
-        <div className="flex gap-1">
-          {(["1W", "1M"] as const).map((p) => (
+        <div className="flex flex-wrap gap-1">
+          {PERIODS.map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${period === p ? "bg-foreground text-white" : "bg-muted text-foreground/50 hover:text-foreground"}`}
+              className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                period === p
+                  ? "bg-foreground text-white"
+                  : "bg-muted text-foreground/50 hover:text-foreground"
+              }`}
             >
               {p}
             </button>
@@ -198,7 +240,7 @@ function SpotChart() {
         </div>
       </div>
 
-      <ResponsiveContainer width="100%" height={280}>
+      <ResponsiveContainer width="100%" height={300}>
         <ComposedChart data={chartData} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
@@ -235,8 +277,8 @@ function SpotChart() {
             tick={{ fontSize: 10, fill: "#94A3B8" }}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v: number) => `$${v.toFixed(1)}`}
-            width={44}
+            tickFormatter={formatSilverTick}
+            width={46}
           />
           <Tooltip
             content={({ active, payload }) => {
@@ -245,17 +287,31 @@ function SpotChart() {
               const silver = payload.find((p) => p.dataKey === "silverBid");
               return (
                 <div className="bg-white border border-border/40 rounded-lg p-3 shadow-md text-xs">
-                  <p className="text-foreground/50 mb-1.5">{payload[0]?.payload?.label}</p>
-                  {gold && <p className="font-semibold text-amber-600">Gold: ${Number(gold.value).toLocaleString(undefined, { minimumFractionDigits: 2 })}</p>}
-                  {silver && <p className="font-semibold text-slate-500">Silver: ${Number(silver.value).toFixed(2)}</p>}
+                  <p className="text-foreground/50 mb-1.5">{payload[0]?.payload?.tooltipLabel}</p>
+                  {gold && (
+                    <p className="font-semibold text-amber-600">
+                      Gold: ${Number(gold.value).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </p>
+                  )}
+                  {silver && (
+                    <p className="font-semibold text-slate-500">
+                      Silver: ${Number(silver.value).toFixed(2)}
+                    </p>
+                  )}
                 </div>
               );
             }}
           />
-          <Area yAxisId="gold" type="monotone" dataKey="goldBid" stroke="#B5934F" strokeWidth={1.5} fill="url(#goldGrad)" dot={false} />
+          <Area yAxisId="gold"   type="monotone" dataKey="goldBid"   stroke="#B5934F" strokeWidth={1.5} fill="url(#goldGrad)"   dot={false} />
           <Area yAxisId="silver" type="monotone" dataKey="silverBid" stroke="#94A3B8" strokeWidth={1.5} fill="url(#silverGrad)" dot={false} />
         </ComposedChart>
       </ResponsiveContainer>
+
+      {isSynthetic && (
+        <p className="text-[10px] text-foreground/35 mt-3 text-right">
+          Historical data based on annual average market prices (LBMA/Kitco). Gold price was fixed until August 1971 (Bretton Woods). Monthly approximations shown.
+        </p>
+      )}
     </div>
   );
 }

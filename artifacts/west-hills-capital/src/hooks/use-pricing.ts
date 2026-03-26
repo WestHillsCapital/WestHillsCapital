@@ -186,15 +186,20 @@ export function useBuybackPrices() {
   });
 }
 
-export function useSpotHistory() {
+export type ChartPeriod = "1D" | "1W" | "1M" | "3M" | "6M" | "1Y" | "5Y" | "ALL";
+
+export function useSpotHistory(period: ChartPeriod = "1M") {
+  // Short periods update live; longer periods are historical and only need occasional refresh
+  const isLive = period === "1D" || period === "1W" || period === "1M";
+  const staleMs = isLive ? 60_000 : 10 * 60_000;
   return useQuery({
-    queryKey: ["/api/pricing/history"],
+    queryKey: ["/api/pricing/history", period],
     queryFn: async () => {
-      const res = await fetch("/api/pricing/history");
+      const res = await fetch(`/api/pricing/history?period=${period}`);
       if (!res.ok) throw new Error("Failed to fetch price history");
       return (await res.json()) as SpotHistoryResponse;
     },
-    staleTime: 5 * 60 * 1000,      // refresh every 5 minutes
-    refetchInterval: 5 * 60 * 1000,
+    staleTime: staleMs,
+    refetchInterval: staleMs,
   });
 }
