@@ -33,7 +33,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
 
           {/* HERO TEXT */}
-          <div className="text-center max-w-3xl mx-auto pt-10 pb-10">
+          <div className="text-center max-w-3xl mx-auto pt-10 pb-6">
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-serif font-semibold text-foreground leading-[1.1] mb-6">
               Physical Gold and Silver{" "}
               <span className="text-primary italic">— As True as Time.</span>
@@ -79,30 +79,29 @@ export default function Home() {
                     )}
                   </div>
 
-                  <CardContent className="p-5">
-                    <div className="text-xs text-foreground/40 font-medium mb-1 uppercase tracking-widest">
+                  <CardContent className="p-5 pt-4">
+                    <div className="text-[10px] text-foreground/35 font-medium mb-1 uppercase tracking-widest">
                       {product.weight} · {product.metal}
                     </div>
-                    <h3 className="text-base font-bold mb-4 leading-snug">{product.name}</h3>
+                    <h3 className="text-lg font-bold mb-3 leading-snug">{product.name}</h3>
 
-                    {/* PRICING — final price dominant, spot reference secondary */}
-                    <div className="mb-1">
-                      <div className="text-3xl font-serif font-semibold text-foreground mb-1">
-                        ${product.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                      </div>
-                    </div>
-                    <div className="space-y-1 mb-4 text-xs text-foreground/50">
-                      <div className="flex items-center justify-between">
-                        <span>{product.metal === "gold" ? "Gold Spot" : "Silver Spot"}</span>
-                        <span>${product.spotPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                      </div>
+                    <div className="text-3xl font-serif font-semibold text-foreground mb-3">
+                      ${product.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                     </div>
 
-                    <Link href="/schedule">
-                      <Button variant="outline" className="w-full h-9 text-sm border-primary/30 text-primary hover:bg-primary hover:text-white transition-colors">
-                        Discuss Purchase
-                      </Button>
-                    </Link>
+                    <div className="space-y-1.5 text-xs text-foreground/45 border-t border-border/30 pt-3">
+                      {product.iraEligible && (
+                        <div className="flex items-center gap-1.5 text-primary font-medium">
+                          <Shield className="w-3 h-3" /> IRA Eligible
+                        </div>
+                      )}
+                      {product.deliveryWindow && (
+                        <div className="flex justify-between">
+                          <span>Est. Delivery</span>
+                          <span>{product.deliveryWindow}</span>
+                        </div>
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
               ))}

@@ -18,7 +18,7 @@ export default function About() {
 
           <h2 className="text-2xl font-serif font-semibold text-foreground mt-12 mb-6">Led by Experience</h2>
           <p>
-            West Hills Capital was founded by professionals with decades of experience in capital markets, monetary policy, and hard asset execution. We built the firm around a simple philosophy: clients deserve complete pricing transparency, no high-pressure tactics, and a straightforward process from first call to final delivery.
+            West Hills Capital was founded by professionals with over a decade of experience in capital markets, monetary policy, and hard asset execution. We built the firm around a simple philosophy: clients deserve complete pricing transparency, no high-pressure tactics, and a straightforward process from first call to final delivery.
           </p>
 
           <h2 className="text-2xl font-serif font-semibold text-foreground mt-12 mb-6">Lessons That Endure</h2>
@@ -60,23 +60,23 @@ export default function About() {
       </div>
 
       {/* BOTTOM CTA */}
-      <div className="bg-foreground text-white mt-20 py-20">
+      <div className="border-t border-border/40 mt-20 py-16 bg-muted/30">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 text-center">
-          <h2 className="text-3xl font-serif font-semibold mb-5 text-white">
-            Ready to start a conversation?
+          <h2 className="text-2xl font-serif font-semibold mb-4 text-foreground">
+            We welcome the opportunity to speak with you.
           </h2>
-          <p className="text-white/65 text-lg mb-10 leading-relaxed">
-            Every allocation begins with a private call to review your objectives, confirm current pricing, and establish next steps. No automated execution. No pressure.
+          <p className="text-foreground/55 text-base mb-8 leading-relaxed max-w-xl mx-auto">
+            Every allocation begins with a private call — no pressure, no automated execution. Just an honest conversation about your objectives.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/schedule">
-              <Button size="lg" className="h-12 px-10 group">
+              <Button size="lg" className="h-11 px-9 group">
                 Schedule Allocation Call
                 <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
             <a href="tel:8008676768">
-              <Button variant="outline" size="lg" className="h-12 px-10 text-white border-white/20 hover:bg-white/10 hover:text-white">
+              <Button variant="outline" size="lg" className="h-11 px-9 bg-white">
                 <Phone className="mr-2 w-4 h-4" />
                 800-867-6768
               </Button>

@@ -1,0 +1,45 @@
+Please make a final polish pass on the current West Hills Capital website. Do NOT redesign the site or change the overall style. Focus on tightening spacing, reducing homepage clutter, improving credibility, and refining visual hierarchy.
+
+1. Homepage product cards
+- Remove the individual “Discuss Purchase” buttons from the 3 featured product cards on the homepage.
+- Keep only the two CTAs below the product section:
+  - Schedule Allocation Call
+  - View Full Live Pricing
+- The homepage product cards should function as informative product snapshots, not mini conversion modules.
+
+2. Homepage spacing
+- Tighten the vertical spacing between the hero text and the featured product cards.
+- Make the hero and product section feel more visually connected.
+- Preserve the clean, premium look.
+
+3. Product card hierarchy
+- Slightly increase the prominence of the final price.
+- Reduce the visual weight of small supporting text.
+- Improve spacing so the most important information is easiest to scan:
+  1. product name
+  2. final price
+  3. IRA eligibility and delivery
+
+
+
+4. About page credibility refinement
+- Change any wording implying “decades of experience” to “over a decade of experience” or equivalent language that is more precise and credible.
+- Keep the tone calm, authoritative, and grounded.
+
+5. Top market strip
+- Simplify the top live market strip.
+- Keep:
+  - Gold Spot
+  - Silver Spot
+  - Last Updated
+- Remove or reduce red/green intraday change figures if they make the site feel too much like a trading terminal.
+- Keep it calm and informative.
+
+6. About page CTA area
+- Soften the bottom dark CTA section slightly if it feels too visually heavy.
+- Keep the call-to-action, but make it feel more like a natural close than a hard sales push.
+
+7. Final overall pass
+- Review homepage, about page, and pricing page for consistency, spacing, and polish.
+- Preserve the current design language.
+- Focus on making the site feel more confident, intentional, and premium.
