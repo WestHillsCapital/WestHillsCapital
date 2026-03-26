@@ -14,7 +14,7 @@ export function Footer() {
             </p>
             <p className="text-sm font-medium text-white bg-white/5 inline-block px-4 py-2 rounded-lg border border-white/10">
               We will call you from{" "}
-              <strong className="text-primary tracking-wide ml-1">800-867-6768</strong>
+              <strong className="text-primary tracking-wide ml-1">(800) 867-6768</strong>
             </p>
           </div>
 
@@ -45,7 +45,7 @@ export function Footer() {
                 <Phone className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <div>
                   <a href="tel:8008676768" className="text-white hover:text-primary transition-colors block text-sm">
-                    800-867-6768
+                    (800) 867-6768
                   </a>
                 </div>
               </li>

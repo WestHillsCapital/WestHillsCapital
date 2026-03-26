@@ -78,7 +78,7 @@ export default function About() {
             <a href="tel:8008676768">
               <Button variant="outline" size="lg" className="h-11 px-9 bg-white">
                 <Phone className="mr-2 w-4 h-4" />
-                800-867-6768
+                (800) 867-6768
               </Button>
             </a>
           </div>

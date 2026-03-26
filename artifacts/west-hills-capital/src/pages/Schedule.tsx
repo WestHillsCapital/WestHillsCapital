@@ -88,7 +88,7 @@ export default function Schedule() {
             Tell us a bit about your intended purchase, then choose a time that works. We will call you to review pricing, answer questions, and confirm next steps.
           </p>
           <p className="text-sm font-medium text-foreground/60 bg-primary/8 border border-primary/20 inline-block px-4 py-2 rounded-lg">
-            We will call you from <strong className="text-primary">800-867-6768</strong>
+            We will call you from <strong className="text-primary">(800) 867-6768</strong>
           </p>
         </div>
 
@@ -262,7 +262,7 @@ export default function Schedule() {
                 During the call, we will review your intended allocation, confirm current pricing, and discuss execution steps. 
               </p>
               <p className="font-semibold text-foreground">
-                Reminder: Trades are executed only after verbal confirmation and receipt of cleared funds. We will call you from 800-867-6768.
+                Reminder: Trades are executed only after verbal confirmation and receipt of cleared funds. We will call you from (800) 867-6768.
               </p>
             </div>
           </Card>

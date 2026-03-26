@@ -76,7 +76,7 @@ export default function Disclosures() {
             <p>
               <strong className="text-foreground">Contact.</strong> For questions regarding this Privacy Policy or to request removal of your information, please contact us at{" "}
               <a href="mailto:info@westhillscapital.com" className="text-primary hover:underline">info@westhillscapital.com</a>{" "}
-              or call <a href="tel:8008676768" className="text-primary hover:underline">800-867-6768</a>.
+              or call <a href="tel:8008676768" className="text-primary hover:underline">(800) 867-6768</a>.
             </p>
           </section>
 

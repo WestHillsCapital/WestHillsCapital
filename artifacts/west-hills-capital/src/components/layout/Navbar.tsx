@@ -70,7 +70,7 @@ export function Navbar() {
           <div className="hidden md:flex items-center gap-4">
             <a href="tel:8008676768" className="flex items-center gap-2 text-foreground/80 hover:text-primary transition-colors text-sm font-medium">
               <Phone className="w-4 h-4" />
-              <span>800-867-6768</span>
+              <span>(800) 867-6768</span>
             </a>
             <Link href="/schedule">
               <Button>Schedule Allocation Call</Button>
@@ -106,7 +106,7 @@ export function Navbar() {
             <div className="h-px w-full bg-border my-2" />
             <a href="tel:8008676768" className="flex items-center justify-center gap-2 px-4 py-3 text-foreground font-medium bg-gray-50 rounded-lg">
               <Phone className="w-5 h-5 text-primary" />
-              800-867-6768
+              (800) 867-6768
             </a>
             <Link href="/schedule" className="w-full">
               <Button className="w-full h-12 text-base">Schedule Allocation Call</Button>

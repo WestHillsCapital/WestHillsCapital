@@ -233,7 +233,7 @@ export default function Home() {
             </Link>
             <a href="tel:8008676768">
               <Button variant="outline" size="lg" className="h-12 px-10 text-base bg-white">
-                Call 800-867-6768
+                Call (800) 867-6768
               </Button>
             </a>
           </div>
