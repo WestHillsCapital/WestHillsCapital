@@ -643,6 +643,79 @@ export const INSIGHTS: InsightArticle[] = [
       "why-people-overpay-for-gold-and-silver",
     ],
   },
+
+  // ─── ADD NEW ARTICLES BELOW THIS LINE ─────────────────────────────────────
+  //
+  // Copy the template below, remove the comment markers (/* and */),
+  // fill in all fields, and save. The article will appear automatically
+  // on /insights and at /insights/<your-slug>. No other files need editing.
+  //
+  // REQUIRED FIELDS: slug, title, excerpt, group, metaDescription, sections, related
+  //
+  // GROUP OPTIONS (use the id string exactly):
+  //   "understanding-pricing"
+  //   "making-smart-decisions"
+  //   "ownership-and-practicality"
+  //   "choosing-who-to-trust"
+  //
+  // SLUG RULES: lowercase, hyphens only, no spaces or special characters.
+  //   The slug becomes the URL: /insights/<slug>
+  //   Must be unique across all articles.
+  //
+  // RELATED ARTICLES: list up to 3 slugs of existing articles.
+  //   Slugs that do not match an existing article are silently ignored.
+  //   Order determines display order in the "Continue Reading" section.
+  //
+  /*
+  {
+    // URL path: /insights/<slug>
+    // Use lowercase letters and hyphens only. Must be unique.
+    slug: "your-article-slug-here",
+
+    // Displayed as the card title on /insights and the H1 on the article page.
+    title: "Your Article Title Here",
+
+    // 1–2 sentence summary. Shown on the hub card and below the article H1.
+    excerpt:
+      "A clear, concise summary of what this article covers and why it is useful.",
+
+    // Must exactly match one of the group id strings listed above.
+    group: "understanding-pricing",
+
+    // Used for SEO <meta name="description">. Keep under 160 characters.
+    metaDescription:
+      "A short description for search engines — ideally 120–155 characters.",
+
+    // Article body. Each object is one section (heading + paragraphs).
+    // The heading is optional — omit it for the opening section if preferred.
+    // Each string in paragraphs[] becomes its own <p> tag.
+    sections: [
+      {
+        heading: "Your First Section Heading",
+        paragraphs: [
+          "First paragraph of this section. Each string here is one paragraph.",
+          "Second paragraph. Add as many as needed.",
+        ],
+      },
+      {
+        heading: "Your Second Section Heading",
+        paragraphs: [
+          "Continue writing body copy here.",
+          "Each section can have as many paragraphs as needed.",
+        ],
+      },
+      // Add more sections by copying the { heading, paragraphs } block above.
+    ],
+
+    // Up to 3 slugs of other articles to show in "Continue Reading".
+    // Must match existing slugs exactly. Leave empty [] if none.
+    related: [
+      "what-spot-price-really-means",
+      "bullion-vs-proof-coins",
+    ],
+  },
+  */
+  // ─────────────────────────────────────────────────────────────────────────────
 ];
 
 export function getArticleBySlug(slug: string): InsightArticle | undefined {
