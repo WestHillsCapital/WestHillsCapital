@@ -26,6 +26,7 @@ export function Navbar() {
     { label: "Home", href: "/" },
     { label: "Live Pricing", href: "/pricing" },
     { label: "IRA Allocation", href: "/ira" },
+    { label: "Insights", href: "/insights" },
     { label: "About", href: "/about" },
   ];
 
@@ -58,7 +59,9 @@ export function Navbar() {
                 href={link.href}
                 className={cn(
                   "text-sm font-medium transition-colors hover:text-primary relative after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-primary after:transition-all hover:after:w-full",
-                  location === link.href ? "text-primary after:w-full" : "text-foreground/80"
+                  (link.href === "/" ? location === "/" : location.startsWith(link.href))
+                    ? "text-primary after:w-full"
+                    : "text-foreground/80"
                 )}
               >
                 {link.label}
@@ -97,7 +100,9 @@ export function Navbar() {
                 href={link.href}
                 className={cn(
                   "px-4 py-3 rounded-lg text-base font-medium",
-                  location === link.href ? "bg-primary/10 text-primary" : "text-foreground hover:bg-gray-50"
+                  (link.href === "/" ? location === "/" : location.startsWith(link.href))
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground hover:bg-gray-50"
                 )}
               >
                 {link.label}

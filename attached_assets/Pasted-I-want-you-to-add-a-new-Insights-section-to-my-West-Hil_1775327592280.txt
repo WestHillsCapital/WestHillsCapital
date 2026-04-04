@@ -1,0 +1,618 @@
+I want you to add a new Insights section to my West Hills Capital website.
+
+This should be a clean, trust-building educational content hub focused on truth, clarity, transparency, and practical education around gold, silver, pricing, premiums, IRA structure, and avoiding costly mistakes.
+
+The purpose of this section is to:
+
+Build trust with visitors
+
+Improve SEO and LLM discoverability
+
+Organize educational articles in a clean, professional way
+
+Position West Hills Capital as clear, calm, and anti-gimmick
+
+Create internal linking between articles so the content functions like an authority cluster
+
+Please implement this carefully and completely.
+
+Brand and style requirements
+
+The site voice should feel:
+
+clear
+
+calm
+
+confident
+
+educational
+
+transparent
+
+not salesy
+
+not hype-driven
+
+Avoid anything that feels:
+
+gimmicky
+
+loud
+
+cluttered
+
+overly “bloggy”
+
+like a media site
+
+flashy or ad-heavy
+
+This should feel like a professional, high-trust “Insights” library for serious buyers.
+
+Main task
+
+Add a new top-level navigation item called:
+
+Insights
+
+This should appear in the main site navigation/header.
+
+When clicked, it should go to a dedicated landing page for the Insights section.
+
+Required implementation
+1. Add the Insights nav item
+
+Add Insights to the main site header/navigation
+
+Place it in a natural spot alongside the rest of the main nav
+
+Make sure it works in both desktop and mobile nav
+
+Match the current site styling
+
+Ensure hover, focus, and active states match the rest of the site
+
+2. Create the Insights landing page
+
+Create a dedicated page at a clean URL such as:
+
+/insights
+
+This page should serve as the hub for all educational articles.
+
+Page goals
+
+Professional, simple, easy to scan
+
+Strong introductory copy
+
+Organized article groupings
+
+Each article shown as a card, list item, or clean summary block
+
+Easy internal navigation to each article
+
+Strong SEO structure
+
+Clean for AI/LLM parsing
+
+Insights page content structure
+Hero / intro section
+
+Add a simple, elegant intro section at the top of the Insights page.
+
+Suggested headline:
+
+Insights
+
+Suggested subheadline/body copy:
+
+Most people do not need more noise about gold and silver. They need clarity.
+
+This section is designed to help buyers understand pricing, products, ownership, and how to avoid costly mistakes—so they can make informed decisions with confidence.
+
+You can refine the wording slightly if needed to match the existing brand voice, but keep it simple, direct, and trust-building.
+
+Organize the articles into 4 content groups
+
+Please group the article cards into these sections with clean headings and short descriptive text.
+
+Group 1: Understanding Pricing
+
+Description:
+Educational articles that explain how gold and silver are priced, where premiums come from, and how buyers overpay.
+
+Articles:
+
+What Spot Price Really Means
+
+Why People Overpay for Gold and Silver
+
+Why “Free Silver” Is Never Free
+
+Group 2: Making Smart Decisions
+
+Description:
+Articles that help buyers think clearly about product choice, relative value, and long-term allocation.
+
+Articles:
+
+Bullion vs. Proof Coins: What Most Buyers Get Wrong
+
+What the Gold-to-Silver Ratio Actually Means
+
+When Does It Actually Make Sense to Adjust Between Gold and Silver?
+
+Why Pricing Everything in Dollars Can Be Misleading
+
+Group 3: Ownership and Practical Reality
+
+Description:
+Articles focused on what ownership actually looks like after purchase, including storage, logistics, and IRA structure.
+
+Articles:
+
+What Happens After You Buy Gold
+
+Gold vs. Silver: Storage, Transport, and Real-World Practicality
+
+Gold IRA: What Actually Happens Step-by-Step
+
+Group 4: Choosing Who to Trust
+
+Description:
+Articles focused on evaluating dealers, incentives, and how to protect yourself from costly decisions.
+
+Articles:
+
+The One Question Every Gold Buyer Should Ask
+
+How to Choose a Gold Dealer (Without Getting Burned)
+
+Article card requirements
+
+Each article on the Insights landing page should include:
+
+title
+
+short 1–2 sentence summary/excerpt
+
+clear click target
+
+optional “Read article” text link or subtle arrow icon
+
+consistent card style
+
+good spacing and readability
+
+Keep the card design simple and premium.
+
+Do not make this look like a news site.
+
+Do not use loud category colors unless they already match the brand.
+
+Prefer a clean white background, subtle border/shadow, strong typography, and restrained spacing.
+
+Article detail pages
+
+Create individual article pages for each of the 12 articles.
+
+Use clean slugs, for example:
+
+/insights/what-spot-price-really-means
+
+/insights/why-people-overpay-for-gold-and-silver
+
+/insights/why-free-silver-is-never-free
+
+/insights/bullion-vs-proof-coins
+
+/insights/what-the-gold-to-silver-ratio-actually-means
+
+/insights/when-does-it-actually-make-sense-to-adjust-between-gold-and-silver
+
+/insights/why-pricing-everything-in-dollars-can-be-misleading
+
+/insights/what-happens-after-you-buy-gold
+
+/insights/gold-vs-silver-storage-transport-and-real-world-practicality
+
+/insights/gold-ira-what-actually-happens-step-by-step
+
+/insights/the-one-question-every-gold-buyer-should-ask
+
+/insights/how-to-choose-a-gold-dealer-without-getting-burned
+
+If the codebase already uses a blog/article system, integrate with that cleanly instead of hardcoding if possible.
+
+If not, create a lightweight article data structure that makes it easy to add or edit articles later.
+
+Use these article titles and summaries
+
+Please use the following summaries on the Insights landing page unless the site’s layout requires small refinements:
+
+What Spot Price Really Means
+
+Learn what spot price actually is, where it comes from, and why it does not tell the whole story for physical gold and silver buyers.
+
+Why People Overpay for Gold and Silver
+
+A practical look at where buyers lose money, how hidden markups work, and how to avoid paying too much for the wrong products.
+
+Why “Free Silver” Is Never Free
+
+Understand how “free silver” promotions are usually priced into the deal and what they really cost buyers.
+
+Bullion vs. Proof Coins: What Most Buyers Get Wrong
+
+A clear explanation of why bullion usually makes more sense for investors, while proof coins are generally better suited for collectors.
+
+What the Gold-to-Silver Ratio Actually Means
+
+A simple explanation of what the gold-to-silver ratio measures, what it can tell you, and what it cannot.
+
+When Does It Actually Make Sense to Adjust Between Gold and Silver?
+
+A grounded look at when small, thoughtful allocation adjustments may make sense—and when they do not.
+
+Why Pricing Everything in Dollars Can Be Misleading
+
+Why comparing assets only in dollars can hide important relationships, and how relative pricing can offer better perspective.
+
+What Happens After You Buy Gold
+
+A practical overview of what ownership looks like after purchase, including storage, liquidity, insurance, and planning.
+
+Gold vs. Silver: Storage, Transport, and Real-World Practicality
+
+A practical comparison of what it is actually like to own, store, move, and manage gold versus silver.
+
+Gold IRA: What Actually Happens Step-by-Step
+
+A straightforward explanation of the self-directed IRA process, from rollover to storage.
+
+The One Question Every Gold Buyer Should Ask
+
+The single most useful question a buyer can ask to understand real cost, spread, and transparency.
+
+How to Choose a Gold Dealer (Without Getting Burned)
+
+A trust-focused guide to understanding incentives, evaluating dealers, and avoiding confusing or high-margin sales tactics.
+
+Internal linking requirements
+
+This is important.
+
+Each article page should include a “Related Insights” or “Continue Reading” section near the bottom with 2–4 related articles.
+
+Please wire internal linking based on this structure:
+
+What Spot Price Really Means
+
+Related:
+
+Why People Overpay for Gold and Silver
+
+Bullion vs. Proof Coins: What Most Buyers Get Wrong
+
+What the Gold-to-Silver Ratio Actually Means
+
+Why People Overpay for Gold and Silver
+
+Related:
+
+What Spot Price Really Means
+
+Bullion vs. Proof Coins: What Most Buyers Get Wrong
+
+Why “Free Silver” Is Never Free
+
+What Happens After You Buy Gold
+
+Why “Free Silver” Is Never Free
+
+Related:
+
+Why People Overpay for Gold and Silver
+
+Bullion vs. Proof Coins: What Most Buyers Get Wrong
+
+What Spot Price Really Means
+
+Bullion vs. Proof Coins: What Most Buyers Get Wrong
+
+Related:
+
+Why People Overpay for Gold and Silver
+
+What Spot Price Really Means
+
+How to Choose a Gold Dealer (Without Getting Burned)
+
+What the Gold-to-Silver Ratio Actually Means
+
+Related:
+
+When Does It Actually Make Sense to Adjust Between Gold and Silver?
+
+Why Pricing Everything in Dollars Can Be Misleading
+
+What Spot Price Really Means
+
+When Does It Actually Make Sense to Adjust Between Gold and Silver?
+
+Related:
+
+What the Gold-to-Silver Ratio Actually Means
+
+Gold vs. Silver: Storage, Transport, and Real-World Practicality
+
+Why Pricing Everything in Dollars Can Be Misleading
+
+Why Pricing Everything in Dollars Can Be Misleading
+
+Related:
+
+What the Gold-to-Silver Ratio Actually Means
+
+When Does It Actually Make Sense to Adjust Between Gold and Silver?
+
+What Spot Price Really Means
+
+What Happens After You Buy Gold
+
+Related:
+
+Gold vs. Silver: Storage, Transport, and Real-World Practicality
+
+Gold IRA: What Actually Happens Step-by-Step
+
+Why People Overpay for Gold and Silver
+
+Gold vs. Silver: Storage, Transport, and Real-World Practicality
+
+Related:
+
+What Happens After You Buy Gold
+
+When Does It Actually Make Sense to Adjust Between Gold and Silver?
+
+Why People Overpay for Gold and Silver
+
+Gold IRA: What Actually Happens Step-by-Step
+
+Related:
+
+What Happens After You Buy Gold
+
+Why People Overpay for Gold and Silver
+
+Bullion vs. Proof Coins: What Most Buyers Get Wrong
+
+The One Question Every Gold Buyer Should Ask
+
+Related:
+
+Why People Overpay for Gold and Silver
+
+Bullion vs. Proof Coins: What Most Buyers Get Wrong
+
+How to Choose a Gold Dealer (Without Getting Burned)
+
+How to Choose a Gold Dealer (Without Getting Burned)
+
+Related:
+
+The One Question Every Gold Buyer Should Ask
+
+Bullion vs. Proof Coins: What Most Buyers Get Wrong
+
+Why People Overpay for Gold and Silver
+
+Add article page footer CTA
+
+At the bottom of each article page, add a subtle, professional CTA section.
+
+Suggested copy:
+
+Need help thinking it through?
+
+If you have questions about pricing, products, or how to structure a purchase, we’re happy to walk you through it clearly.
+No pressure. No gimmicks. Just straightforward answers.
+
+Include a button or text link to the site’s contact page or consultation flow.
+
+Make sure this is understated and elegant, not aggressive.
+
+SEO requirements
+
+Please implement strong basic SEO for the Insights section.
+
+For each article page:
+
+unique page title
+
+meta description
+
+canonical URL if the framework supports it
+
+semantic heading structure (H1, H2, etc.)
+
+clean slug
+
+structured, readable layout
+
+Suggested page title pattern:
+
+[Article Title] | West Hills Capital Insights
+
+Suggested meta description pattern:
+
+Use the summary/excerpt for each article and refine for readability.
+
+Also:
+
+Make sure the Insights landing page has a strong title and meta description
+
+Ensure article cards use crawlable links
+
+Avoid JS-only hidden routing if it harms indexing
+
+If sitemap generation exists, include the new pages
+
+If RSS/blog schema/article schema exists, integrate with it if reasonable
+
+LLM / AI discoverability requirements
+
+Please structure this so the content is clean and parseable by AI systems:
+
+clear headings
+
+article titles visible in HTML
+
+article summaries in text, not images
+
+related article sections rendered as text links
+
+avoid burying content in inaccessible widgets
+
+use readable semantic markup
+
+Design requirements
+
+Please make the Insights section feel consistent with the rest of the West Hills Capital site.
+
+Visual priorities:
+
+premium
+
+trustworthy
+
+legible
+
+uncluttered
+
+mobile-friendly
+
+desktop-friendly
+
+Avoid:
+
+oversized animations
+
+loud cards
+
+excessive gradients
+
+busy blog/news patterns
+
+unnecessary category badges unless tasteful
+
+Favor:
+
+clean typography
+
+strong spacing
+
+restrained hover states
+
+subtle separators
+
+elegant card/list layout
+
+white or neutral backgrounds
+
+calm gold/charcoal accents only if already on-brand
+
+Mobile responsiveness
+
+Make sure the Insights landing page and article pages look excellent on mobile.
+
+Requirements:
+
+stacked layout on small screens
+
+readable article excerpts
+
+navigation still clear
+
+no cramped cards
+
+strong tap targets
+
+Technical preference
+
+If possible, create this in a maintainable way.
+
+Preferred approach:
+
+central article data source
+
+reusable article card component
+
+reusable article layout template
+
+reusable related-articles component
+
+reusable CTA component
+
+If the site already uses components or a CMS pattern, follow the existing architecture instead of inventing a disconnected system.
+
+Final deliverables
+
+Please complete all of the following:
+
+Add the Insights nav item to the main header
+
+Create the /insights landing page
+
+Create all 12 article pages
+
+Add summaries/excerpts for each article
+
+Add related article sections/internal links
+
+Add bottom CTA section to each article
+
+Add SEO metadata for all pages
+
+Ensure responsive layout
+
+Keep styling consistent with West Hills Capital
+
+Make the implementation easy to extend later
+
+After completing, please show me:
+
+the files you created or modified
+
+the routes added
+
+where article data is stored
+
+any content I still need to manually paste in
+
+If some article body copy still needs to be inserted manually, create the full structure and placeholders in a way that makes adding the final copy easy.
+
+If the site does not yet have a blog/article architecture
+
+Then please:
+
+create a lightweight Insights content system
+
+use a structured data file for article metadata
+
+create article content components or markdown/MDX files if appropriate
+
+make it easy to add more articles later
+
+Important content goal
+
+This section is not meant to look like a generic blog.
+
+It should feel like:
+
+a clear, permanent educational library for serious buyers
+
+Please optimize for trust, clarity, simplicity, and structure.

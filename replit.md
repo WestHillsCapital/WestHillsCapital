@@ -6,7 +6,25 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 
 ## Project: West Hills Capital
 
-West Hills Capital is a physical gold and silver allocation company. The website is a production-ready, 6-page site with live Dillon Gage pricing, a 2-step appointment scheduling flow, and an IRA allocation section. Primary CTA is "Schedule Allocation Call" — phone 800-867-6768.
+West Hills Capital is a physical gold and silver allocation company. The website is a production-ready site with live Dillon Gage pricing, a 2-step appointment scheduling flow, an IRA allocation section, and a 12-article Insights educational hub. Primary CTA is "Schedule Allocation Call" — phone (800) 867-6768.
+
+### Pages / Routes
+- `/` — Home
+- `/pricing` — Live Pricing (spot stats, 8-period chart, product cards, buyback table)
+- `/schedule` — Schedule Allocation Call (2-step form)
+- `/ira` — IRA Allocation
+- `/about` — About
+- `/disclosures` — Disclosures
+- `/insights` — Insights hub (12 articles across 4 topic groups)
+- `/insights/:slug` — Individual article pages
+
+### Insights Section
+- **Data file**: `artifacts/west-hills-capital/src/data/insights.ts` — all article metadata, body content, group assignments, and related-article wiring
+- **Landing page**: `src/pages/Insights.tsx`
+- **Article page**: `src/pages/InsightArticle.tsx` (dynamic, uses slug routing)
+- 4 topic groups: Understanding Pricing | Making Smart Decisions | Ownership and Practical Reality | Choosing Who to Trust
+- 12 articles with full body copy, section headings, excerpts, and related-article internal links
+- Each article has a bottom CTA linking to `/schedule`
 
 ## Stack
 
