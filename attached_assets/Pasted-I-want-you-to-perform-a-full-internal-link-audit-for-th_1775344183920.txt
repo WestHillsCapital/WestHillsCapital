@@ -1,0 +1,236 @@
+I want you to perform a full internal link audit for the West Hills Capital Insights system.
+
+The goal is to make sure the 12 Insights articles function as a coherent authority cluster for:
+
+user navigation
+
+SEO
+
+AI/LLM discoverability
+
+trust-building
+
+conversion flow
+
+Please audit the current implementation across:
+
+artifacts/west-hills-capital/src/data/insights.ts
+
+src/pages/Insights.tsx
+
+src/pages/InsightArticle.tsx
+
+any related components used for article cards, related articles, or CTA sections
+
+Audit goals
+
+I want you to verify:
+
+Every one of the 12 articles is properly connected into the cluster
+
+Related article sections are working correctly and displaying valid articles
+
+No article is isolated or weakly connected
+
+Related links make strategic sense, not just technical sense
+
+The overall internal linking structure supports the content map we intended:
+
+Understanding Pricing
+
+Making Smart Decisions
+
+Ownership and Practical Reality
+
+Choosing Who to Trust
+
+Please check the following in detail
+1. Slug integrity
+
+Verify every related slug in insights.ts matches a real article
+
+Identify any missing, misspelled, duplicated, or ignored slugs
+
+Confirm no article references itself in related
+
+Confirm no article object is unreachable by slug
+
+2. Related article coverage
+
+For each of the 12 articles:
+
+list its current related article links
+
+confirm they render correctly
+
+assess whether the related set is strategically strong
+
+identify any article with weak or unbalanced related coverage
+
+3. Cluster logic
+
+Audit whether the current related links actually support a good cluster structure.
+
+I want the cluster to behave like this:
+
+Understanding Pricing
+
+What Spot Price Really Means
+
+Why People Overpay for Gold and Silver
+
+Why “Free Silver” Is Never Free
+
+Making Smart Decisions
+
+Bullion vs. Proof Coins: What Most Buyers Get Wrong
+
+What the Gold-to-Silver Ratio Actually Means
+
+When Does It Actually Make Sense to Adjust Between Gold and Silver?
+
+Why Pricing Everything in Dollars Can Be Misleading
+
+Ownership and Practical Reality
+
+What Happens After You Buy Gold
+
+Gold vs. Silver: Storage, Transport, and Real-World Practicality
+
+Gold IRA: What Actually Happens Step-by-Step
+
+Choosing Who to Trust
+
+The One Question Every Gold Buyer Should Ask
+
+How to Choose a Gold Dealer (Without Getting Burned)
+
+Please assess:
+
+whether each article links logically within its cluster
+
+whether there are enough cross-cluster bridges
+
+whether the highest-value entry articles point users deeper into the system
+
+whether the higher-conversion trust articles are adequately supported by upstream educational articles
+
+4. Hub page support
+
+Audit the /insights landing page and tell me:
+
+whether all 12 articles appear in the correct group
+
+whether the grouping is accurate and helpful
+
+whether any article belongs in a better group
+
+whether the page creates strong discovery paths into the cluster
+
+5. User journey logic
+
+I want you to think like a serious first-time buyer.
+
+Please evaluate whether the current internal links guide a user naturally from:
+
+basic pricing understanding
+
+to better decision-making
+
+to ownership/logistics
+
+to choosing a dealer
+
+Identify any missing bridges in that journey.
+
+6. Conversion path logic
+
+Audit whether the current article relationships support the subtle conversion flow.
+
+Specifically:
+
+do pricing articles lead naturally into trust articles?
+
+do trust articles connect back to educational proof?
+
+do practical ownership articles strengthen confidence before contact?
+
+are there any obvious opportunities to improve the flow toward the CTA without becoming salesy?
+
+7. LLM / AI retrieval strength
+
+Evaluate whether the internal linking pattern helps AI systems understand:
+
+article relationships
+
+topical authority
+
+category hierarchy
+
+which pages are foundational vs supporting
+
+If not, recommend improvements.
+
+Output format
+
+Please give me:
+
+Part 1 — Current link map
+
+For each of the 12 articles:
+
+title
+
+slug
+
+group
+
+current related links
+
+Part 2 — Problems found
+
+List:
+
+broken slug references
+
+weakly connected articles
+
+isolated or under-supported articles
+
+any article whose related links should be improved
+
+Part 3 — Recommended improvements
+
+For each article that needs improvement:
+
+show the current related slugs
+
+show the recommended related slugs
+
+explain why the change improves the cluster
+
+Part 4 — Overall cluster assessment
+
+Give me a high-level verdict:
+
+Is the Insights system currently functioning as a strong internal-link authority cluster?
+
+What is strong?
+
+What is still missing?
+
+What should be fixed first?
+
+Important constraints
+
+Do not change any files yet.
+
+This is an audit only.
+
+I want analysis and recommendations first.
+
+If you think the current internal links are already strong, say so clearly.
+
+If you think a different related-link structure would perform better, recommend it precisely.
+
+Focus on clarity, strategy, and accuracy.
