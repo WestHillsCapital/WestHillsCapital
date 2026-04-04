@@ -310,37 +310,132 @@ export const INSIGHTS: InsightArticle[] = [
     slug: "why-free-silver-is-never-free",
     title: "Why \"Free Silver\" Is Never Free",
     excerpt:
-      "Understand how \"free silver\" promotions are usually priced into the deal and what they really cost buyers.",
+      "Understand how free silver promotions are usually priced into the deal and what they really cost buyers.",
     group: "understanding-pricing",
     metaDescription:
-      "Free silver promotions are a common tactic in the precious metals industry. Here is how to evaluate them and what they actually cost.",
+      "Learn why free silver promotions are rarely free, where the cost is hidden, and how to evaluate precious metals offers more clearly.",
     sections: [
       {
-        heading: "The Promotion Sounds Better Than It Is",
+        heading: "Why these offers sound so appealing",
         paragraphs: [
-          "\"Buy one ounce of gold and receive free silver\" is a common promotional offer in the precious metals industry. It sounds like a genuine bonus. In practice, it rarely is.",
-          "The silver is not free. Its cost has simply been moved from a visible line item into the price of the gold. You are paying for it — you just cannot see where.",
+          "If you have spent any time looking into gold or silver, you have probably seen offers like free silver with your purchase, bonus coins included, or no fees plus free metal.",
+          "At first glance, it sounds like a great deal.",
+          "Who does not want something for free?",
+          "But in precious metals, there is a simple reality: nothing is free.",
         ],
       },
       {
-        heading: "How the Pricing Usually Works",
+        heading: "Why these offers exist",
         paragraphs: [
-          "Dealers who run these promotions typically price their gold at a higher premium than they otherwise would. If a dealer's normal gold price carries a 4% premium over spot, a \"free silver\" promotion might carry a 7–10% premium instead. The difference covers — and usually exceeds — the cost of the silver being offered.",
-          "Because buyers often do not calculate premiums carefully, and because the silver feels like a bonus, the mental framing works. The total cost looks appealing even when the per-ounce economics are worse than a straightforward purchase.",
+          "Precious metals dealers are businesses.",
+          "They make money through premiums, spreads, and product selection.",
+          "So when a company offers free silver, they are not losing money.",
+          "They are restructuring the transaction.",
         ],
       },
       {
-        heading: "How to Evaluate Any Promotion",
+        heading: "Where the cost actually shows up",
         paragraphs: [
-          "The evaluation is straightforward if you are willing to do the math. Calculate the total cost you are being asked to pay. Subtract the fair market value of the silver being offered (quantity × current spot, plus a reasonable premium). Divide the remainder by the number of gold ounces you are receiving. Compare that price to what you would pay for gold alone from the same or a competing dealer.",
-          "If the effective price per gold ounce is higher with the promotion than without it, the silver was not free.",
+          "The cost is usually built into one or more parts of the deal.",
+          "Sometimes it shows up as higher premiums on the main purchase.",
+          "Sometimes it shows up through product substitution into higher-margin coins.",
+          "Sometimes it shows up later in the form of wider buy-sell spreads.",
         ],
       },
       {
-        heading: "Simpler Alternatives",
+        heading: "Higher premiums on the main purchase",
         paragraphs: [
-          "If you want both gold and silver, buy both separately at transparent prices. Ask each dealer for their all-in price per ounce for each metal. Compare. Combine the purchases you want at the best available prices.",
-          "This approach is simpler, more transparent, and usually more economical than a bundled promotion. The metal you want is the same — the framing is just cleaner.",
+          "Instead of clearly pricing the metal, the dealer increases the premium on the gold, silver, or IRA metals being sold.",
+          "That added margin quietly pays for the free silver and often more.",
+        ],
+      },
+      {
+        heading: "Product substitution",
+        paragraphs: [
+          "You may be steered into higher-commission products, proof coins, numismatics, or less liquid items.",
+          "This allows the dealer to increase profit while presenting the offer as a benefit.",
+        ],
+      },
+      {
+        heading: "Wider buy-sell spreads",
+        paragraphs: [
+          "Even if the purchase looks reasonable upfront, the real cost may show up later.",
+          "When you sell, a larger spread means you receive significantly less than what you paid.",
+          "That is where the difference becomes clear.",
+        ],
+      },
+      {
+        heading: "A simple way to see through it",
+        paragraphs: [
+          "Ask yourself one question: if the silver is free, where is the profit coming from?",
+          "Because it has to come from somewhere.",
+          "And in most cases, it comes from you, just not in an obvious way.",
+        ],
+      },
+      {
+        heading: "The math most people do not do",
+        paragraphs: [
+          "Two buyers can each spend the same amount of money.",
+          "One receives free silver. The other does not.",
+          "But if the second buyer pays lower premiums, gets more ounces, and has cleaner pricing, that buyer may end up with more total metal and better value even without anything labeled free.",
+        ],
+      },
+      {
+        heading: "Why these offers work",
+        paragraphs: [
+          "They appeal to something simple: people like getting a deal.",
+          "And free is one of the strongest triggers in any market.",
+          "It shifts attention away from price per ounce, total ounces received, and actual value, and toward perceived gain.",
+          "That is where mistakes happen.",
+        ],
+      },
+      {
+        heading: "This is where many people overpay",
+        paragraphs: [
+          "Most buyers do not realize they overpaid because the transaction feels positive.",
+          "They received something extra. The presentation feels generous.",
+          "But later, when comparing values or trying to sell, the difference becomes clear.",
+          "By then, the pricing has already been locked in.",
+        ],
+      },
+      {
+        heading: "What to focus on instead",
+        paragraphs: [
+          "When buying gold or silver, ignore the extras.",
+          "Focus on total ounces received, price relative to spot, product type, and resale reality.",
+          "That is where the real value is.",
+        ],
+      },
+      {
+        heading: "A better question to ask",
+        paragraphs: [
+          "Instead of asking what am I getting for free, ask how much metal am I actually getting for my money.",
+          "That question cuts through almost everything.",
+        ],
+      },
+      {
+        heading: "When free might actually make sense",
+        paragraphs: [
+          "There are rare cases where promotions are modest and transparent.",
+          "But even then, they should be evaluated the same way.",
+          "What is the total cost, what is the total metal received, and how does it compare to a straightforward purchase?",
+          "If the answer is not clear, the offer probably is not either.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Free silver sounds like a benefit.",
+          "But in most cases, it is just a different way of packaging the same transaction, often at a higher cost.",
+          "Clarity removes that illusion.",
+        ],
+      },
+      {
+        heading: "Final thought",
+        paragraphs: [
+          "The goal is not to feel like you got a deal.",
+          "It is to own as much real metal as possible at a fair price.",
+          "Once you focus on that, most of these offers become much easier to evaluate.",
         ],
       },
     ],
@@ -629,41 +724,127 @@ export const INSIGHTS: InsightArticle[] = [
       "A practical overview of what ownership looks like after purchase, including storage, liquidity, insurance, and planning.",
     group: "ownership-and-practicality",
     metaDescription:
-      "Gold ownership does not end at purchase. Here is a practical guide to what happens next — storage, insurance, liquidity, and long-term planning.",
+      "Learn what happens after you buy gold, including storage, access, liquidity, insurance, documentation, and practical ownership decisions.",
     sections: [
       {
-        heading: "Ownership Is More Than Possession",
+        heading: "Buying is the beginning, not the end",
         paragraphs: [
-          "Buying physical gold is the beginning of a relationship with the metal, not the end of the decision process. What you do with it after purchase — where you store it, how you insure it, how you plan to use or liquidate it — matters as much as the purchase itself.",
-          "Most buyers think carefully about price. Fewer think carefully about what comes next.",
+          "Buying gold or silver feels like a finish line.",
+          "In reality, it is the starting point.",
+          "Most people spend their time thinking about when to buy, what to buy, and how much to buy.",
+          "Very few think about what comes next.",
         ],
       },
       {
-        heading: "Storage Options",
+        heading: "The first thing that happens",
         paragraphs: [
-          "Physical gold can be stored at home, in a bank safe deposit box, or in a professional third-party depository. Each option has different implications for cost, accessibility, and risk.",
-          "Home storage gives you immediate access but creates insurance and security challenges. A bank safe deposit box is inexpensive but may not be fully insured by the bank and is not accessible outside banking hours. A professional depository — typically used for IRA-held metals or larger positions — offers institutional-grade security and insurance but involves ongoing fees and reduced direct access.",
+          "After your purchase, one of two things usually happens.",
+          "Either the metals are delivered directly to you, or they are stored through a custodian or depository structure, such as in an IRA.",
+          "That distinction matters because ownership is not just about buying. It is about control, access, and structure.",
         ],
       },
       {
-        heading: "Insurance",
+        heading: "If you take direct delivery",
         paragraphs: [
-          "Standard homeowner's and renter's insurance policies have low limits for precious metals — often $1,000–$2,500. If you are storing significant value at home, a rider or separate precious metals policy is worth considering.",
-          "Depository storage typically includes full insurance as part of the storage fee. If you store at home or in a bank box, verify your coverage carefully.",
+          "If your metals are shipped to you, you are responsible for storage, security, and access.",
+          "That does not make ownership difficult, but it does make it real.",
+          "You now have a physical asset that has to be stored intentionally.",
         ],
       },
       {
-        heading: "Liquidity — Selling When You Want To",
+        heading: "If the metals are held in an IRA or custodial structure",
         paragraphs: [
-          "Physical gold is liquid relative to most tangible assets, but it is not as liquid as a stock or ETF. To sell, you need to identify a buyer — typically a dealer — who will quote you a buyback price, arrange for the physical transfer of the metal, and process payment.",
-          "This process can take a few days. If you need funds quickly, the timeline matters. Planning for eventual liquidity before you need it — knowing which dealer you would call and what their process looks like — is worth doing early.",
+          "If you purchased through a retirement account, the metals are typically stored in a depository and administered by a custodian.",
+          "You do not physically hold the metal, but you retain ownership through the account structure.",
         ],
       },
       {
-        heading: "Estate and Long-Term Planning",
+        heading: "The question most people have not answered",
         paragraphs: [
-          "Physical gold does not appear in brokerage statements. It does not have automatic beneficiary designations. If something happens to you, your heirs need to know it exists, where it is, and how to access it.",
-          "Make sure the location and access details are documented somewhere trusted — whether in a will, a letter of instruction, or another secure document. This is a small step that matters significantly to the people who come after you.",
+          "Where will this be stored, and how will I access it if I need it?",
+          "That is one of the most important practical questions a buyer can ask.",
+          "Because ownership is not just about buying. It is about knowing where the metal is and how you get to it.",
+        ],
+      },
+      {
+        heading: "Storage matters",
+        paragraphs: [
+          "Once you own physical metals, storage becomes part of the equation.",
+          "Home storage offers immediate access and full control, but it requires proper security, planning, and discretion.",
+          "Private vaults and depositories can offer strong security and insurance options, but they come with cost and dependence on a third party.",
+        ],
+      },
+      {
+        heading: "Bank safe deposit boxes are not a simple answer",
+        paragraphs: [
+          "Bank safe deposit boxes are often assumed to be the safe option, but they come with tradeoffs many people do not fully understand.",
+          "Access is limited to bank hours. Closures and bank holidays can create restrictions. Insurance is often assumed, but not always present the way people think. Proving what was inside can also be difficult if something goes wrong.",
+          "Because of these limitations, some investors choose to avoid them entirely.",
+        ],
+      },
+      {
+        heading: "Gold and silver behave differently after purchase",
+        paragraphs: [
+          "This surprises a lot of people.",
+          "Gold and silver may trade in the same market, but they live very differently in the real world.",
+          "Gold concentrates a lot of value in a small space. Silver requires far more room and weight to store the same value.",
+          "That affects storage, transport, and ease of liquidation.",
+        ],
+      },
+      {
+        heading: "Liquidity is real, but not instant",
+        paragraphs: [
+          "Physical metals are liquid, but not in the way stocks are.",
+          "You do not click a button and sell instantly.",
+          "You contact a dealer, agree on a price, ship or deliver the metals, and then receive payment.",
+          "The process is straightforward, but it is not instant.",
+        ],
+      },
+      {
+        heading: "Pricing when you sell",
+        paragraphs: [
+          "When you sell, you receive the market price minus the dealer spread.",
+          "That spread is normal.",
+          "But this is where earlier decisions matter.",
+          "If you overpaid upfront through high premiums or the wrong product choice, that gap becomes much more visible when you sell.",
+        ],
+      },
+      {
+        heading: "Documentation and insurance",
+        paragraphs: [
+          "After purchase, it is worth thinking through whether you have documentation of what you own, whether it is insured appropriately, and whether someone else would know how to access it if needed.",
+          "These are not urgent questions, but they are important ones.",
+        ],
+      },
+      {
+        heading: "Shipping and movement",
+        paragraphs: [
+          "If you ever move or sell your metals, logistics matter.",
+          "Best practices include discreet packaging, insured shipping, signature confirmation, and minimal disclosure.",
+          "Physical assets require physical handling, and planning ahead makes that easier.",
+        ],
+      },
+      {
+        heading: "The bigger shift",
+        paragraphs: [
+          "Buying gold is not just a transaction. It is a shift.",
+          "From digital balances and paper claims to physical ownership and personal responsibility.",
+          "That is not complicated, but it is different.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Buying gold or silver is not the end of the process. It is the beginning of ownership.",
+          "And ownership comes with a few simple responsibilities: know where it is, know how it is stored, know how to access it, and know how to sell it.",
+        ],
+      },
+      {
+        heading: "Final thought",
+        paragraphs: [
+          "Most people focus on the moment they buy. Very few think about what happens after.",
+          "But the people who do make better decisions, avoid surprises, and feel more confident in what they own.",
+          "Because clarity does not stop at the purchase. That is where it actually begins.",
         ],
       },
     ],
@@ -733,48 +914,113 @@ export const INSIGHTS: InsightArticle[] = [
       "A straightforward explanation of the self-directed IRA process, from rollover to storage.",
     group: "ownership-and-practicality",
     metaDescription:
-      "Confused about how a gold IRA actually works? Here is a clear, step-by-step explanation of the process from account opening to physical storage.",
+      "Learn how a gold IRA actually works step by step, from opening a self-directed IRA to funding, purchasing metals, and storage.",
     sections: [
       {
-        heading: "What a Gold IRA Actually Is",
+        heading: "Most people hear the pitch, not the process",
         paragraphs: [
-          "A \"gold IRA\" is a self-directed Individual Retirement Account that holds physical precious metals rather than — or in addition to — stocks, bonds, and mutual funds. The tax treatment is the same as a traditional or Roth IRA. The difference is that a specialized custodian holds the account, and the physical metal is stored at an IRS-approved depository.",
-          "You do not take direct possession of the metals while they are in an IRA. The structure exists to maintain the tax-advantaged status of the account.",
+          "When people consider moving retirement funds into gold, they usually hear language about protecting retirement, diversifying a portfolio, or hedging against inflation.",
+          "What they rarely hear is what the process actually looks like.",
+          "So let us walk through it simply.",
         ],
       },
       {
-        heading: "Step 1: Open a Self-Directed IRA",
+        heading: "Step 1: open a self-directed IRA",
         paragraphs: [
-          "Standard IRA custodians — brokerages, banks — do not hold physical metals. To hold gold or silver in an IRA, you need a self-directed IRA custodian that specializes in alternative assets. Your dealer can typically recommend custodians they work with regularly.",
-          "Opening the account involves the same documentation as any IRA: identity verification, beneficiary designations, and account agreements.",
+          "A standard IRA usually allows investments like stocks, bonds, and mutual funds.",
+          "To own physical metals in a retirement structure, you typically need a self-directed IRA.",
+          "That allows broader investment options, including physical gold and silver.",
         ],
       },
       {
-        heading: "Step 2: Fund the Account",
+        heading: "Step 2: a custodian is required",
         paragraphs: [
-          "Most people fund a gold IRA through a rollover from an existing 401(k), 403(b), or traditional IRA. This is typically a tax-free transfer when handled correctly — the custodian handles the movement of funds directly between institutions.",
-          "You can also make a new contribution, subject to annual IRS contribution limits. For most buyers doing rollovers, the process takes one to three weeks from start to funded account.",
+          "A custodian administers the account, handles reporting, and helps keep the structure compliant.",
+          "This part is important: the custodian does not usually sell you the metals, and the custodian does not usually store the metals directly.",
+          "They facilitate the structure.",
         ],
       },
       {
-        heading: "Step 3: Purchase the Metals",
+        heading: "Step 3: fund the account",
         paragraphs: [
-          "Once the account is funded, you direct the custodian to purchase specific IRS-approved metals from an approved dealer. Not all metals are eligible — the IRS requires a minimum purity of .995 for gold (.999 for silver), which American Eagles, Buffalos, and most major bullion coins meet.",
-          "The purchase is made in your name through the custodian. You confirm the product, the quantity, and the price. The metals are then shipped directly to the depository.",
+          "This usually happens through a rollover from an existing IRA or a transfer from another custodian.",
+          "Done correctly, this is generally non-taxable and non-penalized.",
+          "Details matter here, so the process should be handled carefully and clearly.",
         ],
       },
       {
-        heading: "Step 4: Ongoing Storage and Reporting",
+        heading: "Step 4: choose the metals",
         paragraphs: [
-          "Your metals are held in an IRS-approved depository — a facility with institutional-grade security and insurance. You receive statements from the custodian showing the value and composition of your account.",
-          "Annual fees typically include custodian administration fees and depository storage fees. These vary by custodian and depository. Transparency on fees is something worth asking about before you open an account — some custodians have complicated fee structures that are not obvious at the outset.",
+          "This is where many people make mistakes.",
+          "Not all metals are equal for an IRA, and not all product recommendations are aligned with the buyer's goal.",
+          "Typically, the most appropriate products are widely recognized bullion items with standard weights and strong liquidity.",
         ],
       },
       {
-        heading: "Taking Distributions",
+        heading: "Step 5: the metals are purchased",
         paragraphs: [
-          "When you take a distribution from a traditional gold IRA, you pay ordinary income tax — the same as you would on a traditional IRA or 401(k) distribution. You can take the distribution as cash (the metals are sold) or as physical metal (shipped to you), depending on your custodian's policies.",
-          "The rules around required minimum distributions (RMDs) apply the same way they do to any traditional IRA. Planning for how and when you will take distributions is worth discussing with a tax advisor.",
+          "Once the products are selected, the account funds are used to purchase the metals.",
+          "Pricing includes the underlying market price plus a premium.",
+          "This is where understanding pricing matters most.",
+        ],
+      },
+      {
+        heading: "Step 6: the metals are stored in a depository",
+        paragraphs: [
+          "IRA rules generally require that the metals are stored through an approved depository.",
+          "That means you do not store IRA metals at home.",
+          "Instead, they are held in a secure facility designed for this purpose.",
+        ],
+      },
+      {
+        heading: "Step 7: your account reflects ownership",
+        paragraphs: [
+          "At that point, you own physical metals within a retirement structure.",
+          "Your custodian maintains records and reports the account, while the metals remain stored in the approved facility.",
+        ],
+      },
+      {
+        heading: "What a gold IRA is not",
+        paragraphs: [
+          "A gold IRA is not a trading account, not a short-term move, and not a way to time the market.",
+          "It is typically used for long-term positioning, diversification, and risk management.",
+        ],
+      },
+      {
+        heading: "Where people go wrong",
+        paragraphs: [
+          "The biggest issues usually come from overpaying for metals, buying the wrong products, not understanding fees, or following sales pressure instead of structure.",
+          "That is why clarity matters so much in this process.",
+        ],
+      },
+      {
+        heading: "Fees to understand",
+        paragraphs: [
+          "Common costs include account setup, annual custodian fees, storage fees, and transaction spreads.",
+          "None of these are inherently bad.",
+          "But they should be clear and understood upfront.",
+        ],
+      },
+      {
+        heading: "Liquidity and selling",
+        paragraphs: [
+          "When the metals are sold, they are liquidated within the IRA structure and the funds return to the account.",
+          "The process is straightforward, but not instant.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "A gold IRA is not complicated, but it is structured.",
+          "Understanding the steps removes most of the confusion.",
+        ],
+      },
+      {
+        heading: "Final thought",
+        paragraphs: [
+          "The biggest advantage is not just owning gold.",
+          "It is understanding how you own it, where it is, and how the structure works.",
+          "Because clarity, not complexity, is what protects you long term.",
         ],
       },
     ],
@@ -793,34 +1039,108 @@ export const INSIGHTS: InsightArticle[] = [
       "The single most useful question a buyer can ask to understand real cost, spread, and transparency.",
     group: "choosing-who-to-trust",
     metaDescription:
-      "Before buying gold or silver from any dealer, there is one question that reveals more than any other. Here is what it is and why it matters.",
+      "Learn the one question every gold buyer should ask to understand spread, pricing, transparency, and the real cost of a precious metals purchase.",
     sections: [
       {
-        heading: "Most Buyers Ask the Wrong Question First",
+        heading: "A lot of questions sound important",
         paragraphs: [
-          "The first question most buyers ask when considering a dealer is: \"What is your price for one ounce of gold?\" That is a reasonable starting point, but it does not tell you very much on its own.",
-          "The question that tells you far more — and that many buyers never think to ask — is this: \"What would you pay me if I wanted to sell this back to you today?\"",
+          "There are a lot of questions you can ask when buying gold or silver.",
+          "What is the spot price? Which coins are best? Is now a good time to buy?",
+          "But there is one question that matters more than all of them.",
         ],
       },
       {
-        heading: "Why This Question Is So Useful",
+        heading: "The question",
         paragraphs: [
-          "The gap between what a dealer charges to sell and what they will pay to buy is called the spread. A dealer with a tight spread — say, 2–3% — is operating transparently and efficiently. A dealer with a wide spread — 10%, 20%, or more — is extracting far more value from each transaction.",
-          "If a dealer sells you gold at $4,500 per ounce but will only buy it back at $3,800, you have effectively paid a 15% entry cost. That cost is real, it is permanent until the spread closes, and it is not visible in the buy price alone.",
+          "If I buy this today and sell it back today, what would you pay me?",
+          "That question cuts through almost everything.",
         ],
       },
       {
-        heading: "What a Good Answer Looks Like",
+        heading: "Why this question matters",
         paragraphs: [
-          "A trustworthy dealer will give you a clear, specific buyback price without hesitation. They will tell you what they pay for the specific product they are selling you, and it will be close to current spot — typically 0–3% below spot for standard bullion coins.",
-          "If a dealer is reluctant to give you a buyback price, cannot tell you clearly what it would be, or suggests that selling back is complicated or unusual, that is worth noting.",
+          "Precious metals pricing can be confusing.",
+          "You will hear about premiums, special products, limited availability, and exclusive offerings.",
+          "But underneath all of that, there is a simple reality: there is always a difference between the buy price and the sell price.",
+          "That difference is where the cost lives.",
         ],
       },
       {
-        heading: "Ask It Before You Buy",
+        heading: "What this question reveals",
         paragraphs: [
-          "This question is most useful before you commit to a purchase. Ask it early in the conversation. A dealer who gives you a clear, competitive buyback price is telling you something important about how they operate. A dealer who deflects or complicates the question is telling you something important too.",
-          "Transparency on buyback pricing is one of the clearest signals of a dealer who is actually aligned with their customers' interests.",
+          "When you ask this question, you uncover the real spread, the true cost of the product, and whether the pricing is actually transparent.",
+          "A clear, direct answer shows confidence.",
+          "A vague or avoided answer tells you something else.",
+        ],
+      },
+      {
+        heading: "Why most people do not ask it",
+        paragraphs: [
+          "Because the conversation is usually directed elsewhere.",
+          "Toward product features, narratives, urgency, or perceived opportunity.",
+          "The focus shifts away from what this is actually worth.",
+        ],
+      },
+      {
+        heading: "Where problems start",
+        paragraphs: [
+          "If a product is sold at a large premium, the gap becomes clear immediately when you ask this question.",
+          "You buy at a high markup, you attempt to sell, and the buyback price reflects the real market.",
+          "That difference can be significant.",
+        ],
+      },
+      {
+        heading: "The connection to product selection",
+        paragraphs: [
+          "This question becomes even more important when dealing with proof coins, numismatics, or other high-premium products.",
+          "Because those products often carry larger spreads.",
+        ],
+      },
+      {
+        heading: "What a good answer looks like",
+        paragraphs: [
+          "A clear answer sounds like this: we would pay you a specific number today.",
+          "Not maybe, not eventually, not under a story about long-term upside.",
+          "Just a direct number.",
+        ],
+      },
+      {
+        heading: "What a weak answer sounds like",
+        paragraphs: [
+          "If you hear deflection, complexity, reluctance, or storytelling instead of numbers, that is a signal.",
+          "Not necessarily of bad intent, but of unclear pricing.",
+          "And unclear pricing is exactly where buyers get hurt.",
+        ],
+      },
+      {
+        heading: "This is not about timing",
+        paragraphs: [
+          "This question is not about predicting the market or planning to sell immediately.",
+          "It is about understanding what you are actually paying.",
+        ],
+      },
+      {
+        heading: "A simple way to think about it",
+        paragraphs: [
+          "When you buy metals, you are stepping into a market.",
+          "This question shows you where you stand in that market the moment you enter.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "You can ask a hundred questions.",
+          "But if you ask just one, make it this one.",
+          "What would you pay me for this today?",
+        ],
+      },
+      {
+        heading: "Final thought",
+        paragraphs: [
+          "Most costly mistakes in precious metals are not made because people did not try to understand.",
+          "They happen because the right question was never asked.",
+          "Ask it. Listen carefully to the answer.",
+          "And you will immediately be in a stronger position than most buyers.",
         ],
       },
     ],
