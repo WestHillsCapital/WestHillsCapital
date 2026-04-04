@@ -1,0 +1,101 @@
+Please refine the new Insights section for readability, hierarchy, and polish without changing the overall structure or brand direction.
+
+The current implementation is strong, but I want the next pass to improve legibility, visual hierarchy, and premium feel.
+
+Goals:
+
+make the Insights hub and article pages easier to read
+
+keep the tone calm, premium, and uncluttered
+
+preserve the existing structure, routing, and content architecture
+
+do not turn this into a loud blog or media-style layout
+
+Please make the following improvements:
+
+Improve text contrast
+
+Darken all body copy, article excerpts, section descriptions, breadcrumb text, and related article text
+
+Maintain a refined aesthetic, but make readability noticeably stronger
+
+Do not leave important text in very light gray
+
+Improve card readability on the Insights hub
+
+Slightly increase article card title size
+
+Slightly increase article excerpt size
+
+Increase line-height for excerpts
+
+Ensure card text is easy to scan at a glance
+
+Keep the cards elegant and restrained
+
+Improve section hierarchy on the Insights hub
+
+Make category headings more visually distinct
+
+Make category description text easier to read
+
+Slightly improve spacing between category sections
+
+Preserve the clean grouped layout
+
+Improve article page readability
+
+Darken body text
+
+Slightly increase paragraph font size if needed
+
+Improve spacing between sections and paragraphs
+
+Make subheadings feel more distinct from body text
+
+Preserve the premium editorial feel
+
+Refine related article / continue reading cards
+
+Make them easier to scan and more visually intentional
+
+Improve contrast and spacing
+
+Keep them consistent with the Insights card system
+
+Improve CTA readability
+
+Make sure the bottom CTA section feels polished and clearly readable
+
+Keep it understated and trustworthy
+
+Do not make it look aggressive or salesy
+
+Check mobile responsiveness carefully
+
+Ensure the Insights hub cards stack beautifully on mobile
+
+Ensure article content remains readable without feeling cramped
+
+Ensure related article cards and CTA spacing look intentional on small screens
+
+Important constraints:
+
+do not change routes
+
+do not change article content structure
+
+do not remove the grouped Insights layout
+
+do not introduce loud colors, oversized animations, or a generic blog look
+
+keep the design aligned with West Hills Capital: calm, clear, trustworthy, premium
+
+After making changes, show me:
+
+which components or styles you updated
+
+what specific readability and hierarchy improvements were made
+
+whether any typography values or spacing scales were adjusted
