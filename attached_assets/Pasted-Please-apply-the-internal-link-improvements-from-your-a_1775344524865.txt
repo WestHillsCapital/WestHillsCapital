@@ -1,0 +1,148 @@
+Please apply the internal link improvements from your audit to the existing Insights content in:
+
+artifacts/west-hills-capital/src/data/insights.ts
+
+Do not change:
+
+routes
+
+layout
+
+templates
+
+article body copy
+
+titles
+
+excerpts
+
+meta descriptions
+
+group ids
+
+slug values
+
+CTA components
+
+Only update the related arrays for the specific articles below.
+
+Apply these exact changes
+1. why-free-silver-is-never-free
+
+Current:
+
+why-people-overpay-for-gold-and-silver
+
+bullion-vs-proof-coins
+
+what-spot-price-really-means
+
+Replace with:
+
+why-people-overpay-for-gold-and-silver
+
+the-one-question-every-gold-buyer-should-ask
+
+how-to-choose-a-gold-dealer-without-getting-burned
+
+2. why-pricing-everything-in-dollars-can-be-misleading
+
+Current:
+
+what-the-gold-to-silver-ratio-actually-means
+
+when-does-it-actually-make-sense-to-adjust-between-gold-and-silver
+
+what-spot-price-really-means
+
+Replace with:
+
+what-the-gold-to-silver-ratio-actually-means
+
+when-does-it-actually-make-sense-to-adjust-between-gold-and-silver
+
+how-to-choose-a-gold-dealer-without-getting-burned
+
+3. gold-vs-silver-storage-transport-and-real-world-practicality
+
+Current:
+
+what-happens-after-you-buy-gold
+
+when-does-it-actually-make-sense-to-adjust-between-gold-and-silver
+
+why-people-overpay-for-gold-and-silver
+
+Replace with:
+
+what-happens-after-you-buy-gold
+
+the-one-question-every-gold-buyer-should-ask
+
+why-people-overpay-for-gold-and-silver
+
+4. gold-ira-what-actually-happens-step-by-step
+
+Current:
+
+what-happens-after-you-buy-gold
+
+why-people-overpay-for-gold-and-silver
+
+bullion-vs-proof-coins
+
+Replace with:
+
+what-happens-after-you-buy-gold
+
+how-to-choose-a-gold-dealer-without-getting-burned
+
+the-one-question-every-gold-buyer-should-ask
+
+Optional fifth improvement
+
+If easy to apply, also update:
+
+5. why-people-overpay-for-gold-and-silver
+
+Current:
+
+what-spot-price-really-means
+
+bullion-vs-proof-coins
+
+why-free-silver-is-never-free
+
+what-happens-after-you-buy-gold
+
+Replace with:
+
+what-spot-price-really-means
+
+bullion-vs-proof-coins
+
+why-free-silver-is-never-free
+
+the-one-question-every-gold-buyer-should-ask
+
+After applying
+
+Please give me:
+
+the updated related arrays for those articles only
+
+confirmation that all related slugs still resolve correctly
+
+confirmation the site still builds cleanly
+
+the revised inbound link counts for:
+
+how-to-choose-a-gold-dealer-without-getting-burned
+
+the-one-question-every-gold-buyer-should-ask
+
+gold-ira-what-actually-happens-step-by-step
+
+why-free-silver-is-never-free
+
+Do not change anything else.

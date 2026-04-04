@@ -302,7 +302,7 @@ export const INSIGHTS: InsightArticle[] = [
       "what-spot-price-really-means",
       "bullion-vs-proof-coins",
       "why-free-silver-is-never-free",
-      "what-happens-after-you-buy-gold",
+      "the-one-question-every-gold-buyer-should-ask",
     ],
   },
 
@@ -441,8 +441,8 @@ export const INSIGHTS: InsightArticle[] = [
     ],
     related: [
       "why-people-overpay-for-gold-and-silver",
-      "bullion-vs-proof-coins",
-      "what-spot-price-really-means",
+      "the-one-question-every-gold-buyer-should-ask",
+      "how-to-choose-a-gold-dealer-without-getting-burned",
     ],
   },
 
@@ -953,7 +953,7 @@ export const INSIGHTS: InsightArticle[] = [
     related: [
       "what-the-gold-to-silver-ratio-actually-means",
       "when-does-it-actually-make-sense-to-adjust-between-gold-and-silver",
-      "what-spot-price-really-means",
+      "how-to-choose-a-gold-dealer-without-getting-burned",
     ],
   },
 
@@ -1222,7 +1222,7 @@ export const INSIGHTS: InsightArticle[] = [
     ],
     related: [
       "what-happens-after-you-buy-gold",
-      "when-does-it-actually-make-sense-to-adjust-between-gold-and-silver",
+      "the-one-question-every-gold-buyer-should-ask",
       "why-people-overpay-for-gold-and-silver",
     ],
   },
@@ -1346,8 +1346,8 @@ export const INSIGHTS: InsightArticle[] = [
     ],
     related: [
       "what-happens-after-you-buy-gold",
-      "why-people-overpay-for-gold-and-silver",
-      "bullion-vs-proof-coins",
+      "how-to-choose-a-gold-dealer-without-getting-burned",
+      "the-one-question-every-gold-buyer-should-ask",
     ],
   },
 
