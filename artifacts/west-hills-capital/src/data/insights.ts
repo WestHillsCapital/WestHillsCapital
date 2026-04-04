@@ -55,35 +55,102 @@ export const INSIGHTS: InsightArticle[] = [
       "Learn what spot price actually is, where it comes from, and why it does not tell the whole story for physical gold and silver buyers.",
     group: "understanding-pricing",
     metaDescription:
-      "Understand what gold and silver spot price really means, where it comes from, and why it is only the starting point for physical metal buyers.",
+      "Learn what spot price really means, where it comes from, and why it is only the starting point for physical gold and silver buyers.",
     sections: [
       {
-        heading: "Spot Price Is a Starting Point, Not a Final Price",
+        heading: "What spot price actually is",
         paragraphs: [
-          "When people talk about the \"price of gold,\" they usually mean the spot price — a number that represents the current market price for one troy ounce of gold for immediate delivery in the wholesale market. It is quoted in real time during trading hours and serves as the global benchmark for gold and silver.",
-          "Understanding what spot price is — and what it is not — is one of the most useful things a buyer can know before entering the market.",
+          "In plain terms, spot price is the current market price for one ounce of gold or silver, based on large-scale financial trading.",
+          "It is the industry's reference point. When you look up the price of gold, that is usually the number you are seeing.",
+          "But it is important to understand this clearly: spot price is not what you pay. It is the starting point.",
         ],
       },
       {
-        heading: "Where the Spot Price Comes From",
+        heading: "Where spot price comes from",
         paragraphs: [
-          "Spot prices are derived primarily from futures markets, most notably the COMEX division of the New York Mercantile Exchange. Prices are also influenced by the London Bullion Market Association (LBMA), which publishes reference prices twice daily for gold and once daily for silver.",
-          "These prices reflect large-volume institutional trading of standardized contracts — not the purchase of physical coins from a dealer. They represent the cost of a contract for delivery, not the cost of a packaged, minted, and shipped coin.",
+          "Spot price is not set by a single company or dealer.",
+          "It comes from global markets where metals are traded continuously, primarily through large financial exchanges and over-the-counter markets.",
+          "These markets are active nearly around the clock. Prices move based on buying and selling activity, market expectations, and broader financial conditions.",
+          "At any given moment, spot price reflects the most recent agreement between buyers and sellers in those markets.",
         ],
       },
       {
-        heading: "What Spot Price Does Not Include",
+        heading: "The part most people never hear",
         paragraphs: [
-          "Spot price does not include the premium charged by the mint to produce a coin, the fabrication cost, the dealer's spread, shipping, or insurance. For physical gold and silver, all of those costs sit on top of spot.",
-          "The gap between spot and what you actually pay is called the \"over-spot premium\" or simply the premium. It varies by product, market conditions, and dealer. A 1 oz gold bullion coin might trade at 3–6% over spot under normal conditions. A silver coin often trades at 15–25% or more over spot due to its lower per-ounce value.",
+          "Most spot pricing is influenced by financial contracts, not physical metal changing hands.",
+          "That means the price you see is shaped largely by futures markets, institutional trading, and liquidity flows, not just by people buying coins and bars for delivery.",
         ],
       },
       {
-        heading: "How to Use Spot Price as a Buyer",
+        heading: "Why that distinction matters",
         paragraphs: [
-          "Spot price is a useful benchmark for comparison. It tells you roughly what the underlying metal is worth and gives you a basis for evaluating how much any particular dealer or product is adding on top.",
-          "When comparing dealers, ask about the all-in price per ounce for the same product and calculate how much over spot you are being asked to pay. That number tells you far more than the spot price alone.",
-          "Spot price is not a price you will ever pay — it is the floor from which every physical transaction is priced. Understanding that distinction is the first step to buying intelligently.",
+          "There are two different realities at work.",
+          "One is financial market pricing, which is highly liquid, constantly traded, and driven by large market participants.",
+          "The other is the physical market, where actual metal is bought and sold, and where real-world supply, demand, and logistics matter.",
+          "These two often move together, but they are not identical.",
+        ],
+      },
+      {
+        heading: "Why spot price can feel disconnected",
+        paragraphs: [
+          "At times, people notice strong demand for physical metals but very little movement in spot price.",
+          "Or they see premiums rise while spot stays flat.",
+          "That is because spot price reflects financial market activity first, not physical demand alone.",
+        ],
+      },
+      {
+        heading: "Spot price is useful, but incomplete",
+        paragraphs: [
+          "Spot price plays an important role. It provides a common reference, allows pricing comparison, and creates structure across the global market.",
+          "But it should not be misunderstood as a perfect measure of physical supply and demand.",
+          "It is better described as a highly liquid financial price.",
+        ],
+      },
+      {
+        heading: "Why you do not pay spot",
+        paragraphs: [
+          "When you buy physical gold or silver, you are not buying a number on a screen. You are buying a real product.",
+          "That includes refining, minting, shipping, insurance, storage, and handling.",
+          "That is why your actual price is spot price plus premium.",
+          "Premiums are normal. The key is whether they are fair, transparent, and consistent.",
+        ],
+      },
+      {
+        heading: "What this means for buyers",
+        paragraphs: [
+          "You do not need to predict spot price. You do not need to time every move.",
+          "You just need to understand what spot represents, what it does not represent, and how it connects to the price you actually pay.",
+          "That alone puts you ahead of most buyers.",
+        ],
+      },
+      {
+        heading: "A better way to think about it",
+        paragraphs: [
+          "Instead of asking what gold is trading at, ask what structure sits behind that price.",
+          "Once you understand that, the rest becomes much clearer.",
+        ],
+      },
+      {
+        heading: "The connection to other decisions",
+        paragraphs: [
+          "Spot price is just one part of the equation.",
+          "It connects directly to premiums, product choice, and relative value.",
+          "Understanding spot helps you understand everything else.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Spot price matters, but it is not the full picture.",
+          "It is a reference point, a financial market price, and a starting line, not the finish line.",
+        ],
+      },
+      {
+        heading: "Final thought",
+        paragraphs: [
+          "The industry often presents spot price as if it tells you everything. It does not.",
+          "But once you understand what it is and what it is not, you can make decisions based on clarity instead of assumption.",
+          "And in this space, that makes a meaningful difference.",
         ],
       },
     ],
@@ -101,41 +168,133 @@ export const INSIGHTS: InsightArticle[] = [
       "A practical look at where buyers lose money, how hidden markups work, and how to avoid paying too much for the wrong products.",
     group: "understanding-pricing",
     metaDescription:
-      "Learn the most common reasons gold and silver buyers overpay — from hidden premiums to misleading promotions — and how to protect yourself.",
+      "Learn why people overpay for gold and silver, where hidden markups come from, and how to avoid costly product and pricing mistakes.",
     sections: [
       {
-        heading: "The Most Expensive Mistakes Are Usually Invisible",
+        heading: "Most people think the biggest risk is timing",
         paragraphs: [
-          "Most buyers who overpay for gold and silver do not realize they have done so at the time of purchase. The signs only become clear later — when they try to sell, when they compare prices, or when someone they trust walks them through the numbers.",
-          "Understanding the most common ways buyers overpay is one of the most practical things you can do before making a purchase.",
+          "A lot of people think the biggest risk in buying gold and silver is buying at the wrong time.",
+          "It is not.",
+          "The bigger risk is paying far too much and not realizing it until later.",
         ],
       },
       {
-        heading: "Paying for Numismatic or Collectible Value",
+        heading: "Why this happens so often",
         paragraphs: [
-          "The single most common way buyers overpay is by purchasing \"numismatic\" or \"collector\" coins when they intend to buy metal. Numismatic coins are graded, certified, and sold at prices far above their melt value. If the premium on a coin is 40%, 60%, or 100% above spot, you are essentially paying for rarity and condition — not for gold.",
-          "Bullion coins — like the American Eagle or Buffalo — carry much lower premiums and are valued primarily for their metal content. For buyers focused on wealth preservation rather than coin collecting, bullion is almost always the better choice.",
+          "This happens more often than most people think, and usually not because the buyer is careless.",
+          "It happens because the precious metals industry can be confusing on purpose.",
+          "If you do not understand how pricing works, what products make sense, and where commissions are hiding, it is easy to overpay by thousands or much more.",
         ],
       },
       {
-        heading: "Stacked Premiums and Confusing Pricing",
+        heading: "Most buyers think they are buying metal",
         paragraphs: [
-          "Some dealers layer multiple fees on top of each other without making each one clear. You might see a \"fair\" spot price quoted, but then pay a separate handling fee, a shipping fee, an insurance surcharge, and a credit card fee — each of which adds to the total.",
-          "The only number that matters is the all-in price per ounce. Get that number, calculate the premium over spot yourself, and compare it across at least two sources.",
+          "In many cases, they are really buying a sales pitch, a high-commission product, a story, fear, or complexity dressed up as value.",
+          "That is where trouble starts.",
+          "Because in precious metals, what you buy matters just as much as how much you buy.",
         ],
       },
       {
-        heading: "Urgency and Pressure",
+        heading: "Premiums are normal, but not all premiums are reasonable",
         paragraphs: [
-          "Pricing in precious metals changes constantly, so a degree of time-sensitivity is real. But dealers who use urgency as a pressure tactic — \"prices are about to spike,\" \"this is a limited window,\" \"you need to decide today\" — are often using that framing to discourage careful evaluation.",
-          "A trustworthy dealer will give you time to think, answer your questions clearly, and welcome comparison. If the pressure to buy is coming from outside you, it is usually worth pausing.",
+          "No one sells physical gold or silver at the raw market price with no cost built in.",
+          "There are real costs involved, including refining, minting, shipping, insurance, handling, and business operations.",
+          "That part is normal.",
+          "The problem starts when a reasonable premium turns into an excessive markup hidden behind product language, scarcity claims, or emotional sales tactics.",
         ],
       },
       {
-        heading: "Promotions That Seem Like Deals",
+        heading: "The biggest reason people overpay: product selection",
         paragraphs: [
-          "\"Free silver with every purchase\" and similar promotions are common in the industry. In most cases, the cost of the silver is embedded in the price of the gold you are buying. The deal is not free — it has simply been bundled in a way that is hard to evaluate on its own.",
-          "The best way to evaluate any promotion is to ask: what is the all-in price per ounce of each metal I am receiving, and how does that compare to what I would pay purchasing each separately?",
+          "A buyer calls looking for gold or silver, and instead of simple bullion, they are steered into products with much higher margins.",
+          "That may mean proof coins, graded coins, semi-numismatics, common-date so-called rare coins, high-premium fractional pieces, or products bundled with free silver.",
+          "The customer thinks they are buying metal.",
+          "What they are often really buying is a commission structure.",
+        ],
+      },
+      {
+        heading: "Bullion vs. proof: where a lot of damage gets done",
+        paragraphs: [
+          "If your goal is to own physical metal for wealth preservation, liquidity, and simplicity, bullion usually makes far more sense than proof products.",
+          "Why? Because bullion is priced closer to the value of the metal itself.",
+          "Proof coins often carry much higher premiums.",
+          "That does not automatically make them bad. It just means they are usually better suited for collectors than for people whose priority is getting the most metal for their money.",
+        ],
+      },
+      {
+        heading: "Quantity matters more than most people realize",
+        paragraphs: [
+          "This is one of the simplest ways to think clearly.",
+          "If two people spend the same amount of money, but one ends up with significantly more ounces, the difference matters.",
+          "Because the more money that goes to markup, the less money goes into metal.",
+          "In this business, buyers should always be asking how much of their money is actually going into metal.",
+        ],
+      },
+      {
+        heading: "Fractional coins can quietly become very expensive",
+        paragraphs: [
+          "Fractional gold has a place. Smaller pieces can make sense in certain situations.",
+          "But many buyers do not realize how expensive they can become on a per-ounce basis.",
+          "A tenth-ounce coin may feel more affordable because the upfront price is lower. But when you compare the implied cost per ounce, the premium is often much higher than on a one-ounce coin.",
+          "That means the buyer is paying more for less gold.",
+        ],
+      },
+      {
+        heading: "Free silver is usually not free",
+        paragraphs: [
+          "This is one of the oldest games in the business.",
+          "A company offers free silver, no fees, or some kind of bonus metal to make the deal feel generous.",
+          "But the cost is usually built in somewhere else: higher markups on the main products, higher overall pricing, or less metal for the same amount of money.",
+          "Nothing is free in a transaction built for profit.",
+        ],
+      },
+      {
+        heading: "Confusion is profitable",
+        paragraphs: [
+          "A lot of buyers are not comparing simple bullion pricing against simple bullion pricing.",
+          "They are comparing unlike products, incomplete information, or emotionally loaded pitches.",
+          "Once the conversation moves away from price, premium, product type, liquidity, and resale reality, and toward fear, rarity, urgency, or exclusivity, the buyer is at a disadvantage.",
+        ],
+      },
+      {
+        heading: "The resale question tells you a lot",
+        paragraphs: [
+          "One of the best questions a buyer can ask is simple: if I bought this today and sold it back today, what would you pay me for it?",
+          "That question cuts through a lot of noise.",
+          "Because the spread between the buy price and the sell-back price reveals how much room there is between market value and what you are being charged.",
+        ],
+      },
+      {
+        heading: "Overpaying is not always obvious at the time",
+        paragraphs: [
+          "That is part of what makes this industry difficult for new buyers.",
+          "A person can complete a purchase feeling good about it. The packaging is sharp. The sales rep is confident. The company sounds established.",
+          "Then later, when they go to sell or compare values more carefully, they realize how much of their money went to markup instead of metal.",
+        ],
+      },
+      {
+        heading: "What usually makes the most sense",
+        paragraphs: [
+          "For most buyers focused on wealth preservation, simplicity, and liquidity, straightforward bullion products tend to make the most sense.",
+          "That means products with broad recognition, fair premiums, easy resale, and transparent pricing.",
+          "The goal is usually not to own the most exciting product. It is to own real metal at a fair price.",
+        ],
+      },
+      {
+        heading: "A better way to think about it",
+        paragraphs: [
+          "When buying gold and silver, the right question is not what sounds impressive.",
+          "It is what leaves me with the most real value for the dollars I am spending.",
+          "That shift in thinking can save people a lot of money.",
+        ],
+      },
+      {
+        heading: "Final thought",
+        paragraphs: [
+          "Most people who overpay for gold and silver do not do it because they were reckless.",
+          "They do it because they were not shown where the costs were hiding.",
+          "When you understand the product, the premium, the resale reality, and the incentives behind the sale, you are in a much stronger position.",
+          "And in this industry, that difference can mean ending up with more metal, less regret, and a much better outcome over time.",
         ],
       },
     ],
@@ -200,41 +359,122 @@ export const INSIGHTS: InsightArticle[] = [
       "A clear explanation of why bullion usually makes more sense for investors, while proof coins are generally better suited for collectors.",
     group: "making-smart-decisions",
     metaDescription:
-      "Bullion and proof coins look similar but serve different purposes. Understand the difference before you buy.",
+      "Learn the difference between bullion and proof coins, why bullion usually makes more sense for investors, and where buyers often overpay.",
     sections: [
       {
-        heading: "Two Products, Two Very Different Price Structures",
+        heading: "The debate sounds bigger than it is",
         paragraphs: [
-          "Gold and silver coins generally fall into two categories: bullion coins and proof coins. They often feature the same designs and carry the same government guarantees of weight and purity. But their price structures and the markets they are designed for are quite different.",
-          "Knowing which is which — and which is right for your purpose — can make a meaningful difference in what you pay and what you get back when you sell.",
+          "If you spend enough time around precious metals, you will hear the debate: bullion vs. proof coins, what is better?",
+          "There are strong opinions on both sides.",
+          "But for most buyers, especially those focused on wealth preservation and long-term ownership, the answer is much simpler than it is made out to be.",
+          "Bullion is for investing. Proof coins are for collecting.",
         ],
       },
       {
-        heading: "What Bullion Coins Are",
+        heading: "A quick breakdown",
         paragraphs: [
-          "Bullion coins are struck in large quantities for investment purposes. Their value is tied primarily to their metal content — the weight of gold or silver they contain. Premiums over spot are typically modest: 3–6% for gold, 15–25% for silver under normal market conditions.",
-          "They are widely traded, recognized by dealers globally, and straightforward to price and sell. Common examples include the American Gold Eagle, the Gold Buffalo, and the American Silver Eagle.",
+          "Proof coins are specially minted with highly polished dies, multiple strikes, mirrored finishes, presentation packaging, and certificates of authenticity.",
+          "They are designed to look exceptional, and they are priced accordingly.",
+          "Bullion coins are minted for investment purposes. They are widely recognized, efficiently produced, sold in large volumes, and priced closer to the value of the metal.",
+          "Most importantly, both bullion and proof coins contain the same amount of precious metal.",
         ],
       },
       {
-        heading: "What Proof Coins Are",
+        heading: "The key question most people never ask",
         paragraphs: [
-          "Proof coins are struck using a different, more labor-intensive process that produces a mirror-like finish and sharper detail. They are typically sold in limited editions, presented in display cases with certificates of authenticity, and graded by independent agencies.",
-          "Because of their collectible nature, proof coins carry much higher premiums — often 50–100% above spot or more. That premium reflects craftsmanship, rarity, and collector demand, not metal value.",
+          "If both coins contain the same amount of gold or silver, why does one cost significantly more?",
+          "The answer is premium.",
         ],
       },
       {
-        heading: "Which Is Right for Most Investors",
+        heading: "Understanding premiums",
         paragraphs: [
-          "If your goal is to hold physical metal as a store of value, hedge, or IRA asset, bullion coins almost always make more sense. The lower premium means you are closer to the underlying metal's value on day one, and the liquid secondary market means you can sell efficiently without relying on a collector's market.",
-          "Proof coins can be excellent for collectors who understand and value their numismatic premium. They are a poor choice for buyers who believe they are simply buying metal at a modest premium and who expect to sell at or near spot when they choose to exit.",
+          "Every physical metal product includes the underlying spot price plus a premium.",
+          "Premiums are normal, but not all premiums are equal.",
         ],
       },
       {
-        heading: "A Simple Question to Ask Before You Buy",
+        heading: "Why proof coins cost more",
         paragraphs: [
-          "Before purchasing any coin, ask: \"What would this dealer pay me if I wanted to sell this coin back today?\" For bullion, that answer should be close to current spot. For a proof coin with a 60% numismatic premium, the buyback price is almost certainly far below what you paid.",
-          "The spread between your purchase price and your potential sell price is a real cost. Minimizing it — by choosing bullion — is one of the most effective things a buyer can do.",
+          "Proof coins carry additional value beyond the metal. That includes collectibility, presentation, perceived rarity, and numismatic interest.",
+          "For collectors, that can make sense.",
+        ],
+      },
+      {
+        heading: "Why that matters for investors",
+        paragraphs: [
+          "If your goal is preserving purchasing power, owning physical metal, and maintaining liquidity, the premium matters a great deal.",
+          "Because higher premiums mean less of your money goes into actual metal.",
+        ],
+      },
+      {
+        heading: "The simplest way to think about it",
+        paragraphs: [
+          "Strip everything else away, and it comes down to this: if you melted both coins down, their value would be the same.",
+          "So the real question becomes: why pay more for the same amount of metal?",
+        ],
+      },
+      {
+        heading: "Quantity matters",
+        paragraphs: [
+          "If two people spend the same amount of money, one buying bullion and one buying proof coins, the bullion buyer almost always ends up with more ounces.",
+          "And over time, that difference matters.",
+          "More metal means more exposure to the underlying asset.",
+        ],
+      },
+      {
+        heading: "Where people get into trouble",
+        paragraphs: [
+          "Most buyers do not seek out proof coins on their own. They get steered into them.",
+          "It usually sounds like these are rare, protected, better performers, or what sophisticated investors buy.",
+          "But what is often not explained clearly is that these products typically carry much higher commissions.",
+          "And that changes the entire equation.",
+        ],
+      },
+      {
+        heading: "The numismatic trap",
+        paragraphs: [
+          "Numismatic coins can have value beyond metal, but that value is subjective, variable, and dependent on collector demand.",
+          "Unlike bullion, which tracks the metal price directly.",
+          "So while numismatics may appeal to collectors, they introduce uncertainty for investors.",
+        ],
+      },
+      {
+        heading: "A simple test",
+        paragraphs: [
+          "If you want clarity, ask this: if I buy this today and sell it back today, what would you pay me?",
+          "That answer will tell you everything you need to know about premium, spread, and real value.",
+        ],
+      },
+      {
+        heading: "When proof coins do make sense",
+        paragraphs: [
+          "There is a place for proof coins.",
+          "They can be great for gifts, collecting, commemorating events, and personal enjoyment.",
+          "There is nothing wrong with owning them, as long as you understand you are buying a collectible, not just metal.",
+        ],
+      },
+      {
+        heading: "When bullion usually makes more sense",
+        paragraphs: [
+          "For most people focused on retirement, long-term wealth preservation, simplicity, and liquidity, bullion is typically the better fit.",
+          "Because it keeps the focus where it belongs: on the metal itself.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "This does not have to be complicated.",
+          "Bullion coins are for investing. Proof coins are for collecting.",
+          "Once you understand that, most of the noise in the industry becomes easier to see through.",
+        ],
+      },
+      {
+        heading: "Final thought",
+        paragraphs: [
+          "The goal is not to buy what looks impressive. It is to own real metal at a fair price.",
+          "And in most cases, that means lower premiums, simpler products, and more ounces.",
+          "Because in the end, it is not about how the coin looks. It is about how much metal you actually own.",
         ],
       },
     ],
@@ -598,42 +838,132 @@ export const INSIGHTS: InsightArticle[] = [
       "A trust-focused guide to understanding incentives, evaluating dealers, and avoiding confusing or high-margin sales tactics.",
     group: "choosing-who-to-trust",
     metaDescription:
-      "Choosing the right gold dealer protects your investment from the start. Here is a practical, clear-eyed guide to evaluating dealers and avoiding costly mistakes.",
+      "Learn how to choose a gold dealer, understand incentives, and avoid confusing pricing, product steering, and high-margin sales tactics.",
     sections: [
       {
-        heading: "The Industry Has a Wide Range",
+        heading: "Why this matters more than most people realize",
         paragraphs: [
-          "The precious metals industry ranges from highly transparent, low-margin operations to high-pressure sales environments built around generating maximum revenue per customer. Both present themselves as trustworthy. The difference is not always obvious from the outside.",
-          "Knowing what to look for — and what to avoid — makes it substantially easier to find a dealer who is actually working in your interest.",
+          "Choosing a gold dealer seems simple, until you realize how different the outcomes can be.",
+          "Two people can spend the same amount of money and walk away with very different results.",
+          "One ends up with straightforward products, fair pricing, and confidence in what they own.",
+          "The other ends up with higher markups, unnecessary complexity, and less metal than they expected.",
+          "The difference is rarely timing. It is usually who they chose to work with.",
         ],
       },
       {
-        heading: "Look for Transparent, All-In Pricing",
+        heading: "The industry reality",
         paragraphs: [
-          "A good dealer makes it easy to understand exactly what you are paying. They will tell you the spot price, the premium over spot, the total per-ounce price, and any other fees — clearly, before you commit.",
-          "If you have to work hard to figure out what something actually costs, that difficulty is usually deliberate. Complexity in pricing almost always serves the seller.",
+          "Precious metals is not a standardized market.",
+          "There is no single pricing model and no universal structure.",
+          "That means the experience you have depends heavily on who you work with.",
+          "Some companies prioritize clarity, fair pricing, and simple products.",
+          "Others rely on complexity, product steering, and higher-margin items.",
         ],
       },
       {
-        heading: "Clear Buyback Pricing Is Non-Negotiable",
+        heading: "Start with incentives",
         paragraphs: [
-          "Ask every dealer what they would pay you if you wanted to sell back the product they are selling you — today, at this moment. A reputable dealer will give you a specific, competitive answer. They will quote you a price close to spot without hesitation.",
-          "A wide or unclear buyback spread is the single most common way buyers get trapped in unfavorable positions. If a dealer will not commit to a buyback price, or the spread is large, your effective cost of entry is much higher than the purchase price suggests.",
+          "Every business has incentives.",
+          "The key question is how does this company make money?",
+          "Because that determines what they recommend, how they price, and how they guide you.",
+          "If the model depends on higher-margin products, that will show up in the recommendations, even if not always obviously.",
         ],
       },
       {
-        heading: "Red Flags Worth Noting",
+        heading: "Celebrity endorsements: follow the incentives, not the face",
         paragraphs: [
-          "Urgency and pressure: Any dealer who creates a sense of crisis to speed your decision is using a tactic, not giving you information. Good pricing and good advice do not require urgency.",
-          "Excessive promotions: \"Free silver,\" bonus coins, and complicated bundle deals are almost always priced into the purchase. If it is hard to evaluate what you are actually getting, that difficulty is by design.",
-          "Numismatic products positioned as investments: Collectible or graded coins are sold at very high premiums and bought back at much lower ones. If a dealer is steering you toward numismatics without fully explaining the premium structure, that is a concern.",
+          "You will often see well-known personalities promoting gold companies. That can feel reassuring.",
+          "Familiar voice, recognizable face, built-in trust.",
+          "But it is important to understand how these arrangements typically work: endorsements are paid, marketing budgets fund those endorsements, and those budgets come from the margins on the products being sold.",
+          "In simple terms, the cost of the endorsement has to be covered somewhere.",
+          "And in many cases, that somewhere is higher product markups, wider spreads, or steering into higher-margin items.",
+          "That does not automatically make every company using endorsements a bad choice. But it does mean a recognizable name is not a substitute for clear pricing.",
         ],
       },
       {
-        heading: "What Good Dealers Have in Common",
+        heading: "Why this matters for buyers",
         paragraphs: [
-          "They are easy to reach and easy to talk to. They explain pricing clearly without being asked. They answer the buyback question directly. They do not rush you. They are willing to compare their pricing to competitors. They confirm trades verbally before execution and do not execute without cleared funds.",
-          "Trust is built through clarity and consistency. A dealer who is transparent when it is not in their short-term interest to be is one worth working with.",
+          "People naturally trust voices they recognize. That is human.",
+          "But in a financial transaction, trust should come from understanding the product, understanding the pricing, and understanding the structure, not from familiarity.",
+          "Even well-known personalities are paid to promote, not responsible for your outcome.",
+        ],
+      },
+      {
+        heading: "Watch the product conversation",
+        paragraphs: [
+          "A good dealer will ask about your goals, explain options clearly, and keep things simple.",
+          "A less aligned experience often looks like immediate product pushing, steering into specific coins, or emphasis on special or exclusive offerings.",
+          "If the conversation moves quickly toward high-premium products, pay attention.",
+        ],
+      },
+      {
+        heading: "Simplicity is a signal",
+        paragraphs: [
+          "Clear, simple recommendations are often a good sign.",
+          "For most buyers, that means widely recognized bullion, standard weights, and transparent pricing.",
+          "If things feel overly complex, they usually are.",
+        ],
+      },
+      {
+        heading: "Pricing should be understandable",
+        paragraphs: [
+          "You do not need to know everything, but you should understand what you are paying, what the premium is, and how pricing is structured.",
+          "If that is unclear, that alone tells you something.",
+        ],
+      },
+      {
+        heading: "Ask the one question",
+        paragraphs: [
+          "This is the fastest way to understand what you are dealing with: what would you pay me for this today?",
+          "That answer tells you more than any presentation ever will.",
+        ],
+      },
+      {
+        heading: "Look beyond surface reviews",
+        paragraphs: [
+          "Reviews can be helpful, but they should be read carefully.",
+          "Look for patterns, consistency, and detailed experiences, not just star ratings.",
+          "Surface-level feedback does not always tell the full story.",
+        ],
+      },
+      {
+        heading: "Pay attention to how they handle questions",
+        paragraphs: [
+          "A strong sign of a good dealer is clear answers, no pressure, and willingness to explain.",
+          "A warning sign is deflection, urgency, or pushing past your questions.",
+        ],
+      },
+      {
+        heading: "Understand what you are being sold",
+        paragraphs: [
+          "Before moving forward, be clear on the type of product, why it is being recommended, and how it fits your goal.",
+          "If that remains fuzzy, step back.",
+        ],
+      },
+      {
+        heading: "Avoid being rushed",
+        paragraphs: [
+          "Good decisions do not require pressure.",
+          "If you feel rushed, pushed, or nudged toward urgency, take a step back.",
+          "Clarity should come before commitment.",
+        ],
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "Choosing a gold dealer is not about finding the most visible company or the most recognizable name.",
+          "It is about finding one that explains things clearly, prices things fairly, and keeps the focus on the metal, not the pitch.",
+          "Because in this industry, confusion is often where the margin lives. Clarity removes it.",
+        ],
+      },
+      {
+        heading: "Final thought",
+        paragraphs: [
+          "You do not need a perfect process. You do not need to predict the market.",
+          "You just need to understand what you are buying, what you are paying, and who you are buying it from.",
+          "Everything else is secondary.",
+          "Because in the end, the quality of your outcome is determined long before the transaction is complete.",
+          "It is determined by the structure of the deal and the incentives behind it.",
         ],
       },
     ],
