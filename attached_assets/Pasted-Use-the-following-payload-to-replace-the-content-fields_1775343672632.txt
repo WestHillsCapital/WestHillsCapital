@@ -1,0 +1,203 @@
+Use the following payload to replace the content fields inside the existing article objects with matching slugs.
+
+```ts
+[
+  {
+    slug: "what-the-gold-to-silver-ratio-actually-means",
+    title: "What the Gold-to-Silver Ratio Actually Means",
+    excerpt:
+      "A simple explanation of what the gold-to-silver ratio measures, what it can tell you, and what it cannot.",
+    metaDescription:
+      "Learn what the gold-to-silver ratio actually means, how it works, and what it can and cannot tell buyers and investors.",
+    related: [
+      "when-does-it-actually-make-sense-to-adjust-between-gold-and-silver",
+      "why-pricing-everything-in-dollars-can-be-misleading",
+      "what-spot-price-really-means"
+    ],
+    sections: [
+      {
+        heading: "The simple definition",
+        paragraphs: [
+          "If you spend any time around precious metals, you will eventually hear someone mention the gold-to-silver ratio.",
+          "It often gets presented as a signal, a shortcut, or a way to decide which metal is cheap.",
+          "But before any of that, it helps to understand what it actually is.",
+          "The gold-to-silver ratio tells you how many ounces of silver it takes to buy one ounce of gold."
+        ]
+      },
+      {
+        heading: "A quick example",
+        paragraphs: [
+          "If gold is 2,000 dollars per ounce and silver is 25 dollars per ounce, the ratio is 80 to 1.",
+          "That means it takes 80 ounces of silver to equal the value of 1 ounce of gold."
+        ]
+      },
+      {
+        heading: "What the ratio is and what it is not",
+        paragraphs: [
+          "The ratio is a comparison tool.",
+          "It shows the relative value between gold and silver at a moment in time.",
+          "It is not a rule, not a guarantee, and not a perfect timing signal.",
+          "It does not tell you what will happen next. It tells you how the two metals are priced relative to each other right now."
+        ]
+      },
+      {
+        heading: "Why the ratio moves",
+        paragraphs: [
+          "The ratio changes because gold and silver do not move the same way.",
+          "Gold tends to act more like a monetary asset and a store of value.",
+          "Silver is part monetary and part industrial, which often makes it more volatile.",
+          "When silver falls faster than gold, the ratio rises. When silver rises faster than gold, the ratio falls."
+        ]
+      },
+      {
+        heading: "Why people pay attention to it",
+        paragraphs: [
+          "The ratio gives context.",
+          "When it gets historically high, some investors interpret that as silver being priced low relative to gold.",
+          "When it gets low, the opposite idea comes into play.",
+          "That can be useful, but this is also where people start asking more of the ratio than it can actually deliver."
+        ]
+      },
+      {
+        heading: "The part most people overlook",
+        paragraphs: [
+          "Like spot price, the ratio is influenced heavily by financial market activity, not just physical supply and demand.",
+          "Both gold and silver prices are shaped by large-scale trading, which means the ratio reflects institutional positioning, liquidity, and market expectations as much as anything else."
+        ]
+      },
+      {
+        heading: "What the ratio can tell you",
+        paragraphs: [
+          "It can tell you how silver is priced relative to gold.",
+          "If the ratio is elevated, silver may be priced low relative to gold.",
+          "If the ratio is compressed, silver may be priced high relative to gold.",
+          "That is a fair and useful observation."
+        ]
+      },
+      {
+        heading: "What the ratio cannot tell you",
+        paragraphs: [
+          "It cannot tell you the true or permanent value of either metal.",
+          "It cannot guarantee that a high ratio will fall soon or that a low ratio will rise.",
+          "And it cannot tell you whether both metals are cheap, both are expensive, or both are being influenced by broader market forces."
+        ]
+      },
+      {
+        heading: "A more practical way to use it",
+        paragraphs: [
+          "Instead of asking what the ratio will do next, a better question is what the current ratio tells you about relative pricing.",
+          "That shifts the conversation from prediction to understanding."
+        ]
+      },
+      {
+        heading: "How some investors think about it",
+        paragraphs: [
+          "Some people use the ratio as a guide when deciding whether to lean slightly more toward gold or silver.",
+          "Others ignore it entirely and focus on long-term ownership, simplicity, and wealth preservation.",
+          "Neither approach is automatically right or wrong. It depends on your goals."
+        ]
+      },
+      {
+        heading: "What it means for physical buyers",
+        paragraphs: [
+          "For someone buying physical metal, the ratio can be a helpful reference, but it should not drive every decision.",
+          "Premiums vary. Availability changes. Storage and practicality differ.",
+          "So the ratio is one input, not the entire decision."
+        ]
+      },
+      {
+        heading: "The takeaway",
+        paragraphs: [
+          "The gold-to-silver ratio is often presented as something more powerful than it is.",
+          "In reality, it is simpler.",
+          "It is a snapshot, a comparison, and a way to see how two different metals are priced against each other at a given moment."
+        ]
+      },
+      {
+        heading: "Final thought",
+        paragraphs: [
+          "Useful? Yes.",
+          "Definitive? No.",
+          "And once you understand that, you can use the ratio for what it is without expecting it to do more than it was ever meant to do."
+        ]
+      }
+    ]
+  },
+  {
+    slug: "when-does-it-actually-make-sense-to-adjust-between-gold-and-silver",
+    title: "When Does It Actually Make Sense to Adjust Between Gold and Silver?",
+    excerpt:
+      "A grounded look at when small, thoughtful allocation adjustments may make sense and when they do not.",
+    metaDescription:
+      "Learn when it actually makes sense to adjust between gold and silver and why most people should think allocation, not trading.",
+    related: [
+      "what-the-gold-to-silver-ratio-actually-means",
+      "gold-vs-silver-storage-transport-and-real-world-practicality",
+      "why-pricing-everything-in-dollars-can-be-misleading"
+    ],
+    sections: [
+      {
+        heading: "Start with the bigger question",
+        paragraphs: [
+          "If you own precious metals, the question eventually comes up: should I be holding more gold or more silver?",
+          "It is a fair question, but it can also lead people in the wrong direction if they approach it like a trading decision.",
+          "Before thinking about gold versus silver, there is a more important question: how much of my wealth should be outside the dollar system altogether?",
+          "That decision matters far more than how you divide between the two."
+        ]
+      },
+      {
+        heading: "The role of each metal",
+        paragraphs: [
+          "Gold and silver are related, but they are not the same.",
+          "Gold is primarily a store of value. It is compact, efficient, and generally more stable.",
+          "Silver is part monetary and part industrial. It tends to be more volatile and less efficient to store at scale.",
+          "A simple way to think about it is this: gold tends to preserve, silver tends to amplify."
+        ]
+      },
+      {
+        heading: "This is not about trading",
+        paragraphs: [
+          "Gold and silver are not meant to be moved back and forth constantly in an attempt to maximize short-term gains.",
+          "That mindset often leads to overthinking, higher costs, and poor timing.",
+          "For most people, the role of precious metals is much simpler: preserve purchasing power, reduce dependence on the financial system, and provide stability over time."
+        ]
+      },
+      {
+        heading: "Where the ratio fits",
+        paragraphs: [
+          "The gold-to-silver ratio can provide context by showing how the two metals are priced relative to each other.",
+          "It can be useful, but it should not drive constant decision-making.",
+          "It is a tool, not a command."
+        ]
+      },
+      {
+        heading: "When an adjustment might make sense",
+        paragraphs: [
+          "There are a few situations where it can be reasonable to adjust your allocation.",
+          "One is when the relationship between gold and silver becomes stretched relative to its historical range.",
+          "Another is when your allocation drifts far from your original intent because one metal has outperformed the other.",
+          "A third is when your personal objective changes."
+        ]
+      },
+      {
+        heading: "When relationships are stretched",
+        paragraphs: [
+          "If the ratio moves to an extreme, it can signal imbalance.",
+          "Not certainty. Not timing. But imbalance.",
+          "That may justify a small, gradual adjustment, not a major shift."
+        ]
+      },
+      {
+        heading: "When your allocation drifts",
+        paragraphs: [
+          "Sometimes the adjustment is not about the market at all.",
+          "If gold or silver moves significantly, your holdings may no longer reflect your original balance.",
+          "In that case, adjusting is less about prediction and more about discipline."
+        ]
+      },
+      {
+        heading: "When your objective changes",
+        paragraphs: [
+          "Your allocation should reflect your purpose.",
+          "
+```
