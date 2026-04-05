@@ -1466,7 +1466,7 @@ export const INSIGHTS: InsightArticle[] = [
     ],
     related: [
       "why-people-overpay-for-gold-and-silver",
-      "bullion-vs-proof-coins",
+      "why-free-silver-is-never-free",
       "how-to-choose-a-gold-dealer-without-getting-burned",
     ],
   },
@@ -1609,7 +1609,7 @@ export const INSIGHTS: InsightArticle[] = [
     ],
     related: [
       "the-one-question-every-gold-buyer-should-ask",
-      "bullion-vs-proof-coins",
+      "gold-ira-what-actually-happens-step-by-step",
       "why-people-overpay-for-gold-and-silver",
     ],
   },
