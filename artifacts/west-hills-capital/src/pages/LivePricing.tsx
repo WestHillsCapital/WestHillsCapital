@@ -368,7 +368,7 @@ export default function LivePricing() {
               {spotData?.silverChange !== undefined && (
                 <div className={`flex items-center gap-1 mt-1.5 text-xs font-medium ${spotData.silverChange >= 0 ? "text-green-600" : "text-red-500"}`}>
                   {spotData.silverChange >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
-                  {spotData.silverChange >= 0 ? "+" : ""}{spotData.silverChange.toFixed(3)} ({spotData.silverChangePercent?.toFixed(2)}%)
+                  {spotData.silverChange >= 0 ? "+" : ""}{spotData.silverChange.toFixed(2)} ({spotData.silverChangePercent?.toFixed(2)}%)
                 </div>
               )}
             </div>
