@@ -53,9 +53,18 @@ export default function Home() {
                 <div key={i} className="h-[480px] rounded-2xl bg-white/50 animate-pulse border border-border/40" />
               ))}
             </div>
+          ) : pricingData === null ? (
+            <div className="rounded-2xl border border-border/30 bg-white/50 py-12 px-8 text-center mb-8">
+              <p className="text-foreground/50 mb-1">Product pricing is temporarily unavailable.</p>
+              <p className="text-sm text-foreground/35">
+                Call{" "}
+                <a href="tel:8008676768" className="font-medium hover:text-primary transition-colors">(800) 867-6768</a>
+                {" "}for current pricing, or view our full pricing page when service is restored.
+              </p>
+            </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              {pricingData?.products.map((product) => (
+              {pricingData.products.map((product) => (
                 <Card
                   key={product.id}
                   className="overflow-hidden group border border-border/40 shadow-sm hover:shadow-md transition-shadow duration-300 bg-white"

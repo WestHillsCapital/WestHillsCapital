@@ -517,10 +517,25 @@ export default function LivePricing() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-12">
             {[1, 2, 3].map((i) => <Card key={i} className="h-[580px] animate-pulse bg-white/50" />)}
           </div>
+        ) : pricingData === null ? (
+          <div className="max-w-2xl mx-auto rounded-2xl border border-border/30 bg-muted/30 py-16 px-8 text-center mb-20">
+            <p className="text-foreground/55 mb-2">Product pricing is temporarily unavailable.</p>
+            <p className="text-sm text-foreground/40 mb-6">
+              Please call us at{" "}
+              <a href="tel:8008676768" className="font-medium text-foreground/60 hover:text-primary transition-colors">(800) 867-6768</a>
+              {" "}or schedule a call for current pricing.
+            </p>
+            <Link href="/schedule">
+              <Button size="lg" className="h-12 px-10 group">
+                Schedule Allocation Call
+                <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Button>
+            </Link>
+          </div>
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
-              {pricingData?.products.map((product) => (
+              {pricingData.products.map((product) => (
                 <ProductCard key={product.id} product={product} onZoom={setZoomProduct} />
               ))}
             </div>
@@ -557,8 +572,15 @@ export default function LivePricing() {
             <div className="divide-y divide-border/40">
               {loadingBuybacks ? (
                 <div className="p-8 text-center text-foreground/40">Loading buyback indications...</div>
+              ) : buybackData === null ? (
+                <div className="p-8 text-center">
+                  <p className="text-sm text-foreground/45">Buyback indications are temporarily unavailable.</p>
+                  <p className="text-xs text-foreground/35 mt-1">
+                    Call <a href="tel:8008676768" className="hover:text-primary transition-colors">(800) 867-6768</a> for current buyback pricing.
+                  </p>
+                </div>
               ) : (
-                buybackData?.prices.map((item) => (
+                buybackData.prices.map((item) => (
                   <div key={item.productId} className="grid grid-cols-12 gap-4 p-5 items-center hover:bg-muted/20 transition-colors">
                     <div className="col-span-6 md:col-span-5 font-semibold text-sm">{item.productName}</div>
                     <div className="hidden md:block col-span-3 text-right text-foreground/50 text-sm">Market −{item.buybackSpreadPercent}%</div>

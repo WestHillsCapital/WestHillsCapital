@@ -58,72 +58,8 @@ export interface BuybackPricesResponse {
   lastUpdated: string;
 }
 
-// Fallback data in case the backend endpoints aren't live yet
-const MOCK_SPOT_PRICES: SpotPrices = {
-  gold: 2384.50,
-  silver: 28.75,
-  goldBid: 2384.50,
-  goldAsk: 2384.50,
-  silverBid: 28.75,
-  silverAsk: 28.75,
-  lastUpdated: new Date().toISOString(),
-  source: "Mock Market Data"
-};
-
-const MOCK_PRODUCTS: ProductPricesResponse = {
-  products: [
-    {
-      id: "gold-eagle",
-      name: "1 oz Gold American Eagle",
-      metal: "gold",
-      weight: "1 oz",
-      spotPrice: 2384.50,
-      spreadPercent: 4.5,
-      finalPrice: 2491.80,
-      iraEligible: true,
-      deliveryWindow: "3-5 Business Days",
-      imageUrl: `${import.meta.env.BASE_URL}images/gold-eagle.png`,
-      description: "The official gold bullion coin of the United States, guaranteed by the U.S. Mint for weight and purity."
-    },
-    {
-      id: "gold-buffalo",
-      name: "1 oz Gold American Buffalo",
-      metal: "gold",
-      weight: "1 oz",
-      spotPrice: 2384.50,
-      spreadPercent: 4.5,
-      finalPrice: 2491.80,
-      iraEligible: true,
-      deliveryWindow: "3-5 Business Days",
-      imageUrl: `${import.meta.env.BASE_URL}images/gold-buffalo.png`,
-      description: "The first .9999 fine 24-karat gold coin ever struck by the United States Mint."
-    },
-    {
-      id: "silver-eagle",
-      name: "1 oz Silver American Eagle",
-      metal: "silver",
-      weight: "1 oz",
-      spotPrice: 28.75,
-      spreadPercent: 12.0,
-      finalPrice: 32.20,
-      iraEligible: true,
-      deliveryWindow: "3-5 Business Days",
-      imageUrl: `${import.meta.env.BASE_URL}images/silver-eagle.png`,
-      description: "The most popular silver bullion coin in the world, widely traded and highly liquid."
-    }
-  ],
-  lastUpdated: new Date().toISOString(),
-};
-
-const MOCK_BUYBACK: BuybackPricesResponse = {
-  prices: [
-    { productId: "gold-eagle", productName: "1 oz Gold American Eagle", buybackPrice: 2372.50, buybackSpreadPercent: -0.5 },
-    { productId: "gold-buffalo", productName: "1 oz Gold American Buffalo", buybackPrice: 2372.50, buybackSpreadPercent: -0.5 },
-    { productId: "silver-eagle", productName: "1 oz Silver American Eagle", buybackPrice: 28.15, buybackSpreadPercent: -2.0 },
-  ],
-  disclaimer: "Buyback prices are indications only. Final price confirmed upon receipt and authentication of metals at the depository.",
-  lastUpdated: new Date().toISOString()
-};
+// All three hooks return null on error so the UI can show explicit "temporarily
+// unavailable" states rather than silently displaying stale mock figures.
 
 export function useSpotPrices() {
   return useQuery<SpotPrices | null>({
@@ -146,12 +82,12 @@ export function useSpotPrices() {
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 export function useProductPrices() {
-  return useQuery({
+  return useQuery<ProductPricesResponse | null>({
     queryKey: ["/api/pricing/products"],
     queryFn: async () => {
       try {
         const res = await fetch("/api/pricing/products");
-        if (!res.ok) throw new Error("Network response was not ok");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = (await res.json()) as ProductPricesResponse;
         return {
           ...data,
@@ -164,8 +100,8 @@ export function useProductPrices() {
           })),
         };
       } catch (err) {
-        console.warn("Failed to fetch product prices, using mock data", err);
-        return MOCK_PRODUCTS;
+        console.warn("Failed to fetch product prices — product pricing unavailable", err);
+        return null;
       }
     },
     staleTime: 4000,
@@ -174,16 +110,16 @@ export function useProductPrices() {
 }
 
 export function useBuybackPrices() {
-  return useQuery({
+  return useQuery<BuybackPricesResponse | null>({
     queryKey: ["/api/pricing/buyback"],
     queryFn: async () => {
       try {
         const res = await fetch("/api/pricing/buyback");
-        if (!res.ok) throw new Error("Network response was not ok");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return (await res.json()) as BuybackPricesResponse;
       } catch (err) {
-        console.warn("Failed to fetch buyback prices, using mock data", err);
-        return MOCK_BUYBACK;
+        console.warn("Failed to fetch buyback prices — buyback indications unavailable", err);
+        return null;
       }
     },
     staleTime: 4000,
