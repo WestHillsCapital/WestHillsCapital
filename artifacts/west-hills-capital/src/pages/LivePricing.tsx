@@ -4,7 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Link } from "wouter";
-import { Shield, ArrowRight, ZoomIn, RotateCcw, TrendingDown, TrendingUp } from "lucide-react";
+import { Shield, ArrowRight, ZoomIn, RotateCcw, TrendingDown, TrendingUp, Info, X } from "lucide-react";
 import {
   ComposedChart,
   Area,
@@ -316,7 +316,108 @@ function SpotChart() {
   );
 }
 
-// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
+// ─── RATIO CARD ───────────────────────────────────────────────────────────────
+
+function RatioCard({ ratio }: { ratio: string | null }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="relative bg-white rounded-2xl border border-border/40 p-5">
+      {/* Header row */}
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-foreground/40 font-medium uppercase tracking-widest">
+          Gold / Silver Ratio
+        </p>
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="text-foreground/30 hover:text-primary transition-colors p-0.5 -mr-0.5"
+          aria-label="What is the gold-to-silver ratio?"
+        >
+          <Info className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* Main number */}
+      <p className="text-2xl font-serif font-semibold">
+        {ratio ? `${ratio} : 1` : "—"}
+      </p>
+
+      {/* Plain-language explanation */}
+      <p className="text-xs text-foreground/50 mt-1.5 leading-relaxed">
+        {ratio
+          ? `It takes ${ratio} ounces of silver to equal the value of 1 ounce of gold.`
+          : "Calculating ratio…"}
+      </p>
+
+      {/* Secondary context line */}
+      <p className="text-[11px] text-foreground/35 mt-1 leading-snug">
+        Higher ratio = silver weaker relative to gold. Lower = silver stronger.
+      </p>
+
+      {/* Popover */}
+      {open && (
+        <>
+          {/* Invisible backdrop to close on outside click */}
+          <div className="fixed inset-0 z-20" onClick={() => setOpen(false)} />
+
+          {/* Popover panel */}
+          <div className="absolute top-full right-0 mt-2 z-30 w-full sm:w-72 bg-white border border-border/50 rounded-xl shadow-lg p-5">
+            <div className="flex items-start justify-between mb-4">
+              <p className="text-[13px] font-semibold text-foreground leading-snug">
+                About This Ratio
+              </p>
+              <button
+                onClick={() => setOpen(false)}
+                className="text-foreground/30 hover:text-foreground/60 transition-colors ml-3 shrink-0 mt-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="space-y-3.5">
+              <div>
+                <p className="text-[11px] font-semibold text-foreground/60 uppercase tracking-wider mb-1">
+                  What is the gold-to-silver ratio?
+                </p>
+                <p className="text-[12px] text-foreground/55 leading-relaxed">
+                  The gold-to-silver ratio shows how many ounces of silver it takes to equal the value of 1 ounce of gold.
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold text-foreground/60 uppercase tracking-wider mb-1">
+                  What does {ratio ? `${ratio}:1` : "this"} mean?
+                </p>
+                <p className="text-[12px] text-foreground/55 leading-relaxed">
+                  {ratio
+                    ? `It means ${ratio} ounces of silver are worth about the same as 1 ounce of gold at current market prices.`
+                    : "The ratio compares the current price of gold to the current price of silver."}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold text-foreground/60 uppercase tracking-wider mb-1">
+                  Why does it matter?
+                </p>
+                <p className="text-[12px] text-foreground/55 leading-relaxed">
+                  Some investors use the ratio to compare the relative pricing of gold and silver.
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold text-foreground/60 uppercase tracking-wider mb-1">
+                  What it does not tell you
+                </p>
+                <p className="text-[12px] text-foreground/55 leading-relaxed">
+                  The ratio is not a guarantee, prediction, or timing signal. It is a comparison tool, not a decision by itself.
+                </p>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// ─── LIVE PRICING PAGE ────────────────────────────────────────────────────────
 
 export default function LivePricing() {
   const { data: pricingData, isLoading: loadingProducts } = useProductPrices();
@@ -374,15 +475,7 @@ export default function LivePricing() {
             </div>
 
             {/* Gold/Silver Ratio */}
-            <div className="bg-white rounded-2xl border border-border/40 p-5">
-              <p className="text-xs text-foreground/40 font-medium uppercase tracking-widest mb-2">Gold / Silver Ratio</p>
-              <p className="text-2xl font-serif font-semibold">
-                {ratio ? `${ratio} : 1` : "—"}
-              </p>
-              <p className="text-xs text-foreground/40 mt-1.5 leading-relaxed">
-                Ounces of silver to buy 1 oz gold. Historical avg ~55–75.
-              </p>
-            </div>
+            <RatioCard ratio={ratio} />
           </div>
 
           {/* CHART */}
