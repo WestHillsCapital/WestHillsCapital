@@ -62,6 +62,10 @@ export interface BuybackPricesResponse {
 const MOCK_SPOT_PRICES: SpotPrices = {
   gold: 2384.50,
   silver: 28.75,
+  goldBid: 2384.50,
+  goldAsk: 2384.50,
+  silverBid: 28.75,
+  silverAsk: 28.75,
   lastUpdated: new Date().toISOString(),
   source: "Mock Market Data"
 };
