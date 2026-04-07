@@ -167,7 +167,7 @@ function formatSilverTick(v: number): string {
 
 function SpotChart() {
   const [period, setPeriod] = useState<ChartPeriod>("1M");
-  const { data, isLoading } = useSpotHistory(period);
+  const { data, isLoading, isError } = useSpotHistory(period);
 
   const chartData = useMemo(() => {
     if (!data?.history?.length) return [];
@@ -209,6 +209,17 @@ function SpotChart() {
 
   if (isLoading) {
     return <div className="h-[300px] rounded-xl bg-muted/30 animate-pulse" />;
+  }
+
+  if (isError || !chartData.length) {
+    return (
+      <div className="h-[300px] rounded-xl bg-muted/10 border border-border/20 flex flex-col items-center justify-center gap-2">
+        <p className="text-sm text-foreground/40">
+          {isError ? "Price history is temporarily unavailable." : "No price data available for this period."}
+        </p>
+        <p className="text-xs text-foreground/30">Please check back shortly.</p>
+      </div>
+    );
   }
 
   return (
@@ -443,6 +454,17 @@ export default function LivePricing() {
 
         {/* MARKET DATA — spot stats + chart */}
         <div className="max-w-5xl mx-auto mb-14">
+
+          {/* UNAVAILABILITY NOTICE — shown only when live spot data cannot be fetched */}
+          {spotData === null && (
+            <div className="rounded-xl border border-border/30 bg-muted/30 px-5 py-3 mb-5 text-center">
+              <p className="text-sm text-foreground/50">
+                Live spot pricing is temporarily unavailable. Please call us at{" "}
+                <a href="tel:8008676768" className="text-foreground/70 font-medium hover:text-primary transition-colors">(800) 867-6768</a>
+                {" "}for current pricing.
+              </p>
+            </div>
+          )}
 
           {/* SPOT STATS ROW */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">

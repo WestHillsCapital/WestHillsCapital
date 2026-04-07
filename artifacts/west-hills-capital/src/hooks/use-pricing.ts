@@ -126,16 +126,16 @@ const MOCK_BUYBACK: BuybackPricesResponse = {
 };
 
 export function useSpotPrices() {
-  return useQuery({
+  return useQuery<SpotPrices | null>({
     queryKey: ["/api/pricing/spot"],
     queryFn: async () => {
       try {
         const res = await fetch("/api/pricing/spot");
-        if (!res.ok) throw new Error("Network response was not ok");
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return (await res.json()) as SpotPrices;
       } catch (err) {
-        console.warn("Failed to fetch spot prices, using mock data", err);
-        return MOCK_SPOT_PRICES;
+        console.warn("Failed to fetch spot prices — live pricing unavailable", err);
+        return null; // Explicit unavailable signal; UI shows "—" rather than stale mock prices
       }
     },
     staleTime: 4000,

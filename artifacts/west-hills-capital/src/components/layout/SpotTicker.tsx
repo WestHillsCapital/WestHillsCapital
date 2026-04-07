@@ -11,7 +11,13 @@ export function SpotTicker() {
     );
   }
 
-  if (!spot) return null;
+  if (!spot) {
+    return (
+      <div className="w-full bg-[#1a1f2e] text-white/35 text-[11px] py-2 px-4 flex items-center justify-center tracking-wide">
+        Live spot pricing temporarily unavailable — contact us for current prices
+      </div>
+    );
+  }
 
   return (
     <div className="w-full bg-[#1a1f2e] text-white text-xs py-2 px-4">
