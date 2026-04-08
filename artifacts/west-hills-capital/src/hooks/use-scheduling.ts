@@ -89,29 +89,24 @@ export async function submitPrequalLead(data: {
   allocationType: string;
   allocationRange: string;
   timeline: string;
-}): Promise<void> {
+}): Promise<{ ok: true } | { ok: false; message: string }> {
   const url = `${API_BASE}/api/leads/intake`;
-  console.log("[Schedule] submitPrequalLead → sending to", url, { formType: "schedule_prequal", email: data.email });
   try {
     const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        formType: "schedule_prequal",
-        ...data,
-      }),
+      body: JSON.stringify({ formType: "schedule_prequal", ...data }),
     });
-    if (res.ok) {
-      console.log("[Schedule] Prequal lead saved OK —", res.status);
-    } else {
-      const body = await res.json().catch(() => ({}));
-      console.error(
-        "[Schedule] Prequal lead capture returned error:",
-        res.status,
-        (body as { message?: string }).message ?? "(no message)"
-      );
-    }
+    if (res.ok) return { ok: true };
+    const body = await res.json().catch(() => ({}));
+    return {
+      ok: false,
+      message: `Server error ${res.status}: ${(body as { message?: string }).message ?? "unknown"}`,
+    };
   } catch (err) {
-    console.error("[Schedule] Prequal lead capture network failure:", err);
+    return {
+      ok: false,
+      message: err instanceof Error ? err.message : String(err),
+    };
   }
 }

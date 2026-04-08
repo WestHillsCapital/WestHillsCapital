@@ -73,6 +73,8 @@ function SchedulingUnavailable({ message }: { message?: string }) {
 export default function Schedule() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [formData, setFormData] = useState<PrequalFormValues | null>(null);
+  const [leadError, setLeadError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   const { data: slotsData, isLoading: loadingSlots, error: slotsError } = useAvailableSlots();
   const bookMutation = useBookAppointment();
@@ -91,9 +93,14 @@ export default function Schedule() {
     },
   });
 
-  const onSubmitPrequal = (data: PrequalFormValues) => {
-    // Fire-and-forget: capture lead immediately so an abandoned booking is not lost
-    submitPrequalLead(data);
+  const onSubmitPrequal = async (data: PrequalFormValues) => {
+    setSubmitting(true);
+    setLeadError(null);
+    const result = await submitPrequalLead(data);
+    setSubmitting(false);
+    if (!result.ok) {
+      setLeadError(result.message);
+    }
     setFormData(data);
     setStep(2);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -244,7 +251,9 @@ export default function Schedule() {
                 </div>
               </div>
 
-              <Button type="submit" className="w-full h-14 text-lg">Find Available Times</Button>
+              <Button type="submit" disabled={submitting} className="w-full h-14 text-lg">
+                {submitting ? "Saving…" : "Find Available Times"}
+              </Button>
             </form>
           </Card>
         )}
@@ -252,6 +261,20 @@ export default function Schedule() {
         {/* STEP 2: SLOT SELECTION */}
         {step === 2 && (
           <div className="animate-fade-in space-y-8">
+            {leadError && (
+              <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-red-800 text-sm">Could not save your information</p>
+                  <p className="text-red-700 text-sm mt-0.5">{leadError}</p>
+                  <p className="text-red-600 text-sm mt-1">
+                    Please call us at{" "}
+                    <a href="tel:8008676768" className="font-semibold underline">(800) 867-6768</a>{" "}
+                    if this problem persists.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-6 mb-8 text-center">
               <PhoneCall className="w-8 h-8 text-primary mx-auto mb-3" />
               <h3 className="font-semibold text-lg mb-2">We will call you</h3>
