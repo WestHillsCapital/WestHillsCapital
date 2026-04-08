@@ -5,7 +5,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://YOUR_API_SERVER_URL/api/$1"
+      "destination": "https://workspaceapi-server-production-987b.up.railway.app/api/$1"
     },
     {
       "source": "/(.*)",
