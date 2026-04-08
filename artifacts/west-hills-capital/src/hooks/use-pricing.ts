@@ -58,9 +58,10 @@ export interface BuybackPricesResponse {
   lastUpdated: string;
 }
 
-// When VITE_API_URL is set (Vercel production), hit the Railway API directly.
-// In local dev (no env var), fall back to relative /api/... paths via Vite proxy.
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+// Hit the Railway API directly. VITE_API_URL overrides if set; otherwise use
+// the known production Railway URL. The DG API key lives server-side on Railway.
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)
+  ?? "https://workspaceapi-server-production-987b.up.railway.app";
 
 // All three hooks return null on error so the UI can show explicit "temporarily
 // unavailable" states rather than silently displaying stale mock figures.
