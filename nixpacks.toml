@@ -1,0 +1,16 @@
+# Railway / Nixpacks configuration for the West Hills Capital API server.
+# Root Directory must be blank in Railway (repo root) so workspace packages are accessible.
+# packageManager in package.json tells corepack which pnpm version to use.
+
+[phases.setup]
+nixPkgs = ["nodejs_20"]
+cmds = ["corepack enable"]
+
+[phases.install]
+cmds = ["pnpm install --frozen-lockfile"]
+
+[phases.build]
+cmds = ["pnpm --filter @workspace/api-server build"]
+
+[start]
+cmd = "node --enable-source-maps ./artifacts/api-server/dist/index.mjs"
