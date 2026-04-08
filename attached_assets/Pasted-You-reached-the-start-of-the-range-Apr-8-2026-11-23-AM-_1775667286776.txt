@@ -1,0 +1,32 @@
+You reached the start of the range
+Apr 8, 2026, 11:23 AM
+Certificate will not expire
+2026-04-08 16:24:17.864 UTC [33] LOG:  database system was interrupted; last known up at 2026-04-08 15:32:27 UTC
+PostgreSQL Database directory appears to contain a database; Skipping initialization
+2026-04-08 16:24:17.841 UTC [7] LOG:  starting PostgreSQL 18.3 (Debian 18.3-1.pgdg13+1) on x86_64-pc-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit
+2026-04-08 16:24:17.841 UTC [7] LOG:  listening on IPv4 address "0.0.0.0", port 5432
+2026-04-08 16:24:17.841 UTC [7] LOG:  listening on IPv6 address "::", port 5432
+2026-04-08 16:24:17.851 UTC [7] LOG:  listening on Unix socket "/var/run/postgresql/.s.PGSQL.5432"
+Mounting volume on: /var/lib/containers/railwayapp/bind-mounts/b10d4204-a123-436e-a079-8e9cd0e7696b/vol_l0d080smguiqigby
+Starting Container
+2026-04-08 16:24:18.228 UTC [33] LOG:  database system was not properly shut down; automatic recovery in progress
+2026-04-08 16:24:18.237 UTC [33] LOG:  redo starts at 0/1C60978
+2026-04-08 16:24:18.237 UTC [33] LOG:  invalid record length at 0/1C61A70: expected at least 24, got 0
+2026-04-08 16:24:18.237 UTC [33] LOG:  redo done at 0/1C61A38 system usage: CPU: user: 0.00 s, system: 0.00 s, elapsed: 0.00 s
+2026-04-08 16:24:18.245 UTC [31] LOG:  checkpoint starting: end-of-recovery immediate wait
+2026-04-08 16:24:18.265 UTC [31] LOG:  checkpoint complete: wrote 1 buffers (0.0%), wrote 3 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.006 s, sync=0.006 s, total=0.023 s; sync files=3, longest=0.003 s, average=0.002 s; distance=4 kB, estimate=4 kB; lsn=0/1C61A70, redo lsn=0/1C61A70
+2026-04-08 16:24:18.269 UTC [7] LOG:  database system is ready to accept connections
+2026-04-08 16:44:18.662 UTC [31] LOG:  checkpoint starting: time
+2026-04-08 16:44:19.188 UTC [31] LOG:  checkpoint complete: wrote 5 buffers (0.0%), wrote 1 SLRU buffers; 0 WAL file(s) added, 0 removed, 0 recycled; write=0.505 s, sync=0.007 s, total=0.527 s; sync files=6, longest=0.005 s, average=0.002 s; distance=21 kB, estimate=21 kB; lsn=0/1C671C8, redo lsn=0/1C67170
+2026-04-08 16:45:13.231 UTC [50] ERROR:  relation "appointments" does not exist at character 21
+2026-04-08 16:45:13.231 UTC [50] STATEMENT:  SELECT slot_id FROM appointments WHERE status = 'confirmed' AND scheduled_time > NOW()
+2026-04-08 16:45:57.851 UTC [52] ERROR:  relation "appointments" does not exist at character 21
+2026-04-08 16:45:57.851 UTC [52] STATEMENT:  SELECT slot_id FROM appointments WHERE status = 'confirmed' AND scheduled_time > NOW()
+2026-04-08 16:45:58.249 UTC [53] ERROR:  relation "appointments" does not exist at character 21
+2026-04-08 16:45:58.249 UTC [53] STATEMENT:  SELECT slot_id FROM appointments WHERE status = 'confirmed' AND scheduled_time > NOW()
+2026-04-08 16:45:58.278 UTC [54] ERROR:  relation "appointments" does not exist at character 13
+2026-04-08 16:45:58.278 UTC [54] STATEMENT:  INSERT INTO appointments (
+	        confirmation_id, slot_id, scheduled_time, day_label, time_label,
+	        first_name, last_name, email, phone, state,
+	        allocation_type, allocation_range, timeline, status
+	      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
