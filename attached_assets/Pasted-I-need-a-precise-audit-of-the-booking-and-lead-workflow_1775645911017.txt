@@ -1,0 +1,64 @@
+I need a precise audit of the booking and lead workflow that currently exists in this project.
+
+Please do not suggest new features yet. First, tell me exactly what is already built and what is still placeholder or unconnected.
+
+I want you to inspect the current system and answer these questions clearly:
+
+1. Booking flow
+
+* What happens technically when a user books an appointment?
+* Which database tables are written to?
+* Which fields are saved?
+* How are time slots generated?
+* Are booked slots prevented from being booked again?
+
+2. Google Calendar
+
+* Is Google Calendar currently integrated at all?
+* If yes, what exactly is implemented?
+* If no, what code exists that was intended for Calendar integration?
+* Are appointments currently checked against my real calendar availability?
+* Are real events currently created in Google Calendar?
+
+3. Google Sheets
+
+* Is Google Sheets currently integrated at all?
+* If yes, what exactly is implemented?
+* If no, what code exists that was intended for Sheets integration?
+* Are leads or appointments currently pushed to any sheet?
+
+4. Notifications
+
+* Do I currently get any notification when someone books?
+* If yes, by what method?
+* If no, what code or placeholders exist for email/SMS/admin notification?
+
+5. Lead handling
+
+* What is the difference between the `appointments` table and the `leads` table?
+* Are both used right now?
+* Is a booked appointment also saved as a lead?
+* Is duplicate lead detection implemented?
+
+6. Admin / fulfillment readiness
+
+* Is there any existing internal admin view, CRM logic, or status update workflow?
+* What status values are currently supported?
+* What parts of the downstream sales/fulfillment workflow already exist in code?
+
+7. Source-of-truth architecture
+
+* Right now, what is the source of truth for scheduling: database, Google Calendar, or both?
+* What is the source of truth for leads: database, Google Sheets, or both?
+
+8. Gaps
+
+* List clearly what is fully working
+* List clearly what is partially built
+* List clearly what is not yet connected
+
+At the end, give me:
+
+* a concise architecture summary of the current system
+* the safest next implementation order
+* which integrations should be done first to prevent scheduling mistakes and missed leads
