@@ -132,7 +132,7 @@ export const BookAppointmentResponse = zod.object({
  * @summary Submit lead intake form
  */
 export const SubmitLeadIntakeBody = zod.object({
-  formType: zod.enum(["ira", "general"]),
+  formType: zod.enum(["ira", "general", "schedule_prequal", "appointment_booked"]),
   firstName: zod.string(),
   lastName: zod.string(),
   email: zod.string(),

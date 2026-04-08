@@ -90,7 +90,7 @@ export async function submitPrequalLead(data: {
   timeline: string;
 }): Promise<void> {
   try {
-    await fetch(`${API_BASE}/api/leads/intake`, {
+    const res = await fetch(`${API_BASE}/api/leads/intake`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -98,7 +98,15 @@ export async function submitPrequalLead(data: {
         ...data,
       }),
     });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      console.error(
+        "[Schedule] Prequal lead capture returned error:",
+        res.status,
+        (body as { message?: string }).message ?? "(no message)"
+      );
+    }
   } catch (err) {
-    console.warn("[Schedule] Prequal lead capture failed (non-fatal):", err);
+    console.error("[Schedule] Prequal lead capture network failure:", err);
   }
 }

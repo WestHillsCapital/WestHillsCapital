@@ -1,11 +1,12 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request } from "express";
 import {
   GetAvailableSlotsResponse,
   BookAppointmentBody,
   BookAppointmentResponse,
 } from "@workspace/api-zod";
-import { getDb } from "../db";
+import { getDb, recordBookingAttempt } from "../db";
 import { sendBookingNotification, sendBookingConfirmation } from "../lib/email";
+import { isRateLimited } from "../lib/ratelimit";
 
 const router: IRouter = Router();
 
@@ -15,6 +16,19 @@ const END_HOUR_CT = 17;   // 5:00 PM CT
 const LEAD_TIME_HOURS = 2;
 const SLOTS_TO_SHOW = 14;
 const DAYS_AHEAD = 14;
+
+// Rate limit config
+const SLOTS_MAX_PER_MIN = 30;       // per IP
+const BOOK_MAX_PER_10_MIN = 3;      // per IP:email combo
+const BOOK_WINDOW_MS = 10 * 60 * 1000;
+
+function getIp(req: Request): string {
+  return (
+    (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ??
+    req.ip ??
+    "unknown"
+  );
+}
 
 function generateAvailableSlots(bookedSlotIds: Set<string>) {
   const slots = [];
@@ -80,8 +94,18 @@ function generateAvailableSlots(bookedSlotIds: Set<string>) {
   return slots;
 }
 
-// GET /api/scheduling/slots
-router.get("/slots", async (_req, res) => {
+// ─── GET /api/scheduling/slots ─────────────────────────────────────────────────
+router.get("/slots", async (req, res) => {
+  const ip = getIp(req);
+
+  if (isRateLimited(`slots:${ip}`, SLOTS_MAX_PER_MIN, 60_000)) {
+    res.status(429).json({
+      error: "rate_limited",
+      message: "Too many requests. Please wait a moment and try again.",
+    });
+    return;
+  }
+
   let bookedSlotIds = new Set<string>();
   try {
     const db = getDb();
@@ -106,10 +130,21 @@ router.get("/slots", async (_req, res) => {
   res.json(data);
 });
 
-// POST /api/scheduling/book
+// ─── POST /api/scheduling/book ─────────────────────────────────────────────────
 router.post("/book", async (req, res) => {
+  const ip = getIp(req);
+
+  // ── 1. Validate body ──────────────────────────────────────────────────────
   const parseResult = BookAppointmentBody.safeParse(req.body);
   if (!parseResult.success) {
+    await recordBookingAttempt({
+      email: req.body?.email ?? "unknown",
+      slotId: req.body?.slotId ?? "unknown",
+      ipAddress: ip,
+      success: false,
+      errorCode: "validation_error",
+      errorDetail: parseResult.error.message,
+    });
     res.status(400).json({
       error: "validation_error",
       message: parseResult.error.message,
@@ -119,7 +154,26 @@ router.post("/book", async (req, res) => {
 
   const body = parseResult.data;
 
-  // Load booked slots to verify availability
+  // ── 2. Rate limit (per IP:email) ──────────────────────────────────────────
+  const rlKey = `book:${ip}:${body.email.toLowerCase()}`;
+  if (isRateLimited(rlKey, BOOK_MAX_PER_10_MIN, BOOK_WINDOW_MS)) {
+    console.warn(`[Scheduling] Rate limited: ${body.email} from ${ip}`);
+    await recordBookingAttempt({
+      email: body.email,
+      slotId: body.slotId,
+      ipAddress: ip,
+      success: false,
+      errorCode: "rate_limited",
+      errorDetail: `IP ${ip}`,
+    });
+    res.status(429).json({
+      error: "rate_limited",
+      message: "Too many booking attempts. Please wait 10 minutes or call (800) 867-6768.",
+    });
+    return;
+  }
+
+  // ── 3. Verify slot is still available (application-level check) ───────────
   let bookedSlotIds = new Set<string>();
   try {
     const db = getDb();
@@ -129,6 +183,14 @@ router.post("/book", async (req, res) => {
     bookedSlotIds = new Set(result.rows.map((r) => r.slot_id));
   } catch (err) {
     console.error("[Scheduling] Failed to load booked slots:", err);
+    await recordBookingAttempt({
+      email: body.email,
+      slotId: body.slotId,
+      ipAddress: ip,
+      success: false,
+      errorCode: "database_unavailable",
+      errorDetail: String(err),
+    });
     res.status(503).json({
       error: "database_unavailable",
       message: "Unable to verify slot availability. Please try again.",
@@ -140,6 +202,15 @@ router.post("/book", async (req, res) => {
   const slot = slots.find((s) => s.id === body.slotId);
 
   if (!slot) {
+    console.warn(`[Scheduling] Slot unavailable: ${body.slotId} for ${body.email}`);
+    await recordBookingAttempt({
+      email: body.email,
+      slotId: body.slotId,
+      ipAddress: ip,
+      success: false,
+      errorCode: "slot_unavailable",
+      errorDetail: "Slot not found in available list",
+    });
     res.status(400).json({
       error: "slot_unavailable",
       message: "The selected appointment slot is no longer available.",
@@ -149,7 +220,8 @@ router.post("/book", async (req, res) => {
 
   const confirmationId = `WHC-${Date.now().toString(36).toUpperCase()}`;
 
-  // Save appointment to database — hard failure if this fails
+  // ── 4. INSERT appointment — hard failure; partial unique index enforces
+  //       database-level slot exclusivity even under concurrent requests ──────
   try {
     const db = getDb();
     await db.query(
@@ -176,16 +248,46 @@ router.post("/book", async (req, res) => {
       ],
     );
     console.log(`[Scheduling] Appointment saved: ${confirmationId} — ${body.firstName} ${body.lastName} @ ${slot.timeLabel} ${slot.dayLabel}`);
-  } catch (err) {
-    console.error("[Scheduling] Failed to save appointment:", err);
-    res.status(503).json({
-      error: "booking_failed",
-      message: "Unable to save your appointment. Please call us at (800) 867-6768.",
+  } catch (err: unknown) {
+    // PostgreSQL error code 23505 = unique_violation → slot was taken concurrently
+    const pgCode = (err as { code?: string }).code;
+    const isSlotConflict = pgCode === "23505";
+
+    console.error(`[Scheduling] INSERT failed (${pgCode}):`, err);
+
+    await recordBookingAttempt({
+      email: body.email,
+      slotId: body.slotId,
+      ipAddress: ip,
+      success: false,
+      errorCode: isSlotConflict ? "slot_conflict_db" : "db_insert_failed",
+      errorDetail: String(err),
     });
+
+    if (isSlotConflict) {
+      res.status(409).json({
+        error: "slot_unavailable",
+        message: "That time slot was just taken. Please select another time.",
+      });
+    } else {
+      res.status(503).json({
+        error: "booking_failed",
+        message: "Unable to save your appointment. Please call us at (800) 867-6768.",
+      });
+    }
     return;
   }
 
-  // Cross-write to leads: upgrade an existing schedule_prequal lead or insert new
+  // ── 5. Audit: record successful attempt ───────────────────────────────────
+  await recordBookingAttempt({
+    email: body.email,
+    slotId: body.slotId,
+    ipAddress: ip,
+    success: true,
+    confirmationId,
+  });
+
+  // ── 6. Cross-write to leads (non-fatal) ───────────────────────────────────
   try {
     const db = getDb();
     const updated = await db.query(
@@ -212,7 +314,6 @@ router.post("/book", async (req, res) => {
     );
 
     if (updated.rowCount === 0) {
-      // No prequal lead to upgrade — insert a new appointment_booked lead
       await db.query(
         `INSERT INTO leads (
           form_type, first_name, last_name, email, phone, state,
@@ -228,17 +329,18 @@ router.post("/book", async (req, res) => {
           body.allocationType,
           body.allocationRange,
           body.timeline,
-          req.ip ?? null,
+          ip,
         ]
       );
+      console.log(`[Scheduling] New appointment_booked lead created for ${body.email}`);
+    } else {
+      console.log(`[Scheduling] Upgraded schedule_prequal → appointment_booked for ${body.email}`);
     }
-    console.log(`[Scheduling] Lead record synced for ${body.email}`);
   } catch (err) {
-    // Non-fatal — appointment is already confirmed, just log
     console.error("[Scheduling] Failed to sync lead record:", err);
   }
 
-  // Send notifications (non-fatal — booking is already confirmed)
+  // ── 7. Emails (non-fatal — booking is already confirmed) ──────────────────
   Promise.all([
     sendBookingNotification({
       confirmationId,
@@ -262,6 +364,7 @@ router.post("/book", async (req, res) => {
     }),
   ]).catch((err) => console.error("[Scheduling] Email dispatch error:", err));
 
+  // ── 8. Respond ────────────────────────────────────────────────────────────
   const data = BookAppointmentResponse.parse({
     confirmationId,
     scheduledTime: slot.dateTime,
