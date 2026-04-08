@@ -62,9 +62,6 @@ export interface BuybackPricesResponse {
 // In production (Vercel), defaults to "" which routes through Vercel's /api proxy.
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
-// DEBUG — remove after confirming production pricing works
-console.log("[pricing] API_BASE =", API_BASE);
-
 // All three hooks return null on error so the UI can show explicit "temporarily
 // unavailable" states rather than silently displaying stale mock figures.
 
@@ -72,22 +69,16 @@ export function useSpotPrices() {
   return useQuery<SpotPrices | null>({
     queryKey: ["/api/pricing/spot"],
     queryFn: async () => {
-      const url = `${API_BASE}/api/pricing/spot`;
-      console.log("[pricing] fetching spot →", url);
       try {
-        const res = await fetch(url);
-        console.log("[pricing] spot status →", res.status);
+        const res = await fetch(`${API_BASE}/api/pricing/spot`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        console.log("[pricing] spot payload →", json);
-        return json as SpotPrices;
-      } catch (err) {
-        console.warn("[pricing] spot FAILED →", err);
+        return res.json() as Promise<SpotPrices>;
+      } catch {
         return null;
       }
     },
     staleTime: 4000,
-    refetchInterval: 5000, // Refetch every 5 seconds (matches backend Dillon Gage cache TTL)
+    refetchInterval: 5000,
   });
 }
 
@@ -97,14 +88,10 @@ export function useProductPrices() {
   return useQuery<ProductPricesResponse | null>({
     queryKey: ["/api/pricing/products"],
     queryFn: async () => {
-      const url = `${API_BASE}/api/pricing/products`;
-      console.log("[pricing] fetching products →", url);
       try {
-        const res = await fetch(url);
-        console.log("[pricing] products status →", res.status);
+        const res = await fetch(`${API_BASE}/api/pricing/products`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = (await res.json()) as ProductPricesResponse;
-        console.log("[pricing] products payload →", data);
         return {
           ...data,
           products: data.products.map((p) => ({
@@ -115,8 +102,7 @@ export function useProductPrices() {
               : undefined,
           })),
         };
-      } catch (err) {
-        console.warn("Failed to fetch product prices — product pricing unavailable", err);
+      } catch {
         return null;
       }
     },
@@ -129,17 +115,11 @@ export function useBuybackPrices() {
   return useQuery<BuybackPricesResponse | null>({
     queryKey: ["/api/pricing/buyback"],
     queryFn: async () => {
-      const url = `${API_BASE}/api/pricing/buyback`;
-      console.log("[pricing] fetching buyback →", url);
       try {
-        const res = await fetch(url);
-        console.log("[pricing] buyback status →", res.status);
+        const res = await fetch(`${API_BASE}/api/pricing/buyback`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
-        console.log("[pricing] buyback payload →", json);
-        return json as BuybackPricesResponse;
-      } catch (err) {
-        console.warn("[pricing] buyback FAILED →", err);
+        return res.json() as Promise<BuybackPricesResponse>;
+      } catch {
         return null;
       }
     },
@@ -150,20 +130,14 @@ export function useBuybackPrices() {
 export type ChartPeriod = "1D" | "1W" | "1M" | "3M" | "6M" | "1Y" | "5Y" | "ALL";
 
 export function useSpotHistory(period: ChartPeriod = "1M") {
-  // Short periods update live; longer periods are historical and only need occasional refresh
   const isLive = period === "1D" || period === "1W" || period === "1M";
   const staleMs = isLive ? 60_000 : 10 * 60_000;
   return useQuery({
     queryKey: ["/api/pricing/history", period],
     queryFn: async () => {
-      const url = `${API_BASE}/api/pricing/history?period=${period}`;
-      console.log("[pricing] fetching history →", url);
-      const res = await fetch(url);
-      console.log("[pricing] history status →", res.status);
+      const res = await fetch(`${API_BASE}/api/pricing/history?period=${period}`);
       if (!res.ok) throw new Error("Failed to fetch price history");
-      const json = await res.json();
-      console.log("[pricing] history points →", (json as SpotHistoryResponse).history?.length);
-      return json as SpotHistoryResponse;
+      return res.json() as Promise<SpotHistoryResponse>;
     },
     staleTime: staleMs,
     refetchInterval: staleMs,
