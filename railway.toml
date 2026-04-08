@@ -1,6 +1,6 @@
 [build]
 builder = "nixpacks"
-buildCommand = "pnpm install && pnpm --filter @workspace/api-server build"
+buildCommand = "pnpm --filter @workspace/api-server build"
 
 [deploy]
 startCommand = "node --enable-source-maps ./artifacts/api-server/dist/index.mjs"
