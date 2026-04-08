@@ -103,8 +103,8 @@ async function getLiveSpot() {
   };
 
   cachedSpot = {
-    gold: data.goldBid,
-    silver: data.silverBid,
+    gold: data.goldAsk,
+    silver: data.silverAsk,
     goldBid: data.goldBid,
     goldAsk: data.goldAsk,
     silverBid: data.silverBid,
