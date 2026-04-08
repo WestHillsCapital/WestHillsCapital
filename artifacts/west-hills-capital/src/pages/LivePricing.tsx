@@ -436,8 +436,8 @@ export default function LivePricing() {
   const { data: spotData } = useSpotPrices();
   const [zoomProduct, setZoomProduct] = useState<Product | null>(null);
 
-  const ratio = spotData?.goldBid && spotData?.silverBid
-    ? (spotData.goldBid / spotData.silverBid).toFixed(1)
+  const ratio = spotData?.gold && spotData?.silver
+    ? (spotData.gold / spotData.silver).toFixed(1)
     : null;
 
   return (
@@ -472,7 +472,7 @@ export default function LivePricing() {
             <div className="bg-white rounded-2xl border border-border/40 p-5">
               <p className="text-xs text-foreground/40 font-medium uppercase tracking-widest mb-2">Gold Spot</p>
               <p className="text-2xl font-serif font-semibold">
-                {spotData?.goldBid != null ? `$${spotData.goldBid.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
+                {spotData?.gold != null ? `$${spotData.gold.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
               </p>
               {spotData?.goldChange !== undefined && (
                 <div className={`flex items-center gap-1 mt-1.5 text-xs font-medium ${spotData.goldChange >= 0 ? "text-green-600" : "text-red-500"}`}>
@@ -486,7 +486,7 @@ export default function LivePricing() {
             <div className="bg-white rounded-2xl border border-border/40 p-5">
               <p className="text-xs text-foreground/40 font-medium uppercase tracking-widest mb-2">Silver Spot</p>
               <p className="text-2xl font-serif font-semibold">
-                {spotData?.silverBid != null ? `$${spotData.silverBid.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
+                {spotData?.silver != null ? `$${spotData.silver.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
               </p>
               {spotData?.silverChange !== undefined && (
                 <div className={`flex items-center gap-1 mt-1.5 text-xs font-medium ${spotData.silverChange >= 0 ? "text-green-600" : "text-red-500"}`}>

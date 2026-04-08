@@ -27,7 +27,7 @@ export function SpotTicker() {
           <div className="flex items-center gap-2">
             <span className="text-white/45 uppercase tracking-widest font-medium" style={{ fontSize: "10px" }}>Gold Spot</span>
             <span className="font-semibold text-white tabular-nums">
-              ${(spot.goldBid ?? spot.gold).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              ${spot.gold.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </span>
           </div>
 
@@ -36,7 +36,7 @@ export function SpotTicker() {
           <div className="flex items-center gap-2">
             <span className="text-white/45 uppercase tracking-widest font-medium" style={{ fontSize: "10px" }}>Silver Spot</span>
             <span className="font-semibold text-white tabular-nums">
-              ${(spot.silverBid ?? spot.silver).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              ${spot.silver.toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </span>
           </div>
         </div>
