@@ -1,9 +1,10 @@
 import { useQuery, useMutation } from "@tanstack/react-query";
 
-// Hit the Railway API directly. VITE_API_URL overrides if set; otherwise use
-// the hardcoded Railway production URL (same strategy as use-pricing.ts).
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)
-  ?? "https://workspaceapi-server-production-987b.up.railway.app";
+// Use VITE_API_URL when set (local dev → Railway).
+// In production (Vercel), VITE_API_URL is not set so we default to "" which
+// routes through Vercel's /api rewrite proxy → Railway. This avoids
+// cross-origin POST issues from SSO-protected Vercel deployments.
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 export interface AppointmentSlot {
   id: string;

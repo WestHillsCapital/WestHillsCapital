@@ -58,10 +58,9 @@ export interface BuybackPricesResponse {
   lastUpdated: string;
 }
 
-// Hit the Railway API directly. VITE_API_URL overrides if set; otherwise use
-// the known production Railway URL. The DG API key lives server-side on Railway.
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined)
-  ?? "https://workspaceapi-server-production-987b.up.railway.app";
+// Use VITE_API_URL when set (local dev → Railway).
+// In production (Vercel), defaults to "" which routes through Vercel's /api proxy.
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 // DEBUG — remove after confirming production pricing works
 console.log("[pricing] API_BASE =", API_BASE);
