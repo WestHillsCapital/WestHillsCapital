@@ -491,7 +491,7 @@ router.get("/products", async (_req, res) => {
         name: "1 oz American Gold Eagle",
         metal: "gold" as const,
         weight: "1 troy oz",
-        spotPrice: spot.goldBid,  // Market gold spot — visible reference, not dealer cost
+        spotPrice: spot.goldAsk,  // Ask price — used for all non-buyback displays
         spreadPercent: GOLD_COMMISSION_PERCENT,
         finalPrice: eagleDG
           ? withCommission(eagleDG.tier1.ask, GOLD_COMMISSION_PERCENT)
@@ -508,7 +508,7 @@ router.get("/products", async (_req, res) => {
         name: "1 oz American Gold Buffalo",
         metal: "gold" as const,
         weight: "1 troy oz",
-        spotPrice: spot.goldBid,  // Market gold spot
+        spotPrice: spot.goldAsk,  // Ask price — used for all non-buyback displays
         spreadPercent: GOLD_COMMISSION_PERCENT,
         finalPrice: buffDG
           ? withCommission(buffDG.tier1.ask, GOLD_COMMISSION_PERCENT)
@@ -525,7 +525,7 @@ router.get("/products", async (_req, res) => {
         name: "1 oz American Silver Eagle",
         metal: "silver" as const,
         weight: "1 troy oz",
-        spotPrice: spot.silverBid,  // Market silver spot
+        spotPrice: spot.silverAsk,  // Ask price — used for all non-buyback displays
         spreadPercent: SILVER_COMMISSION_PERCENT,
         finalPrice: silverDG
           ? withCommission(silverDG.tier1.ask, SILVER_COMMISSION_PERCENT)
