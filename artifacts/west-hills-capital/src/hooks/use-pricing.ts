@@ -58,6 +58,10 @@ export interface BuybackPricesResponse {
   lastUpdated: string;
 }
 
+// When VITE_API_URL is set (Vercel production), hit the Railway API directly.
+// In local dev (no env var), fall back to relative /api/... paths via Vite proxy.
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+
 // All three hooks return null on error so the UI can show explicit "temporarily
 // unavailable" states rather than silently displaying stale mock figures.
 
@@ -66,7 +70,7 @@ export function useSpotPrices() {
     queryKey: ["/api/pricing/spot"],
     queryFn: async () => {
       try {
-        const res = await fetch("/api/pricing/spot");
+        const res = await fetch(`${API_BASE}/api/pricing/spot`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return (await res.json()) as SpotPrices;
       } catch (err) {
@@ -86,7 +90,7 @@ export function useProductPrices() {
     queryKey: ["/api/pricing/products"],
     queryFn: async () => {
       try {
-        const res = await fetch("/api/pricing/products");
+        const res = await fetch(`${API_BASE}/api/pricing/products`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const data = (await res.json()) as ProductPricesResponse;
         return {
@@ -114,7 +118,7 @@ export function useBuybackPrices() {
     queryKey: ["/api/pricing/buyback"],
     queryFn: async () => {
       try {
-        const res = await fetch("/api/pricing/buyback");
+        const res = await fetch(`${API_BASE}/api/pricing/buyback`);
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         return (await res.json()) as BuybackPricesResponse;
       } catch (err) {
@@ -135,7 +139,7 @@ export function useSpotHistory(period: ChartPeriod = "1M") {
   return useQuery({
     queryKey: ["/api/pricing/history", period],
     queryFn: async () => {
-      const res = await fetch(`/api/pricing/history?period=${period}`);
+      const res = await fetch(`${API_BASE}/api/pricing/history?period=${period}`);
       if (!res.ok) throw new Error("Failed to fetch price history");
       return (await res.json()) as SpotHistoryResponse;
     },
