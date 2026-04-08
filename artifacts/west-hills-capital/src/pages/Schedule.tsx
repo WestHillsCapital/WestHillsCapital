@@ -2,13 +2,22 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { useAvailableSlots, useBookAppointment } from "@/hooks/use-scheduling";
+import {
+  useAvailableSlots,
+  useBookAppointment,
+  submitPrequalLead,
+} from "@/hooks/use-scheduling";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
-import { CheckCircle2, Clock, Calendar as CalendarIcon, PhoneCall } from "lucide-react";
-import { format } from "date-fns";
+import {
+  CheckCircle2,
+  Clock,
+  Calendar as CalendarIcon,
+  PhoneCall,
+  AlertCircle,
+} from "lucide-react";
 
 const US_STATES = [
   ["AL", "Alabama"], ["AK", "Alaska"], ["AZ", "Arizona"], ["AR", "Arkansas"],
@@ -39,13 +48,35 @@ const prequalSchema = z.object({
 
 type PrequalFormValues = z.infer<typeof prequalSchema>;
 
+function SchedulingUnavailable({ message }: { message?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+      <div className="w-14 h-14 bg-amber-50 rounded-full flex items-center justify-center">
+        <AlertCircle className="w-7 h-7 text-amber-500" />
+      </div>
+      <div>
+        <p className="font-semibold text-foreground mb-1">
+          {message ?? "Scheduling is temporarily unavailable."}
+        </p>
+        <p className="text-foreground/60 text-sm">
+          Please call us directly at{" "}
+          <a href="tel:8008676768" className="text-primary font-semibold">
+            (800) 867-6768
+          </a>{" "}
+          to schedule your allocation call.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function Schedule() {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [formData, setFormData] = useState<PrequalFormValues | null>(null);
-  
-  const { data: slotsData, isLoading: loadingSlots } = useAvailableSlots();
+
+  const { data: slotsData, isLoading: loadingSlots, error: slotsError } = useAvailableSlots();
   const bookMutation = useBookAppointment();
-  
+
   const form = useForm<PrequalFormValues>({
     resolver: zodResolver(prequalSchema),
     defaultValues: {
@@ -57,31 +88,32 @@ export default function Schedule() {
       allocationType: undefined,
       allocationRange: undefined,
       timeline: undefined,
-    }
+    },
   });
 
   const onSubmitPrequal = (data: PrequalFormValues) => {
+    // Fire-and-forget: capture lead immediately so an abandoned booking is not lost
+    submitPrequalLead(data);
     setFormData(data);
     setStep(2);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleSlotSelection = async (slotId: string) => {
     if (!formData) return;
-    
-    await bookMutation.mutateAsync({
-      slotId,
-      ...formData
-    });
-    
-    setStep(3);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    try {
+      await bookMutation.mutateAsync({ slotId, ...formData });
+      setStep(3);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      // bookMutation.error holds the message; UI renders it below the slot grid
+    }
   };
 
   return (
     <div className="w-full min-h-[calc(100vh-200px)] bg-background pt-12 pb-24">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
-        
+
         <div className="text-center mb-10">
           <h1 className="text-4xl font-serif font-semibold mb-4">Schedule a Call to Review Your Purchase</h1>
           <p className="text-foreground/65 text-lg mb-3">
@@ -95,13 +127,13 @@ export default function Schedule() {
         {/* PROGRESS INDICATOR */}
         {step < 3 && (
           <div className="flex items-center justify-center mb-12">
-            <div className={`flex items-center gap-2 ${step >= 1 ? 'text-primary' : 'text-muted-foreground'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 1 ? 'border-primary bg-primary/10' : 'border-muted'}`}>1</div>
+            <div className={`flex items-center gap-2 ${step >= 1 ? "text-primary" : "text-muted-foreground"}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 1 ? "border-primary bg-primary/10" : "border-muted"}`}>1</div>
               <span className="font-medium text-sm hidden sm:block">Intake</span>
             </div>
-            <div className={`w-16 h-1 mx-4 rounded ${step >= 2 ? 'bg-primary' : 'bg-muted'}`} />
-            <div className={`flex items-center gap-2 ${step >= 2 ? 'text-primary' : 'text-muted-foreground'}`}>
-              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 2 ? 'border-primary bg-primary/10' : 'border-muted'}`}>2</div>
+            <div className={`w-16 h-1 mx-4 rounded ${step >= 2 ? "bg-primary" : "bg-muted"}`} />
+            <div className={`flex items-center gap-2 ${step >= 2 ? "text-primary" : "text-muted-foreground"}`}>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${step >= 2 ? "border-primary bg-primary/10" : "border-muted"}`}>2</div>
               <span className="font-medium text-sm hidden sm:block">Select Time</span>
             </div>
           </div>
@@ -111,73 +143,87 @@ export default function Schedule() {
         {step === 1 && (
           <Card className="p-6 md:p-10 animate-fade-in">
             <form onSubmit={form.handleSubmit(onSubmitPrequal)} className="space-y-8">
-              
+
               <div className="space-y-6">
                 <h2 className="text-xl font-semibold border-b border-border pb-2">Allocation Details</h2>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground">Intended Structure</label>
                     <Select {...form.register("allocationType")}>
-                      <option value="" disabled selected hidden>Select type...</option>
+                      <option value="" disabled hidden>Select type...</option>
                       <option value="physical_delivery">Physical Home/Vault Delivery</option>
                       <option value="ira_rollover">IRA Rollover / Transfer</option>
                       <option value="not_sure">Not sure yet</option>
                     </Select>
-                    {form.formState.errors.allocationType && <span className="text-destructive text-xs">{form.formState.errors.allocationType.message}</span>}
+                    {form.formState.errors.allocationType && (
+                      <span className="text-destructive text-xs">{form.formState.errors.allocationType.message}</span>
+                    )}
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-foreground">Estimated Allocation</label>
                     <Select {...form.register("allocationRange")}>
-                      <option value="" disabled selected hidden>Select range...</option>
+                      <option value="" disabled hidden>Select range...</option>
                       <option value="under_50k">Under $50,000</option>
                       <option value="50k_150k">$50,000 - $150,000</option>
                       <option value="150k_500k">$150,000 - $500,000</option>
                       <option value="500k_plus">$500,000+</option>
                     </Select>
-                    {form.formState.errors.allocationRange && <span className="text-destructive text-xs">{form.formState.errors.allocationRange.message}</span>}
+                    {form.formState.errors.allocationRange && (
+                      <span className="text-destructive text-xs">{form.formState.errors.allocationRange.message}</span>
+                    )}
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
                     <label className="text-sm font-medium text-foreground">Timeline</label>
                     <Select {...form.register("timeline")}>
-                      <option value="" disabled selected hidden>Select timeline...</option>
+                      <option value="" disabled hidden>Select timeline...</option>
                       <option value="ready">Ready to move forward now</option>
                       <option value="within_30_days">Planning within next 30 days</option>
                       <option value="researching">Just researching options</option>
                     </Select>
-                    {form.formState.errors.timeline && <span className="text-destructive text-xs">{form.formState.errors.timeline.message}</span>}
+                    {form.formState.errors.timeline && (
+                      <span className="text-destructive text-xs">{form.formState.errors.timeline.message}</span>
+                    )}
                   </div>
                 </div>
               </div>
 
               <div className="space-y-6">
                 <h2 className="text-xl font-semibold border-b border-border pb-2">Contact Information</h2>
-                
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <label className="text-sm font-medium">First Name</label>
                     <Input {...form.register("firstName")} placeholder="John" />
-                    {form.formState.errors.firstName && <span className="text-destructive text-xs">{form.formState.errors.firstName.message}</span>}
+                    {form.formState.errors.firstName && (
+                      <span className="text-destructive text-xs">{form.formState.errors.firstName.message}</span>
+                    )}
                   </div>
-                  
+
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Last Name</label>
                     <Input {...form.register("lastName")} placeholder="Smith" />
-                    {form.formState.errors.lastName && <span className="text-destructive text-xs">{form.formState.errors.lastName.message}</span>}
+                    {form.formState.errors.lastName && (
+                      <span className="text-destructive text-xs">{form.formState.errors.lastName.message}</span>
+                    )}
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Email Address</label>
                     <Input type="email" {...form.register("email")} placeholder="john@example.com" />
-                    {form.formState.errors.email && <span className="text-destructive text-xs">{form.formState.errors.email.message}</span>}
+                    {form.formState.errors.email && (
+                      <span className="text-destructive text-xs">{form.formState.errors.email.message}</span>
+                    )}
                   </div>
 
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Phone Number</label>
                     <Input type="tel" {...form.register("phone")} placeholder="(555) 123-4567" />
-                    {form.formState.errors.phone && <span className="text-destructive text-xs">{form.formState.errors.phone.message}</span>}
+                    {form.formState.errors.phone && (
+                      <span className="text-destructive text-xs">{form.formState.errors.phone.message}</span>
+                    )}
                   </div>
 
                   <div className="space-y-2 md:col-span-2">
@@ -191,7 +237,9 @@ export default function Schedule() {
                         <option key={abbr} value={abbr}>{name}</option>
                       ))}
                     </select>
-                    {form.formState.errors.state && <span className="text-destructive text-xs">{form.formState.errors.state.message}</span>}
+                    {form.formState.errors.state && (
+                      <span className="text-destructive text-xs">{form.formState.errors.state.message}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -207,14 +255,21 @@ export default function Schedule() {
             <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-6 mb-8 text-center">
               <PhoneCall className="w-8 h-8 text-primary mx-auto mb-3" />
               <h3 className="font-semibold text-lg mb-2">We will call you</h3>
-              <p className="text-foreground/70">A West Hills Capital advisor will call you at the selected time at <strong>{formData?.phone}</strong>.</p>
+              <p className="text-foreground/70">
+                A West Hills Capital advisor will call you at the selected time at{" "}
+                <strong>{formData?.phone}</strong>.
+              </p>
             </div>
 
             {loadingSlots ? (
               <div className="text-center py-12 text-foreground/50">Loading available times...</div>
+            ) : slotsError ? (
+              <SchedulingUnavailable message={(slotsError as Error).message} />
+            ) : !slotsData?.slots.length ? (
+              <SchedulingUnavailable message="No available times found. Please call us to arrange a time." />
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {slotsData?.slots.map((slot) => (
+                {slotsData.slots.map((slot) => (
                   <button
                     key={slot.id}
                     onClick={() => handleSlotSelection(slot.id)}
@@ -228,9 +283,34 @@ export default function Schedule() {
                 ))}
               </div>
             )}
-            
+
+            {bookMutation.isPending && (
+              <div className="text-center py-4 text-foreground/60 text-sm">Confirming your appointment…</div>
+            )}
+
+            {bookMutation.isError && (
+              <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl p-4 mt-4">
+                <AlertCircle className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-semibold text-red-800 text-sm">Booking failed</p>
+                  <p className="text-red-700 text-sm mt-0.5">
+                    {bookMutation.error?.message ?? "An unexpected error occurred."}
+                  </p>
+                  <p className="text-red-600 text-sm mt-1">
+                    Please try again or call us at{" "}
+                    <a href="tel:8008676768" className="font-semibold underline">
+                      (800) 867-6768
+                    </a>.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="text-center mt-8">
-              <button onClick={() => setStep(1)} className="text-sm text-foreground/50 hover:text-foreground underline underline-offset-4">
+              <button
+                onClick={() => setStep(1)}
+                className="text-sm text-foreground/50 hover:text-foreground underline underline-offset-4"
+              >
                 ← Back to edit information
               </button>
             </div>
@@ -244,7 +324,7 @@ export default function Schedule() {
               <CheckCircle2 className="w-10 h-10 text-green-600" />
             </div>
             <h2 className="text-3xl font-serif font-semibold mb-4 text-foreground">Allocation Discussion Confirmed</h2>
-            
+
             <div className="bg-white rounded-lg p-6 mb-8 inline-block shadow-sm border border-border/50">
               <div className="flex items-center justify-center gap-3 text-lg font-medium text-foreground mb-2">
                 <CalendarIcon className="w-5 h-5 text-primary" />
@@ -258,8 +338,9 @@ export default function Schedule() {
 
             <div className="space-y-4 text-foreground/80 max-w-lg mx-auto">
               <p>Your Confirmation ID: <strong className="text-foreground">{bookMutation.data.confirmationId}</strong></p>
+              <p className="text-sm text-foreground/60">A confirmation has been sent to your email address.</p>
               <p className="border-t border-border pt-4">
-                During the call, we will review your intended allocation, confirm current pricing, and discuss execution steps. 
+                During the call, we will review your intended allocation, confirm current pricing, and discuss execution steps.
               </p>
               <p className="font-semibold text-foreground">
                 Reminder: Trades are executed only after verbal confirmation and receipt of cleared funds. We will call you from (800) 867-6768.

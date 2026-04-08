@@ -5,6 +5,7 @@ import {
   BookAppointmentResponse,
 } from "@workspace/api-zod";
 import { getDb } from "../db";
+import { sendBookingNotification, sendBookingConfirmation } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -45,7 +46,7 @@ function generateAvailableSlots(bookedSlotIds: Set<string>) {
       if (hoursFromNow < LEAD_TIME_HOURS) continue;
 
       const slotId = `slot-${slotDate.getTime()}`;
-      if (bookedSlotIds.has(slotId)) continue; // Skip already booked
+      if (bookedSlotIds.has(slotId)) continue;
 
       const dayLabel = slotDate.toLocaleDateString("en-US", {
         timeZone: "America/Chicago",
@@ -90,6 +91,11 @@ router.get("/slots", async (_req, res) => {
     bookedSlotIds = new Set(result.rows.map((r) => r.slot_id));
   } catch (err) {
     console.error("[Scheduling] Failed to load booked slots:", err);
+    res.status(503).json({
+      error: "database_unavailable",
+      message: "Unable to load available times. Please try again shortly.",
+    });
+    return;
   }
 
   const slots = generateAvailableSlots(bookedSlotIds);
@@ -113,7 +119,7 @@ router.post("/book", async (req, res) => {
 
   const body = parseResult.data;
 
-  // Get all booked slots to build slot details and verify availability
+  // Load booked slots to verify availability
   let bookedSlotIds = new Set<string>();
   try {
     const db = getDb();
@@ -123,6 +129,11 @@ router.post("/book", async (req, res) => {
     bookedSlotIds = new Set(result.rows.map((r) => r.slot_id));
   } catch (err) {
     console.error("[Scheduling] Failed to load booked slots:", err);
+    res.status(503).json({
+      error: "database_unavailable",
+      message: "Unable to verify slot availability. Please try again.",
+    });
+    return;
   }
 
   const slots = generateAvailableSlots(bookedSlotIds);
@@ -138,7 +149,7 @@ router.post("/book", async (req, res) => {
 
   const confirmationId = `WHC-${Date.now().toString(36).toUpperCase()}`;
 
-  // Save appointment to database
+  // Save appointment to database — hard failure if this fails
   try {
     const db = getDb();
     await db.query(
@@ -164,10 +175,92 @@ router.post("/book", async (req, res) => {
         "confirmed",
       ],
     );
-    console.log(`[Scheduling] Appointment booked: ${confirmationId} — ${body.firstName} ${body.lastName} @ ${slot.timeLabel} ${slot.dayLabel}`);
+    console.log(`[Scheduling] Appointment saved: ${confirmationId} — ${body.firstName} ${body.lastName} @ ${slot.timeLabel} ${slot.dayLabel}`);
   } catch (err) {
     console.error("[Scheduling] Failed to save appointment:", err);
+    res.status(503).json({
+      error: "booking_failed",
+      message: "Unable to save your appointment. Please call us at (800) 867-6768.",
+    });
+    return;
   }
+
+  // Cross-write to leads: upgrade an existing schedule_prequal lead or insert new
+  try {
+    const db = getDb();
+    const updated = await db.query(
+      `UPDATE leads
+         SET form_type = 'appointment_booked',
+             first_name = $2, last_name = $3, phone = $4, state = $5,
+             allocation_type = $6, allocation_range = $7, timeline = $8
+       WHERE email = $1 AND form_type = 'schedule_prequal'
+         AND id = (
+           SELECT id FROM leads
+           WHERE email = $1 AND form_type = 'schedule_prequal'
+           ORDER BY created_at DESC LIMIT 1
+         )`,
+      [
+        body.email,
+        body.firstName,
+        body.lastName,
+        body.phone,
+        body.state,
+        body.allocationType,
+        body.allocationRange,
+        body.timeline,
+      ]
+    );
+
+    if (updated.rowCount === 0) {
+      // No prequal lead to upgrade — insert a new appointment_booked lead
+      await db.query(
+        `INSERT INTO leads (
+          form_type, first_name, last_name, email, phone, state,
+          allocation_type, allocation_range, timeline, ip_address
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+        [
+          "appointment_booked",
+          body.firstName,
+          body.lastName,
+          body.email,
+          body.phone,
+          body.state,
+          body.allocationType,
+          body.allocationRange,
+          body.timeline,
+          req.ip ?? null,
+        ]
+      );
+    }
+    console.log(`[Scheduling] Lead record synced for ${body.email}`);
+  } catch (err) {
+    // Non-fatal — appointment is already confirmed, just log
+    console.error("[Scheduling] Failed to sync lead record:", err);
+  }
+
+  // Send notifications (non-fatal — booking is already confirmed)
+  Promise.all([
+    sendBookingNotification({
+      confirmationId,
+      firstName: body.firstName,
+      lastName: body.lastName,
+      email: body.email,
+      phone: body.phone,
+      state: body.state,
+      allocationType: body.allocationType,
+      allocationRange: body.allocationRange,
+      timeline: body.timeline,
+      dayLabel: slot.dayLabel,
+      timeLabel: slot.timeLabel,
+    }),
+    sendBookingConfirmation({
+      to: body.email,
+      firstName: body.firstName,
+      confirmationId,
+      dayLabel: slot.dayLabel,
+      timeLabel: slot.timeLabel,
+    }),
+  ]).catch((err) => console.error("[Scheduling] Email dispatch error:", err));
 
   const data = BookAppointmentResponse.parse({
     confirmationId,
