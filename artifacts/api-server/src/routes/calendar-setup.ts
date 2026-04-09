@@ -100,4 +100,76 @@ router.post("/", async (req, res) => {
   });
 });
 
+/**
+ * POST /api/calendar-setup/share
+ *
+ * Grants viewer access on an existing service-account-owned calendar to a
+ * human Google account. Use when the initial share step failed silently.
+ *
+ * Body: { token: string, calendarId: string, email: string }
+ */
+router.post("/share", async (req, res) => {
+  const SETUP_TOKEN = process.env.CALENDAR_SETUP_TOKEN;
+
+  if (!SETUP_TOKEN) {
+    res.status(503).json({ error: "CALENDAR_SETUP_TOKEN env var not set on this server." });
+    return;
+  }
+
+  if (req.body?.token !== SETUP_TOKEN) {
+    res.status(401).json({ error: "Invalid token." });
+    return;
+  }
+
+  const { calendarId, email } = req.body ?? {};
+  if (!calendarId || !email) {
+    res.status(400).json({ error: "calendarId and email are required." });
+    return;
+  }
+
+  const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  if (!keyJson) {
+    res.status(503).json({ error: "GOOGLE_SERVICE_ACCOUNT_KEY not configured." });
+    return;
+  }
+
+  let credentials: object;
+  try {
+    credentials = JSON.parse(keyJson);
+  } catch {
+    res.status(503).json({ error: "GOOGLE_SERVICE_ACCOUNT_KEY is not valid JSON." });
+    return;
+  }
+
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ["https://www.googleapis.com/auth/calendar"],
+  });
+
+  const calendar = google.calendar({ version: "v3", auth });
+
+  try {
+    await calendar.acl.insert({
+      calendarId,
+      requestBody: {
+        role: "reader",
+        scope: { type: "user", value: email },
+      },
+    });
+    logger.info({ calendarId, email }, "[CalendarSetup] Viewer access granted via /share");
+  } catch (err) {
+    logger.error({ err }, "[CalendarSetup] /share ACL insert failed");
+    res.status(500).json({ error: "Failed to grant access.", detail: String(err) });
+    return;
+  }
+
+  const addToCalendarUrl = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(calendarId)}`;
+
+  res.json({
+    success: true,
+    message: `Viewer access granted to ${email}`,
+    addToCalendarUrl,
+  });
+});
+
 export default router;
