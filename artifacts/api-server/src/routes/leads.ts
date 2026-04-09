@@ -4,6 +4,7 @@ import {
   SubmitLeadIntakeResponse,
 } from "@workspace/api-zod";
 import { getDb } from "../db";
+import { syncLeadToSheet } from "../lib/google-sheets";
 
 const router: IRouter = Router();
 
@@ -30,12 +31,13 @@ router.post("/intake", async (req, res) => {
 
   try {
     const db = getDb();
-    const result = await db.query(
+    const result = await db.query<{ id: number; created_at: Date }>(
       `INSERT INTO leads (
         form_type, first_name, last_name, email, phone, state,
-        allocation_type, allocation_range, timeline, current_custodian, ip_address
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-      RETURNING id`,
+        allocation_type, allocation_range, timeline, current_custodian,
+        ip_address, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'new')
+      RETURNING id, created_at`,
       [
         lead.formType,
         lead.firstName,
@@ -50,7 +52,27 @@ router.post("/intake", async (req, res) => {
         ip,
       ],
     );
-    console.log(`[Leads] Saved lead id=${result.rows[0].id} (${lead.formType}) for ${lead.email}`);
+
+    const row = result.rows[0];
+    console.log(`[Leads] Saved lead id=${row.id} (${lead.formType}) for ${lead.email}`);
+
+    // Mirror to Google Sheets (non-blocking)
+    syncLeadToSheet({
+      id: String(row.id),
+      firstName: lead.firstName,
+      lastName: lead.lastName,
+      email: lead.email,
+      phone: lead.phone,
+      state: lead.state,
+      allocationType: lead.allocationType,
+      allocationRange: lead.allocationRange,
+      timeline: lead.timeline,
+      formType: lead.formType,
+      status: "new",
+      currentCustodian: lead.currentCustodian,
+      createdAt: row.created_at.toISOString(),
+    }).catch((err) => console.error("[Leads] Sheets sync failed:", err));
+
   } catch (err) {
     console.error(`[Leads] FAILED to save ${lead.formType} lead for ${lead.email}:`, err);
   }

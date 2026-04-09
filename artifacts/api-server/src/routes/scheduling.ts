@@ -13,6 +13,7 @@ import {
   createBookingEvent,
   APPOINTMENT_DURATION_MINUTES,
 } from "../lib/google-calendar";
+import { syncAppointmentToSheet, syncLeadToSheet } from "../lib/google-sheets";
 
 const router: IRouter = Router();
 
@@ -323,43 +324,120 @@ router.post("/book", async (req, res) => {
     confirmationId,
   });
 
-  // ── 6. Cross-write to leads (non-fatal) ───────────────────────────────────
-  try {
-    const db = getDb();
-    const updated = await db.query(
-      `UPDATE leads
-         SET form_type = 'appointment_booked',
-             first_name = $2, last_name = $3, phone = $4, state = $5,
-             allocation_type = $6, allocation_range = $7, timeline = $8
-       WHERE email = $1 AND form_type = 'schedule_prequal'
-         AND id = (
-           SELECT id FROM leads
-           WHERE email = $1 AND form_type = 'schedule_prequal'
-           ORDER BY created_at DESC LIMIT 1
-         )`,
-      [
-        body.email,
-        body.firstName, body.lastName, body.phone, body.state,
-        body.allocationType, body.allocationRange, body.timeline,
-      ]
-    );
+  // ── 6. Lead linkage + Google Sheets sync (non-fatal) ─────────────────────
+  Promise.resolve().then(async () => {
+    try {
+      const db = getDb();
 
-    if (updated.rowCount === 0) {
-      await db.query(
-        `INSERT INTO leads (
-          form_type, first_name, last_name, email, phone, state,
-          allocation_type, allocation_range, timeline, ip_address
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      // Find or create the lead record; return its ID, status, and timestamps
+      const updResult = await db.query<{
+        id: number; status: string; created_at: Date; updated_at: Date;
+      }>(
+        `UPDATE leads
+           SET form_type = 'appointment_booked',
+               first_name = $2, last_name = $3, phone = $4, state = $5,
+               allocation_type = $6, allocation_range = $7, timeline = $8,
+               linked_confirmation_id = $9,
+               updated_at = NOW()
+         WHERE email = $1
+           AND id = (
+             SELECT id FROM leads WHERE email = $1
+             ORDER BY created_at DESC LIMIT 1
+           )
+         RETURNING id, status, created_at, updated_at`,
         [
-          "appointment_booked",
-          body.firstName, body.lastName, body.email, body.phone, body.state,
-          body.allocationType, body.allocationRange, body.timeline, ip,
+          body.email,
+          body.firstName, body.lastName, body.phone, body.state,
+          body.allocationType, body.allocationRange, body.timeline,
+          confirmationId,
         ]
       );
+
+      let leadRow = updResult.rows[0] ?? null;
+
+      if (!leadRow) {
+        // No existing lead — create one
+        const insResult = await db.query<{
+          id: number; status: string; created_at: Date; updated_at: Date;
+        }>(
+          `INSERT INTO leads (
+            form_type, first_name, last_name, email, phone, state,
+            allocation_type, allocation_range, timeline, ip_address,
+            status, linked_confirmation_id
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'new', $11)
+          RETURNING id, status, created_at, updated_at`,
+          [
+            "appointment_booked",
+            body.firstName, body.lastName, body.email, body.phone, body.state,
+            body.allocationType, body.allocationRange, body.timeline, ip,
+            confirmationId,
+          ]
+        );
+        leadRow = insResult.rows[0] ?? null;
+      }
+
+      const leadId = leadRow?.id ?? null;
+
+      // Write lead_id back to the appointment row
+      if (leadId) {
+        await db.query(
+          `UPDATE appointments SET lead_id = $1, updated_at = NOW() WHERE confirmation_id = $2`,
+          [leadId, confirmationId]
+        );
+      }
+
+      // Fetch the appointment's created_at for the sheet
+      const apptRow = await db.query<{ created_at: Date; updated_at: Date; calendar_event_id: string | null }>(
+        `SELECT created_at, updated_at, calendar_event_id FROM appointments WHERE confirmation_id = $1`,
+        [confirmationId]
+      );
+      const appt = apptRow.rows[0];
+
+      // Sync appointment to Sheets
+      await syncAppointmentToSheet({
+        confirmationId,
+        slotId: body.slotId,
+        scheduledTime: slot.dateTime,
+        dayLabel: slot.dayLabel,
+        timeLabel: slot.timeLabel,
+        firstName: body.firstName,
+        lastName: body.lastName,
+        email: body.email,
+        phone: body.phone,
+        state: body.state,
+        allocationType: body.allocationType,
+        allocationRange: body.allocationRange,
+        timeline: body.timeline,
+        status: "confirmed",
+        leadId: leadId ? String(leadId) : null,
+        calendarEventId: appt?.calendar_event_id ?? null,
+        createdAt: appt?.created_at.toISOString() ?? new Date().toISOString(),
+        updatedAt: appt?.updated_at.toISOString() ?? null,
+      });
+
+      // Sync lead to Sheets
+      if (leadRow) {
+        await syncLeadToSheet({
+          id: String(leadRow.id),
+          firstName: body.firstName,
+          lastName: body.lastName,
+          email: body.email,
+          phone: body.phone,
+          state: body.state,
+          allocationType: body.allocationType,
+          allocationRange: body.allocationRange,
+          timeline: body.timeline,
+          formType: "appointment_booked",
+          status: leadRow.status,
+          linkedConfirmationId: confirmationId,
+          createdAt: leadRow.created_at.toISOString(),
+          updatedAt: leadRow.updated_at.toISOString(),
+        });
+      }
+    } catch (err) {
+      console.error("[Scheduling] Lead linkage / Sheets sync error:", err);
     }
-  } catch (err) {
-    console.error("[Scheduling] Failed to sync lead record:", err);
-  }
+  }).catch((err) => console.error("[Scheduling] Lead linkage wrapper error:", err));
 
   // ── 7. Google Calendar event + emails (all non-fatal) ────────────────────
   Promise.all([
