@@ -236,25 +236,81 @@ router.post("/backfill", async (req, res) => {
     return;
   }
 
-  // Create the calendar event
-  const eventId = await createBookingEvent({
-    confirmationId: row.confirmation_id,
-    firstName: row.first_name,
-    lastName: row.last_name,
-    email: row.email,
-    phone: row.phone,
-    state: row.state,
-    allocationType: row.allocation_type,
-    allocationRange: row.allocation_range,
-    timeline: row.timeline,
-    slotStart: new Date(row.scheduled_time),
-    ownerEmail: OWNER_EMAIL,
-  });
+  // Pre-flight checks before calling createBookingEvent
+  const bookingCalendarId = process.env.GOOGLE_BOOKING_CALENDAR_ID;
+  const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+
+  if (!bookingCalendarId) {
+    res.status(503).json({ error: "GOOGLE_BOOKING_CALENDAR_ID is not set in Railway." });
+    return;
+  }
+
+  if (!serviceAccountKey) {
+    res.status(503).json({ error: "GOOGLE_SERVICE_ACCOUNT_KEY is not set in Railway." });
+    return;
+  }
+
+  let parsedKey: object;
+  try {
+    parsedKey = JSON.parse(serviceAccountKey);
+  } catch {
+    res.status(503).json({ error: "GOOGLE_SERVICE_ACCOUNT_KEY is not valid JSON." });
+    return;
+  }
+
+  // Quick connectivity test — list the calendar to confirm access
+  try {
+    const { google } = await import("googleapis");
+    const auth = new google.auth.GoogleAuth({
+      credentials: parsedKey,
+      scopes: ["https://www.googleapis.com/auth/calendar"],
+    });
+    const cal = google.calendar({ version: "v3", auth });
+    await cal.calendars.get({ calendarId: bookingCalendarId });
+  } catch (err) {
+    res.status(500).json({
+      error: "Service account cannot access the booking calendar.",
+      detail: String(err),
+      calendarId: bookingCalendarId,
+    });
+    return;
+  }
+
+  // Create the calendar event directly so we can surface the exact error
+  const DURATION_MS = (Number(process.env.APPOINTMENT_DURATION_MINUTES) || 60) * 60 * 1000;
+  const slotStart = new Date(row.scheduled_time);
+  const slotEnd   = new Date(slotStart.getTime() + DURATION_MS);
+
+  let eventId: string | null = null;
+  try {
+    const { google: goog } = await import("googleapis");
+    const auth2 = new goog.auth.GoogleAuth({
+      credentials: parsedKey,
+      scopes: ["https://www.googleapis.com/auth/calendar"],
+    });
+    const cal2 = goog.calendar({ version: "v3", auth: auth2 });
+    const event = await cal2.events.insert({
+      calendarId: bookingCalendarId,
+      requestBody: {
+        summary: `WHC Allocation Call — ${row.first_name} ${row.last_name}`,
+        description: `Confirmation ID: ${row.confirmation_id}\n\nName: ${row.first_name} ${row.last_name}\nEmail: ${row.email}\nPhone: ${row.phone}\nState: ${row.state}`,
+        start: { dateTime: slotStart.toISOString(), timeZone: "America/Chicago" },
+        end:   { dateTime: slotEnd.toISOString(),   timeZone: "America/Chicago" },
+        status: "confirmed",
+      },
+    });
+    eventId = event.data.id ?? null;
+  } catch (err) {
+    res.status(500).json({
+      error: "events.insert failed",
+      detail: String(err),
+      calendarId: bookingCalendarId,
+    });
+    return;
+  }
 
   if (!eventId) {
-    res.status(500).json({
-      error: "Calendar event creation failed. Check GOOGLE_SERVICE_ACCOUNT_KEY and GOOGLE_BOOKING_CALENDAR_ID.",
-    });
+    res.status(500).json({ error: "events.insert returned no event ID." });
     return;
   }
 
