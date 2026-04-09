@@ -7,20 +7,32 @@ import {
 import { getDb, recordBookingAttempt } from "../db";
 import { sendBookingNotification, sendBookingConfirmation } from "../lib/email";
 import { isRateLimited } from "../lib/ratelimit";
+import {
+  getBusyPeriods,
+  isSlotBusy,
+  createBookingEvent,
+  APPOINTMENT_DURATION_MINUTES,
+} from "../lib/google-calendar";
 
 const router: IRouter = Router();
 
-// ─── Scheduling configuration ─────────────────────────────────────────────────
-const START_HOUR_CT = 9;  // 9:00 AM CT
-const END_HOUR_CT = 17;   // 5:00 PM CT
+// ── Scheduling configuration ──────────────────────────────────────────────────
+const START_HOUR_CT = 9;   // 9:00 AM CT
+const END_HOUR_CT   = 17;  // 5:00 PM CT
 const LEAD_TIME_HOURS = 2;
 const SLOTS_TO_SHOW = 14;
 const DAYS_AHEAD = 14;
 
+// Slot step: how many minutes between candidate slot start times.
+// Must divide evenly into 60 for whole-hour alignment. Keep at 60 for now.
+const SLOT_STEP_MINUTES = APPOINTMENT_DURATION_MINUTES;
+
 // Rate limit config
-const SLOTS_MAX_PER_MIN = 30;       // per IP
-const BOOK_MAX_PER_10_MIN = 3;      // per IP:email combo
+const SLOTS_MAX_PER_MIN = 30;
+const BOOK_MAX_PER_10_MIN = 3;
 const BOOK_WINDOW_MS = 10 * 60 * 1000;
+
+const OWNER_EMAIL = process.env.ADMIN_EMAIL ?? "";
 
 function getIp(req: Request): string {
   return (
@@ -30,10 +42,13 @@ function getIp(req: Request): string {
   );
 }
 
-function generateAvailableSlots(bookedSlotIds: Set<string>) {
+function generateAvailableSlots(
+  bookedSlotIds: Set<string>,
+  busyPeriods: { start: Date; end: Date }[]
+) {
   const slots = [];
   const now = new Date();
-  const CT_OFFSET = -5; // CDT (UTC-5); handles DST conservatively
+  const CT_OFFSET_HOURS = -5; // CDT (UTC-5); conservative for DST
   let count = 0;
   let dayOffset = 0;
 
@@ -47,20 +62,28 @@ function generateAvailableSlots(bookedSlotIds: Set<string>) {
       continue;
     }
 
+    // Iterate candidate start times within the business window
+    const stepMs = SLOT_STEP_MINUTES * 60 * 1000;
     for (
       let hour = START_HOUR_CT;
       hour < END_HOUR_CT && count < SLOTS_TO_SHOW;
-      hour += 1
+      hour += SLOT_STEP_MINUTES / 60
     ) {
       const slotDate = new Date(day);
-      slotDate.setUTCHours(hour - CT_OFFSET, 0, 0, 0);
+      slotDate.setUTCHours(hour - CT_OFFSET_HOURS, 0, 0, 0);
 
-      const hoursFromNow =
-        (slotDate.getTime() - now.getTime()) / (1000 * 60 * 60);
+      // Skip slots too soon
+      const hoursFromNow = (slotDate.getTime() - now.getTime()) / (1000 * 60 * 60);
       if (hoursFromNow < LEAD_TIME_HOURS) continue;
 
+      // Skip slots booked in our own DB
       const slotId = `slot-${slotDate.getTime()}`;
       if (bookedSlotIds.has(slotId)) continue;
+
+      // Skip slots that overlap Google Calendar busy periods (with buffer)
+      if (isSlotBusy(slotDate, busyPeriods)) continue;
+
+      void stepMs; // suppress unused-var warning
 
       const dayLabel = slotDate.toLocaleDateString("en-US", {
         timeZone: "America/Chicago",
@@ -94,7 +117,7 @@ function generateAvailableSlots(bookedSlotIds: Set<string>) {
   return slots;
 }
 
-// ─── GET /api/scheduling/slots ─────────────────────────────────────────────────
+// ── GET /api/scheduling/slots ─────────────────────────────────────────────────
 router.get("/slots", async (req, res) => {
   const ip = getIp(req);
 
@@ -106,6 +129,7 @@ router.get("/slots", async (req, res) => {
     return;
   }
 
+  // Load booked slot IDs from DB
   let bookedSlotIds = new Set<string>();
   try {
     const db = getDb();
@@ -122,7 +146,13 @@ router.get("/slots", async (req, res) => {
     return;
   }
 
-  const slots = generateAvailableSlots(bookedSlotIds);
+  // Fetch Google Calendar busy periods for the scheduling window
+  const now = new Date();
+  const windowEnd = new Date(now);
+  windowEnd.setDate(windowEnd.getDate() + DAYS_AHEAD + 1);
+  const busyPeriods = await getBusyPeriods(now, windowEnd);
+
+  const slots = generateAvailableSlots(bookedSlotIds, busyPeriods);
   const data = GetAvailableSlotsResponse.parse({
     slots,
     timezone: "America/Chicago",
@@ -130,11 +160,11 @@ router.get("/slots", async (req, res) => {
   res.json(data);
 });
 
-// ─── POST /api/scheduling/book ─────────────────────────────────────────────────
+// ── POST /api/scheduling/book ─────────────────────────────────────────────────
 router.post("/book", async (req, res) => {
   const ip = getIp(req);
 
-  // ── 1. Validate body ──────────────────────────────────────────────────────
+  // ── 1. Validate body ───────────────────────────────────────────────────────
   const parseResult = BookAppointmentBody.safeParse(req.body);
   if (!parseResult.success) {
     await recordBookingAttempt({
@@ -154,7 +184,7 @@ router.post("/book", async (req, res) => {
 
   const body = parseResult.data;
 
-  // ── 2. Rate limit (per IP:email) ──────────────────────────────────────────
+  // ── 2. Rate limit (per IP:email) ───────────────────────────────────────────
   const rlKey = `book:${ip}:${body.email.toLowerCase()}`;
   if (isRateLimited(rlKey, BOOK_MAX_PER_10_MIN, BOOK_WINDOW_MS)) {
     console.warn(`[Scheduling] Rate limited: ${body.email} from ${ip}`);
@@ -173,7 +203,7 @@ router.post("/book", async (req, res) => {
     return;
   }
 
-  // ── 3. Verify slot is still available (application-level check) ───────────
+  // ── 3. Verify slot is still available ─────────────────────────────────────
   let bookedSlotIds = new Set<string>();
   try {
     const db = getDb();
@@ -198,7 +228,13 @@ router.post("/book", async (req, res) => {
     return;
   }
 
-  const slots = generateAvailableSlots(bookedSlotIds);
+  // Re-fetch busy periods for booking validation (prevents race with /slots)
+  const now = new Date();
+  const windowEnd = new Date(now);
+  windowEnd.setDate(windowEnd.getDate() + DAYS_AHEAD + 1);
+  const busyPeriods = await getBusyPeriods(now, windowEnd);
+
+  const slots = generateAvailableSlots(bookedSlotIds, busyPeriods);
   const slot = slots.find((s) => s.id === body.slotId);
 
   if (!slot) {
@@ -220,8 +256,7 @@ router.post("/book", async (req, res) => {
 
   const confirmationId = `WHC-${Date.now().toString(36).toUpperCase()}`;
 
-  // ── 4. INSERT appointment — hard failure; partial unique index enforces
-  //       database-level slot exclusivity even under concurrent requests ──────
+  // ── 4. INSERT appointment ──────────────────────────────────────────────────
   try {
     const db = getDb();
     await db.query(
@@ -245,11 +280,12 @@ router.post("/book", async (req, res) => {
         body.allocationRange,
         body.timeline,
         "confirmed",
-      ],
+      ]
     );
-    console.log(`[Scheduling] Appointment saved: ${confirmationId} — ${body.firstName} ${body.lastName} @ ${slot.timeLabel} ${slot.dayLabel}`);
+    console.log(
+      `[Scheduling] Appointment saved: ${confirmationId} — ${body.firstName} ${body.lastName} @ ${slot.timeLabel} ${slot.dayLabel}`
+    );
   } catch (err: unknown) {
-    // PostgreSQL error code 23505 = unique_violation → slot was taken concurrently
     const pgCode = (err as { code?: string }).code;
     const isSlotConflict = pgCode === "23505";
 
@@ -303,13 +339,8 @@ router.post("/book", async (req, res) => {
          )`,
       [
         body.email,
-        body.firstName,
-        body.lastName,
-        body.phone,
-        body.state,
-        body.allocationType,
-        body.allocationRange,
-        body.timeline,
+        body.firstName, body.lastName, body.phone, body.state,
+        body.allocationType, body.allocationRange, body.timeline,
       ]
     );
 
@@ -321,27 +352,44 @@ router.post("/book", async (req, res) => {
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
         [
           "appointment_booked",
-          body.firstName,
-          body.lastName,
-          body.email,
-          body.phone,
-          body.state,
-          body.allocationType,
-          body.allocationRange,
-          body.timeline,
-          ip,
+          body.firstName, body.lastName, body.email, body.phone, body.state,
+          body.allocationType, body.allocationRange, body.timeline, ip,
         ]
       );
-      console.log(`[Scheduling] New appointment_booked lead created for ${body.email}`);
-    } else {
-      console.log(`[Scheduling] Upgraded schedule_prequal → appointment_booked for ${body.email}`);
     }
   } catch (err) {
     console.error("[Scheduling] Failed to sync lead record:", err);
   }
 
-  // ── 7. Emails (non-fatal — booking is already confirmed) ──────────────────
+  // ── 7. Google Calendar event + emails (all non-fatal) ────────────────────
   Promise.all([
+    // Create calendar event and store the event ID back in appointments
+    createBookingEvent({
+      confirmationId,
+      firstName: body.firstName,
+      lastName: body.lastName,
+      email: body.email,
+      phone: body.phone,
+      state: body.state,
+      allocationType: body.allocationType,
+      allocationRange: body.allocationRange,
+      timeline: body.timeline,
+      slotStart: new Date(slot.dateTime),
+      ownerEmail: OWNER_EMAIL,
+    }).then(async (eventId) => {
+      if (!eventId) return;
+      try {
+        const db = getDb();
+        await db.query(
+          `UPDATE appointments SET calendar_event_id = $1 WHERE confirmation_id = $2`,
+          [eventId, confirmationId]
+        );
+      } catch (err) {
+        console.error("[Scheduling] Failed to store calendar_event_id:", err);
+      }
+    }),
+
+    // Owner notification email
     sendBookingNotification({
       confirmationId,
       firstName: body.firstName,
@@ -355,14 +403,21 @@ router.post("/book", async (req, res) => {
       dayLabel: slot.dayLabel,
       timeLabel: slot.timeLabel,
     }),
+
+    // Prospect confirmation email
     sendBookingConfirmation({
       to: body.email,
       firstName: body.firstName,
       confirmationId,
       dayLabel: slot.dayLabel,
       timeLabel: slot.timeLabel,
+      phone: body.phone,
+      state: body.state,
+      allocationType: body.allocationType,
+      allocationRange: body.allocationRange,
+      timeline: body.timeline,
     }),
-  ]).catch((err) => console.error("[Scheduling] Email dispatch error:", err));
+  ]).catch((err) => console.error("[Scheduling] Post-booking operations error:", err));
 
   // ── 8. Respond ────────────────────────────────────────────────────────────
   const data = BookAppointmentResponse.parse({

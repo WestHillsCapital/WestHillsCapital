@@ -38,8 +38,14 @@ export async function initDb(): Promise<void> {
       allocation_range TEXT NOT NULL,
       timeline         TEXT NOT NULL,
       status           TEXT NOT NULL DEFAULT 'confirmed',
+      calendar_event_id TEXT,
       created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+
+  await db.query(`
+    ALTER TABLE appointments
+      ADD COLUMN IF NOT EXISTS calendar_event_id TEXT
   `);
 
   // Partial unique index: only one confirmed booking per slot is allowed.

@@ -1,0 +1,89 @@
+The booking and lead system is now real and hardened. The next phase must stay low-tech-debt, Google-first, and focused on protecting real availability and improving confidence around booked appointments.
+
+Please implement only Phase 1 of the operations layer.
+
+## Goals
+
+1. Appointments must respect my real availability
+2. Confirmed bookings must become real calendar events
+3. Both I and the prospect should receive confirmation
+4. Keep the implementation simple, Google-first, and low maintenance
+
+## Implement in this order
+
+### 1. Google Calendar read integration for availability
+
+* Add integration to read busy times from selected Google calendars
+* Do not offer booking slots that overlap those busy times
+* Keep the existing slot-generation rules otherwise
+* Make the list of calendars checked configurable
+* We will likely use multiple calendars as blockers (personal, family, work, protected time)
+
+### 2. Dedicated booking calendar
+
+* Create bookings only in one designated Google Calendar, intended for West Hills Capital appointments
+* Do not write bookings into all calendars
+* Separate “blocking calendars” from the “booking output calendar”
+
+### 3. Google Calendar write integration on confirmed booking
+
+* When a booking is confirmed, create a real Google Calendar event
+* Include:
+
+  * customer name
+  * email
+  * phone
+  * state
+  * allocation type
+  * allocation range
+  * timeline
+  * confirmation ID
+* Invite the customer to the event using their email address
+* The event should serve as the shared calendar confirmation for both sides
+
+### 4. Booking confirmation emails
+
+* Send a confirmation email to the prospect when a booking is confirmed
+* Send a notification email to me when a booking is confirmed
+* Keep the emails simple and trustworthy
+* No marketing language
+* Include:
+
+  * date
+  * time
+  * confirmation ID
+  * contact details
+  * prequal summary
+
+## Important scope constraints
+
+* Do NOT add a custom “Add to Calendar” button in this phase
+* Do NOT add Google Sheets sync yet
+* Do NOT add variable appointment duration by prequal yet
+* Do NOT add invoicing, shipping, or referral automation yet
+* Do NOT add paid third-party systems unless absolutely necessary
+* Keep this Google-first and minimal
+
+## Booking duration and buffers
+
+* Keep a single standard appointment duration for now
+* Keep a standard buffer between bookings
+* Make these values easy to configure
+* Do not yet vary duration based on prequal answers
+
+## Calendar behavior
+
+* Support blocking availability from multiple calendars
+* Support writing confirmed bookings into one dedicated booking calendar
+* This is important because I view multiple calendars on iOS and want scheduling to respect real life without mixing all event types together
+
+## After implementing, tell me:
+
+* which files changed
+* what Google setup/credentials I need to provide
+* how blocking calendars are selected
+* how the dedicated booking calendar is selected
+* how slots are now filtered against busy times
+* how calendar invites are sent to the customer
+* how the two confirmation emails are sent
+* what the default appointment duration and buffer are
