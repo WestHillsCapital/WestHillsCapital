@@ -82,16 +82,27 @@ router.post("/", async (req, res) => {
   }
 
   const db = getDb();
-  const results = { appointments: { ok: 0, failed: 0 }, leads: { ok: 0, failed: 0 } };
+
+  type RowError = { id: string; email: string; error: string };
+  const results = {
+    appointments: { ok: 0, failed: 0, errors: [] as RowError[] },
+    leads:        { ok: 0, failed: 0, errors: [] as RowError[] },
+  };
+
+  function toISO(d: Date | null | undefined): string {
+    if (!d) return new Date().toISOString();
+    if (typeof (d as unknown as { toISOString?: unknown }).toISOString === "function") return d.toISOString();
+    return new Date(d).toISOString();
+  }
 
   // ── Appointments ────────────────────────────────────────────────────────────
   const appts = await db.query<{
-    confirmation_id: string; slot_id: string; scheduled_time: Date;
+    confirmation_id: string; slot_id: string; scheduled_time: Date | null;
     day_label: string; time_label: string; first_name: string; last_name: string;
     email: string; phone: string; state: string; allocation_type: string;
     allocation_range: string; timeline: string; status: string;
     lead_id: number | null; calendar_event_id: string | null;
-    created_at: Date; updated_at: Date;
+    created_at: Date | null; updated_at: Date | null;
   }>(`SELECT * FROM appointments ORDER BY created_at ASC`);
 
   for (const a of appts.rows) {
@@ -99,7 +110,7 @@ router.post("/", async (req, res) => {
       await syncAppointmentToSheet({
         confirmationId:  a.confirmation_id,
         slotId:          a.slot_id,
-        scheduledTime:   a.scheduled_time.toISOString(),
+        scheduledTime:   toISO(a.scheduled_time),
         dayLabel:        a.day_label,
         timeLabel:       a.time_label,
         firstName:       a.first_name,
@@ -113,13 +124,15 @@ router.post("/", async (req, res) => {
         status:          a.status,
         leadId:          a.lead_id ? String(a.lead_id) : null,
         calendarEventId: a.calendar_event_id,
-        createdAt:       a.created_at.toISOString(),
-        updatedAt:       a.updated_at.toISOString(),
+        createdAt:       toISO(a.created_at),
+        updatedAt:       toISO(a.updated_at),
       });
       results.appointments.ok++;
       logger.info({ confirmationId: a.confirmation_id }, "[Backfill] Appointment synced");
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       results.appointments.failed++;
+      results.appointments.errors.push({ id: a.confirmation_id, email: a.email, error: msg });
       logger.error({ err, confirmationId: a.confirmation_id }, "[Backfill] Appointment sync failed");
     }
   }
@@ -130,7 +143,7 @@ router.post("/", async (req, res) => {
     email: string; phone: string | null; state: string | null;
     allocation_type: string | null; allocation_range: string | null;
     timeline: string | null; status: string | null; current_custodian: string | null;
-    linked_confirmation_id: string | null; created_at: Date; updated_at: Date;
+    linked_confirmation_id: string | null; created_at: Date | null; updated_at: Date | null;
   }>(`SELECT * FROM leads ORDER BY created_at ASC`);
 
   for (const l of leads.rows) {
@@ -149,13 +162,15 @@ router.post("/", async (req, res) => {
         status:               l.status,
         currentCustodian:     l.current_custodian,
         linkedConfirmationId: l.linked_confirmation_id,
-        createdAt:            l.created_at.toISOString(),
-        updatedAt:            l.updated_at.toISOString(),
+        createdAt:            toISO(l.created_at),
+        updatedAt:            toISO(l.updated_at),
       });
       results.leads.ok++;
       logger.info({ leadId: l.id }, "[Backfill] Lead synced");
     } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
       results.leads.failed++;
+      results.leads.errors.push({ id: String(l.id), email: l.email, error: msg });
       logger.error({ err, leadId: l.id }, "[Backfill] Lead sync failed");
     }
   }
@@ -171,15 +186,25 @@ router.post("/", async (req, res) => {
   const cls = anyFailed ? "fail" : "ok";
   const icon = anyFailed ? "⚠️" : "✅";
 
+  function errorTable(errors: RowError[]): string {
+    if (!errors.length) return "";
+    return `<table style="width:100%;font-size:.78rem;border-collapse:collapse;margin-top:.75rem">
+      <tr><th style="text-align:left;padding:3px 6px;background:#fee2e2">ID</th><th style="text-align:left;padding:3px 6px;background:#fee2e2">Email</th><th style="text-align:left;padding:3px 6px;background:#fee2e2">Error</th></tr>
+      ${errors.map(e => `<tr><td style="padding:3px 6px;border-top:1px solid #fecaca">${e.id}</td><td style="padding:3px 6px;border-top:1px solid #fecaca">${e.email}</td><td style="padding:3px 6px;border-top:1px solid #fecaca;word-break:break-all">${e.error}</td></tr>`).join("")}
+    </table>`;
+  }
+
   res.setHeader("Content-Type", "text/html").send(page(`
     <h1>${icon} Backfill ${anyFailed ? "completed with errors" : "complete"}</h1>
     <div class="result ${cls}">
       <div class="stat">Appointments: ${results.appointments.ok} synced${results.appointments.failed ? `, ${results.appointments.failed} failed` : ""}</div>
-      <div class="stat">Leads: ${results.leads.ok} synced${results.leads.failed ? `, ${results.leads.failed} failed` : ""}</div>
+      ${errorTable(results.appointments.errors)}
+      <div class="stat" style="margin-top:.75rem">Leads: ${results.leads.ok} synced${results.leads.failed ? `, ${results.leads.failed} failed` : ""}</div>
+      ${errorTable(results.leads.errors)}
     </div>
     <p class="warn">
       ${anyFailed
-        ? "Some rows failed — check Railway logs for details."
+        ? "Failed rows are shown above. Copy the errors and share them to debug further."
         : "All done. Open your Google Sheet to confirm the rows are there. You can now delete or disable this route."}
     </p>
     <a href="/api/sheets-backfill">← Run again</a>
