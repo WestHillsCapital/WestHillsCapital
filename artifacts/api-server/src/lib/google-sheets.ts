@@ -6,25 +6,48 @@ import { logger } from "./logger";
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID ?? "";
 
 const TABS = {
-  appointments:     "appointments",
-  leads:            "leads",
-  bookingAttempts:  "booking_attempts",
+  appointments:    "appointments",
+  leads:           "leads",
+  bookingAttempts: "booking_attempts",
 } as const;
 
-// ── Column headers ────────────────────────────────────────────────────────────
+// ── Column definitions ─────────────────────────────────────────────────────────
+//
+// SYSTEM columns   — written by the app on every insert AND every update.
+// OPERATOR columns — written once (empty) when the row is first inserted;
+//                    never touched again by the app.
 
-const APPOINTMENT_HEADERS = [
+const APPOINTMENT_SYSTEM_HEADERS = [
   "Confirmation ID", "Slot ID", "Scheduled Time", "Day", "Time",
   "First Name", "Last Name", "Email", "Phone", "State",
   "Structure", "Allocation", "Timeline", "Status", "Lead ID",
-  "Calendar Event ID", "Created", "Updated", "Notes",
+  "Calendar Event ID", "Created", "Updated",
+] as const;
+
+const APPOINTMENT_OPERATOR_HEADERS = [
+  "Call Outcome", "Next Action", "Invoice Sent", "Funds Received",
+  "Order Placed", "Shipped", "Delivered", "Referral Requested", "Notes",
+] as const;
+
+const APPOINTMENT_ALL_HEADERS = [
+  ...APPOINTMENT_SYSTEM_HEADERS,
+  ...APPOINTMENT_OPERATOR_HEADERS,
 ];
 
-const LEAD_HEADERS = [
+const LEAD_SYSTEM_HEADERS = [
   "Lead ID", "First Name", "Last Name", "Email", "Phone", "State",
   "Structure", "Allocation", "Timeline", "Source", "Status",
-  "Current Custodian", "Form Type", "Linked Appointment",
-  "Created", "Updated", "Notes", "Follow-Up Date", "Owner",
+  "Current Custodian", "Form Type", "Linked Appointment", "Created", "Updated",
+] as const;
+
+const LEAD_OPERATOR_HEADERS = [
+  "Priority", "Deal Size Estimate", "Last Contact Date", "Next Action",
+  "Next Action Due", "Loss Reason", "Won Date", "Notes", "Follow-Up Date", "Owner",
+] as const;
+
+const LEAD_ALL_HEADERS = [
+  ...LEAD_SYSTEM_HEADERS,
+  ...LEAD_OPERATOR_HEADERS,
 ];
 
 const ATTEMPT_HEADERS = [
@@ -36,21 +59,21 @@ const ATTEMPT_HEADERS = [
 
 const ALLOCATION_LABELS: Record<string, string> = {
   physical_delivery: "Physical Home/Vault Delivery",
-  ira_rollover: "IRA Rollover / Transfer",
-  not_sure: "Not sure yet",
+  ira_rollover:      "IRA Rollover / Transfer",
+  not_sure:          "Not sure yet",
 };
 
 const RANGE_LABELS: Record<string, string> = {
-  under_50k: "Under $50,000",
-  "50k_150k": "$50,000 – $150,000",
-  "150k_500k": "$150,000 – $500,000",
-  "500k_plus": "$500,000+",
+  under_50k:    "Under $50,000",
+  "50k_150k":   "$50,000 – $150,000",
+  "150k_500k":  "$150,000 – $500,000",
+  "500k_plus":  "$500,000+",
 };
 
 const TIMELINE_LABELS: Record<string, string> = {
-  ready: "Ready to move forward now",
+  ready:          "Ready to move forward now",
   within_30_days: "Planning within next 30 days",
-  researching: "Just researching options",
+  researching:    "Just researching options",
 };
 
 function label(map: Record<string, string>, val?: string | null): string {
@@ -84,94 +107,158 @@ function getSheetsClient(): SheetsClient | null {
   return google.sheets({ version: "v4", auth });
 }
 
-// ── Ensure tab + headers exist ────────────────────────────────────────────────
+// ── Utilities ─────────────────────────────────────────────────────────────────
 
-async function ensureTab(
-  sheets: SheetsClient,
-  tabName: string,
-  headers: string[]
-): Promise<void> {
-  try {
-    const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
-    const exists = meta.data.sheets?.some(
-      (s) => s.properties?.title === tabName
-    );
-
-    if (!exists) {
-      await sheets.spreadsheets.batchUpdate({
-        spreadsheetId: SPREADSHEET_ID,
-        requestBody: {
-          requests: [{ addSheet: { properties: { title: tabName } } }],
-        },
-      });
-      logger.info({ tabName }, "[Sheets] Tab created");
-    }
-
-    // Write headers if row 1 is empty
-    const lastCol = String.fromCharCode(64 + headers.length);
-    const headerRange = `${tabName}!A1:${lastCol}1`;
-    const existing = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: headerRange,
-    });
-    if (!existing.data.values?.length) {
-      await sheets.spreadsheets.values.update({
-        spreadsheetId: SPREADSHEET_ID,
-        range: headerRange,
-        valueInputOption: "RAW",
-        requestBody: { values: [headers] },
-      });
-      logger.info({ tabName }, "[Sheets] Headers written");
-    }
-  } catch (err) {
-    logger.warn({ err, tabName }, "[Sheets] ensureTab failed");
+/** Convert a 0-based column index to a Sheets column letter (A, B, …, Z, AA, …). */
+function colLetter(col: number): string {
+  let letter = "";
+  let n = col + 1; // 1-based
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    letter = String.fromCharCode(65 + rem) + letter;
+    n = Math.floor((n - 1) / 26);
   }
+  return letter;
 }
 
-// ── Upsert: find row by key in col A, update or append ───────────────────────
+// ── Tab + header management ───────────────────────────────────────────────────
 
-async function upsertRow(
+/**
+ * Ensures the tab exists, then reads row 1 and appends any headers from
+ * `allHeaders` that are not already present. Never moves or renames existing
+ * headers. Returns the authoritative header name → 0-based column-index map.
+ */
+async function ensureTabHeaders(
   sheets: SheetsClient,
   tabName: string,
-  headers: string[],
-  keyValue: string,
-  rowData: string[]
-): Promise<void> {
-  await ensureTab(sheets, tabName, headers);
+  allHeaders: readonly string[]
+): Promise<Map<string, number>> {
+  // 1. Create the tab if it doesn't exist
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const tabExists = meta.data.sheets?.some(
+    (s) => s.properties?.title === tabName
+  );
+  if (!tabExists) {
+    await sheets.spreadsheets.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: {
+        requests: [{ addSheet: { properties: { title: tabName } } }],
+      },
+    });
+    logger.info({ tabName }, "[Sheets] Tab created");
+  }
 
-  const colA = await sheets.spreadsheets.values.get({
+  // 2. Read row 1
+  const row1Resp = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${tabName}!1:1`,
+  });
+  const existingRow: string[] = (row1Resp.data.values?.[0] ?? []) as string[];
+
+  // 3. Build name → col map from what is already in the sheet
+  const nameToCol = new Map<string, number>();
+  existingRow.forEach((h, i) => {
+    if (h) nameToCol.set(h, i);
+  });
+
+  // 4. Find headers in allHeaders that are not yet present
+  const missing = allHeaders.filter((h) => !nameToCol.has(h));
+  if (missing.length > 0) {
+    // Append missing headers immediately after the last existing header
+    const startCol = existingRow.length;
+    const startLetter = colLetter(startCol);
+    const endLetter = colLetter(startCol + missing.length - 1);
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${tabName}!${startLetter}1:${endLetter}1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [missing] },
+    });
+    missing.forEach((h, i) => nameToCol.set(h, startCol + i));
+    logger.info({ tabName, missing }, "[Sheets] Headers extended");
+  }
+
+  return nameToCol;
+}
+
+// ── Core upsert: header-name-aware ───────────────────────────────────────────
+
+/**
+ * Upserts a row identified by `keyValue` in column A.
+ *
+ * INSERT path: appends a full row (system + operator columns) with operator
+ *   cells left blank.
+ *
+ * UPDATE path: writes ONLY the cells whose header names are in
+ *   `systemHeaderSet`. Operator columns are never touched.
+ *
+ * Column order in the sheet is irrelevant — positions are derived from the
+ * actual header row at sync time.
+ */
+async function upsertByHeaderName(
+  sheets: SheetsClient,
+  tabName: string,
+  allHeaders: readonly string[],
+  systemHeaderSet: ReadonlySet<string>,
+  keyValue: string,
+  systemData: Record<string, string>
+): Promise<void> {
+  // Ensure tab exists and all headers are present; get name→col map
+  const nameToCol = await ensureTabHeaders(sheets, tabName, allHeaders);
+
+  // Find existing row by key (column A)
+  const colAResp = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
     range: `${tabName}!A:A`,
   });
-
-  const rows = colA.data.values ?? [];
+  const colARows = colAResp.data.values ?? [];
   let matchRow = -1;
-  for (let i = 1; i < rows.length; i++) {
-    if (rows[i]?.[0] === keyValue) {
-      matchRow = i + 1; // 1-indexed row number for the API
+  for (let i = 1; i < colARows.length; i++) {
+    if (colARows[i]?.[0] === keyValue) {
+      matchRow = i + 1; // Sheets API is 1-indexed, row 1 is headers
       break;
     }
   }
 
-  const lastCol = String.fromCharCode(64 + headers.length);
-
   if (matchRow > 0) {
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${tabName}!A${matchRow}:${lastCol}${matchRow}`,
-      valueInputOption: "RAW",
-      requestBody: { values: [rowData] },
-    });
+    // ── UPDATE: write only system-managed cells ───────────────────────────
+    const data: { range: string; values: string[][] }[] = [];
+    for (const header of systemHeaderSet) {
+      const col = nameToCol.get(header);
+      if (col === undefined) continue; // header not in sheet (shouldn't happen)
+      const cellLetter = colLetter(col);
+      data.push({
+        range: `${tabName}!${cellLetter}${matchRow}`,
+        values: [[systemData[header] ?? ""]],
+      });
+    }
+    if (data.length > 0) {
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        requestBody: { valueInputOption: "RAW", data },
+      });
+    }
   } else {
+    // ── INSERT: append full row, operator columns blank ───────────────────
+    const totalCols = Math.max(...[...nameToCol.values()]) + 1;
+    const row = new Array<string>(totalCols).fill("");
+    for (const [header, col] of nameToCol) {
+      row[col] = systemData[header] ?? ""; // operator headers not in systemData → stays ""
+    }
     await sheets.spreadsheets.values.append({
       spreadsheetId: SPREADSHEET_ID,
       range: `${tabName}!A:A`,
       valueInputOption: "RAW",
       insertDataOption: "INSERT_ROWS",
-      requestBody: { values: [rowData] },
+      requestBody: { values: [row] },
     });
   }
 }
+
+// ── Constant sets for fast lookup ─────────────────────────────────────────────
+
+const APPOINTMENT_SYSTEM_SET = new Set<string>(APPOINTMENT_SYSTEM_HEADERS);
+const LEAD_SYSTEM_SET = new Set<string>(LEAD_SYSTEM_HEADERS);
 
 // ── Public: sync appointment ──────────────────────────────────────────────────
 
@@ -194,36 +281,39 @@ export async function syncAppointmentToSheet(params: {
   calendarEventId?: string | null;
   createdAt: string;
   updatedAt?: string | null;
-  notes?: string | null;
 }): Promise<void> {
   const sheets = getSheetsClient();
   if (!sheets) return;
 
+  const systemData: Record<string, string> = {
+    "Confirmation ID":  params.confirmationId,
+    "Slot ID":          params.slotId,
+    "Scheduled Time":   params.scheduledTime,
+    "Day":              params.dayLabel,
+    "Time":             params.timeLabel,
+    "First Name":       params.firstName,
+    "Last Name":        params.lastName,
+    "Email":            params.email,
+    "Phone":            params.phone,
+    "State":            params.state,
+    "Structure":        label(ALLOCATION_LABELS, params.allocationType),
+    "Allocation":       label(RANGE_LABELS, params.allocationRange),
+    "Timeline":         label(TIMELINE_LABELS, params.timeline),
+    "Status":           params.status,
+    "Lead ID":          params.leadId ?? "",
+    "Calendar Event ID": params.calendarEventId ?? "",
+    "Created":          params.createdAt,
+    "Updated":          params.updatedAt ?? "",
+  };
+
   try {
-    const row = [
+    await upsertByHeaderName(
+      sheets,
+      TABS.appointments,
+      APPOINTMENT_ALL_HEADERS,
+      APPOINTMENT_SYSTEM_SET,
       params.confirmationId,
-      params.slotId,
-      params.scheduledTime,
-      params.dayLabel,
-      params.timeLabel,
-      params.firstName,
-      params.lastName,
-      params.email,
-      params.phone,
-      params.state,
-      label(ALLOCATION_LABELS, params.allocationType),
-      label(RANGE_LABELS, params.allocationRange),
-      label(TIMELINE_LABELS, params.timeline),
-      params.status,
-      params.leadId ?? "",
-      params.calendarEventId ?? "",
-      params.createdAt,
-      params.updatedAt ?? "",
-      params.notes ?? "",
-    ];
-    await upsertRow(
-      sheets, TABS.appointments, APPOINTMENT_HEADERS,
-      params.confirmationId, row
+      systemData
     );
     logger.info({ confirmationId: params.confirmationId }, "[Sheets] Appointment synced");
   } catch (err) {
@@ -249,38 +339,37 @@ export async function syncLeadToSheet(params: {
   linkedConfirmationId?: string | null;
   createdAt: string;
   updatedAt?: string | null;
-  notes?: string | null;
-  followUpDate?: string | null;
-  owner?: string | null;
 }): Promise<void> {
   const sheets = getSheetsClient();
   if (!sheets) return;
 
+  const systemData: Record<string, string> = {
+    "Lead ID":           params.id,
+    "First Name":        params.firstName,
+    "Last Name":         params.lastName,
+    "Email":             params.email,
+    "Phone":             params.phone ?? "",
+    "State":             params.state ?? "",
+    "Structure":         label(ALLOCATION_LABELS, params.allocationType),
+    "Allocation":        label(RANGE_LABELS, params.allocationRange),
+    "Timeline":          label(TIMELINE_LABELS, params.timeline),
+    "Source":            params.formType,
+    "Status":            params.status ?? "new",
+    "Current Custodian": params.currentCustodian ?? "",
+    "Form Type":         params.formType,
+    "Linked Appointment": params.linkedConfirmationId ?? "",
+    "Created":           params.createdAt,
+    "Updated":           params.updatedAt ?? "",
+  };
+
   try {
-    const row = [
+    await upsertByHeaderName(
+      sheets,
+      TABS.leads,
+      LEAD_ALL_HEADERS,
+      LEAD_SYSTEM_SET,
       params.id,
-      params.firstName,
-      params.lastName,
-      params.email,
-      params.phone ?? "",
-      params.state ?? "",
-      label(ALLOCATION_LABELS, params.allocationType),
-      label(RANGE_LABELS, params.allocationRange),
-      label(TIMELINE_LABELS, params.timeline),
-      params.formType,        // source
-      params.status ?? "new",
-      params.currentCustodian ?? "",
-      params.formType,
-      params.linkedConfirmationId ?? "",
-      params.createdAt,
-      params.updatedAt ?? "",
-      params.notes ?? "",
-      params.followUpDate ?? "",
-      params.owner ?? "",
-    ];
-    await upsertRow(
-      sheets, TABS.leads, LEAD_HEADERS,
-      params.id, row
+      systemData
     );
     logger.info({ leadId: params.id }, "[Sheets] Lead synced");
   } catch (err) {
@@ -305,7 +394,8 @@ export async function appendBookingAttemptToSheet(params: {
   if (!sheets) return;
 
   try {
-    await ensureTab(sheets, TABS.bookingAttempts, ATTEMPT_HEADERS);
+    // booking_attempts is fully system-managed; use simple ensureTab + append
+    await ensureTabHeaders(sheets, TABS.bookingAttempts, ATTEMPT_HEADERS);
     const row = [
       params.id,
       params.email,
