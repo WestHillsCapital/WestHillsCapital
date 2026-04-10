@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { getDb } from "../db";
-import { syncAppointmentToSheet, syncLeadToSheet } from "../lib/google-sheets";
+import { syncAppointmentToSheet, syncLeadToSheet, testSheetsConnection } from "../lib/google-sheets";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -73,7 +73,13 @@ router.post("/", async (req, res) => {
   if (!SETUP_TOKEN) return fail(503, "CALENDAR_SETUP_TOKEN env var not set.");
   const token = wantsJson ? req.body?.token : req.body?.token;
   if (token !== SETUP_TOKEN) return fail(401, "Invalid token. Go back and try again.");
-  if (!process.env.GOOGLE_SHEETS_SPREADSHEET_ID) return fail(503, "GOOGLE_SHEETS_SPREADSHEET_ID not set.");
+
+  // ── Connection check: fail loudly before touching any rows ─────────────────
+  const connError = await testSheetsConnection();
+  if (connError) {
+    logger.error({ connError }, "[Backfill] Sheets connection failed");
+    return fail(503, `Google Sheets connection failed: ${connError}`);
+  }
 
   const db = getDb();
   const results = { appointments: { ok: 0, failed: 0 }, leads: { ok: 0, failed: 0 } };

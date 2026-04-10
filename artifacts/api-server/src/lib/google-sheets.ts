@@ -271,6 +271,40 @@ async function upsertByHeaderName(
 const APPOINTMENT_SYSTEM_SET = new Set<string>(APPOINTMENT_SYSTEM_HEADERS);
 const LEAD_SYSTEM_SET = new Set<string>(LEAD_SYSTEM_HEADERS);
 
+// ── Public: test the Sheets connection ───────────────────────────────────────
+//
+// Returns null on success, or a diagnostic string describing what is wrong.
+
+export async function testSheetsConnection(): Promise<string | null> {
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+  if (!spreadsheetId) return "GOOGLE_SHEETS_SPREADSHEET_ID is not set";
+
+  const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  if (!keyJson) return "GOOGLE_SERVICE_ACCOUNT_KEY is not set";
+
+  let credentials: unknown;
+  try {
+    credentials = JSON.parse(keyJson);
+  } catch {
+    return "GOOGLE_SERVICE_ACCOUNT_KEY is not valid JSON — check for missing quotes or line breaks in Railway";
+  }
+
+  try {
+    const auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: ["https://www.googleapis.com/auth/spreadsheets"],
+    });
+    const sheets = google.sheets({ version: "v4", auth });
+    const resp = await sheets.spreadsheets.get({ spreadsheetId });
+    const title = resp.data.properties?.title ?? "(untitled)";
+    logger.info({ title }, "[Sheets] Connection test passed");
+    return null; // success
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return `Sheets API error: ${msg}`;
+  }
+}
+
 // ── Public: sync appointment ──────────────────────────────────────────────────
 
 export async function syncAppointmentToSheet(params: {
@@ -294,7 +328,7 @@ export async function syncAppointmentToSheet(params: {
   updatedAt?: string | null;
 }): Promise<void> {
   const sheets = getSheetsClient();
-  if (!sheets) return;
+  if (!sheets) throw new Error("[Sheets] Client not available — check GOOGLE_SHEETS_SPREADSHEET_ID and GOOGLE_SERVICE_ACCOUNT_KEY");
 
   const systemData: Record<string, string> = {
     "Confirmation ID":  params.confirmationId,
@@ -330,6 +364,7 @@ export async function syncAppointmentToSheet(params: {
     logger.info({ confirmationId: params.confirmationId }, "[Sheets] Appointment synced");
   } catch (err) {
     logger.error({ err }, "[Sheets] Failed to sync appointment");
+    throw err;
   }
 }
 
@@ -353,7 +388,7 @@ export async function syncLeadToSheet(params: {
   updatedAt?: string | null;
 }): Promise<void> {
   const sheets = getSheetsClient();
-  if (!sheets) return;
+  if (!sheets) throw new Error("[Sheets] Client not available — check GOOGLE_SHEETS_SPREADSHEET_ID and GOOGLE_SERVICE_ACCOUNT_KEY");
 
   const systemData: Record<string, string> = {
     "Lead ID":           params.id,
@@ -387,6 +422,7 @@ export async function syncLeadToSheet(params: {
     logger.info({ leadId: params.id }, "[Sheets] Lead synced");
   } catch (err) {
     logger.error({ err }, "[Sheets] Failed to sync lead");
+    throw err;
   }
 }
 
