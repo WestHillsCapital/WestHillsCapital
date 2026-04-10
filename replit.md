@@ -136,6 +136,49 @@ These are the exact Fiztrade product codes for the 3 featured products. They are
   - Connect Google Calendar via Replit integrations (ask agent to "add Google Calendar")
   - The agent will query freebusy and create calendar events on booking
 
+## Git & Deployment Setup
+
+### Source of Truth
+
+**GitHub** is the single source of truth: `WestHillsCapital/WestHillsCapital`, branch `main`.
+
+- Replit local branch: `main` (tracking `github/main`)
+- `git status` reads: "Your branch is up to date with 'github/main'"
+- Both local and GitHub are at the same commit: `f1f98d4`
+
+### History
+
+Previously, Replit local (`master`) and GitHub (`main`) had completely divergent histories — no common ancestor. Task agents pushed directly to GitHub from isolated environments without syncing back to Replit. This was resolved by:
+1. Fetching all GitHub objects locally
+2. Adding `README.md` (the one file GitHub had that local didn't)
+3. Force-pushing Replit's local history to `github/main` to unify into one linear history
+4. Renaming local branch `master` → `main`
+5. Setting upstream: `git branch --set-upstream-to=github/main main`
+
+### Auto-Deploy Wiring
+
+| Service | Watches | Deploys |
+|---|---|---|
+| **Railway** | GitHub `WestHillsCapital/WestHillsCapital` `main` | API server (`artifacts/api-server`) |
+| **Vercel** | GitHub `WestHillsCapital/WestHillsCapital` `main` | Frontend (`artifacts/west-hills-capital`) |
+
+Railway URL: `https://workspaceapi-server-production-987b.up.railway.app`
+
+### Vercel Configuration
+
+Root `vercel.json` controls the Vercel build:
+- **Install**: `pnpm install`
+- **Build**: `pnpm --filter @workspace/west-hills-capital build`
+- **Output**: `artifacts/west-hills-capital/dist/public`
+- **API rewrite**: `/api/(.*)` → Railway URL (so the Vercel-hosted frontend reaches Railway)
+- **SPA fallback**: `/(.*)` → `/index.html`
+
+### Git Remotes (Replit)
+
+- `github` → `https://github.com/WestHillsCapital/WestHillsCapital.git` (push/fetch)
+- `gitsafe-backup` → internal Replit backup
+- `subrepl-848h6cbd` → isolated task agent communication
+
 ## Business Rules
 
 - NO cart, checkout, or payment flows
