@@ -5,28 +5,75 @@ import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
-/**
- * POST /api/sheets-backfill
- *
- * Resyncs all appointments and leads from PostgreSQL into Google Sheets.
- * Protected by CALENDAR_SETUP_TOKEN (same token used for calendar-setup).
- * Body: { token: string }
- */
+// ── HTML helpers ──────────────────────────────────────────────────────────────
+
+function page(body: string): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WHC · Sheets Backfill</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:system-ui,sans-serif;background:#f5f5f3;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:2rem}
+    .card{background:#fff;border-radius:10px;box-shadow:0 2px 16px rgba(0,0,0,.1);padding:2.5rem;max-width:480px;width:100%}
+    h1{font-size:1.25rem;font-weight:700;color:#1a1a1a;margin-bottom:.375rem}
+    .sub{font-size:.85rem;color:#666;margin-bottom:1.75rem}
+    label{display:block;font-size:.85rem;font-weight:600;color:#333;margin-bottom:.375rem}
+    input[type=password]{width:100%;padding:.625rem .75rem;border:1.5px solid #d1d5db;border-radius:6px;font-size:.95rem;outline:none;transition:border .15s}
+    input[type=password]:focus{border-color:#b8960c}
+    button{margin-top:1.25rem;width:100%;padding:.75rem;background:#b8960c;color:#fff;font-size:.95rem;font-weight:600;border:none;border-radius:6px;cursor:pointer;transition:background .15s}
+    button:hover{background:#9a7c0a}
+    .warn{margin-top:1.25rem;font-size:.8rem;color:#888;border-top:1px solid #eee;padding-top:1rem}
+    .result{margin-top:1.5rem;padding:1rem;border-radius:6px;font-size:.9rem;line-height:1.6}
+    .ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534}
+    .fail{background:#fef2f2;border:1px solid #fecaca;color:#991b1b}
+    .stat{font-size:1rem;font-weight:700;margin-bottom:.25rem}
+    a{color:#b8960c;font-size:.85rem;display:inline-block;margin-top:1.25rem}
+  </style>
+</head>
+<body>
+<div class="card">${body}</div>
+</body>
+</html>`;
+}
+
+const FORM_HTML = page(`
+  <h1>Sheets Backfill</h1>
+  <p class="sub">Resyncs all appointments and leads from the database into Google Sheets. Safe to run multiple times.</p>
+  <form method="POST">
+    <label for="token">Setup Token</label>
+    <input type="password" id="token" name="token" placeholder="Paste your CALENDAR_SETUP_TOKEN" required autofocus>
+    <button type="submit">Run Backfill</button>
+  </form>
+  <p class="warn">This page is temporary. Delete the route from Railway once the backfill is confirmed.</p>
+`);
+
+// ── GET: serve the form ───────────────────────────────────────────────────────
+
+router.get("/", (_req, res) => {
+  res.setHeader("Content-Type", "text/html");
+  res.send(FORM_HTML);
+});
+
+// ── POST: run the backfill ────────────────────────────────────────────────────
+
 router.post("/", async (req, res) => {
   const SETUP_TOKEN = process.env.CALENDAR_SETUP_TOKEN;
+  const wantsJson = req.headers["content-type"]?.includes("application/json");
 
-  if (!SETUP_TOKEN) {
-    res.status(503).json({ error: "CALENDAR_SETUP_TOKEN env var not set on this server." });
-    return;
+  function fail(status: number, msg: string) {
+    if (wantsJson) { res.status(status).json({ error: msg }); return; }
+    res.status(status).setHeader("Content-Type", "text/html").send(
+      page(`<h1>Error</h1><div class="result fail">${msg}</div><a href="/api/sheets-backfill">← Back</a>`)
+    );
   }
-  if (req.body?.token !== SETUP_TOKEN) {
-    res.status(401).json({ error: "Invalid token." });
-    return;
-  }
-  if (!process.env.GOOGLE_SHEETS_SPREADSHEET_ID) {
-    res.status(503).json({ error: "GOOGLE_SHEETS_SPREADSHEET_ID not set." });
-    return;
-  }
+
+  if (!SETUP_TOKEN) return fail(503, "CALENDAR_SETUP_TOKEN env var not set.");
+  const token = wantsJson ? req.body?.token : req.body?.token;
+  if (token !== SETUP_TOKEN) return fail(401, "Invalid token. Go back and try again.");
+  if (!process.env.GOOGLE_SHEETS_SPREADSHEET_ID) return fail(503, "GOOGLE_SHEETS_SPREADSHEET_ID not set.");
 
   const db = getDb();
   const results = { appointments: { ok: 0, failed: 0 }, leads: { ok: 0, failed: 0 } };
@@ -108,7 +155,29 @@ router.post("/", async (req, res) => {
   }
 
   logger.info({ results }, "[Backfill] Complete");
-  res.json({ ok: true, results });
+
+  if (wantsJson) {
+    res.json({ ok: true, results });
+    return;
+  }
+
+  const anyFailed = results.appointments.failed > 0 || results.leads.failed > 0;
+  const cls = anyFailed ? "fail" : "ok";
+  const icon = anyFailed ? "⚠️" : "✅";
+
+  res.setHeader("Content-Type", "text/html").send(page(`
+    <h1>${icon} Backfill ${anyFailed ? "completed with errors" : "complete"}</h1>
+    <div class="result ${cls}">
+      <div class="stat">Appointments: ${results.appointments.ok} synced${results.appointments.failed ? `, ${results.appointments.failed} failed` : ""}</div>
+      <div class="stat">Leads: ${results.leads.ok} synced${results.leads.failed ? `, ${results.leads.failed} failed` : ""}</div>
+    </div>
+    <p class="warn">
+      ${anyFailed
+        ? "Some rows failed — check Railway logs for details."
+        : "All done. Open your Google Sheet to confirm the rows are there. You can now delete or disable this route."}
+    </p>
+    <a href="/api/sheets-backfill">← Run again</a>
+  `));
 });
 
 export default router;
