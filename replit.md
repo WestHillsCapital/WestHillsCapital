@@ -143,8 +143,7 @@ These are the exact Fiztrade product codes for the 3 featured products. They are
 **GitHub** is the single source of truth: `WestHillsCapital/WestHillsCapital`, branch `main`.
 
 - Replit local branch: `main` (tracking `github/main`)
-- `git status` reads: "Your branch is up to date with 'github/main'"
-- Both local and GitHub are at the same commit: `15ba625`
+- Local and GitHub are in sync — run `git status` to confirm "up to date with 'github/main'"
 
 ### History
 
