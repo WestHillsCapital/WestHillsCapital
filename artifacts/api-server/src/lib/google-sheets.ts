@@ -25,8 +25,9 @@ const APPOINTMENT_SYSTEM_HEADERS = [
 ] as const;
 
 const APPOINTMENT_OPERATOR_HEADERS = [
-  "Call Outcome", "Next Action", "Invoice Sent", "Funds Received",
-  "Order Placed", "Shipped", "Delivered", "Referral Requested", "Notes",
+  "Priority", "Call Outcome", "Next Action", "Next Action Due",
+  "Invoice Sent", "Funds Received", "Order Placed", "Shipped",
+  "Delivered", "Referral Requested", "Notes",
 ] as const;
 
 const APPOINTMENT_ALL_HEADERS = [
@@ -42,7 +43,7 @@ const LEAD_SYSTEM_HEADERS = [
 
 const LEAD_OPERATOR_HEADERS = [
   "Priority", "Deal Size Estimate", "Last Contact Date", "Next Action",
-  "Next Action Due", "Loss Reason", "Won Date", "Notes", "Follow-Up Date", "Owner",
+  "Next Action Due", "Loss Reason", "Won Date", "Notes", "Owner",
 ] as const;
 
 const LEAD_ALL_HEADERS = [
