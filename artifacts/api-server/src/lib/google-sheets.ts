@@ -126,27 +126,31 @@ function colLetter(col: number): string {
 /**
  * Ensures the tab exists, then reads row 1 and appends any headers from
  * `allHeaders` that are not already present. Never moves or renames existing
- * headers. Returns the authoritative header name → 0-based column-index map.
+ * headers. Returns both the authoritative header name → 0-based column-index
+ * map and the numeric sheetId for batchUpdate dimension operations.
  */
 async function ensureTabHeaders(
   sheets: SheetsClient,
   tabName: string,
   allHeaders: readonly string[]
-): Promise<Map<string, number>> {
-  // 1. Create the tab if it doesn't exist
+): Promise<{ nameToCol: Map<string, number>; sheetId: number }> {
+  // 1. Create the tab if it doesn't exist; always capture sheetId
   const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
-  const tabExists = meta.data.sheets?.some(
+  let sheetMeta = meta.data.sheets?.find(
     (s) => s.properties?.title === tabName
   );
-  if (!tabExists) {
-    await sheets.spreadsheets.batchUpdate({
+  if (!sheetMeta) {
+    const addResp = await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
       requestBody: {
         requests: [{ addSheet: { properties: { title: tabName } } }],
       },
     });
+    const added = addResp.data.replies?.[0]?.addSheet;
+    sheetMeta = { properties: added?.properties ?? { title: tabName, sheetId: 0 } };
     logger.info({ tabName }, "[Sheets] Tab created");
   }
+  const sheetId: number = sheetMeta?.properties?.sheetId ?? 0;
 
   // 2. Read row 1
   const row1Resp = await sheets.spreadsheets.values.get({
@@ -178,7 +182,7 @@ async function ensureTabHeaders(
     logger.info({ tabName, missing }, "[Sheets] Headers extended");
   }
 
-  return nameToCol;
+  return { nameToCol, sheetId };
 }
 
 // ── Core upsert: header-name-aware ───────────────────────────────────────────
@@ -206,8 +210,8 @@ async function upsertByHeaderName(
   keyValue: string,
   systemData: Record<string, string>
 ): Promise<void> {
-  // Ensure tab exists and all headers are present; get name→col map
-  const nameToCol = await ensureTabHeaders(sheets, tabName, allHeaders);
+  // Ensure tab exists and all headers are present; get name→col map + sheetId
+  const { nameToCol, sheetId } = await ensureTabHeaders(sheets, tabName, allHeaders);
 
   // Resolve the key column from the header map (not assumed to be column A)
   const keyCol = nameToCol.get(keyHeader);
@@ -250,17 +254,37 @@ async function upsertByHeaderName(
       });
     }
   } else {
-    // ── INSERT: append full row, operator columns blank ───────────────────
+    // ── INSERT: insert a blank row at index 1 (row 2), then write data ────
+    // This keeps row 1 (the frozen header) in place and puts the newest entry
+    // at row 2, pushing older rows further down.
     const totalCols = Math.max(...[...nameToCol.values()]) + 1;
     const row = new Array<string>(totalCols).fill("");
     for (const [header, col] of nameToCol) {
       row[col] = systemData[header] ?? ""; // operator headers not in systemData → stays ""
     }
-    await sheets.spreadsheets.values.append({
+    // Step 1: physically insert a blank row at 0-based index 1 (= sheet row 2)
+    await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${tabName}!A:A`,
+      requestBody: {
+        requests: [{
+          insertDimension: {
+            range: {
+              sheetId,
+              dimension: "ROWS",
+              startIndex: 1,
+              endIndex: 2,
+            },
+            inheritFromBefore: false,
+          },
+        }],
+      },
+    });
+    // Step 2: write the row data into the newly-created row 2
+    const endLetter = colLetter(totalCols - 1);
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${tabName}!A2:${endLetter}2`,
       valueInputOption: "RAW",
-      insertDataOption: "INSERT_ROWS",
       requestBody: { values: [row] },
     });
   }
@@ -443,8 +467,8 @@ export async function appendBookingAttemptToSheet(params: {
   if (!sheets) return;
 
   try {
-    // booking_attempts is fully system-managed; use simple ensureTab + append
-    await ensureTabHeaders(sheets, TABS.bookingAttempts, ATTEMPT_HEADERS);
+    // booking_attempts is fully system-managed; insert at row 2 (newest first)
+    const { sheetId } = await ensureTabHeaders(sheets, TABS.bookingAttempts, ATTEMPT_HEADERS);
     const row = [
       params.id,
       params.email,
@@ -456,11 +480,29 @@ export async function appendBookingAttemptToSheet(params: {
       params.confirmationId ?? "",
       params.attemptedAt,
     ];
-    await sheets.spreadsheets.values.append({
+    // Step 1: physically insert a blank row at 0-based index 1 (= sheet row 2)
+    await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
-      range: `${TABS.bookingAttempts}!A:A`,
+      requestBody: {
+        requests: [{
+          insertDimension: {
+            range: {
+              sheetId,
+              dimension: "ROWS",
+              startIndex: 1,
+              endIndex: 2,
+            },
+            inheritFromBefore: false,
+          },
+        }],
+      },
+    });
+    // Step 2: write the row data into the newly-created row 2
+    const endLetter = colLetter(row.length - 1);
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${TABS.bookingAttempts}!A2:${endLetter}2`,
       valueInputOption: "RAW",
-      insertDataOption: "INSERT_ROWS",
       requestBody: { values: [row] },
     });
     logger.info({ id: params.id, success: params.success }, "[Sheets] Booking attempt logged");
