@@ -1,5 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+
 export interface LeadIntakeRequest {
   formType: "ira" | "general";
   firstName: string;
@@ -22,27 +24,20 @@ export interface LeadIntakeResponse {
 export function useSubmitLeadIntake() {
   return useMutation({
     mutationFn: async (data: LeadIntakeRequest) => {
-      try {
-        const res = await fetch("/api/leads/intake", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(data),
-        });
-        
-        if (!res.ok) {
-          throw new Error("Failed to submit intake");
-        }
-        return (await res.json()) as LeadIntakeResponse;
-      } catch (err) {
-        console.warn("Using mock lead intake response", err);
-        // Artificial delay for realism
-        await new Promise(resolve => setTimeout(resolve, 600));
-        
-        return {
-          success: true,
-          message: "Information submitted successfully."
-        } as LeadIntakeResponse;
+      const res = await fetch(`${API_BASE}/api/leads/intake`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(
+          (body as { message?: string }).message ?? `HTTP ${res.status}`
+        );
       }
+
+      return (await res.json()) as LeadIntakeResponse;
     },
   });
 }
