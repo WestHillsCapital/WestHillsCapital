@@ -1,0 +1,130 @@
+We need to improve the Google Sheets operational dashboard logic.
+
+Right now, the Sheets sync overwrites every column on each upsert. That means any manual edits an operator makes to workflow fields like call outcome, next action, priority, invoice sent, notes, follow-up date, etc. are silently wiped the next time the system syncs that row.
+
+I want to change this behavior.
+
+## Goal
+
+Add workflow columns to the Google Sheets tabs and change the upsert logic so:
+
+* DB-backed columns are written by the system
+* operator-managed workflow columns are never overwritten on row updates
+* operator columns remain intact after the initial row insert
+
+## Required behavior
+
+### 1. Split each row into two column groups
+
+#### A. System-managed / DB-backed columns
+
+These should continue to be written by the app on insert and update.
+
+For `appointments`, include columns such as:
+
+* Confirmation ID
+* Slot ID
+* Scheduled Time
+* Day Label
+* Time Label
+* First Name
+* Last Name
+* Email
+* Phone
+* State
+* Allocation Type
+* Allocation Range
+* Timeline
+* Status
+* Lead ID
+* Calendar Event ID
+* Created At
+* Updated At
+
+For `leads`, include columns such as:
+
+* Lead ID
+* First Name
+* Last Name
+* Email
+* Phone
+* State
+* Allocation Type
+* Allocation Range
+* Timeline
+* Source
+* Status
+* Current Custodian
+* Form Type
+* Linked Appointment
+* Created At
+* Updated At
+
+For `booking_attempts`, keep it append-only and system-managed.
+
+#### B. Operator-managed workflow columns
+
+These should be created in the sheet but never overwritten by future syncs.
+
+For `appointments`, add:
+
+* Call Outcome
+* Next Action
+* Invoice Sent
+* Funds Received
+* Order Placed
+* Shipped
+* Delivered
+* Referral Requested
+* Notes
+
+For `leads`, add:
+
+* Priority
+* Deal Size Estimate
+* Last Contact Date
+* Next Action
+* Next Action Due
+* Loss Reason
+* Won Date
+* Notes
+* Follow Up Date
+* Owner
+
+### 2. Insert behavior
+
+When a row is first created:
+
+* include both the system columns and the operator columns
+* operator columns can be blank initially
+
+### 3. Update behavior
+
+When a row already exists:
+
+* update only the DB-backed/system-managed columns
+* do not overwrite operator-managed workflow columns
+* preserve all manual edits in those columns
+
+### 4. Implementation detail
+
+Do not overwrite the whole row array on update.
+Instead:
+
+* map headers by name
+* update only the specific columns that belong to the system-managed field set
+
+### 5. Keep Google Sheets as an operational mirror
+
+* PostgreSQL remains the source of truth
+* Google Sheets remains the operator dashboard
+* no bidirectional sync
+* no continuous full-table resync
+
+## After implementing, tell me:
+
+* which files changed
+* how the header mapping works
+* which columns are system-managed vs operator-managed
+* how updates now avoid wiping manual sheet edits
+* whether existing rows are migrated safely
