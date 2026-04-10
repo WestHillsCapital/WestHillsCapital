@@ -258,11 +258,7 @@ async function upsertByHeaderName(
     // ── INSERT: insert a blank row at index 1 (row 2), then write data ────
     // This keeps row 1 (the frozen header) in place and puts the newest entry
     // at row 2, pushing older rows further down.
-    const totalCols = Math.max(...[...nameToCol.values()]) + 1;
-    const row = new Array<string>(totalCols).fill("");
-    for (const [header, col] of nameToCol) {
-      row[col] = systemData[header] ?? ""; // operator headers not in systemData → stays ""
-    }
+
     // Step 1: physically insert a blank row at 0-based index 1 (= sheet row 2)
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId: SPREADSHEET_ID,
@@ -280,14 +276,26 @@ async function upsertByHeaderName(
         }],
       },
     });
-    // Step 2: write the row data into the newly-created row 2
-    const endLetter = colLetter(totalCols - 1);
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${tabName}!A2:${endLetter}2`,
-      valueInputOption: "RAW",
-      requestBody: { values: [row] },
-    });
+
+    // Step 2: write ONLY system-managed cells (same as the update path).
+    // Operator columns are never written — leaving them as truly null cells so
+    // any data validation, star rating chips, or formulas set up on those
+    // columns are preserved intact.
+    const insertData: { range: string; values: string[][] }[] = [];
+    for (const header of systemHeaderSet) {
+      const col = nameToCol.get(header);
+      if (col === undefined) continue;
+      insertData.push({
+        range: `${tabName}!${colLetter(col)}2`,
+        values: [[systemData[header] ?? ""]],
+      });
+    }
+    if (insertData.length > 0) {
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        requestBody: { valueInputOption: "RAW", data: insertData },
+      });
+    }
   }
 }
 
