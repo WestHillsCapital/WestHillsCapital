@@ -184,7 +184,9 @@ async function ensureTabHeaders(
 // ── Core upsert: header-name-aware ───────────────────────────────────────────
 
 /**
- * Upserts a row identified by `keyValue` in column A.
+ * Upserts a row identified by `keyValue` in the column whose header matches
+ * `keyHeader`. The key column is resolved by name from the actual sheet header
+ * row, so the lookup remains correct even if an operator reorders columns.
  *
  * INSERT path: appends a full row (system + operator columns) with operator
  *   cells left blank.
@@ -192,7 +194,7 @@ async function ensureTabHeaders(
  * UPDATE path: writes ONLY the cells whose header names are in
  *   `systemHeaderSet`. Operator columns are never touched.
  *
- * Column order in the sheet is irrelevant — positions are derived from the
+ * Column order in the sheet is irrelevant — all positions are derived from the
  * actual header row at sync time.
  */
 async function upsertByHeaderName(
@@ -200,21 +202,30 @@ async function upsertByHeaderName(
   tabName: string,
   allHeaders: readonly string[],
   systemHeaderSet: ReadonlySet<string>,
+  keyHeader: string,
   keyValue: string,
   systemData: Record<string, string>
 ): Promise<void> {
   // Ensure tab exists and all headers are present; get name→col map
   const nameToCol = await ensureTabHeaders(sheets, tabName, allHeaders);
 
-  // Find existing row by key (column A)
-  const colAResp = await sheets.spreadsheets.values.get({
+  // Resolve the key column from the header map (not assumed to be column A)
+  const keyCol = nameToCol.get(keyHeader);
+  if (keyCol === undefined) {
+    logger.warn({ tabName, keyHeader }, "[Sheets] Key header not found in sheet — skipping upsert");
+    return;
+  }
+  const keyColLetter = colLetter(keyCol);
+
+  // Find existing row by scanning the key column
+  const keyColResp = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${tabName}!A:A`,
+    range: `${tabName}!${keyColLetter}:${keyColLetter}`,
   });
-  const colARows = colAResp.data.values ?? [];
+  const keyColRows = keyColResp.data.values ?? [];
   let matchRow = -1;
-  for (let i = 1; i < colARows.length; i++) {
-    if (colARows[i]?.[0] === keyValue) {
+  for (let i = 1; i < keyColRows.length; i++) {
+    if (keyColRows[i]?.[0] === keyValue) {
       matchRow = i + 1; // Sheets API is 1-indexed, row 1 is headers
       break;
     }
@@ -312,6 +323,7 @@ export async function syncAppointmentToSheet(params: {
       TABS.appointments,
       APPOINTMENT_ALL_HEADERS,
       APPOINTMENT_SYSTEM_SET,
+      "Confirmation ID",
       params.confirmationId,
       systemData
     );
@@ -368,6 +380,7 @@ export async function syncLeadToSheet(params: {
       TABS.leads,
       LEAD_ALL_HEADERS,
       LEAD_SYSTEM_SET,
+      "Lead ID",
       params.id,
       systemData
     );
