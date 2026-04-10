@@ -9,12 +9,25 @@ export const APPOINTMENT_DURATION_MINUTES =
 export const APPOINTMENT_BUFFER_MINUTES =
   Number(process.env.APPOINTMENT_BUFFER_MINUTES) || 15;
 
-const BLOCKER_CALENDAR_IDS = (process.env.GOOGLE_BLOCKER_CALENDAR_IDS ?? "")
+const BOOKING_CALENDAR_ID = process.env.GOOGLE_BOOKING_CALENDAR_ID ?? "";
+
+// All calendars that are queried for busy periods (read-only).
+// Combines: the booking calendar itself (to catch direct calendar edits),
+// the single blocker calendar (GOOGLE_BLOCKER_CALENDAR_ID), and any
+// comma-separated extras in GOOGLE_BLOCKER_CALENDAR_IDS.
+const BLOCKER_CALENDAR_ID = process.env.GOOGLE_BLOCKER_CALENDAR_ID ?? "";
+const BLOCKER_CALENDAR_IDS_EXTRA = (process.env.GOOGLE_BLOCKER_CALENDAR_IDS ?? "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
 
-const BOOKING_CALENDAR_ID = process.env.GOOGLE_BOOKING_CALENDAR_ID ?? "";
+function buildReadCalendarIds(): string[] {
+  const ids = new Set<string>();
+  if (BOOKING_CALENDAR_ID)   ids.add(BOOKING_CALENDAR_ID);
+  if (BLOCKER_CALENDAR_ID)   ids.add(BLOCKER_CALENDAR_ID);
+  for (const id of BLOCKER_CALENDAR_IDS_EXTRA) ids.add(id);
+  return [...ids];
+}
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
 
@@ -46,7 +59,8 @@ export async function getBusyPeriods(
   timeMin: Date,
   timeMax: Date
 ): Promise<BusyPeriod[]> {
-  if (BLOCKER_CALENDAR_IDS.length === 0) return [];
+  const calendarIds = buildReadCalendarIds();
+  if (calendarIds.length === 0) return [];
 
   const auth = getAuth();
   if (!auth) {
@@ -56,17 +70,24 @@ export async function getBusyPeriods(
 
   try {
     const calendar = google.calendar({ version: "v3", auth });
+
+    // Single freebusy query covering all calendars simultaneously.
+    // All times are UTC — the Google Calendar API always works in UTC
+    // regardless of the calendar's display timezone, so comparisons are
+    // inherently consistent.
     const resp = await calendar.freebusy.query({
       requestBody: {
         timeMin: timeMin.toISOString(),
         timeMax: timeMax.toISOString(),
-        items: BLOCKER_CALENDAR_IDS.map((id) => ({ id })),
+        timeZone: "UTC",
+        items: calendarIds.map((id) => ({ id })),
       },
     });
 
+    // Merge busy periods from all calendars into one flat list
     const periods: BusyPeriod[] = [];
     const calendars = resp.data.calendars ?? {};
-    for (const calId of BLOCKER_CALENDAR_IDS) {
+    for (const calId of calendarIds) {
       const busy = calendars[calId]?.busy ?? [];
       for (const period of busy) {
         if (period.start && period.end) {
@@ -79,7 +100,11 @@ export async function getBusyPeriods(
     }
 
     logger.info(
-      { count: periods.length, calendars: BLOCKER_CALENDAR_IDS.length },
+      {
+        count: periods.length,
+        calendarCount: calendarIds.length,
+        calendarIds,
+      },
       "[Calendar] Fetched busy periods"
     );
     return periods;
