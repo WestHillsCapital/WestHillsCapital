@@ -216,6 +216,15 @@ export default function DealBuilder() {
     })();
   }, [urlConfirmationId, urlDealId, customerLoaded]);
 
+  // ── Auto-fetch spot prices on mount (skip for locked/read-only deals) ───
+  useEffect(() => {
+    if (!urlDealId) {
+      getSpotPrice();
+    }
+    // Run once on mount — getSpotPrice is stable (useCallback with no deps)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // ── Computed totals ──────────────────────────────────────────────────────
   const rowTotals = rows.map((r) => {
     const qty = parseQty(r.qty);

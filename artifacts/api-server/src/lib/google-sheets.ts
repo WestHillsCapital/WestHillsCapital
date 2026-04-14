@@ -4,6 +4,7 @@ import { logger } from "./logger";
 // ── Configuration ─────────────────────────────────────────────────────────────
 
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID ?? "";
+const FRONTEND_URL   = (process.env.FRONTEND_URL ?? "").replace(/\/$/, "");
 
 const TABS = {
   appointments:    "appointments",
@@ -306,6 +307,61 @@ async function upsertByHeaderName(
   }
 }
 
+// ── Open Deal Builder hyperlink helper ───────────────────────────────────────
+//
+// Writes a USER_ENTERED HYPERLINK formula to the "Open Deal Builder" column
+// of the given row (identified by keyHeader + keyValue). Creates the column
+// header if it doesn't already exist. Non-fatal — always catches internally.
+
+async function writeOpenDealBuilderLink(
+  sheets:   SheetsClient,
+  tabName:  string,
+  keyHeader: string,
+  keyValue:  string,
+  formula:   string
+): Promise<void> {
+  const LINK_HEADER = "Open Deal Builder";
+
+  // Ensure the column header exists and get its position
+  const { nameToCol } = await ensureTabHeaders(sheets, tabName, [LINK_HEADER]);
+
+  const keyCol  = nameToCol.get(keyHeader);
+  const linkCol = nameToCol.get(LINK_HEADER);
+  if (keyCol === undefined || linkCol === undefined) {
+    logger.warn({ tabName }, "[Sheets] Columns not found for Open Deal Builder link");
+    return;
+  }
+
+  // Find the row where keyHeader === keyValue
+  const keyColLetter = colLetter(keyCol);
+  const colResp = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${tabName}!${keyColLetter}:${keyColLetter}`,
+  });
+  const colRows = colResp.data.values ?? [];
+  let targetRow = -1;
+  for (let i = 1; i < colRows.length; i++) {
+    if (colRows[i]?.[0] === keyValue) {
+      targetRow = i + 1; // 1-indexed (row 1 = headers)
+      break;
+    }
+  }
+  if (targetRow < 2) {
+    logger.warn({ tabName, keyValue }, "[Sheets] Row not found when writing Open Deal Builder link");
+    return;
+  }
+
+  // Write the formula with USER_ENTERED so Sheets parses it as a formula
+  await sheets.spreadsheets.values.update({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${tabName}!${colLetter(linkCol)}${targetRow}`,
+    valueInputOption: "USER_ENTERED",
+    requestBody: { values: [[formula]] },
+  });
+
+  logger.info({ tabName, keyValue, targetRow }, "[Sheets] Open Deal Builder link written");
+}
+
 // ── Constant sets for fast lookup ─────────────────────────────────────────────
 
 const APPOINTMENT_SYSTEM_SET = new Set<string>(APPOINTMENT_SYSTEM_HEADERS);
@@ -406,6 +462,19 @@ export async function syncAppointmentToSheet(params: {
     logger.error({ err }, "[Sheets] Failed to sync appointment");
     throw err;
   }
+
+  // Write "Open Deal Builder" hyperlink — non-fatal
+  if (FRONTEND_URL) {
+    try {
+      const qs = params.leadId
+        ? `confirmationId=${encodeURIComponent(params.confirmationId)}&leadId=${params.leadId}`
+        : `confirmationId=${encodeURIComponent(params.confirmationId)}`;
+      const formula = `=HYPERLINK("${FRONTEND_URL}/internal/deal-builder?${qs}","Open Deal Builder")`;
+      await writeOpenDealBuilderLink(sheets, TABS.appointments, "Confirmation ID", params.confirmationId, formula);
+    } catch (err) {
+      logger.warn({ err }, "[Sheets] Failed to write Open Deal Builder link to appointment — skipping");
+    }
+  }
 }
 
 // ── Public: sync lead ─────────────────────────────────────────────────────────
@@ -463,6 +532,16 @@ export async function syncLeadToSheet(params: {
   } catch (err) {
     logger.error({ err }, "[Sheets] Failed to sync lead");
     throw err;
+  }
+
+  // Write "Open Deal Builder" hyperlink — non-fatal
+  if (FRONTEND_URL) {
+    try {
+      const formula = `=HYPERLINK("${FRONTEND_URL}/internal/deal-builder?leadId=${params.id}","Open Deal Builder")`;
+      await writeOpenDealBuilderLink(sheets, TABS.leads, "Lead ID", params.id, formula);
+    } catch (err) {
+      logger.warn({ err }, "[Sheets] Failed to write Open Deal Builder link to lead — skipping");
+    }
   }
 }
 
@@ -533,7 +612,6 @@ export async function appendBookingAttemptToSheet(params: {
 
 const DEAL_BUILDER_SHEET_ID = process.env.GOOGLE_DEAL_BUILDER_SHEET_ID ?? "";
 const DEALS_OPS_SHEET_ID    = process.env.GOOGLE_DEALS_OPS_SHEET_ID    ?? "";
-const FRONTEND_URL           = (process.env.FRONTEND_URL ?? "").replace(/\/$/, "");
 
 type DealProduct = {
   productId:   string;
