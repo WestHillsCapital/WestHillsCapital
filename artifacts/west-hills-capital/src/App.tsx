@@ -1,14 +1,17 @@
-import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
+import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect } from "react";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 
 // Public layout
 import { Layout } from "@/components/layout/Layout";
 
-// Internal layout
+// Internal layout + auth
 import { InternalLayout } from "@/components/layout/InternalLayout";
+import { InternalAuthProvider, useInternalAuth } from "@/hooks/useInternalAuth";
+import InternalLogin from "@/pages/internal/InternalLogin";
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -46,14 +49,31 @@ const queryClient = new QueryClient({
   },
 });
 
+// Renders internal pages only when the user is signed in
 function InternalRouter() {
+  const { user, isLoading } = useInternalAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <InternalLogin />;
+  }
+
   return (
     <InternalLayout>
       <Switch>
         <Route path="/internal/leads"        component={InternalLeads}        />
         <Route path="/internal/appointments"  component={InternalAppointments} />
         <Route path="/internal/deal-builder"  component={DealBuilder}          />
-        <Route component={NotFound} />
+        <Route>
+          <Redirect to="/internal/leads" />
+        </Route>
       </Switch>
     </InternalLayout>
   );
@@ -90,16 +110,22 @@ function Router() {
   );
 }
 
+const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) ?? "";
+
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-          <Router />
-        </WouterRouter>
-        <Toaster />
-      </TooltipProvider>
-    </QueryClientProvider>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+            <InternalAuthProvider>
+              <Router />
+            </InternalAuthProvider>
+          </WouterRouter>
+          <Toaster />
+        </TooltipProvider>
+      </QueryClientProvider>
+    </GoogleOAuthProvider>
   );
 }
 

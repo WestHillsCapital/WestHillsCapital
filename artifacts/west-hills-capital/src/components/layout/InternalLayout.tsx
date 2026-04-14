@@ -1,4 +1,5 @@
 import { Link, useLocation } from "wouter";
+import { useInternalAuth } from "@/hooks/useInternalAuth";
 
 interface InternalLayoutProps {
   children: React.ReactNode;
@@ -6,6 +7,7 @@ interface InternalLayoutProps {
 
 export function InternalLayout({ children }: InternalLayoutProps) {
   const [location] = useLocation();
+  const { user, signOut } = useInternalAuth();
 
   const navLinks = [
     { href: "/internal/leads",        label: "Leads" },
@@ -42,13 +44,39 @@ export function InternalLayout({ children }: InternalLayoutProps) {
             })}
           </nav>
 
-          <div className="ml-auto">
+          <div className="ml-auto flex items-center gap-4">
             <a
               href="/"
               className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
             >
               ← Public site
             </a>
+
+            {user && (
+              <div className="flex items-center gap-2">
+                {user.picture ? (
+                  <img
+                    src={user.picture}
+                    alt={user.name}
+                    className="w-7 h-7 rounded-full border border-gray-700 object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 text-xs font-semibold">
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="text-xs text-gray-400 hidden sm:block max-w-[140px] truncate">
+                  {user.name}
+                </span>
+                <button
+                  onClick={signOut}
+                  className="text-xs text-gray-500 hover:text-red-400 transition-colors px-2 py-1 rounded hover:bg-red-500/10"
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </header>
