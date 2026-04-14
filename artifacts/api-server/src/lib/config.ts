@@ -1,0 +1,71 @@
+/**
+ * Startup configuration validator.
+ *
+ * Call validateConfig() once before the server starts. It will:
+ *   - Exit with a clear error message if a REQUIRED variable is missing
+ *   - Log a warning for each OPTIONAL variable that is absent, describing
+ *     which feature is degraded
+ *   - Log the database hostname (never the password) so Railway logs can
+ *     confirm the server is pointing at the right Postgres instance
+ */
+import { logger } from "./logger.js";
+
+// ── Required — server cannot function without these ───────────────────────────
+const REQUIRED_VARS = ["PORT", "DATABASE_URL"] as const;
+
+// ── Optional — absence degrades a specific feature but server still starts ────
+const OPTIONAL_VARS: Record<string, string> = {
+  GOOGLE_SERVICE_ACCOUNT_KEY:  "Google Sheets sync disabled",
+  GOOGLE_SHEETS_SPREADSHEET_ID: "Master Sheet sync disabled",
+  GOOGLE_DEAL_BUILDER_SHEET_ID: "Deal Builder sheet write-back disabled",
+  GOOGLE_DEALS_OPS_SHEET_ID:   "Deals & Ops sheet write-back disabled",
+  DILLON_GAGE_API_KEY:         "Live spot pricing disabled (will 404)",
+  GOOGLE_BOOKING_CALENDAR_ID:  "Appointment calendar events disabled",
+  GOOGLE_BLOCKER_CALENDAR_IDS: "Blocker calendar sync disabled",
+  RESEND_API_KEY:              "Transactional email disabled",
+  GOOGLE_CLIENT_ID:            "Internal portal Google auth disabled",
+  INTERNAL_ALLOWED_EMAILS:     "All internal users will be blocked after sign-in",
+  FRONTEND_URL:                "Open Deal Builder links in Sheets disabled",
+  Admin_Email:                 "Admin notification emails disabled",
+};
+
+export function validateConfig(): void {
+  // ── Required vars ──────────────────────────────────────────────────────────
+  const missing = REQUIRED_VARS.filter((k) => !process.env[k]);
+  if (missing.length > 0) {
+    logger.error(
+      { missing },
+      `Server cannot start — required env vars are not set: ${missing.join(", ")}`
+    );
+    process.exit(1);
+  }
+
+  // ── Database host diagnostic (no credentials) ──────────────────────────────
+  try {
+    const u = new URL(process.env.DATABASE_URL!);
+    logger.info(
+      { host: u.hostname, port: u.port || "5432", database: u.pathname.replace(/^\//, "") },
+      "Database target"
+    );
+  } catch {
+    logger.error(
+      "DATABASE_URL is set but is not a valid URL — connection will likely fail"
+    );
+  }
+
+  // ── Optional vars ──────────────────────────────────────────────────────────
+  const absent: string[] = [];
+  for (const [key, impact] of Object.entries(OPTIONAL_VARS)) {
+    if (!process.env[key]) {
+      absent.push(`${key} (${impact})`);
+    }
+  }
+  if (absent.length > 0) {
+    logger.warn(
+      { absent },
+      `Optional env vars not set — some features are disabled`
+    );
+  }
+
+  logger.info("Configuration validated");
+}

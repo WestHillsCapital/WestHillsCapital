@@ -4,6 +4,11 @@ import { appendBookingAttemptToSheet } from "./lib/google-sheets";
 
 let pool: Pool | null = null;
 
+// ── DB readiness flags ─────────────────────────────────────────────────────────
+// Used by /healthz to report DB status without blocking the response.
+export let dbReady = false;
+export let dbError: string | null = null;
+
 export function getDb(): Pool {
   if (!pool) {
     if (!process.env.DATABASE_URL) {
@@ -12,6 +17,16 @@ export function getDb(): Pool {
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      // Sane pool limits: enough for concurrent requests, not so many that we
+      // exhaust Railway's Postgres connection limit.
+      max: 10,
+      idleTimeoutMillis: 30_000,
+      connectionTimeoutMillis: 10_000,
+    });
+
+    // Log pool-level errors so they surface in Railway logs
+    pool.on("error", (err) => {
+      logger.error({ err }, "[DB] Unexpected pool error");
     });
   }
   return pool;
@@ -165,6 +180,7 @@ export async function initDb(): Promise<void> {
     )
   `);
 
+  dbReady = true;
   logger.info("Database tables and indexes verified / created");
 }
 
