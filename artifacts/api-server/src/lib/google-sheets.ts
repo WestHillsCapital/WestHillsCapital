@@ -487,7 +487,7 @@ export async function syncAppointmentToSheet(params: {
   if (FRONTEND_URL) {
     try {
       const qs = params.leadId
-        ? `confirmationId=${encodeURIComponent(params.confirmationId)}&leadId=${params.leadId}`
+        ? `confirmationId=${encodeURIComponent(params.confirmationId)}&leadId=${encodeURIComponent(String(params.leadId))}`
         : `confirmationId=${encodeURIComponent(params.confirmationId)}`;
       const formula = `=HYPERLINK("${FRONTEND_URL}/internal/deal-builder?${qs}","Open Deal Builder")`;
       await writeOpenDealBuilderLink(sheets, TABS.appointments, "Confirmation ID", params.confirmationId, formula);
