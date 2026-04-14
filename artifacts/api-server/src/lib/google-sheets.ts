@@ -310,29 +310,65 @@ async function upsertByHeaderName(
 // ── Open Deal Builder hyperlink helper ───────────────────────────────────────
 //
 // Writes a USER_ENTERED HYPERLINK formula to the "Open Deal Builder" column
-// of the given row (identified by keyHeader + keyValue). Creates the column
-// header if it doesn't already exist. Non-fatal — always catches internally.
+// of the given row (identified by keyHeader + keyValue).
+//
+// Column placement strategy:
+//   1. If "Open Deal Builder" header already exists anywhere in row 1, use that
+//      column (respects manual moves by the operator).
+//   2. If the header is missing, write it to `fixedColIndex` (0-based):
+//        - Appointments tab: column U → index 20
+//        - Leads tab:        column Q → index 16
+//      This keeps pre-lock and post-lock writes in the same cell as
+//      writeDealLinkToMasterSheet (which also targets U/Q directly).
+//
+// Non-fatal — callers must wrap in try/catch.
 
 async function writeOpenDealBuilderLink(
-  sheets:   SheetsClient,
-  tabName:  string,
-  keyHeader: string,
-  keyValue:  string,
-  formula:   string
+  sheets:        SheetsClient,
+  tabName:       string,
+  keyHeader:     string,
+  keyValue:      string,
+  formula:       string,
+  fixedColIndex: number   // 0-based target when header doesn't yet exist
 ): Promise<void> {
   const LINK_HEADER = "Open Deal Builder";
 
-  // Ensure the column header exists and get its position
-  const { nameToCol } = await ensureTabHeaders(sheets, tabName, [LINK_HEADER]);
+  // Read row 1 to discover existing header positions
+  const row1Resp = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${tabName}!1:1`,
+  });
+  const existingRow: string[] = (row1Resp.data.values?.[0] ?? []) as string[];
+  const nameToCol = new Map<string, number>();
+  existingRow.forEach((h, i) => { if (h) nameToCol.set(h, i); });
 
-  const keyCol  = nameToCol.get(keyHeader);
-  const linkCol = nameToCol.get(LINK_HEADER);
-  if (keyCol === undefined || linkCol === undefined) {
-    logger.warn({ tabName }, "[Sheets] Columns not found for Open Deal Builder link");
+  // Resolve link column — prefer existing header, fall back to fixed position
+  let linkCol: number;
+  if (nameToCol.has(LINK_HEADER)) {
+    linkCol = nameToCol.get(LINK_HEADER)!;
+  } else {
+    linkCol = fixedColIndex;
+    // Write the header to the fixed column so future syncs find it by name
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${tabName}!${colLetter(fixedColIndex)}1`,
+      valueInputOption: "RAW",
+      requestBody: { values: [[LINK_HEADER]] },
+    });
+    logger.info(
+      { tabName, col: colLetter(fixedColIndex) },
+      "[Sheets] 'Open Deal Builder' header created at fixed column"
+    );
+  }
+
+  // Resolve key column
+  const keyCol = nameToCol.get(keyHeader);
+  if (keyCol === undefined) {
+    logger.warn({ tabName, keyHeader }, "[Sheets] Key header not found");
     return;
   }
 
-  // Find the row where keyHeader === keyValue
+  // Scan key column to find the target row
   const keyColLetter = colLetter(keyCol);
   const colResp = await sheets.spreadsheets.values.get({
     spreadsheetId: SPREADSHEET_ID,
@@ -347,11 +383,11 @@ async function writeOpenDealBuilderLink(
     }
   }
   if (targetRow < 2) {
-    logger.warn({ tabName, keyValue }, "[Sheets] Row not found when writing Open Deal Builder link");
+    logger.warn({ tabName, keyValue }, "[Sheets] Row not found for Open Deal Builder link");
     return;
   }
 
-  // Write the formula with USER_ENTERED so Sheets parses it as a formula
+  // Write the formula with USER_ENTERED so Sheets parses it as a hyperlink
   await sheets.spreadsheets.values.update({
     spreadsheetId: SPREADSHEET_ID,
     range: `${tabName}!${colLetter(linkCol)}${targetRow}`,
@@ -359,7 +395,10 @@ async function writeOpenDealBuilderLink(
     requestBody: { values: [[formula]] },
   });
 
-  logger.info({ tabName, keyValue, targetRow }, "[Sheets] Open Deal Builder link written");
+  logger.info(
+    { tabName, keyValue, col: colLetter(linkCol), row: targetRow },
+    "[Sheets] Open Deal Builder link written"
+  );
 }
 
 // ── Constant sets for fast lookup ─────────────────────────────────────────────
@@ -470,7 +509,8 @@ export async function syncAppointmentToSheet(params: {
         ? `confirmationId=${encodeURIComponent(params.confirmationId)}&leadId=${params.leadId}`
         : `confirmationId=${encodeURIComponent(params.confirmationId)}`;
       const formula = `=HYPERLINK("${FRONTEND_URL}/internal/deal-builder?${qs}","Open Deal Builder")`;
-      await writeOpenDealBuilderLink(sheets, TABS.appointments, "Confirmation ID", params.confirmationId, formula);
+      // column U = 0-based index 20 (matches writeDealLinkToMasterSheet target)
+      await writeOpenDealBuilderLink(sheets, TABS.appointments, "Confirmation ID", params.confirmationId, formula, 20);
     } catch (err) {
       logger.warn({ err }, "[Sheets] Failed to write Open Deal Builder link to appointment — skipping");
     }
@@ -538,7 +578,8 @@ export async function syncLeadToSheet(params: {
   if (FRONTEND_URL) {
     try {
       const formula = `=HYPERLINK("${FRONTEND_URL}/internal/deal-builder?leadId=${params.id}","Open Deal Builder")`;
-      await writeOpenDealBuilderLink(sheets, TABS.leads, "Lead ID", params.id, formula);
+      // column Q = 0-based index 16 (matches writeDealLinkToMasterSheet target)
+      await writeOpenDealBuilderLink(sheets, TABS.leads, "Lead ID", params.id, formula, 16);
     } catch (err) {
       logger.warn({ err }, "[Sheets] Failed to write Open Deal Builder link to lead — skipping");
     }
