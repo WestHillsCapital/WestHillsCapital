@@ -17,8 +17,6 @@ const REQUIRED_VARS = ["PORT", "DATABASE_URL"] as const;
 const OPTIONAL_VARS: Record<string, string> = {
   GOOGLE_SERVICE_ACCOUNT_KEY:  "Google Sheets sync disabled",
   GOOGLE_SHEETS_SPREADSHEET_ID: "Master Sheet sync disabled",
-  GOOGLE_DEAL_BUILDER_SHEET_ID: "Deal Builder sheet write-back disabled",
-  GOOGLE_DEALS_OPS_SHEET_ID:   "Deals & Ops sheet write-back disabled",
   DILLON_GAGE_API_KEY:         "Live spot pricing disabled (will 404)",
   GOOGLE_BOOKING_CALENDAR_ID:  "Appointment calendar events disabled",
   GOOGLE_BLOCKER_CALENDAR_IDS: "Blocker calendar sync disabled",

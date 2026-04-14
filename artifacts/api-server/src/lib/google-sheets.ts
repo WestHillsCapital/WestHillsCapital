@@ -757,11 +757,30 @@ export async function mergeAppointmentIntoPipeline(params: {
   timeLabel: string;
   calendarEventId?: string | null;
   updatedAt: string;
+  /**
+   * Optional lead data for the defensive fallback insert path.
+   * Only used if the prospect row is not found after one retry.
+   * Normal lead-first flow never hits this path — it exists only as a
+   * resilience layer for edge cases where the leads.ts sync failed or a
+   * booking bypassed the lead form.
+   */
+  fallbackLeadData?: {
+    firstName:       string;
+    lastName:        string;
+    email:           string;
+    phone?:          string | null;
+    state?:          string | null;
+    allocationType?: string | null;
+    allocationRange?: string | null;
+    timeline?:       string | null;
+    formType:        string;
+    createdAt:       string;
+  };
 }): Promise<void> {
   if (!params.leadId) {
     logger.warn(
       { confirmationId: params.confirmationId },
-      "[Pipeline] mergeAppointmentIntoPipeline called with no leadId — skipping (appointment has no linked lead)"
+      "[Pipeline] mergeAppointmentIntoPipeline called with no leadId — skipping"
     );
     return;
   }
@@ -772,41 +791,109 @@ export async function mergeAppointmentIntoPipeline(params: {
     return;
   }
 
+  /** Scan the Lead ID column; return the 1-indexed sheet row or -1 if not found. */
+  async function findProspectRow(nameToCol: Map<string, number>): Promise<number> {
+    const leadIdCol = nameToCol.get("Lead ID");
+    if (leadIdCol === undefined) return -1;
+    const colLtr = colLetter(leadIdCol);
+    const resp = await sheets!.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${TABS.pipeline}!${colLtr}:${colLtr}`,
+    });
+    const rows = resp.data.values ?? [];
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i]?.[0] === params.leadId) return i + 1;
+    }
+    return -1;
+  }
+
   try {
-    // Ensure the pipeline tab and all headers exist; get name→col map.
-    const { nameToCol } = await ensureTabHeaders(
-      sheets, TABS.pipeline, PIPELINE_ALL_HEADERS
+    const { nameToCol } = await ensureTabHeaders(sheets, TABS.pipeline, PIPELINE_ALL_HEADERS);
+
+    // ── Primary attempt ───────────────────────────────────────────────────────
+    let targetRow = await findProspectRow(nameToCol);
+    logger.info(
+      { leadId: params.leadId, targetRow },
+      "[Pipeline:merge] Primary row scan complete"
     );
 
-    // Locate the prospect row by Lead ID.
-    const leadIdCol = nameToCol.get("Lead ID");
-    if (leadIdCol === undefined) {
-      logger.warn("[Pipeline] Lead ID column not found — cannot merge appointment");
-      return;
-    }
-    const leadIdColLetter = colLetter(leadIdCol);
-    const colResp = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
-      range: `${TABS.pipeline}!${leadIdColLetter}:${leadIdColLetter}`,
-    });
-    const colRows = colResp.data.values ?? [];
-    let targetRow = -1;
-    for (let i = 1; i < colRows.length; i++) {
-      if (colRows[i]?.[0] === params.leadId) {
-        targetRow = i + 1; // 1-indexed
-        break;
-      }
-    }
-
+    // ── Retry: give the leads.ts fire-and-forget sync time to settle ──────────
     if (targetRow < 2) {
-      logger.warn(
+      logger.info(
         { leadId: params.leadId, confirmationId: params.confirmationId },
-        "[Pipeline] Prospect row not found by Lead ID — cannot merge appointment (row may not exist yet)"
+        "[Pipeline:merge] Row not found on first scan — retrying in 1 s"
       );
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      targetRow = await findProspectRow(nameToCol);
+      logger.info(
+        { leadId: params.leadId, targetRow },
+        "[Pipeline:merge] Retry row scan complete"
+      );
+    }
+
+    // ── Defensive fallback: insert a full row if still missing ────────────────
+    if (targetRow < 2) {
+      if (params.fallbackLeadData) {
+        logger.warn(
+          { leadId: params.leadId, confirmationId: params.confirmationId },
+          "[Pipeline:merge] Row still not found after retry — inserting via fallback (leads.ts sync may have failed or booking bypassed lead flow)"
+        );
+        const fb = params.fallbackLeadData;
+        const fallbackSystemData: Record<string, string> = {
+          "Record Key":        `L${params.leadId}`,
+          "Origin Type":       "Lead Form",
+          "Is Scheduled":      "Yes",
+          "Lead ID":           params.leadId,
+          "Confirmation ID":   params.confirmationId,
+          "Deal ID":           "",
+          "First Name":        fb.firstName,
+          "Last Name":         fb.lastName,
+          "Email":             fb.email,
+          "Phone":             fb.phone ?? "",
+          "State":             fb.state ?? "",
+          "Structure":         label(ALLOCATION_LABELS, fb.allocationType),
+          "Allocation":        label(RANGE_LABELS, fb.allocationRange),
+          "Timeline":          label(TIMELINE_LABELS, fb.timeline),
+          "Form Type":         fb.formType,
+          "Current Custodian": "",
+          "Source":            fb.formType,
+          "Scheduled Time":    params.scheduledTime,
+          "Day":               params.dayLabel,
+          "Time":              params.timeLabel,
+          "Calendar Event ID": params.calendarEventId ?? "",
+          "Created":           fb.createdAt,
+          "Updated":           params.updatedAt,
+        };
+        await upsertByHeaderName(
+          sheets,
+          TABS.pipeline,
+          PIPELINE_ALL_HEADERS,
+          PIPELINE_SYSTEM_SET,
+          "Lead ID",
+          params.leadId,
+          fallbackSystemData,
+          { "Status": "New" }
+        );
+        if (FRONTEND_URL) {
+          try {
+            const qs = `leadId=${params.leadId}&confirmationId=${encodeURIComponent(params.confirmationId)}`;
+            const formula = `=HYPERLINK("${FRONTEND_URL}/internal/deal-builder?${qs}","Open Deal Builder")`;
+            await writeOpenDealBuilderLink(sheets, TABS.pipeline, "Lead ID", params.leadId, formula);
+          } catch (err) {
+            logger.warn({ err }, "[Pipeline:merge] Failed to write Open Deal Builder link after fallback insert — skipping");
+          }
+        }
+        logger.info({ leadId: params.leadId }, "[Pipeline:merge] Fallback prospect row inserted with scheduling data");
+      } else {
+        logger.warn(
+          { leadId: params.leadId, confirmationId: params.confirmationId },
+          "[Pipeline:merge] Row not found and no fallback data — skipping appointment merge"
+        );
+      }
       return;
     }
 
-    // Build targeted batch update for scheduling fields only.
+    // ── Normal path: UPDATE scheduling fields in the existing row ─────────────
     const schedulingData: Record<string, string> = {
       "Is Scheduled":      "Yes",
       "Confirmation ID":   params.confirmationId,
@@ -837,7 +924,7 @@ export async function mergeAppointmentIntoPipeline(params: {
 
     logger.info(
       { leadId: params.leadId, confirmationId: params.confirmationId, targetRow },
-      "[Pipeline] Appointment merged into prospect row"
+      "[Pipeline:merge] Appointment merged into prospect row"
     );
 
     // Update the Open Deal Builder hyperlink to include the confirmation ID — non-fatal
@@ -847,7 +934,7 @@ export async function mergeAppointmentIntoPipeline(params: {
         const formula = `=HYPERLINK("${FRONTEND_URL}/internal/deal-builder?${qs}","Open Deal Builder")`;
         await writeOpenDealBuilderLink(sheets, TABS.pipeline, "Lead ID", params.leadId, formula);
       } catch (err) {
-        logger.warn({ err }, "[Pipeline] Failed to update Open Deal Builder link after merge — skipping");
+        logger.warn({ err }, "[Pipeline:merge] Failed to update Open Deal Builder link — skipping");
       }
     }
   } catch (err) {
@@ -921,9 +1008,6 @@ export async function appendBookingAttemptToSheet(params: {
 // Deal write-back helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
-const DEAL_BUILDER_SHEET_ID = process.env.GOOGLE_DEAL_BUILDER_SHEET_ID ?? "";
-const DEALS_OPS_SHEET_ID    = process.env.GOOGLE_DEALS_OPS_SHEET_ID    ?? "";
-
 type DealProduct = {
   productId:   string;
   productName: string;
@@ -981,11 +1065,11 @@ function fmtDate(iso: string): string {
  * auto-generates from the sheet's existing formulas.
  *
  * Tab: "Deal Builder"  (spaces → must be quoted in A1 notation as 'Deal Builder')
- * Env var: GOOGLE_DEAL_BUILDER_SHEET_ID
+ * Uses the master spreadsheet (GOOGLE_SHEETS_SPREADSHEET_ID).
  */
 export async function writeDealToBuilderSheet(deal: DealPayload): Promise<void> {
-  if (!DEAL_BUILDER_SHEET_ID) {
-    logger.warn("[Sheets] GOOGLE_DEAL_BUILDER_SHEET_ID not set — skipping Deal Builder write");
+  if (!SPREADSHEET_ID) {
+    logger.warn("[Sheets] GOOGLE_SHEETS_SPREADSHEET_ID not set — skipping Deal Builder write");
     return;
   }
 
@@ -1058,7 +1142,7 @@ export async function writeDealToBuilderSheet(deal: DealPayload): Promise<void> 
   }
 
   await sheets.spreadsheets.values.batchUpdate({
-    spreadsheetId: DEAL_BUILDER_SHEET_ID,
+    spreadsheetId: SPREADSHEET_ID,
     requestBody: {
       valueInputOption: "USER_ENTERED",
       data,
@@ -1071,12 +1155,12 @@ export async function writeDealToBuilderSheet(deal: DealPayload): Promise<void> 
 // ── 2. Append deal to WHC Deals & Operations sheet ───────────────────────────
 
 /**
- * Appends a row to the "Deals" tab in the WHC Deals & Operations spreadsheet.
- * Env var: GOOGLE_DEALS_OPS_SHEET_ID
+ * Appends a row to the "Deals" tab in the master spreadsheet.
+ * Uses the master spreadsheet (GOOGLE_SHEETS_SPREADSHEET_ID).
  */
 export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
-  if (!DEALS_OPS_SHEET_ID) {
-    logger.warn("[Sheets] GOOGLE_DEALS_OPS_SHEET_ID not set — skipping Ops sheet write");
+  if (!SPREADSHEET_ID) {
+    logger.warn("[Sheets] GOOGLE_SHEETS_SPREADSHEET_ID not set — skipping Ops sheet write");
     return;
   }
 
@@ -1134,7 +1218,7 @@ export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
   ];
 
   await sheets.spreadsheets.values.append({
-    spreadsheetId: DEALS_OPS_SHEET_ID,
+    spreadsheetId: SPREADSHEET_ID,
     range: "Deals!A:A",
     valueInputOption: "USER_ENTERED",
     insertDataOption: "INSERT_ROWS",

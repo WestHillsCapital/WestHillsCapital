@@ -13,7 +13,7 @@ import {
   createBookingEvent,
   APPOINTMENT_DURATION_MINUTES,
 } from "../lib/google-calendar";
-import { syncProspectToPipeline, mergeAppointmentIntoPipeline } from "../lib/google-sheets";
+import { mergeAppointmentIntoPipeline } from "../lib/google-sheets";
 
 const router: IRouter = Router();
 
@@ -394,27 +394,11 @@ router.post("/book", async (req, res) => {
       const appt = apptRow.rows[0];
 
       // ── Prospecting Pipeline sync ──────────────────────────────────────
-      // Step 1: upsert the prospect row with lead data (ensures row exists
-      //         and contact/allocation fields are current).
-      if (leadRow) {
-        await syncProspectToPipeline({
-          leadId:                String(leadRow.id),
-          firstName:             body.firstName,
-          lastName:              body.lastName,
-          email:                 body.email,
-          phone:                 body.phone,
-          state:                 body.state,
-          allocationType:        body.allocationType,
-          allocationRange:       body.allocationRange,
-          timeline:              body.timeline,
-          formType:              "appointment_booked",
-          linkedConfirmationId:  confirmationId,
-          createdAt:             leadRow.created_at.toISOString(),
-          updatedAt:             leadRow.updated_at.toISOString(),
-        });
-      }
-
-      // Step 2: merge scheduling fields into that same row (targeted update).
+      // The leads route owns prospect row creation (syncProspectToPipeline).
+      // The scheduling route only merges appointment fields into that existing
+      // row. All lead fields are passed as fallbackLeadData so the function can
+      // insert a full row defensively if the leads.ts sync hasn't completed yet
+      // or if a booking bypassed the normal lead-first flow.
       if (leadId) {
         await mergeAppointmentIntoPipeline({
           leadId:          String(leadId),
@@ -424,6 +408,18 @@ router.post("/book", async (req, res) => {
           timeLabel:       slot.timeLabel,
           calendarEventId: appt?.calendar_event_id ?? null,
           updatedAt:       appt?.updated_at.toISOString() ?? new Date().toISOString(),
+          fallbackLeadData: leadRow ? {
+            firstName:       body.firstName,
+            lastName:        body.lastName,
+            email:           body.email,
+            phone:           body.phone ?? null,
+            state:           body.state ?? null,
+            allocationType:  body.allocationType ?? null,
+            allocationRange: body.allocationRange ?? null,
+            timeline:        body.timeline ?? null,
+            formType:        "appointment_booked",
+            createdAt:       leadRow.created_at.toISOString(),
+          } : undefined,
         });
       }
     } catch (err) {
