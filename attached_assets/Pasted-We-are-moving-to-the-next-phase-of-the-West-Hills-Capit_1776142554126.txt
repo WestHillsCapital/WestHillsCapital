@@ -1,0 +1,248 @@
+We are moving to the next phase of the West Hills Capital system: the Deal Builder.
+
+Please read this carefully and implement only what is described here. The goal is to build a clean, dependable deal-execution flow that fits the real business process and stays consistent with how pricing works elsewhere in the system.
+
+## Big picture
+
+The Deal Builder is not just a form and not just an invoice.
+
+It is a working transaction sheet that should be opened from either:
+
+* the Leads page
+* or the Appointments page
+
+When I click a button on a specific contact row, the Deal Builder should open with that customer’s data imported into it.
+
+This Deal Builder is where I:
+
+* structure the deal live on the call
+* retrieve current pricing
+* build the product mix
+* show the customer what the trade would look like if placed right now
+* then lock the deal when they say yes
+
+At that point, the Deal Builder becomes the source for:
+
+* invoice generation
+* deal recap email
+* later, appending the final deal record into the Deals sheet
+
+## Core workflow we are trying to support
+
+1. I work a lead or appointment
+2. From that contact row, I click a button such as `Open Deal`
+3. The Deal Builder opens and imports the customer’s existing data
+4. I retrieve current pricing
+5. I structure the products and quantities
+6. I communicate what the trade looks like if placed right now
+7. If the customer agrees, I click `Lock Deal`
+8. That freezes the live pricing and totals for the transaction and prepares the next outputs
+
+## Important pricing rules
+
+Pricing consistency matters.
+
+Please follow these rules:
+
+### 1. Spot pricing
+
+Use the **ask price** for spot, not bid.
+
+This should be consistent with how we fixed pricing elsewhere in the system.
+
+For the Deal Builder:
+
+* Gold Spot should use the ask price
+* Silver Spot should use the ask price
+
+### 2. Product pricing
+
+Do not simply price products off the public website markup.
+
+The Deal Builder should use the actual backend/API pricing source for products whenever possible.
+
+This matters because:
+
+* Gold Eagles and Gold Buffalos often have different premiums
+* Silver Eagles have their own premium behavior
+* the website is public-facing pricing
+* the Deal Builder is execution pricing
+
+So the Deal Builder must price the selected products from the API, not from a generic website approximation.
+
+### 3. Pricing moments
+
+There are two pricing moments:
+
+* `Get Spot Price` = live quote building
+* `Lock Deal` = final freeze of pricing and totals
+
+If product-level live pricing is available from the backend, use it appropriately at these stages.
+
+## Deal Builder opening behavior
+
+The Deal Builder should be opened from the Leads page or Appointments page on the selected contact line.
+
+When opened, it should import whatever customer data is already known, such as:
+
+* full name
+* email
+* phone
+* state
+* lead ID
+* confirmation ID
+* deal type if already known
+
+The goal is to eliminate retyping and keep the workflow clean.
+
+## Scope for this phase
+
+For now, focus on:
+
+* Cash deals
+* general deal execution
+* product pricing
+* locking the deal
+
+Do **not** fully build out IRA execution logic yet.
+
+IRA deals are still relevant, but I can handle the nuanced IRA processing manually for the time being.
+
+Important:
+
+* we never ship to a custodian
+* shipping is either:
+
+  * FedEx hold for customer pickup
+  * or a depository for the customer’s IRA
+
+Do not build any logic that assumes shipping to a custodian.
+
+For now, IRA-specific downstream processing can stay manual.
+
+## Deal Builder buttons and their purpose
+
+### Button 1: `Open Deal`
+
+This is triggered from the Leads page or Appointments page.
+
+Purpose:
+
+* open the Deal Builder for the selected contact
+* import the contact data into the Deal Builder
+* prepare the transaction workspace
+
+### Button 2: `Get Spot Price`
+
+Purpose:
+
+* call the live pricing/backend API
+* fetch current gold and silver **ask** spot prices
+* populate the Deal Builder spot fields
+* set a `Spot Timestamp`
+* populate or refresh product pricing for the selected products if possible
+* support live quote building while I am on the call
+
+This should be the “show the customer what the trade looks like right now” step.
+
+### Button 3: `Lock Deal`
+
+Purpose:
+
+* represent the customer’s commitment moment
+* freeze the deal using current live values
+* write a `Locked Timestamp`
+* freeze:
+
+  * gold spot
+  * silver spot
+  * product unit prices
+  * line totals
+  * subtotal
+  * shipping
+  * total
+  * balance due
+* prepare the sheet for invoice generation and recap email output
+
+This is the “we are doing this” step.
+
+## Shipping logic
+
+Shipping should reflect the real business process.
+
+For cash deals:
+
+* default assumption is FedEx hold location pickup
+* home delivery can exist as an exception, but do not make it the default
+
+For IRA deals:
+
+* shipment goes to the depository, not the custodian
+
+Also preserve the simple shipping fee logic:
+
+* if the customer buys under 300 oz of silver and under 15 oz of gold, shipping is $25
+* otherwise shipping is included / $0
+
+## Product logic
+
+The Deal Builder should support product rows with at least:
+
+* Product
+* Metal
+* Quantity
+* Unit Price
+* Line Total
+
+Product dropdowns should be used.
+
+Metal type can be auto-derived from the selected product.
+
+Please make sure the pricing logic is product-aware, not just metal-aware, because products like:
+
+* Gold American Eagle
+* Gold Buffalo
+* Silver American Eagle
+
+can carry different premiums and should not be flattened into one generic metal price if the API supports product-level pricing.
+
+## Functional goals for this phase
+
+Please implement or prepare the Deal Builder so that it can do the following:
+
+1. Open from the selected lead/appointment row
+2. Import customer data into the Deal Builder
+3. Pull current ask spot prices
+4. Pull current product prices from the backend/API if available
+5. Calculate line totals and deal totals
+6. Apply shipping logic
+7. Freeze the deal when locked
+8. Write Spot Timestamp and Locked Timestamp
+9. Prepare the Deal Builder for downstream invoice generation
+
+## Constraints
+
+Please do NOT:
+
+* redesign the whole system
+* build full IRA paperwork logic yet
+* assume shipping to custodians
+* depend on public website markup for final deal pricing
+* overcomplicate this with too many edge-case flows right now
+
+Keep it focused, modular, and aligned with the real sales flow.
+
+## After implementing, tell me:
+
+1. which files changed
+2. how the Deal Builder is opened from Leads/Appointments
+3. what customer fields are imported
+4. which API endpoint(s) are used for:
+
+   * spot pricing
+   * product pricing
+5. confirm that spot uses ask prices
+6. explain what `Get Spot Price` updates
+7. explain what `Lock Deal` freezes
+8. explain how shipping logic is applied
+9. explain what is still intentionally manual for IRA workflows
