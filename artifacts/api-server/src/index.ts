@@ -34,6 +34,7 @@ initDb()
     logger.info("Database tables and indexes ready");
   })
   .catch((err) => {
-    logger.error({ err }, "Database initialisation failed — exiting");
+    const detail = err instanceof Error ? err.message : String(err);
+    logger.error({ err }, `Database initialisation failed: ${detail} — exiting`);
     process.exit(1);
   });
