@@ -182,6 +182,27 @@ export async function initDb(): Promise<void> {
 
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
+
+  // ── Scheduled data retention ──────────────────────────────────────────────
+  // Keeps the audit tables from growing unboundedly.
+  // booking_attempts can accumulate quickly (every booking attempt writes a row).
+  // Run once on startup (to catch any backlog) and then every 24 hours.
+  async function pruneAuditTables(): Promise<void> {
+    try {
+      const db = getDb();
+      const { rowCount } = await db.query(`
+        DELETE FROM booking_attempts WHERE attempted_at < NOW() - INTERVAL '90 days'
+      `);
+      if ((rowCount ?? 0) > 0) {
+        logger.info({ rowCount }, "[DB] Pruned old booking_attempts rows");
+      }
+    } catch (err) {
+      logger.error({ err }, "[DB] booking_attempts prune failed (non-fatal)");
+    }
+  }
+
+  pruneAuditTables().catch(() => {});
+  setInterval(() => pruneAuditTables().catch(() => {}), 24 * 60 * 60 * 1000).unref();
 }
 
 /**

@@ -6,6 +6,7 @@ import {
   appendDealToOpsSheet,
   writeDealLinkToMasterSheet,
 } from "../lib/google-sheets";
+import { sendDealLockNotification } from "../lib/email";
 
 const router: IRouter = Router();
 
@@ -174,7 +175,8 @@ router.post("/", async (req, res) => {
       lockedAt: lockedAt.toISOString(),
     };
 
-    // Sheets write-back — all non-fatal; never block the response
+    // Non-blocking fire-and-forget: Sheets sync + admin notification
+    // None of these should block the response or cause the route to fail.
     Promise.allSettled([
       writeDealToBuilderSheet(deal).catch((err) =>
         logger.error({ err }, "[Deals] writeDealToBuilderSheet failed")
@@ -184,6 +186,23 @@ router.post("/", async (req, res) => {
       ),
       writeDealLinkToMasterSheet(deal).catch((err) =>
         logger.error({ err }, "[Deals] writeDealLinkToMasterSheet failed")
+      ),
+      sendDealLockNotification({
+        dealId:         dealId,
+        dealType,
+        firstName,
+        lastName,
+        email,
+        phone:          phone ?? null,
+        state:          state ?? null,
+        total:          total ?? 0,
+        products:       products ?? [],
+        goldSpotAsk:    goldSpotAsk ?? null,
+        silverSpotAsk:  silverSpotAsk ?? null,
+        lockedAt:       lockedAt.toISOString(),
+        confirmationId: confirmationId ?? null,
+      }).catch((err) =>
+        logger.error({ err }, "[Deals] sendDealLockNotification failed")
       ),
     ]).catch(() => {});
 

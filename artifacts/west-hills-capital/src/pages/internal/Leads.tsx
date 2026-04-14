@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { useInternalAuth } from "../../hooks/useInternalAuth";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -37,11 +38,14 @@ function statusBadge(status: string) {
 
 export default function InternalLeads() {
   const [, navigate] = useLocation();
+  const { getAuthHeaders } = useInternalAuth();
 
   const { data, isLoading, error } = useQuery<{ leads: Lead[] }>({
     queryKey: ["/api/internal/leads"],
     queryFn: async () => {
-      const res = await fetch(`${API_BASE}/api/internal/leads`);
+      const res = await fetch(`${API_BASE}/api/internal/leads`, {
+        headers: { ...getAuthHeaders() },
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       return res.json();
     },

@@ -26,7 +26,8 @@ const OPTIONAL_VARS: Record<string, string> = {
   GOOGLE_CLIENT_ID:            "Internal portal Google auth disabled",
   INTERNAL_ALLOWED_EMAILS:     "All internal users will be blocked after sign-in",
   FRONTEND_URL:                "Open Deal Builder links in Sheets disabled",
-  Admin_Email:                 "Admin notification emails disabled",
+  ADMIN_EMAIL:                 "Admin notification emails disabled",
+  CORS_ALLOWED_ORIGINS:        "CORS open to all origins (set to restrict to production domain)",
 };
 
 export function validateConfig(): void {

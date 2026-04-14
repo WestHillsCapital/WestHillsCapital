@@ -32,12 +32,39 @@ app.use(
   }),
 );
 
+// ── Trust proxy ────────────────────────────────────────────────────────────────
+// Railway (and most PaaS providers) sit behind a load-balancer / reverse proxy.
+// Without this setting, req.ip always resolves to the proxy's IP address, which
+// breaks IP-based rate limiting (all clients share one bucket).
+app.set("trust proxy", 1);
+
 // ── CORS ───────────────────────────────────────────────────────────────────────
+// In production, restrict to the actual Vercel frontend domain.
+// In development (CORS_ALLOWED_ORIGINS not set) allow all origins so the
+// Replit dev preview can reach the API.
+const CORS_ORIGINS_RAW =
+  process.env.CORS_ALLOWED_ORIGINS ??
+  process.env.FRONTEND_URL ??
+  "";
+
+const allowedOrigins = CORS_ORIGINS_RAW
+  ? new Set(CORS_ORIGINS_RAW.split(",").map((o) => o.trim()).filter(Boolean))
+  : null; // null → allow all
+
 app.use(
   cors({
-    origin: "*",
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    origin: allowedOrigins
+      ? (origin, cb) => {
+          // Allow server-to-server requests (no Origin header) and listed origins
+          if (!origin || allowedOrigins.has(origin)) {
+            cb(null, true);
+          } else {
+            cb(new Error(`CORS: origin ${origin} is not allowed`));
+          }
+        }
+      : "*",
+    methods:          ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders:   ["Content-Type", "Authorization", "X-Requested-With"],
     optionsSuccessStatus: 200,
   }),
 );

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSearch, useLocation } from "wouter";
+import { useInternalAuth } from "../../hooks/useInternalAuth";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -65,6 +66,7 @@ export default function DealBuilder() {
   const search = useSearch();
   const [, navigate] = useLocation();
   const params = new URLSearchParams(search);
+  const { getAuthHeaders } = useInternalAuth();
 
   const urlLeadId         = params.get("leadId") ?? "";
   const urlConfirmationId = params.get("confirmationId") ?? "";
@@ -113,7 +115,9 @@ export default function DealBuilder() {
     (async () => {
       setLoadingCustomer(true);
       try {
-        const res = await fetch(`${API_BASE}/api/deals/${urlDealId}`);
+        const res = await fetch(`${API_BASE}/api/deals/${urlDealId}`, {
+          headers: { ...getAuthHeaders() },
+        });
         if (!res.ok) return;
         const { deal } = await res.json();
         setCustomer({
@@ -162,7 +166,9 @@ export default function DealBuilder() {
     (async () => {
       setLoadingCustomer(true);
       try {
-        const res = await fetch(`${API_BASE}/api/internal/leads`);
+        const res = await fetch(`${API_BASE}/api/internal/leads`, {
+          headers: { ...getAuthHeaders() },
+        });
         if (!res.ok) return;
         const { leads } = await res.json();
         const lead = leads.find((l: { id: number }) => String(l.id) === urlLeadId);
@@ -191,7 +197,9 @@ export default function DealBuilder() {
     (async () => {
       setLoadingCustomer(true);
       try {
-        const res = await fetch(`${API_BASE}/api/internal/appointments`);
+        const res = await fetch(`${API_BASE}/api/internal/appointments`, {
+          headers: { ...getAuthHeaders() },
+        });
         if (!res.ok) return;
         const { appointments } = await res.json();
         const appt = appointments.find(
@@ -314,7 +322,7 @@ export default function DealBuilder() {
     try {
       const res = await fetch(`${API_BASE}/api/deals`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           leadId:           customer.leadId ? parseInt(customer.leadId) : null,
           confirmationId:   customer.confirmationId || null,
