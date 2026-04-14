@@ -67,8 +67,38 @@ router.post("/", async (req, res) => {
     notes?: string | null;
   };
 
-  if (!firstName || !lastName || !email) {
-    return res.status(400).json({ error: "firstName, lastName, and email are required" });
+  // ── Server-side validation ────────────────────────────────────────────────
+  const validationErrors: string[] = [];
+
+  if (!firstName?.trim())  validationErrors.push("firstName is required");
+  if (!lastName?.trim())   validationErrors.push("lastName is required");
+  if (!email?.includes("@")) validationErrors.push("email must be a valid address");
+
+  if (!["cash", "ira"].includes(dealType)) {
+    validationErrors.push("dealType must be 'cash' or 'ira'");
+  }
+
+  if (!["fedex_hold", "home_delivery"].includes(shippingMethod)) {
+    validationErrors.push("shippingMethod must be 'fedex_hold' or 'home_delivery'");
+  }
+
+  if (!Array.isArray(products) || products.length === 0) {
+    validationErrors.push("products must be a non-empty array");
+  } else {
+    products.forEach((p, i) => {
+      if (!p.productId) validationErrors.push(`products[${i}].productId is required`);
+      if (!p.metal)     validationErrors.push(`products[${i}].metal is required`);
+      if (!(p.qty > 0)) validationErrors.push(`products[${i}].qty must be > 0`);
+      if (!(p.unitPrice > 0)) validationErrors.push(`products[${i}].unitPrice must be > 0`);
+    });
+  }
+
+  if (typeof total !== "number" || total <= 0) {
+    validationErrors.push("total must be a positive number");
+  }
+
+  if (validationErrors.length > 0) {
+    return res.status(400).json({ error: validationErrors.join("; ") });
   }
 
   const lockedAt = new Date();
