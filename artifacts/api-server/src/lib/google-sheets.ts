@@ -122,6 +122,52 @@ const PIPELINE_ALL_HEADERS = [
 
 const PIPELINE_SYSTEM_SET = new Set<string>(PIPELINE_SYSTEM_HEADERS);
 
+// ── Deals tab column definitions ──────────────────────────────────────────────
+//
+// Mirrors the exact 38-column layout of the "Deals" tab in the master sheet.
+// ensureTabHeaders uses this to validate / extend headers and to derive the
+// name→column index map used by appendDealToOpsSheet.
+const DEALS_ALL_HEADERS = [
+  "Deal ID",
+  "Lead ID",
+  "Confirmation ID",
+  "Client Name",
+  "Email",
+  "Phone",
+  "State",
+  "Deal Type",
+  "Execution Method",
+  "Execution Status",
+  "Gold Spot",
+  "Silver Spot",
+  "Spot Timestamp",
+  "Product Summary",
+  "Total Quantity",
+  "Deal Amount",
+  "Cash Component",
+  "Actual Cash Transferred",
+  "Shipping Fee",
+  "Total Invoice Amount",
+  "Balance Due",
+  "Custodian",
+  "IRA Type",
+  "IRA Account Number",
+  "Delivery Method",
+  "Ship To",
+  "FedEx Location",
+  "External Trade ID",
+  "Supplier Confirmation ID",
+  "Execution Timestamp",
+  "Account Specialist",
+  "Deal Closer",
+  "Invoice ID",
+  "Invoice Generated",
+  "Recap Email Sent",
+  "Created",
+  "Updated",
+  "Notes",
+] as const;
+
 // The scheduling fields that mergeAppointmentIntoPipeline writes (targeted update only).
 const PIPELINE_SCHEDULING_FIELDS = new Set([
   "Is Scheduled",
@@ -1152,27 +1198,37 @@ export async function writeDealToBuilderSheet(deal: DealPayload): Promise<void> 
   logger.info({ dealId: deal.id }, "[Sheets] Deal Builder sheet populated");
 }
 
-// ── 2. Append deal to WHC Deals & Operations sheet ───────────────────────────
+// ── 2. Append deal to the Deals tab ──────────────────────────────────────────
 
 /**
  * Appends a row to the "Deals" tab in the master spreadsheet.
- * Uses the master spreadsheet (GOOGLE_SHEETS_SPREADSHEET_ID).
+ *
+ * Uses header-name-based column mapping: reads the actual header row from the
+ * sheet, builds a map of column name → index, then places each value at the
+ * correct position. This means the write is correct regardless of column order
+ * in the sheet, and any columns the user has reordered or added are handled
+ * automatically.
+ *
+ * DEALS_ALL_HEADERS defines the expected 38-column schema. ensureTabHeaders
+ * will append any headers that are missing from row 1 of the Deals tab.
  */
 export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
   if (!SPREADSHEET_ID) {
-    logger.warn("[Sheets] GOOGLE_SHEETS_SPREADSHEET_ID not set — skipping Ops sheet write");
+    logger.warn("[Sheets] GOOGLE_SHEETS_SPREADSHEET_ID not set — skipping Deals write");
     return;
   }
 
   const sheets = getAnySheetsClient();
   if (!sheets) {
-    logger.warn("[Sheets] Auth not available — skipping Ops sheet write");
+    logger.warn("[Sheets] Auth not available — skipping Deals write");
     return;
   }
 
+  // Resolve actual column positions from the live sheet header row.
+  const { nameToCol } = await ensureTabHeaders(sheets, "Deals", DEALS_ALL_HEADERS);
+
   const clientName = `${deal.firstName} ${deal.lastName}`;
 
-  // Product summary: "15x Gold Eagle, 100x Silver Eagle"
   const productSummary = deal.products
     .filter((p) => p.qty > 0)
     .map((p) => `${p.qty}x ${p.productName}`)
@@ -1180,52 +1236,64 @@ export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
 
   const totalQty = deal.products.reduce((acc, p) => acc + (p.qty || 0), 0);
 
-  // Row matches the "Deals" tab header layout (28 columns including empties):
-  // Deal ID | Date/Time | Client Name | Email | Phone | State | (empty) |
-  // Lead ID | Confirmation ID | (empty) | Deal Type | (empty) |
-  // Gold Spot | Silver Spot | (empty) | Product Summary | Total Quantity | (empty) |
-  // Deal Amount | Cash Component | Actual Cash Transferred | (empty) |
-  // Account Specialist | Deal Closer | (empty) | Invoice ID | (empty) | Notes
-  const row = [
-    String(deal.id),               // Deal ID
-    deal.lockedAt,                  // Date/Time
-    clientName,                     // Client Name
-    deal.email,                     // Email
-    deal.phone ?? "",               // Phone
-    deal.state ?? "",               // State
-    "",                             // (empty)
-    deal.leadId ? String(deal.leadId) : "", // Lead ID
-    deal.confirmationId ?? "",      // Confirmation ID
-    "",                             // (empty)
-    deal.dealType === "ira" ? "IRA" : "Cash", // Deal Type
-    "",                             // (empty)
-    fmt(deal.goldSpotAsk),          // Gold Spot
-    fmt(deal.silverSpotAsk),        // Silver Spot
-    "",                             // (empty)
-    productSummary,                 // Product Summary
-    String(totalQty),               // Total Quantity
-    "",                             // (empty)
-    fmt(deal.total),                // Deal Amount
-    fmt(deal.total),                // Cash Component (same as total for cash deals)
-    "",                             // Actual Cash Transferred (manual)
-    "",                             // (empty)
-    "",                             // Account Specialist (manual)
-    "",                             // Deal Closer (manual)
-    "",                             // (empty)
-    "",                             // Invoice ID (generated from sheet)
-    "",                             // (empty)
-    deal.notes ?? "",               // Notes
-  ];
+  const deliveryLabel =
+    deal.shippingMethod === "fedex_hold" ? "FedEx Hold" : "Home Delivery";
+
+  // Every field we can populate from the DealPayload.
+  // Operator-only fields (Execution Method, Execution Status, Actual Cash
+  // Transferred, External Trade ID, Supplier Confirmation ID, Execution
+  // Timestamp, Account Specialist, Deal Closer, Invoice ID, Ship To) are left
+  // blank — they are filled manually after trade execution.
+  const valueMap: Record<string, string> = {
+    "Deal ID":               String(deal.id),
+    "Lead ID":               deal.leadId ? String(deal.leadId) : "",
+    "Confirmation ID":       deal.confirmationId ?? "",
+    "Client Name":           clientName,
+    "Email":                 deal.email,
+    "Phone":                 deal.phone ?? "",
+    "State":                 deal.state ?? "",
+    "Deal Type":             deal.dealType === "ira" ? "IRA" : "Cash",
+    "Gold Spot":             fmt(deal.goldSpotAsk),
+    "Silver Spot":           fmt(deal.silverSpotAsk),
+    "Spot Timestamp":        deal.spotTimestamp
+                               ? new Date(deal.spotTimestamp).toLocaleString()
+                               : "",
+    "Product Summary":       productSummary,
+    "Total Quantity":        String(totalQty),
+    "Deal Amount":           fmt(deal.total),
+    "Cash Component":        deal.dealType === "cash" ? fmt(deal.total) : "",
+    "Shipping Fee":          fmt(deal.shipping),
+    "Total Invoice Amount":  fmt(deal.subtotal + deal.shipping),
+    "Balance Due":           fmt(deal.balanceDue),
+    "Custodian":             deal.custodian ?? "",
+    "IRA Type":              deal.iraType ?? "",
+    "IRA Account Number":    deal.iraAccountNumber ?? "",
+    "Delivery Method":       deliveryLabel,
+    "FedEx Location":        deal.fedexLocation ?? "",
+    "Invoice Generated":     "FALSE",
+    "Recap Email Sent":      "FALSE",
+    "Created":               deal.lockedAt,
+    "Updated":               deal.lockedAt,
+    "Notes":                 deal.notes ?? "",
+  };
+
+  // Build a row array sized to cover every known column.
+  const maxCol = Math.max(...Array.from(nameToCol.values()));
+  const row: string[] = Array(maxCol + 1).fill("");
+  for (const [header, value] of Object.entries(valueMap)) {
+    const col = nameToCol.get(header);
+    if (col !== undefined) row[col] = value;
+  }
 
   await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: "Deals!A:A",
-    valueInputOption: "USER_ENTERED",
-    insertDataOption: "INSERT_ROWS",
-    requestBody: { values: [row] },
+    range:             "Deals!A:A",
+    valueInputOption:  "USER_ENTERED",
+    insertDataOption:  "INSERT_ROWS",
+    requestBody:       { values: [row] },
   });
 
-  logger.info({ dealId: deal.id }, "[Sheets] Deal appended to Ops sheet");
+  logger.info({ dealId: deal.id }, "[Sheets] Deal appended to Deals tab");
 }
 
 // ── 3. Write "Open Deal" hyperlink to Master Sheet columns U / Q ─────────────

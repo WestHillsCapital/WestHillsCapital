@@ -2,7 +2,6 @@ import { Router, type IRouter } from "express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import {
-  writeDealToBuilderSheet,
   appendDealToOpsSheet,
   writeDealLinkToMasterSheet,
 } from "../lib/google-sheets";
@@ -178,9 +177,6 @@ router.post("/", async (req, res) => {
     // Non-blocking fire-and-forget: Sheets sync + admin notification
     // None of these should block the response or cause the route to fail.
     Promise.allSettled([
-      writeDealToBuilderSheet(deal).catch((err) =>
-        logger.error({ err }, "[Deals] writeDealToBuilderSheet failed")
-      ),
       appendDealToOpsSheet(deal).catch((err) =>
         logger.error({ err }, "[Deals] appendDealToOpsSheet failed")
       ),
