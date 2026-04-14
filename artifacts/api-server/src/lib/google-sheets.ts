@@ -10,6 +10,7 @@ const TABS = {
   appointments:    "appointments",
   leads:           "leads",
   bookingAttempts: "booking_attempts",
+  pipeline:        "Prospecting Pipeline",
 } as const;
 
 // ── Column definitions ─────────────────────────────────────────────────────────
@@ -62,6 +63,75 @@ const ATTEMPT_HEADERS = [
   "Attempt ID", "Email", "Slot ID", "IP Address", "Result",
   "Error Code", "Error Detail", "Confirmation ID", "Attempted At",
 ];
+
+// ── Prospecting Pipeline column definitions ────────────────────────────────────
+//
+// PIPELINE_SYSTEM_HEADERS  — written on INSERT and every UPDATE.
+// "Status" is initial-write-only: written once on INSERT with the default "New",
+//   then never touched again so the operator can freely update it.
+// PIPELINE_OPERATOR_HEADERS — written blank on INSERT, never written by app again.
+// "Open Deal Builder" is a formula column written separately via writeOpenDealBuilderLink.
+
+const PIPELINE_SYSTEM_HEADERS = [
+  "Record Key",
+  "Origin Type",
+  "Is Scheduled",
+  "Lead ID",
+  "Confirmation ID",
+  "Deal ID",
+  "First Name",
+  "Last Name",
+  "Email",
+  "Phone",
+  "State",
+  "Structure",
+  "Allocation",
+  "Timeline",
+  "Form Type",
+  "Current Custodian",
+  "Source",
+  "Scheduled Time",
+  "Day",
+  "Time",
+  "Calendar Event ID",
+  "Created",
+  "Updated",
+] as const;
+
+const PIPELINE_OPERATOR_HEADERS = [
+  "Priority",
+  "Owner",
+  "Deal Size Estimate",
+  "Last Contact Date",
+  "Call Outcome",
+  "Next Action",
+  "Next Action Due",
+  "Notes",
+  "Won Date",
+  "Loss Reason",
+] as const;
+
+// Full header list including initial-write-only "Status" and the formula column.
+// Ordering: system → Status → operator → formula.
+const PIPELINE_ALL_HEADERS = [
+  ...PIPELINE_SYSTEM_HEADERS,
+  "Status",
+  ...PIPELINE_OPERATOR_HEADERS,
+  "Open Deal Builder",
+] as const;
+
+const PIPELINE_SYSTEM_SET = new Set<string>(PIPELINE_SYSTEM_HEADERS);
+
+// The scheduling fields that mergeAppointmentIntoPipeline writes (targeted update only).
+const PIPELINE_SCHEDULING_FIELDS = new Set([
+  "Is Scheduled",
+  "Confirmation ID",
+  "Scheduled Time",
+  "Day",
+  "Time",
+  "Calendar Event ID",
+  "Updated",
+]);
 
 // ── Human-readable labels ─────────────────────────────────────────────────────
 
@@ -223,7 +293,8 @@ async function upsertByHeaderName(
   systemHeaderSet: ReadonlySet<string>,
   keyHeader: string,
   keyValue: string,
-  systemData: Record<string, string>
+  systemData: Record<string, string>,
+  initialData?: Record<string, string>
 ): Promise<void> {
   // Ensure tab exists and all headers are present; get name→col map + sheetId
   const { nameToCol, sheetId } = await ensureTabHeaders(sheets, tabName, allHeaders);
@@ -291,7 +362,7 @@ async function upsertByHeaderName(
       },
     });
 
-    // Step 2: write ONLY system-managed cells (same as the update path).
+    // Step 2: write system-managed cells + initial-write-only cells.
     // Operator columns are never written — leaving them as truly null cells so
     // any data validation, star rating chips, or formulas set up on those
     // columns are preserved intact.
@@ -303,6 +374,17 @@ async function upsertByHeaderName(
         range: `${tabName}!${colLetter(col)}2`,
         values: [[systemData[header] ?? ""]],
       });
+    }
+    // initialData: fields written ONCE on INSERT only (e.g. Status = "New")
+    if (initialData) {
+      for (const [header, value] of Object.entries(initialData)) {
+        const col = nameToCol.get(header);
+        if (col === undefined) continue;
+        insertData.push({
+          range: `${tabName}!${colLetter(col)}2`,
+          values: [[value]],
+        });
+      }
     }
     if (insertData.length > 0) {
       await sheets.spreadsheets.values.batchUpdate({
@@ -562,6 +644,215 @@ export async function syncLeadToSheet(params: {
     } catch (err) {
       logger.warn({ err }, "[Sheets] Failed to write Open Deal Builder link to lead — skipping");
     }
+  }
+}
+
+// ── Public: sync prospect to Prospecting Pipeline ────────────────────────────
+//
+// Called from the leads route (lead form submitted) and from the scheduling
+// route (after an appointment is booked, to ensure the prospect row exists
+// before mergeAppointmentIntoPipeline writes the scheduling fields).
+//
+// Upsert key: Lead ID (column D). Record Key is "L{leadId}".
+// Status is written ONCE on INSERT with the default "New" — never overwritten.
+// All operator columns (Priority, Notes, etc.) are left untouched on UPDATE.
+
+export async function syncProspectToPipeline(params: {
+  leadId: string;
+  originType?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string | null;
+  state?: string | null;
+  allocationType?: string | null;
+  allocationRange?: string | null;
+  timeline?: string | null;
+  formType: string;
+  currentCustodian?: string | null;
+  linkedConfirmationId?: string | null;
+  createdAt: string;
+  updatedAt?: string | null;
+}): Promise<void> {
+  const sheets = getSheetsClient();
+  if (!sheets) {
+    logger.warn("[Pipeline] Sheets client not available — skipping pipeline sync");
+    return;
+  }
+
+  const isScheduled = params.linkedConfirmationId ? "Yes" : "No";
+
+  const systemData: Record<string, string> = {
+    "Record Key":        `L${params.leadId}`,
+    "Origin Type":       params.originType ?? "Lead Form",
+    "Is Scheduled":      isScheduled,
+    "Lead ID":           params.leadId,
+    "Confirmation ID":   params.linkedConfirmationId ?? "",
+    "Deal ID":           "",
+    "First Name":        params.firstName,
+    "Last Name":         params.lastName,
+    "Email":             params.email,
+    "Phone":             params.phone ?? "",
+    "State":             params.state ?? "",
+    "Structure":         label(ALLOCATION_LABELS, params.allocationType),
+    "Allocation":        label(RANGE_LABELS, params.allocationRange),
+    "Timeline":          label(TIMELINE_LABELS, params.timeline),
+    "Form Type":         params.formType,
+    "Current Custodian": params.currentCustodian ?? "",
+    "Source":            params.formType,
+    "Scheduled Time":    "",
+    "Day":               "",
+    "Time":              "",
+    "Calendar Event ID": "",
+    "Created":           params.createdAt,
+    "Updated":           params.updatedAt ?? params.createdAt,
+  };
+
+  try {
+    await upsertByHeaderName(
+      sheets,
+      TABS.pipeline,
+      PIPELINE_ALL_HEADERS,
+      PIPELINE_SYSTEM_SET,
+      "Lead ID",
+      params.leadId,
+      systemData,
+      { "Status": "New" }
+    );
+    logger.info({ leadId: params.leadId }, "[Pipeline] Prospect synced");
+  } catch (err) {
+    logger.error({ err }, "[Pipeline] Failed to sync prospect");
+    throw err;
+  }
+
+  // Write the "Open Deal Builder" hyperlink — non-fatal
+  if (FRONTEND_URL) {
+    try {
+      const qs = params.linkedConfirmationId
+        ? `leadId=${params.leadId}&confirmationId=${encodeURIComponent(params.linkedConfirmationId)}`
+        : `leadId=${params.leadId}`;
+      const formula = `=HYPERLINK("${FRONTEND_URL}/internal/deal-builder?${qs}","Open Deal Builder")`;
+      await writeOpenDealBuilderLink(sheets, TABS.pipeline, "Lead ID", params.leadId, formula);
+    } catch (err) {
+      logger.warn({ err }, "[Pipeline] Failed to write Open Deal Builder link — skipping");
+    }
+  }
+}
+
+// ── Public: merge appointment details into existing prospect row ──────────────
+//
+// Called from the scheduling route after a booking is confirmed.
+// Finds the prospect row by Lead ID and updates ONLY the scheduling fields:
+//   Is Scheduled, Confirmation ID, Scheduled Time, Day, Time, Calendar Event ID, Updated.
+// Does NOT insert a new row. Does NOT touch any operator-owned fields.
+//
+// Exception path: if leadId is null/undefined the booking had no linked lead —
+// log a warning and skip. This should not happen in normal lead-first flow.
+
+export async function mergeAppointmentIntoPipeline(params: {
+  leadId: string | null | undefined;
+  confirmationId: string;
+  scheduledTime: string;
+  dayLabel: string;
+  timeLabel: string;
+  calendarEventId?: string | null;
+  updatedAt: string;
+}): Promise<void> {
+  if (!params.leadId) {
+    logger.warn(
+      { confirmationId: params.confirmationId },
+      "[Pipeline] mergeAppointmentIntoPipeline called with no leadId — skipping (appointment has no linked lead)"
+    );
+    return;
+  }
+
+  const sheets = getSheetsClient();
+  if (!sheets) {
+    logger.warn("[Pipeline] Sheets client not available — skipping appointment merge");
+    return;
+  }
+
+  try {
+    // Ensure the pipeline tab and all headers exist; get name→col map.
+    const { nameToCol } = await ensureTabHeaders(
+      sheets, TABS.pipeline, PIPELINE_ALL_HEADERS
+    );
+
+    // Locate the prospect row by Lead ID.
+    const leadIdCol = nameToCol.get("Lead ID");
+    if (leadIdCol === undefined) {
+      logger.warn("[Pipeline] Lead ID column not found — cannot merge appointment");
+      return;
+    }
+    const leadIdColLetter = colLetter(leadIdCol);
+    const colResp = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${TABS.pipeline}!${leadIdColLetter}:${leadIdColLetter}`,
+    });
+    const colRows = colResp.data.values ?? [];
+    let targetRow = -1;
+    for (let i = 1; i < colRows.length; i++) {
+      if (colRows[i]?.[0] === params.leadId) {
+        targetRow = i + 1; // 1-indexed
+        break;
+      }
+    }
+
+    if (targetRow < 2) {
+      logger.warn(
+        { leadId: params.leadId, confirmationId: params.confirmationId },
+        "[Pipeline] Prospect row not found by Lead ID — cannot merge appointment (row may not exist yet)"
+      );
+      return;
+    }
+
+    // Build targeted batch update for scheduling fields only.
+    const schedulingData: Record<string, string> = {
+      "Is Scheduled":      "Yes",
+      "Confirmation ID":   params.confirmationId,
+      "Scheduled Time":    params.scheduledTime,
+      "Day":               params.dayLabel,
+      "Time":              params.timeLabel,
+      "Calendar Event ID": params.calendarEventId ?? "",
+      "Updated":           params.updatedAt,
+    };
+
+    const updateData: { range: string; values: string[][] }[] = [];
+    for (const [header, value] of Object.entries(schedulingData)) {
+      if (!PIPELINE_SCHEDULING_FIELDS.has(header)) continue;
+      const col = nameToCol.get(header);
+      if (col === undefined) continue;
+      updateData.push({
+        range: `${TABS.pipeline}!${colLetter(col)}${targetRow}`,
+        values: [[value]],
+      });
+    }
+
+    if (updateData.length > 0) {
+      await sheets.spreadsheets.values.batchUpdate({
+        spreadsheetId: SPREADSHEET_ID,
+        requestBody: { valueInputOption: "RAW", data: updateData },
+      });
+    }
+
+    logger.info(
+      { leadId: params.leadId, confirmationId: params.confirmationId, targetRow },
+      "[Pipeline] Appointment merged into prospect row"
+    );
+
+    // Update the Open Deal Builder hyperlink to include the confirmation ID — non-fatal
+    if (FRONTEND_URL) {
+      try {
+        const qs = `leadId=${params.leadId}&confirmationId=${encodeURIComponent(params.confirmationId)}`;
+        const formula = `=HYPERLINK("${FRONTEND_URL}/internal/deal-builder?${qs}","Open Deal Builder")`;
+        await writeOpenDealBuilderLink(sheets, TABS.pipeline, "Lead ID", params.leadId, formula);
+      } catch (err) {
+        logger.warn({ err }, "[Pipeline] Failed to update Open Deal Builder link after merge — skipping");
+      }
+    }
+  } catch (err) {
+    logger.error({ err, leadId: params.leadId }, "[Pipeline] Failed to merge appointment into pipeline");
+    throw err;
   }
 }
 
@@ -874,11 +1165,11 @@ export async function writeDealLinkToMasterSheet(deal: DealPayload): Promise<voi
   if (!sheets) return;
 
   const dealUrl = `${FRONTEND_URL}/internal/deal-builder?dealId=${deal.id}`;
-  const formula = `=HYPERLINK("${dealUrl}","Open Deal")`;
+  const formula  = `=HYPERLINK("${dealUrl}","Open Deal")`;
 
   const tasks: Promise<void>[] = [];
 
-  // Appointments: scan column A (Confirmation ID) → write to column U
+  // ── 1. Legacy: appointments archive tab ──────────────────────────────────
   if (deal.confirmationId) {
     tasks.push(
       (async () => {
@@ -892,7 +1183,7 @@ export async function writeDealLinkToMasterSheet(deal: DealPayload): Promise<voi
             (r, i) => i > 0 && r[0] === deal.confirmationId
           );
           if (matchIdx >= 0) {
-            const sheetRow = matchIdx + 1; // 1-indexed
+            const sheetRow = matchIdx + 1;
             await sheets.spreadsheets.values.update({
               spreadsheetId: SPREADSHEET_ID,
               range: `appointments!U${sheetRow}`,
@@ -901,17 +1192,17 @@ export async function writeDealLinkToMasterSheet(deal: DealPayload): Promise<voi
             });
             logger.info(
               { dealId: deal.id, confirmationId: deal.confirmationId, sheetRow },
-              "[Sheets] Appointment link written to column U"
+              "[Sheets] Appointment archive link written (column U)"
             );
           }
         } catch (err) {
-          logger.error({ err }, "[Sheets] Failed to write appointment deal link");
+          logger.error({ err }, "[Sheets] Failed to write appointment archive deal link");
         }
       })()
     );
   }
 
-  // Leads: scan column A (Lead ID) → write to column Q
+  // ── 2. Legacy: leads archive tab ─────────────────────────────────────────
   if (deal.leadId) {
     tasks.push(
       (async () => {
@@ -935,11 +1226,78 @@ export async function writeDealLinkToMasterSheet(deal: DealPayload): Promise<voi
             });
             logger.info(
               { dealId: deal.id, leadId: deal.leadId, sheetRow },
-              "[Sheets] Lead link written to column Q"
+              "[Sheets] Lead archive link written (column Q)"
             );
           }
         } catch (err) {
-          logger.error({ err }, "[Sheets] Failed to write lead deal link");
+          logger.error({ err }, "[Sheets] Failed to write lead archive deal link");
+        }
+      })()
+    );
+  }
+
+  // ── 3. Prospecting Pipeline: write Deal ID + update "Open Deal" link ─────
+  if (deal.leadId) {
+    tasks.push(
+      (async () => {
+        try {
+          const { nameToCol } = await ensureTabHeaders(
+            sheets, TABS.pipeline, PIPELINE_ALL_HEADERS
+          );
+
+          // Locate row by Lead ID
+          const leadIdCol = nameToCol.get("Lead ID");
+          if (leadIdCol === undefined) return;
+          const colLtr = colLetter(leadIdCol);
+          const colResp = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `${TABS.pipeline}!${colLtr}:${colLtr}`,
+          });
+          const colRows = colResp.data.values ?? [];
+          const leadIdStr = String(deal.leadId);
+          let targetRow = -1;
+          for (let i = 1; i < colRows.length; i++) {
+            if (colRows[i]?.[0] === leadIdStr) {
+              targetRow = i + 1;
+              break;
+            }
+          }
+          if (targetRow < 2) {
+            logger.warn(
+              { leadId: deal.leadId },
+              "[Pipeline] Prospect row not found — skipping deal ID write"
+            );
+            return;
+          }
+
+          // Write Deal ID into column F ("Deal ID")
+          const dealIdCol = nameToCol.get("Deal ID");
+          if (dealIdCol !== undefined) {
+            await sheets.spreadsheets.values.update({
+              spreadsheetId: SPREADSHEET_ID,
+              range: `${TABS.pipeline}!${colLetter(dealIdCol)}${targetRow}`,
+              valueInputOption: "RAW",
+              requestBody: { values: [[String(deal.id)]] },
+            });
+          }
+
+          // Overwrite "Open Deal Builder" formula with the locked deal link
+          const linkCol = nameToCol.get("Open Deal Builder");
+          if (linkCol !== undefined && FRONTEND_URL) {
+            await sheets.spreadsheets.values.update({
+              spreadsheetId: SPREADSHEET_ID,
+              range: `${TABS.pipeline}!${colLetter(linkCol)}${targetRow}`,
+              valueInputOption: "USER_ENTERED",
+              requestBody: { values: [[formula]] },
+            });
+          }
+
+          logger.info(
+            { dealId: deal.id, leadId: deal.leadId, targetRow },
+            "[Pipeline] Deal ID and link written to prospect row"
+          );
+        } catch (err) {
+          logger.error({ err }, "[Pipeline] Failed to write deal ID to prospect row");
         }
       })()
     );

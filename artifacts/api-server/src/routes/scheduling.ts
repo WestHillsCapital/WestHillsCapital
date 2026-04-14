@@ -13,7 +13,7 @@ import {
   createBookingEvent,
   APPOINTMENT_DURATION_MINUTES,
 } from "../lib/google-calendar";
-import { syncAppointmentToSheet, syncLeadToSheet } from "../lib/google-sheets";
+import { syncProspectToPipeline, mergeAppointmentIntoPipeline } from "../lib/google-sheets";
 
 const router: IRouter = Router();
 
@@ -393,45 +393,37 @@ router.post("/book", async (req, res) => {
       );
       const appt = apptRow.rows[0];
 
-      // Sync appointment to Sheets
-      await syncAppointmentToSheet({
-        confirmationId,
-        slotId: body.slotId,
-        scheduledTime: slot.dateTime,
-        dayLabel: slot.dayLabel,
-        timeLabel: slot.timeLabel,
-        firstName: body.firstName,
-        lastName: body.lastName,
-        email: body.email,
-        phone: body.phone,
-        state: body.state,
-        allocationType: body.allocationType,
-        allocationRange: body.allocationRange,
-        timeline: body.timeline,
-        status: "confirmed",
-        leadId: leadId ? String(leadId) : null,
-        calendarEventId: appt?.calendar_event_id ?? null,
-        createdAt: appt?.created_at.toISOString() ?? new Date().toISOString(),
-        updatedAt: appt?.updated_at.toISOString() ?? null,
-      });
-
-      // Sync lead to Sheets
+      // ── Prospecting Pipeline sync ──────────────────────────────────────
+      // Step 1: upsert the prospect row with lead data (ensures row exists
+      //         and contact/allocation fields are current).
       if (leadRow) {
-        await syncLeadToSheet({
-          id: String(leadRow.id),
-          firstName: body.firstName,
-          lastName: body.lastName,
-          email: body.email,
-          phone: body.phone,
-          state: body.state,
-          allocationType: body.allocationType,
-          allocationRange: body.allocationRange,
-          timeline: body.timeline,
-          formType: "appointment_booked",
-          status: leadRow.status,
-          linkedConfirmationId: confirmationId,
-          createdAt: leadRow.created_at.toISOString(),
-          updatedAt: leadRow.updated_at.toISOString(),
+        await syncProspectToPipeline({
+          leadId:                String(leadRow.id),
+          firstName:             body.firstName,
+          lastName:              body.lastName,
+          email:                 body.email,
+          phone:                 body.phone,
+          state:                 body.state,
+          allocationType:        body.allocationType,
+          allocationRange:       body.allocationRange,
+          timeline:              body.timeline,
+          formType:              "appointment_booked",
+          linkedConfirmationId:  confirmationId,
+          createdAt:             leadRow.created_at.toISOString(),
+          updatedAt:             leadRow.updated_at.toISOString(),
+        });
+      }
+
+      // Step 2: merge scheduling fields into that same row (targeted update).
+      if (leadId) {
+        await mergeAppointmentIntoPipeline({
+          leadId:          String(leadId),
+          confirmationId,
+          scheduledTime:   slot.dateTime,
+          dayLabel:        slot.dayLabel,
+          timeLabel:       slot.timeLabel,
+          calendarEventId: appt?.calendar_event_id ?? null,
+          updatedAt:       appt?.updated_at.toISOString() ?? new Date().toISOString(),
         });
       }
     } catch (err) {

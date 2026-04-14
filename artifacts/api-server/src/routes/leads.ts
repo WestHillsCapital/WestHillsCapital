@@ -4,7 +4,7 @@ import {
   SubmitLeadIntakeResponse,
 } from "@workspace/api-zod";
 import { getDb } from "../db";
-import { syncLeadToSheet } from "../lib/google-sheets";
+import { syncProspectToPipeline } from "../lib/google-sheets";
 
 const router: IRouter = Router();
 
@@ -56,22 +56,21 @@ router.post("/intake", async (req, res) => {
     const row = result.rows[0];
     console.log(`[Leads] Saved lead id=${row.id} (${lead.formType}) for ${lead.email}`);
 
-    // Mirror to Google Sheets (non-blocking)
-    syncLeadToSheet({
-      id: String(row.id),
-      firstName: lead.firstName,
-      lastName: lead.lastName,
-      email: lead.email,
-      phone: lead.phone,
-      state: lead.state,
-      allocationType: lead.allocationType,
-      allocationRange: lead.allocationRange,
-      timeline: lead.timeline,
-      formType: lead.formType,
-      status: "new",
+    // Mirror to Prospecting Pipeline (non-blocking)
+    syncProspectToPipeline({
+      leadId:           String(row.id),
+      firstName:        lead.firstName,
+      lastName:         lead.lastName,
+      email:            lead.email,
+      phone:            lead.phone,
+      state:            lead.state,
+      allocationType:   lead.allocationType,
+      allocationRange:  lead.allocationRange,
+      timeline:         lead.timeline,
+      formType:         lead.formType,
       currentCustodian: lead.currentCustodian,
-      createdAt: row.created_at.toISOString(),
-    }).catch((err) => console.error("[Leads] Sheets sync failed:", err));
+      createdAt:        row.created_at.toISOString(),
+    }).catch((err) => console.error("[Leads] Pipeline sync failed:", err));
 
   } catch (err) {
     console.error(`[Leads] FAILED to save ${lead.formType} lead for ${lead.email}:`, err);
