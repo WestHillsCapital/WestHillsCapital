@@ -5,6 +5,8 @@ import schedulingRouter from "./scheduling";
 import leadsRouter from "./leads";
 import calendarSetupRouter from "./calendar-setup";
 import sheetsBackfillRouter from "./sheets-backfill";
+import internalRouter from "./internal";
+import dealsRouter from "./deals";
 
 const router: IRouter = Router();
 
@@ -14,5 +16,7 @@ router.use("/scheduling", schedulingRouter);
 router.use("/leads", leadsRouter);
 router.use("/calendar-setup", calendarSetupRouter);
 router.use("/sheets-backfill", sheetsBackfillRouter);
+router.use("/internal", internalRouter);
+router.use("/deals", dealsRouter);
 
 export default router;

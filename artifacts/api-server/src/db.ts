@@ -131,6 +131,40 @@ export async function initDb(): Promise<void> {
     )
   `);
 
+  // ── Deals table ────────────────────────────────────────────────────────────
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS deals (
+      id                  SERIAL PRIMARY KEY,
+      lead_id             INTEGER,
+      confirmation_id     TEXT,
+      deal_type           TEXT NOT NULL DEFAULT 'cash',
+      ira_type            TEXT,
+      first_name          TEXT NOT NULL,
+      last_name           TEXT NOT NULL,
+      email               TEXT NOT NULL,
+      phone               TEXT,
+      state               TEXT,
+      custodian           TEXT,
+      ira_account_number  TEXT,
+      gold_spot_ask       NUMERIC(12,4),
+      silver_spot_ask     NUMERIC(12,4),
+      spot_timestamp      TIMESTAMPTZ,
+      products            JSONB,
+      subtotal            NUMERIC(12,2),
+      shipping            NUMERIC(12,2),
+      total               NUMERIC(12,2),
+      balance_due         NUMERIC(12,2),
+      shipping_method     TEXT DEFAULT 'fedex_hold',
+      fedex_location      TEXT,
+      notes               TEXT,
+      status              TEXT NOT NULL DEFAULT 'locked',
+      locked_at           TIMESTAMPTZ,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
   logger.info("Database tables and indexes verified / created");
 }
 

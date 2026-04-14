@@ -4,8 +4,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect } from "react";
 
-// Layout
+// Public layout
 import { Layout } from "@/components/layout/Layout";
+
+// Internal layout
+import { InternalLayout } from "@/components/layout/InternalLayout";
 
 function ScrollToTop() {
   const [location] = useLocation();
@@ -17,7 +20,7 @@ function ScrollToTop() {
   return null;
 }
 
-// Pages
+// Public pages
 import Home from "@/pages/Home";
 import LivePricing from "@/pages/LivePricing";
 import Schedule from "@/pages/Schedule";
@@ -27,6 +30,11 @@ import Disclosures from "@/pages/Disclosures";
 import Insights from "@/pages/Insights";
 import InsightArticle from "@/pages/InsightArticle";
 import NotFound from "@/pages/not-found";
+
+// Internal pages
+import InternalLeads from "@/pages/internal/Leads";
+import InternalAppointments from "@/pages/internal/Appointments";
+import DealBuilder from "@/pages/internal/DealBuilder";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -38,19 +46,44 @@ const queryClient = new QueryClient({
   },
 });
 
+function InternalRouter() {
+  return (
+    <InternalLayout>
+      <Switch>
+        <Route path="/internal/leads"        component={InternalLeads}        />
+        <Route path="/internal/appointments"  component={InternalAppointments} />
+        <Route path="/internal/deal-builder"  component={DealBuilder}          />
+        <Route component={NotFound} />
+      </Switch>
+    </InternalLayout>
+  );
+}
+
 function Router() {
+  const [location] = useLocation();
+  const isInternal = location.startsWith("/internal");
+
+  if (isInternal) {
+    return (
+      <>
+        <ScrollToTop />
+        <InternalRouter />
+      </>
+    );
+  }
+
   return (
     <Layout>
       <ScrollToTop />
       <Switch>
-        <Route path="/" component={Home} />
-        <Route path="/pricing" component={LivePricing} />
-        <Route path="/schedule" component={Schedule} />
-        <Route path="/ira" component={IRA} />
-        <Route path="/about" component={About} />
-        <Route path="/disclosures" component={Disclosures} />
-        <Route path="/insights" component={Insights} />
-        <Route path="/insights/:slug" component={InsightArticle} />
+        <Route path="/"                component={Home}          />
+        <Route path="/pricing"         component={LivePricing}   />
+        <Route path="/schedule"        component={Schedule}       />
+        <Route path="/ira"             component={IRA}            />
+        <Route path="/about"           component={About}          />
+        <Route path="/disclosures"     component={Disclosures}    />
+        <Route path="/insights"        component={Insights}       />
+        <Route path="/insights/:slug"  component={InsightArticle} />
         <Route component={NotFound} />
       </Switch>
     </Layout>

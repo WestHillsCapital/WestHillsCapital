@@ -108,6 +108,13 @@ function getSheetsClient(): SheetsClient | null {
   return google.sheets({ version: "v4", auth });
 }
 
+/** Sheets client that doesn't require SPREADSHEET_ID — used for Deal Builder and Ops sheets. */
+function getAnySheetsClient(): SheetsClient | null {
+  const auth = getAuth();
+  if (!auth) return null;
+  return google.sheets({ version: "v4", auth });
+}
+
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 /** Convert a 0-based column index to a Sheets column letter (A, B, …, Z, AA, …). */
@@ -518,4 +525,327 @@ export async function appendBookingAttemptToSheet(params: {
   } catch (err) {
     logger.error({ err }, "[Sheets] Failed to log booking attempt");
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Deal write-back helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DEAL_BUILDER_SHEET_ID = process.env.GOOGLE_DEAL_BUILDER_SHEET_ID ?? "";
+const DEALS_OPS_SHEET_ID    = process.env.GOOGLE_DEALS_OPS_SHEET_ID    ?? "";
+const FRONTEND_URL           = (process.env.FRONTEND_URL ?? "").replace(/\/$/, "");
+
+type DealProduct = {
+  productId:   string;
+  productName: string;
+  metal:       string;
+  qty:         number;
+  unitPrice:   number;
+  lineTotal:   number;
+};
+
+export type DealPayload = {
+  id:                number;
+  leadId?:           number;
+  confirmationId?:   string;
+  dealType:          string;
+  iraType?:          string;
+  firstName:         string;
+  lastName:          string;
+  email:             string;
+  phone?:            string;
+  state?:            string;
+  custodian?:        string;
+  iraAccountNumber?: string;
+  goldSpotAsk?:      number;
+  silverSpotAsk?:    number;
+  spotTimestamp?:    string;
+  products:          DealProduct[];
+  subtotal:          number;
+  shipping:          number;
+  total:             number;
+  balanceDue:        number;
+  shippingMethod:    string;
+  fedexLocation?:    string;
+  notes?:            string;
+  lockedAt:          string;
+};
+
+// The Deal Builder sheet has exactly 3 product rows in fixed positions:
+//   Row 22: Silver Eagle (silver-american-eagle-1oz)
+//   Row 23: Gold Eagle   (gold-american-eagle-1oz)
+//   Row 24: Gold Buffalo (gold-american-buffalo-1oz)
+
+function fmt(n: number | undefined, decimals = 2): string {
+  return n !== undefined ? n.toFixed(decimals) : "";
+}
+
+function fmtDate(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+}
+
+// ── 1. Write deal data into the Deal Builder Google Sheet ────────────────────
+
+/**
+ * Populates the Deal Builder sheet with locked deal data so the Invoice tab
+ * auto-generates from the sheet's existing formulas.
+ *
+ * Tab: "Deal Builder"  (spaces → must be quoted in A1 notation as 'Deal Builder')
+ * Env var: GOOGLE_DEAL_BUILDER_SHEET_ID
+ */
+export async function writeDealToBuilderSheet(deal: DealPayload): Promise<void> {
+  if (!DEAL_BUILDER_SHEET_ID) {
+    logger.warn("[Sheets] GOOGLE_DEAL_BUILDER_SHEET_ID not set — skipping Deal Builder write");
+    return;
+  }
+
+  const sheets = getAnySheetsClient();
+  if (!sheets) {
+    logger.warn("[Sheets] Auth not available — skipping Deal Builder write");
+    return;
+  }
+
+  const tab = "'Deal Builder'";
+  const clientName = `${deal.firstName} ${deal.lastName}`;
+  const deliveryLabel =
+    deal.shippingMethod === "fedex_hold" ? "FedEx Hold" : "Home Delivery";
+
+  // Build product rows for each fixed row, filling blanks if not in deal
+  function productRowValues(productId: string): string[] {
+    const p = deal.products.find((p) => p.productId === productId);
+    if (!p || !p.qty) return ["", "", "", "", ""];
+    return [
+      p.productName,
+      p.metal.charAt(0).toUpperCase() + p.metal.slice(1),
+      String(p.qty),
+      fmt(p.unitPrice),
+      fmt(p.lineTotal),
+    ];
+  }
+
+  const data: { range: string; values: (string | number)[][] }[] = [
+    // Customer info
+    { range: `${tab}!B3`, values: [[clientName]] },
+    { range: `${tab}!B4`, values: [[deal.email]] },
+    { range: `${tab}!B5`, values: [[deal.phone ?? ""]] },
+    { range: `${tab}!B6`, values: [[deal.state ?? ""]] },
+    // Deal metadata
+    { range: `${tab}!B8`, values: [[deal.dealType === "ira" ? "IRA" : "Cash"]] },
+    { range: `${tab}!B9`, values: [[deal.iraType ?? ""]] },
+    { range: `${tab}!B11`, values: [[deal.leadId ? String(deal.leadId) : ""]] },
+    { range: `${tab}!B12`, values: [[deal.confirmationId ?? ""]] },
+    { range: `${tab}!B13`, values: [[fmtDate(deal.lockedAt)]] },
+    // Spot prices
+    { range: `${tab}!B15`, values: [[fmt(deal.goldSpotAsk)]] },
+    { range: `${tab}!B16`, values: [[fmt(deal.silverSpotAsk)]] },
+    { range: `${tab}!B17`, values: [[deal.spotTimestamp ? new Date(deal.spotTimestamp).toLocaleString() : ""]] },
+    // Product rows (A:E for each row)
+    { range: `${tab}!A22:E22`, values: [productRowValues("silver-american-eagle-1oz")] },
+    { range: `${tab}!A23:E23`, values: [productRowValues("gold-american-eagle-1oz")] },
+    { range: `${tab}!A24:E24`, values: [productRowValues("gold-american-buffalo-1oz")] },
+    // Delivery
+    { range: `${tab}!B27`, values: [[deliveryLabel]] },
+    { range: `${tab}!B28`, values: [[deal.fedexLocation ?? ""]] },
+    { range: `${tab}!B29`, values: [[fmt(deal.shipping)]] },
+    // Notes
+    { range: `${tab}!B32`, values: [[deal.notes ?? ""]] },
+    // Totals (column E)
+    { range: `${tab}!E32`, values: [[fmt(deal.subtotal)]] },
+    { range: `${tab}!E33`, values: [[fmt(deal.shipping)]] },
+    { range: `${tab}!E34`, values: [[fmt(deal.total)]] },
+    { range: `${tab}!E35`, values: [[fmt(deal.balanceDue)]] },
+    // Status flags
+    { range: `${tab}!B36`, values: [["FALSE"]] },
+    { range: `${tab}!B37`, values: [["FALSE"]] },
+  ];
+
+  // Custodian & IRA account (right side of header block)
+  if (deal.custodian) {
+    data.push({ range: `${tab}!E3`, values: [[deal.custodian]] });
+  }
+  if (deal.iraAccountNumber) {
+    data.push({ range: `${tab}!E4`, values: [[deal.iraAccountNumber]] });
+  }
+
+  await sheets.spreadsheets.values.batchUpdate({
+    spreadsheetId: DEAL_BUILDER_SHEET_ID,
+    requestBody: {
+      valueInputOption: "USER_ENTERED",
+      data,
+    },
+  });
+
+  logger.info({ dealId: deal.id }, "[Sheets] Deal Builder sheet populated");
+}
+
+// ── 2. Append deal to WHC Deals & Operations sheet ───────────────────────────
+
+/**
+ * Appends a row to the "Deals" tab in the WHC Deals & Operations spreadsheet.
+ * Env var: GOOGLE_DEALS_OPS_SHEET_ID
+ */
+export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
+  if (!DEALS_OPS_SHEET_ID) {
+    logger.warn("[Sheets] GOOGLE_DEALS_OPS_SHEET_ID not set — skipping Ops sheet write");
+    return;
+  }
+
+  const sheets = getAnySheetsClient();
+  if (!sheets) {
+    logger.warn("[Sheets] Auth not available — skipping Ops sheet write");
+    return;
+  }
+
+  const clientName = `${deal.firstName} ${deal.lastName}`;
+
+  // Product summary: "15x Gold Eagle, 100x Silver Eagle"
+  const productSummary = deal.products
+    .filter((p) => p.qty > 0)
+    .map((p) => `${p.qty}x ${p.productName}`)
+    .join(", ");
+
+  const totalQty = deal.products.reduce((acc, p) => acc + (p.qty || 0), 0);
+
+  // Row matches the "Deals" tab header layout (28 columns including empties):
+  // Deal ID | Date/Time | Client Name | Email | Phone | State | (empty) |
+  // Lead ID | Confirmation ID | (empty) | Deal Type | (empty) |
+  // Gold Spot | Silver Spot | (empty) | Product Summary | Total Quantity | (empty) |
+  // Deal Amount | Cash Component | Actual Cash Transferred | (empty) |
+  // Account Specialist | Deal Closer | (empty) | Invoice ID | (empty) | Notes
+  const row = [
+    String(deal.id),               // Deal ID
+    deal.lockedAt,                  // Date/Time
+    clientName,                     // Client Name
+    deal.email,                     // Email
+    deal.phone ?? "",               // Phone
+    deal.state ?? "",               // State
+    "",                             // (empty)
+    deal.leadId ? String(deal.leadId) : "", // Lead ID
+    deal.confirmationId ?? "",      // Confirmation ID
+    "",                             // (empty)
+    deal.dealType === "ira" ? "IRA" : "Cash", // Deal Type
+    "",                             // (empty)
+    fmt(deal.goldSpotAsk),          // Gold Spot
+    fmt(deal.silverSpotAsk),        // Silver Spot
+    "",                             // (empty)
+    productSummary,                 // Product Summary
+    String(totalQty),               // Total Quantity
+    "",                             // (empty)
+    fmt(deal.total),                // Deal Amount
+    fmt(deal.total),                // Cash Component (same as total for cash deals)
+    "",                             // Actual Cash Transferred (manual)
+    "",                             // (empty)
+    "",                             // Account Specialist (manual)
+    "",                             // Deal Closer (manual)
+    "",                             // (empty)
+    "",                             // Invoice ID (generated from sheet)
+    "",                             // (empty)
+    deal.notes ?? "",               // Notes
+  ];
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: DEALS_OPS_SHEET_ID,
+    range: "Deals!A:A",
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody: { values: [row] },
+  });
+
+  logger.info({ dealId: deal.id }, "[Sheets] Deal appended to Ops sheet");
+}
+
+// ── 3. Write "Open Deal" hyperlink to Master Sheet columns U / Q ─────────────
+
+/**
+ * After a deal is locked, writes a HYPERLINK formula back into the Master
+ * Appointment Lead Sheet:
+ *   - Appointments tab → Column U of the row matching deal.confirmationId
+ *   - Leads tab       → Column Q of the row matching deal.leadId
+ *
+ * Env var: FRONTEND_URL (e.g. https://west-hills-capital.vercel.app)
+ * Falls back gracefully if the row is not found or SPREADSHEET_ID is not set.
+ */
+export async function writeDealLinkToMasterSheet(deal: DealPayload): Promise<void> {
+  if (!SPREADSHEET_ID) {
+    logger.warn("[Sheets] SPREADSHEET_ID not set — skipping master sheet link write");
+    return;
+  }
+
+  const sheets = getAnySheetsClient();
+  if (!sheets) return;
+
+  const dealUrl = `${FRONTEND_URL}/internal/deal-builder?dealId=${deal.id}`;
+  const formula = `=HYPERLINK("${dealUrl}","Open Deal")`;
+
+  const tasks: Promise<void>[] = [];
+
+  // Appointments: scan column A (Confirmation ID) → write to column U
+  if (deal.confirmationId) {
+    tasks.push(
+      (async () => {
+        try {
+          const col = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `appointments!A:A`,
+          });
+          const rows = col.data.values ?? [];
+          const matchIdx = rows.findIndex(
+            (r, i) => i > 0 && r[0] === deal.confirmationId
+          );
+          if (matchIdx >= 0) {
+            const sheetRow = matchIdx + 1; // 1-indexed
+            await sheets.spreadsheets.values.update({
+              spreadsheetId: SPREADSHEET_ID,
+              range: `appointments!U${sheetRow}`,
+              valueInputOption: "USER_ENTERED",
+              requestBody: { values: [[formula]] },
+            });
+            logger.info(
+              { dealId: deal.id, confirmationId: deal.confirmationId, sheetRow },
+              "[Sheets] Appointment link written to column U"
+            );
+          }
+        } catch (err) {
+          logger.error({ err }, "[Sheets] Failed to write appointment deal link");
+        }
+      })()
+    );
+  }
+
+  // Leads: scan column A (Lead ID) → write to column Q
+  if (deal.leadId) {
+    tasks.push(
+      (async () => {
+        try {
+          const col = await sheets.spreadsheets.values.get({
+            spreadsheetId: SPREADSHEET_ID,
+            range: `leads!A:A`,
+          });
+          const rows = col.data.values ?? [];
+          const leadIdStr = String(deal.leadId);
+          const matchIdx = rows.findIndex(
+            (r, i) => i > 0 && r[0] === leadIdStr
+          );
+          if (matchIdx >= 0) {
+            const sheetRow = matchIdx + 1;
+            await sheets.spreadsheets.values.update({
+              spreadsheetId: SPREADSHEET_ID,
+              range: `leads!Q${sheetRow}`,
+              valueInputOption: "USER_ENTERED",
+              requestBody: { values: [[formula]] },
+            });
+            logger.info(
+              { dealId: deal.id, leadId: deal.leadId, sheetRow },
+              "[Sheets] Lead link written to column Q"
+            );
+          }
+        } catch (err) {
+          logger.error({ err }, "[Sheets] Failed to write lead deal link");
+        }
+      })()
+    );
+  }
+
+  await Promise.allSettled(tasks);
 }
