@@ -1,8 +1,9 @@
 import { Server } from "node:http";
 import app from "./app";
 import { logger } from "./lib/logger";
-import { initDb } from "./db";
+import { initDb, getDb } from "./db";
 import { validateConfig } from "./lib/config";
+import { syncDealOpsStatus } from "./lib/google-sheets";
 
 // ── 1. Validate configuration before anything else ────────────────────────────
 // Logs all env var statuses and exits immediately if required vars are missing.
@@ -30,9 +31,51 @@ const server: Server = app.listen(port, () => {
 // ── 4. Initialise the database ────────────────────────────────────────────────
 // Runs concurrently with the server. If it fails, the process exits so
 // Railway restarts the container (typically because DATABASE_URL is misconfigured).
+// ── 4b. Ops status background scheduler ──────────────────────────────────────
+// Runs every 30 minutes after the DB is ready. Queries all open deals (those
+// without a tracking number) and syncs their status in the Deals tab.
+async function runOpsStatusSync(): Promise<void> {
+  try {
+    const db = getDb();
+    const { rows } = await db.query<{
+      id: number;
+      locked_at: Date;
+      payment_received_at: Date | null;
+      tracking_number: string | null;
+      order_placed_at: Date | null;
+    }>(
+      `SELECT id, locked_at, payment_received_at, tracking_number, order_placed_at
+       FROM deals
+       WHERE tracking_number IS NULL
+         AND status IN ('locked', 'executed')
+       ORDER BY id DESC
+       LIMIT 200`
+    );
+    if (rows.length === 0) return;
+
+    logger.info({ count: rows.length }, "[Scheduler] Syncing Ops status for open deals");
+    for (const deal of rows) {
+      await syncDealOpsStatus({
+        id:                deal.id,
+        lockedAt:          deal.locked_at,
+        paymentReceivedAt: deal.payment_received_at,
+        trackingNumber:    deal.tracking_number,
+        orderPlacedAt:     deal.order_placed_at,
+      }).catch((err) =>
+        logger.error({ err, dealId: deal.id }, "[Scheduler] Ops sync failed for deal")
+      );
+    }
+    logger.info({ count: rows.length }, "[Scheduler] Ops status sync complete");
+  } catch (err) {
+    logger.error({ err }, "[Scheduler] Ops status sync run failed (non-fatal)");
+  }
+}
+
 initDb()
   .then(() => {
     logger.info("Database ready — all systems operational");
+    // Start the 30-minute Ops status scheduler
+    setInterval(() => { void runOpsStatusSync(); }, 30 * 60 * 1000).unref();
   })
   .catch((err) => {
     const detail = err instanceof Error ? err.message : String(err);

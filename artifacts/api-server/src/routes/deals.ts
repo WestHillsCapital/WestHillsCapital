@@ -4,6 +4,7 @@ import { logger } from "../lib/logger";
 import {
   appendDealToOpsSheet,
   writeDealLinkToMasterSheet,
+  syncDealOpsStatus,
   type DealPayload,
 } from "../lib/google-sheets";
 import { sendDealLockNotification, sendDealRecapEmail } from "../lib/email";
@@ -13,7 +14,22 @@ import { saveDealPdfToDrive }   from "../lib/google-drive";
 
 const router: IRouter = Router();
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+export const CURRENT_TERMS_VERSION = "v1.0";
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+/** Non-fatal wrapper — call syncDealOpsStatus and log errors without throwing. */
+async function syncDealStatus(deal: Record<string, unknown>): Promise<void> {
+  await syncDealOpsStatus({
+    id:                 deal.id                  as number,
+    lockedAt:           deal.locked_at            as string | Date,
+    paymentReceivedAt:  deal.payment_received_at  as Date | null | undefined,
+    trackingNumber:     deal.tracking_number      as string | null | undefined,
+    orderPlacedAt:      deal.order_placed_at      as Date | null | undefined,
+  });
+}
 
 function yyyymmdd(d: Date): string {
   return String(d.getFullYear()) +
@@ -60,6 +76,10 @@ router.post("/", async (req, res) => {
     billingZip,
     // FedEx Hold location hours (shown on invoice + recap email)
     fedexLocationHours,
+    // Terms of Service acknowledgment (required)
+    termsProvided,
+    termsVersion,
+    confirmationMethod,
     notes,
   } = req.body as {
     leadId?:           number | null;
@@ -101,6 +121,9 @@ router.post("/", async (req, res) => {
     billingState?:       string | null;
     billingZip?:         string | null;
     fedexLocationHours?: string | null;
+    termsProvided?:      boolean;
+    termsVersion?:       string | null;
+    confirmationMethod?: string | null;
     notes?:              string | null;
   };
 
@@ -130,6 +153,15 @@ router.post("/", async (req, res) => {
   if (typeof total !== "number" || total <= 0) {
     validationErrors.push("total must be a positive number");
   }
+  if (termsProvided !== true) {
+    validationErrors.push("termsProvided must be true — Terms of Service acknowledgment is required before execution");
+  }
+  if (!termsVersion?.trim()) {
+    validationErrors.push("termsVersion is required");
+  }
+  if (!confirmationMethod?.trim()) {
+    validationErrors.push("confirmationMethod is required");
+  }
 
   if (validationErrors.length > 0) {
     return res.status(400).json({ error: validationErrors.join("; ") });
@@ -153,8 +185,9 @@ router.post("/", async (req, res) => {
           ship_to_name, ship_to_line1, ship_to_city, ship_to_state, ship_to_zip,
           billing_line1, billing_line2, billing_city, billing_state, billing_zip,
           fedex_location_hours,
+          terms_provided, terms_provided_at, terms_version, confirmation_method,
           notes, status, locked_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39)
        RETURNING id`,
       [
         leadId ?? null, confirmationId ?? null, dealType, iraType ?? null,
@@ -170,6 +203,7 @@ router.post("/", async (req, res) => {
         billingLine1 ?? null, billingLine2 ?? null, billingCity ?? null,
         billingState ?? null, billingZip  ?? null,
         fedexLocationHours ?? null,
+        true, lockedAt, termsVersion ?? CURRENT_TERMS_VERSION, confirmationMethod ?? "verbal_recorded_call",
         notes ?? null, "locked", lockedAt,
       ],
     );
@@ -504,6 +538,63 @@ router.post("/preview-invoice", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Deals] Preview invoice generation failed");
     res.status(500).json({ error: "Failed to generate preview invoice" });
+  }
+});
+
+// PATCH /api/deals/:id/payment
+// Marks payment received — sets payment_received_at = NOW() and syncs Ops status
+router.patch("/:id/payment", async (req, res) => {
+  const dealId = parseInt(req.params.id, 10);
+  if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
+
+  try {
+    const db = getDb();
+    const { rows } = await db.query<{ id: number; payment_received_at: Date | null }>(
+      `UPDATE deals SET payment_received_at = NOW(), updated_at = NOW()
+       WHERE id = $1 RETURNING *`,
+      [dealId],
+    );
+    if (!rows[0]) return res.status(404).json({ error: "Deal not found" });
+
+    syncDealStatus(rows[0]).catch((err) =>
+      logger.error({ err, dealId }, "[Deals] Ops status sync failed after payment mark")
+    );
+
+    return res.json({ success: true, paymentReceivedAt: rows[0].payment_received_at });
+  } catch (err) {
+    logger.error({ err }, "[Deals] Failed to mark payment received");
+    return res.status(500).json({ error: "Failed to mark payment received" });
+  }
+});
+
+// PATCH /api/deals/:id/tracking
+// Records a tracking number and syncs Ops status
+router.patch("/:id/tracking", async (req, res) => {
+  const dealId = parseInt(req.params.id, 10);
+  if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
+
+  const { trackingNumber } = req.body as { trackingNumber?: string };
+  if (!trackingNumber?.trim()) {
+    return res.status(400).json({ error: "trackingNumber is required" });
+  }
+
+  try {
+    const db = getDb();
+    const { rows } = await db.query(
+      `UPDATE deals SET tracking_number = $1, updated_at = NOW()
+       WHERE id = $2 RETURNING *`,
+      [trackingNumber.trim(), dealId],
+    );
+    if (!rows[0]) return res.status(404).json({ error: "Deal not found" });
+
+    syncDealStatus(rows[0]).catch((err) =>
+      logger.error({ err, dealId }, "[Deals] Ops status sync failed after tracking update")
+    );
+
+    return res.json({ success: true, trackingNumber: trackingNumber.trim() });
+  } catch (err) {
+    logger.error({ err }, "[Deals] Failed to update tracking number");
+    return res.status(500).json({ error: "Failed to update tracking number" });
   }
 });
 

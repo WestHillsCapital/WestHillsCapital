@@ -14,7 +14,8 @@ West Hills Capital is a physical gold and silver allocation company. The website
 - `/schedule` — Schedule Allocation Call (2-step form)
 - `/ira` — IRA Allocation
 - `/about` — About
-- `/disclosures` — Disclosures
+- `/disclosures` — Disclosures & Operating Policies (12 sections, links to /terms)
+- `/terms` — Terms of Service (14 sections, version v1.0)
 - `/insights` — Insights hub (12 articles across 4 topic groups)
 - `/insights/:slug` — Individual article pages
 

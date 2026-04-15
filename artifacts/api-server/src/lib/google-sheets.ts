@@ -171,6 +171,9 @@ const DEALS_ALL_HEADERS = [
   "Created",
   "Updated",
   "Notes",
+  "Ops Status",
+  "Payment Received At",
+  "Tracking Number",
 ] as const;
 
 // The scheduling fields that mergeAppointmentIntoPipeline writes (targeted update only).
@@ -1320,6 +1323,9 @@ export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
     "Created":               deal.lockedAt,
     "Updated":               deal.lockedAt,
     "Notes":                 deal.notes ?? "",
+    "Ops Status":            "Pending Wire",
+    "Payment Received At":   "",
+    "Tracking Number":       "",
   };
 
   // Build a row array sized to cover every known column.
@@ -1339,6 +1345,123 @@ export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
   });
 
   logger.info({ dealId: deal.id }, "[Sheets] Deal appended to Deals tab");
+}
+
+// ── Ops status sync ───────────────────────────────────────────────────────────
+
+/** Add N business days (Mon–Fri) to a date, returning a new Date. */
+function addBusinessDays(date: Date, n: number): Date {
+  const result = new Date(date);
+  let added = 0;
+  while (added < n) {
+    result.setDate(result.getDate() + 1);
+    const dow = result.getDay();
+    if (dow !== 0 && dow !== 6) added++;
+  }
+  return result;
+}
+
+/** Compute the correct Ops-tab status string for a deal. */
+function computeOpsStatus(deal: {
+  paymentReceivedAt?: Date | null;
+  trackingNumber?:    string | null;
+  lockedAt:           Date | string;
+}): string {
+  if (deal.trackingNumber) return "Shipped";
+  if (deal.paymentReceivedAt) return "Paid";
+
+  const now      = new Date();
+  const lockDate = new Date(deal.lockedAt);
+
+  const nbd1 = addBusinessDays(lockDate, 1);
+  nbd1.setUTCHours(23, 0, 0, 0); // 5 pm CST = 23:00 UTC
+
+  const nbd2 = addBusinessDays(lockDate, 2);
+  nbd2.setUTCHours(23, 0, 0, 0);
+
+  if (now > nbd2) return "Cancel Eligible";
+  if (now > nbd1) return "At Risk";
+  return "Pending Wire";
+}
+
+/**
+ * Recomputes the Ops-tab status for one deal and writes it (plus Payment Received At
+ * and Tracking Number) to the "Deals" tab. Non-fatal when Sheets is unavailable.
+ */
+export async function syncDealOpsStatus(deal: {
+  id:                number;
+  lockedAt:          Date | string;
+  paymentReceivedAt?: Date | null;
+  trackingNumber?:    string | null;
+  orderPlacedAt?:     Date | null;
+}): Promise<void> {
+  if (!SPREADSHEET_ID) return;
+
+  const sheets = getAnySheetsClient();
+  if (!sheets) return;
+
+  try {
+    // Ensure columns exist and get their positions
+    const { nameToCol } = await ensureTabHeaders(sheets, "Deals", DEALS_ALL_HEADERS);
+
+    const dealIdCol    = nameToCol.get("Deal ID");
+    const statusCol    = nameToCol.get("Ops Status");
+    const paymentCol   = nameToCol.get("Payment Received At");
+    const trackingCol  = nameToCol.get("Tracking Number");
+
+    if (dealIdCol === undefined || statusCol === undefined) {
+      logger.warn({ dealId: deal.id }, "[Sheets] Ops Status column not found — skipping sync");
+      return;
+    }
+
+    // Find the row for this deal
+    const keyColLetter = colLetter(dealIdCol);
+    const colResp = await sheets.spreadsheets.values.get({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `Deals!${keyColLetter}:${keyColLetter}`,
+    });
+    const colRows = colResp.data.values ?? [];
+    let targetRow = -1;
+    for (let i = 1; i < colRows.length; i++) {
+      if (colRows[i]?.[0] === String(deal.id)) {
+        targetRow = i + 1; // 1-indexed
+        break;
+      }
+    }
+    if (targetRow < 2) {
+      logger.warn({ dealId: deal.id }, "[Sheets] Deal row not found for Ops status sync");
+      return;
+    }
+
+    const newStatus = computeOpsStatus(deal);
+    const data: { range: string; values: string[][] }[] = [];
+
+    data.push({
+      range: `Deals!${colLetter(statusCol)}${targetRow}`,
+      values: [[newStatus]],
+    });
+    if (paymentCol !== undefined) {
+      data.push({
+        range: `Deals!${colLetter(paymentCol)}${targetRow}`,
+        values: [[deal.paymentReceivedAt ? new Date(deal.paymentReceivedAt).toLocaleString() : ""]],
+      });
+    }
+    if (trackingCol !== undefined) {
+      data.push({
+        range: `Deals!${colLetter(trackingCol)}${targetRow}`,
+        values: [[deal.trackingNumber ?? ""]],
+      });
+    }
+
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: SPREADSHEET_ID,
+      requestBody: { valueInputOption: "RAW", data },
+    });
+
+    logger.info({ dealId: deal.id, newStatus }, "[Sheets] Ops status synced");
+  } catch (err) {
+    logger.error({ err, dealId: deal.id }, "[Sheets] syncDealOpsStatus failed (non-fatal)");
+  }
 }
 
 // ── 3. Write "Open Deal" hyperlink to Master Sheet columns U / Q ─────────────
