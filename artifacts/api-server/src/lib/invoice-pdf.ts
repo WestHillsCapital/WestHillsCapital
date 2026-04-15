@@ -110,136 +110,135 @@ export async function generateInvoicePdf(deal: InvoiceDeal): Promise<Buffer> {
     const DARK  = "#1a1a1a";
     const GRAY  = "#6b7280";
     const LGRAY = "#e5e7eb";
-    const MID   = LEFT + 245;
-    const RCOL  = MID + 18;
+    const MID   = LEFT + 262;   // column split: ~46% left, 54% right
+    const RCOL  = MID + 16;     // right column start
 
     const invNum = invoiceNumber(deal.id, deal.lockedAt);
     const lockedDate = new Date(deal.lockedAt);
     const payDeadline = nextBusinessDayFrom(lockedDate);
 
     // ──────────────────────────────────────────────────────────────────────────
-    // HEADER LEFT — Logo + Invoice meta + Spot prices
+    // HEADER LEFT — Logo + tagline only
     // ──────────────────────────────────────────────────────────────────────────
     let logoBottomY = 40;
     if (HAS_LOGO) {
       try {
-        doc.image(LOGO_PATH, LEFT, 40, { fit: [195, 52], align: "left", valign: "top" });
-        logoBottomY = 96;
+        doc.image(LOGO_PATH, LEFT, 40, { fit: [190, 50], align: "left", valign: "top" });
+        logoBottomY = 93;
       } catch {
-        doc
-          .fontSize(20).font("Helvetica-Bold").fillColor(DARK)
-          .text("West Hills Capital", LEFT, 40, { width: MID - LEFT });
-        logoBottomY = 65;
+        doc.fontSize(18).font("Helvetica-Bold").fillColor(DARK)
+           .text("West Hills Capital", LEFT, 40, { width: MID - LEFT });
+        logoBottomY = 63;
       }
     } else {
-      doc
-        .fontSize(20).font("Helvetica-Bold").fillColor(DARK)
-        .text("West Hills Capital", LEFT, 40, { width: MID - LEFT });
-      logoBottomY = 65;
+      doc.fontSize(18).font("Helvetica-Bold").fillColor(DARK)
+         .text("West Hills Capital", LEFT, 40, { width: MID - LEFT });
+      logoBottomY = 63;
     }
 
-    doc
-      .fontSize(8).font("Helvetica").fillColor(GRAY)
-      .text(
-        "Physical Precious Metals Allocation  |  (800) 867-6768  |  westhillscapital.com",
-        LEFT, logoBottomY + 2, { width: MID - LEFT },
-      );
+    doc.fontSize(7.5).font("Helvetica").fillColor(GRAY)
+       .text(
+         "Physical Precious Metals Allocation  |  (800) 867-6768  |  westhillscapital.com",
+         LEFT, logoBottomY + 2, { width: MID - LEFT },
+       );
 
-    const invLabelY = logoBottomY + 16;
-    doc
-      .fontSize(7.5).font("Helvetica-Bold").fillColor(GRAY)
-      .text("INVOICE", LEFT, invLabelY, { width: MID - LEFT });
-    doc
-      .fontSize(10).font("Helvetica-Bold").fillColor(GOLD)
-      .text(invNum, LEFT, invLabelY + 10, { width: MID - LEFT });
-    doc
-      .fontSize(8.5).font("Helvetica").fillColor(GRAY)
-      .text(formatDate(deal.lockedAt), LEFT, invLabelY + 23, { width: MID - LEFT });
+    // ──────────────────────────────────────────────────────────────────────────
+    // HEADER RIGHT — INVOICE label + number + date + spot prices (right-aligned)
+    // ──────────────────────────────────────────────────────────────────────────
+    doc.fontSize(20).font("Helvetica-Bold").fillColor(GOLD)
+       .text("INVOICE", LEFT, 40, { width: W, align: "right" });
 
-    // Spot prices — directly below invoice date
-    const spotY = invLabelY + 38;
-    doc.fontSize(8).font("Helvetica").fillColor(GRAY);
+    let rY = 66;
+    doc.fontSize(9).font("Helvetica-Bold").fillColor(DARK)
+       .text(invNum, LEFT, rY, { width: W, align: "right" });
+    rY += 13;
+    doc.fontSize(8.5).font("Helvetica").fillColor(GRAY)
+       .text(formatDate(deal.lockedAt), LEFT, rY, { width: W, align: "right" });
+    rY += 12;
     if (deal.goldSpotAsk) {
-      doc.text(`Gold Spot: ${usd(deal.goldSpotAsk)}`, LEFT, spotY, { width: MID - LEFT });
+      doc.fontSize(8).font("Helvetica").fillColor(GRAY)
+         .text(`Gold Spot: ${usd(deal.goldSpotAsk)}`, LEFT, rY, { width: W, align: "right" });
+      rY += 12;
     }
     if (deal.silverSpotAsk) {
-      const sY = deal.goldSpotAsk ? spotY + 12 : spotY;
-      doc.text(`Silver Spot: ${usd(deal.silverSpotAsk)}`, LEFT, sY, { width: MID - LEFT });
+      doc.fontSize(8).font("Helvetica").fillColor(GRAY)
+         .text(`Silver Spot: ${usd(deal.silverSpotAsk)}`, LEFT, rY, { width: W, align: "right" });
+      rY += 12;
     }
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // HEADER RIGHT — Bill To
-    // ──────────────────────────────────────────────────────────────────────────
-    doc
-      .fontSize(7.5).font("Helvetica-Bold").fillColor(GRAY)
-      .text("BILL TO", RCOL, 40, { width: RIGHT - RCOL });
-    doc
-      .fontSize(11).font("Helvetica-Bold").fillColor(DARK)
-      .text(`${deal.firstName} ${deal.lastName}`, RCOL, 52, { width: RIGHT - RCOL });
+    // ── Header divider ────────────────────────────────────────────────────────
+    const headerBottom = Math.max(logoBottomY + 18, rY + 6, 116);
+    doc.moveTo(LEFT, headerBottom).lineTo(RIGHT, headerBottom)
+       .strokeColor(LGRAY).lineWidth(1).stroke();
 
-    let billY = 68;
+    // ──────────────────────────────────────────────────────────────────────────
+    // BILL TO (left) + DELIVERY (right) — side by side below the header
+    // ──────────────────────────────────────────────────────────────────────────
+    const isFedex = deal.shippingMethod === "fedex_hold";
+    const secY    = headerBottom + 8;
+
+    // ── Bill To ───────────────────────────────────────────────────────────────
+    doc.fontSize(7.5).font("Helvetica-Bold").fillColor(GRAY)
+       .text("BILL TO", LEFT, secY, { width: MID - LEFT });
+    doc.fontSize(10).font("Helvetica-Bold").fillColor(DARK)
+       .text(`${deal.firstName} ${deal.lastName}`, LEFT, secY + 11, { width: MID - LEFT });
+
+    let billY = secY + 26;
     doc.fontSize(8.5).font("Helvetica").fillColor(GRAY);
-    if (deal.email)        { doc.text(deal.email,        RCOL, billY, { width: RIGHT - RCOL }); billY += 12; }
-    if (deal.phone)        { doc.text(deal.phone,        RCOL, billY, { width: RIGHT - RCOL }); billY += 12; }
-    if (deal.billingLine1) { doc.text(deal.billingLine1, RCOL, billY, { width: RIGHT - RCOL }); billY += 12; }
-    if (deal.billingLine2) { doc.text(deal.billingLine2, RCOL, billY, { width: RIGHT - RCOL }); billY += 12; }
+    if (deal.email)        { doc.text(deal.email,        LEFT, billY, { width: MID - LEFT }); billY += 12; }
+    if (deal.phone)        { doc.text(deal.phone,        LEFT, billY, { width: MID - LEFT }); billY += 12; }
+    if (deal.billingLine1) { doc.text(deal.billingLine1, LEFT, billY, { width: MID - LEFT }); billY += 12; }
+    if (deal.billingLine2) { doc.text(deal.billingLine2, LEFT, billY, { width: MID - LEFT }); billY += 12; }
     if (deal.billingCity || deal.billingState || deal.billingZip) {
       const cityLine =
         [deal.billingCity, deal.billingState].filter(Boolean).join(", ") +
         (deal.billingZip ? ` ${deal.billingZip}` : "");
-      doc.text(cityLine.trim(), RCOL, billY, { width: RIGHT - RCOL }); billY += 12;
+      doc.text(cityLine.trim(), LEFT, billY, { width: MID - LEFT }); billY += 12;
     } else if (deal.state) {
-      doc.text(deal.state, RCOL, billY, { width: RIGHT - RCOL }); billY += 12;
+      doc.text(deal.state, LEFT, billY, { width: MID - LEFT }); billY += 12;
     }
 
-    // ── Header divider ───────────────────────────────────────────────────────
-    const headerBottom = Math.max(billY + 6, spotY + (deal.silverSpotAsk ? 24 : 12) + 6, 162);
-    doc
-      .moveTo(LEFT, headerBottom).lineTo(RIGHT, headerBottom)
-      .strokeColor(LGRAY).lineWidth(1).stroke();
+    // ── Delivery ──────────────────────────────────────────────────────────────
+    doc.fontSize(7.5).font("Helvetica-Bold").fillColor(GRAY)
+       .text("DELIVERY", RCOL, secY, { width: RIGHT - RCOL });
 
-    // ──────────────────────────────────────────────────────────────────────────
-    // DELIVERY SECTION
-    // ──────────────────────────────────────────────────────────────────────────
-    const isFedex = deal.shippingMethod === "fedex_hold";
-    const deliveryY = headerBottom + 8;
-    const DLEFT = LEFT + 65;
-
-    doc
-      .fontSize(7.5).font("Helvetica-Bold").fillColor(GRAY)
-      .text("DELIVERY", LEFT, deliveryY, { width: 60 });
-    doc
-      .fontSize(9).font("Helvetica-Bold").fillColor(DARK)
-      .text(isFedex ? "FedEx Hold" : "Home Delivery", DLEFT, deliveryY, { width: RIGHT - DLEFT });
-
-    let dY = deliveryY + 13;
-    doc.fontSize(8.5).font("Helvetica").fillColor(GRAY);
+    let dY = secY + 11;
+    doc.fontSize(8.5).font("Helvetica").fillColor(DARK);
 
     if (isFedex) {
+      // FedEx Hold: show location name → FBO → address → hours (no "FedEx Hold" label)
       if (deal.fedexLocation) {
-        doc.text(deal.fedexLocation, DLEFT, dY, { width: RIGHT - DLEFT }); dY += 12;
+        doc.text(deal.fedexLocation, RCOL, dY, { width: RIGHT - RCOL }); dY += 12;
       }
-      doc.text(`FBO ${deal.firstName} ${deal.lastName}`, DLEFT, dY, { width: RIGHT - DLEFT }); dY += 12;
-      const addrLine = [deal.shipToLine1, [deal.shipToCity, deal.shipToState].filter(Boolean).join(", ") + (deal.shipToZip ? ` ${deal.shipToZip}` : "")].filter(Boolean).join(", ");
-      if (addrLine) { doc.text(addrLine, DLEFT, dY, { width: RIGHT - DLEFT }); dY += 12; }
+      doc.text(`FBO ${deal.firstName} ${deal.lastName}`, RCOL, dY, { width: RIGHT - RCOL }); dY += 12;
+      if (deal.shipToLine1) {
+        doc.fillColor(GRAY).text(deal.shipToLine1, RCOL, dY, { width: RIGHT - RCOL }); dY += 12;
+      }
+      const cityLine = [deal.shipToCity, deal.shipToState].filter(Boolean).join(", ") +
+        (deal.shipToZip ? ` ${deal.shipToZip}` : "");
+      if (cityLine.trim()) {
+        doc.fillColor(GRAY).text(cityLine.trim(), RCOL, dY, { width: RIGHT - RCOL }); dY += 12;
+      }
       if (deal.fedexLocationHours) {
-        doc.text(`Hours: ${deal.fedexLocationHours}`, DLEFT, dY, { width: RIGHT - DLEFT }); dY += 12;
+        doc.fillColor(GRAY).text(`Hours: ${deal.fedexLocationHours}`, RCOL, dY, { width: RIGHT - RCOL }); dY += 12;
       }
     } else {
-      if (deal.shipToLine1) { doc.text(deal.shipToLine1, DLEFT, dY, { width: RIGHT - DLEFT }); dY += 12; }
-      const cityLine = [deal.shipToCity, deal.shipToState].filter(Boolean).join(", ") + (deal.shipToZip ? ` ${deal.shipToZip}` : "");
-      if (cityLine.trim()) { doc.text(cityLine.trim(), DLEFT, dY, { width: RIGHT - DLEFT }); dY += 12; }
+      // Home delivery
+      doc.fillColor(GRAY);
+      if (deal.shipToLine1) { doc.text(deal.shipToLine1, RCOL, dY, { width: RIGHT - RCOL }); dY += 12; }
+      const cityLine = [deal.shipToCity, deal.shipToState].filter(Boolean).join(", ") +
+        (deal.shipToZip ? ` ${deal.shipToZip}` : "");
+      if (cityLine.trim()) { doc.text(cityLine.trim(), RCOL, dY, { width: RIGHT - RCOL }); dY += 12; }
     }
 
-    const deliveryBottom = dY + 6;
-    doc
-      .moveTo(LEFT, deliveryBottom).lineTo(RIGHT, deliveryBottom)
-      .strokeColor(LGRAY).lineWidth(0.5).stroke();
+    const sectionBottom = Math.max(billY, dY) + 6;
+    doc.moveTo(LEFT, sectionBottom).lineTo(RIGHT, sectionBottom)
+       .strokeColor(LGRAY).lineWidth(0.5).stroke();
 
     // ──────────────────────────────────────────────────────────────────────────
     // PRODUCT TABLE
     // ──────────────────────────────────────────────────────────────────────────
-    const tableTop = deliveryBottom + 8;
+    const tableTop = sectionBottom + 8;
     const COL = { product: LEFT, qty: 340, unit: 410, total: 505 };
 
     doc
@@ -381,25 +380,28 @@ export async function generateInvoicePdf(deal: InvoiceDeal): Promise<Buffer> {
       );
 
     // ──────────────────────────────────────────────────────────────────────────
-    // FOOTER
+    // FOOTER — ToS line sits ABOVE the footer divider
     // ──────────────────────────────────────────────────────────────────────────
-    const footY = 735;
+    const footDivY = 743;   // divider line
+    const tosY     = footDivY - 15;  // ToS sentence above divider
+    const compY    = footDivY + 7;   // company tagline below divider
+
     doc
-      .moveTo(LEFT, footY).lineTo(RIGHT, footY)
+      .fontSize(7).font("Helvetica").fillColor(GRAY)
+      .text(
+        "This transaction is subject to West Hills Capital's Terms of Service available at westhillscapital.com/terms",
+        LEFT, tosY, { align: "center", width: W },
+      );
+
+    doc
+      .moveTo(LEFT, footDivY).lineTo(RIGHT, footDivY)
       .strokeColor(LGRAY).lineWidth(0.5).stroke();
 
     doc
       .fontSize(7.5).font("Helvetica").fillColor(GRAY)
       .text(
         "West Hills Capital  |  (800) 867-6768  |  westhillscapital.com  |  Physical Precious Metals Allocation",
-        LEFT, footY + 6, { align: "center", width: W },
-      );
-
-    doc
-      .fontSize(7).font("Helvetica").fillColor(GRAY)
-      .text(
-        "This transaction is subject to West Hills Capital's Terms of Service available at westhillscapital.com/terms",
-        LEFT, footY + 18, { align: "center", width: W },
+        LEFT, compY, { align: "center", width: W },
       );
 
     doc.end();
