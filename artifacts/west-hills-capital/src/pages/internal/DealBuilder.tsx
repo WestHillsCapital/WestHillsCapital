@@ -132,12 +132,13 @@ export default function DealBuilder() {
   } | null>(null);
 
   // ── UI state ─────────────────────────────────────────────────────────────
-  const [isFetchingSpot,  setIsFetchingSpot]  = useState(false);
-  const [isSaving,        setIsSaving]        = useState(false);
-  const [executionStep,   setExecutionStep]   = useState(0);
-  const [spotError,       setSpotError]       = useState<string | null>(null);
-  const [saveError,       setSaveError]       = useState<string | null>(null);
-  const [loadingCustomer, setLoadingCustomer] = useState(false);
+  const [isFetchingSpot,     setIsFetchingSpot]     = useState(false);
+  const [isSaving,           setIsSaving]           = useState(false);
+  const [executionStep,      setExecutionStep]      = useState(0);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+  const [spotError,          setSpotError]          = useState<string | null>(null);
+  const [saveError,          setSaveError]          = useState<string | null>(null);
+  const [loadingCustomer,    setLoadingCustomer]    = useState(false);
 
   // ── Load saved deal (read-only view when ?dealId=X) ──────────────────────
   useEffect(() => {
@@ -477,6 +478,63 @@ export default function DealBuilder() {
     }
   }, [customer, dealType, iraType, spotData, rows, subtotal, shipping, total,
       deliveryMethod, fedexLocation, shipToLine1, shipToCity, shipToState, shipToZip, notes]);
+
+  // ── Preview Invoice PDF ───────────────────────────────────────────────────
+  const handlePreviewInvoice = useCallback(async () => {
+    setIsGeneratingPreview(true);
+    try {
+      const activeProducts = rows
+        .filter((r) => parseQty(r.qty) > 0 && parseNum(r.unitPrice) > 0)
+        .map((r) => ({
+          productName: r.productName,
+          qty:         parseQty(r.qty),
+          unitPrice:   parseNum(r.unitPrice),
+          lineTotal:   parseQty(r.qty) * parseNum(r.unitPrice),
+        }));
+
+      const res = await fetch(`${API_BASE}/api/deals/preview-invoice`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body:    JSON.stringify({
+          firstName:     customer.firstName || "Preview",
+          lastName:      customer.lastName  || "Client",
+          email:         customer.email,
+          phone:         customer.phone     || undefined,
+          state:         customer.state     || undefined,
+          dealType,
+          shippingMethod: deliveryMethod,
+          fedexLocation:  fedexLocation     || undefined,
+          shipToLine1:    shipToLine1       || undefined,
+          shipToCity:     shipToCity        || undefined,
+          shipToState:    shipToState       || undefined,
+          shipToZip:      shipToZip         || undefined,
+          products:       activeProducts,
+          subtotal,
+          shipping,
+          total,
+          goldSpotAsk:   spotData.goldSpotAsk   ?? undefined,
+          silverSpotAsk: spotData.silverSpotAsk ?? undefined,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Server error generating preview");
+
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `WHC-PREVIEW-${new Date().toISOString().slice(0, 10).replace(/-/g, "")}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Could not generate preview PDF.");
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  }, [customer, dealType, deliveryMethod, fedexLocation, shipToLine1, shipToCity, shipToState, shipToZip,
+      rows, subtotal, shipping, total, spotData, getAuthHeaders]);
 
   // ── Field helper ─────────────────────────────────────────────────────────
   const setCust = (field: keyof Customer) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -956,6 +1014,18 @@ export default function DealBuilder() {
                   <p className="text-xs text-gray-500 mt-2 text-center">
                     Freezes pricing · places DG order · generates PDF invoice · emails client
                   </p>
+                  <div className="border-t border-gray-800 mt-4 pt-4">
+                    <button
+                      onClick={handlePreviewInvoice}
+                      disabled={isGeneratingPreview}
+                      className="w-full py-2 rounded text-sm font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isGeneratingPreview ? "Generating PDF…" : "Preview Invoice PDF"}
+                    </button>
+                    <p className="text-xs text-gray-600 mt-1.5 text-center">
+                      Downloads the invoice using current form data — no trade executed
+                    </p>
+                  </div>
                 </>
               )}
             </section>

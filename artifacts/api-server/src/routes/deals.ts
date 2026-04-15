@@ -373,6 +373,91 @@ router.post("/", async (req, res) => {
   }
 });
 
+// POST /api/deals/preview-invoice
+// Generates and streams the WHC invoice PDF for the current form state.
+// No DB write, no DG call, no Drive upload, no email.
+router.post("/preview-invoice", async (req, res) => {
+  const {
+    firstName = "Preview",
+    lastName  = "Client",
+    email     = "",
+    phone,
+    state,
+    dealType  = "cash",
+    shippingMethod,
+    fedexLocation,
+    shipToLine1,
+    shipToCity,
+    shipToState,
+    shipToZip,
+    products  = [],
+    subtotal  = 0,
+    shipping  = 0,
+    total     = 0,
+    goldSpotAsk,
+    silverSpotAsk,
+  } = req.body as {
+    firstName?:     string;
+    lastName?:      string;
+    email?:         string;
+    phone?:         string;
+    state?:         string;
+    dealType?:      string;
+    shippingMethod?: string;
+    fedexLocation?:  string;
+    shipToLine1?:    string;
+    shipToCity?:     string;
+    shipToState?:    string;
+    shipToZip?:      string;
+    products?: { productName: string; qty: number; unitPrice: number; lineTotal: number }[];
+    subtotal?:       number;
+    shipping?:       number;
+    total?:          number;
+    goldSpotAsk?:    number;
+    silverSpotAsk?:  number;
+  };
+
+  try {
+    const now = new Date();
+    const pdfBuffer = await generateInvoicePdf({
+      id:            0,
+      firstName:     firstName ?? "Preview",
+      lastName:      lastName  ?? "Client",
+      email:         email     ?? "",
+      phone:         phone     ?? undefined,
+      state:         state     ?? undefined,
+      dealType:      dealType  ?? "cash",
+      shippingMethod,
+      fedexLocation,
+      shipToLine1,
+      shipToCity,
+      shipToState,
+      shipToZip,
+      products: (products ?? []).map((p) => ({
+        productName: p.productName,
+        qty:         Number(p.qty)       || 0,
+        unitPrice:   Number(p.unitPrice) || 0,
+        lineTotal:   Number(p.lineTotal) || 0,
+      })),
+      subtotal:       Number(subtotal)     || 0,
+      shipping:       Number(shipping)     || 0,
+      total:          Number(total)        || 0,
+      goldSpotAsk:    goldSpotAsk    ? Number(goldSpotAsk)    : undefined,
+      silverSpotAsk:  silverSpotAsk  ? Number(silverSpotAsk)  : undefined,
+      lockedAt:       now.toISOString(),
+    });
+
+    const dateStr = yyyymmdd(now);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="WHC-PREVIEW-${dateStr}.pdf"`);
+    res.setHeader("Content-Length", pdfBuffer.length);
+    res.send(pdfBuffer);
+  } catch (err) {
+    logger.error({ err }, "[Deals] Preview invoice generation failed");
+    res.status(500).json({ error: "Failed to generate preview invoice" });
+  }
+});
+
 // GET /api/deals/:id
 // Returns a single saved deal by ID
 router.get("/:id", async (req, res) => {
