@@ -186,7 +186,7 @@ When the internal user clicks **Lock & Execute** in the Deal Builder, the follow
 2. **DG LockPrices** — locks Fiztrade wholesale prices (20-second window)
 3. **DG ExecuteTrade** — places the wholesale buy order immediately after lock
 4. **Invoice PDF** — `pdfkit` generates a WHC-branded invoice (no DG references); wire instructions reference Commerce Bank account (hardcoded in `lib/invoice-pdf.ts`)
-5. **Google Drive upload** — PDF saved to `{YEAR}/{MM–Month}/{YYYYMMDD-LastName-DealType}/WHC-{id}-{date}.pdf` under root folder ID
+5. **Google Drive upload** — PDF saved to `{YEAR}/{MM–Month}/{FI LastName}/{MMDDYY FI LastName Invoice.pdf}` under root folder ID (e.g. `2026/04 – April/J Smith/041526 J Smith Invoice.pdf`)
 6. **Client recap email** — PDF attached, with wire instructions; sent via Resend
 7. **Admin notification + Sheets sync** — fire-and-forget
 
@@ -200,11 +200,21 @@ When the internal user clicks **Lock & Execute** in the Deal Builder, the follow
 ### Railway env vars required for full functionality
 | Var | Value | Purpose |
 |---|---|---|
-| `DILLON_GAGE_API_KEY` | (already set) | Fiztrade token |
+| `DILLON_GAGE_API_KEY` | (set in Railway) | Fiztrade token |
 | `GOOGLE_DRIVE_DEALS_FOLDER_ID` | `13CrCk1OVZDiSVK6zk44d7YEaDdyGo9sp` | Root Drive folder |
+| `FEDEX_CLIENT_ID` | `l7b9d07dbde93c4446a649934cb2898d02` | FedEx API key |
+| `FEDEX_CLIENT_SECRET` | `3cc1d6e0832545d588a79e9ccdfefa32` | FedEx secret |
 
 ### Google Drive sharing requirement
 The service account `whc-scheduling@mapdrive-380403.iam.gserviceaccount.com` must have **Editor** access to the root Drive folder `13CrCk1OVZDiSVK6zk44d7YEaDdyGo9sp`.
+
+### FedEx Location Search
+- **Endpoint**: `POST /api/fedex/locations` (requires internal auth)
+- **Flow**: FedEx OAuth (client_credentials) → POST `https://apis.fedex.com/location/v1/locations`
+- **Filter**: `locationTypes: ["FEDEX_OFFICE", "SHIP_CENTER"]` — only these two types shown
+- **Result**: Up to 2 nearest locations sorted by distance; raw response logged at `INFO`
+- **Deal Builder UI**: ZIP search → 2 clickable result cards → auto-fills ship-to address + fedex_location name
+- **Credentials stored**: `FEDEX_CLIENT_ID`, `FEDEX_CLIENT_SECRET` in Replit env vars and Railway
 
 ### Fiztrade API note
 `lib/fiztrade.ts` implements LockPrices and ExecuteTrade based on the existing API pattern. The raw responses are logged at `INFO` level in Railway. If the API returns field names different from what was assumed, check Railway logs and adjust the `pickField(...)` calls in `fiztrade.ts`.
