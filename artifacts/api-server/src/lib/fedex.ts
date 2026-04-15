@@ -72,55 +72,69 @@ function pickStr(obj: unknown, ...keys: string[]): string {
 }
 
 /**
- * Extract the FedEx store's physical address from a locationDetail object.
- * Tries every known field-name variant from the FedEx Location v1 API
- * (both production and sandbox schemas).
- *
- * Returns { street, city, state, zip } on success, or null if no usable
- * address can be found. Callers should use graceful degradation rather than
- * skipping the location entirely when this returns null.
+ * Build the prioritised list of candidate address objects from a
+ * locationDetail entry, handling all observed FedEx API v1 schemas.
  */
-function extractStoreAddress(detail: Record<string, unknown>): {
-  street: string; city: string; state: string; zip: string;
-} | null {
-  const candidates: Record<string, unknown>[] = [];
+function addressCandidates(detail: Record<string, unknown>): Record<string, unknown>[] {
+  const list: Record<string, unknown>[] = [];
 
   // 1. locationContactAndAddress.address  (production — most common)
   const lca = pick<Record<string, unknown>>(detail,
     "locationContactAndAddress", "contactAndAddress");
   if (lca) {
     const a = pick<Record<string, unknown>>(lca, "address", "physicalAddress");
-    if (a) candidates.push(a);
+    if (a) list.push(a);
   }
 
   // 2. physicalAddress or address directly on detail
   const pa = pick<Record<string, unknown>>(detail, "physicalAddress", "address");
-  if (pa && typeof pa === "object" && !Array.isArray(pa)) candidates.push(pa);
+  if (pa && typeof pa === "object" && !Array.isArray(pa)) list.push(pa);
 
   // 3. storeAddress / locationAddress (some sandbox versions)
   const sa = pick<Record<string, unknown>>(detail, "storeAddress", "locationAddress");
-  if (sa) candidates.push(sa);
+  if (sa) list.push(sa);
 
   // 4. Flat fields directly on detail (alternate sandbox schema)
-  //    Some sandbox responses put streetLines/city/postalCode at the top level.
-  candidates.push(detail);
+  list.push(detail);
 
+  return list;
+}
+
+function parseStreet(addr: Record<string, unknown>): string {
+  const raw = pick<unknown>(addr, "streetLines", "addressLines");
+  if (Array.isArray(raw) && raw.length > 0) return String(raw[0]);
+  if (typeof raw === "string" && raw) return raw;
+  return "";
+}
+
+/**
+ * Extract the FedEx store's physical address from a locationDetail object.
+ * Tries every known field-name variant from the FedEx Location v1 API.
+ *
+ * Returns { street, city, state, zip } on success. street may be empty when
+ * only city/state/zip are available (partial result). Returns null only when
+ * no address data whatsoever can be found.
+ */
+function extractStoreAddress(detail: Record<string, unknown>): {
+  street: string; city: string; state: string; zip: string;
+} | null {
+  const candidates = addressCandidates(detail);
+
+  // Pass 1: full address (street + city required)
   for (const addr of candidates) {
-    const rawStreetLines = pick<unknown>(addr, "streetLines", "addressLines");
-    let street = "";
-    if (Array.isArray(rawStreetLines) && rawStreetLines.length > 0) {
-      street = String(rawStreetLines[0]);
-    } else if (typeof rawStreetLines === "string" && rawStreetLines) {
-      street = rawStreetLines;
-    }
+    const street = parseStreet(addr);
+    const city   = pickStr(addr, "city");
+    const state  = pickStr(addr, "stateOrProvinceCode", "stateCode", "state");
+    const zip    = pickStr(addr, "postalCode", "zipCode", "zip");
+    if (street && city) return { street, city, state, zip };
+  }
 
+  // Pass 2: partial address (city alone is enough to be useful)
+  for (const addr of candidates) {
     const city  = pickStr(addr, "city");
     const state = pickStr(addr, "stateOrProvinceCode", "stateCode", "state");
     const zip   = pickStr(addr, "postalCode", "zipCode", "zip");
-
-    if (street && city) {
-      return { street, city, state, zip };
-    }
+    if (city) return { street: "", city, state, zip };
   }
 
   return null;
@@ -171,6 +185,10 @@ export async function searchFedExLocations(postalCode: string): Promise<FedExLoc
   }
 
   const data = (await res.json()) as Record<string, unknown>;
+
+  // Debug-only: full raw response for schema troubleshooting.
+  // Enable by setting LOG_LEVEL=debug in the environment.
+  logger.debug({ postalCode, rawResponse: data }, "[FedEx] Full raw locations response");
 
   // Diagnostic log: top-level response shape without the full payload
   const output     = pick<Record<string, unknown>>(data, "output") ?? data;
@@ -239,9 +257,10 @@ export async function searchFedExLocations(postalCode: string): Promise<FedExLoc
         phone,
       });
     } else {
-      // Graceful degradation: include the location with empty address fields
-      // rather than dropping it entirely. The user can type in the address,
-      // or use the manual fallback field below the picker.
+      // Graceful degradation: no address data found anywhere in this entry.
+      // Include the location by name + distance so the user can still select
+      // it and type the address manually, rather than hiding it entirely.
+      // Set LOG_LEVEL=debug to see the full raw entry for schema troubleshooting.
       logger.warn(
         {
           name,
@@ -249,7 +268,7 @@ export async function searchFedExLocations(postalCode: string): Promise<FedExLoc
           detailKeys:  Object.keys(detail),
           locKeys:     Object.keys(loc),
         },
-        "[FedEx] Could not parse store address — including location with empty address",
+        "[FedEx] No address found in location entry — included with empty address fields",
       );
       results.push({
         name,
