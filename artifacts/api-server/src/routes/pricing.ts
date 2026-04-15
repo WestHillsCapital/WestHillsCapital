@@ -6,6 +6,7 @@ import {
   GetBuybackPricesResponse,
 } from "@workspace/api-zod";
 import { getDb } from "../db";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -92,27 +93,32 @@ async function getLiveSpot() {
   }
 
   const data = (await res.json()) as {
-    goldBid: number;
-    goldAsk: number;
-    silverBid: number;
-    silverAsk: number;
-    goldChange: number;
-    silverChange: number;
-    goldChangePercent: number;
-    silverChangePercent: number;
+    goldBid?: number;
+    goldAsk?: number;
+    silverBid?: number;
+    silverAsk?: number;
+    goldChange?: number;
+    silverChange?: number;
+    goldChangePercent?: number;
+    silverChangePercent?: number;
+    error?: string;
   };
 
+  if (data.error || data.goldAsk === undefined) {
+    throw new Error(`Dillon Gage API returned error: ${data.error ?? "unexpected response shape"}`);
+  }
+
   cachedSpot = {
-    gold: data.goldAsk,
-    silver: data.silverAsk,
-    goldBid: data.goldBid,
-    goldAsk: data.goldAsk,
-    silverBid: data.silverBid,
-    silverAsk: data.silverAsk,
-    goldChange: data.goldChange,
-    silverChange: data.silverChange,
-    goldChangePercent: data.goldChangePercent,
-    silverChangePercent: data.silverChangePercent,
+    gold: data.goldAsk!,
+    silver: data.silverAsk!,
+    goldBid: data.goldBid!,
+    goldAsk: data.goldAsk!,
+    silverBid: data.silverBid!,
+    silverAsk: data.silverAsk!,
+    goldChange: data.goldChange ?? 0,
+    silverChange: data.silverChange ?? 0,
+    goldChangePercent: data.goldChangePercent ?? 0,
+    silverChangePercent: data.silverChangePercent ?? 0,
     lastUpdated: new Date().toISOString(),
     source: "dillon-gage",
   };
@@ -147,7 +153,15 @@ async function getLiveProductData(): Promise<DGProductData[]> {
     throw new Error(`DG GetPricesForProducts error: ${res.status}`);
   }
 
-  const raw = (await res.json()) as {
+  const json = await res.json();
+
+  // Staging / expired-token returns { "error": "..." } as a 200 — detect and throw cleanly
+  if (!Array.isArray(json)) {
+    const errMsg = (json as { error?: string }).error ?? "unexpected non-array response";
+    throw new Error(`DG GetPricesForProducts API returned error: ${errMsg}`);
+  }
+
+  const raw = json as {
     code: string;
     tiers: Record<string, DGProductTier>;
     availability: string;
@@ -408,7 +422,7 @@ router.get("/history", async (req, res) => {
     const history = await getYahooHistory(period);
     return res.json({ history });
   } catch (err) {
-    console.error("Error fetching spot history:", err);
+    logger.error({ err }, "[Pricing] Error fetching spot history");
     res.status(502).json({ error: "Unable to fetch price history" });
   }
 });
@@ -433,7 +447,7 @@ router.get("/spot", async (_req, res) => {
     });
     res.json(data);
   } catch (err) {
-    console.error("Error fetching spot prices:", err);
+    logger.error({ err }, "[Pricing] Error fetching spot prices");
     res.status(502).json({ error: "Unable to fetch live spot prices" });
   }
 });
@@ -467,7 +481,7 @@ router.get("/products", async (_req, res) => {
     const [spot, dgProducts] = await Promise.all([
       getLiveSpot(),
       getLiveProductData().catch((err) => {
-        console.warn("GetPricesForProducts failed, using spot fallback:", err);
+        logger.warn({ err }, "[Pricing] GetPricesForProducts failed, using spot fallback");
         return null;
       }),
     ]);
@@ -546,7 +560,7 @@ router.get("/products", async (_req, res) => {
 
     res.json(data);
   } catch (err) {
-    console.error("Error fetching product prices:", err);
+    logger.error({ err }, "[Pricing] Error fetching product prices");
     res.status(502).json({ error: "Unable to fetch live product prices" });
   }
 });
@@ -592,7 +606,7 @@ router.get("/buyback", async (_req, res) => {
 
     res.json(data);
   } catch (err) {
-    console.error("Error fetching buyback prices:", err);
+    logger.error({ err }, "[Pricing] Error fetching buyback prices");
     res.status(502).json({ error: "Unable to fetch live buyback prices" });
   }
 });

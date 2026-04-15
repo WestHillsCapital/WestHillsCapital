@@ -11,6 +11,14 @@ const port = rawPort && !Number.isNaN(Number(rawPort)) ? Number(rawPort) : 3000;
 
 const basePath = process.env.BASE_PATH ?? "/";
 
+// In development, force VITE_API_URL to empty so all /api calls use the Vite
+// dev-server proxy (→ localhost:8080). In production (Vercel/Railway builds),
+// the env var keeps its value and the browser calls Railway directly.
+const apiUrl =
+  process.env.NODE_ENV === "development"
+    ? ""
+    : (process.env.VITE_API_URL ?? "");
+
 export default defineConfig({
   base: basePath,
   plugins: [
@@ -37,6 +45,9 @@ export default defineConfig({
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
     },
     dedupe: ["react", "react-dom"],
+  },
+  define: {
+    "import.meta.env.VITE_API_URL": JSON.stringify(apiUrl),
   },
   root: path.resolve(import.meta.dirname),
   build: {

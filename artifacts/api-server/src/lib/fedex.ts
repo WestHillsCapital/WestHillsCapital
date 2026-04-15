@@ -7,7 +7,9 @@
  */
 import { logger } from "./logger";
 
-const FEDEX_BASE = "https://apis.fedex.com";
+// Default to production; override with FEDEX_BASE_URL=https://apis-sandbox.fedex.com
+// in dev/staging environments that use sandbox credentials.
+const FEDEX_BASE = process.env.FEDEX_BASE_URL ?? "https://apis.fedex.com";
 
 // ── Token ─────────────────────────────────────────────────────────────────────
 
@@ -115,17 +117,20 @@ function extractStoreAddress(detail: Record<string, unknown>): {
 export async function searchFedExLocations(postalCode: string): Promise<FedExLocation[]> {
   const token = await getFedExToken();
 
+  // FedEx sandbox only has drop-box (FEDEX_SELF_SERVICE_LOCATION) inventory,
+  // so locationTypes filter is skipped in sandbox mode to get any results.
+  // Production narrows to staffed Hold-at-Location facilities only.
+  const isSandbox = FEDEX_BASE.includes("sandbox");
+
   const requestBody = {
     locationsSummaryRequestControlParameters: { maxOptions: 10 },
     locationSearchCriterion: "ADDRESS",
     location: {
       address: { postalCode, countryCode: "US" },
     },
-    sortDetail:       { criterion: "DISTANCE", order: "ASCENDING" },
-    // Staffed FedEx locations only (no Walgreens / Dollar General / authorized ship centers)
-    locationTypes:    ["FEDEX_OFFICE", "SHIP_CENTER"],
-    // Hold at Location capability required
+    sortDetail: { criterion: "DISTANCE", order: "ASCENDING" },
     storeServiceTypes: ["HOLD_AT_LOCATION"],
+    ...(isSandbox ? {} : { locationTypes: ["FEDEX_OFFICE", "FEDEX_SHIP_CENTER"] }),
   };
 
   const res = await fetch(`${FEDEX_BASE}/location/v1/locations`, {
@@ -166,17 +171,21 @@ export async function searchFedExLocations(postalCode: string): Promise<FedExLoc
     const distUnit = pickStr(distObj, "units") || "MI";
     const distance = distVal !== undefined ? `${Number(distVal).toFixed(1)} ${distUnit}` : "";
 
-    // Location detail block — never fall back to `loc` itself to avoid
-    // accidentally using the searched/customer address at the list-item level
-    const detail = pick<Record<string, unknown>>(loc, "locationDetail", "detail");
-    if (!detail) {
-      logger.warn({ loc: JSON.stringify(loc).slice(0, 400) }, "[FedEx] No locationDetail on item — skipping");
-      continue;
-    }
+    // Production wraps data in a "locationDetail" block; sandbox puts it directly
+    // on the list item. Fall back to `loc` itself so sandbox results parse correctly.
+    const detail = pick<Record<string, unknown>>(loc, "locationDetail", "detail") ?? loc;
 
+    // Name: try locationDetail fields first, then addressAncillaryDetail.displayName
+    // (sandbox uses the latter)
+    const ancillary = pick<Record<string, unknown>>(
+      pick<Record<string, unknown>>(loc, "contactAndAddress") ?? {},
+      "addressAncillaryDetail",
+    ) ?? {};
     const name    = pickStr(detail, "locationName", "storeName", "name") ||
+                    pickStr(ancillary, "displayName") ||
                     `FedEx ${pickStr(detail, "locationType")}`;
-    const locType = pickStr(detail, "locationType", "type");
+    const locType = pickStr(detail, "locationType", "type") ||
+                    pickStr(ancillary, "displayName");
 
     // Extract the store's physical address — strict, no fallback to customer address
     const addr = extractStoreAddress(detail);

@@ -37,6 +37,7 @@ FIZTRADE_BASE_URL = "https://stage-connect.fiztrade.com/FizServices"
 
 [userenv.development]
 VITE_API_URL = "https://workspaceapi-server-production-987b.up.railway.app"
+FEDEX_BASE_URL = "https://apis-sandbox.fedex.com"
 
 [nix]
 channel = "stable-25_05"
