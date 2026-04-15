@@ -31,6 +31,7 @@ import IRA from "@/pages/IRA";
 import About from "@/pages/About";
 import Disclosures from "@/pages/Disclosures";
 import Terms from "@/pages/Terms";
+import Privacy from "@/pages/Privacy";
 import Insights from "@/pages/Insights";
 import InsightArticle from "@/pages/InsightArticle";
 import NotFound from "@/pages/not-found";
@@ -104,6 +105,7 @@ function Router() {
         <Route path="/about"           component={About}          />
         <Route path="/disclosures"     component={Disclosures}    />
         <Route path="/terms"           component={Terms}          />
+        <Route path="/privacy"         component={Privacy}        />
         <Route path="/insights"        component={Insights}       />
         <Route path="/insights/:slug"  component={InsightArticle} />
         <Route component={NotFound} />
