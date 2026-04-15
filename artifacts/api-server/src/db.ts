@@ -180,6 +180,29 @@ export async function initDb(): Promise<void> {
     )
   `);
 
+  // ── Safe column additions for the deals table (idempotent) ─────────────────
+  const safeAdd = async (col: string, type: string) => {
+    await db.query(
+      `ALTER TABLE deals ADD COLUMN IF NOT EXISTS ${col} ${type}`
+    );
+  };
+  // Ship-to address
+  await safeAdd("ship_to_name",  "TEXT");
+  await safeAdd("ship_to_line1", "TEXT");
+  await safeAdd("ship_to_city",  "TEXT");
+  await safeAdd("ship_to_state", "TEXT");
+  await safeAdd("ship_to_zip",   "TEXT");
+  // DG trade execution
+  await safeAdd("external_trade_id",        "TEXT");
+  await safeAdd("supplier_confirmation_id", "TEXT");
+  await safeAdd("execution_status",         "TEXT");
+  await safeAdd("execution_timestamp",      "TIMESTAMPTZ");
+  // Invoice
+  await safeAdd("invoice_id",           "TEXT");
+  await safeAdd("invoice_url",          "TEXT");
+  await safeAdd("invoice_generated_at", "TIMESTAMPTZ");
+  await safeAdd("recap_email_sent_at",  "TIMESTAMPTZ");
+
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 

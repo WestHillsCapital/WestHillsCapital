@@ -4,13 +4,25 @@ import { logger } from "../lib/logger";
 import {
   appendDealToOpsSheet,
   writeDealLinkToMasterSheet,
+  type DealPayload,
 } from "../lib/google-sheets";
-import { sendDealLockNotification } from "../lib/email";
+import { sendDealLockNotification, sendDealRecapEmail } from "../lib/email";
+import { lockAndExecuteTrade }   from "../lib/fiztrade";
+import { generateInvoicePdf }   from "../lib/invoice-pdf";
+import { saveDealPdfToDrive }   from "../lib/google-drive";
 
 const router: IRouter = Router();
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function yyyymmdd(d: Date): string {
+  return String(d.getFullYear()) +
+    String(d.getMonth() + 1).padStart(2, "0") +
+    String(d.getDate()).padStart(2, "0");
+}
+
 // POST /api/deals
-// Saves a locked deal to the DB and syncs to Google Sheets
+// Full orchestration: save → DG trade → invoice PDF → Drive → recap email
 router.post("/", async (req, res) => {
   const {
     leadId,
@@ -34,65 +46,73 @@ router.post("/", async (req, res) => {
     balanceDue,
     shippingMethod = "fedex_hold",
     fedexLocation,
+    // Ship-to address fields (required for DG ExecuteTrade)
+    shipToName,
+    shipToLine1,
+    shipToCity,
+    shipToState,
+    shipToZip,
     notes,
   } = req.body as {
-    leadId?: number | null;
-    confirmationId?: string | null;
-    dealType?: string;
-    iraType?: string | null;
-    firstName: string;
-    lastName: string;
-    email: string;
-    phone?: string | null;
-    state?: string | null;
-    custodian?: string | null;
+    leadId?:           number | null;
+    confirmationId?:   string | null;
+    dealType?:         string;
+    iraType?:          string | null;
+    firstName:         string;
+    lastName:          string;
+    email:             string;
+    phone?:            string | null;
+    state?:            string | null;
+    custodian?:        string | null;
     iraAccountNumber?: string | null;
-    goldSpotAsk?: number | null;
-    silverSpotAsk?: number | null;
-    spotTimestamp?: string | null;
+    goldSpotAsk?:      number | null;
+    silverSpotAsk?:    number | null;
+    spotTimestamp?:    string | null;
     products?: {
-      productId: string;
+      productId:   string;
       productName: string;
-      metal: string;
-      qty: number;
-      unitPrice: number;
-      lineTotal: number;
+      metal:       string;
+      qty:         number;
+      unitPrice:   number;
+      lineTotal:   number;
     }[];
-    subtotal?: number;
-    shipping?: number;
-    total?: number;
-    balanceDue?: number;
+    subtotal?:       number;
+    shipping?:       number;
+    total?:          number;
+    balanceDue?:     number;
     shippingMethod?: string;
-    fedexLocation?: string | null;
-    notes?: string | null;
+    fedexLocation?:  string | null;
+    shipToName?:     string | null;
+    shipToLine1?:    string | null;
+    shipToCity?:     string | null;
+    shipToState?:    string | null;
+    shipToZip?:      string | null;
+    notes?:          string | null;
   };
 
-  // ── Server-side validation ────────────────────────────────────────────────
+  // ── Validation ────────────────────────────────────────────────────────────
   const validationErrors: string[] = [];
 
-  if (!firstName?.trim())  validationErrors.push("firstName is required");
-  if (!lastName?.trim())   validationErrors.push("lastName is required");
-  if (!email?.includes("@")) validationErrors.push("email must be a valid address");
+  if (!firstName?.trim())      validationErrors.push("firstName is required");
+  if (!lastName?.trim())       validationErrors.push("lastName is required");
+  if (!email?.includes("@"))   validationErrors.push("email must be a valid address");
 
   if (!["cash", "ira"].includes(dealType)) {
     validationErrors.push("dealType must be 'cash' or 'ira'");
   }
-
   if (!["fedex_hold", "home_delivery"].includes(shippingMethod)) {
     validationErrors.push("shippingMethod must be 'fedex_hold' or 'home_delivery'");
   }
-
   if (!Array.isArray(products) || products.length === 0) {
     validationErrors.push("products must be a non-empty array");
   } else {
     products.forEach((p, i) => {
-      if (!p.productId) validationErrors.push(`products[${i}].productId is required`);
-      if (!p.metal)     validationErrors.push(`products[${i}].metal is required`);
-      if (!(p.qty > 0)) validationErrors.push(`products[${i}].qty must be > 0`);
+      if (!p.productId)       validationErrors.push(`products[${i}].productId is required`);
+      if (!p.metal)           validationErrors.push(`products[${i}].metal is required`);
+      if (!(p.qty > 0))       validationErrors.push(`products[${i}].qty must be > 0`);
       if (!(p.unitPrice > 0)) validationErrors.push(`products[${i}].unitPrice must be > 0`);
     });
   }
-
   if (typeof total !== "number" || total <= 0) {
     validationErrors.push("total must be a positive number");
   }
@@ -101,10 +121,13 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: validationErrors.join("; ") });
   }
 
-  const lockedAt = new Date();
+  const lockedAt  = new Date();
+  const invoiceId = `WHC-${0}-${yyyymmdd(lockedAt)}`; // placeholder — updated after insert
 
   try {
     const db = getDb();
+
+    // ── 1. Save deal to DB ───────────────────────────────────────────────────
     const result = await db.query<{ id: number }>(
       `INSERT INTO deals
          (lead_id, confirmation_id, deal_type, ira_type,
@@ -112,79 +135,210 @@ router.post("/", async (req, res) => {
           custodian, ira_account_number,
           gold_spot_ask, silver_spot_ask, spot_timestamp,
           products, subtotal, shipping, total, balance_due,
-          shipping_method, fedex_location, notes,
-          status, locked_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24)
+          shipping_method, fedex_location,
+          ship_to_name, ship_to_line1, ship_to_city, ship_to_state, ship_to_zip,
+          notes, status, locked_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
        RETURNING id`,
       [
-        leadId ?? null,
-        confirmationId ?? null,
-        dealType,
-        iraType ?? null,
-        firstName,
-        lastName,
-        email,
-        phone ?? null,
-        state ?? null,
-        custodian ?? null,
-        iraAccountNumber ?? null,
-        goldSpotAsk ?? null,
-        silverSpotAsk ?? null,
+        leadId ?? null, confirmationId ?? null, dealType, iraType ?? null,
+        firstName, lastName, email,
+        phone ?? null, state ?? null, custodian ?? null, iraAccountNumber ?? null,
+        goldSpotAsk ?? null, silverSpotAsk ?? null,
         spotTimestamp ? new Date(spotTimestamp) : null,
         products ? JSON.stringify(products) : null,
-        subtotal ?? null,
-        shipping ?? null,
-        total ?? null,
-        balanceDue ?? null,
-        shippingMethod,
-        fedexLocation ?? null,
-        notes ?? null,
-        "locked",
-        lockedAt,
-      ]
+        subtotal ?? null, shipping ?? null, total ?? null, balanceDue ?? null,
+        shippingMethod, fedexLocation ?? null,
+        shipToName  ?? null, shipToLine1  ?? null, shipToCity  ?? null,
+        shipToState ?? null, shipToZip    ?? null,
+        notes ?? null, "locked", lockedAt,
+      ],
     );
 
-    const dealId = result.rows[0].id;
-    logger.info({ dealId, email }, "[Deals] Deal saved to DB");
+    const dealId   = result.rows[0].id;
+    const finalInvoiceId = `WHC-${dealId}-${yyyymmdd(lockedAt)}`;
+    logger.info({ dealId, email }, "[Deals] Deal saved");
 
-    const deal = {
-      id: dealId,
-      leadId: leadId ?? undefined,
-      confirmationId: confirmationId ?? undefined,
+    // Build canonical deal object used across remaining steps
+    const deal: DealPayload = {
+      id:              dealId,
+      leadId:          leadId ?? undefined,
+      confirmationId:  confirmationId ?? undefined,
       dealType,
-      iraType: iraType ?? undefined,
+      iraType:         iraType ?? undefined,
       firstName,
       lastName,
       email,
-      phone: phone ?? undefined,
-      state: state ?? undefined,
-      custodian: custodian ?? undefined,
+      phone:           phone ?? undefined,
+      state:           state ?? undefined,
+      custodian:       custodian ?? undefined,
       iraAccountNumber: iraAccountNumber ?? undefined,
-      goldSpotAsk: goldSpotAsk ?? undefined,
-      silverSpotAsk: silverSpotAsk ?? undefined,
-      spotTimestamp: spotTimestamp ?? undefined,
-      products: products ?? [],
-      subtotal: subtotal ?? 0,
-      shipping: shipping ?? 0,
-      total: total ?? 0,
-      balanceDue: balanceDue ?? 0,
+      goldSpotAsk:     goldSpotAsk ?? undefined,
+      silverSpotAsk:   silverSpotAsk ?? undefined,
+      spotTimestamp:   spotTimestamp ?? undefined,
+      products:        products ?? [],
+      subtotal:        subtotal ?? 0,
+      shipping:        shipping ?? 0,
+      total:           total ?? 0,
+      balanceDue:      balanceDue ?? 0,
       shippingMethod,
-      fedexLocation: fedexLocation ?? undefined,
-      notes: notes ?? undefined,
-      lockedAt: lockedAt.toISOString(),
+      fedexLocation:   fedexLocation ?? undefined,
+      shipToName:      shipToName  ?? undefined,
+      shipToLine1:     shipToLine1 ?? undefined,
+      shipToCity:      shipToCity  ?? undefined,
+      shipToState:     shipToState ?? undefined,
+      shipToZip:       shipToZip   ?? undefined,
+      notes:           notes ?? undefined,
+      lockedAt:        lockedAt.toISOString(),
+      invoiceId:       finalInvoiceId,
     };
 
-    // Non-blocking fire-and-forget: Sheets sync + admin notification
-    // None of these should block the response or cause the route to fail.
+    // ── 2. DG Trade Execution (LockPrices → ExecuteTrade) ───────────────────
+    // Critical path — if this fails the deal is saved but marked failed.
+    let externalTradeId       = "";
+    let supplierConfirmationId = "";
+    let executionStatus       = "pending";
+    const warnings: string[] = [];
+
+    try {
+      const dgResult = await lockAndExecuteTrade(
+        (products ?? []).map((p) => ({ productId: p.productId, qty: p.qty })),
+        {
+          firstName: firstName,
+          lastName:  lastName,
+          address1:  shipToLine1  ?? "",
+          city:      shipToCity   ?? "",
+          state:     shipToState  ?? state ?? "",
+          zip:       shipToZip    ?? "",
+          phone:     phone        ?? "",
+        },
+      );
+      externalTradeId        = dgResult.externalTradeId;
+      supplierConfirmationId = dgResult.supplierConfirmationId;
+      executionStatus        = "executed";
+
+      await db.query(
+        `UPDATE deals SET
+           external_trade_id = $1, supplier_confirmation_id = $2,
+           execution_status = 'executed', execution_timestamp = NOW(),
+           status = 'executed', updated_at = NOW()
+         WHERE id = $3`,
+        [externalTradeId, supplierConfirmationId, dealId],
+      );
+      logger.info({ dealId, externalTradeId }, "[Deals] DG trade executed");
+
+    } catch (dgErr) {
+      executionStatus = "execution_failed";
+      await db.query(
+        `UPDATE deals SET execution_status = 'execution_failed', updated_at = NOW() WHERE id = $1`,
+        [dealId],
+      ).catch(() => {});
+      logger.error({ dealId, err: dgErr }, "[Deals] DG trade execution failed");
+      return res.status(502).json({
+        error:   "Trade execution failed — deal was saved but DG order was not placed",
+        dealId,
+        details: dgErr instanceof Error ? dgErr.message : "Unknown error",
+      });
+    }
+
+    // Update deal object with execution results
+    deal.externalTradeId        = externalTradeId;
+    deal.supplierConfirmationId = supplierConfirmationId;
+    deal.executionStatus        = executionStatus;
+    deal.executionTimestamp     = new Date().toISOString();
+
+    // ── 3. Invoice PDF ───────────────────────────────────────────────────────
+    let pdfBuffer: Buffer | null = null;
+    try {
+      pdfBuffer = await generateInvoicePdf({
+        id:            dealId,
+        firstName,
+        lastName,
+        email,
+        phone:         phone ?? undefined,
+        state:         state ?? undefined,
+        dealType,
+        shippingMethod,
+        fedexLocation: fedexLocation ?? undefined,
+        shipToLine1:   shipToLine1   ?? undefined,
+        shipToCity:    shipToCity    ?? undefined,
+        shipToState:   shipToState   ?? undefined,
+        shipToZip:     shipToZip     ?? undefined,
+        products:      (products ?? []).map((p) => ({
+          productName: p.productName,
+          qty:         p.qty,
+          unitPrice:   p.unitPrice,
+          lineTotal:   p.lineTotal,
+        })),
+        subtotal:      subtotal ?? 0,
+        shipping:      shipping ?? 0,
+        total:         total ?? 0,
+        goldSpotAsk:   goldSpotAsk  ?? undefined,
+        silverSpotAsk: silverSpotAsk ?? undefined,
+        lockedAt:      lockedAt.toISOString(),
+      });
+
+      await db.query(
+        `UPDATE deals SET invoice_id = $1, invoice_generated_at = NOW(), updated_at = NOW() WHERE id = $2`,
+        [finalInvoiceId, dealId],
+      );
+      deal.invoiceGeneratedAt = new Date().toISOString();
+      logger.info({ dealId, finalInvoiceId }, "[Deals] Invoice PDF generated");
+
+    } catch (pdfErr) {
+      logger.error({ dealId, err: pdfErr }, "[Deals] PDF generation failed (non-fatal)");
+      warnings.push("Invoice PDF generation failed");
+    }
+
+    // ── 4. Google Drive upload ───────────────────────────────────────────────
+    let invoiceUrl: string | null = null;
+    const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID;
+    if (pdfBuffer && rootFolderId) {
+      try {
+        const driveResult = await saveDealPdfToDrive(pdfBuffer, { id: dealId, firstName, lastName, dealType, lockedAt: lockedAt.toISOString() }, rootFolderId);
+        invoiceUrl = driveResult.webViewLink;
+        await db.query(
+          `UPDATE deals SET invoice_url = $1, updated_at = NOW() WHERE id = $2`,
+          [invoiceUrl, dealId],
+        );
+        deal.invoiceUrl = invoiceUrl ?? undefined;
+        logger.info({ dealId, invoiceUrl }, "[Deals] PDF saved to Drive");
+
+      } catch (driveErr) {
+        logger.error({ dealId, err: driveErr }, "[Deals] Drive upload failed (non-fatal)");
+        warnings.push("Google Drive upload failed");
+      }
+    }
+
+    // ── 5. Client recap email with PDF attachment ────────────────────────────
+    let emailSentTo: string | null = null;
+    if (pdfBuffer) {
+      try {
+        await sendDealRecapEmail({ ...deal, invoiceId: finalInvoiceId }, pdfBuffer);
+        emailSentTo = email;
+        await db.query(
+          `UPDATE deals SET recap_email_sent_at = NOW(), updated_at = NOW() WHERE id = $1`,
+          [dealId],
+        );
+        deal.recapEmailSentAt = new Date().toISOString();
+        logger.info({ dealId, email }, "[Deals] Recap email sent");
+
+      } catch (emailErr) {
+        logger.error({ dealId, err: emailErr }, "[Deals] Recap email failed (non-fatal)");
+        warnings.push("Recap email failed");
+      }
+    }
+
+    // ── 6. Fire-and-forget: Sheets sync + admin notification ─────────────────
     Promise.allSettled([
       appendDealToOpsSheet(deal).catch((err) =>
-        logger.error({ err }, "[Deals] appendDealToOpsSheet failed")
+        logger.error({ err }, "[Deals] appendDealToOpsSheet failed"),
       ),
       writeDealLinkToMasterSheet(deal).catch((err) =>
-        logger.error({ err }, "[Deals] writeDealLinkToMasterSheet failed")
+        logger.error({ err }, "[Deals] writeDealLinkToMasterSheet failed"),
       ),
       sendDealLockNotification({
-        dealId:         dealId,
+        dealId,
         dealType,
         firstName,
         lastName,
@@ -193,16 +347,26 @@ router.post("/", async (req, res) => {
         state:          state ?? null,
         total:          total ?? 0,
         products:       products ?? [],
-        goldSpotAsk:    goldSpotAsk ?? null,
-        silverSpotAsk:  silverSpotAsk ?? null,
+        goldSpotAsk:    goldSpotAsk    ?? null,
+        silverSpotAsk:  silverSpotAsk  ?? null,
         lockedAt:       lockedAt.toISOString(),
         confirmationId: confirmationId ?? null,
       }).catch((err) =>
-        logger.error({ err }, "[Deals] sendDealLockNotification failed")
+        logger.error({ err }, "[Deals] admin notification failed"),
       ),
     ]).catch(() => {});
 
-    return res.status(201).json({ dealId, status: "locked", lockedAt: lockedAt.toISOString() });
+    // ── 7. Respond ───────────────────────────────────────────────────────────
+    return res.status(201).json({
+      dealId,
+      status:          "executed",
+      invoiceId:       finalInvoiceId,
+      invoiceUrl,
+      emailSentTo,
+      lockedAt:        lockedAt.toISOString(),
+      ...(warnings.length > 0 ? { warnings } : {}),
+    });
+
   } catch (err) {
     logger.error({ err }, "[Deals] Failed to save deal");
     return res.status(500).json({ error: "Failed to save deal" });
@@ -219,10 +383,7 @@ router.get("/:id", async (req, res) => {
 
   try {
     const db = getDb();
-    const { rows } = await db.query(
-      `SELECT * FROM deals WHERE id = $1`,
-      [dealId]
-    );
+    const { rows } = await db.query(`SELECT * FROM deals WHERE id = $1`, [dealId]);
     if (!rows[0]) {
       return res.status(404).json({ error: "Deal not found" });
     }

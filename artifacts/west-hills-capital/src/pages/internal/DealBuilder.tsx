@@ -93,6 +93,11 @@ export default function DealBuilder() {
   // ── Delivery ──────────────────────────────────────────────────────────────
   const [deliveryMethod, setDeliveryMethod] = useState<"fedex_hold" | "home_delivery">("fedex_hold");
   const [fedexLocation,  setFedexLocation]  = useState("");
+  // Ship-to address (passed to DG ExecuteTrade)
+  const [shipToLine1, setShipToLine1] = useState("");
+  const [shipToCity,  setShipToCity]  = useState("");
+  const [shipToState, setShipToState] = useState("");
+  const [shipToZip,   setShipToZip]   = useState("");
 
   // ── Notes ──────────────────────────────────────────────────────────────────
   const [notes, setNotes] = useState("");
@@ -101,12 +106,19 @@ export default function DealBuilder() {
   const [isLocked,    setIsLocked]    = useState(false);
   const [lockedAt,    setLockedAt]    = useState<string | null>(null);
   const [savedDealId, setSavedDealId] = useState<number | null>(null);
+  const [executionResult, setExecutionResult] = useState<{
+    invoiceId:    string | null;
+    invoiceUrl:   string | null;
+    emailSentTo:  string | null;
+    warnings?:    string[];
+  } | null>(null);
 
   // ── UI state ─────────────────────────────────────────────────────────────
-  const [isFetchingSpot, setIsFetchingSpot] = useState(false);
-  const [isSaving,       setIsSaving]       = useState(false);
-  const [spotError,      setSpotError]      = useState<string | null>(null);
-  const [saveError,      setSaveError]      = useState<string | null>(null);
+  const [isFetchingSpot,  setIsFetchingSpot]  = useState(false);
+  const [isSaving,        setIsSaving]        = useState(false);
+  const [executionStep,   setExecutionStep]   = useState(0);
+  const [spotError,       setSpotError]       = useState<string | null>(null);
+  const [saveError,       setSaveError]       = useState<string | null>(null);
   const [loadingCustomer, setLoadingCustomer] = useState(false);
 
   // ── Load saved deal (read-only view when ?dealId=X) ──────────────────────
@@ -149,7 +161,18 @@ export default function DealBuilder() {
         setRows(savedRows);
         setDeliveryMethod(deal.shipping_method === "home_delivery" ? "home_delivery" : "fedex_hold");
         setFedexLocation(deal.fedex_location ?? "");
+        setShipToLine1(deal.ship_to_line1 ?? "");
+        setShipToCity(deal.ship_to_city   ?? "");
+        setShipToState(deal.ship_to_state ?? "");
+        setShipToZip(deal.ship_to_zip     ?? "");
         setNotes(deal.notes ?? "");
+        if (deal.invoice_id || deal.invoice_url || deal.recap_email_sent_at) {
+          setExecutionResult({
+            invoiceId:   deal.invoice_id   ?? null,
+            invoiceUrl:  deal.invoice_url  ?? null,
+            emailSentTo: deal.recap_email_sent_at ? deal.email : null,
+          });
+        }
         setIsLocked(true);
         setLockedAt(deal.locked_at ?? null);
         setSavedDealId(deal.id);
@@ -293,7 +316,16 @@ export default function DealBuilder() {
     }
   }, []);
 
-  // ── Lock Deal ─────────────────────────────────────────────────────────────
+  // ── Lock & Execute ────────────────────────────────────────────────────────
+  const EXECUTION_STEPS = [
+    "Saving deal…",
+    "Locking DG prices…",
+    "Executing trade…",
+    "Generating invoice PDF…",
+    "Sending client recap email…",
+    "Saving to Drive…",
+  ];
+
   const lockDeal = useCallback(async () => {
     setSaveError(null);
 
@@ -319,9 +351,17 @@ export default function DealBuilder() {
     }
 
     setIsSaving(true);
+    setExecutionStep(0);
+
+    // Advance progress steps on a timer while request is in-flight
+    const stepTimers: ReturnType<typeof setTimeout>[] = [];
+    [1600, 3200, 5000, 7000, 9500].forEach((ms, i) => {
+      stepTimers.push(setTimeout(() => setExecutionStep(i + 1), ms));
+    });
+
     try {
       const res = await fetch(`${API_BASE}/api/deals`, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           leadId:           customer.leadId ? parseInt(customer.leadId) : null,
@@ -345,29 +385,40 @@ export default function DealBuilder() {
           balanceDue:       total,
           shippingMethod:   deliveryMethod,
           fedexLocation:    fedexLocation || null,
+          shipToLine1:      shipToLine1 || null,
+          shipToCity:       shipToCity  || null,
+          shipToState:      shipToState || null,
+          shipToZip:        shipToZip   || null,
           notes:            notes || null,
         }),
       });
+
+      stepTimers.forEach(clearTimeout);
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({ error: "Server error" }));
         throw new Error(err.error ?? "Failed to save deal");
       }
 
-      const { dealId, lockedAt: la } = await res.json();
+      const data = await res.json();
+      const { dealId, lockedAt: la, invoiceId, invoiceUrl, emailSentTo, warnings } = data;
+
       setIsLocked(true);
       setLockedAt(la ?? new Date().toISOString());
       setSavedDealId(dealId);
+      setExecutionResult({ invoiceId, invoiceUrl, emailSentTo, warnings });
 
-      // Update URL to reflect the saved deal without navigating away
       const newSearch = `?dealId=${dealId}`;
       window.history.replaceState(null, "", window.location.pathname + newSearch);
     } catch (err) {
-      setSaveError(err instanceof Error ? err.message : "Failed to lock deal.");
+      stepTimers.forEach(clearTimeout);
+      setSaveError(err instanceof Error ? err.message : "Failed to lock & execute deal.");
     } finally {
       setIsSaving(false);
+      setExecutionStep(0);
     }
-  }, [customer, dealType, iraType, spotData, rows, subtotal, shipping, total, deliveryMethod, fedexLocation, notes]);
+  }, [customer, dealType, iraType, spotData, rows, subtotal, shipping, total,
+      deliveryMethod, fedexLocation, shipToLine1, shipToCity, shipToState, shipToZip, notes]);
 
   // ── Field helper ─────────────────────────────────────────────────────────
   const setCust = (field: keyof Customer) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
@@ -399,7 +450,7 @@ export default function DealBuilder() {
           </div>
           {locked && lockedAt && (
             <p className="text-sm text-gray-500 mt-1">
-              Locked {new Date(lockedAt).toLocaleString()} · Deal Builder sheet and Deals ledger updated
+              {executionResult ? "Executed" : "Locked"} {new Date(lockedAt).toLocaleString()} · Deals ledger updated
             </p>
           )}
         </div>
@@ -513,15 +564,66 @@ export default function DealBuilder() {
                 </button>
               ))}
             </div>
+
             {deliveryMethod === "fedex_hold" && (
-              <Field
-                label="FedEx Hold Location"
-                value={fedexLocation}
-                onChange={(e) => setFedexLocation(e.target.value)}
-                disabled={locked}
-                placeholder="e.g. FedEx Ship Center, 123 Main St"
-              />
+              <div className="mb-3">
+                <Field
+                  label="FedEx Location Name"
+                  value={fedexLocation}
+                  onChange={(e) => setFedexLocation(e.target.value)}
+                  disabled={locked}
+                  placeholder="e.g. FedEx Ship Center at Target"
+                />
+              </div>
             )}
+
+            {/* Structured delivery address — required for trade execution */}
+            <div className="border border-gray-700/50 rounded p-3 space-y-2 mt-2">
+              <p className="text-xs text-gray-500 mb-2">
+                {deliveryMethod === "fedex_hold"
+                  ? "FedEx Hold Location Address (for trade execution)"
+                  : "Home Delivery Address"}
+              </p>
+              <Field
+                label="Street Address"
+                value={shipToLine1}
+                onChange={(e) => setShipToLine1(e.target.value)}
+                disabled={locked}
+                placeholder="123 Main St"
+              />
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-1">
+                  <Field
+                    label="City"
+                    value={shipToCity}
+                    onChange={(e) => setShipToCity(e.target.value)}
+                    disabled={locked}
+                    placeholder="Wichita"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">State</label>
+                  <select
+                    value={shipToState}
+                    onChange={(e) => setShipToState(e.target.value)}
+                    disabled={locked}
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white disabled:opacity-60 focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="">—</option>
+                    {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Field
+                    label="Zip"
+                    value={shipToZip}
+                    onChange={(e) => setShipToZip(e.target.value)}
+                    disabled={locked}
+                    placeholder="67201"
+                  />
+                </div>
+              </div>
+            </div>
           </section>
 
           {/* Notes */}
@@ -660,7 +762,7 @@ export default function DealBuilder() {
             </div>
           </section>
 
-          {/* Lock Deal */}
+          {/* Lock & Execute */}
           {!locked && (
             <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
               {saveError && (
@@ -668,32 +770,95 @@ export default function DealBuilder() {
                   {saveError}
                 </div>
               )}
-              <button
-                onClick={lockDeal}
-                disabled={isSaving || total === 0}
-                className="w-full py-3 rounded font-semibold text-sm bg-amber-500 hover:bg-amber-400 text-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {isSaving ? "Locking Deal…" : "Lock Deal"}
-              </button>
-              <p className="text-xs text-gray-500 mt-2 text-center">
-                Locking freezes pricing, saves the deal, and updates your Google Sheets.
-              </p>
+
+              {isSaving ? (
+                <div className="space-y-2">
+                  {EXECUTION_STEPS.map((step, i) => {
+                    const done    = i < executionStep;
+                    const current = i === executionStep;
+                    return (
+                      <div key={step} className={`flex items-center gap-3 text-sm transition-opacity ${i > executionStep ? "opacity-30" : ""}`}>
+                        <span className="w-5 h-5 flex items-center justify-center rounded-full text-xs flex-shrink-0">
+                          {done
+                            ? <span className="text-green-400">✓</span>
+                            : current
+                              ? <span className="inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                              : <span className="text-gray-700">○</span>
+                          }
+                        </span>
+                        <span className={done ? "text-green-400" : current ? "text-amber-300" : "text-gray-600"}>
+                          {step}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <>
+                  <button
+                    onClick={lockDeal}
+                    disabled={isSaving || total === 0}
+                    className="w-full py-3 rounded font-semibold text-sm bg-amber-500 hover:bg-amber-400 text-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Lock &amp; Execute
+                  </button>
+                  <p className="text-xs text-gray-500 mt-2 text-center">
+                    Freezes pricing · places DG order · generates PDF invoice · emails client
+                  </p>
+                </>
+              )}
             </section>
           )}
 
           {locked && (
-            <section className="bg-green-900/20 border border-green-800/40 rounded-lg p-5">
+            <section className={`rounded-lg p-5 ${executionResult ? "bg-green-900/20 border border-green-800/40" : "bg-gray-900 border border-gray-800"}`}>
               <div className="flex items-start gap-3">
-                <div className="text-green-400 text-xl mt-0.5">✓</div>
-                <div>
-                  <div className="text-green-300 font-semibold text-sm">Deal #{savedDealId} Locked</div>
-                  <div className="text-green-400/70 text-xs mt-1">
-                    All pricing is frozen. The Deal Builder sheet has been populated and the Deals ledger has been updated.
-                    The Invoice tab in your Deal Builder sheet will auto-generate from the populated data.
+                <div className={`text-xl mt-0.5 ${executionResult ? "text-green-400" : "text-amber-400"}`}>✓</div>
+                <div className="flex-1 min-w-0">
+                  <div className={`font-semibold text-sm ${executionResult ? "text-green-300" : "text-amber-300"}`}>
+                    Deal #{savedDealId} — {executionResult ? "Executed" : "Locked"}
                   </div>
                   {lockedAt && (
-                    <div className="text-gray-500 text-xs mt-2">
-                      Locked: {new Date(lockedAt).toLocaleString()}
+                    <div className="text-gray-500 text-xs mt-1">
+                      {new Date(lockedAt).toLocaleString()}
+                    </div>
+                  )}
+
+                  {executionResult && (
+                    <div className="mt-3 space-y-1.5 text-xs">
+                      {executionResult.invoiceId && (
+                        <div className="flex gap-2">
+                          <span className="text-gray-500 w-24 flex-shrink-0">Invoice #</span>
+                          <span className="text-white font-mono">{executionResult.invoiceId}</span>
+                        </div>
+                      )}
+                      {executionResult.invoiceUrl && (
+                        <div className="flex gap-2">
+                          <span className="text-gray-500 w-24 flex-shrink-0">Drive</span>
+                          <a
+                            href={executionResult.invoiceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-blue-400 hover:underline truncate"
+                          >
+                            View PDF ↗
+                          </a>
+                        </div>
+                      )}
+                      {executionResult.emailSentTo && (
+                        <div className="flex gap-2">
+                          <span className="text-gray-500 w-24 flex-shrink-0">Email sent</span>
+                          <span className="text-green-400">{executionResult.emailSentTo}</span>
+                        </div>
+                      )}
+                      {executionResult.warnings && executionResult.warnings.length > 0 && (
+                        <div className="mt-2 text-amber-400 bg-amber-900/20 rounded px-2 py-1.5">
+                          <div className="font-medium mb-1">Partial completion:</div>
+                          {executionResult.warnings.map((w, i) => (
+                            <div key={i}>· {w}</div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

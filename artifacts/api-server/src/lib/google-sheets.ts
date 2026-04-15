@@ -1086,6 +1086,22 @@ export type DealPayload = {
   balanceDue:        number;
   shippingMethod:    string;
   fedexLocation?:    string;
+  // Ship-to address (used for DG ExecuteTrade delivery address)
+  shipToName?:       string;
+  shipToLine1?:      string;
+  shipToCity?:       string;
+  shipToState?:      string;
+  shipToZip?:        string;
+  // DG trade execution results
+  externalTradeId?:        string;
+  supplierConfirmationId?: string;
+  executionStatus?:        string;
+  executionTimestamp?:     string;
+  // Invoice
+  invoiceId?:          string;
+  invoiceUrl?:         string;
+  invoiceGeneratedAt?: string;
+  recapEmailSentAt?:   string;
   notes?:            string;
   lockedAt:          string;
 };
@@ -1239,11 +1255,16 @@ export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
   const deliveryLabel =
     deal.shippingMethod === "fedex_hold" ? "FedEx Hold" : "Home Delivery";
 
+  // Build ship-to display string
+  const shipToParts: string[] = [];
+  if (deal.shipToName)  shipToParts.push(deal.shipToName);
+  if (deal.shipToLine1) shipToParts.push(deal.shipToLine1);
+  if (deal.shipToCity)  shipToParts.push(`${deal.shipToCity}, ${deal.shipToState ?? ""} ${deal.shipToZip ?? ""}`.trim());
+  const shipToDisplay = shipToParts.join(" | ");
+
   // Every field we can populate from the DealPayload.
-  // Operator-only fields (Execution Method, Execution Status, Actual Cash
-  // Transferred, External Trade ID, Supplier Confirmation ID, Execution
-  // Timestamp, Account Specialist, Deal Closer, Invoice ID, Ship To) are left
-  // blank — they are filled manually after trade execution.
+  // Account Specialist, Deal Closer, Actual Cash Transferred are operator-only
+  // and left blank — filled manually.
   const valueMap: Record<string, string> = {
     "Deal ID":               String(deal.id),
     "Lead ID":               deal.leadId ? String(deal.leadId) : "",
@@ -1253,6 +1274,8 @@ export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
     "Phone":                 deal.phone ?? "",
     "State":                 deal.state ?? "",
     "Deal Type":             deal.dealType === "ira" ? "IRA" : "Cash",
+    "Execution Method":      deliveryLabel,
+    "Execution Status":      deal.executionStatus ?? "",
     "Gold Spot":             fmt(deal.goldSpotAsk),
     "Silver Spot":           fmt(deal.silverSpotAsk),
     "Spot Timestamp":        deal.spotTimestamp
@@ -1269,9 +1292,14 @@ export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
     "IRA Type":              deal.iraType ?? "",
     "IRA Account Number":    deal.iraAccountNumber ?? "",
     "Delivery Method":       deliveryLabel,
+    "Ship To":               shipToDisplay,
     "FedEx Location":        deal.fedexLocation ?? "",
-    "Invoice Generated":     "FALSE",
-    "Recap Email Sent":      "FALSE",
+    "External Trade ID":     deal.externalTradeId ?? "",
+    "Supplier Confirmation ID": deal.supplierConfirmationId ?? "",
+    "Execution Timestamp":   deal.executionTimestamp ?? "",
+    "Invoice ID":            deal.invoiceId ?? "",
+    "Invoice Generated":     deal.invoiceGeneratedAt ? "TRUE" : "FALSE",
+    "Recap Email Sent":      deal.recapEmailSentAt   ? "TRUE" : "FALSE",
     "Created":               deal.lockedAt,
     "Updated":               deal.lockedAt,
     "Notes":                 deal.notes ?? "",

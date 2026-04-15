@@ -26,6 +26,7 @@ const OPTIONAL_VARS: Record<string, string> = {
   FRONTEND_URL:                "Open Deal Builder links in Sheets disabled",
   ADMIN_EMAIL:                 "Admin notification emails disabled",
   CORS_ALLOWED_ORIGINS:        "CORS open to all origins (set to restrict to production domain)",
+  GOOGLE_DRIVE_DEALS_FOLDER_ID: "Deal invoice PDF Drive upload disabled",
 };
 
 export function validateConfig(): void {

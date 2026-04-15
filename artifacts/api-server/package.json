@@ -10,6 +10,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@types/pdfkit": "^0.17.5",
     "@types/pg": "^8.18.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
@@ -19,6 +20,7 @@
     "express": "^5",
     "google-auth-library": "^10.6.2",
     "googleapis": "^171.4.0",
+    "pdfkit": "^0.18.0",
     "pg": "^8.20.0",
     "pino": "^9",
     "pino-http": "^10"

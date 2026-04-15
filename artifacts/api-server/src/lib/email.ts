@@ -24,10 +24,16 @@ const TIMELINE_LABELS: Record<string, string> = {
   researching: "Just researching options",
 };
 
+interface EmailAttachment {
+  filename: string;
+  content:  string;  // base64-encoded
+}
+
 interface SendEmailOptions {
-  to: string;
-  subject: string;
-  html: string;
+  to:           string;
+  subject:      string;
+  html:         string;
+  attachments?: EmailAttachment[];
 }
 
 async function sendEmail(opts: SendEmailOptions): Promise<void> {
@@ -43,18 +49,23 @@ async function sendEmail(opts: SendEmailOptions): Promise<void> {
     return;
   }
 
+  const payload: Record<string, unknown> = {
+    from:    FROM_EMAIL,
+    to:      [opts.to],
+    subject: opts.subject,
+    html:    opts.html,
+  };
+  if (opts.attachments?.length) {
+    payload.attachments = opts.attachments;
+  }
+
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${RESEND_API_KEY}`,
+      Authorization:  `Bearer ${RESEND_API_KEY}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      from: FROM_EMAIL,
-      to: [opts.to],
-      subject: opts.subject,
-      html: opts.html,
-    }),
+    body: JSON.stringify(payload),
   });
 
   if (!res.ok) {
@@ -209,6 +220,142 @@ export async function sendDealLockNotification(params: {
 
         <p style="font-size:12px;color:#9ca3af;margin-top:24px;border-top:1px solid #e5e7eb;padding-top:12px;">
           West Hills Capital &nbsp;|&nbsp; (800) 867-6768
+        </p>
+      </div>
+    `,
+  });
+}
+
+// ── Deal recap — client-facing invoice email ──────────────────────────────────
+
+const WIRE = {
+  bank:        "Commerce Bank",
+  bankAddress: "1551 Waterfront, Wichita, KS 67206",
+  routing:     "101000019",
+  accountName: "West Hills Capital",
+  accountAddr: "1314 N. Oliver Ave. #8348, Wichita, KS 67208",
+  accountNum:  "690108249",
+};
+
+export async function sendDealRecapEmail(
+  deal: {
+    id:         number;
+    firstName:  string;
+    lastName:   string;
+    email:      string;
+    dealType:   string;
+    products:   { productName: string; qty: number; unitPrice: number; lineTotal: number }[];
+    subtotal:   number;
+    shipping:   number;
+    total:      number;
+    invoiceId?: string;
+    lockedAt:   string;
+  },
+  pdfBuffer:   Buffer,
+): Promise<void> {
+  const usd = (n: number) =>
+    new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
+
+  const invoiceId  = deal.invoiceId ?? `WHC-${deal.id}`;
+  const refLast    = deal.lastName.replace(/\s+/g, "").toUpperCase().slice(0, 10);
+  const wireRef    = `${refLast}-WHC${deal.id}`;
+
+  const productRows = deal.products
+    .filter((p) => p.qty > 0 && p.unitPrice > 0)
+    .map(
+      (p) => `
+      <tr>
+        <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;color:#374151;">${p.productName}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center;">${p.qty}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right;">${usd(p.unitPrice)}</td>
+        <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;">${usd(p.lineTotal)}</td>
+      </tr>`,
+    )
+    .join("");
+
+  const wRow = (label: string, val: string) =>
+    `<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;width:140px;">${label}</td><td style="padding:4px 0;font-size:13px;font-weight:600;">${val}</td></tr>`;
+
+  await sendEmail({
+    to:      deal.email,
+    subject: `Your West Hills Capital Invoice — ${invoiceId}`,
+    attachments: [{
+      filename: `${invoiceId}.pdf`,
+      content:  pdfBuffer.toString("base64"),
+    }],
+    html: `
+      <div style="font-family:sans-serif;max-width:640px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
+
+        <h2 style="margin-top:0;color:#1a1a1a;">Your Precious Metals Allocation</h2>
+        <p style="color:#374151;">Dear ${deal.firstName},</p>
+        <p style="color:#374151;">
+          Thank you for your business. Your invoice is attached to this email.
+          Please review the details below and wire your payment to the account shown.
+        </p>
+
+        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:14px 18px;margin:20px 0;">
+          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+            <div>
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Invoice #</div>
+              <div style="font-weight:600;color:#1a1a1a;font-size:15px;">${invoiceId}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Total Due</div>
+              <div style="font-weight:700;color:#1a1a1a;font-size:18px;">${usd(deal.total)}</div>
+            </div>
+          </div>
+        </div>
+
+        <h3 style="color:#1a1a1a;margin-bottom:6px;">Order Summary</h3>
+        <table style="border-collapse:collapse;width:100%;font-size:14px;margin-bottom:16px;">
+          <thead>
+            <tr style="background:#f9fafb;">
+              <th style="padding:7px 8px;text-align:left;color:#6b7280;font-weight:500;border-bottom:2px solid #e5e7eb;">Product</th>
+              <th style="padding:7px 8px;text-align:center;color:#6b7280;font-weight:500;border-bottom:2px solid #e5e7eb;">Qty</th>
+              <th style="padding:7px 8px;text-align:right;color:#6b7280;font-weight:500;border-bottom:2px solid #e5e7eb;">Unit</th>
+              <th style="padding:7px 8px;text-align:right;color:#6b7280;font-weight:500;border-bottom:2px solid #e5e7eb;">Total</th>
+            </tr>
+          </thead>
+          <tbody>${productRows}</tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" style="padding:8px 8px;text-align:right;color:#6b7280;">Subtotal</td>
+              <td style="padding:8px 8px;text-align:right;">${usd(deal.subtotal)}</td>
+            </tr>
+            <tr>
+              <td colspan="3" style="padding:4px 8px;text-align:right;color:#6b7280;">Shipping</td>
+              <td style="padding:4px 8px;text-align:right;">${usd(deal.shipping)}</td>
+            </tr>
+            <tr style="border-top:2px solid #1a1a1a;">
+              <td colspan="3" style="padding:8px 8px;text-align:right;font-weight:700;color:#1a1a1a;">Total Due</td>
+              <td style="padding:8px 8px;text-align:right;font-weight:700;font-size:16px;color:#1a1a1a;">${usd(deal.total)}</td>
+            </tr>
+          </tfoot>
+        </table>
+
+        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:16px 18px;margin:20px 0;">
+          <h3 style="margin:0 0 12px;font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:#92400e;">Wire Payment Instructions</h3>
+          <table style="border-collapse:collapse;width:100%;">
+            ${wRow("Bank", WIRE.bank)}
+            ${wRow("Bank Address", WIRE.bankAddress)}
+            ${wRow("Routing #", WIRE.routing)}
+            ${wRow("Account Name", WIRE.accountName)}
+            ${wRow("Account Addr", WIRE.accountAddr)}
+            ${wRow("Account #", WIRE.accountNum)}
+            ${wRow("Reference", wireRef)}
+          </table>
+          <p style="margin:12px 0 0;font-size:12px;color:#92400e;font-style:italic;">
+            Wire must be received in full before metals are released for shipment.
+          </p>
+        </div>
+
+        <p style="color:#374151;font-size:14px;">
+          If you have any questions, please call us at <strong>(800) 867-6768</strong>.
+        </p>
+
+        <p style="color:#9ca3af;font-size:12px;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:20px;">
+          West Hills Capital &nbsp;|&nbsp; (800) 867-6768 &nbsp;|&nbsp; westhillscapital.com<br>
+          Physical Precious Metals Allocation — Wichita, Kansas
         </p>
       </div>
     `,
