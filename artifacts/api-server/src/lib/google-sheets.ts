@@ -1090,7 +1090,8 @@ export type DealPayload = {
   total:             number;
   balanceDue:        number;
   shippingMethod:    string;
-  fedexLocation?:    string;
+  fedexLocation?:      string;
+  fedexLocationHours?: string;
   // Ship-to address (used for DG ExecuteTrade delivery address)
   shipToName?:       string;
   shipToLine1?:      string;

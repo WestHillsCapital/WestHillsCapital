@@ -1,4 +1,5 @@
-import { logger } from "./logger";
+import { logger }           from "./logger";
+import { nextBusinessDayFrom } from "./date-utils";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL =
@@ -228,159 +229,148 @@ export async function sendDealLockNotification(params: {
 
 // ── Deal recap — client-facing invoice email ──────────────────────────────────
 
-const WIRE = {
-  bank:        "Commerce Bank",
-  bankAddress: "1551 Waterfront, Wichita, KS 67206",
-  routing:     "101000019",
-  accountName: "West Hills Capital",
-  accountAddr: "1314 N. Oliver Ave. #8348, Wichita, KS 67208",
-  accountNum:  "690108249",
-};
-
 export async function sendDealRecapEmail(
   deal: {
-    id:           number;
-    firstName:    string;
-    lastName:     string;
-    email:        string;
-    dealType:     string;
-    products:     { productName: string; qty: number; unitPrice: number; lineTotal: number }[];
-    subtotal:     number;
-    shipping:     number;
-    total:        number;
-    invoiceId?:   string;
-    lockedAt:     string;
-    billingLine1?: string;
-    billingLine2?: string;
-    billingCity?:  string;
-    billingState?: string;
-    billingZip?:   string;
+    id:                  number;
+    firstName:           string;
+    lastName:            string;
+    email:               string;
+    products:            { productName: string; qty: number; unitPrice: number; lineTotal: number }[];
+    subtotal:            number;
+    shipping:            number;
+    total:               number;
+    invoiceId?:          string;
+    lockedAt:            string;
+    goldSpotAsk?:        number | null;
+    silverSpotAsk?:      number | null;
+    shippingMethod?:     string;
+    fedexLocation?:      string | null;
+    fedexLocationHours?: string | null;
+    shipToName?:         string | null;
+    shipToLine1?:        string | null;
+    shipToCity?:         string | null;
+    shipToState?:        string | null;
+    shipToZip?:          string | null;
   },
-  pdfBuffer:   Buffer,
+  pdfBuffer: Buffer,
 ): Promise<void> {
   const usd = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
-  const invoiceId  = deal.invoiceId ?? `WHC-${deal.id}`;
-  const refLast    = deal.lastName.replace(/\s+/g, "").toUpperCase().slice(0, 10);
-  const wireRef    = `${refLast}-WHC${deal.id}`;
+  const invoiceId = deal.invoiceId ?? `WHC-${deal.id}`;
 
-  // Build billing address lines for the email (omit gracefully if blank)
-  const billingLines: string[] = [];
-  if (deal.billingLine1) billingLines.push(deal.billingLine1);
-  if (deal.billingLine2) billingLines.push(deal.billingLine2);
-  if (deal.billingCity || deal.billingState || deal.billingZip) {
-    const cityLine = [deal.billingCity, deal.billingState].filter(Boolean).join(", ") +
-      (deal.billingZip ? ` ${deal.billingZip}` : "");
-    billingLines.push(cityLine.trim());
-  }
-  const billingAddrHtml = billingLines.length > 0
-    ? `<div style="margin-top:6px;font-size:13px;color:#374151;">${billingLines.map((l) => `<div>${l}</div>`).join("")}</div>`
-    : "";
+  // Next-business-day deadline from the lock timestamp
+  const lockedDate   = new Date(deal.lockedAt);
+  const deadlineDate = nextBusinessDayFrom(lockedDate);
+  const deadlineStr  = deadlineDate.toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
 
-  const productRows = deal.products
-    .filter((p) => p.qty > 0 && p.unitPrice > 0)
-    .map(
-      (p) => `
-      <tr>
-        <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;color:#374151;">${p.productName}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:center;">${p.qty}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right;">${usd(p.unitPrice)}</td>
-        <td style="padding:6px 8px;border-bottom:1px solid #e5e7eb;text-align:right;font-weight:600;">${usd(p.lineTotal)}</td>
-      </tr>`,
-    )
+  // ── Order Summary bullets ────────────────────────────────────────────────
+  const li = (text: string) =>
+    `<li style="margin-bottom:4px;color:#374151;">${text}</li>`;
+
+  const productBullets = deal.products
+    .filter((p) => p.qty > 0)
+    .map((p) => li(`<strong>Metal Purchased:</strong> ${p.qty} x ${p.productName}`))
     .join("");
 
-  const wRow = (label: string, val: string) =>
-    `<tr><td style="padding:4px 0;color:#6b7280;font-size:13px;width:140px;">${label}</td><td style="padding:4px 0;font-size:13px;font-weight:600;">${val}</td></tr>`;
+  const spotLines: string[] = [];
+  if (deal.goldSpotAsk)   spotLines.push(`&nbsp;&nbsp;&ndash; Gold: $${deal.goldSpotAsk.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  if (deal.silverSpotAsk) spotLines.push(`&nbsp;&nbsp;&ndash; Silver: $${deal.silverSpotAsk.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
+  const spotBullet = spotLines.length
+    ? li(`<strong>Spot Price at Lock:</strong><br>${spotLines.join("<br>")}`)
+    : "";
+
+  const summaryBullets =
+    productBullets +
+    spotBullet +
+    li(`<strong>Subtotal:</strong> ${usd(deal.subtotal)}`) +
+    li(`<strong>Shipping:</strong> ${usd(deal.shipping)}`) +
+    li(`<strong>Total Due:</strong> ${usd(deal.total)}`);
+
+  // ── Shipping Address block ───────────────────────────────────────────────
+  const isFedexHold = deal.shippingMethod === "fedex_hold";
+  let shippingAddrHtml: string;
+
+  if (isFedexHold && deal.fedexLocation) {
+    const fullName  = `${deal.firstName} ${deal.lastName}`;
+    const hoursLine = deal.fedexLocationHours
+      ? `<br><span style="color:#374151;">Location Hours:</span><br><span style="color:#374151;">${deal.fedexLocationHours}</span>`
+      : "";
+    shippingAddrHtml = `
+      <p style="margin:0;color:#374151;line-height:1.6;">
+        ${deal.fedexLocation}<br>
+        FBO ${fullName}<br>
+        ${deal.shipToLine1 ?? ""}<br>
+        ${[deal.shipToCity, deal.shipToState].filter(Boolean).join(", ")}${deal.shipToZip ? ` ${deal.shipToZip}` : ""}
+        ${hoursLine}
+      </p>`;
+  } else {
+    const addrParts: string[] = [];
+    if (deal.shipToLine1) addrParts.push(deal.shipToLine1);
+    const cityLine = [deal.shipToCity, deal.shipToState].filter(Boolean).join(", ") +
+      (deal.shipToZip ? ` ${deal.shipToZip}` : "");
+    if (cityLine.trim()) addrParts.push(cityLine.trim());
+    shippingAddrHtml = addrParts.length
+      ? `<p style="margin:0;color:#374151;line-height:1.6;">${addrParts.join("<br>")}</p>`
+      : `<p style="margin:0;color:#9ca3af;font-style:italic;">Address on file</p>`;
+  }
 
   await sendEmail({
     to:      deal.email,
-    subject: `Your West Hills Capital Invoice — ${invoiceId}`,
+    subject: "Your West Hills Capital Order Confirmation",
     attachments: [{
       filename: `${invoiceId}.pdf`,
       content:  pdfBuffer.toString("base64"),
     }],
     html: `
-      <div style="font-family:sans-serif;max-width:640px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
+      <div style="font-family:Georgia,serif;max-width:620px;margin:auto;padding:32px 24px;color:#1a1a1a;background:#ffffff;">
 
-        <h2 style="margin-top:0;color:#1a1a1a;">Your Precious Metals Allocation</h2>
-        <p style="color:#374151;">Dear ${deal.firstName},</p>
-        <p style="color:#374151;">
-          Thank you for your business. Your invoice is attached to this email.
-          Please review the details below and wire your payment to the account shown.
+        <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${deal.firstName},</p>
+
+        <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+          I'm glad we were able to get everything squared away today&mdash;thank you again for trusting us with your purchase.
         </p>
 
-        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:14px 18px;margin:20px 0;">
-          <div style="display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;">
-            <div>
-              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Invoice #</div>
-              <div style="font-weight:600;color:#1a1a1a;font-size:15px;">${invoiceId}</div>
-              ${billingAddrHtml
-                ? `<div style="margin-top:10px;">
-                     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Bill To</div>
-                     <div style="font-size:13px;font-weight:600;color:#1a1a1a;">${deal.firstName} ${deal.lastName}</div>
-                     ${billingAddrHtml}
-                   </div>`
-                : ""}
-            </div>
-            <div style="text-align:right;">
-              <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Total Due</div>
-              <div style="font-weight:700;color:#1a1a1a;font-size:18px;">${usd(deal.total)}</div>
-            </div>
-          </div>
+        <p style="margin:0 0 16px;font-size:15px;color:#374151;">Here's a clear recap for your records:</p>
+
+        <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#1a1a1a;">Order Summary</p>
+        <ul style="margin:0 0 24px 18px;padding:0;font-size:15px;line-height:1.7;">
+          ${summaryBullets}
+        </ul>
+
+        <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#1a1a1a;">Next Steps</p>
+        <ul style="margin:0 0 24px 18px;padding:0;font-size:15px;line-height:1.7;">
+          ${li("Your invoice is attached, which includes bank wire instructions")}
+          ${li(`Payment must be received by the close of business on the next business day (<strong>${deadlineStr}</strong>) to secure this pricing`)}
+          ${li("If payment is not received in time, the trade may be cancelled and any market loss may be subject to an offset fee")}
+          ${li("If you anticipate any delay, just let me know and we can coordinate")}
+          ${li("Once payment is received and cleared, we will secure and ship your metals")}
+          ${li("We will monitor the shipment and coordinate delivery with you as it gets close")}
+        </ul>
+
+        <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#1a1a1a;">Shipping Address</p>
+        <div style="margin:0 0 24px;padding:14px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;font-size:14px;">
+          ${shippingAddrHtml}
         </div>
 
-        <h3 style="color:#1a1a1a;margin-bottom:6px;">Order Summary</h3>
-        <table style="border-collapse:collapse;width:100%;font-size:14px;margin-bottom:16px;">
-          <thead>
-            <tr style="background:#f9fafb;">
-              <th style="padding:7px 8px;text-align:left;color:#6b7280;font-weight:500;border-bottom:2px solid #e5e7eb;">Product</th>
-              <th style="padding:7px 8px;text-align:center;color:#6b7280;font-weight:500;border-bottom:2px solid #e5e7eb;">Qty</th>
-              <th style="padding:7px 8px;text-align:right;color:#6b7280;font-weight:500;border-bottom:2px solid #e5e7eb;">Unit</th>
-              <th style="padding:7px 8px;text-align:right;color:#6b7280;font-weight:500;border-bottom:2px solid #e5e7eb;">Total</th>
-            </tr>
-          </thead>
-          <tbody>${productRows}</tbody>
-          <tfoot>
-            <tr>
-              <td colspan="3" style="padding:8px 8px;text-align:right;color:#6b7280;">Subtotal</td>
-              <td style="padding:8px 8px;text-align:right;">${usd(deal.subtotal)}</td>
-            </tr>
-            <tr>
-              <td colspan="3" style="padding:4px 8px;text-align:right;color:#6b7280;">Shipping</td>
-              <td style="padding:4px 8px;text-align:right;">${usd(deal.shipping)}</td>
-            </tr>
-            <tr style="border-top:2px solid #1a1a1a;">
-              <td colspan="3" style="padding:8px 8px;text-align:right;font-weight:700;color:#1a1a1a;">Total Due</td>
-              <td style="padding:8px 8px;text-align:right;font-weight:700;font-size:16px;color:#1a1a1a;">${usd(deal.total)}</td>
-            </tr>
-          </tfoot>
-        </table>
-
-        <div style="background:#fffbeb;border:1px solid #fde68a;border-radius:6px;padding:16px 18px;margin:20px 0;">
-          <h3 style="margin:0 0 12px;font-size:14px;text-transform:uppercase;letter-spacing:.06em;color:#92400e;">Wire Payment Instructions</h3>
-          <table style="border-collapse:collapse;width:100%;">
-            ${wRow("Bank", WIRE.bank)}
-            ${wRow("Bank Address", WIRE.bankAddress)}
-            ${wRow("Routing #", WIRE.routing)}
-            ${wRow("Account Name", WIRE.accountName)}
-            ${wRow("Account Addr", WIRE.accountAddr)}
-            ${wRow("Account #", WIRE.accountNum)}
-            ${wRow("Reference", wireRef)}
-          </table>
-          <p style="margin:12px 0 0;font-size:12px;color:#92400e;font-style:italic;">
-            Wire must be received in full before metals are released for shipment.
-          </p>
-        </div>
-
-        <p style="color:#374151;font-size:14px;">
-          If you have any questions, please call us at <strong>(800) 867-6768</strong>.
+        <p style="margin:0 0 12px;font-size:15px;color:#374151;">
+          You don't need to worry about a thing from here&mdash;we'll handle the logistics and keep you updated every step of the way.
+        </p>
+        <p style="margin:0 0 12px;font-size:15px;color:#374151;">
+          Once your order ships, I'll personally follow up with tracking and delivery timing.
+        </p>
+        <p style="margin:0 0 28px;font-size:15px;color:#374151;">
+          If you need anything at all in the meantime, just reach out.
         </p>
 
-        <p style="color:#9ca3af;font-size:12px;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:20px;">
+        <p style="margin:0 0 4px;font-size:15px;color:#374151;">My very best,</p>
+        <p style="margin:0 0 32px;font-size:15px;font-weight:bold;color:#1a1a1a;">Joe</p>
+
+        <p style="margin:0;font-size:11px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:14px;line-height:1.6;">
           West Hills Capital &nbsp;|&nbsp; (800) 867-6768 &nbsp;|&nbsp; westhillscapital.com<br>
-          Physical Precious Metals Allocation — Wichita, Kansas
+          This transaction is subject to West Hills Capital's Terms of Service: westhillscapital.com/terms
         </p>
       </div>
     `,

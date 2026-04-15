@@ -103,8 +103,9 @@ export default function DealBuilder() {
   const [rows, setRows] = useState<ProductRow[]>(EMPTY_ROWS);
 
   // ── Delivery ──────────────────────────────────────────────────────────────
-  const [deliveryMethod, setDeliveryMethod] = useState<"fedex_hold" | "home_delivery">("fedex_hold");
-  const [fedexLocation,  setFedexLocation]  = useState("");
+  const [deliveryMethod,      setDeliveryMethod]      = useState<"fedex_hold" | "home_delivery">("fedex_hold");
+  const [fedexLocation,       setFedexLocation]       = useState("");
+  const [fedexLocationHours,  setFedexLocationHours]  = useState("");
   // Ship-to address (passed to DG ExecuteTrade)
   const [shipToLine1, setShipToLine1] = useState("");
   const [shipToCity,  setShipToCity]  = useState("");
@@ -205,6 +206,7 @@ export default function DealBuilder() {
         setRows(savedRows);
         setDeliveryMethod(deal.shipping_method === "home_delivery" ? "home_delivery" : "fedex_hold");
         setFedexLocation(deal.fedex_location ?? "");
+        setFedexLocationHours(deal.fedex_location_hours ?? "");
         if (deal.fedex_location) setFedexLocationSelected(true);
         setShipToLine1(deal.ship_to_line1 ?? "");
         setShipToCity(deal.ship_to_city   ?? "");
@@ -483,9 +485,10 @@ export default function DealBuilder() {
           shipping,
           total,
           balanceDue:       total,
-          shippingMethod:   deliveryMethod,
-          fedexLocation:    fedexLocation || null,
-          shipToLine1:      shipToLine1 || null,
+          shippingMethod:     deliveryMethod,
+          fedexLocation:      fedexLocation      || null,
+          fedexLocationHours: fedexLocationHours || null,
+          shipToLine1:        shipToLine1 || null,
           shipToCity:       shipToCity  || null,
           shipToState:      shipToState || null,
           shipToZip:        shipToZip   || null,
@@ -523,7 +526,7 @@ export default function DealBuilder() {
       setExecutionStep(0);
     }
   }, [customer, dealType, iraType, spotData, rows, subtotal, shipping, total,
-      deliveryMethod, fedexLocation, shipToLine1, shipToCity, shipToState, shipToZip,
+      deliveryMethod, fedexLocation, fedexLocationHours, shipToLine1, shipToCity, shipToState, shipToZip,
       billingLine1, billingLine2, billingCity, billingState, billingZip, notes]);
 
   // ── Preview Invoice PDF ───────────────────────────────────────────────────
@@ -549,9 +552,10 @@ export default function DealBuilder() {
           phone:         customer.phone     || undefined,
           state:         customer.state     || undefined,
           dealType,
-          shippingMethod: deliveryMethod,
-          fedexLocation:  fedexLocation     || undefined,
-          shipToLine1:    shipToLine1       || undefined,
+          shippingMethod:     deliveryMethod,
+          fedexLocation:      fedexLocation      || undefined,
+          fedexLocationHours: fedexLocationHours || undefined,
+          shipToLine1:        shipToLine1        || undefined,
           shipToCity:     shipToCity        || undefined,
           shipToState:    shipToState       || undefined,
           shipToZip:      shipToZip         || undefined,
@@ -585,7 +589,8 @@ export default function DealBuilder() {
     } finally {
       setIsGeneratingPreview(false);
     }
-  }, [customer, dealType, deliveryMethod, fedexLocation, shipToLine1, shipToCity, shipToState, shipToZip,
+  }, [customer, dealType, deliveryMethod, fedexLocation, fedexLocationHours,
+      shipToLine1, shipToCity, shipToState, shipToZip,
       billingLine1, billingLine2, billingCity, billingState, billingZip,
       rows, subtotal, shipping, total, spotData, getAuthHeaders]);
 
@@ -755,24 +760,41 @@ export default function DealBuilder() {
               <div className="mb-3 space-y-2">
                 {/* Selected location display */}
                 {fedexLocationSelected && fedexLocation ? (
-                  <div className="flex items-start justify-between bg-gray-800/60 border border-amber-500/30 rounded p-3">
-                    <div>
-                      <p className="text-xs font-semibold text-amber-400 mb-0.5">{fedexLocation}</p>
-                      {shipToLine1 && (
-                        <p className="text-xs text-gray-400">
-                          {shipToLine1}{shipToCity ? `, ${shipToCity}` : ""}{shipToState ? `, ${shipToState}` : ""} {shipToZip}
-                        </p>
+                  <>
+                    <div className="flex items-start justify-between bg-gray-800/60 border border-amber-500/30 rounded p-3">
+                      <div>
+                        <p className="text-xs font-semibold text-amber-400 mb-0.5">{fedexLocation}</p>
+                        {shipToLine1 && (
+                          <p className="text-xs text-gray-400">
+                            {shipToLine1}{shipToCity ? `, ${shipToCity}` : ""}{shipToState ? `, ${shipToState}` : ""} {shipToZip}
+                          </p>
+                        )}
+                      </div>
+                      {!locked && (
+                        <button
+                          onClick={() => { setFedexLocationSelected(false); setFedexResults([]); }}
+                          className="text-xs text-gray-500 hover:text-white ml-3 flex-shrink-0"
+                        >
+                          Change
+                        </button>
                       )}
                     </div>
-                    {!locked && (
-                      <button
-                        onClick={() => { setFedexLocationSelected(false); setFedexResults([]); }}
-                        className="text-xs text-gray-500 hover:text-white ml-3 flex-shrink-0"
-                      >
-                        Change
-                      </button>
-                    )}
-                  </div>
+                    {/* Location hours input */}
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Location Hours</label>
+                      {locked ? (
+                        <p className="text-xs text-gray-300">{fedexLocationHours || "—"}</p>
+                      ) : (
+                        <input
+                          type="text"
+                          value={fedexLocationHours}
+                          onChange={(e) => setFedexLocationHours(e.target.value)}
+                          placeholder="e.g. Mon–Fri 8am–8pm, Sat–Sun 9am–6pm"
+                          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-amber-500"
+                        />
+                      )}
+                    </div>
+                  </>
                 ) : !locked ? (
                   <>
                     {/* ZIP search */}

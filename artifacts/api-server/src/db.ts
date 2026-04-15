@@ -208,6 +208,8 @@ export async function initDb(): Promise<void> {
   await safeAdd("billing_city",  "TEXT");
   await safeAdd("billing_state", "TEXT");
   await safeAdd("billing_zip",   "TEXT");
+  // FedEx Hold location hours (shown on invoice and recap email delivery block)
+  await safeAdd("fedex_location_hours", "TEXT");
 
   dbReady = true;
   logger.info("Database tables and indexes verified / created");

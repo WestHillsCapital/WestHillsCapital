@@ -58,6 +58,8 @@ router.post("/", async (req, res) => {
     billingCity,
     billingState,
     billingZip,
+    // FedEx Hold location hours (shown on invoice + recap email)
+    fedexLocationHours,
     notes,
   } = req.body as {
     leadId?:           number | null;
@@ -93,12 +95,13 @@ router.post("/", async (req, res) => {
     shipToCity?:     string | null;
     shipToState?:    string | null;
     shipToZip?:      string | null;
-    billingLine1?:   string | null;
-    billingLine2?:   string | null;
-    billingCity?:    string | null;
-    billingState?:   string | null;
-    billingZip?:     string | null;
-    notes?:          string | null;
+    billingLine1?:       string | null;
+    billingLine2?:       string | null;
+    billingCity?:        string | null;
+    billingState?:       string | null;
+    billingZip?:         string | null;
+    fedexLocationHours?: string | null;
+    notes?:              string | null;
   };
 
   // ── Validation ────────────────────────────────────────────────────────────
@@ -149,8 +152,9 @@ router.post("/", async (req, res) => {
           shipping_method, fedex_location,
           ship_to_name, ship_to_line1, ship_to_city, ship_to_state, ship_to_zip,
           billing_line1, billing_line2, billing_city, billing_state, billing_zip,
+          fedex_location_hours,
           notes, status, locked_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35)
        RETURNING id`,
       [
         leadId ?? null, confirmationId ?? null, dealType, iraType ?? null,
@@ -165,6 +169,7 @@ router.post("/", async (req, res) => {
         shipToState ?? null, shipToZip    ?? null,
         billingLine1 ?? null, billingLine2 ?? null, billingCity ?? null,
         billingState ?? null, billingZip  ?? null,
+        fedexLocationHours ?? null,
         notes ?? null, "locked", lockedAt,
       ],
     );
@@ -196,8 +201,9 @@ router.post("/", async (req, res) => {
       total:           total ?? 0,
       balanceDue:      balanceDue ?? 0,
       shippingMethod,
-      fedexLocation:   fedexLocation ?? undefined,
-      shipToName:      shipToName  ?? undefined,
+      fedexLocation:      fedexLocation      ?? undefined,
+      fedexLocationHours: fedexLocationHours ?? undefined,
+      shipToName:         shipToName         ?? undefined,
       shipToLine1:     shipToLine1 ?? undefined,
       shipToCity:      shipToCity  ?? undefined,
       shipToState:     shipToState ?? undefined,
@@ -278,8 +284,9 @@ router.post("/", async (req, res) => {
         state:         state ?? undefined,
         dealType,
         shippingMethod,
-        fedexLocation: fedexLocation ?? undefined,
-        shipToLine1:   shipToLine1   ?? undefined,
+        fedexLocation:      fedexLocation      ?? undefined,
+        fedexLocationHours: fedexLocationHours ?? undefined,
+        shipToLine1:        shipToLine1        ?? undefined,
         shipToCity:    shipToCity    ?? undefined,
         shipToState:   shipToState   ?? undefined,
         shipToZip:     shipToZip     ?? undefined,
@@ -410,6 +417,7 @@ router.post("/preview-invoice", async (req, res) => {
     dealType  = "cash",
     shippingMethod,
     fedexLocation,
+    fedexLocationHours,
     shipToLine1,
     shipToCity,
     shipToState,
@@ -426,29 +434,30 @@ router.post("/preview-invoice", async (req, res) => {
     goldSpotAsk,
     silverSpotAsk,
   } = req.body as {
-    firstName?:     string;
-    lastName?:      string;
-    email?:         string;
-    phone?:         string;
-    state?:         string;
-    dealType?:      string;
-    shippingMethod?: string;
-    fedexLocation?:  string;
-    shipToLine1?:    string;
-    shipToCity?:     string;
-    shipToState?:    string;
-    shipToZip?:      string;
-    billingLine1?:   string;
-    billingLine2?:   string;
-    billingCity?:    string;
-    billingState?:   string;
-    billingZip?:     string;
+    firstName?:          string;
+    lastName?:           string;
+    email?:              string;
+    phone?:              string;
+    state?:              string;
+    dealType?:           string;
+    shippingMethod?:     string;
+    fedexLocation?:      string;
+    fedexLocationHours?: string;
+    shipToLine1?:        string;
+    shipToCity?:         string;
+    shipToState?:        string;
+    shipToZip?:          string;
+    billingLine1?:       string;
+    billingLine2?:       string;
+    billingCity?:        string;
+    billingState?:       string;
+    billingZip?:         string;
     products?: { productName: string; qty: number; unitPrice: number; lineTotal: number }[];
-    subtotal?:       number;
-    shipping?:       number;
-    total?:          number;
-    goldSpotAsk?:    number;
-    silverSpotAsk?:  number;
+    subtotal?:           number;
+    shipping?:           number;
+    total?:              number;
+    goldSpotAsk?:        number;
+    silverSpotAsk?:      number;
   };
 
   try {
@@ -463,6 +472,7 @@ router.post("/preview-invoice", async (req, res) => {
       dealType:      dealType  ?? "cash",
       shippingMethod,
       fedexLocation,
+      fedexLocationHours,
       shipToLine1,
       shipToCity,
       shipToState,
