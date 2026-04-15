@@ -35,6 +35,11 @@ export interface InvoiceDeal {
   shipToCity?:     string;
   shipToState?:    string;
   shipToZip?:      string;
+  billingLine1?:   string;
+  billingLine2?:   string;
+  billingCity?:    string;
+  billingState?:   string;
+  billingZip?:     string;
   products: {
     productName: string;
     qty:         number;
@@ -144,7 +149,16 @@ export async function generateInvoicePdf(deal: InvoiceDeal): Promise<Buffer> {
       .fillColor(GRAY);
     if (deal.email) { doc.text(deal.email, LEFT, y); y += 13; }
     if (deal.phone) { doc.text(deal.phone, LEFT, y); y += 13; }
-    if (deal.state) { doc.text(deal.state, LEFT, y); y += 13; }
+    // Billing address lines
+    if (deal.billingLine1) { doc.text(deal.billingLine1, LEFT, y); y += 13; }
+    if (deal.billingLine2) { doc.text(deal.billingLine2, LEFT, y); y += 13; }
+    if (deal.billingCity || deal.billingState || deal.billingZip) {
+      const cityLine = [deal.billingCity, deal.billingState].filter(Boolean).join(", ") +
+        (deal.billingZip ? ` ${deal.billingZip}` : "");
+      doc.text(cityLine.trim(), LEFT, y); y += 13;
+    } else if (deal.state) {
+      doc.text(deal.state, LEFT, y); y += 13;
+    }
 
     // ── Delivery ─────────────────────────────────────────────────────────────
     const isFedex = deal.shippingMethod === "fedex_hold";

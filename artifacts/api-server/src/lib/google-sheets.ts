@@ -155,6 +155,11 @@ const DEALS_ALL_HEADERS = [
   "Delivery Method",
   "Ship To",
   "FedEx Location",
+  "Billing Line 1",
+  "Billing Line 2",
+  "Billing City",
+  "Billing State",
+  "Billing Zip",
   "External Trade ID",
   "Supplier Confirmation ID",
   "Execution Timestamp",
@@ -1092,6 +1097,12 @@ export type DealPayload = {
   shipToCity?:       string;
   shipToState?:      string;
   shipToZip?:        string;
+  // Billing address (shown on invoice Bill To block)
+  billingLine1?:     string;
+  billingLine2?:     string;
+  billingCity?:      string;
+  billingState?:     string;
+  billingZip?:       string;
   // DG trade execution results
   externalTradeId?:        string;
   supplierConfirmationId?: string;
@@ -1294,6 +1305,11 @@ export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
     "Delivery Method":       deliveryLabel,
     "Ship To":               shipToDisplay,
     "FedEx Location":        deal.fedexLocation ?? "",
+    "Billing Line 1":        deal.billingLine1 ?? "",
+    "Billing Line 2":        deal.billingLine2 ?? "",
+    "Billing City":          deal.billingCity  ?? "",
+    "Billing State":         deal.billingState ?? "",
+    "Billing Zip":           deal.billingZip   ?? "",
     "External Trade ID":     deal.externalTradeId ?? "",
     "Supplier Confirmation ID": deal.supplierConfirmationId ?? "",
     "Execution Timestamp":   deal.executionTimestamp ?? "",

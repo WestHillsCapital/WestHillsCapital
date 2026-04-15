@@ -52,6 +52,12 @@ router.post("/", async (req, res) => {
     shipToCity,
     shipToState,
     shipToZip,
+    // Billing address (shown on invoice Bill To block)
+    billingLine1,
+    billingLine2,
+    billingCity,
+    billingState,
+    billingZip,
     notes,
   } = req.body as {
     leadId?:           number | null;
@@ -87,6 +93,11 @@ router.post("/", async (req, res) => {
     shipToCity?:     string | null;
     shipToState?:    string | null;
     shipToZip?:      string | null;
+    billingLine1?:   string | null;
+    billingLine2?:   string | null;
+    billingCity?:    string | null;
+    billingState?:   string | null;
+    billingZip?:     string | null;
     notes?:          string | null;
   };
 
@@ -137,8 +148,9 @@ router.post("/", async (req, res) => {
           products, subtotal, shipping, total, balance_due,
           shipping_method, fedex_location,
           ship_to_name, ship_to_line1, ship_to_city, ship_to_state, ship_to_zip,
+          billing_line1, billing_line2, billing_city, billing_state, billing_zip,
           notes, status, locked_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34)
        RETURNING id`,
       [
         leadId ?? null, confirmationId ?? null, dealType, iraType ?? null,
@@ -151,6 +163,8 @@ router.post("/", async (req, res) => {
         shippingMethod, fedexLocation ?? null,
         shipToName  ?? null, shipToLine1  ?? null, shipToCity  ?? null,
         shipToState ?? null, shipToZip    ?? null,
+        billingLine1 ?? null, billingLine2 ?? null, billingCity ?? null,
+        billingState ?? null, billingZip  ?? null,
         notes ?? null, "locked", lockedAt,
       ],
     );
@@ -188,6 +202,11 @@ router.post("/", async (req, res) => {
       shipToCity:      shipToCity  ?? undefined,
       shipToState:     shipToState ?? undefined,
       shipToZip:       shipToZip   ?? undefined,
+      billingLine1:    billingLine1 ?? undefined,
+      billingLine2:    billingLine2 ?? undefined,
+      billingCity:     billingCity  ?? undefined,
+      billingState:    billingState ?? undefined,
+      billingZip:      billingZip   ?? undefined,
       notes:           notes ?? undefined,
       lockedAt:        lockedAt.toISOString(),
       invoiceId:       finalInvoiceId,
@@ -264,6 +283,11 @@ router.post("/", async (req, res) => {
         shipToCity:    shipToCity    ?? undefined,
         shipToState:   shipToState   ?? undefined,
         shipToZip:     shipToZip     ?? undefined,
+        billingLine1:  billingLine1  ?? undefined,
+        billingLine2:  billingLine2  ?? undefined,
+        billingCity:   billingCity   ?? undefined,
+        billingState:  billingState  ?? undefined,
+        billingZip:    billingZip    ?? undefined,
         products:      (products ?? []).map((p) => ({
           productName: p.productName,
           qty:         p.qty,
@@ -390,6 +414,11 @@ router.post("/preview-invoice", async (req, res) => {
     shipToCity,
     shipToState,
     shipToZip,
+    billingLine1,
+    billingLine2,
+    billingCity,
+    billingState,
+    billingZip,
     products  = [],
     subtotal  = 0,
     shipping  = 0,
@@ -409,6 +438,11 @@ router.post("/preview-invoice", async (req, res) => {
     shipToCity?:     string;
     shipToState?:    string;
     shipToZip?:      string;
+    billingLine1?:   string;
+    billingLine2?:   string;
+    billingCity?:    string;
+    billingState?:   string;
+    billingZip?:     string;
     products?: { productName: string; qty: number; unitPrice: number; lineTotal: number }[];
     subtotal?:       number;
     shipping?:       number;
@@ -433,6 +467,11 @@ router.post("/preview-invoice", async (req, res) => {
       shipToCity,
       shipToState,
       shipToZip,
+      billingLine1,
+      billingLine2,
+      billingCity,
+      billingState,
+      billingZip,
       products: (products ?? []).map((p) => ({
         productName: p.productName,
         qty:         Number(p.qty)       || 0,

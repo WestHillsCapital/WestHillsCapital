@@ -126,6 +126,13 @@ export default function DealBuilder() {
     }
   }, [customer.zip, deliveryMethod, fedexLocationSelected]);
 
+  // ── Billing address ───────────────────────────────────────────────────────
+  const [billingLine1, setBillingLine1] = useState("");
+  const [billingLine2, setBillingLine2] = useState("");
+  const [billingCity,  setBillingCity]  = useState("");
+  const [billingState, setBillingState] = useState("");
+  const [billingZip,   setBillingZip]   = useState("");
+
   // ── Notes ──────────────────────────────────────────────────────────────────
   const [notes, setNotes] = useState("");
 
@@ -194,6 +201,11 @@ export default function DealBuilder() {
         setShipToCity(deal.ship_to_city   ?? "");
         setShipToState(deal.ship_to_state ?? "");
         setShipToZip(deal.ship_to_zip     ?? "");
+        setBillingLine1(deal.billing_line1 ?? "");
+        setBillingLine2(deal.billing_line2 ?? "");
+        setBillingCity(deal.billing_city   ?? "");
+        setBillingState(deal.billing_state ?? "");
+        setBillingZip(deal.billing_zip     ?? "");
         setNotes(deal.notes ?? "");
         if (deal.invoice_id || deal.invoice_url || deal.recap_email_sent_at) {
           setExecutionResult({
@@ -468,6 +480,11 @@ export default function DealBuilder() {
           shipToCity:       shipToCity  || null,
           shipToState:      shipToState || null,
           shipToZip:        shipToZip   || null,
+          billingLine1:     billingLine1 || null,
+          billingLine2:     billingLine2 || null,
+          billingCity:      billingCity  || null,
+          billingState:     billingState || null,
+          billingZip:       billingZip   || null,
           notes:            notes || null,
         }),
       });
@@ -497,7 +514,8 @@ export default function DealBuilder() {
       setExecutionStep(0);
     }
   }, [customer, dealType, iraType, spotData, rows, subtotal, shipping, total,
-      deliveryMethod, fedexLocation, shipToLine1, shipToCity, shipToState, shipToZip, notes]);
+      deliveryMethod, fedexLocation, shipToLine1, shipToCity, shipToState, shipToZip,
+      billingLine1, billingLine2, billingCity, billingState, billingZip, notes]);
 
   // ── Preview Invoice PDF ───────────────────────────────────────────────────
   const handlePreviewInvoice = useCallback(async () => {
@@ -528,6 +546,11 @@ export default function DealBuilder() {
           shipToCity:     shipToCity        || undefined,
           shipToState:    shipToState       || undefined,
           shipToZip:      shipToZip         || undefined,
+          billingLine1:   billingLine1      || undefined,
+          billingLine2:   billingLine2      || undefined,
+          billingCity:    billingCity       || undefined,
+          billingState:   billingState      || undefined,
+          billingZip:     billingZip        || undefined,
           products:       activeProducts,
           subtotal,
           shipping,
@@ -554,6 +577,7 @@ export default function DealBuilder() {
       setIsGeneratingPreview(false);
     }
   }, [customer, dealType, deliveryMethod, fedexLocation, shipToLine1, shipToCity, shipToState, shipToZip,
+      billingLine1, billingLine2, billingCity, billingState, billingZip,
       rows, subtotal, shipping, total, spotData, getAuthHeaders]);
 
   // ── Field helper ─────────────────────────────────────────────────────────
@@ -864,6 +888,59 @@ export default function DealBuilder() {
                     label="Zip"
                     value={shipToZip}
                     onChange={(e) => setShipToZip(e.target.value)}
+                    disabled={locked}
+                    placeholder="67201"
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Billing Address */}
+          <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Billing Address</h2>
+            <div className="space-y-2">
+              <Field
+                label="Street Address"
+                value={billingLine1}
+                onChange={(e) => setBillingLine1(e.target.value)}
+                disabled={locked}
+                placeholder="123 Main St"
+              />
+              <Field
+                label="Apt / Suite (optional)"
+                value={billingLine2}
+                onChange={(e) => setBillingLine2(e.target.value)}
+                disabled={locked}
+                placeholder="Apt 4B"
+              />
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-1">
+                  <Field
+                    label="City"
+                    value={billingCity}
+                    onChange={(e) => setBillingCity(e.target.value)}
+                    disabled={locked}
+                    placeholder="Wichita"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">State</label>
+                  <select
+                    value={billingState}
+                    onChange={(e) => setBillingState(e.target.value)}
+                    disabled={locked}
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white disabled:opacity-60 focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="">—</option>
+                    {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <Field
+                    label="Zip"
+                    value={billingZip}
+                    onChange={(e) => setBillingZip(e.target.value)}
                     disabled={locked}
                     placeholder="67201"
                   />

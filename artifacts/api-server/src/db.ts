@@ -202,6 +202,12 @@ export async function initDb(): Promise<void> {
   await safeAdd("invoice_url",          "TEXT");
   await safeAdd("invoice_generated_at", "TIMESTAMPTZ");
   await safeAdd("recap_email_sent_at",  "TIMESTAMPTZ");
+  // Billing address (shown on invoice Bill To block)
+  await safeAdd("billing_line1", "TEXT");
+  await safeAdd("billing_line2", "TEXT");
+  await safeAdd("billing_city",  "TEXT");
+  await safeAdd("billing_state", "TEXT");
+  await safeAdd("billing_zip",   "TEXT");
 
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
