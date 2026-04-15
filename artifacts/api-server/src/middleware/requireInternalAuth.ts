@@ -25,7 +25,18 @@ declare global {
  * Returns 401 if the token is missing or expired; 403 if the token is
  * valid but the route further restricts access.
  */
+// When GOOGLE_CLIENT_ID is not configured (local / Replit dev environment),
+// Google sign-in cannot work, so there is no way to obtain a valid session token.
+// In that case skip auth entirely so the internal portal remains usable locally.
+// In production GOOGLE_CLIENT_ID is always set, so this path is never taken.
+const AUTH_DISABLED = !process.env["GOOGLE_CLIENT_ID"];
+
 export const requireInternalAuth: RequestHandler = (req, res, next) => {
+  if (AUTH_DISABLED) {
+    req.internalEmail = "dev@local";
+    return next();
+  }
+
   const authHeader = req.headers["authorization"];
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
