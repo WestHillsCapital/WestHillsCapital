@@ -37,6 +37,7 @@ interface Customer {
   email:            string;
   phone:            string;
   state:            string;
+  zip:              string;
   leadId:           string;
   confirmationId:   string;
   custodian:        string;
@@ -85,7 +86,7 @@ export default function DealBuilder() {
 
   // ── Customer fields ──────────────────────────────────────────────────────
   const [customer, setCustomer] = useState<Customer>({
-    firstName: "", lastName: "", email: "", phone: "", state: "",
+    firstName: "", lastName: "", email: "", phone: "", state: "", zip: "",
     leadId: urlLeadId, confirmationId: urlConfirmationId,
     custodian: "", iraAccountNumber: "",
   });
@@ -116,6 +117,14 @@ export default function DealBuilder() {
   const [isFedexSearching,  setIsFedexSearching]  = useState(false);
   const [fedexSearchError,  setFedexSearchError]  = useState<string | null>(null);
   const [fedexLocationSelected, setFedexLocationSelected] = useState(false);
+
+  // When customer zip becomes valid + delivery is FedEx hold, prime the search zip
+  useEffect(() => {
+    const z = customer.zip.replace(/\D/g, "").slice(0, 5);
+    if (z.length === 5 && deliveryMethod === "fedex_hold" && !fedexLocationSelected) {
+      setFedexSearchZip(z);
+    }
+  }, [customer.zip, deliveryMethod, fedexLocationSelected]);
 
   // ── Notes ──────────────────────────────────────────────────────────────────
   const [notes, setNotes] = useState("");
@@ -337,8 +346,10 @@ export default function DealBuilder() {
   }, []);
 
   // ── FedEx location search ─────────────────────────────────────────────────
-  const searchFedexLocations = useCallback(async () => {
-    const zip = fedexSearchZip.replace(/\D/g, "").slice(0, 5);
+  // Accepts an optional zipOverride so the auto-trigger can pass the zip
+  // directly without relying on a pending state update.
+  const searchFedexLocations = useCallback(async (zipOverride?: string) => {
+    const zip = (zipOverride ?? fedexSearchZip).replace(/\D/g, "").slice(0, 5);
     if (zip.length !== 5) {
       setFedexSearchError("Enter a valid 5-digit ZIP code.");
       return;
@@ -364,6 +375,15 @@ export default function DealBuilder() {
       setIsFedexSearching(false);
     }
   }, [fedexSearchZip, getAuthHeaders]);
+
+  // Auto-fire search whenever fedexSearchZip becomes a valid 5-digit code
+  // (catches both auto-population from customer.zip and manual entry)
+  useEffect(() => {
+    const z = fedexSearchZip.replace(/\D/g, "").slice(0, 5);
+    if (z.length !== 5 || deliveryMethod !== "fedex_hold" || fedexLocationSelected || isFedexSearching) return;
+    void searchFedexLocations(z);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fedexSearchZip]);
 
   const selectFedexLocation = useCallback((loc: FedExLocationResult) => {
     setFedexLocation(loc.name);
@@ -606,7 +626,7 @@ export default function DealBuilder() {
               </div>
               <Field label="Email"   value={customer.email}  onChange={setCust("email")}  type="email" disabled={locked} />
               <Field label="Phone"   value={customer.phone}  onChange={setCust("phone")}  type="tel"   disabled={locked} />
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block text-xs text-gray-400 mb-1">State</label>
                   <select
@@ -618,6 +638,23 @@ export default function DealBuilder() {
                     <option value="">—</option>
                     {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-400 mb-1">
+                    ZIP{deliveryMethod === "fedex_hold" && !fedexLocationSelected && (
+                      <span className="ml-1 text-amber-500/70">(used for FedEx search)</span>
+                    )}
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={5}
+                    value={customer.zip}
+                    onChange={(e) => setCust("zip")({ target: { value: e.target.value.replace(/\D/g, "") } } as React.ChangeEvent<HTMLInputElement>)}
+                    disabled={locked}
+                    placeholder="ZIP"
+                    className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white placeholder:text-gray-600 disabled:opacity-60 focus:outline-none focus:border-amber-500"
+                  />
                 </div>
                 <Field label="Lead ID" value={customer.leadId} onChange={setCust("leadId")} disabled={locked} />
               </div>
