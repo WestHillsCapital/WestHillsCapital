@@ -178,6 +178,43 @@ Root `vercel.json` controls the Vercel build:
 - `gitsafe-backup` → internal Replit backup
 - `subrepl-848h6cbd` → isolated task agent communication
 
+## Deal Builder — Lock & Execute Chain (Task #12)
+
+When the internal user clicks **Lock & Execute** in the Deal Builder, the following synchronous pipeline runs server-side:
+
+1. **DB save** — deal inserted with all fields including ship-to address
+2. **DG LockPrices** — locks Fiztrade wholesale prices (20-second window)
+3. **DG ExecuteTrade** — places the wholesale buy order immediately after lock
+4. **Invoice PDF** — `pdfkit` generates a WHC-branded invoice (no DG references); wire instructions reference Commerce Bank account (hardcoded in `lib/invoice-pdf.ts`)
+5. **Google Drive upload** — PDF saved to `{YEAR}/{MM–Month}/{YYYYMMDD-LastName-DealType}/WHC-{id}-{date}.pdf` under root folder ID
+6. **Client recap email** — PDF attached, with wire instructions; sent via Resend
+7. **Admin notification + Sheets sync** — fire-and-forget
+
+### Key files
+- `artifacts/api-server/src/lib/fiztrade.ts` — LockPrices + ExecuteTrade (defensive field-name extraction; logs raw responses)
+- `artifacts/api-server/src/lib/invoice-pdf.ts` — pdfkit invoice (Commerce Bank wire instructions hardcoded)
+- `artifacts/api-server/src/lib/google-drive.ts` — Drive folder hierarchy + upload
+- `artifacts/api-server/src/lib/email.ts` — attachment support + `sendDealRecapEmail`
+- `artifacts/api-server/src/routes/deals.ts` — full orchestration pipeline
+
+### Railway env vars required for full functionality
+| Var | Value | Purpose |
+|---|---|---|
+| `DILLON_GAGE_API_KEY` | (already set) | Fiztrade token |
+| `GOOGLE_DRIVE_DEALS_FOLDER_ID` | `13CrCk1OVZDiSVK6zk44d7YEaDdyGo9sp` | Root Drive folder |
+
+### Google Drive sharing requirement
+The service account `whc-scheduling@mapdrive-380403.iam.gserviceaccount.com` must have **Editor** access to the root Drive folder `13CrCk1OVZDiSVK6zk44d7YEaDdyGo9sp`.
+
+### Fiztrade API note
+`lib/fiztrade.ts` implements LockPrices and ExecuteTrade based on the existing API pattern. The raw responses are logged at `INFO` level in Railway. If the API returns field names different from what was assumed, check Railway logs and adjust the `pickField(...)` calls in `fiztrade.ts`.
+
+### Commerce Bank wire instructions
+Hardcoded in `lib/invoice-pdf.ts` and `lib/email.ts`:
+- Bank: Commerce Bank, 1551 Waterfront, Wichita, KS 67206
+- Routing: 101000019 | Account: 690108249
+- Account Name: West Hills Capital, 1314 N. Oliver Ave. #8348, Wichita, KS 67208
+
 ## Business Rules
 
 - NO cart, checkout, or payment flows
