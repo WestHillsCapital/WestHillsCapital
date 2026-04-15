@@ -11,8 +11,10 @@
  */
 import { logger } from "./logger";
 
-const DG_BASE  = "https://connect.fiztrade.com/FizServices";
+const DG_BASE  = process.env.FIZTRADE_BASE_URL ?? "https://connect.fiztrade.com/FizServices";
 const DG_TOKEN = process.env.DILLON_GAGE_API_KEY ?? "";
+
+logger.info({ dgBase: DG_BASE }, "[Fiztrade] Active API base URL");
 
 // ── WHC product ID → Fiztrade product code ────────────────────────────────────
 const DG_CODE: Record<string, string> = {

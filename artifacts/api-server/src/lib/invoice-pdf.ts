@@ -1,13 +1,26 @@
 /**
  * Invoice PDF generation — customer-facing.
  *
- * Uses pdfkit to produce a professional letter-size PDF that is emailed to
- * the client and saved to Google Drive.  Zero references to Dillon Gage or
- * the wholesale source; everything is presented as a West Hills Capital
- * transaction.
+ * Uses pdfkit to produce a professional single-page letter-size PDF that is
+ * emailed to the client and saved to Google Drive.  Zero references to
+ * Dillon Gage or the wholesale source; everything is presented as a West
+ * Hills Capital transaction.
  */
 import PDFDocument from "pdfkit";
+import path from "path";
+import { fileURLToPath } from "url";
+import { existsSync } from "fs";
 import { logger } from "./logger";
+import { nextBusinessDayFrom } from "./date-utils";
+
+// ── Logo path (same image used in the website navbar) ─────────────────────────
+const __filename = fileURLToPath(import.meta.url);
+const __dirname  = path.dirname(__filename);
+const LOGO_PATH  = path.resolve(
+  __dirname,
+  "../../../../west-hills-capital/public/images/logo.png",
+);
+const HAS_LOGO = existsSync(LOGO_PATH);
 
 // ── Wire instructions (Commerce Bank) ─────────────────────────────────────────
 const WIRE = {
@@ -29,17 +42,18 @@ export interface InvoiceDeal {
   phone?:        string;
   state?:        string;
   dealType:      string;
-  shippingMethod?: string;
-  fedexLocation?:  string;
-  shipToLine1?:    string;
-  shipToCity?:     string;
-  shipToState?:    string;
-  shipToZip?:      string;
-  billingLine1?:   string;
-  billingLine2?:   string;
-  billingCity?:    string;
-  billingState?:   string;
-  billingZip?:     string;
+  shippingMethod?:     string;
+  fedexLocation?:      string;
+  fedexLocationHours?: string;
+  shipToLine1?:        string;
+  shipToCity?:         string;
+  shipToState?:        string;
+  shipToZip?:          string;
+  billingLine1?:       string;
+  billingLine2?:       string;
+  billingCity?:        string;
+  billingState?:       string;
+  billingZip?:         string;
   products: {
     productName: string;
     qty:         number;
@@ -79,236 +93,237 @@ function formatDate(iso: string): string {
 
 export async function generateInvoicePdf(deal: InvoiceDeal): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: "LETTER", margin: 50 });
+    const doc = new PDFDocument({ size: "LETTER", margin: 40, autoFirstPage: true });
     const chunks: Buffer[] = [];
 
     doc.on("data", (c: Buffer) => chunks.push(c));
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("end",  () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    const LEFT  = 50;
-    const RIGHT = 562;  // page width 612 − 50
+    const LEFT  = 40;
+    const RIGHT = 572;   // 612 − 40
+    const W     = RIGHT - LEFT;
     const GOLD  = "#B8860B";
     const DARK  = "#1a1a1a";
     const GRAY  = "#6b7280";
     const LGRAY = "#e5e7eb";
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // TWO-COLUMN HEADER: seller info (left) | BILL TO (right)
-    // ─────────────────────────────────────────────────────────────────────────
-    const MID   = LEFT + 255;   // mid-point separating left / right columns
-    const RCOL  = MID + 20;     // right column start x
-
-    // ── Left column — Seller / Invoice info ─────────────────────────────────
-    doc
-      .fontSize(22)
-      .font("Helvetica-Bold")
-      .fillColor(DARK)
-      .text("West Hills Capital", LEFT, 50, { width: MID - LEFT });
-
-    doc
-      .fontSize(9)
-      .font("Helvetica")
-      .fillColor(GRAY)
-      .text("Physical Precious Metals Allocation", LEFT, 76, { width: MID - LEFT })
-      .text("(800) 867-6768  |  westhillscapital.com", LEFT, 88, { width: MID - LEFT });
+    const MID   = LEFT + 245;
+    const RCOL  = MID + 18;
 
     const invNum = invoiceNumber(deal.id, deal.lockedAt);
+    const lockedDate = new Date(deal.lockedAt);
+    const payDeadline = nextBusinessDayFrom(lockedDate);
 
-    doc
-      .fontSize(8)
-      .font("Helvetica-Bold")
-      .fillColor(GRAY)
-      .text("INVOICE", LEFT, 108, { width: MID - LEFT });
-    doc
-      .fontSize(10)
-      .font("Helvetica-Bold")
-      .fillColor(GOLD)
-      .text(invNum, LEFT, 119, { width: MID - LEFT });
-    doc
-      .fontSize(9)
-      .font("Helvetica")
-      .fillColor(GRAY)
-      .text(formatDate(deal.lockedAt), LEFT, 133, { width: MID - LEFT });
-
-    // ── Right column — BILL TO ───────────────────────────────────────────────
-    doc
-      .fontSize(8)
-      .font("Helvetica-Bold")
-      .fillColor(GRAY)
-      .text("BILL TO", RCOL, 50, { width: RIGHT - RCOL });
-    doc
-      .fontSize(11)
-      .font("Helvetica-Bold")
-      .fillColor(DARK)
-      .text(`${deal.firstName} ${deal.lastName}`, RCOL, 64, { width: RIGHT - RCOL });
-
-    let billY = 80;
-    doc.fontSize(9).font("Helvetica").fillColor(GRAY);
-    if (deal.email)        { doc.text(deal.email,        RCOL, billY, { width: RIGHT - RCOL }); billY += 13; }
-    if (deal.phone)        { doc.text(deal.phone,        RCOL, billY, { width: RIGHT - RCOL }); billY += 13; }
-    if (deal.billingLine1) { doc.text(deal.billingLine1, RCOL, billY, { width: RIGHT - RCOL }); billY += 13; }
-    if (deal.billingLine2) { doc.text(deal.billingLine2, RCOL, billY, { width: RIGHT - RCOL }); billY += 13; }
-    if (deal.billingCity || deal.billingState || deal.billingZip) {
-      const cityLine = [deal.billingCity, deal.billingState].filter(Boolean).join(", ") +
-        (deal.billingZip ? ` ${deal.billingZip}` : "");
-      doc.text(cityLine.trim(), RCOL, billY, { width: RIGHT - RCOL }); billY += 13;
-    } else if (deal.state) {
-      doc.text(deal.state, RCOL, billY, { width: RIGHT - RCOL }); billY += 13;
-    }
-
-    // ── Divider ─────────────────────────────────────────────────────────────
-    const headerBottom = Math.max(billY + 4, 155);
-    doc
-      .moveTo(LEFT, headerBottom)
-      .lineTo(RIGHT, headerBottom)
-      .strokeColor(LGRAY)
-      .lineWidth(1)
-      .stroke();
-
-    // ── Delivery (full-width, below header) ──────────────────────────────────
-    const isFedex = deal.shippingMethod === "fedex_hold";
-    const deliveryLabel = isFedex ? "FedEx Hold" : "Home Delivery";
-
-    const addrParts: string[] = [];
-    if (isFedex && deal.fedexLocation) addrParts.push(deal.fedexLocation);
-    if (deal.shipToLine1) addrParts.push(deal.shipToLine1);
-    if (deal.shipToCity && deal.shipToState) {
-      addrParts.push(`${deal.shipToCity}, ${deal.shipToState} ${deal.shipToZip ?? ""}`.trim());
-    }
-    const deliveryAddr = addrParts.join(" — ");
-
-    const deliveryY = headerBottom + 10;
-    doc
-      .fontSize(8)
-      .font("Helvetica-Bold")
-      .fillColor(GRAY)
-      .text("DELIVERY", LEFT, deliveryY);
-    doc
-      .fontSize(10)
-      .font("Helvetica-Bold")
-      .fillColor(DARK)
-      .text(deliveryLabel, LEFT + 60, deliveryY, { width: RIGHT - LEFT - 60 });
-    if (deliveryAddr) {
+    // ──────────────────────────────────────────────────────────────────────────
+    // HEADER LEFT — Logo + Invoice meta + Spot prices
+    // ──────────────────────────────────────────────────────────────────────────
+    let logoBottomY = 40;
+    if (HAS_LOGO) {
+      try {
+        doc.image(LOGO_PATH, LEFT, 40, { fit: [195, 52], align: "left", valign: "top" });
+        logoBottomY = 96;
+      } catch {
+        doc
+          .fontSize(20).font("Helvetica-Bold").fillColor(DARK)
+          .text("West Hills Capital", LEFT, 40, { width: MID - LEFT });
+        logoBottomY = 65;
+      }
+    } else {
       doc
-        .fontSize(9)
-        .font("Helvetica")
-        .fillColor(GRAY)
-        .text(deliveryAddr, LEFT + 60, deliveryY + 14, { width: RIGHT - LEFT - 60 });
+        .fontSize(20).font("Helvetica-Bold").fillColor(DARK)
+        .text("West Hills Capital", LEFT, 40, { width: MID - LEFT });
+      logoBottomY = 65;
     }
 
-    // ── Product Table ────────────────────────────────────────────────────────
-    const deliveryBlockH = deliveryAddr ? 30 : 16;
-    const tableTop = Math.max(deliveryY + deliveryBlockH + 12, 220);
-
-    // Header row
     doc
-      .moveTo(LEFT, tableTop)
-      .lineTo(RIGHT, tableTop)
-      .strokeColor(LGRAY)
-      .stroke();
+      .fontSize(8).font("Helvetica").fillColor(GRAY)
+      .text(
+        "Physical Precious Metals Allocation  |  (800) 867-6768  |  westhillscapital.com",
+        LEFT, logoBottomY + 2, { width: MID - LEFT },
+      );
 
-    const COL = { product: LEFT, qty: 340, unit: 410, total: 500 };
+    const invLabelY = logoBottomY + 16;
+    doc
+      .fontSize(7.5).font("Helvetica-Bold").fillColor(GRAY)
+      .text("INVOICE", LEFT, invLabelY, { width: MID - LEFT });
+    doc
+      .fontSize(10).font("Helvetica-Bold").fillColor(GOLD)
+      .text(invNum, LEFT, invLabelY + 10, { width: MID - LEFT });
+    doc
+      .fontSize(8.5).font("Helvetica").fillColor(GRAY)
+      .text(formatDate(deal.lockedAt), LEFT, invLabelY + 23, { width: MID - LEFT });
+
+    // Spot prices — directly below invoice date
+    const spotY = invLabelY + 38;
+    doc.fontSize(8).font("Helvetica").fillColor(GRAY);
+    if (deal.goldSpotAsk) {
+      doc.text(`Gold Spot: ${usd(deal.goldSpotAsk)}`, LEFT, spotY, { width: MID - LEFT });
+    }
+    if (deal.silverSpotAsk) {
+      const sY = deal.goldSpotAsk ? spotY + 12 : spotY;
+      doc.text(`Silver Spot: ${usd(deal.silverSpotAsk)}`, LEFT, sY, { width: MID - LEFT });
+    }
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // HEADER RIGHT — Bill To
+    // ──────────────────────────────────────────────────────────────────────────
+    doc
+      .fontSize(7.5).font("Helvetica-Bold").fillColor(GRAY)
+      .text("BILL TO", RCOL, 40, { width: RIGHT - RCOL });
+    doc
+      .fontSize(11).font("Helvetica-Bold").fillColor(DARK)
+      .text(`${deal.firstName} ${deal.lastName}`, RCOL, 52, { width: RIGHT - RCOL });
+
+    let billY = 68;
+    doc.fontSize(8.5).font("Helvetica").fillColor(GRAY);
+    if (deal.email)        { doc.text(deal.email,        RCOL, billY, { width: RIGHT - RCOL }); billY += 12; }
+    if (deal.phone)        { doc.text(deal.phone,        RCOL, billY, { width: RIGHT - RCOL }); billY += 12; }
+    if (deal.billingLine1) { doc.text(deal.billingLine1, RCOL, billY, { width: RIGHT - RCOL }); billY += 12; }
+    if (deal.billingLine2) { doc.text(deal.billingLine2, RCOL, billY, { width: RIGHT - RCOL }); billY += 12; }
+    if (deal.billingCity || deal.billingState || deal.billingZip) {
+      const cityLine =
+        [deal.billingCity, deal.billingState].filter(Boolean).join(", ") +
+        (deal.billingZip ? ` ${deal.billingZip}` : "");
+      doc.text(cityLine.trim(), RCOL, billY, { width: RIGHT - RCOL }); billY += 12;
+    } else if (deal.state) {
+      doc.text(deal.state, RCOL, billY, { width: RIGHT - RCOL }); billY += 12;
+    }
+
+    // ── Header divider ───────────────────────────────────────────────────────
+    const headerBottom = Math.max(billY + 6, spotY + (deal.silverSpotAsk ? 24 : 12) + 6, 162);
+    doc
+      .moveTo(LEFT, headerBottom).lineTo(RIGHT, headerBottom)
+      .strokeColor(LGRAY).lineWidth(1).stroke();
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // DELIVERY SECTION
+    // ──────────────────────────────────────────────────────────────────────────
+    const isFedex = deal.shippingMethod === "fedex_hold";
+    const deliveryY = headerBottom + 8;
+    const DLEFT = LEFT + 65;
 
     doc
-      .fontSize(8)
-      .font("Helvetica-Bold")
-      .fillColor(GRAY)
-      .text("PRODUCT",    COL.product, tableTop + 6)
-      .text("QTY",        COL.qty,     tableTop + 6, { width: 60,  align: "right" })
-      .text("UNIT PRICE", COL.unit,    tableTop + 6, { width: 80,  align: "right" })
-      .text("LINE TOTAL", COL.total,   tableTop + 6, { width: 62,  align: "right" });
+      .fontSize(7.5).font("Helvetica-Bold").fillColor(GRAY)
+      .text("DELIVERY", LEFT, deliveryY, { width: 60 });
+    doc
+      .fontSize(9).font("Helvetica-Bold").fillColor(DARK)
+      .text(isFedex ? "FedEx Hold" : "Home Delivery", DLEFT, deliveryY, { width: RIGHT - DLEFT });
+
+    let dY = deliveryY + 13;
+    doc.fontSize(8.5).font("Helvetica").fillColor(GRAY);
+
+    if (isFedex) {
+      if (deal.fedexLocation) {
+        doc.text(deal.fedexLocation, DLEFT, dY, { width: RIGHT - DLEFT }); dY += 12;
+      }
+      doc.text(`FBO ${deal.firstName} ${deal.lastName}`, DLEFT, dY, { width: RIGHT - DLEFT }); dY += 12;
+      const addrLine = [deal.shipToLine1, [deal.shipToCity, deal.shipToState].filter(Boolean).join(", ") + (deal.shipToZip ? ` ${deal.shipToZip}` : "")].filter(Boolean).join(", ");
+      if (addrLine) { doc.text(addrLine, DLEFT, dY, { width: RIGHT - DLEFT }); dY += 12; }
+      if (deal.fedexLocationHours) {
+        doc.text(`Hours: ${deal.fedexLocationHours}`, DLEFT, dY, { width: RIGHT - DLEFT }); dY += 12;
+      }
+    } else {
+      if (deal.shipToLine1) { doc.text(deal.shipToLine1, DLEFT, dY, { width: RIGHT - DLEFT }); dY += 12; }
+      const cityLine = [deal.shipToCity, deal.shipToState].filter(Boolean).join(", ") + (deal.shipToZip ? ` ${deal.shipToZip}` : "");
+      if (cityLine.trim()) { doc.text(cityLine.trim(), DLEFT, dY, { width: RIGHT - DLEFT }); dY += 12; }
+    }
+
+    const deliveryBottom = dY + 6;
+    doc
+      .moveTo(LEFT, deliveryBottom).lineTo(RIGHT, deliveryBottom)
+      .strokeColor(LGRAY).lineWidth(0.5).stroke();
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // PRODUCT TABLE
+    // ──────────────────────────────────────────────────────────────────────────
+    const tableTop = deliveryBottom + 8;
+    const COL = { product: LEFT, qty: 340, unit: 410, total: 505 };
 
     doc
-      .moveTo(LEFT, tableTop + 20)
-      .lineTo(RIGHT, tableTop + 20)
-      .strokeColor(LGRAY)
-      .stroke();
+      .moveTo(LEFT, tableTop).lineTo(RIGHT, tableTop)
+      .strokeColor(LGRAY).lineWidth(0.5).stroke();
 
-    let rowY = tableTop + 28;
+    doc
+      .fontSize(7.5).font("Helvetica-Bold").fillColor(GRAY)
+      .text("PRODUCT",    COL.product, tableTop + 5, { width: 250 })
+      .text("QTY",        COL.qty,     tableTop + 5, { width: 60,  align: "right" })
+      .text("UNIT PRICE", COL.unit,    tableTop + 5, { width: 85,  align: "right" })
+      .text("LINE TOTAL", COL.total,   tableTop + 5, { width: RIGHT - COL.total, align: "right" });
+
+    doc
+      .moveTo(LEFT, tableTop + 18).lineTo(RIGHT, tableTop + 18)
+      .strokeColor(LGRAY).lineWidth(0.5).stroke();
+
+    let rowY = tableTop + 26;
     const activeProducts = deal.products.filter((p) => p.qty > 0 && p.unitPrice > 0);
 
     for (const p of activeProducts) {
       doc
-        .fontSize(10)
-        .font("Helvetica")
-        .fillColor(DARK)
-        .text(p.productName,       COL.product, rowY, { width: 280 })
-        .text(String(p.qty),       COL.qty,     rowY, { width: 60,  align: "right" })
-        .text(usd(p.unitPrice),    COL.unit,    rowY, { width: 80,  align: "right" })
-        .text(usd(p.lineTotal),    COL.total,   rowY, { width: 62,  align: "right" });
-      rowY += 22;
+        .fontSize(9).font("Helvetica").fillColor(DARK)
+        .text(p.productName,    COL.product, rowY, { width: 280 })
+        .text(String(p.qty),    COL.qty,     rowY, { width: 60,  align: "right" })
+        .text(usd(p.unitPrice), COL.unit,    rowY, { width: 85,  align: "right" })
+        .text(usd(p.lineTotal), COL.total,   rowY, { width: RIGHT - COL.total, align: "right" });
+      rowY += 19;
 
       doc
-        .moveTo(LEFT, rowY - 4)
-        .lineTo(RIGHT, rowY - 4)
-        .strokeColor(LGRAY)
-        .lineWidth(0.5)
-        .stroke();
+        .moveTo(LEFT, rowY - 2).lineTo(RIGHT, rowY - 2)
+        .strokeColor(LGRAY).lineWidth(0.4).stroke();
     }
 
-    // ── Totals ───────────────────────────────────────────────────────────────
-    rowY += 6;
+    // ──────────────────────────────────────────────────────────────────────────
+    // TOTALS
+    // ──────────────────────────────────────────────────────────────────────────
+    rowY += 4;
     const TLEFT = COL.unit;
 
     const totalsRow = (label: string, amount: number, bold = false) => {
       doc
-        .fontSize(10)
+        .fontSize(9)
         .font(bold ? "Helvetica-Bold" : "Helvetica")
         .fillColor(bold ? DARK : GRAY)
-        .text(label,        TLEFT, rowY, { width: 80,  align: "right" })
-        .text(usd(amount),  COL.total, rowY, { width: 62, align: "right" });
-      rowY += 18;
+        .text(label,       TLEFT, rowY, { width: 85,  align: "right" })
+        .text(usd(amount), COL.total, rowY, { width: RIGHT - COL.total, align: "right" });
+      rowY += 16;
     };
 
-    totalsRow("Subtotal",  deal.subtotal);
-    totalsRow("Shipping",  deal.shipping);
+    totalsRow("Subtotal", deal.subtotal);
+    totalsRow("Shipping", deal.shipping);
     doc
-      .moveTo(TLEFT, rowY - 2)
-      .lineTo(RIGHT, rowY - 2)
-      .strokeColor(DARK)
-      .lineWidth(1)
-      .stroke();
-    rowY += 4;
+      .moveTo(TLEFT, rowY - 2).lineTo(RIGHT, rowY - 2)
+      .strokeColor(DARK).lineWidth(0.8).stroke();
+    rowY += 3;
     totalsRow("Total Due", deal.total, true);
-    rowY += 10;
+    rowY += 6;
 
-    // ── Wire Instructions ────────────────────────────────────────────────────
-    const boxTop = rowY + 8;
-    const boxH   = 145;
-
-    doc
-      .roundedRect(LEFT, boxTop, RIGHT - LEFT, boxH, 4)
-      .strokeColor(GOLD)
-      .lineWidth(1)
-      .stroke();
+    // ──────────────────────────────────────────────────────────────────────────
+    // WIRE INSTRUCTIONS BOX
+    // ──────────────────────────────────────────────────────────────────────────
+    const boxTop = rowY + 4;
+    const wl     = LEFT + 10;
+    const boxH   = 122;
 
     doc
-      .fontSize(9)
-      .font("Helvetica-Bold")
-      .fillColor(GOLD)
-      .text("PAYMENT INSTRUCTIONS — WIRE TRANSFER", LEFT + 12, boxTop + 12);
+      .roundedRect(LEFT, boxTop, W, boxH, 3)
+      .strokeColor(GOLD).lineWidth(0.8).stroke();
 
     doc
-      .moveTo(LEFT + 12, boxTop + 25)
-      .lineTo(RIGHT - 12, boxTop + 25)
-      .strokeColor(LGRAY)
-      .lineWidth(0.5)
-      .stroke();
+      .fontSize(8.5).font("Helvetica-Bold").fillColor(GOLD)
+      .text("PAYMENT INSTRUCTIONS — WIRE TRANSFER", wl, boxTop + 9, { width: W - 20 });
 
-    const wl = LEFT + 12;
-    let wy  = boxTop + 34;
+    doc
+      .moveTo(wl, boxTop + 21).lineTo(RIGHT - 10, boxTop + 21)
+      .strokeColor(LGRAY).lineWidth(0.4).stroke();
+
+    let wy = boxTop + 28;
     const wRow = (label: string, value: string) => {
       doc
-        .fontSize(8.5)
-        .font("Helvetica-Bold")
-        .fillColor(GRAY)
-        .text(label + ":", wl, wy, { width: 120 });
+        .fontSize(8).font("Helvetica-Bold").fillColor(GRAY)
+        .text(label + ":", wl, wy, { width: 110 });
       doc
-        .font("Helvetica")
-        .fillColor(DARK)
-        .text(value, wl + 122, wy, { width: RIGHT - wl - 134 });
-      wy += 16;
+        .font("Helvetica").fillColor(DARK)
+        .text(value, wl + 112, wy, { width: RIGHT - wl - 122 });
+      wy += 13;
     };
 
     wRow("Bank",         WIRE.bank);
@@ -318,46 +333,69 @@ export async function generateInvoicePdf(deal: InvoiceDeal): Promise<Buffer> {
     wRow("Account Addr", WIRE.accountAddr);
     wRow("Account #",    WIRE.accountNum);
 
-    // Reference line
     const refLast = deal.lastName.replace(/\s+/g, "").toUpperCase().slice(0, 10);
-    const ref = `${refLast}-WHC${deal.id}`;
-    wRow("Reference",   ref);
+    wRow("Reference",   `${refLast}-WHC${deal.id}`);
 
-    wy += 4;
+    wy += 2;
     doc
-      .fontSize(8)
-      .font("Helvetica-Oblique")
-      .fillColor(GRAY)
+      .fontSize(7.5).font("Helvetica-Oblique").fillColor(GRAY)
       .text(
-        "Wire must be received in full before metals are released for shipment.",
-        wl, wy, { width: RIGHT - wl - 24 },
+        `Wire must be received by close of business the following business day (${payDeadline}) to secure this pricing.`,
+        wl, wy, { width: W - 20 },
       );
 
-    // ── Footer ───────────────────────────────────────────────────────────────
-    const footY = 720;
-    doc
-      .moveTo(LEFT, footY)
-      .lineTo(RIGHT, footY)
-      .strokeColor(LGRAY)
-      .lineWidth(0.5)
-      .stroke();
+    // ──────────────────────────────────────────────────────────────────────────
+    // TRANSACTION & DELIVERY DISCLOSURE
+    // ──────────────────────────────────────────────────────────────────────────
+    const discTop = boxTop + boxH + 10;
 
     doc
-      .fontSize(8)
-      .font("Helvetica")
-      .fillColor(GRAY)
+      .fontSize(7.5).font("Helvetica-Bold").fillColor(DARK)
+      .text("Transaction & Delivery Disclosure", LEFT, discTop, { width: W });
+
+    doc
+      .fontSize(7).font("Helvetica").fillColor(GRAY)
+      .text(
+        "West Hills Capital acts solely as a facilitator in the acquisition and delivery of physical precious metals on behalf of the customer. " +
+        "Upon receipt of funds, West Hills Capital secures metals through third-party suppliers and arranges shipment via insured carriers to the designated delivery location. " +
+        "West Hills Capital is not responsible for the actions, delays, errors, or performance of third parties, including but not limited to financial institutions, wholesalers and suppliers, shipping carriers (including FedEx), and insurance providers associated with shipment.",
+        LEFT, discTop + 11, { width: W },
+      );
+
+    const para2Y = discTop + 11 + 26;
+    doc
+      .fontSize(7.5).font("Helvetica-Bold").fillColor(DARK)
+      .text("Title and Risk of Loss", LEFT, para2Y, { width: W });
+    doc
+      .fontSize(7).font("Helvetica").fillColor(GRAY)
+      .text(
+        "Title to and risk of loss for all products transfer in accordance with supplier and carrier terms once the metals are released for shipment. " +
+        "All shipments are fully insured and require an adult signature upon delivery. West Hills Capital will monitor shipment progress and assist with delivery coordination. " +
+        "While West Hills Capital will actively support tracking and resolution efforts, it does not assume liability for third-party performance or outcomes beyond its direct control.",
+        LEFT, para2Y + 10, { width: W },
+      );
+
+    // ──────────────────────────────────────────────────────────────────────────
+    // FOOTER
+    // ──────────────────────────────────────────────────────────────────────────
+    const footY = 735;
+    doc
+      .moveTo(LEFT, footY).lineTo(RIGHT, footY)
+      .strokeColor(LGRAY).lineWidth(0.5).stroke();
+
+    doc
+      .fontSize(7.5).font("Helvetica").fillColor(GRAY)
       .text(
         "West Hills Capital  |  (800) 867-6768  |  westhillscapital.com  |  Physical Precious Metals Allocation",
-        LEFT, footY + 8, { align: "center", width: RIGHT - LEFT },
+        LEFT, footY + 6, { align: "center", width: W },
       );
 
-    const spotParts: string[] = [];
-    if (deal.goldSpotAsk)   spotParts.push(`Gold spot at lock: ${usd(deal.goldSpotAsk)}`);
-    if (deal.silverSpotAsk) spotParts.push(`Silver spot: ${usd(deal.silverSpotAsk)}`);
-    if (spotParts.length) {
-      doc.text(spotParts.join("  |  "), LEFT, footY + 20, { align: "center", width: RIGHT - LEFT });
-    }
-    doc.text(`Locked: ${new Date(deal.lockedAt).toLocaleString("en-US", { dateStyle: "medium", timeStyle: "short" })}`, LEFT, footY + 32, { align: "center", width: RIGHT - LEFT });
+    doc
+      .fontSize(7).font("Helvetica").fillColor(GRAY)
+      .text(
+        "This transaction is subject to West Hills Capital's Terms of Service available at westhillscapital.com/terms",
+        LEFT, footY + 18, { align: "center", width: W },
+      );
 
     doc.end();
     logger.info({ dealId: deal.id, invoiceNum: invNum }, "[Invoice] PDF generated");
