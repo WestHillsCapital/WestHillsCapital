@@ -381,10 +381,12 @@ export async function generateInvoicePdf(deal: InvoiceDeal): Promise<Buffer> {
 
     // ──────────────────────────────────────────────────────────────────────────
     // FOOTER — ToS line sits ABOVE the footer divider
+    // Page maxY = 792 − 40 (margin) = 752. PDFKit adds a page if
+    // y + lineHeight > 752, so compY must satisfy compY + 9 ≤ 752 → ≤ 743.
     // ──────────────────────────────────────────────────────────────────────────
-    const footDivY = 743;   // divider line
-    const tosY     = footDivY - 15;  // ToS sentence above divider
-    const compY    = footDivY + 7;   // company tagline below divider
+    const compY    = 740;   // company tagline  (7.5 pt → ends at ~749 < 752 ✓)
+    const footDivY = compY - 11;    // divider line above company text
+    const tosY     = footDivY - 15; // ToS sentence above divider
 
     doc
       .fontSize(7).font("Helvetica").fillColor(GRAY)
