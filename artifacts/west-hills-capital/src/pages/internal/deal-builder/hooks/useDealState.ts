@@ -1,0 +1,262 @@
+import { useState, useEffect } from "react";
+import type { Customer, SpotData, ProductRow, ExecutionResult } from "../types";
+import { PRODUCT_DEFS, EMPTY_ROWS } from "../utils";
+
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+
+export function useDealState(
+  urlDealId: string,
+  urlLeadId: string,
+  urlConfirmationId: string,
+  getAuthHeaders: () => HeadersInit,
+) {
+  // ── Customer ────────────────────────────────────────────────────────────
+  const [customer, setCustomer] = useState<Customer>({
+    firstName: "", lastName: "", email: "", phone: "", state: "", zip: "",
+    leadId: urlLeadId, confirmationId: urlConfirmationId,
+    custodian: "", iraAccountNumber: "",
+  });
+  const [customerLoaded, setCustomerLoaded] = useState(false);
+  const [loadingCustomer, setLoadingCustomer] = useState(false);
+
+  // ── Deal config ─────────────────────────────────────────────────────────
+  const [dealType, setDealType] = useState<"cash" | "ira">("cash");
+  const [iraType,  setIraType]  = useState("");
+
+  // ── Pricing ─────────────────────────────────────────────────────────────
+  const [spotData, setSpotData] = useState<SpotData>({
+    goldSpotAsk: null, silverSpotAsk: null, spotTimestamp: null,
+  });
+  const [rows, setRows] = useState<ProductRow[]>(EMPTY_ROWS);
+
+  // ── Delivery ─────────────────────────────────────────────────────────────
+  const [deliveryMethod,     setDeliveryMethod]     = useState<"fedex_hold" | "home_delivery">("fedex_hold");
+  const [fedexLocation,      setFedexLocation]      = useState("");
+  const [fedexLocationHours, setFedexLocationHours] = useState("");
+  const [shipToLine1,        setShipToLine1]        = useState("");
+  const [shipToCity,         setShipToCity]         = useState("");
+  const [shipToState,        setShipToState]        = useState("");
+  const [shipToZip,          setShipToZip]          = useState("");
+
+  // ── FedEx search state ───────────────────────────────────────────────────
+  const [fedexSearchZip,       setFedexSearchZip]       = useState("");
+  const [fedexResults,         setFedexResults]         = useState<import("../types").FedExLocationResult[]>([]);
+  const [isFedexSearching,     setIsFedexSearching]     = useState(false);
+  const [fedexSearchError,     setFedexSearchError]     = useState<string | null>(null);
+  const [fedexLocationSelected,setFedexLocationSelected]= useState(false);
+
+  // ── Billing address ──────────────────────────────────────────────────────
+  const [billingLine1, setBillingLine1] = useState("");
+  const [billingLine2, setBillingLine2] = useState("");
+  const [billingCity,  setBillingCity]  = useState("");
+  const [billingState, setBillingState] = useState("");
+  const [billingZip,   setBillingZip]   = useState("");
+
+  // ── Notes ────────────────────────────────────────────────────────────────
+  const [notes, setNotes] = useState("");
+
+  // ── Deal status ──────────────────────────────────────────────────────────
+  const [isLocked,          setIsLocked]          = useState(false);
+  const [lockedAt,          setLockedAt]          = useState<string | null>(null);
+  const [savedDealId,       setSavedDealId]       = useState<number | null>(null);
+  const [termsAcknowledged, setTermsAcknowledged] = useState(false);
+  const [paymentReceivedAt, setPaymentReceivedAt] = useState<string | null>(null);
+  const [trackingNumber,    setTrackingNumber]    = useState("");
+  const [executionResult,   setExecutionResult]   = useState<ExecutionResult | null>(null);
+
+  // ── Load saved deal ──────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!urlDealId) return;
+    (async () => {
+      setLoadingCustomer(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/deals/${urlDealId}`, {
+          headers: { ...getAuthHeaders() },
+        });
+        if (!res.ok) return;
+        const { deal } = await res.json();
+
+        setCustomer({
+          firstName:        deal.first_name         ?? "",
+          lastName:         deal.last_name          ?? "",
+          email:            deal.email              ?? "",
+          phone:            deal.phone              ?? "",
+          state:            deal.state              ?? "",
+          zip:              "",
+          leadId:           deal.lead_id ? String(deal.lead_id) : "",
+          confirmationId:   deal.confirmation_id    ?? "",
+          custodian:        deal.custodian          ?? "",
+          iraAccountNumber: deal.ira_account_number ?? "",
+        });
+        setDealType(deal.deal_type === "ira" ? "ira" : "cash");
+        setIraType(deal.ira_type ?? "");
+        setSpotData({
+          goldSpotAsk:   deal.gold_spot_ask   ?? null,
+          silverSpotAsk: deal.silver_spot_ask ?? null,
+          spotTimestamp: deal.spot_timestamp  ?? null,
+        });
+        const savedRows: ProductRow[] = PRODUCT_DEFS.map((def) => {
+          const p = (deal.products ?? []).find(
+            (p: { productId: string }) => p.productId === def.productId
+          );
+          return { ...def, qty: p ? String(p.qty) : "", unitPrice: p ? String(p.unitPrice) : "" };
+        });
+        setRows(savedRows);
+        setDeliveryMethod(deal.shipping_method === "home_delivery" ? "home_delivery" : "fedex_hold");
+        setFedexLocation(deal.fedex_location       ?? "");
+        setFedexLocationHours(deal.fedex_location_hours ?? "");
+        if (deal.fedex_location) setFedexLocationSelected(true);
+        setShipToLine1(deal.ship_to_line1  ?? "");
+        setShipToCity(deal.ship_to_city    ?? "");
+        setShipToState(deal.ship_to_state  ?? "");
+        setShipToZip(deal.ship_to_zip      ?? "");
+        setBillingLine1(deal.billing_line1 ?? "");
+        setBillingLine2(deal.billing_line2 ?? "");
+        setBillingCity(deal.billing_city   ?? "");
+        setBillingState(deal.billing_state ?? "");
+        setBillingZip(deal.billing_zip     ?? "");
+        setNotes(deal.notes ?? "");
+        if (deal.invoice_id || deal.invoice_url || deal.recap_email_sent_at) {
+          setExecutionResult({
+            invoiceId:   deal.invoice_id   ?? null,
+            invoiceUrl:  deal.invoice_url  ?? null,
+            emailSentTo: deal.recap_email_sent_at ? deal.email : null,
+          });
+        }
+        setTermsAcknowledged(true);
+        setPaymentReceivedAt(deal.payment_received_at ?? null);
+        setTrackingNumber(deal.tracking_number ?? "");
+        setIsLocked(true);
+        setLockedAt(deal.locked_at ?? null);
+        setSavedDealId(deal.id);
+        setCustomerLoaded(true);
+      } finally {
+        setLoadingCustomer(false);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlDealId]);
+
+  // ── Pre-populate from lead ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!urlLeadId || urlDealId || customerLoaded) return;
+    (async () => {
+      setLoadingCustomer(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/internal/leads`, {
+          headers: { ...getAuthHeaders() },
+        });
+        if (!res.ok) return;
+        const { leads } = await res.json();
+        const lead = leads.find((l: { id: number }) => String(l.id) === urlLeadId);
+        if (lead) {
+          setCustomer((c) => ({
+            ...c,
+            firstName:      lead.first_name ?? "",
+            lastName:       lead.last_name  ?? "",
+            email:          lead.email      ?? "",
+            phone:          lead.phone      ?? "",
+            state:          lead.state      ?? "",
+            leadId:         String(lead.id),
+            confirmationId: lead.linked_confirmation_id ?? c.confirmationId,
+          }));
+          setCustomerLoaded(true);
+        }
+      } finally {
+        setLoadingCustomer(false);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlLeadId, urlDealId, customerLoaded]);
+
+  // ── Pre-populate from appointment ────────────────────────────────────────
+  useEffect(() => {
+    if (!urlConfirmationId || urlDealId || customerLoaded) return;
+    (async () => {
+      setLoadingCustomer(true);
+      try {
+        const res = await fetch(`${API_BASE}/api/internal/appointments`, {
+          headers: { ...getAuthHeaders() },
+        });
+        if (!res.ok) return;
+        const { appointments } = await res.json();
+        const appt = appointments.find(
+          (a: { confirmation_id: string }) => a.confirmation_id === urlConfirmationId
+        );
+        if (appt) {
+          setCustomer((c) => ({
+            ...c,
+            firstName:      appt.first_name ?? "",
+            lastName:       appt.last_name  ?? "",
+            email:          appt.email      ?? "",
+            phone:          appt.phone      ?? "",
+            state:          appt.state      ?? "",
+            leadId:         appt.lead_id ? String(appt.lead_id) : c.leadId,
+            confirmationId: appt.confirmation_id ?? "",
+          }));
+          setCustomerLoaded(true);
+        }
+      } finally {
+        setLoadingCustomer(false);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlConfirmationId, urlDealId, customerLoaded]);
+
+  // ── Auto-fill billing state from customer state ──────────────────────────
+  useEffect(() => {
+    if (customer.state && !billingState && !isLocked) {
+      setBillingState(customer.state);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer.state]);
+
+  // ── Prime FedEx search zip from customer zip ─────────────────────────────
+  useEffect(() => {
+    const z = customer.zip.replace(/\D/g, "").slice(0, 5);
+    if (z.length === 5 && deliveryMethod === "fedex_hold" && !fedexLocationSelected) {
+      setFedexSearchZip(z);
+    }
+  }, [customer.zip, deliveryMethod, fedexLocationSelected]);
+
+  return {
+    // customer
+    customer, setCustomer, customerLoaded, loadingCustomer,
+    // deal config
+    dealType, setDealType, iraType, setIraType,
+    // pricing
+    spotData, setSpotData, rows, setRows,
+    // delivery
+    deliveryMethod, setDeliveryMethod,
+    fedexLocation, setFedexLocation,
+    fedexLocationHours, setFedexLocationHours,
+    shipToLine1, setShipToLine1,
+    shipToCity, setShipToCity,
+    shipToState, setShipToState,
+    shipToZip, setShipToZip,
+    // fedex search
+    fedexSearchZip, setFedexSearchZip,
+    fedexResults, setFedexResults,
+    isFedexSearching, setIsFedexSearching,
+    fedexSearchError, setFedexSearchError,
+    fedexLocationSelected, setFedexLocationSelected,
+    // billing
+    billingLine1, setBillingLine1,
+    billingLine2, setBillingLine2,
+    billingCity, setBillingCity,
+    billingState, setBillingState,
+    billingZip, setBillingZip,
+    // notes
+    notes, setNotes,
+    // deal status
+    isLocked, setIsLocked,
+    lockedAt, setLockedAt,
+    savedDealId, setSavedDealId,
+    termsAcknowledged, setTermsAcknowledged,
+    paymentReceivedAt, setPaymentReceivedAt,
+    trackingNumber, setTrackingNumber,
+    executionResult, setExecutionResult,
+  };
+}
+
+export type DealState = ReturnType<typeof useDealState>;
