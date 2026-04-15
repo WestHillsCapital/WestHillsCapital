@@ -1,0 +1,202 @@
+Fix the invoice generator so the invoice output matches the approved invoice requirements exactly, using the current pre-modification invoice as the baseline.
+
+Baseline invoice behavior to modify:
+- Page 1 currently contains the standard invoice header, Bill To, Delivery, product table, totals, and wire instructions
+- Page 2 currently contains only the spot prices
+- Page 3 currently contains only the “Locked” timestamp
+- Delivery currently shows only a simple “FedEx Hold” block
+- Wire language currently says: “Wire must be received in full before metals are released for shipment.”
+This is the baseline to update, not a new invoice to redesign from scratch.
+
+GOAL:
+Generate a clean, professional, ONE-PAGE invoice PDF with all required content on page 1.
+
+--------------------------------------------------
+1. START FROM THE CURRENT INVOICE LAYOUT
+--------------------------------------------------
+
+Use the current invoice implementation as the base and modify it.
+
+Do not create a different invoice design unless necessary to preserve the one-page requirement.
+Do not remove required sections.
+Do not leave any content split across extra pages.
+
+--------------------------------------------------
+2. SPECIFIC CHANGES REQUIRED
+--------------------------------------------------
+
+A. HEADER / BRANDING
+
+Current state:
+- The invoice currently shows a text header with “West Hills Capital” and supporting text
+
+Required change:
+- Replace the text “West Hills Capital” at the top with the official company logo image
+- Align the logo top-left
+- Remove any duplicate text-based header if the logo is present
+- Keep the invoice professional and compact
+
+B. DATE + SPOT PRICE PLACEMENT
+
+Current state:
+- The Date appears on page 1
+- Spot prices are isolated on page 2
+- Current text reads: “Gold spot at lock: $... | Silver spot: $...” 
+
+Required change:
+- Move spot prices to page 1
+- Place them directly under the Date field
+- Format exactly like this:
+
+Gold Spot: $X,XXX.XX
+Silver Spot: $XX.XX
+
+Rules:
+- Remove the phrase “at lock”
+- Remove the inline pipe-separated format
+- Spot prices must not appear on page 2
+- Page 2 must not exist
+
+C. REMOVE “LOCKED” CONTENT ENTIRELY
+
+Current state:
+- Page 3 contains only a line like: “Locked: Apr 15, 2026, 3:14 AM”
+
+Required change:
+- Remove the entire “Locked” field
+- Remove any line containing “Locked:”
+- Remove any references to “Locked” anywhere in the invoice
+- Page 3 must not exist
+
+D. PAYMENT DEADLINE LANGUAGE
+
+Current state:
+- Invoice says: “Wire must be received in full before metals are released for shipment.”
+
+Replace with:
+“Wire must be received by close of business the following business day ({{next_business_day_date}}) to secure this pricing.”
+
+E. DELIVERY SECTION LOGIC
+
+Current state:
+- Delivery currently shows a simple “FedEx Hold” block with minimal detail
+
+Required logic:
+If delivery type = “FedEx Hold”, format the delivery section exactly like this:
+
+FedEx Office / Ship Center Name
+FBO {{customer_full_name}}
+{{full_location_address}}
+
+Hours:
+{{fedex_location_hours}}
+
+Rules:
+- Do not show only “FedEx Hold”
+- Include the actual FedEx location name
+- Include the FBO line
+- Include the full address
+- Include the Hours line below the address
+
+If delivery type is not “FedEx Hold”:
+- Use the standard delivery address
+
+F. ONE-PAGE LAYOUT REQUIREMENT
+
+The invoice must render as ONE SINGLE PAGE ONLY.
+
+All required content must fit on page 1:
+- Logo/header
+- Invoice number
+- Date
+- Gold Spot
+- Silver Spot
+- Bill To
+- Delivery
+- Product table
+- Totals
+- Wire instructions
+- Liability block
+- Terms of Service reference
+
+You may adjust:
+- margins
+- vertical spacing
+- font size slightly
+- line spacing
+- footer spacing
+
+But:
+- keep the invoice readable
+- keep it professional
+- do not remove required content
+- do not create page 2 or page 3 for overflow
+
+G. LIABILITY BLOCK
+
+Add this approved legal block near the bottom of page 1.
+It must remain readable and compact enough to preserve the one-page layout.
+
+Use this exact language:
+
+Transaction & Delivery Disclosure
+
+West Hills Capital acts solely as a facilitator in the acquisition and delivery of physical precious metals on behalf of the customer.
+
+Upon receipt of funds, West Hills Capital secures metals through third-party suppliers and arranges shipment via insured carriers to the designated delivery location.
+
+West Hills Capital is not responsible for the actions, delays, errors, or performance of third parties, including but not limited to financial institutions, wholesalers and suppliers, shipping carriers (including FedEx), and insurance providers associated with shipment.
+
+Title and Risk of Loss
+
+Title to and risk of loss for all products transfer in accordance with supplier and carrier terms once the metals are released for shipment.
+
+All shipments are fully insured and require an adult signature upon delivery. West Hills Capital will monitor shipment progress and assist with delivery coordination.
+
+While West Hills Capital will actively support tracking and resolution efforts, it does not assume liability for third-party performance or outcomes beyond its direct control.
+
+H. TERMS OF SERVICE REFERENCE
+
+Add this line to the invoice footer area on page 1:
+
+This transaction is subject to West Hills Capital’s Terms of Service available at westhillscapital.com/terms.
+
+Rules:
+- This line must remain on page 1
+- Do not create a separate page for it
+- Keep it small, clean, and professional
+- Do not allow it to push the invoice onto a second page
+
+--------------------------------------------------
+3. WHAT MUST NO LONGER HAPPEN
+--------------------------------------------------
+
+Do not allow any of the following in the final invoice:
+
+- a separate page only for spot prices
+- a separate page only for “Locked”
+- a separate page only for the Terms reference
+- a delivery section that shows only “FedEx Hold” without the full FedEx location block
+- any “Gold spot at lock” wording
+- any “Locked:” wording
+- more than one total invoice page
+
+--------------------------------------------------
+4. FINAL OUTPUT REQUIREMENT
+--------------------------------------------------
+
+Return an updated invoice implementation that produces:
+- exactly one page
+- logo at top-left
+- Date followed immediately by:
+  Gold Spot: ...
+  Silver Spot: ...
+- revised wire deadline language
+- correct FedEx Hold formatting
+- approved liability block
+- Terms reference on page 1
+- no “Locked” references anywhere
+- no page 2
+- no page 3
+
+This is a correction task, not a redesign task. Update the existing invoice generator so the output exactly matches these requirements.

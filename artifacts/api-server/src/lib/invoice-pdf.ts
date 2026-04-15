@@ -14,11 +14,14 @@ import { logger } from "./logger";
 import { nextBusinessDayFrom } from "./date-utils";
 
 // ── Logo path (same image used in the website navbar) ─────────────────────────
+// __dirname in dist/ is: <workspace>/artifacts/api-server/dist/
+// Logo lives at:         <workspace>/artifacts/west-hills-capital/public/images/logo.png
+// Relative path:         ../../../artifacts/west-hills-capital/public/images/logo.png
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 const LOGO_PATH  = path.resolve(
   __dirname,
-  "../../../../west-hills-capital/public/images/logo.png",
+  "../../../artifacts/west-hills-capital/public/images/logo.png",
 );
 const HAS_LOGO = existsSync(LOGO_PATH);
 
@@ -301,7 +304,7 @@ export async function generateInvoicePdf(deal: InvoiceDeal): Promise<Buffer> {
     // ──────────────────────────────────────────────────────────────────────────
     const boxTop = rowY + 4;
     const wl     = LEFT + 10;
-    const boxH   = 122;
+    const boxH   = 148;  // 7 rows × 13pt + header/divider + deadline text row
 
     doc
       .roundedRect(LEFT, boxTop, W, boxH, 3)
@@ -353,6 +356,7 @@ export async function generateInvoicePdf(deal: InvoiceDeal): Promise<Buffer> {
       .fontSize(7.5).font("Helvetica-Bold").fillColor(DARK)
       .text("Transaction & Delivery Disclosure", LEFT, discTop, { width: W });
 
+    // Para 1 — facilitator / third-party language
     doc
       .fontSize(7).font("Helvetica").fillColor(GRAY)
       .text(
@@ -362,7 +366,8 @@ export async function generateInvoicePdf(deal: InvoiceDeal): Promise<Buffer> {
         LEFT, discTop + 11, { width: W },
       );
 
-    const para2Y = discTop + 11 + 26;
+    // Para 2 — Title and Risk of Loss (use doc.y so position adapts to para-1 height)
+    const para2Y = doc.y + 6;
     doc
       .fontSize(7.5).font("Helvetica-Bold").fillColor(DARK)
       .text("Title and Risk of Loss", LEFT, para2Y, { width: W });
@@ -372,7 +377,7 @@ export async function generateInvoicePdf(deal: InvoiceDeal): Promise<Buffer> {
         "Title to and risk of loss for all products transfer in accordance with supplier and carrier terms once the metals are released for shipment. " +
         "All shipments are fully insured and require an adult signature upon delivery. West Hills Capital will monitor shipment progress and assist with delivery coordination. " +
         "While West Hills Capital will actively support tracking and resolution efforts, it does not assume liability for third-party performance or outcomes beyond its direct control.",
-        LEFT, para2Y + 10, { width: W },
+        LEFT, doc.y + 4, { width: W },
       );
 
     // ──────────────────────────────────────────────────────────────────────────
