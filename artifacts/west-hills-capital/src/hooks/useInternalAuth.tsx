@@ -10,6 +10,19 @@ import {
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const STORAGE_KEY = "whc_internal_session";
 
+// When VITE_GOOGLE_CLIENT_ID is absent the API server also disables auth
+// (requireInternalAuth skips validation). The frontend mirrors that by
+// injecting a synthetic dev session so the login screen is never shown.
+const IS_DEV_BYPASS = !import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
+const DEV_SESSION: InternalUser = {
+  email:        "dev@local",
+  name:         "Dev User",
+  picture:      null,
+  expiresAt:    Date.now() + 24 * 60 * 60 * 1000,
+  sessionToken: "dev-bypass",
+};
+
 export interface InternalUser {
   email:        string;
   name:         string;
@@ -34,8 +47,15 @@ export function InternalAuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [error,     setError]     = useState<string | null>(null);
 
-  // On mount, restore session from localStorage if it hasn't expired
+  // On mount, restore session from localStorage if it hasn't expired.
+  // In dev-bypass mode (no VITE_GOOGLE_CLIENT_ID) skip localStorage and
+  // inject a synthetic session directly — the API won't validate it anyway.
   useEffect(() => {
+    if (IS_DEV_BYPASS) {
+      setUser(DEV_SESSION);
+      setIsLoading(false);
+      return;
+    }
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
