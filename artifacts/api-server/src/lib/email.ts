@@ -239,17 +239,22 @@ const WIRE = {
 
 export async function sendDealRecapEmail(
   deal: {
-    id:         number;
-    firstName:  string;
-    lastName:   string;
-    email:      string;
-    dealType:   string;
-    products:   { productName: string; qty: number; unitPrice: number; lineTotal: number }[];
-    subtotal:   number;
-    shipping:   number;
-    total:      number;
-    invoiceId?: string;
-    lockedAt:   string;
+    id:           number;
+    firstName:    string;
+    lastName:     string;
+    email:        string;
+    dealType:     string;
+    products:     { productName: string; qty: number; unitPrice: number; lineTotal: number }[];
+    subtotal:     number;
+    shipping:     number;
+    total:        number;
+    invoiceId?:   string;
+    lockedAt:     string;
+    billingLine1?: string;
+    billingLine2?: string;
+    billingCity?:  string;
+    billingState?: string;
+    billingZip?:   string;
   },
   pdfBuffer:   Buffer,
 ): Promise<void> {
@@ -259,6 +264,19 @@ export async function sendDealRecapEmail(
   const invoiceId  = deal.invoiceId ?? `WHC-${deal.id}`;
   const refLast    = deal.lastName.replace(/\s+/g, "").toUpperCase().slice(0, 10);
   const wireRef    = `${refLast}-WHC${deal.id}`;
+
+  // Build billing address lines for the email (omit gracefully if blank)
+  const billingLines: string[] = [];
+  if (deal.billingLine1) billingLines.push(deal.billingLine1);
+  if (deal.billingLine2) billingLines.push(deal.billingLine2);
+  if (deal.billingCity || deal.billingState || deal.billingZip) {
+    const cityLine = [deal.billingCity, deal.billingState].filter(Boolean).join(", ") +
+      (deal.billingZip ? ` ${deal.billingZip}` : "");
+    billingLines.push(cityLine.trim());
+  }
+  const billingAddrHtml = billingLines.length > 0
+    ? `<div style="margin-top:6px;font-size:13px;color:#374151;">${billingLines.map((l) => `<div>${l}</div>`).join("")}</div>`
+    : "";
 
   const productRows = deal.products
     .filter((p) => p.qty > 0 && p.unitPrice > 0)
@@ -298,6 +316,13 @@ export async function sendDealRecapEmail(
             <div>
               <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Invoice #</div>
               <div style="font-weight:600;color:#1a1a1a;font-size:15px;">${invoiceId}</div>
+              ${billingAddrHtml
+                ? `<div style="margin-top:10px;">
+                     <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Bill To</div>
+                     <div style="font-size:13px;font-weight:600;color:#1a1a1a;">${deal.firstName} ${deal.lastName}</div>
+                     ${billingAddrHtml}
+                   </div>`
+                : ""}
             </div>
             <div style="text-align:right;">
               <div style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:#9ca3af;">Total Due</div>

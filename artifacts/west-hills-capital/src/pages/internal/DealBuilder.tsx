@@ -133,6 +133,15 @@ export default function DealBuilder() {
   const [billingState, setBillingState] = useState("");
   const [billingZip,   setBillingZip]   = useState("");
 
+  // Pre-fill billing state from customer state when billing state is empty
+  useEffect(() => {
+    if (customer.state && !billingState && !isLocked) {
+      setBillingState(customer.state);
+    }
+  // Run only when customer.state changes (e.g. pre-populated from lead/appointment)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer.state]);
+
   // ── Notes ──────────────────────────────────────────────────────────────────
   const [notes, setNotes] = useState("");
 

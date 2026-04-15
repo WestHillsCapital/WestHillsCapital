@@ -93,78 +93,83 @@ export async function generateInvoicePdf(deal: InvoiceDeal): Promise<Buffer> {
     const GRAY  = "#6b7280";
     const LGRAY = "#e5e7eb";
 
-    // ── Header ──────────────────────────────────────────────────────────────
+    // ─────────────────────────────────────────────────────────────────────────
+    // TWO-COLUMN HEADER: seller info (left) | BILL TO (right)
+    // ─────────────────────────────────────────────────────────────────────────
+    const MID   = LEFT + 255;   // mid-point separating left / right columns
+    const RCOL  = MID + 20;     // right column start x
+
+    // ── Left column — Seller / Invoice info ─────────────────────────────────
     doc
       .fontSize(22)
       .font("Helvetica-Bold")
       .fillColor(DARK)
-      .text("West Hills Capital", LEFT, 50);
+      .text("West Hills Capital", LEFT, 50, { width: MID - LEFT });
 
     doc
       .fontSize(9)
       .font("Helvetica")
       .fillColor(GRAY)
-      .text("Physical Precious Metals Allocation", LEFT, 76)
-      .text("(800) 867-6768  |  westhillscapital.com", LEFT, 88);
+      .text("Physical Precious Metals Allocation", LEFT, 76, { width: MID - LEFT })
+      .text("(800) 867-6768  |  westhillscapital.com", LEFT, 88, { width: MID - LEFT });
 
-    // Invoice block (top-right)
     const invNum = invoiceNumber(deal.id, deal.lockedAt);
-    doc
-      .fontSize(18)
-      .font("Helvetica-Bold")
-      .fillColor(GOLD)
-      .text("INVOICE", RIGHT - 120, 50, { width: 120, align: "right" });
-    doc
-      .fontSize(9)
-      .font("Helvetica")
-      .fillColor(GRAY)
-      .text(`Invoice #: ${invNum}`, RIGHT - 200, 74, { width: 200, align: "right" })
-      .text(`Date: ${formatDate(deal.lockedAt)}`, RIGHT - 200, 86, { width: 200, align: "right" });
 
-    // Divider
-    doc
-      .moveTo(LEFT, 110)
-      .lineTo(RIGHT, 110)
-      .strokeColor(LGRAY)
-      .lineWidth(1)
-      .stroke();
-
-    // ── Bill To ─────────────────────────────────────────────────────────────
-    let y = 122;
     doc
       .fontSize(8)
       .font("Helvetica-Bold")
       .fillColor(GRAY)
-      .text("BILL TO", LEFT, y);
-    y += 14;
+      .text("INVOICE", LEFT, 108, { width: MID - LEFT });
+    doc
+      .fontSize(10)
+      .font("Helvetica-Bold")
+      .fillColor(GOLD)
+      .text(invNum, LEFT, 119, { width: MID - LEFT });
+    doc
+      .fontSize(9)
+      .font("Helvetica")
+      .fillColor(GRAY)
+      .text(formatDate(deal.lockedAt), LEFT, 133, { width: MID - LEFT });
+
+    // ── Right column — BILL TO ───────────────────────────────────────────────
+    doc
+      .fontSize(8)
+      .font("Helvetica-Bold")
+      .fillColor(GRAY)
+      .text("BILL TO", RCOL, 50, { width: RIGHT - RCOL });
     doc
       .fontSize(11)
       .font("Helvetica-Bold")
       .fillColor(DARK)
-      .text(`${deal.firstName} ${deal.lastName}`, LEFT, y);
-    y += 16;
-    doc
-      .fontSize(9)
-      .font("Helvetica")
-      .fillColor(GRAY);
-    if (deal.email) { doc.text(deal.email, LEFT, y); y += 13; }
-    if (deal.phone) { doc.text(deal.phone, LEFT, y); y += 13; }
-    // Billing address lines
-    if (deal.billingLine1) { doc.text(deal.billingLine1, LEFT, y); y += 13; }
-    if (deal.billingLine2) { doc.text(deal.billingLine2, LEFT, y); y += 13; }
+      .text(`${deal.firstName} ${deal.lastName}`, RCOL, 64, { width: RIGHT - RCOL });
+
+    let billY = 80;
+    doc.fontSize(9).font("Helvetica").fillColor(GRAY);
+    if (deal.email)        { doc.text(deal.email,        RCOL, billY, { width: RIGHT - RCOL }); billY += 13; }
+    if (deal.phone)        { doc.text(deal.phone,        RCOL, billY, { width: RIGHT - RCOL }); billY += 13; }
+    if (deal.billingLine1) { doc.text(deal.billingLine1, RCOL, billY, { width: RIGHT - RCOL }); billY += 13; }
+    if (deal.billingLine2) { doc.text(deal.billingLine2, RCOL, billY, { width: RIGHT - RCOL }); billY += 13; }
     if (deal.billingCity || deal.billingState || deal.billingZip) {
       const cityLine = [deal.billingCity, deal.billingState].filter(Boolean).join(", ") +
         (deal.billingZip ? ` ${deal.billingZip}` : "");
-      doc.text(cityLine.trim(), LEFT, y); y += 13;
+      doc.text(cityLine.trim(), RCOL, billY, { width: RIGHT - RCOL }); billY += 13;
     } else if (deal.state) {
-      doc.text(deal.state, LEFT, y); y += 13;
+      doc.text(deal.state, RCOL, billY, { width: RIGHT - RCOL }); billY += 13;
     }
 
-    // ── Delivery ─────────────────────────────────────────────────────────────
+    // ── Divider ─────────────────────────────────────────────────────────────
+    const headerBottom = Math.max(billY + 4, 155);
+    doc
+      .moveTo(LEFT, headerBottom)
+      .lineTo(RIGHT, headerBottom)
+      .strokeColor(LGRAY)
+      .lineWidth(1)
+      .stroke();
+
+    // ── Delivery (full-width, below header) ──────────────────────────────────
     const isFedex = deal.shippingMethod === "fedex_hold";
     const deliveryLabel = isFedex ? "FedEx Hold" : "Home Delivery";
 
-    // Build delivery address line
     const addrParts: string[] = [];
     if (isFedex && deal.fedexLocation) addrParts.push(deal.fedexLocation);
     if (deal.shipToLine1) addrParts.push(deal.shipToLine1);
@@ -173,27 +178,28 @@ export async function generateInvoicePdf(deal: InvoiceDeal): Promise<Buffer> {
     }
     const deliveryAddr = addrParts.join(" — ");
 
-    const deliveryY = 122;
+    const deliveryY = headerBottom + 10;
     doc
       .fontSize(8)
       .font("Helvetica-Bold")
       .fillColor(GRAY)
-      .text("DELIVERY", LEFT + 240, deliveryY);
+      .text("DELIVERY", LEFT, deliveryY);
     doc
       .fontSize(10)
       .font("Helvetica-Bold")
       .fillColor(DARK)
-      .text(deliveryLabel, LEFT + 240, deliveryY + 14);
+      .text(deliveryLabel, LEFT + 60, deliveryY, { width: RIGHT - LEFT - 60 });
     if (deliveryAddr) {
       doc
         .fontSize(9)
         .font("Helvetica")
         .fillColor(GRAY)
-        .text(deliveryAddr, LEFT + 240, deliveryY + 30, { width: 270 });
+        .text(deliveryAddr, LEFT + 60, deliveryY + 14, { width: RIGHT - LEFT - 60 });
     }
 
     // ── Product Table ────────────────────────────────────────────────────────
-    const tableTop = Math.max(y + 16, 200);
+    const deliveryBlockH = deliveryAddr ? 30 : 16;
+    const tableTop = Math.max(deliveryY + deliveryBlockH + 12, 220);
 
     // Header row
     doc
