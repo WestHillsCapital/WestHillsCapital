@@ -20,6 +20,17 @@ interface SpotData {
   spotTimestamp:  string | null;
 }
 
+interface FedExLocationResult {
+  name:         string;
+  locationType: string;
+  address:      string;
+  city:         string;
+  state:        string;
+  zip:          string;
+  distance:     string;
+  phone:        string;
+}
+
 interface Customer {
   firstName:        string;
   lastName:         string;
@@ -99,6 +110,13 @@ export default function DealBuilder() {
   const [shipToState, setShipToState] = useState("");
   const [shipToZip,   setShipToZip]   = useState("");
 
+  // ── FedEx location search ─────────────────────────────────────────────────
+  const [fedexSearchZip,    setFedexSearchZip]    = useState("");
+  const [fedexResults,      setFedexResults]      = useState<FedExLocationResult[]>([]);
+  const [isFedexSearching,  setIsFedexSearching]  = useState(false);
+  const [fedexSearchError,  setFedexSearchError]  = useState<string | null>(null);
+  const [fedexLocationSelected, setFedexLocationSelected] = useState(false);
+
   // ── Notes ──────────────────────────────────────────────────────────────────
   const [notes, setNotes] = useState("");
 
@@ -161,6 +179,7 @@ export default function DealBuilder() {
         setRows(savedRows);
         setDeliveryMethod(deal.shipping_method === "home_delivery" ? "home_delivery" : "fedex_hold");
         setFedexLocation(deal.fedex_location ?? "");
+        if (deal.fedex_location) setFedexLocationSelected(true);
         setShipToLine1(deal.ship_to_line1 ?? "");
         setShipToCity(deal.ship_to_city   ?? "");
         setShipToState(deal.ship_to_state ?? "");
@@ -314,6 +333,45 @@ export default function DealBuilder() {
     } finally {
       setIsFetchingSpot(false);
     }
+  }, []);
+
+  // ── FedEx location search ─────────────────────────────────────────────────
+  const searchFedexLocations = useCallback(async () => {
+    const zip = fedexSearchZip.replace(/\D/g, "").slice(0, 5);
+    if (zip.length !== 5) {
+      setFedexSearchError("Enter a valid 5-digit ZIP code.");
+      return;
+    }
+    setIsFedexSearching(true);
+    setFedexSearchError(null);
+    setFedexResults([]);
+    try {
+      const res = await fetch(`${API_BASE}/api/fedex/locations`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body:    JSON.stringify({ postalCode: zip }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Location search failed");
+      setFedexResults(data.locations ?? []);
+      if ((data.locations ?? []).length === 0) {
+        setFedexSearchError("No FedEx Office or Ship Center locations found near that ZIP.");
+      }
+    } catch (err) {
+      setFedexSearchError(err instanceof Error ? err.message : "Location search unavailable.");
+    } finally {
+      setIsFedexSearching(false);
+    }
+  }, [fedexSearchZip, getAuthHeaders]);
+
+  const selectFedexLocation = useCallback((loc: FedExLocationResult) => {
+    setFedexLocation(loc.name);
+    setShipToLine1(loc.address);
+    setShipToCity(loc.city);
+    setShipToState(loc.state);
+    setShipToZip(loc.zip);
+    setFedexResults([]);
+    setFedexLocationSelected(true);
   }, []);
 
   // ── Lock & Execute ────────────────────────────────────────────────────────
@@ -566,14 +624,107 @@ export default function DealBuilder() {
             </div>
 
             {deliveryMethod === "fedex_hold" && (
-              <div className="mb-3">
-                <Field
-                  label="FedEx Location Name"
-                  value={fedexLocation}
-                  onChange={(e) => setFedexLocation(e.target.value)}
-                  disabled={locked}
-                  placeholder="e.g. FedEx Ship Center at Target"
-                />
+              <div className="mb-3 space-y-2">
+                {/* Selected location display */}
+                {fedexLocationSelected && fedexLocation ? (
+                  <div className="flex items-start justify-between bg-gray-800/60 border border-amber-500/30 rounded p-3">
+                    <div>
+                      <p className="text-xs font-semibold text-amber-400 mb-0.5">{fedexLocation}</p>
+                      {shipToLine1 && (
+                        <p className="text-xs text-gray-400">
+                          {shipToLine1}{shipToCity ? `, ${shipToCity}` : ""}{shipToState ? `, ${shipToState}` : ""} {shipToZip}
+                        </p>
+                      )}
+                    </div>
+                    {!locked && (
+                      <button
+                        onClick={() => { setFedexLocationSelected(false); setFedexResults([]); }}
+                        className="text-xs text-gray-500 hover:text-white ml-3 flex-shrink-0"
+                      >
+                        Change
+                      </button>
+                    )}
+                  </div>
+                ) : !locked ? (
+                  <>
+                    {/* ZIP search */}
+                    <div className="flex gap-2">
+                      <div className="flex-1">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={5}
+                          value={fedexSearchZip}
+                          onChange={(e) => setFedexSearchZip(e.target.value.replace(/\D/g, ""))}
+                          onKeyDown={(e) => e.key === "Enter" && searchFedexLocations()}
+                          placeholder="ZIP code to search"
+                          className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                      <button
+                        onClick={searchFedexLocations}
+                        disabled={isFedexSearching}
+                        className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 text-white text-xs rounded disabled:opacity-50 flex-shrink-0"
+                      >
+                        {isFedexSearching ? "Searching…" : "Search"}
+                      </button>
+                    </div>
+
+                    {/* Error */}
+                    {fedexSearchError && (
+                      <p className="text-xs text-red-400">{fedexSearchError}</p>
+                    )}
+
+                    {/* Results */}
+                    {fedexResults.length > 0 && (
+                      <div className="space-y-1.5">
+                        <p className="text-xs text-gray-500">Select a location:</p>
+                        {fedexResults.map((loc, i) => (
+                          <button
+                            key={i}
+                            onClick={() => selectFedexLocation(loc)}
+                            className="w-full text-left bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-amber-500/40 rounded p-3 transition-colors"
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <p className="text-xs font-semibold text-white truncate">{loc.name}</p>
+                                <p className="text-xs text-gray-400">
+                                  {loc.address}{loc.city ? `, ${loc.city}` : ""}{loc.state ? `, ${loc.state}` : ""} {loc.zip}
+                                </p>
+                                {loc.phone && <p className="text-xs text-gray-500">{loc.phone}</p>}
+                              </div>
+                              <div className="flex flex-col items-end flex-shrink-0">
+                                {loc.distance && (
+                                  <span className="text-xs text-amber-400">{loc.distance}</span>
+                                )}
+                                <span className="text-[10px] text-gray-600 mt-0.5">
+                                  {loc.locationType === "FEDEX_OFFICE" ? "FedEx Office" : loc.locationType === "SHIP_CENTER" ? "Ship Center" : loc.locationType}
+                                </span>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Manual fallback */}
+                    <div>
+                      <label className="block text-xs text-gray-500 mb-1">Or enter location name manually</label>
+                      <Field
+                        label=""
+                        value={fedexLocation}
+                        onChange={(e) => setFedexLocation(e.target.value)}
+                        disabled={locked}
+                        placeholder="e.g. FedEx Ship Center at Target"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  /* Locked state — show stored location name */
+                  <div className="bg-gray-800/40 border border-gray-700 rounded p-2">
+                    <p className="text-xs text-gray-400">{fedexLocation || "—"}</p>
+                  </div>
+                )}
               </div>
             )}
 

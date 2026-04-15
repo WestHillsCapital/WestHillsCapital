@@ -3,10 +3,11 @@
  *
  * Folder structure under the root deals folder:
  *   {ROOT_FOLDER_ID}
- *     └─ {YYYY}
- *          └─ {MM – Month Name}
- *               └─ {YYYYMMDD}-{LastName}-{DealType}
- *                    └─ WHC-{dealId}-{YYYYMMDD}.pdf
+ *     └─ {YYYY}                          e.g. "2026"
+ *          └─ {MM – Month Name}          e.g. "04 – April"
+ *               └─ {FI} {LastName}       e.g. "J Smith"
+ *                    └─ {MMDDYY} {FI} {LastName} Invoice.pdf
+ *                                        e.g. "041526 J Smith Invoice.pdf"
  *
  * Uses the same service-account credentials as google-sheets.ts.
  */
@@ -88,21 +89,28 @@ export async function saveDealPdfToDrive(
   const drive = getDriveClient();
   if (!drive) throw new Error("Google Drive client unavailable (check GOOGLE_SERVICE_ACCOUNT_KEY)");
 
-  const d = new Date(deal.lockedAt);
+  const d     = new Date(deal.lockedAt);
   const yyyy  = String(d.getFullYear());
   const mm    = String(d.getMonth() + 1).padStart(2, "0");
   const dd    = String(d.getDate()).padStart(2, "0");
+  const yy    = yyyy.slice(2);
   const month = d.toLocaleString("en-US", { month: "long" });
 
-  const yearName  = yyyy;
-  const monthName = `${mm} – ${month}`;
-  const dealFolder = `${yyyy}${mm}${dd}-${deal.lastName}-${deal.dealType.toUpperCase()}`;
-  const fileName   = `WHC-${deal.id}-${yyyy}${mm}${dd}.pdf`;
+  // First initial + last name
+  const firstInitial = (deal.firstName.trim()[0] ?? "").toUpperCase();
+  const lastName     = deal.lastName.trim();
+  const clientLabel  = `${firstInitial} ${lastName}`;   // e.g. "J Smith"
+  const dateLabel    = `${mm}${dd}${yy}`;               // e.g. "041526"
+
+  const yearName    = yyyy;                             // "2026"
+  const monthName   = `${mm} \u2013 ${month}`;         // "04 – April"
+  const clientFolder = clientLabel;                     // "J Smith"
+  const fileName    = `${dateLabel} ${clientLabel} Invoice.pdf`; // "041526 J Smith Invoice.pdf"
 
   // Traverse / create folder hierarchy
-  const yearFolderId  = await getOrCreateFolder(drive, yearName,  rootFolderId);
-  const monthFolderId = await getOrCreateFolder(drive, monthName, yearFolderId);
-  const dealFolderId  = await getOrCreateFolder(drive, dealFolder, monthFolderId);
+  const yearFolderId   = await getOrCreateFolder(drive, yearName,    rootFolderId);
+  const monthFolderId  = await getOrCreateFolder(drive, monthName,   yearFolderId);
+  const clientFolderId = await getOrCreateFolder(drive, clientFolder, monthFolderId);
 
   // Convert Buffer → Readable stream (required by Drive API)
   const stream = Readable.from(pdfBuffer);
@@ -110,7 +118,7 @@ export async function saveDealPdfToDrive(
   const uploaded = await drive.files.create({
     requestBody: {
       name:    fileName,
-      parents: [dealFolderId],
+      parents: [clientFolderId],
     },
     media: {
       mimeType: "application/pdf",
@@ -122,6 +130,6 @@ export async function saveDealPdfToDrive(
   const fileId      = uploaded.data.id      as string;
   const webViewLink = uploaded.data.webViewLink as string;
 
-  logger.info({ dealId: deal.id, fileId, dealFolder }, "[Drive] PDF uploaded");
+  logger.info({ dealId: deal.id, fileId, clientFolder, fileName }, "[Drive] PDF uploaded");
   return { fileId, webViewLink };
 }

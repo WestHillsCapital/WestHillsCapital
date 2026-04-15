@@ -8,6 +8,7 @@ import sheetsBackfillRouter from "./sheets-backfill";
 import internalAuthRouter  from "./internal-auth";
 import internalRouter      from "./internal";
 import dealsRouter         from "./deals";
+import fedexRouter         from "./fedex";
 import { requireInternalAuth } from "../middleware/requireInternalAuth";
 
 const router: IRouter = Router();
@@ -30,5 +31,8 @@ router.use("/internal", requireInternalAuth, internalRouter);
 
 // ── Deal routes (internal tool — also require auth) ───────────────────────────
 router.use("/deals", requireInternalAuth, dealsRouter);
+
+// ── FedEx location search (internal tool) ─────────────────────────────────────
+router.use("/fedex", requireInternalAuth, fedexRouter);
 
 export default router;
