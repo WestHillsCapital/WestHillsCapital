@@ -11,8 +11,8 @@ import { logger } from "../lib/logger";
 const router: IRouter = Router();
 
 // ─── Dillon Gage / Fiztrade API ──────────────────────────────────────────────
-const DG_TOKEN = process.env.DILLON_GAGE_API_KEY;
-const DG_BASE  = process.env.FIZTRADE_BASE_URL ?? "https://connect.fiztrade.com/FizServices";
+const DG_TOKEN = process.env.DILLON_GAGE_API_KEY?.trim();
+const DG_BASE  = (process.env.FIZTRADE_BASE_URL ?? "https://connect.fiztrade.com/FizServices").trim();
 
 // ─── Dillon Gage product codes ────────────────────────────────────────────────
 //   1EAGLE  → 1 oz American Gold Eagle
