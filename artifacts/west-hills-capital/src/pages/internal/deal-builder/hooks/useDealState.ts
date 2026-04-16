@@ -116,11 +116,16 @@ export function useDealState(
         setBillingState(deal.billing_state ?? "");
         setBillingZip(deal.billing_zip     ?? "");
         setNotes(deal.notes ?? "");
-        if (deal.invoice_id || deal.invoice_url || deal.recap_email_sent_at) {
+        const persistedWarnings: string[] | undefined =
+          Array.isArray(deal.execution_warnings) && deal.execution_warnings.length > 0
+            ? deal.execution_warnings as string[]
+            : undefined;
+        if (deal.invoice_id || deal.invoice_url || deal.recap_email_sent_at || persistedWarnings) {
           setExecutionResult({
             invoiceId:   deal.invoice_id   ?? null,
             invoiceUrl:  deal.invoice_url  ?? null,
             emailSentTo: deal.recap_email_sent_at ? deal.email : null,
+            warnings:    persistedWarnings,
           });
         }
         setTermsAcknowledged(true);

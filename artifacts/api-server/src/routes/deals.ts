@@ -392,8 +392,9 @@ router.post("/", async (req, res) => {
         logger.info({ dealId, invoiceUrl }, "[Deals] PDF saved to Drive");
 
       } catch (driveErr) {
-        logger.error({ dealId, err: driveErr }, "[Deals] Drive upload failed (non-fatal)");
-        warnings.push(`Google Drive upload failed: ${driveErr instanceof Error ? driveErr.message : String(driveErr)}`);
+        const errMsg = driveErr instanceof Error ? driveErr.message : String(driveErr);
+        logger.error({ dealId, err: driveErr, errMsg }, "[Deals] Drive upload failed (non-fatal)");
+        warnings.push(`Google Drive upload failed: ${errMsg}`);
       }
     }
 
@@ -415,8 +416,9 @@ router.post("/", async (req, res) => {
           logger.info({ dealId, email }, "[Deals] Recap email sent");
 
         } catch (emailErr) {
-          logger.error({ dealId, err: emailErr }, "[Deals] Recap email failed (non-fatal)");
-          warnings.push(`Recap email failed: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`);
+          const errMsg = emailErr instanceof Error ? emailErr.message : String(emailErr);
+          logger.error({ dealId, err: emailErr, errMsg }, "[Deals] Recap email failed (non-fatal)");
+          warnings.push(`Recap email failed: ${errMsg}`);
         }
       }
     }
@@ -429,11 +431,13 @@ router.post("/", async (req, res) => {
       writeDealLinkToMasterSheet(deal),
     ]);
     if (sheetsResult.status === "rejected") {
-      logger.error({ err: sheetsResult.reason }, "[Deals] appendDealToOpsSheet failed");
-      warnings.push(`Deals tab sync failed: ${sheetsResult.reason instanceof Error ? sheetsResult.reason.message : "Unknown error"}`);
+      const errMsg = sheetsResult.reason instanceof Error ? sheetsResult.reason.message : String(sheetsResult.reason);
+      logger.error({ err: sheetsResult.reason, errMsg }, "[Deals] appendDealToOpsSheet failed");
+      warnings.push(`Deals tab sync failed: ${errMsg}`);
     }
     if (linkResult.status === "rejected") {
-      logger.error({ err: linkResult.reason }, "[Deals] writeDealLinkToMasterSheet failed");
+      const errMsg = linkResult.reason instanceof Error ? linkResult.reason.message : String(linkResult.reason);
+      logger.error({ err: linkResult.reason, errMsg }, "[Deals] writeDealLinkToMasterSheet failed");
     }
 
     // Admin notification — fire-and-forget
@@ -455,7 +459,16 @@ router.post("/", async (req, res) => {
       logger.error({ err }, "[Deals] admin notification failed"),
     );
 
-    // ── 7. Respond ───────────────────────────────────────────────────────────
+    // ── 7. Persist warnings to DB so they survive page reload ─────────────────
+    await db.query(
+      `UPDATE deals SET execution_warnings = $1::jsonb, updated_at = NOW() WHERE id = $2`,
+      [JSON.stringify(warnings), dealId],
+    ).catch((warnErr: unknown) => {
+      const msg = warnErr instanceof Error ? warnErr.message : String(warnErr);
+      logger.error({ err: warnErr, errMsg: msg, dealId }, "[Deals] Failed to persist execution_warnings (non-fatal)");
+    });
+
+    // ── 8. Respond ───────────────────────────────────────────────────────────
     return res.status(201).json({
       dealId,
       status:          "executed",

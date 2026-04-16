@@ -219,6 +219,8 @@ export async function initDb(): Promise<void> {
   await safeAdd("payment_received_at",  "TIMESTAMPTZ");
   await safeAdd("tracking_number",      "TEXT");
   await safeAdd("order_placed_at",      "TIMESTAMPTZ");
+  // Execution warnings (persisted so they survive page reload)
+  await safeAdd("execution_warnings",   "JSONB DEFAULT '[]'::jsonb");
 
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
