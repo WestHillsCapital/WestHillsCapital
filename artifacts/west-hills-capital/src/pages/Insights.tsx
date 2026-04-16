@@ -16,69 +16,74 @@ function estimateReadTime(article: InsightArticle): number {
 
 export default function Insights() {
   return (
-    <div className="w-full bg-background min-h-screen pt-12 pb-28">
+    <div className="w-full bg-background min-h-screen pt-14 pb-28">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* HERO */}
-        <div className="max-w-2xl mb-16">
-          <p className="text-xs text-primary font-semibold uppercase tracking-widest mb-4">
-            West Hills Capital Insights
+        <div className="border-b border-border/30 pb-10 mb-10">
+          <p className="text-[11px] text-primary font-semibold uppercase tracking-[0.18em] mb-5">
+            West Hills Capital — Insights
           </p>
-          <h1 className="text-4xl lg:text-5xl font-serif font-semibold mb-6 leading-tight">
-            Insights
-          </h1>
-          <p className="text-lg text-foreground/80 leading-relaxed mb-3 font-medium">
-            Most people do not need more noise about gold and silver. They need clarity.
-          </p>
-          <p className="text-base text-foreground/65 leading-relaxed">
-            This section is designed to help buyers understand pricing, products, ownership, and how to avoid costly mistakes — so they can make informed decisions with confidence.
-          </p>
+          <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
+            <h1 className="text-5xl lg:text-6xl font-serif font-semibold leading-tight">
+              Insights
+            </h1>
+            <p className="text-[15px] text-foreground/60 leading-relaxed lg:max-w-sm lg:text-right">
+              Clarity over noise — pricing, products, ownership, and how to avoid costly mistakes.
+            </p>
+          </div>
         </div>
 
         {/* ARTICLE COUNT */}
-        <p className="text-sm text-foreground/50 mb-14 border-t border-border/30 pt-5">
-          {INSIGHTS.length} articles across {INSIGHT_GROUPS.length} topics
+        <p className="text-[12px] text-foreground/40 font-medium tracking-wide mb-14 uppercase">
+          {INSIGHTS.length} articles &nbsp;·&nbsp; {INSIGHT_GROUPS.length} topics
         </p>
 
         {/* GROUPS */}
-        <div className="space-y-20">
-          {INSIGHT_GROUPS.map((group) => {
+        <div className="space-y-16">
+          {INSIGHT_GROUPS.map((group, idx) => {
             const articles = getArticlesByGroup(group.id);
+            const groupNum = String(idx + 1).padStart(2, "0");
             return (
               <section key={group.id} aria-labelledby={`group-${group.id}`}>
 
                 {/* Group header */}
-                <div className="mb-8 pb-5 border-b border-border/40">
-                  <h2
-                    id={`group-${group.id}`}
-                    className="text-2xl font-serif font-semibold mb-2"
-                  >
-                    {group.title}
-                  </h2>
-                  <p className="text-[15px] text-foreground/65 leading-relaxed">
-                    {group.description}
-                  </p>
+                <div className="flex items-start gap-5 mb-7 pb-5 border-b border-border/35">
+                  <span className="text-[11px] font-semibold text-primary/50 tabular-nums mt-1.5 shrink-0 tracking-widest">
+                    {groupNum}
+                  </span>
+                  <div>
+                    <h2
+                      id={`group-${group.id}`}
+                      className="text-xl font-serif font-semibold mb-1 leading-snug"
+                    >
+                      {group.title}
+                    </h2>
+                    <p className="text-[14px] text-foreground/55 leading-relaxed">
+                      {group.description}
+                    </p>
+                  </div>
                 </div>
 
                 {/* Article cards */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   {articles.map((article) => {
                     const readTime = estimateReadTime(article);
                     return (
                       <Link key={article.slug} href={`/insights/${article.slug}`}>
-                        <article className="group h-full bg-white border border-border/40 rounded-xl p-6 hover:shadow-md hover:border-border/60 transition-all duration-200 cursor-pointer flex flex-col">
-                          <h3 className="text-[15px] font-semibold text-foreground leading-snug mb-3 group-hover:text-primary transition-colors">
+                        <article className="group h-full bg-white border border-border/40 rounded-xl p-6 hover:shadow-md hover:border-primary/25 transition-all duration-200 cursor-pointer flex flex-col">
+                          <h3 className="text-[15px] font-semibold text-foreground leading-snug mb-3 group-hover:text-primary transition-colors duration-150">
                             {article.title}
                           </h3>
-                          <p className="text-[14px] text-foreground/68 leading-[1.7] flex-1">
+                          <p className="text-[13.5px] text-foreground/60 leading-[1.75] flex-1">
                             {article.excerpt}
                           </p>
-                          <div className="flex items-center justify-between mt-5">
+                          <div className="flex items-center justify-between mt-5 pt-4 border-t border-border/25">
                             <div className="flex items-center gap-1 text-xs font-semibold text-primary">
                               Read article
                               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                             </div>
-                            <div className="flex items-center gap-1 text-[11px] text-foreground/35">
+                            <div className="flex items-center gap-1 text-[11px] text-foreground/30 tabular-nums">
                               <Clock className="w-3 h-3" />
                               {readTime} min
                             </div>
@@ -95,12 +100,12 @@ export default function Insights() {
         </div>
 
         {/* BOTTOM CTA */}
-        <div className="mt-24 max-w-2xl mx-auto text-center border-t border-border/30 pt-14">
+        <div className="mt-20 max-w-xl mx-auto text-center border-t border-border/30 pt-14">
           <h2 className="text-2xl font-serif font-semibold mb-4">
             Need help thinking it through?
           </h2>
-          <p className="text-[15px] text-foreground/68 leading-relaxed mb-8">
-            If you have questions about pricing, products, or how to structure a purchase, we are happy to walk you through it clearly. No pressure. No gimmicks. Just straightforward answers.
+          <p className="text-[15px] text-foreground/60 leading-relaxed mb-8">
+            If you have questions about pricing, products, or how to structure a purchase, we're happy to walk you through it — clearly, with no pressure.
           </p>
           <Link href="/schedule">
             <button className="inline-flex items-center gap-2 bg-primary text-white px-8 py-3 rounded-lg text-sm font-semibold hover:bg-primary/90 transition-colors">
@@ -108,8 +113,8 @@ export default function Insights() {
               <ArrowRight className="w-4 h-4" />
             </button>
           </Link>
-          <p className="mt-5 text-xs text-foreground/45">
-            Or call us at{" "}
+          <p className="mt-5 text-xs text-foreground/40">
+            Or call{" "}
             <a href="tel:8008676768" className="hover:text-primary transition-colors">
               (800) 867-6768
             </a>
