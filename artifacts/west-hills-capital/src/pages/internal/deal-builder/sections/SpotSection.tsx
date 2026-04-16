@@ -11,7 +11,7 @@ interface Props {
 
 export function SpotSection({ spotData, isFetchingSpot, spotError, locked, onGetSpot }: Props) {
   return (
-    <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+    <section className="bg-[#0d1728] border border-[#1a2640] rounded-lg p-5">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Live Spot</h2>
         {!locked && (
@@ -49,7 +49,7 @@ function SpotBox({ label, value }: { label: string; value: number | null }) {
   return (
     <div>
       <div className="text-xs text-gray-500 mb-1">{label}</div>
-      <div className="text-lg font-semibold text-amber-400 font-mono">
+      <div className="text-lg font-semibold text-[#C49A38] font-mono">
         {value != null ? fmtMoney(value) : "—"}
       </div>
     </div>

@@ -27,10 +27,10 @@ function statusBadge(status: string) {
     new:       "bg-blue-900 text-blue-300",
     contacted: "bg-yellow-900 text-yellow-300",
     qualified: "bg-green-900 text-green-300",
-    closed:    "bg-gray-800 text-gray-400",
+    closed:    "bg-[#162038] text-gray-400",
   };
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] ?? "bg-gray-800 text-gray-300"}`}>
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] ?? "bg-[#162038] text-gray-300"}`}>
       {status}
     </span>
   );
@@ -81,10 +81,10 @@ export default function InternalLeads() {
       )}
 
       {leads.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-gray-800">
+        <div className="overflow-x-auto rounded-lg border border-[#1a2640]">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-800 bg-gray-900">
+              <tr className="border-b border-[#1a2640] bg-[#0d1728]">
                 {["ID", "Name", "Email", "Phone", "State", "Structure", "Status", "Created", ""].map((h) => (
                   <th key={h} className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide whitespace-nowrap">
                     {h}
@@ -96,7 +96,7 @@ export default function InternalLeads() {
               {leads.map((lead) => (
                 <tr
                   key={lead.id}
-                  className="border-b border-gray-800/50 hover:bg-gray-900/60 transition-colors"
+                  className="border-b border-[#1a2640]/50 hover:bg-[#0d1728]/60 transition-colors"
                 >
                   <td className="px-3 py-2.5 text-gray-400 font-mono text-xs">{lead.id}</td>
                   <td className="px-3 py-2.5 text-white font-medium whitespace-nowrap">
@@ -115,7 +115,7 @@ export default function InternalLeads() {
                   <td className="px-3 py-2.5">
                     <button
                       onClick={() => navigate(`/internal/deal-builder?leadId=${lead.id}`)}
-                      className="px-3 py-1 rounded text-xs font-medium bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors whitespace-nowrap"
+                      className="px-3 py-1 rounded text-xs font-medium bg-[#C49A38]/20 text-[#C49A38] hover:bg-[#C49A38]/30 transition-colors whitespace-nowrap"
                     >
                       Open Deal
                     </button>

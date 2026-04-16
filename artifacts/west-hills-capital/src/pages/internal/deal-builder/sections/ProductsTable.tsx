@@ -12,13 +12,13 @@ interface Props {
 
 export function ProductsTable({ rows, setRow, locked, goldOz, silverOz, shipping }: Props) {
   return (
-    <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+    <section className="bg-[#0d1728] border border-[#1a2640] rounded-lg p-5">
       <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Products</h2>
 
       <div className="overflow-x-auto">
       <div className="min-w-[440px] space-y-1">
         {/* Header row */}
-        <div className="grid grid-cols-[1fr_52px_80px_110px_110px] gap-2 pb-2 border-b border-gray-800">
+        <div className="grid grid-cols-[1fr_52px_80px_110px_110px] gap-2 pb-2 border-b border-[#1a2640]">
           <span className="text-xs font-medium text-gray-500">Product</span>
           <span className="text-xs font-medium text-gray-500 text-center">Metal</span>
           <span className="text-xs font-medium text-gray-500 text-right">Qty</span>
@@ -34,7 +34,7 @@ export function ProductsTable({ rows, setRow, locked, goldOz, silverOz, shipping
           return (
             <div
               key={row.productId}
-              className="grid grid-cols-[1fr_52px_80px_110px_110px] gap-2 items-center py-2.5 border-b border-gray-800/40 last:border-0"
+              className="grid grid-cols-[1fr_52px_80px_110px_110px] gap-2 items-center py-2.5 border-b border-[#1a2640]/40 last:border-0"
             >
               {/* Product name */}
               <span className="text-sm text-white leading-tight">{row.productName}</span>
@@ -43,8 +43,8 @@ export function ProductsTable({ rows, setRow, locked, goldOz, silverOz, shipping
               <span className="flex justify-center">
                 <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
                   row.metal === "gold"
-                    ? "bg-amber-900/50 text-amber-400"
-                    : "bg-gray-700 text-gray-300"
+                    ? "bg-[#C49A38]/20 text-[#C49A38]"
+                    : "bg-[#1e2d4a] text-gray-300"
                 }`}>
                   {row.metal === "gold" ? "AU" : "AG"}
                 </span>
@@ -58,7 +58,7 @@ export function ProductsTable({ rows, setRow, locked, goldOz, silverOz, shipping
                 onChange={setRow(i, "qty")}
                 disabled={locked}
                 placeholder="0"
-                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm text-right text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 disabled:opacity-60"
+                className="w-full bg-[#162038] border border-[#243355] rounded px-2 py-2 text-sm text-right text-white focus:outline-none focus:border-[#C49A38] focus:ring-1 focus:ring-[#C49A38]/30 disabled:opacity-60"
               />
 
               {/* Unit price — formatted display when locked, input when editable */}
@@ -76,7 +76,7 @@ export function ProductsTable({ rows, setRow, locked, goldOz, silverOz, shipping
                     value={row.unitPrice}
                     onChange={setRow(i, "unitPrice")}
                     placeholder="0.00"
-                    className="w-full bg-gray-800 border border-gray-700 rounded pl-5 pr-2 py-2 text-sm text-right text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+                    className="w-full bg-[#162038] border border-[#243355] rounded pl-5 pr-2 py-2 text-sm text-right text-white focus:outline-none focus:border-[#C49A38] focus:ring-1 focus:ring-[#C49A38]/30"
                   />
                 </div>
               )}

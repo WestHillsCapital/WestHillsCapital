@@ -15,7 +15,7 @@ export function OpsActionsSection({
   onMarkPayment, onSaveTracking,
 }: Props) {
   return (
-    <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+    <section className="bg-[#0d1728] border border-[#1a2640] rounded-lg p-5">
       <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Ops Actions</h2>
 
       {opsActionError && (
@@ -36,7 +36,7 @@ export function OpsActionsSection({
             <button
               onClick={onMarkPayment}
               disabled={isMarkingPayment}
-              className="w-full py-2 rounded text-sm font-medium bg-gray-800 hover:bg-green-900/40 border border-gray-700 hover:border-green-700 text-gray-300 hover:text-green-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-2 rounded text-sm font-medium bg-[#162038] hover:bg-green-900/40 border border-[#243355] hover:border-green-700 text-gray-300 hover:text-green-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isMarkingPayment ? "Marking…" : "Mark Payment Received"}
             </button>
@@ -52,12 +52,12 @@ export function OpsActionsSection({
               value={trackingNumber}
               onChange={(e) => setTrackingNumber(e.target.value)}
               placeholder="e.g. 7489 3401 0947 2804"
-              className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amber-500"
+              className="flex-1 bg-[#162038] border border-[#243355] rounded px-3 py-1.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-[#C49A38]"
             />
             <button
               onClick={onSaveTracking}
               disabled={isSavingTracking || !trackingNumber.trim()}
-              className="px-3 py-1.5 rounded text-sm font-medium bg-gray-700 hover:bg-gray-600 text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-3 py-1.5 rounded text-sm font-medium bg-[#1e2d4a] hover:bg-[#1e2d4a] text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isSavingTracking ? "Saving…" : "Save"}
             </button>

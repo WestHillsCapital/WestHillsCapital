@@ -198,7 +198,7 @@ export default function DealBuilder() {
               disabled={s.isLocked}
               rows={2}
               placeholder="Internal notes…"
-              className="w-full bg-gray-900/60 border border-gray-800 rounded px-3 py-2 text-xs text-gray-400 placeholder-gray-700 focus:outline-none focus:border-gray-600 disabled:opacity-60 resize-none"
+              className="w-full bg-[#0d1728]/60 border border-[#1a2640] rounded px-3 py-2 text-xs text-gray-400 placeholder-gray-700 focus:outline-none focus:border-[#243355] disabled:opacity-60 resize-none"
             />
           </section>
         </div>

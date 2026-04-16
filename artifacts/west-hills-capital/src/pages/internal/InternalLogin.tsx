@@ -31,12 +31,12 @@ export default function InternalLogin() {
   const displayError = localError ?? authError;
 
   return (
-    <div className="min-h-screen bg-gray-950 flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-[#07101f] flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo mark */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-3">
-            <span className="text-2xl font-bold tracking-widest text-amber-500 uppercase">WHC</span>
+            <span className="text-2xl font-bold tracking-widest text-[#C49A38] uppercase">WHC</span>
             <span className="text-lg text-gray-400 font-medium">Internal</span>
           </div>
           <p className="text-sm text-gray-500">
@@ -45,13 +45,13 @@ export default function InternalLogin() {
         </div>
 
         {/* Card */}
-        <div className="bg-gray-900 border border-gray-800 rounded-xl p-8 shadow-2xl">
+        <div className="bg-[#0d1728] border border-[#1a2640] rounded-xl p-8 shadow-2xl">
           <h1 className="text-white text-lg font-semibold mb-6 text-center">
             Internal Portal Sign-In
           </h1>
 
           {!hasClientId ? (
-            <div className="text-center text-amber-400 text-sm bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+            <div className="text-center text-[#C49A38] text-sm bg-[#C49A38]/10 border border-[#C49A38]/20 rounded-lg p-4">
               <p className="font-semibold mb-1">Configuration Required</p>
               <p>
                 <code className="font-mono text-xs">VITE_GOOGLE_CLIENT_ID</code> is not set.
@@ -60,7 +60,7 @@ export default function InternalLogin() {
             </div>
           ) : loading ? (
             <div className="flex flex-col items-center gap-3 py-2">
-              <div className="w-6 h-6 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
               <p className="text-sm text-gray-400">Verifying your account…</p>
             </div>
           ) : (

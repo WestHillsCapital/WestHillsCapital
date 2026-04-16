@@ -39,7 +39,7 @@ export function CustomerSection({
   }
 
   return (
-    <section className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+    <section className="bg-[#0d1728] border border-[#1a2640] rounded-lg p-4">
       <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Customer</h2>
 
       <div className="space-y-2">
@@ -94,7 +94,7 @@ export function CustomerSection({
               value={billingState}
               onChange={handleStateChange}
               disabled={locked}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white disabled:opacity-60 focus:outline-none focus:border-amber-500"
+              className="w-full bg-[#162038] border border-[#243355] rounded px-2 py-1.5 text-sm text-white disabled:opacity-60 focus:outline-none focus:border-[#C49A38]"
             >
               <option value="">—</option>
               {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -104,7 +104,7 @@ export function CustomerSection({
           {/* ZIP */}
           <div className="col-span-1">
             <label className="block text-xs text-gray-400 mb-1 truncate">
-              ZIP{showFedexHint && <span className="text-amber-500/70">*</span>}
+              ZIP{showFedexHint && <span className="text-[#C49A38]/70">*</span>}
             </label>
             <input
               type="text"
@@ -114,7 +114,7 @@ export function CustomerSection({
               onChange={handleZipChange}
               disabled={locked}
               placeholder="67201"
-              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white placeholder:text-gray-600 disabled:opacity-60 focus:outline-none focus:border-amber-500"
+              className="w-full bg-[#162038] border border-[#243355] rounded px-2 py-1.5 text-sm text-white placeholder:text-gray-600 disabled:opacity-60 focus:outline-none focus:border-[#C49A38]"
             />
           </div>
         </div>

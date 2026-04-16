@@ -10,7 +10,7 @@ interface Props {
 
 export function SummarySection({ subtotal, shipping, total, goldOz, silverOz }: Props) {
   return (
-    <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+    <section className="bg-[#0d1728] border border-[#1a2640] rounded-lg p-5">
       <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Summary</h2>
 
       <div className="space-y-2 text-sm">
@@ -30,10 +30,10 @@ export function SummarySection({ subtotal, shipping, total, goldOz, silverOz }: 
       </div>
 
       {/* Total Due — dominant */}
-      <div className="border-t border-gray-700 mt-4 pt-4">
+      <div className="border-t border-[#243355] mt-4 pt-4">
         <div className="flex justify-between items-baseline">
           <span className="text-sm font-semibold text-white">Total Due</span>
-          <span className={`font-mono font-bold text-2xl ${total > 0 ? "text-amber-400" : "text-gray-600"}`}>
+          <span className={`font-mono font-bold text-2xl ${total > 0 ? "text-[#C49A38]" : "text-gray-600"}`}>
             {total > 0 ? fmtMoney(total) : "—"}
           </span>
         </div>

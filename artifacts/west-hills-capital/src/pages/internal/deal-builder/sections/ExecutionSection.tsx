@@ -27,11 +27,11 @@ export function ExecutionSection({
   // ── Post-lock result card ─────────────────────────────────────────────────
   if (locked) {
     return (
-      <section className={`rounded-lg p-4 ${executionResult ? "bg-green-900/20 border border-green-800/40" : "bg-gray-900 border border-gray-800"}`}>
+      <section className={`rounded-lg p-4 ${executionResult ? "bg-green-900/20 border border-green-800/40" : "bg-[#0d1728] border border-[#1a2640]"}`}>
         <div className="flex items-start gap-3">
-          <div className={`text-xl mt-0.5 ${executionResult ? "text-green-400" : "text-amber-400"}`}>✓</div>
+          <div className={`text-xl mt-0.5 ${executionResult ? "text-green-400" : "text-[#C49A38]"}`}>✓</div>
           <div className="flex-1 min-w-0">
-            <div className={`font-semibold text-sm ${executionResult ? "text-green-300" : "text-amber-300"}`}>
+            <div className={`font-semibold text-sm ${executionResult ? "text-green-300" : "text-[#d4a93e]"}`}>
               Deal #{savedDealId} — {executionResult ? "Executed" : "Locked"}
             </div>
             {lockedAt && (
@@ -62,7 +62,7 @@ export function ExecutionSection({
                   </div>
                 )}
                 {executionResult.warnings && executionResult.warnings.length > 0 && (
-                  <div className="mt-2 text-amber-400 bg-amber-900/20 rounded px-2 py-1.5">
+                  <div className="mt-2 text-[#C49A38] bg-[#C49A38]/10 rounded px-2 py-1.5">
                     <div className="font-medium mb-1">Partial completion:</div>
                     {executionResult.warnings.map((w, i) => <div key={i}>· {w}</div>)}
                   </div>
@@ -77,7 +77,7 @@ export function ExecutionSection({
 
   // ── Execution panel (pre-lock) ────────────────────────────────────────────
   return (
-    <section className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+    <section className="bg-[#0d1728] border border-[#1a2640] rounded-lg p-4">
 
       {/* Progress steps while saving */}
       {isSaving ? (
@@ -91,11 +91,11 @@ export function ExecutionSection({
                   {done
                     ? <span className="text-green-400 text-base">✓</span>
                     : current
-                      ? <span className="inline-block w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                      ? <span className="inline-block w-3.5 h-3.5 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
                       : <span className="text-gray-700 text-base">○</span>
                   }
                 </span>
-                <span className={done ? "text-green-400" : current ? "text-amber-300" : "text-gray-600"}>
+                <span className={done ? "text-green-400" : current ? "text-[#d4a93e]" : "text-gray-600"}>
                   {step}
                 </span>
               </div>
@@ -116,7 +116,7 @@ export function ExecutionSection({
               type="checkbox"
               checked={termsAcknowledged}
               onChange={(e) => setTermsAcknowledged(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-gray-800 text-amber-500 focus:ring-amber-500 flex-shrink-0"
+              className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-[#162038] text-[#C49A38] focus:ring-[#C49A38] flex-shrink-0"
             />
             <span className="text-xs text-gray-400 leading-relaxed group-hover:text-gray-300 transition-colors">
               I confirm this trade was executed verbally on a recorded line and that West Hills Capital's{" "}
@@ -124,7 +124,7 @@ export function ExecutionSection({
                 href="/terms"
                 target="_blank"
                 rel="noreferrer"
-                className="text-amber-400 hover:underline"
+                className="text-[#C49A38] hover:underline"
                 onClick={(e) => e.stopPropagation()}
               >
                 Terms of Service
@@ -137,17 +137,17 @@ export function ExecutionSection({
           <button
             onClick={onLock}
             disabled={isSaving || total === 0 || !termsAcknowledged}
-            className="w-full py-3.5 rounded-md font-semibold text-sm bg-amber-500 hover:bg-amber-400 text-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-3.5 rounded-md font-semibold text-sm bg-[#C49A38] hover:bg-[#d4a93e] text-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Lock &amp; Execute
           </button>
 
           {/* Preview invoice — secondary action */}
-          <div className="mt-3 pt-3 border-t border-gray-800">
+          <div className="mt-3 pt-3 border-t border-[#1a2640]">
             <button
               onClick={onPreview}
               disabled={isGeneratingPreview}
-              className="w-full py-2 rounded text-sm font-medium bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-2 rounded text-sm font-medium bg-[#162038] hover:bg-[#1e2d4a] text-gray-400 hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isGeneratingPreview ? "Generating PDF…" : "Preview Invoice PDF"}
             </button>
