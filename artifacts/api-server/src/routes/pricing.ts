@@ -11,8 +11,12 @@ import { logger } from "../lib/logger";
 const router: IRouter = Router();
 
 // ─── Dillon Gage / Fiztrade API ──────────────────────────────────────────────
-const DG_TOKEN = process.env.DILLON_GAGE_API_KEY?.trim();
-const DG_BASE  = (process.env.FIZTRADE_BASE_URL ?? "https://connect.fiztrade.com/FizServices").trim();
+const DG_TOKEN   = process.env.DILLON_GAGE_API_KEY?.trim();
+const DG_BASE_RAW = (process.env.FIZTRADE_BASE_URL ?? "https://connect.fiztrade.com/FizServices").trim();
+// Auto-heal: if https:// prefix was stripped (common copy-paste issue), restore it.
+const DG_BASE = DG_BASE_RAW.startsWith("http")
+  ? DG_BASE_RAW
+  : `https://${DG_BASE_RAW.replace(/^[^a-zA-Z]+/, "")}`;
 
 // ─── Dillon Gage product codes ────────────────────────────────────────────────
 //   1EAGLE  → 1 oz American Gold Eagle
