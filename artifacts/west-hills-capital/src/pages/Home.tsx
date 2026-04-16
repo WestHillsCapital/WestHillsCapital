@@ -1,8 +1,29 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, BookOpen, ShieldCheck, Scale, Banknote, History, CheckCircle2, Shield } from "lucide-react";
+import { ArrowRight, BookOpen, ShieldCheck, Scale, Banknote, History, CheckCircle2, Shield, Star } from "lucide-react";
 import { useProductPrices } from "@/hooks/use-pricing";
+
+const TESTIMONIALS = [
+  {
+    quote:
+      "I had spoken with some of the larger companies but always felt like I was dealing with used car salesmen. I also wondered why they kept pushing the higher-end proof products. When I landed on the West Hills Capital website I immediately found the information I needed. Joe spoke with me several times and took a personal interest in helping me find the right solution.",
+    name: "David F.",
+    detail: "Verified client",
+  },
+  {
+    quote:
+      "This market was very new to me, but they helped guide me into the best options. When investing large sums you definitely want someone you trust and who is very knowledgeable. I will personally use them again.",
+    name: "Austin C.",
+    detail: "Verified client",
+  },
+  {
+    quote:
+      "There's this aura about touching gold and silver — something you can't explain until it's in your hands. West Hills Capital knows what you want and they deliver it in a timely manner. I can't wait to purchase even more metal from them.",
+    name: "Richie A.",
+    detail: "Verified client",
+  },
+];
 
 export default function Home() {
   const { data: pricingData, isLoading: loadingProducts } = useProductPrices();
@@ -134,6 +155,45 @@ export default function Home() {
                 View Full Live Pricing
               </Button>
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* CLIENT TESTIMONIALS */}
+      <section className="py-20 bg-background border-t border-border/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <div className="flex items-center justify-center gap-1 mb-3">
+              {[...Array(5)].map((_, i) => (
+                <Star key={i} className="w-4 h-4 fill-primary text-primary" />
+              ))}
+              <span className="ml-2 text-sm font-medium text-foreground/50">4.9 on Google</span>
+            </div>
+            <h2 className="text-3xl lg:text-4xl font-serif font-semibold text-foreground">
+              What clients say
+            </h2>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {TESTIMONIALS.map((t, i) => (
+              <div
+                key={i}
+                className="bg-white rounded-2xl border border-border/40 p-7 flex flex-col shadow-sm"
+              >
+                <div className="text-5xl font-serif leading-none text-primary/25 mb-3 select-none">"</div>
+                <p className="text-[15px] text-foreground/72 leading-relaxed flex-1 mb-6 italic">
+                  {t.quote}
+                </p>
+                <div className="flex items-center gap-3 pt-4 border-t border-border/30">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-sm shrink-0">
+                    {t.name.charAt(0)}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{t.name}</p>
+                    <p className="text-xs text-foreground/45">{t.detail}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
