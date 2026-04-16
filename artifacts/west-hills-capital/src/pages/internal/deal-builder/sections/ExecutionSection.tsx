@@ -147,7 +147,7 @@ export function ExecutionSection({
             <button
               onClick={onPreview}
               disabled={isGeneratingPreview}
-              className="w-full py-2 rounded text-sm font-medium bg-white hover:bg-[#EDE8DF] text-[#6B7A99] hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-2 rounded text-sm font-medium border border-[#DDD5C4] bg-white hover:bg-[#F5F0E8] hover:border-[#C49A38]/50 text-[#4A5B7A] hover:text-[#0F1C3F] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isGeneratingPreview ? "Generating PDF…" : "Preview Invoice PDF"}
             </button>
