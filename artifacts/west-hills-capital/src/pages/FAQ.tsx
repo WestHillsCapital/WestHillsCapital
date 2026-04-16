@@ -20,7 +20,7 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
       },
       {
         q: "How does the commitment work?",
-        a: "When you say yes, you own the metal at that price and owe West Hills Capital for it. We handle the execution on your behalf and you wire payment — typically the following business day. It's a straightforward purchase: you know exactly what you're buying, exactly what it costs, and we take care of the rest.",
+        a: "When you say yes, you own the metal at that price and owe West Hills Capital for it. We handle the execution on your behalf and you wire payment — most clients send it the same day, and we extend grace through the following business day. It's a straightforward purchase: you know exactly what you're buying, exactly what it costs, and we take care of the rest.",
       },
       {
         q: "Is there a minimum order?",
@@ -73,7 +73,7 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
         a: (
           <>
             <ul className="list-disc pl-5 space-y-2">
-              <li><strong>Wire transfer</strong> — preferred method; reimbursement is expected the business day following your commitment on the call</li>
+              <li><strong>Wire transfer</strong> — preferred method; most clients send same day, with grace through the following business day</li>
               <li><strong>Cashier's check</strong> — treated the same as cash; same-day processing when received</li>
               <li><strong>Personal check</strong> — accepted, but must fully clear before your order ships. This typically adds several business days.</li>
             </ul>
