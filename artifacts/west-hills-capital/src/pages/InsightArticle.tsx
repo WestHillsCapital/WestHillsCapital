@@ -150,38 +150,50 @@ export default function InsightArticle() {
           </Link>
 
           {/* ARTICLE HEADER */}
-          <header className="mb-10">
+          <header className="mb-0">
             {group && (
-              <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-4">
+              <p className="text-[11px] font-semibold text-primary uppercase tracking-[0.16em] mb-5">
                 {group.title}
               </p>
             )}
-            <h1 className="text-3xl lg:text-[2.4rem] font-serif font-semibold leading-tight mb-4">
+            <h1 className="text-3xl lg:text-[2.5rem] font-serif font-semibold leading-tight mb-4">
               {article.title}
             </h1>
-            <div className="flex items-center gap-1.5 text-xs text-foreground/40 mb-5">
+            <div className="flex items-center gap-1.5 text-xs text-foreground/35 mb-6">
               <Clock className="w-3.5 h-3.5" />
               <span>{readTime} min read</span>
             </div>
-            <p className="text-[17px] text-foreground/70 leading-[1.75] border-b border-border/30 pb-8">
+            <p className="text-[17px] text-foreground/68 leading-[1.8] pb-8 border-b border-border/40">
               {article.excerpt}
             </p>
           </header>
 
           {/* ARTICLE BODY */}
-          <article className="space-y-10">
+          <article className="mt-10 space-y-0">
             {article.sections.map((section, i) => (
-              <section key={i} className="space-y-4">
+              <section
+                key={i}
+                className={i > 0 ? "mt-12 pt-10 border-t border-border/15" : "mt-0"}
+              >
                 {section.heading && (
-                  <h2 className="text-[1.2rem] font-serif font-semibold text-foreground leading-snug pt-2">
-                    {section.heading}
-                  </h2>
+                  <div className="flex items-start gap-4 mb-5">
+                    <span className="text-[10px] font-semibold text-primary/35 tabular-nums mt-[5px] shrink-0 tracking-widest select-none">
+                      {String(i + 1).padStart(2, "0")}
+                    </span>
+                    <h2 className="text-[1.2rem] font-serif font-semibold text-foreground leading-snug">
+                      {section.heading}
+                    </h2>
+                  </div>
                 )}
-                <div className="space-y-5">
+                <div className={`space-y-5 ${section.heading ? "pl-8" : ""}`}>
                   {section.paragraphs.map((para, j) => (
                     <p
                       key={j}
-                      className="text-[16px] text-foreground/78 leading-[1.8]"
+                      className={
+                        i === 0 && j === 0
+                          ? "text-[18px] text-foreground/85 leading-[1.85] font-[450]"
+                          : "text-[16px] text-foreground/72 leading-[1.85]"
+                      }
                     >
                       {para}
                     </p>
