@@ -18,7 +18,7 @@ export function SpotSection({ spotData, isFetchingSpot, spotError, locked, onGet
           <button
             onClick={onGetSpot}
             disabled={isFetchingSpot}
-            className="px-4 py-1.5 rounded text-sm font-medium bg-blue-600 hover:bg-blue-500 text-[#0F1C3F] disabled:opacity-60 transition-colors"
+            className="px-4 py-1.5 rounded text-sm font-medium bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-60 transition-colors"
           >
             {isFetchingSpot ? "Fetching…" : "Get Spot Price"}
           </button>
