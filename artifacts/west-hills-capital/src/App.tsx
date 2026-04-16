@@ -34,6 +34,7 @@ const Terms         = lazy(() => import("@/pages/Terms"));
 const Privacy       = lazy(() => import("@/pages/Privacy"));
 const Insights      = lazy(() => import("@/pages/Insights"));
 const InsightArticle = lazy(() => import("@/pages/InsightArticle"));
+const FAQ           = lazy(() => import("@/pages/FAQ"));
 const NotFound      = lazy(() => import("@/pages/not-found"));
 
 // ── Internal pages (lazy-loaded — never sent to public visitors) ──────────────
@@ -114,6 +115,7 @@ function Router() {
           <Route path="/privacy"         component={Privacy}        />
           <Route path="/insights"        component={Insights}       />
           <Route path="/insights/:slug"  component={InsightArticle} />
+          <Route path="/faq"             component={FAQ}            />
           <Route component={NotFound} />
         </Switch>
       </Suspense>

@@ -27,7 +27,7 @@ export function ExecutionSection({
   // ── Post-lock result card ─────────────────────────────────────────────────
   if (locked) {
     return (
-      <section className={`rounded-lg p-4 ${executionResult ? "bg-green-900/20 border border-green-800/40" : "bg-white border border-[#DDD5C4]"}`}>
+      <section id="deal-execution-result" className={`rounded-lg p-4 ${executionResult ? "bg-green-900/20 border border-green-800/40" : "bg-white border border-[#DDD5C4]"}`}>
         <div className="flex items-start gap-3">
           <div className={`text-xl mt-0.5 ${executionResult ? "text-green-400" : "text-[#C49A38]"}`}>✓</div>
           <div className="flex-1 min-w-0">

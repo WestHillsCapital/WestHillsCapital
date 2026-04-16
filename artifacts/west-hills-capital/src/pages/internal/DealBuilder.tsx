@@ -114,12 +114,12 @@ export default function DealBuilder() {
         </div>
       )}
 
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-[#0F1C3F]">Deal Builder</h1>
+      <div className="flex flex-wrap items-start gap-3 mb-6">
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-xl sm:text-2xl font-semibold text-[#0F1C3F]">Deal Builder</h1>
             {s.isLocked && (
-              <span className="text-xs px-2.5 py-1 rounded-full bg-green-900 text-green-300 font-medium">
+              <span className="text-xs px-2.5 py-1 rounded-full bg-green-900 text-green-300 font-medium whitespace-nowrap">
                 LOCKED — Deal #{s.savedDealId}
               </span>
             )}
@@ -130,18 +130,18 @@ export default function DealBuilder() {
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 shrink-0">
           <button
             onClick={() => navigate("/internal/leads")}
-            className="text-sm text-[#6B7A99] hover:text-[#0F1C3F] transition-colors px-3 py-1.5"
+            className="text-xs sm:text-sm text-[#6B7A99] hover:text-[#0F1C3F] transition-colors px-2 sm:px-3 py-1.5"
           >
             ← Leads
           </button>
           <button
             onClick={() => navigate("/internal/appointments")}
-            className="text-sm text-[#6B7A99] hover:text-[#0F1C3F] transition-colors px-3 py-1.5"
+            className="text-xs sm:text-sm text-[#6B7A99] hover:text-[#0F1C3F] transition-colors px-2 sm:px-3 py-1.5"
           >
-            Appointments
+            Appts
           </button>
         </div>
       </div>

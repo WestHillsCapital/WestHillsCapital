@@ -27,6 +27,7 @@ export function Navbar() {
     { label: "Live Pricing", href: "/pricing" },
     { label: "IRA Allocation", href: "/ira" },
     { label: "Insights", href: "/insights" },
+    { label: "FAQ", href: "/faq" },
     { label: "About", href: "/about" },
   ];
 

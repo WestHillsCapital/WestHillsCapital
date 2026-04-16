@@ -114,7 +114,15 @@ export function useDealExecution(
       s.setSavedDealId(dealId);
       s.setExecutionResult({ invoiceId, invoiceUrl, emailSentTo, warnings });
 
-      window.history.replaceState(null, "", window.location.pathname + `?dealId=${dealId}`);
+      try {
+        window.history.replaceState(null, "", window.location.pathname + `?dealId=${dealId}`);
+      } catch { /* ignore — some mobile browsers restrict this */ }
+
+      setTimeout(() => {
+        const el = document.getElementById("deal-execution-result");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+        else window.scrollTo({ top: 0, behavior: "smooth" });
+      }, 100);
     } catch (err) {
       stepTimers.forEach(clearTimeout);
       setSaveError(err instanceof Error ? err.message : "Failed to lock & execute deal.");

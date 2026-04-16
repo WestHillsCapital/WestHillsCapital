@@ -19,14 +19,14 @@ export function InternalLayout({ children }: InternalLayoutProps) {
     <div className="min-h-screen bg-white text-[#0F1C3F] flex flex-col">
       {/* Top nav bar */}
       <header className="bg-white" style={{ borderBottom: "1px solid #DDD5C4", boxShadow: "0 1px 3px 0 rgba(15,28,63,0.06)" }}>
-        <div className="max-w-screen-xl mx-auto px-4 h-14 flex items-center gap-6">
-          <Link href="/internal/leads" className="flex items-center gap-2.5 shrink-0">
+        <div className="max-w-screen-xl mx-auto px-3 sm:px-4 h-14 flex items-center gap-2 sm:gap-6">
+          <Link href="/internal/leads" className="flex items-center gap-2 shrink-0">
             <span className="font-serif text-base font-semibold tracking-widest text-[#C49A38] uppercase leading-none">WHC</span>
-            <span className="w-px h-4 bg-[#C49A38]/25" />
-            <span className="text-xs text-[#4A5B7A] font-medium tracking-wide uppercase">Internal</span>
+            <span className="w-px h-4 bg-[#C49A38]/25 hidden sm:block" />
+            <span className="text-xs text-[#4A5B7A] font-medium tracking-wide uppercase hidden sm:block">Internal</span>
           </Link>
 
-          <nav className="flex items-center gap-0.5">
+          <nav className="flex items-center gap-0.5 overflow-x-auto scrollbar-none">
             {navLinks.map(({ href, label }) => {
               const active = location.startsWith(href);
               return (
@@ -34,7 +34,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
                   key={href}
                   href={href}
                   className={[
-                    "px-3 py-1.5 rounded text-sm font-medium transition-colors",
+                    "px-2.5 sm:px-3 py-1.5 rounded text-xs sm:text-sm font-medium transition-colors whitespace-nowrap",
                     active
                       ? "bg-[#C49A38]/15 text-[#C49A38]"
                       : "text-[#4A5B7A] hover:text-[#0F1C3F] hover:bg-white",
@@ -46,10 +46,10 @@ export function InternalLayout({ children }: InternalLayoutProps) {
             })}
           </nav>
 
-          <div className="ml-auto flex items-center gap-4">
+          <div className="ml-auto flex items-center gap-2 sm:gap-4 shrink-0">
             <a
               href="/"
-              className="text-xs text-[#8A9BB8] hover:text-[#4A5B7A] transition-colors"
+              className="text-xs text-[#8A9BB8] hover:text-[#4A5B7A] transition-colors hidden sm:block"
             >
               ← Public site
             </a>
@@ -64,13 +64,10 @@ export function InternalLayout({ children }: InternalLayoutProps) {
                     referrerPolicy="no-referrer"
                   />
                 ) : (
-                  <div className="w-7 h-7 rounded-full bg-[#C49A38]/20 border border-[#C49A38]/30 flex items-center justify-center text-[#C49A38] text-xs font-semibold">
+                  <div className="w-7 h-7 rounded-full bg-[#C49A38]/20 border border-[#C49A38]/30 flex items-center justify-center text-[#C49A38] text-xs font-semibold shrink-0">
                     {user.name.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <span className="text-xs text-[#4A5B7A] hidden sm:block max-w-[140px] truncate">
-                  {user.name}
-                </span>
                 <button
                   onClick={signOut}
                   className="text-xs text-[#8A9BB8] hover:text-red-400 transition-colors px-2 py-1 rounded hover:bg-red-500/10"
