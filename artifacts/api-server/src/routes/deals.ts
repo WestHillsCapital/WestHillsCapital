@@ -262,20 +262,27 @@ router.post("/", async (req, res) => {
     try {
       const dgResult = await lockAndExecuteTrade(
         (products ?? []).map((p) => ({ productId: p.productId, qty: p.qty })),
-        {
-          firstName: firstName,
-          lastName:  lastName,
-          address1:  shipToLine1  ?? "",
-          // Include the FedEx facility name as address2 so DG knows the
-          // exact hold location even if the shipping label is compromised.
-          address2:  (shippingMethod === "fedex_hold" && fedexLocation)
-                       ? fedexLocation
-                       : undefined,
-          city:      shipToCity   ?? "",
-          state:     shipToState  ?? state ?? "",
-          zip:       shipToZip    ?? "",
-          phone:     phone        ?? "",
-        },
+        (() => {
+          const isFedexHold = shippingMethod === "fedex_hold" && !!fedexLocation;
+          // FedEx Hold label format (10-year proven format):
+          //   Name    → "FedEx Office Print & Ship Center FBO [ClientFirstName] [ClientLastName]"
+          //   Attn    → "[ClientFirstName] [ClientLastName]"
+          //   address1 → street address
+          //   address2 → same as Name (redundancy if label is compromised)
+          const facilityFbo = isFedexHold
+            ? `${fedexLocation} FBO ${firstName} ${lastName}`
+            : undefined;
+          return {
+            firstName: isFedexHold ? (facilityFbo ?? firstName) : firstName,
+            lastName:  isFedexHold ? `${firstName} ${lastName}` : lastName,
+            address1:  shipToLine1 ?? "",
+            address2:  isFedexHold ? facilityFbo : undefined,
+            city:      shipToCity  ?? "",
+            state:     shipToState ?? state ?? "",
+            zip:       shipToZip   ?? "",
+            phone:     phone       ?? "",
+          };
+        })(),
       );
       externalTradeId        = dgResult.externalTradeId;
       supplierConfirmationId = dgResult.supplierConfirmationId;
