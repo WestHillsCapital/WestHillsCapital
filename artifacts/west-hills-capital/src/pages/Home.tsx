@@ -1,7 +1,7 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, ShieldCheck, Scale, Banknote, History, CheckCircle2, Shield } from "lucide-react";
+import { ArrowRight, BookOpen, ShieldCheck, Scale, Banknote, History, CheckCircle2, Shield } from "lucide-react";
 import { useProductPrices } from "@/hooks/use-pricing";
 
 export default function Home() {
@@ -109,6 +109,17 @@ export default function Home() {
               ))}
             </div>
           )}
+
+          {/* WHY THESE PRODUCTS LINK */}
+          <div className="flex justify-center mb-6 -mt-2">
+            <Link href="/insights/why-we-recommend-only-three-products">
+              <span className="inline-flex items-center gap-1.5 text-sm text-foreground/50 hover:text-primary transition-colors cursor-pointer group">
+                <BookOpen className="w-3.5 h-3.5 shrink-0" />
+                Why these products?
+                <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+              </span>
+            </Link>
+          </div>
 
           {/* ONE PRIMARY + ONE SECONDARY CTA */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center pb-16">

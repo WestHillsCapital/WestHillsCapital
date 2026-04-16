@@ -299,9 +299,8 @@ export const INSIGHTS: InsightArticle[] = [
       },
     ],
     related: [
-      "what-spot-price-really-means",
+      "why-we-recommend-only-three-products",
       "bullion-vs-proof-coins",
-      "why-free-silver-is-never-free",
       "the-one-question-every-gold-buyer-should-ask",
     ],
   },
@@ -574,9 +573,9 @@ export const INSIGHTS: InsightArticle[] = [
       },
     ],
     related: [
+      "why-we-recommend-only-three-products",
       "why-people-overpay-for-gold-and-silver",
       "what-spot-price-really-means",
-      "how-to-choose-a-gold-dealer-without-getting-burned",
     ],
   },
 
@@ -1685,6 +1684,100 @@ export const INSIGHTS: InsightArticle[] = [
     ],
   },
   */
+  // ─── Why We Recommend Only Three Products ─────────────────────────────────────
+  {
+    slug: "why-we-recommend-only-three-products",
+    title: "Why We Recommend Only Three Products",
+    excerpt:
+      "Most dealers offer hundreds of options. We offer three. That's not a limitation — it's a discipline, and here's the thinking behind it.",
+    group: "making-smart-decisions",
+    metaDescription:
+      "West Hills Capital explains why we focus on only three precious metals products, and why that discipline leads to better outcomes for long-term buyers.",
+    sections: [
+      {
+        paragraphs: [
+          "Most precious metals dealers offer hundreds — sometimes thousands — of products.",
+          "We don't.",
+          "That's intentional.",
+          "We focus on three: the 1 oz Gold American Eagle, the 1 oz Gold American Buffalo, and the 1 oz Silver American Eagle.",
+          "This isn't a limitation. It's a discipline.",
+        ],
+      },
+      {
+        heading: "A Market Full of Options — Most Unnecessary",
+        paragraphs: [
+          "The precious metals market is filled with bars of varying sizes, foreign coins, limited mintage products, and collectibles carrying higher premiums.",
+          "More options don't create better outcomes. They create noise.",
+          "When the goal is to preserve purchasing power — not speculate — clarity matters more than variety.",
+        ],
+      },
+      {
+        heading: "Liquidity Comes First",
+        paragraphs: [
+          "In physical metals, what you own matters less than how easily it can be bought and sold.",
+          "The products we recommend are widely recognized, actively traded, consistently in demand, and easy to price and verify.",
+          "That matters both when you buy and when you sell.",
+          "A tight market with clear pricing reduces friction. That's where serious buyers want to be.",
+        ],
+      },
+      {
+        heading: "Avoiding Unnecessary Complexity",
+        paragraphs: [
+          "Different precious metals products can carry different spreads, liquidity profiles, resale conditions, and reporting thresholds.",
+          "Many products in the market introduce complications that are not immediately obvious at the time of purchase.",
+          "We avoid those by design.",
+          "We focus on products that are straightforward to understand, straightforward to price, and straightforward to exit.",
+        ],
+      },
+      {
+        heading: "U.S. Minted Coins and Market Recognition",
+        paragraphs: [
+          "The coins we recommend are produced by the United States Mint and are widely recognized in both domestic and international markets.",
+          "They are standardized, verifiable, familiar to dealers and institutions, and commonly used in both direct ownership and IRA structures.",
+          "Recognition matters. It reduces uncertainty across every step of the process.",
+        ],
+      },
+      {
+        heading: "Tax and Reporting Considerations",
+        paragraphs: [
+          "Tax treatment and reporting requirements vary based on the type of product, transaction size, and how metals are bought and sold.",
+          "Certain products — such as widely traded sovereign coins — are generally not subject to the same dealer reporting thresholds as some bars or foreign coins.",
+          "We prioritize products that avoid unnecessary complexity in this area.",
+          "That said, every situation is different, and clients should consult with a qualified tax professional regarding their specific circumstances.",
+        ],
+      },
+      {
+        heading: "IRA Compatibility",
+        paragraphs: [
+          "For clients using retirement accounts, these products are widely accepted when structured properly through an approved custodian and depository.",
+          "That consistency matters. It allows for a clean process from funding to delivery, without introducing product-related complications.",
+        ],
+      },
+      {
+        heading: "Real Assets. No Abstraction.",
+        paragraphs: [
+          "Gold and silver are not abstractions. They are not dependent on a counterparty. They are not based on projections.",
+          "These coins represent direct ownership of physical metal — recognized, tradable, and historically enduring.",
+          "It is always your money. Now it is your real money.",
+        ],
+      },
+      {
+        heading: "Simplicity Is the Strategy",
+        paragraphs: [
+          "We don't try to offer everything. We focus on what we believe works.",
+          "Highly liquid. Widely recognized. Straightforward to price. Straightforward to sell.",
+          "Three products.",
+          "That's not a limitation. That's the point.",
+        ],
+      },
+    ],
+    related: [
+      "bullion-vs-proof-coins",
+      "why-people-overpay-for-gold-and-silver",
+      "the-one-question-every-gold-buyer-should-ask",
+    ],
+  },
+
   // ─────────────────────────────────────────────────────────────────────────────
 ];
 
