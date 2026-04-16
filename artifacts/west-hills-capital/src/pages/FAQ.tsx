@@ -12,22 +12,22 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
     items: [
       {
         q: "What does West Hills Capital actually do?",
-        a: "We help clients allocate a portion of their savings into physical gold and silver — coins and bars they own outright and can take delivery of or hold in an IRA. We don't sell financial products, manage portfolios, or give investment advice. Our focus is disciplined, transparent execution of physical metal purchases.",
+        a: "We help clients allocate a portion of their savings into physical gold and silver — coins they own outright and can take delivery of or hold in an IRA. We don't sell financial products, manage portfolios, or give investment advice. Our focus is disciplined, transparent execution of physical metal purchases.",
       },
       {
         q: "What happens on the allocation call?",
-        a: "We'll review what you're trying to accomplish, walk through current pricing, and answer any questions. We block 45 minutes for every call, though some are shorter and some run longer depending on what you need. There's no pressure and no pitch — if the timing isn't right, we'll tell you.",
+        a: "We'll discuss your situation, walk through current pricing, and answer any questions. If it makes sense to move forward, the commitment happens on the call itself — that's why a phone call is necessary rather than an online order. We block 45 minutes, though calls can be more concise or run longer depending on what you need. We never rush anyone.",
       },
       {
-        q: "Do I have to commit to anything before the call?",
-        a: "No. The call is a conversation. You're under no obligation to purchase. Trades are only executed after you give verbal confirmation on a recorded line and funds have cleared.",
+        q: "How does the commitment work?",
+        a: "We don't assume anything. We'll ask directly, get an explicit yes, and confirm the trade verbally on a recorded line. Payment is expected the following business day. Nothing moves forward until you say so — and if you're not ready, we'll tell you to take your time.",
       },
       {
         q: "Is there a minimum order?",
         a: (
           <>
             There's no formal minimum, but shipping and insurance is a flat{" "}
-            <strong>$25</strong> on orders below 300 American Silver Eagles or 15 American Gold Eagles/Gold Bars. On very small orders that $25 can represent a meaningful percentage of the total cost — we'll always point that out so you can decide what makes sense.
+            <strong>$25</strong> on orders below 300 American Silver Eagles or 15 American Gold Eagles or Gold Buffalos. On very small orders that $25 can represent a meaningful percentage of the total cost — we'll always point that out so you can decide what makes sense.
           </>
         ),
       },
@@ -38,7 +38,7 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
     items: [
       {
         q: "How is pricing determined?",
-        a: "All pricing is based on the live spot price of gold or silver at the time of your trade. We source metal through Dillon Gage, one of the largest wholesale precious metals dealers in the country, and add a flat commission on top of our cost.",
+        a: "All pricing is based on the live spot price of gold or silver at the time of your trade. We source metal through our wholesale supplier and add a flat commission on top of our cost. You'll always see the per-unit breakdown before you commit.",
       },
       {
         q: "What commission do you charge?",
@@ -50,7 +50,7 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
               <li><strong>Silver: 5%</strong></li>
             </ul>
             <p className="mt-2">
-              That's it. No hidden fees, no "handling" add-ons. The commission is built into the per-unit price we quote you — you'll see the exact per-ounce breakdown before you confirm.
+              No hidden fees, no "handling" add-ons. The commission is built into the per-unit price we quote you on the call.
             </p>
           </>
         ),
@@ -60,8 +60,8 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
         a: "Silver is priced lower per ounce but is physically heavier and bulkier, so shipping, insurance, and handling costs are proportionally higher relative to the metal's value. The 5% rate on silver reflects those real costs.",
       },
       {
-        q: "Does the price change between the call and execution?",
-        a: "We lock in pricing at the moment you give verbal confirmation on the call. Between then and when funds clear, spot prices can move — we'll always be transparent about this. We do not trade on your behalf until cleared funds are received.",
+        q: "When is pricing locked in?",
+        a: "Pricing is locked at the moment of your verbal commitment on the call. Spot prices move continuously, so locking in requires a live conversation — it's one of the reasons we don't take orders online.",
       },
     ],
   },
@@ -72,12 +72,12 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
         q: "What payment methods do you accept?",
         a: (
           <>
-            <ul className="list-disc pl-5 space-y-1">
-              <li><strong>Wire transfer</strong> — fastest; allows us to lock in pricing and ship the same day funds arrive in most cases</li>
-              <li><strong>Personal check</strong> — accepted, but must fully clear before we execute the trade. This typically adds 5–7 business days.</li>
-              <li><strong>Cashier's check</strong> — treated as cash; same-day processing</li>
+            <ul className="list-disc pl-5 space-y-2">
+              <li><strong>Wire transfer</strong> — fastest method; expected the business day following your commitment on the call</li>
+              <li><strong>Cashier's check</strong> — treated the same as cash; same-day processing when received</li>
+              <li><strong>Personal check</strong> — accepted, but must fully clear before your order ships. This typically adds several business days.</li>
             </ul>
-            <p className="mt-3 text-sm text-foreground/60">We do not accept credit cards or ACH transfers at this time.</p>
+            <p className="mt-3 text-sm text-foreground/60">We do not accept credit cards or ACH transfers.</p>
           </>
         ),
       },
@@ -94,8 +94,8 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
         ),
       },
       {
-        q: "When will my trade be executed?",
-        a: "We place the order with our wholesale dealer once funds are confirmed received. For wire transfers and cashier's checks, that's typically the same business day. Personal checks require full clearance first.",
+        q: "When does my order ship?",
+        a: "Your trade is committed on the call. Once payment is received and cleared, your order typically ships within 48 hours via FedEx 2-Day. High-volume periods can introduce delays on the supply side — we'll always let you know if that's the case.",
       },
     ],
   },
@@ -108,15 +108,15 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
       },
       {
         q: "How long does delivery take?",
-        a: "In most cases your package ships within 48 hours of payment clearing. FedEx 2-Day delivery is then generally accurate. During high-volume periods (market volatility, major news events) there can be delays on the supply side — we'll always communicate proactively if that happens.",
+        a: "In most cases your package ships within 48 hours of payment clearing. FedEx 2-Day delivery estimates are generally accurate. During high-volume periods there can be delays on the supply side — we'll communicate proactively if that happens.",
       },
       {
         q: "What does shipping cost?",
-        a: "Shipping and insurance is a flat $25 for orders under 300 American Silver Eagles or 15 American Gold Eagles/Gold Bars. For larger orders, shipping is included in the price.",
+        a: "Shipping and insurance is a flat $25 for orders under 300 American Silver Eagles or 15 American Gold Eagles or Gold Buffalos. For larger orders, shipping is included.",
       },
       {
         q: "Can I pick up in person?",
-        a: "We can arrange FedEx Hold for pickup at a FedEx location near you if you prefer not to receive at home. Let us know during the call and we'll set that up.",
+        a: "We can arrange FedEx Hold for pickup at a FedEx location near you if you'd prefer not to receive at home. Just mention it on the call and we'll set that up.",
       },
     ],
   },
@@ -129,11 +129,11 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
       },
       {
         q: "What's the process for an IRA rollover?",
-        a: "It starts with the same allocation call. From there we help you work through the IRA custodian and depository setup. Most clients who've done a rollover are surprised by how straightforward it is — it does take a few weeks, but there's no tax event if done correctly.",
+        a: "It starts with the same allocation call. From there we help you work through the custodian and depository setup. Most clients are surprised by how straightforward it is — it does take a few weeks, but there's no tax event if done correctly.",
       },
       {
-        q: "Are there IRA-eligible products?",
-        a: "Yes — IRS rules require gold to be .995 fine or better and silver to be .999 fine or better. American Gold Eagles are a notable exception (they're .9167 fine but Congress explicitly approved them). We only recommend IRA-eligible products for IRA purchases.",
+        q: "Are the products IRA-eligible?",
+        a: "Yes. IRS rules require gold to be .995 fine or better and silver .999 fine or better. American Gold Eagles are a notable exception — they're .9167 fine, but Congress explicitly approved them for IRA inclusion. All three products we carry are IRA-eligible.",
       },
     ],
   },
@@ -141,20 +141,21 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
     title: "Products",
     items: [
       {
-        q: "Why do you only recommend three products?",
+        q: "Why do you focus on only three products?",
         a: (
           <>
-            We focus on <strong>American Gold Eagles</strong>, <strong>American Gold Bars</strong>, and <strong>American Silver Eagles</strong> because they're the most liquid, most recognized, and easiest to resell. Other products — especially proof coins and exotic collectibles — carry large premiums that may never be recovered when you go to sell. We explain this in detail in our Insights section.
+            We carry the <strong>1 oz American Gold Eagle</strong>, the <strong>1 oz American Gold Buffalo</strong>, and the <strong>1 oz American Silver Eagle</strong>. These are the most liquid, most widely recognized bullion coins in the world — and the easiest to resell when the time comes. Other products, especially proof coins and collectibles, carry premiums that often can't be recovered on the back end. We explain the reasoning in detail in our{" "}
+            <a href="/insights" className="text-primary hover:underline">Insights section</a>.
           </>
         ),
       },
       {
-        q: "What's the difference between a coin and a bar?",
-        a: "Gold Eagles are government-minted coins — they carry legal tender status and are universally recognized. Gold bars are refined bullion — they trade closer to spot and are often the better choice for larger allocations where you want maximum metal per dollar.",
+        q: "What's the difference between a Gold Eagle and a Gold Buffalo?",
+        a: "Both are 1 oz, government-minted U.S. coins. The Gold Eagle (.9167 fine, alloyed with silver and copper for durability) has been in continuous production since 1986 and is the most recognized gold coin in the world. The Gold Buffalo (.9999 fine) is pure 24-karat gold, minted since 2006. Both are IRA-eligible and highly liquid. The choice often comes down to buyer preference — we'll walk through the trade-offs on the call.",
       },
       {
         q: "Do you sell numismatic or proof coins?",
-        a: "No. We don't recommend or sell proof coins or numismatic collectibles for allocation purposes. The premiums on those products often exceed 100% over spot, and the exit market is much thinner. If you've been pitched those products by another dealer, we're happy to give you an honest comparison.",
+        a: "No. We don't recommend or sell proof coins or numismatic collectibles for allocation purposes. The premiums on those products often exceed 100% over spot, and the resale market is much thinner. If you've been pitched those products by another dealer, we're happy to give you an honest side-by-side comparison.",
       },
     ],
   },
@@ -221,7 +222,7 @@ export default function FAQ() {
         <div className="mt-16 text-center bg-white rounded-2xl border border-border/40 p-8">
           <p className="font-serif text-xl text-foreground mb-2">Ready to talk numbers?</p>
           <p className="text-foreground/60 text-sm mb-6">
-            Schedule a no-pressure call and we'll walk through current pricing together.
+            Schedule a call and we'll walk through current pricing together.
           </p>
           <a
             href="/schedule"
