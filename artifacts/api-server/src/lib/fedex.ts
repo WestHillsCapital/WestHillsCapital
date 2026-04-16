@@ -9,10 +9,16 @@ import { logger } from "./logger";
 
 // Default to production; override with FEDEX_BASE_URL=https://apis-sandbox.fedex.com
 // in dev/staging environments that use sandbox credentials.
-const FEDEX_BASE = process.env.FEDEX_BASE_URL ?? "https://apis.fedex.com";
+// .trim() guards against copy-paste artifacts (leading/trailing whitespace or '=').
+const FEDEX_BASE_RAW = (process.env.FEDEX_BASE_URL ?? "https://apis.fedex.com").trim();
+// Ensure the value is a valid absolute URL — fail loudly at startup rather than
+// producing a cryptic "Invalid URL" error on the first request.
+const FEDEX_BASE = FEDEX_BASE_RAW.startsWith("http")
+  ? FEDEX_BASE_RAW
+  : `https://${FEDEX_BASE_RAW.replace(/^[^a-zA-Z]+/, "")}`;
 const isSandbox  = FEDEX_BASE.includes("sandbox");
 
-logger.info({ fedexBase: FEDEX_BASE, isSandbox }, "[FedEx] Configured endpoint");
+logger.info({ fedexBase: FEDEX_BASE, isSandbox, rawEnv: FEDEX_BASE_RAW }, "[FedEx] Configured endpoint");
 
 // ── Token ─────────────────────────────────────────────────────────────────────
 
