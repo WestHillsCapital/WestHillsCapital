@@ -12,7 +12,7 @@
  * Uses the same service-account credentials as google-sheets.ts.
  */
 import { google } from "googleapis";
-import { PassThrough } from "stream";
+import { Readable } from "stream";
 import { logger } from "./logger";
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -50,6 +50,8 @@ async function getOrCreateFolder(
     q,
     fields: "files(id)",
     spaces: "drive",
+    supportsAllDrives: true,
+    includeItemsFromAllDrives: true,
   });
 
   if (list.data.files && list.data.files.length > 0) {
@@ -63,6 +65,7 @@ async function getOrCreateFolder(
       parents:  [parentId],
     },
     fields: "id",
+    supportsAllDrives: true,
   });
 
   return created.data.id as string;
@@ -112,9 +115,8 @@ export async function saveDealPdfToDrive(
   const monthFolderId  = await getOrCreateFolder(drive, monthName,   yearFolderId);
   const clientFolderId = await getOrCreateFolder(drive, clientFolder, monthFolderId);
 
-  // Convert Buffer → PassThrough stream (more reliable than Readable.from for Drive API)
-  const stream = new PassThrough();
-  stream.end(pdfBuffer);
+  // Wrap the Buffer in a Readable stream for the Drive multipart upload
+  const stream = Readable.from(pdfBuffer);
 
   const uploaded = await drive.files.create({
     requestBody: {

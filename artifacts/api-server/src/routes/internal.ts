@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { google } from "googleapis";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 
@@ -46,6 +47,94 @@ router.get("/appointments", async (_req, res) => {
     logger.error({ err }, "[Internal] Failed to fetch appointments");
     res.status(500).json({ error: "Failed to fetch appointments" });
   }
+});
+
+// GET /api/internal/health/google
+// Non-destructive diagnostic: tests Deals tab read + Drive folder list.
+// Useful for diagnosing Sheets/Drive issues without needing Railway log access.
+router.get("/health/google", async (_req, res) => {
+  const results: Record<string, unknown> = {};
+
+  // ── Env var presence ──────────────────────────────────────────────────────
+  results.env = {
+    GOOGLE_SERVICE_ACCOUNT_KEY: !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
+    GOOGLE_SHEETS_SPREADSHEET_ID: process.env.GOOGLE_SHEETS_SPREADSHEET_ID ? "set" : "MISSING",
+    GOOGLE_BOOKING_CALENDAR_ID: process.env.GOOGLE_BOOKING_CALENDAR_ID ? "set" : "MISSING",
+    GOOGLE_DRIVE_DEALS_FOLDER_ID: process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID ? "set" : "MISSING",
+    GOOGLE_DEALS_OPS_SHEET_ID: process.env.GOOGLE_DEALS_OPS_SHEET_ID ? process.env.GOOGLE_DEALS_OPS_SHEET_ID : "(not set — using master sheet)",
+  };
+
+  // ── Build auth ────────────────────────────────────────────────────────────
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let auth: any = null;
+  try {
+    const raw = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+    if (!raw) throw new Error("GOOGLE_SERVICE_ACCOUNT_KEY not set");
+    const credentials = JSON.parse(raw);
+    auth = new google.auth.GoogleAuth({
+      credentials,
+      scopes: [
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive",
+      ],
+    });
+    results.auth = "ok";
+  } catch (err) {
+    results.auth = `FAILED: ${err instanceof Error ? err.message : String(err)}`;
+  }
+
+  // ── Sheets: read Deals tab header row ────────────────────────────────────
+  if (auth && process.env.GOOGLE_SHEETS_SPREADSHEET_ID) {
+    try {
+      const sheets = google.sheets({ version: "v4", auth });
+      const resp = await sheets.spreadsheets.values.get({
+        spreadsheetId: process.env.GOOGLE_SHEETS_SPREADSHEET_ID,
+        range: "Deals!1:1",
+      });
+      const headers = (resp.data.values?.[0] ?? []) as string[];
+      results.sheets_deals_tab = {
+        status: "ok",
+        header_count: headers.length,
+        first_5_headers: headers.slice(0, 5),
+      };
+    } catch (err) {
+      results.sheets_deals_tab = {
+        status: "FAILED",
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  } else {
+    results.sheets_deals_tab = "skipped (auth or spreadsheet ID missing)";
+  }
+
+  // ── Drive: list files in root deals folder ────────────────────────────────
+  if (auth && process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID) {
+    try {
+      const drive = google.drive({ version: "v3", auth });
+      const resp = await drive.files.list({
+        q: `'${process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID}' in parents and trashed=false`,
+        fields: "files(id, name, mimeType)",
+        pageSize: 5,
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+      });
+      results.drive_root_folder = {
+        status: "ok",
+        files_found: resp.data.files?.length ?? 0,
+        sample: resp.data.files?.slice(0, 3).map((f) => f.name),
+      };
+    } catch (err) {
+      results.drive_root_folder = {
+        status: "FAILED",
+        error: err instanceof Error ? err.message : String(err),
+      };
+    }
+  } else {
+    results.drive_root_folder = "skipped (auth or folder ID missing)";
+  }
+
+  logger.info(results, "[Internal] Google health check");
+  return res.json(results);
 });
 
 export default router;
