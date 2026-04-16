@@ -12,7 +12,7 @@
  * Uses the same service-account credentials as google-sheets.ts.
  */
 import { google } from "googleapis";
-import { Readable } from "stream";
+import { PassThrough } from "stream";
 import { logger } from "./logger";
 
 // ── Auth ──────────────────────────────────────────────────────────────────────
@@ -112,8 +112,9 @@ export async function saveDealPdfToDrive(
   const monthFolderId  = await getOrCreateFolder(drive, monthName,   yearFolderId);
   const clientFolderId = await getOrCreateFolder(drive, clientFolder, monthFolderId);
 
-  // Convert Buffer → Readable stream (required by Drive API)
-  const stream = Readable.from(pdfBuffer);
+  // Convert Buffer → PassThrough stream (more reliable than Readable.from for Drive API)
+  const stream = new PassThrough();
+  stream.end(pdfBuffer);
 
   const uploaded = await drive.files.create({
     requestBody: {
@@ -125,10 +126,11 @@ export async function saveDealPdfToDrive(
       body:     stream,
     },
     fields: "id, webViewLink",
+    supportsAllDrives: true,
   });
 
   const fileId      = uploaded.data.id      as string;
-  const webViewLink = uploaded.data.webViewLink as string;
+  const webViewLink = (uploaded.data.webViewLink ?? `https://drive.google.com/file/d/${fileId}/view`) as string;
 
   logger.info({ dealId: deal.id, fileId, clientFolder, fileName }, "[Drive] PDF uploaded");
   return { fileId, webViewLink };

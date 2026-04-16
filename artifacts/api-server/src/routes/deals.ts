@@ -374,7 +374,7 @@ router.post("/", async (req, res) => {
 
     } catch (pdfErr) {
       logger.error({ dealId, err: pdfErr }, "[Deals] PDF generation failed (non-fatal)");
-      warnings.push("Invoice PDF generation failed");
+      warnings.push(`Invoice PDF generation failed: ${pdfErr instanceof Error ? pdfErr.message : String(pdfErr)}`);
     }
 
     // ── 4. Google Drive upload ───────────────────────────────────────────────
@@ -393,55 +393,67 @@ router.post("/", async (req, res) => {
 
       } catch (driveErr) {
         logger.error({ dealId, err: driveErr }, "[Deals] Drive upload failed (non-fatal)");
-        warnings.push("Google Drive upload failed");
+        warnings.push(`Google Drive upload failed: ${driveErr instanceof Error ? driveErr.message : String(driveErr)}`);
       }
     }
 
     // ── 5. Client recap email with PDF attachment ────────────────────────────
     let emailSentTo: string | null = null;
     if (pdfBuffer) {
-      try {
-        await sendDealRecapEmail({ ...deal, invoiceId: finalInvoiceId }, pdfBuffer);
-        emailSentTo = email;
-        await db.query(
-          `UPDATE deals SET recap_email_sent_at = NOW(), updated_at = NOW() WHERE id = $1`,
-          [dealId],
-        );
-        deal.recapEmailSentAt = new Date().toISOString();
-        logger.info({ dealId, email }, "[Deals] Recap email sent");
+      if (!process.env.RESEND_API_KEY) {
+        logger.warn({ dealId }, "[Deals] RESEND_API_KEY not set — recap email skipped");
+        warnings.push("Recap email not sent — RESEND_API_KEY not configured in Railway");
+      } else {
+        try {
+          await sendDealRecapEmail({ ...deal, invoiceId: finalInvoiceId }, pdfBuffer);
+          emailSentTo = email;
+          await db.query(
+            `UPDATE deals SET recap_email_sent_at = NOW(), updated_at = NOW() WHERE id = $1`,
+            [dealId],
+          );
+          deal.recapEmailSentAt = new Date().toISOString();
+          logger.info({ dealId, email }, "[Deals] Recap email sent");
 
-      } catch (emailErr) {
-        logger.error({ dealId, err: emailErr }, "[Deals] Recap email failed (non-fatal)");
-        warnings.push("Recap email failed");
+        } catch (emailErr) {
+          logger.error({ dealId, err: emailErr }, "[Deals] Recap email failed (non-fatal)");
+          warnings.push(`Recap email failed: ${emailErr instanceof Error ? emailErr.message : "Unknown error"}`);
+        }
       }
     }
 
-    // ── 6. Fire-and-forget: Sheets sync + admin notification ─────────────────
-    Promise.allSettled([
-      appendDealToOpsSheet(deal).catch((err) =>
-        logger.error({ err }, "[Deals] appendDealToOpsSheet failed"),
-      ),
-      writeDealLinkToMasterSheet(deal).catch((err) =>
-        logger.error({ err }, "[Deals] writeDealLinkToMasterSheet failed"),
-      ),
-      sendDealLockNotification({
-        dealId,
-        dealType,
-        firstName,
-        lastName,
-        email,
-        phone:          phone ?? null,
-        state:          state ?? null,
-        total:          total ?? 0,
-        products:       products ?? [],
-        goldSpotAsk:    goldSpotAsk    ?? null,
-        silverSpotAsk:  silverSpotAsk  ?? null,
-        lockedAt:       lockedAt.toISOString(),
-        confirmationId: confirmationId ?? null,
-      }).catch((err) =>
-        logger.error({ err }, "[Deals] admin notification failed"),
-      ),
-    ]).catch(() => {});
+    // ── 6. Sheets sync + admin notification ──────────────────────────────────
+    // Sheets sync is awaited so failures surface as warnings in the response.
+    // Admin notification is fire-and-forget (non-critical, never blocks response).
+    const [sheetsResult, linkResult] = await Promise.allSettled([
+      appendDealToOpsSheet(deal),
+      writeDealLinkToMasterSheet(deal),
+    ]);
+    if (sheetsResult.status === "rejected") {
+      logger.error({ err: sheetsResult.reason }, "[Deals] appendDealToOpsSheet failed");
+      warnings.push(`Deals tab sync failed: ${sheetsResult.reason instanceof Error ? sheetsResult.reason.message : "Unknown error"}`);
+    }
+    if (linkResult.status === "rejected") {
+      logger.error({ err: linkResult.reason }, "[Deals] writeDealLinkToMasterSheet failed");
+    }
+
+    // Admin notification — fire-and-forget
+    sendDealLockNotification({
+      dealId,
+      dealType,
+      firstName,
+      lastName,
+      email,
+      phone:          phone ?? null,
+      state:          state ?? null,
+      total:          total ?? 0,
+      products:       products ?? [],
+      goldSpotAsk:    goldSpotAsk    ?? null,
+      silverSpotAsk:  silverSpotAsk  ?? null,
+      lockedAt:       lockedAt.toISOString(),
+      confirmationId: confirmationId ?? null,
+    }).catch((err) =>
+      logger.error({ err }, "[Deals] admin notification failed"),
+    );
 
     // ── 7. Respond ───────────────────────────────────────────────────────────
     return res.status(201).json({

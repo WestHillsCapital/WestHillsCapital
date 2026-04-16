@@ -199,6 +199,7 @@ export async function createBookingEvent(params: {
     const calendar = google.calendar({ version: "v3", auth });
     const event = await calendar.events.insert({
       calendarId: BOOKING_CALENDAR_ID,
+      sendUpdates: "all",
       requestBody: {
         summary: `WHC Allocation Call — ${params.firstName} ${params.lastName}`,
         description,
@@ -210,6 +211,9 @@ export async function createBookingEvent(params: {
           dateTime: slotEnd.toISOString(),
           timeZone: "America/Chicago",
         },
+        attendees: [
+          { email: params.email, displayName: `${params.firstName} ${params.lastName}` },
+        ],
         reminders: {
           useDefault: false,
           overrides: [

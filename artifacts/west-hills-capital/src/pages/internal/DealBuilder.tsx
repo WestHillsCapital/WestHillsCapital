@@ -126,7 +126,9 @@ export default function DealBuilder() {
           </div>
           {s.isLocked && s.lockedAt && (
             <p className="text-sm text-[#8A9BB8] mt-1">
-              {s.executionResult ? "Executed" : "Locked"} {new Date(s.lockedAt).toLocaleString()} · Deals ledger updated
+              {s.executionResult ? "Executed" : "Locked"} {new Date(s.lockedAt).toLocaleString()}
+              {s.executionResult && !s.executionResult.warnings?.length && " · Deals ledger updated"}
+              {s.executionResult?.warnings?.length ? ` · ${s.executionResult.warnings.length} warning${s.executionResult.warnings.length > 1 ? "s" : ""} — see below` : ""}
             </p>
           )}
         </div>
