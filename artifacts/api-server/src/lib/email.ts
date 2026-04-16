@@ -398,7 +398,7 @@ export async function sendBookingConfirmation(params: {
       <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
         <h2 style="margin-top:0;color:#1a1a1a;">Your Allocation Discussion is Confirmed</h2>
         <p style="color:#374151;">Dear ${params.firstName},</p>
-        <p style="color:#374151;">Your allocation discussion with West Hills Capital has been scheduled. A calendar invitation has been sent to your email address.</p>
+        <p style="color:#374151;">Your allocation discussion with West Hills Capital has been scheduled. A member of our team will call you at your scheduled time.</p>
 
         <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:16px;margin:20px 0;">
           <p style="margin:0 0 6px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Appointment</p>
