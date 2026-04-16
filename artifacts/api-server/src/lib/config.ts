@@ -29,6 +29,7 @@ const OPTIONAL_VARS: Record<string, string> = {
   ADMIN_EMAIL:                  "Admin notification emails disabled",
   CORS_ALLOWED_ORIGINS:         "CORS open to all origins (set to restrict to production domain)",
   GOOGLE_DRIVE_DEALS_FOLDER_ID: "Deal invoice PDF Drive upload disabled",
+  FIZTRADE_DRY_RUN:             "Set to 'true' to simulate DG trade execution without placing real orders",
 };
 
 export function validateConfig(): void {

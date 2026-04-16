@@ -1,5 +1,6 @@
 import express, { type Express } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import pinoHttp from "pino-http";
 import router from "./routes";
 import { logger } from "./lib/logger";
@@ -37,6 +38,16 @@ app.use(
 // Without this setting, req.ip always resolves to the proxy's IP address, which
 // breaks IP-based rate limiting (all clients share one bucket).
 app.set("trust proxy", 1);
+
+// ── Security headers (Helmet) ──────────────────────────────────────────────────
+// Sets X-Frame-Options, X-Content-Type-Options, Referrer-Policy, HSTS, etc.
+// Content-Security-Policy is left to the frontend (Vite handles it).
+app.use(
+  helmet({
+    contentSecurityPolicy: false, // managed by the Vite/CDN layer
+    crossOriginEmbedderPolicy: false, // needed for Google OAuth iframe
+  }),
+);
 
 // ── CORS ───────────────────────────────────────────────────────────────────────
 // In production, restrict to the actual Vercel frontend domain.
@@ -86,12 +97,14 @@ app.use((_req, res, next) => {
 // ── Health check ───────────────────────────────────────────────────────────────
 // Always returns HTTP 200 so Railway's network probe succeeds immediately.
 // The `db` field exposes readiness state for monitoring without blocking.
+// `dryRun` is exposed so the frontend Deal Builder can display a warning banner.
 app.get("/healthz", (_req, res) => {
   const db = dbReady ? "ready" : dbError ? "error" : "initializing";
   res.json({
     ok:     true,
     db,
     uptime: Math.floor(process.uptime()),
+    dryRun: process.env.FIZTRADE_DRY_RUN === "true",
   });
 });
 

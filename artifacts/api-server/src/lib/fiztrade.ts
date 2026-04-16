@@ -18,7 +18,10 @@ const DG_BASE = DG_BASE_RAW.startsWith("http")
   : `https://${DG_BASE_RAW.replace(/^[^a-zA-Z]+/, "")}`;
 const DG_TOKEN = (process.env.DILLON_GAGE_API_KEY ?? "").trim();
 
-logger.info({ dgBase: DG_BASE, rawEnv: DG_BASE_RAW }, "[Fiztrade] Active API base URL");
+/** When true, LockPrices/ExecuteTrade are simulated — no real DG order is placed. */
+export const DRY_RUN = process.env.FIZTRADE_DRY_RUN === "true";
+
+logger.info({ dgBase: DG_BASE, rawEnv: DG_BASE_RAW, dryRun: DRY_RUN }, "[Fiztrade] Active API base URL");
 
 // ── WHC product ID → Fiztrade product code ────────────────────────────────────
 const DG_CODE: Record<string, string> = {
@@ -98,6 +101,25 @@ export async function lockAndExecuteTrade(
   products: DGProduct[],
   shipTo:   DGShipTo,
 ): Promise<DGTradeResult> {
+  // ── Dry-run short-circuit ────────────────────────────────────────────────────
+  // When FIZTRADE_DRY_RUN=true: return a realistic simulated result without
+  // calling Dillon Gage. Everything downstream (DB save, PDF, Sheets, email)
+  // runs normally so the full production flow is exercised.
+  if (DRY_RUN) {
+    const fakeTransId  = `DRY-LOCK-${Date.now()}`;
+    const fakeConfirmId = `DRY-CONF-${Date.now()}`;
+    logger.warn(
+      { fakeTransId, fakeConfirmId, products, shipTo: { city: shipTo.city, state: shipTo.state } },
+      "[DG DRY RUN] Skipping LockPrices + ExecuteTrade — simulated response returned",
+    );
+    return {
+      externalTradeId:        fakeTransId,
+      supplierConfirmationId: fakeConfirmId,
+      rawLockResponse:        { dryRun: true, transId: fakeTransId, message: "Simulated LockPrices response" },
+      rawTradeResponse:       { dryRun: true, confirmationId: fakeConfirmId, message: "Simulated ExecuteTrade response" },
+    };
+  }
+
   // Map WHC product IDs to DG product codes; skip unknown products
   const dgProducts = products
     .filter((p) => DG_CODE[p.productId])

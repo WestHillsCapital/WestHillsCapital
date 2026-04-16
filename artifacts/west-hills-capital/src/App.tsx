@@ -2,7 +2,7 @@ import { Switch, Route, Router as WouterRouter, useLocation, Redirect } from "wo
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useEffect } from "react";
+import { useEffect, lazy, Suspense } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 
 // Public layout
@@ -23,23 +23,32 @@ function ScrollToTop() {
   return null;
 }
 
-// Public pages
-import Home from "@/pages/Home";
-import LivePricing from "@/pages/LivePricing";
-import Schedule from "@/pages/Schedule";
-import IRA from "@/pages/IRA";
-import About from "@/pages/About";
-import Disclosures from "@/pages/Disclosures";
-import Terms from "@/pages/Terms";
-import Privacy from "@/pages/Privacy";
-import Insights from "@/pages/Insights";
-import InsightArticle from "@/pages/InsightArticle";
-import NotFound from "@/pages/not-found";
+// ── Public pages (lazy-loaded — split into their own chunks) ──────────────────
+const Home          = lazy(() => import("@/pages/Home"));
+const LivePricing   = lazy(() => import("@/pages/LivePricing"));
+const Schedule      = lazy(() => import("@/pages/Schedule"));
+const IRA           = lazy(() => import("@/pages/IRA"));
+const About         = lazy(() => import("@/pages/About"));
+const Disclosures   = lazy(() => import("@/pages/Disclosures"));
+const Terms         = lazy(() => import("@/pages/Terms"));
+const Privacy       = lazy(() => import("@/pages/Privacy"));
+const Insights      = lazy(() => import("@/pages/Insights"));
+const InsightArticle = lazy(() => import("@/pages/InsightArticle"));
+const NotFound      = lazy(() => import("@/pages/not-found"));
 
-// Internal pages
-import InternalLeads from "@/pages/internal/Leads";
-import InternalAppointments from "@/pages/internal/Appointments";
-import DealBuilder from "@/pages/internal/DealBuilder";
+// ── Internal pages (lazy-loaded — never sent to public visitors) ──────────────
+const InternalLeads        = lazy(() => import("@/pages/internal/Leads"));
+const InternalAppointments = lazy(() => import("@/pages/internal/Appointments"));
+const DealBuilder          = lazy(() => import("@/pages/internal/DealBuilder"));
+
+// ── Shared fallback spinner ───────────────────────────────────────────────────
+function PageSpinner() {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-[#F5F0E8]">
+      <div className="w-7 h-7 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,13 +64,7 @@ const queryClient = new QueryClient({
 function InternalRouter() {
   const { user, isLoading } = useInternalAuth();
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-amber-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
+  if (isLoading) return <PageSpinner />;
 
   if (!user) {
     return <InternalLogin />;
@@ -89,7 +92,9 @@ function Router() {
     return (
       <>
         <ScrollToTop />
-        <InternalRouter />
+        <Suspense fallback={<PageSpinner />}>
+          <InternalRouter />
+        </Suspense>
       </>
     );
   }
@@ -97,19 +102,21 @@ function Router() {
   return (
     <Layout>
       <ScrollToTop />
-      <Switch>
-        <Route path="/"                component={Home}          />
-        <Route path="/pricing"         component={LivePricing}   />
-        <Route path="/schedule"        component={Schedule}       />
-        <Route path="/ira"             component={IRA}            />
-        <Route path="/about"           component={About}          />
-        <Route path="/disclosures"     component={Disclosures}    />
-        <Route path="/terms"           component={Terms}          />
-        <Route path="/privacy"         component={Privacy}        />
-        <Route path="/insights"        component={Insights}       />
-        <Route path="/insights/:slug"  component={InsightArticle} />
-        <Route component={NotFound} />
-      </Switch>
+      <Suspense fallback={<PageSpinner />}>
+        <Switch>
+          <Route path="/"                component={Home}          />
+          <Route path="/pricing"         component={LivePricing}   />
+          <Route path="/schedule"        component={Schedule}       />
+          <Route path="/ira"             component={IRA}            />
+          <Route path="/about"           component={About}          />
+          <Route path="/disclosures"     component={Disclosures}    />
+          <Route path="/terms"           component={Terms}          />
+          <Route path="/privacy"         component={Privacy}        />
+          <Route path="/insights"        component={Insights}       />
+          <Route path="/insights/:slug"  component={InsightArticle} />
+          <Route component={NotFound} />
+        </Switch>
+      </Suspense>
     </Layout>
   );
 }

@@ -20,6 +20,7 @@
     "express": "^5",
     "google-auth-library": "^10.6.2",
     "googleapis": "^171.4.0",
+    "helmet": "^8.1.0",
     "pdfkit": "^0.18.0",
     "pg": "^8.20.0",
     "pino": "^9",

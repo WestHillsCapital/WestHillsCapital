@@ -53,6 +53,34 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // Core React runtime — always loaded
+          if (id.includes("node_modules/react/") || id.includes("node_modules/react-dom/")) {
+            return "vendor-react";
+          }
+          // Routing
+          if (id.includes("node_modules/wouter")) return "vendor-router";
+          // Data fetching
+          if (id.includes("node_modules/@tanstack")) return "vendor-query";
+          // Animation — heavy, rarely needed on first paint
+          if (id.includes("node_modules/framer-motion")) return "vendor-motion";
+          // Charts — only used on LivePricing page
+          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-")) return "vendor-charts";
+          // Radix UI + form libs
+          if (id.includes("node_modules/@radix-ui") || id.includes("node_modules/react-hook-form") || id.includes("node_modules/zod")) {
+            return "vendor-ui";
+          }
+          // Icons
+          if (id.includes("node_modules/lucide-react") || id.includes("node_modules/react-icons")) {
+            return "vendor-icons";
+          }
+          // Google OAuth
+          if (id.includes("node_modules/@react-oauth")) return "vendor-auth";
+        },
+      },
+    },
   },
   server: {
     port,

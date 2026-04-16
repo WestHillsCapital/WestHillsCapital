@@ -1,4 +1,5 @@
 import { useSearch, useLocation } from "wouter";
+import { useState, useEffect } from "react";
 import { useInternalAuth } from "../../hooks/useInternalAuth";
 
 import { useDealState }      from "./deal-builder/hooks/useDealState";
@@ -29,6 +30,15 @@ export default function DealBuilder() {
   const urlLeadId         = params.get("leadId")         ?? "";
   const urlConfirmationId = params.get("confirmationId") ?? "";
   const urlDealId         = params.get("dealId")         ?? "";
+
+  // ── Dry-run detection ─────────────────────────────────────────────────────
+  const [isDryRun, setIsDryRun] = useState(false);
+  useEffect(() => {
+    fetch("/api/healthz")
+      .then((r) => r.json())
+      .then((d) => { if (d?.dryRun) setIsDryRun(true); })
+      .catch(() => {});
+  }, []);
 
   // ── All form state ────────────────────────────────────────────────────────
   const s = useDealState(urlDealId, urlLeadId, urlConfirmationId, getAuthHeaders);
@@ -97,6 +107,13 @@ export default function DealBuilder() {
     <div className="max-w-6xl mx-auto px-4 py-8">
 
       {/* Header */}
+      {isDryRun && (
+        <div className="mb-4 flex items-center gap-2.5 bg-amber-50 border border-amber-300 text-amber-800 rounded-lg px-4 py-2.5 text-sm font-medium">
+          <span className="text-base">⚠</span>
+          <span><strong>Dry Run Mode</strong> — trades will be simulated. No real Dillon Gage order will be placed. All other systems (database, PDF, Sheets, email) run normally.</span>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="flex items-center gap-3">

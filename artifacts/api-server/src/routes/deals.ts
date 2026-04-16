@@ -11,6 +11,7 @@ import { sendDealLockNotification, sendDealRecapEmail } from "../lib/email";
 import { lockAndExecuteTrade }   from "../lib/fiztrade";
 import { generateInvoicePdf }   from "../lib/invoice-pdf";
 import { saveDealPdfToDrive }   from "../lib/google-drive";
+import { isRateLimited }        from "../lib/ratelimit";
 
 const router: IRouter = Router();
 
@@ -39,7 +40,16 @@ function yyyymmdd(d: Date): string {
 
 // POST /api/deals
 // Full orchestration: save → DG trade → invoice PDF → Drive → recap email
+// Rate-limited: max 10 deal submissions per operator per 10 minutes.
+// This protects the Dillon Gage API from runaway requests while allowing
+// legitimate back-to-back deals during busy allocation calls.
 router.post("/", async (req, res) => {
+  const ip = String(req.ip ?? "unknown");
+  const operatorEmail = String((req as unknown as { internalEmail?: string }).internalEmail ?? ip);
+  if (isRateLimited(`deals:${operatorEmail}`, 10, 10 * 60 * 1000)) {
+    res.status(429).json({ error: "Too many deal submissions — please wait a few minutes." });
+    return;
+  }
   const {
     leadId,
     confirmationId,
