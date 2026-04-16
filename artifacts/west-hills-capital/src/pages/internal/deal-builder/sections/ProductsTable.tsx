@@ -15,7 +15,8 @@ export function ProductsTable({ rows, setRow, locked, goldOz, silverOz, shipping
     <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
       <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Products</h2>
 
-      <div className="space-y-1">
+      <div className="overflow-x-auto">
+      <div className="min-w-[440px] space-y-1">
         {/* Header row */}
         <div className="grid grid-cols-[1fr_52px_88px_100px_100px] gap-2 pb-2 border-b border-gray-800">
           <span className="text-xs font-medium text-gray-500">Product</span>
@@ -81,6 +82,7 @@ export function ProductsTable({ rows, setRow, locked, goldOz, silverOz, shipping
             </div>
           );
         })}
+      </div>
       </div>
 
       {(goldOz > 0 || silverOz > 0) && (
