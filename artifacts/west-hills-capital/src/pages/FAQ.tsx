@@ -20,7 +20,11 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
       },
       {
         q: "How does the commitment work?",
-        a: "We don't assume anything. We'll ask directly, get an explicit yes, and confirm the trade verbally on a recorded line. Payment is expected the following business day. Nothing moves forward until you say so — and if you're not ready, we'll tell you to take your time.",
+        a: "When you say yes, we purchase the metal on your behalf — that's the service we provide. You then reimburse us via bank wire, typically the following business day. Because commodities move continuously and we're on the hook the moment we commit, the verbal agreement on a recorded line is taken seriously. We never pressure anyone into a yes, but once it's given, the trade is real.",
+      },
+      {
+        q: "What happens if I change my mind after committing?",
+        a: "Because we purchase the metal on your behalf at the moment of your commitment, we're exposed to market movement if you change course. Our Terms of Service cover this — clients who back out after committing may be subject to offset fees reflecting any loss between the price we paid and the price we can sell at. This is why we take the time to make sure you're genuinely ready before we execute.",
       },
       {
         q: "Is there a minimum order?",
@@ -73,7 +77,7 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
         a: (
           <>
             <ul className="list-disc pl-5 space-y-2">
-              <li><strong>Wire transfer</strong> — fastest method; expected the business day following your commitment on the call</li>
+              <li><strong>Wire transfer</strong> — preferred method; reimbursement is expected the business day following your commitment on the call</li>
               <li><strong>Cashier's check</strong> — treated the same as cash; same-day processing when received</li>
               <li><strong>Personal check</strong> — accepted, but must fully clear before your order ships. This typically adds several business days.</li>
             </ul>
