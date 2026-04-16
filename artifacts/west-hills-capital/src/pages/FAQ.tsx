@@ -104,7 +104,7 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
     items: [
       {
         q: "How is metal shipped?",
-        a: "All shipments go out via FedEx 2-Day, fully insured, signature required at delivery. We do not ship using standard postal services.",
+        a: "All shipments go out via FedEx 2-Day, fully insured, with adult signature required at delivery. We do not ship using standard postal services.",
       },
       {
         q: "How long does delivery take?",
@@ -115,8 +115,12 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
         a: "Shipping and insurance is a flat $25 for orders under 300 American Silver Eagles or 15 American Gold Eagles or Gold Buffalos. For larger orders, shipping is included.",
       },
       {
-        q: "Can I pick up in person?",
-        a: "We can arrange FedEx Hold for pickup at a FedEx location near you if you'd prefer not to receive at home. Just mention it on the call and we'll set that up.",
+        q: "Do you recommend shipping to my home or to a FedEx location?",
+        a: (
+          <>
+            We recommend directing your shipment to a <strong>FedEx Office or Ship Center</strong> rather than a residential address. Even with signature required, home deliveries can occasionally be left on a porch or at a neighbor's — that's not a risk worth taking with physical metals. Picking up directly at a FedEx location eliminates that entirely. Just let us know on the call and we'll route the shipment to the nearest FedEx Office or Ship Center to you.
+          </>
+        ),
       },
     ],
   },
