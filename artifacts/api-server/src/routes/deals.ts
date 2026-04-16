@@ -266,6 +266,11 @@ router.post("/", async (req, res) => {
           firstName: firstName,
           lastName:  lastName,
           address1:  shipToLine1  ?? "",
+          // Include the FedEx facility name as address2 so DG knows the
+          // exact hold location even if the shipping label is compromised.
+          address2:  (shippingMethod === "fedex_hold" && fedexLocation)
+                       ? fedexLocation
+                       : undefined,
           city:      shipToCity   ?? "",
           state:     shipToState  ?? state ?? "",
           zip:       shipToZip    ?? "",
