@@ -432,12 +432,12 @@ router.post("/", async (req, res) => {
     ]);
     if (sheetsResult.status === "rejected") {
       const errMsg = sheetsResult.reason instanceof Error ? sheetsResult.reason.message : String(sheetsResult.reason);
-      logger.error({ err: sheetsResult.reason, errMsg }, "[Deals] appendDealToOpsSheet failed");
+      logger.error({ err: sheetsResult.reason, errMsg, dealId }, "[Deals] appendDealToOpsSheet failed");
       warnings.push(`Deals tab sync failed: ${errMsg}`);
     }
     if (linkResult.status === "rejected") {
       const errMsg = linkResult.reason instanceof Error ? linkResult.reason.message : String(linkResult.reason);
-      logger.error({ err: linkResult.reason, errMsg }, "[Deals] writeDealLinkToMasterSheet failed");
+      logger.error({ err: linkResult.reason, errMsg, dealId }, "[Deals] writeDealLinkToMasterSheet failed");
     }
 
     // Admin notification — fire-and-forget
