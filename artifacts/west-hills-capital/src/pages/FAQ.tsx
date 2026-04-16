@@ -82,16 +82,8 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
         ),
       },
       {
-        q: "What are your wire transfer instructions?",
-        a: (
-          <div className="font-mono text-sm space-y-1">
-            <div><span className="text-foreground/50 w-32 inline-block">Bank</span>Commerce Bank</div>
-            <div><span className="text-foreground/50 w-32 inline-block">Routing</span>101000019</div>
-            <div><span className="text-foreground/50 w-32 inline-block">Account</span>690108249</div>
-            <div><span className="text-foreground/50 w-32 inline-block">Payable to</span>West Hills Capital</div>
-            <div><span className="text-foreground/50 w-32 inline-block">Address</span>1314 N. Oliver Ave. #8348, Wichita KS 67208</div>
-          </div>
-        ),
+        q: "How do I get wire transfer instructions?",
+        a: "Complete wire instructions are provided as part of every transaction — you'll receive them directly from us after your commitment is made on the call. We do not publish banking details publicly.",
       },
       {
         q: "When does my order ship?",
