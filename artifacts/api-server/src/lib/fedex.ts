@@ -151,19 +151,22 @@ function extractStoreAddress(detail: Record<string, unknown>): {
 export async function searchFedExLocations(postalCode: string): Promise<FedExLocation[]> {
   const token = await getFedExToken();
 
-  // Sandbox only has FEDEX_SELF_SERVICE_LOCATION (drop boxes) inventory —
-  // skip locationTypes filter so we get any results at all.
-  // Production narrows to staffed Hold-at-Location facilities only.
+  // Request HOLD_AT_LOCATION capable locations without a locationTypes filter —
+  // the production API returns 422 when locationTypes is combined with
+  // storeServiceTypes. We filter by type on our side after the response arrives.
   const requestBody = {
-    locationsSummaryRequestControlParameters: { maxOptions: 10 },
+    locationsSummaryRequestControlParameters: { maxOptions: 25 },
     locationSearchCriterion: "ADDRESS",
     location: {
       address: { postalCode, countryCode: "US" },
     },
     sortDetail: { criterion: "DISTANCE", order: "ASCENDING" },
     storeServiceTypes: ["HOLD_AT_LOCATION"],
-    ...(isSandbox ? {} : { locationTypes: ["FEDEX_OFFICE", "FEDEX_SHIP_CENTER"] }),
   };
+
+  // In production only show staffed FedEx facilities (Office + Ship Center).
+  // In sandbox these types are absent so we accept everything.
+  const STAFFED_TYPES = new Set(["FEDEX_OFFICE", "FEDEX_SHIP_CENTER"]);
 
   logger.info(
     { postalCode, fedexBase: FEDEX_BASE, isSandbox, body: requestBody },
@@ -218,7 +221,7 @@ export async function searchFedExLocations(postalCode: string): Promise<FedExLoc
   const results: FedExLocation[] = [];
 
   for (const loc of detailList) {
-    if (results.length >= 3) break;
+    if (results.length >= 10) break;
 
     // Distance
     const distObj  = pick<Record<string, unknown>>(loc, "distance") ?? {};
@@ -241,6 +244,9 @@ export async function searchFedExLocations(postalCode: string): Promise<FedExLoc
                     "FedEx Location";
     const locType = pickStr(detail, "locationType", "type") ||
                     pickStr(loc, "locationType", "type");
+
+    // In production, skip non-staffed location types (drop boxes, lockers, etc.)
+    if (!isSandbox && locType && !STAFFED_TYPES.has(locType)) continue;
 
     // Extract address — strict parser first
     const addr = extractStoreAddress(detail);
