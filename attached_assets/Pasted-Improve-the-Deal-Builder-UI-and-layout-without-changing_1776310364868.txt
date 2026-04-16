@@ -1,0 +1,313 @@
+Improve the Deal Builder UI and layout without changing the working business logic. The current functionality is working. This task is focused on UI clarity, layout cleanup, and conditional field visibility so the page supports fast, confident execution during a phone call.
+
+GOAL:
+Make the Deal Builder feel like a clean review-and-execute workflow instead of a cluttered form. Preserve all existing functionality, pricing logic, execution logic, and integrations.
+
+--------------------------------------------------
+1. OVERALL UX GOAL
+--------------------------------------------------
+
+The page should support this user flow:
+
+1. Identify the customer
+2. Confirm deal type and delivery / fulfillment method
+3. Review live spot and products
+4. Review summary
+5. Acknowledge terms
+6. Execute the trade
+
+Visually, the page should feel lighter, cleaner, and easier to scan. The user should immediately understand what matters most and what action happens next.
+
+Do not redesign the application into a new concept. Improve the current Deal Builder layout and presentation using the existing structure and functionality.
+
+--------------------------------------------------
+2. CUSTOMER + BILLING ADDRESS MUST BE COMBINED
+--------------------------------------------------
+
+The current layout separates customer information at the top and billing address much farther down the page. That is poor UX and should be fixed.
+
+Required change:
+- Move Billing Address into the same top card/section as Customer
+- Customer and Billing Address should be the first thing addressed on the page
+- They should feel like one logical unit
+
+Recommended structure inside a single combined card:
+- Customer section
+  - First Name
+  - Last Name
+  - Email
+  - Phone
+  - State
+  - ZIP
+  - Lead ID
+  - Confirmation ID
+- Billing Address section
+  - Street Address
+  - Apt / Suite
+  - City
+  - State
+  - ZIP
+
+Rules:
+- Keep this as one combined top-left card or one clearly unified panel
+- Preserve existing field bindings and data handling
+- Do not break lead prefill behavior
+- Do not move Billing Address to the bottom again
+
+--------------------------------------------------
+3. DEAL TYPE / DELIVERY VISIBILITY RULES
+--------------------------------------------------
+
+The page must adapt based on the selected Deal Type.
+
+A. If Deal Type = CASH
+- Show the Delivery section
+- Delivery options should remain available:
+  - FedEx Hold
+  - Home Delivery
+
+B. If Deal Type = IRA
+- Hide the Delivery section entirely
+- Do not show FedEx Hold
+- Do not show Home Delivery
+- Do not show manual delivery address fields
+- Do not show FedEx location selection or hours
+
+Important:
+- Eventually IRA deals will use depository information instead of delivery
+- For now, when IRA is selected, simply hide the delivery UI cleanly
+- Do not show placeholder delivery controls for IRA
+- Do not remove the ability to add depository information later
+
+Implementation guidance:
+- Structure this so the Delivery section can later be replaced or extended with a Depository section for IRA deals
+- Do not hardwire the UI in a way that makes future IRA depository support difficult
+
+--------------------------------------------------
+4. DELIVERY SECTION CLEANUP FOR CASH DEALS
+--------------------------------------------------
+
+For CASH deals, improve the Delivery section so it is not redundant or confusing.
+
+A. FedEx Hold selected
+Show only:
+- selected FedEx location card
+- location hours
+- any fields actually required for execution
+
+Hide:
+- redundant manual delivery entry fields if they are not required for FedEx Hold
+- any duplicate location/address presentation that creates confusion
+
+B. Home Delivery selected
+Show only:
+- the delivery address fields needed for Home Delivery
+
+Hide:
+- FedEx Hold location card
+- FedEx Hold hours
+- irrelevant FedEx Hold address details
+
+Goal:
+The user should only see the inputs relevant to the currently selected delivery mode.
+
+--------------------------------------------------
+5. PAGE LAYOUT IMPROVEMENTS
+--------------------------------------------------
+
+Use a cleaner two-column layout that supports fast review.
+
+Recommended layout:
+
+LEFT COLUMN
+- Combined Customer + Billing Address card
+- Deal Type card
+- Delivery card (only when applicable)
+- Notes card
+
+RIGHT COLUMN
+- Live Spot card
+- Products card
+- Summary card
+- Terms + Execution card
+
+Rules:
+- Keep the execution-related content on the right side
+- Keep identity / setup / logistics on the left side
+- Reduce the feeling of many disconnected stacked cards
+- Improve spacing and visual hierarchy
+
+--------------------------------------------------
+6. LIVE SPOT CARD
+--------------------------------------------------
+
+Keep the Live Spot card near the top of the right column.
+
+Improve clarity:
+- Make Gold Spot and Silver Spot easy to scan
+- Keep Spot Timestamp visible
+- Keep Get Spot Price button visible and clearly associated with the card
+
+Do not remove any existing live spot functionality.
+
+--------------------------------------------------
+7. PRODUCTS CARD IMPROVEMENTS
+--------------------------------------------------
+
+The Products section should feel easier to use during a live call.
+
+Required improvements:
+- Increase visual clarity of each product row
+- Make Qty input easier to notice and use
+- Make Unit Price and Line Total easier to scan
+- Improve row spacing and separation
+- Preserve all existing product pricing logic
+
+Behavior:
+- Line total should remain easy to see once Qty is entered
+- Do not alter how calculations work
+- Do not change product pricing sources or locking behavior
+
+--------------------------------------------------
+8. SUMMARY CARD IMPROVEMENTS
+--------------------------------------------------
+
+The Summary card needs stronger visual emphasis.
+
+Required changes:
+- Make Total Due the most visually prominent value
+- Add clearer hierarchy between Subtotal, Shipping, and Total
+- Keep Balance Due visible if currently used
+- Preserve all calculation logic
+
+Goal:
+The Summary card should feel like the final financial review before execution.
+
+--------------------------------------------------
+9. TERMS + EXECUTION CARD MUST FEEL LIKE A COMMIT ZONE
+--------------------------------------------------
+
+The current execution area works, but it should feel more deliberate and easier to review.
+
+Required changes:
+- Keep the Terms acknowledgment checkbox in the execution area
+- Keep the Lock & Execute button as the primary action
+- Make this card feel like the final decision area
+
+Important content to preserve:
+- Checkbox label
+- requirement before execution
+- Lock & Execute action
+- Preview Invoice PDF action
+- the meaning of the execution step
+
+Refine the card so it visually communicates:
+- this is the final review point
+- execution happens here
+- terms acknowledgment is required
+
+Reduce clutter:
+- Do not overload this area with too much small helper text
+- Keep the key instruction visible and clean
+- Maintain a professional, confident appearance
+
+--------------------------------------------------
+10. TERMS ACKNOWLEDGMENT UI
+--------------------------------------------------
+
+The current terms checkbox flow is correct functionally. Preserve it, but improve presentation.
+
+Requirements:
+- Keep the checkbox required before execution
+- Keep the approved wording
+- Preserve any existing enforcement logic
+
+Presentation:
+- Make the checkbox line clean and readable
+- Highlight “Terms of Service” as clickable text if that already exists
+- Do not make the text block feel overly long or buried
+- Keep the acknowledgment clearly associated with execution
+
+--------------------------------------------------
+11. NOTES CARD
+--------------------------------------------------
+
+The Notes section should remain available but visually de-emphasized compared with the core execution flow.
+
+Requirements:
+- Keep Notes on the page
+- Move it lower in the left column
+- Do not let it visually compete with Customer, Delivery, Summary, or Execution
+
+--------------------------------------------------
+12. REMOVE OR REDUCE VISUAL CLUTTER
+--------------------------------------------------
+
+General cleanup goals:
+- Reduce unnecessary visual heaviness
+- Improve spacing between sections
+- Improve alignment of labels and inputs
+- Make the page easier to scan during a live phone call
+- Avoid making the UI feel crowded or overly dense
+
+Do not:
+- remove working fields that are still needed
+- break business logic
+- change existing integrations
+- change execution behavior
+- alter pricing or status logic
+
+--------------------------------------------------
+13. DO NOT CHANGE WORKING BUSINESS LOGIC
+--------------------------------------------------
+
+This is a UI/layout task only.
+
+Do not change:
+- pricing logic
+- summary calculations
+- execution flow logic
+- terms persistence logic
+- invoice generation logic
+- email behavior
+- DG order placement behavior
+- existing data bindings unless needed for layout
+- lead prefill behavior
+
+Only improve:
+- layout
+- visibility
+- grouping
+- readability
+- conditional field display
+
+--------------------------------------------------
+14. FUTURE-FRIENDLY IRA STRUCTURE
+--------------------------------------------------
+
+Prepare the UI structure so IRA deals can later support depository information.
+
+For now:
+- hide Delivery completely when IRA is selected
+
+But:
+- structure the code so a future IRA-specific section can be added in that same area
+- do not tightly couple everything to Delivery only
+
+Think of it as:
+- CASH => Delivery section
+- IRA => future Depository section
+
+--------------------------------------------------
+15. FINAL RESULT
+--------------------------------------------------
+
+After this update, the Deal Builder should:
+- begin with a combined Customer + Billing Address section
+- hide Delivery entirely when IRA is selected
+- show only the relevant delivery UI for CASH deals
+- feel cleaner and easier to scan
+- present the Summary and Execute area more clearly
+- preserve all current working functionality
+
+Return a polished UI update, not a conceptual mockup.
