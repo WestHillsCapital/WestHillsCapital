@@ -126,21 +126,18 @@ export default function Schedule() {
           <p className="text-foreground/65 text-lg mb-3">
             Tell us a bit about your intended purchase, then choose a time that works. We will call you to review pricing, answer questions, and confirm next steps.
           </p>
-          <p className="text-sm font-medium text-foreground/60 bg-primary/8 border border-primary/20 inline-block px-4 py-2 rounded-lg">
-            We will call you from <strong className="text-primary">(800) 867-6768</strong>
+          <p className="text-sm font-medium text-foreground/55 border border-border/50 bg-white/70 inline-block px-4 py-2 rounded-lg">
+            We will call you from <strong className="text-foreground/80">(800) 867-6768</strong>
           </p>
         </div>
 
         {/* REASSURANCE QUOTE — shown on step 1 only */}
         {step === 1 && (
-          <div className="mb-8 bg-primary/5 border border-primary/15 rounded-2xl px-6 py-5 flex gap-4 items-start">
-            <div className="text-3xl font-serif leading-none text-primary/30 select-none mt-0.5 shrink-0">"</div>
-            <div>
-              <p className="text-[15px] text-foreground/72 leading-relaxed italic mb-3">
-                The 'no hassle &amp; no pressure' is what thrills me the most. They advise, they explain, and make sure you are satisfied. Unlike the previous company that badgered me with calls trying to constantly change my position so they could get a commission. I trust WHC and I don't dread their calls.
-              </p>
-              <p className="text-xs font-semibold text-foreground/50">— Donna S., verified client · Google review</p>
-            </div>
+          <div className="mb-8 border-l-[3px] border-primary/40 pl-5 py-1">
+            <p className="text-[15px] text-foreground/65 leading-relaxed italic mb-2">
+              "The 'no hassle &amp; no pressure' is what thrills me the most. They advise, they explain, and make sure you are satisfied. Unlike the previous company that badgered me with calls trying to constantly change my position so they could get a commission. I trust WHC and I don't dread their calls."
+            </p>
+            <p className="text-xs font-semibold text-foreground/45">— Donna S., verified client · Google review</p>
           </div>
         )}
 
