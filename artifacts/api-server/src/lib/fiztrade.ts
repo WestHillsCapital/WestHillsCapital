@@ -11,10 +11,14 @@
  */
 import { logger } from "./logger";
 
-const DG_BASE  = process.env.FIZTRADE_BASE_URL ?? "https://connect.fiztrade.com/FizServices";
-const DG_TOKEN = process.env.DILLON_GAGE_API_KEY ?? "";
+const DG_BASE_RAW = (process.env.FIZTRADE_BASE_URL ?? "https://connect.fiztrade.com/FizServices").trim();
+// Auto-heal: restore https:// if it was stripped via copy-paste in Railway
+const DG_BASE = DG_BASE_RAW.startsWith("http")
+  ? DG_BASE_RAW
+  : `https://${DG_BASE_RAW.replace(/^[^a-zA-Z]+/, "")}`;
+const DG_TOKEN = (process.env.DILLON_GAGE_API_KEY ?? "").trim();
 
-logger.info({ dgBase: DG_BASE }, "[Fiztrade] Active API base URL");
+logger.info({ dgBase: DG_BASE, rawEnv: DG_BASE_RAW }, "[Fiztrade] Active API base URL");
 
 // ── WHC product ID → Fiztrade product code ────────────────────────────────────
 const DG_CODE: Record<string, string> = {
