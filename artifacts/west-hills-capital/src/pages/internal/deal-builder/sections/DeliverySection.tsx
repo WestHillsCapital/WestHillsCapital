@@ -193,17 +193,6 @@ export function DeliverySection({
                 </div>
               )}
 
-              {/* Manual name fallback */}
-              <div>
-                <label className="block text-xs text-gray-600 mb-1">Or enter location manually</label>
-                <Field
-                  label=""
-                  value={fedexLocation}
-                  onChange={(e) => setFedexLocation(e.target.value)}
-                  disabled={locked}
-                  placeholder="e.g. FedEx Ship Center at Target"
-                />
-              </div>
             </>
           ) : (
             <div className="bg-gray-800/40 border border-gray-700 rounded p-2">
