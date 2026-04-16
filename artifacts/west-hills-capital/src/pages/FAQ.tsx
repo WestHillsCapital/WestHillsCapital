@@ -73,7 +73,7 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
         a: (
           <>
             <ul className="list-disc pl-5 space-y-2">
-              <li><strong>Wire transfer</strong> — preferred method; most clients send same day, with grace through the following business day</li>
+              <li><strong>Wire transfer</strong> — the safest way to transact. Money moves over federally insured lines and before you leave the bank counter or hang up with your banker, you know it arrived and was received. Most clients send same day, with grace through the following business day.</li>
               <li><strong>Cashier's check</strong> — treated the same as cash; same-day processing when received</li>
               <li><strong>Personal check</strong> — accepted, but must fully clear before your order ships. This typically adds several business days.</li>
             </ul>
