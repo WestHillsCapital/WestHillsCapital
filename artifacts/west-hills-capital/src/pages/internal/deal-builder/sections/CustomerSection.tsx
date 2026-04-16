@@ -8,7 +8,6 @@ interface Props {
   locked:         boolean;
   deliveryMethod: string;
   fedexLocationSelected: boolean;
-  // Billing address
   billingLine1:    string;
   billingLine2:    string;
   billingCity:     string;
@@ -26,58 +25,39 @@ export function CustomerSection({
   billingLine1, billingLine2, billingCity, billingState, billingZip,
   setBillingLine1, setBillingLine2, setBillingCity, setBillingState, setBillingZip,
 }: Props) {
+  const showFedexHint = deliveryMethod === "fedex_hold" && !fedexLocationSelected;
+
+  function handleStateChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    setBillingState(e.target.value);
+    setCust("state")(e);
+  }
+
+  function handleZipChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const cleaned = e.target.value.replace(/\D/g, "");
+    setBillingZip(cleaned);
+    setCust("zip")({ ...e, target: { ...e.target, value: cleaned } } as React.ChangeEvent<HTMLInputElement>);
+  }
+
   return (
-    <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-      {/* ── Customer ───────────────────────────────────────────────── */}
-      <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Customer</h2>
-      <div className="space-y-3">
+    <section className="bg-gray-900 border border-gray-800 rounded-lg p-4">
+      <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Customer</h2>
+
+      <div className="space-y-2">
+
+        {/* Row 1: First Name | Last Name */}
         <div className="grid grid-cols-2 gap-2">
           <Field label="First Name" value={customer.firstName} onChange={setCust("firstName")} disabled={locked} />
           <Field label="Last Name"  value={customer.lastName}  onChange={setCust("lastName")}  disabled={locked} />
         </div>
-        <Field label="Email" value={customer.email} onChange={setCust("email")} type="email" disabled={locked} />
-        <Field label="Phone" value={customer.phone} onChange={setCust("phone")} type="tel"   disabled={locked} />
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">State</label>
-            <select
-              value={customer.state}
-              onChange={setCust("state")}
-              disabled={locked}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white disabled:opacity-60 focus:outline-none focus:border-amber-500"
-            >
-              <option value="">—</option>
-              {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">
-              ZIP{deliveryMethod === "fedex_hold" && !fedexLocationSelected && (
-                <span className="ml-1 text-amber-500/70">(FedEx search)</span>
-              )}
-            </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              maxLength={5}
-              value={customer.zip}
-              onChange={(e) =>
-                setCust("zip")({ target: { value: e.target.value.replace(/\D/g, "") } } as React.ChangeEvent<HTMLInputElement>)
-              }
-              disabled={locked}
-              placeholder="ZIP"
-              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white placeholder:text-gray-600 disabled:opacity-60 focus:outline-none focus:border-amber-500"
-            />
-          </div>
-          <Field label="Lead ID" value={customer.leadId} onChange={setCust("leadId")} disabled={locked} />
-        </div>
-        <Field label="Confirmation ID" value={customer.confirmationId} onChange={setCust("confirmationId")} disabled={locked} />
-      </div>
 
-      {/* ── Billing Address ────────────────────────────────────────── */}
-      <div className="border-t border-gray-800 mt-5 pt-4">
-        <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Billing Address</h3>
-        <div className="space-y-2">
+        {/* Row 2: Email | Phone */}
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Email" value={customer.email} onChange={setCust("email")} type="email" disabled={locked} />
+          <Field label="Phone" value={customer.phone} onChange={setCust("phone")} type="tel"   disabled={locked} />
+        </div>
+
+        {/* Row 3: Street Address | Apt / Suite */}
+        <div className="grid grid-cols-2 gap-2">
           <Field
             label="Street Address"
             value={billingLine1}
@@ -86,33 +66,65 @@ export function CustomerSection({
             placeholder="123 Main St"
           />
           <Field
-            label="Apt / Suite (optional)"
+            label="Apt / Suite"
             value={billingLine2}
             onChange={(e) => setBillingLine2(e.target.value)}
             disabled={locked}
-            placeholder="Apt 4B"
+            placeholder="optional"
           />
-          <div className="grid grid-cols-3 gap-2">
-            <div className="col-span-1">
-              <Field label="City" value={billingCity} onChange={(e) => setBillingCity(e.target.value)} disabled={locked} placeholder="Wichita" />
-            </div>
-            <div>
-              <label className="block text-xs text-gray-400 mb-1">State</label>
-              <select
-                value={billingState}
-                onChange={(e) => setBillingState(e.target.value)}
-                disabled={locked}
-                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white disabled:opacity-60 focus:outline-none focus:border-amber-500"
-              >
-                <option value="">—</option>
-                {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div>
-              <Field label="ZIP" value={billingZip} onChange={(e) => setBillingZip(e.target.value)} disabled={locked} placeholder="67201" />
-            </div>
+        </div>
+
+        {/* Row 4: City | State | ZIP */}
+        <div className="grid grid-cols-5 gap-2">
+          {/* City — wider */}
+          <div className="col-span-2">
+            <Field
+              label="City"
+              value={billingCity}
+              onChange={(e) => setBillingCity(e.target.value)}
+              disabled={locked}
+              placeholder="Wichita"
+            />
+          </div>
+
+          {/* State */}
+          <div className="col-span-2">
+            <label className="block text-xs text-gray-400 mb-1">State</label>
+            <select
+              value={billingState}
+              onChange={handleStateChange}
+              disabled={locked}
+              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white disabled:opacity-60 focus:outline-none focus:border-amber-500"
+            >
+              <option value="">—</option>
+              {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </div>
+
+          {/* ZIP */}
+          <div className="col-span-1">
+            <label className="block text-xs text-gray-400 mb-1 truncate">
+              ZIP{showFedexHint && <span className="text-amber-500/70">*</span>}
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              maxLength={5}
+              value={billingZip}
+              onChange={handleZipChange}
+              disabled={locked}
+              placeholder="67201"
+              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white placeholder:text-gray-600 disabled:opacity-60 focus:outline-none focus:border-amber-500"
+            />
           </div>
         </div>
+
+        {/* Row 5: Lead ID | Confirmation ID */}
+        <div className="grid grid-cols-2 gap-2">
+          <Field label="Lead ID"          value={customer.leadId}         onChange={setCust("leadId")}         disabled={locked} />
+          <Field label="Confirmation ID"  value={customer.confirmationId} onChange={setCust("confirmationId")} disabled={locked} />
+        </div>
+
       </div>
     </section>
   );
