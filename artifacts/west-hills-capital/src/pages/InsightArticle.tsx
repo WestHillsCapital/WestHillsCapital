@@ -176,16 +176,11 @@ export default function InsightArticle() {
                 className={i > 0 ? "mt-12 pt-10 border-t border-border/15" : "mt-0"}
               >
                 {section.heading && (
-                  <div className="flex items-start gap-4 mb-5">
-                    <span className="text-[10px] font-semibold text-primary/35 tabular-nums mt-[5px] shrink-0 tracking-widest select-none">
-                      {String(i + 1).padStart(2, "0")}
-                    </span>
-                    <h2 className="text-[1.2rem] font-serif font-semibold text-foreground leading-snug">
-                      {section.heading}
-                    </h2>
-                  </div>
+                  <h2 className="text-[1.2rem] font-serif font-semibold text-foreground leading-snug mb-5">
+                    {section.heading}
+                  </h2>
                 )}
-                <div className={`space-y-5 ${section.heading ? "pl-8" : ""}`}>
+                <div className="space-y-5">
                   {section.paragraphs.map((para, j) => (
                     <p
                       key={j}
