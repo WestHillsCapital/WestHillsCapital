@@ -948,6 +948,21 @@ export async function mergeAppointmentIntoPipeline(params: {
           }
         }
         logger.info({ leadId: params.leadId }, "[Pipeline:merge] Fallback prospect row inserted with scheduling data");
+        // Write Next Action Due for the fallback-inserted row
+        const fallbackRow = await findProspectRow(nameToCol).catch(() => -1);
+        if (fallbackRow >= 2) {
+          const nadCol = nameToCol.get("Next Action Due");
+          if (nadCol !== undefined) {
+            const apptDate = new Date(params.scheduledTime);
+            const dateStr = `${apptDate.getMonth() + 1}/${apptDate.getDate()}/${apptDate.getFullYear()}`;
+            await sheets.spreadsheets.values.update({
+              spreadsheetId: SPREADSHEET_ID,
+              range: `${TABS.pipeline}!${colLetter(nadCol)}${fallbackRow}`,
+              valueInputOption: "USER_ENTERED",
+              requestBody: { values: [[dateStr]] },
+            }).catch((err) => logger.warn({ err }, "[Pipeline:merge] Failed to write Next Action Due on fallback — non-fatal"));
+          }
+        }
       } else {
         logger.warn(
           { leadId: params.leadId, confirmationId: params.confirmationId },
@@ -983,6 +998,25 @@ export async function mergeAppointmentIntoPipeline(params: {
       await sheets.spreadsheets.values.batchUpdate({
         spreadsheetId: SPREADSHEET_ID,
         requestBody: { valueInputOption: "RAW", data: updateData },
+      });
+    }
+
+    // ── Write Next Action Due as a native Sheets date (appointment date) ───────
+    // Uses USER_ENTERED so Google Sheets recognises the value as a date type,
+    // enabling sort/filter by date. Formatted as M/D/YYYY for reliable parsing.
+    // Written separately from the RAW batchUpdate to avoid converting other
+    // text fields (Time, Confirmation ID, etc.) to dates.
+    const nextActionDueCol = nameToCol.get("Next Action Due");
+    if (nextActionDueCol !== undefined) {
+      const apptDate = new Date(params.scheduledTime);
+      const dateStr = `${apptDate.getMonth() + 1}/${apptDate.getDate()}/${apptDate.getFullYear()}`;
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: SPREADSHEET_ID,
+        range: `${TABS.pipeline}!${colLetter(nextActionDueCol)}${targetRow}`,
+        valueInputOption: "USER_ENTERED",
+        requestBody: { values: [[dateStr]] },
+      }).catch((err) => {
+        logger.warn({ err, leadId: params.leadId }, "[Pipeline:merge] Failed to write Next Action Due — non-fatal");
       });
     }
 

@@ -1,5 +1,5 @@
 import type { FedExLocationResult } from "../types";
-import { US_STATES } from "../utils";
+import { US_STATES, lookupZipCity } from "../utils";
 import { Field } from "./shared";
 
 interface Props {
@@ -40,6 +40,15 @@ export function DeliverySection({
   shipToState, setShipToState, shipToZip, setShipToZip,
 }: Props) {
   const isFedex = deliveryMethod === "fedex_hold";
+
+  async function handleShipToZipBlur(e: React.FocusEvent<HTMLInputElement>) {
+    const zip = e.target.value;
+    if (zip.length !== 5) return;
+    const result = await lookupZipCity(zip);
+    if (!result) return;
+    if (!shipToCity) setShipToCity(result.city);
+    if (!shipToState) setShipToState(result.state);
+  }
 
   return (
     <section className="bg-white border border-[#DDD5C4] rounded-lg shadow-sm p-4">
@@ -230,7 +239,18 @@ export function DeliverySection({
               </select>
             </div>
             <div className="col-span-1">
-              <Field label="ZIP" value={shipToZip} onChange={(e) => setShipToZip(e.target.value)} disabled={locked} placeholder="67201" />
+              <label className="block text-xs text-[#6B7A99] mb-1">ZIP</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={5}
+                value={shipToZip}
+                onChange={(e) => setShipToZip(e.target.value.replace(/\D/g, ""))}
+                onBlur={handleShipToZipBlur}
+                disabled={locked}
+                placeholder="67201"
+                className="w-full bg-white border border-[#D4C9B5] rounded px-2 py-1.5 text-sm text-[#0F1C3F] placeholder:text-[#9AAAC0] disabled:opacity-60 focus:outline-none focus:border-[#C49A38]"
+              />
             </div>
           </div>
         </div>

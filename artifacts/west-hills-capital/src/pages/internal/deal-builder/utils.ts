@@ -1,5 +1,27 @@
 import type { ProductRow } from "./types";
 
+/**
+ * Look up city and state abbreviation for a 5-digit US ZIP code.
+ * Returns null if the ZIP is invalid or the lookup fails.
+ * Uses the public zippopotam.us API (no key required, CORS-enabled).
+ */
+export async function lookupZipCity(zip: string): Promise<{ city: string; state: string } | null> {
+  if (zip.length !== 5) return null;
+  try {
+    const res = await fetch(`https://api.zippopotam.us/us/${zip}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const place = data?.places?.[0];
+    if (!place) return null;
+    return {
+      city:  (place["place name"] as string) ?? "",
+      state: (place["state abbreviation"] as string) ?? "",
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function fmtMoney(n: number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 }

@@ -1,5 +1,5 @@
 import type { Customer } from "../types";
-import { US_STATES } from "../utils";
+import { US_STATES, lookupZipCity } from "../utils";
 import { Field } from "./shared";
 
 interface Props {
@@ -36,6 +36,18 @@ export function CustomerSection({
     const cleaned = e.target.value.replace(/\D/g, "");
     setBillingZip(cleaned);
     setCust("zip")({ ...e, target: { ...e.target, value: cleaned } } as React.ChangeEvent<HTMLInputElement>);
+  }
+
+  async function handleZipBlur(e: React.FocusEvent<HTMLInputElement>) {
+    const zip = e.target.value;
+    if (zip.length !== 5) return;
+    const result = await lookupZipCity(zip);
+    if (!result) return;
+    if (!billingCity) setBillingCity(result.city);
+    if (!billingState) {
+      setBillingState(result.state);
+      setCust("state")({ target: { value: result.state } } as React.ChangeEvent<HTMLSelectElement>);
+    }
   }
 
   return (
@@ -112,6 +124,7 @@ export function CustomerSection({
               maxLength={5}
               value={billingZip}
               onChange={handleZipChange}
+              onBlur={handleZipBlur}
               disabled={locked}
               placeholder="67201"
               className="w-full bg-white border border-[#D4C9B5] rounded px-2 py-1.5 text-sm text-[#0F1C3F] placeholder:text-[#9AAAC0] disabled:opacity-60 focus:outline-none focus:border-[#C49A38]"
