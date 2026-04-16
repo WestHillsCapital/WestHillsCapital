@@ -27,10 +27,10 @@ function statusBadge(status: string) {
     new:       "bg-blue-900 text-blue-300",
     contacted: "bg-yellow-900 text-yellow-300",
     qualified: "bg-green-900 text-green-300",
-    closed:    "bg-[#F9F6F1] text-[#6B7A99]",
+    closed:    "bg-white text-[#6B7A99]",
   };
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] ?? "bg-[#F9F6F1] text-[#374560]"}`}>
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] ?? "bg-white text-[#374560]"}`}>
       {status}
     </span>
   );
@@ -96,7 +96,7 @@ export default function InternalLeads() {
               {leads.map((lead) => (
                 <tr
                   key={lead.id}
-                  className="border-b border-[#DDD5C4]/50 hover:bg-[#F5F0E8]/80 transition-colors"
+                  className="border-b border-[#DDD5C4]/50 hover:bg-white/80 transition-colors"
                 >
                   <td className="px-3 py-2.5 text-[#6B7A99] font-mono text-xs">{lead.id}</td>
                   <td className="px-3 py-2.5 text-[#0F1C3F] font-medium whitespace-nowrap">

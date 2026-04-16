@@ -17,7 +17,7 @@ export function Field({ label, value, onChange, disabled, type = "text", placeho
         onChange={onChange}
         disabled={disabled}
         placeholder={placeholder}
-        className="w-full bg-[#F9F6F1] border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] placeholder-[#B0C0D8] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
+        className="w-full bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] placeholder-[#B0C0D8] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
       />
     </div>
   );

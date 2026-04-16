@@ -116,7 +116,7 @@ export function ExecutionSection({
               type="checkbox"
               checked={termsAcknowledged}
               onChange={(e) => setTermsAcknowledged(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-[#F9F6F1] text-[#C49A38] focus:ring-[#C49A38] flex-shrink-0"
+              className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-white text-[#C49A38] focus:ring-[#C49A38] flex-shrink-0"
             />
             <span className="text-xs text-[#6B7A99] leading-relaxed group-hover:text-[#374560] transition-colors">
               I confirm this trade was executed verbally on a recorded line and that West Hills Capital's{" "}
@@ -147,7 +147,7 @@ export function ExecutionSection({
             <button
               onClick={onPreview}
               disabled={isGeneratingPreview}
-              className="w-full py-2 rounded text-sm font-medium bg-[#F9F6F1] hover:bg-[#EDE8DF] text-[#6B7A99] hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-2 rounded text-sm font-medium bg-white hover:bg-[#EDE8DF] text-[#6B7A99] hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isGeneratingPreview ? "Generating PDF…" : "Preview Invoice PDF"}
             </button>

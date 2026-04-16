@@ -36,7 +36,7 @@ export function OpsActionsSection({
             <button
               onClick={onMarkPayment}
               disabled={isMarkingPayment}
-              className="w-full py-2 rounded text-sm font-medium bg-[#F9F6F1] hover:bg-green-900/40 border border-[#D4C9B5] hover:border-green-700 text-[#374560] hover:text-green-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-2 rounded text-sm font-medium bg-white hover:bg-green-900/40 border border-[#D4C9B5] hover:border-green-700 text-[#374560] hover:text-green-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isMarkingPayment ? "Marking…" : "Mark Payment Received"}
             </button>
@@ -52,7 +52,7 @@ export function OpsActionsSection({
               value={trackingNumber}
               onChange={(e) => setTrackingNumber(e.target.value)}
               placeholder="e.g. 7489 3401 0947 2804"
-              className="flex-1 bg-[#F9F6F1] border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] placeholder-[#B0C0D8] focus:outline-none focus:border-[#C49A38]"
+              className="flex-1 bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] placeholder-[#B0C0D8] focus:outline-none focus:border-[#C49A38]"
             />
             <button
               onClick={onSaveTracking}

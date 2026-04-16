@@ -94,7 +94,7 @@ export function CustomerSection({
               value={billingState}
               onChange={handleStateChange}
               disabled={locked}
-              className="w-full bg-[#F9F6F1] border border-[#D4C9B5] rounded px-2 py-1.5 text-sm text-[#0F1C3F] disabled:opacity-60 focus:outline-none focus:border-[#C49A38]"
+              className="w-full bg-white border border-[#D4C9B5] rounded px-2 py-1.5 text-sm text-[#0F1C3F] disabled:opacity-60 focus:outline-none focus:border-[#C49A38]"
             >
               <option value="">—</option>
               {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -114,7 +114,7 @@ export function CustomerSection({
               onChange={handleZipChange}
               disabled={locked}
               placeholder="67201"
-              className="w-full bg-[#F9F6F1] border border-[#D4C9B5] rounded px-2 py-1.5 text-sm text-[#0F1C3F] placeholder:text-[#9AAAC0] disabled:opacity-60 focus:outline-none focus:border-[#C49A38]"
+              className="w-full bg-white border border-[#D4C9B5] rounded px-2 py-1.5 text-sm text-[#0F1C3F] placeholder:text-[#9AAAC0] disabled:opacity-60 focus:outline-none focus:border-[#C49A38]"
             />
           </div>
         </div>

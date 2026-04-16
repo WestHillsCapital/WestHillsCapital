@@ -31,7 +31,7 @@ export default function InternalLogin() {
   const displayError = localError ?? authError;
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8] flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-white flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo mark */}
         <div className="text-center mb-8">

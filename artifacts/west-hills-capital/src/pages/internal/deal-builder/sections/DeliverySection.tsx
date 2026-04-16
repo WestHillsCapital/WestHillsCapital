@@ -56,7 +56,7 @@ export function DeliverySection({
               "px-3 py-1 rounded text-xs font-medium transition-colors",
               isFedex
                 ? "bg-[#C49A38] text-black"
-                : "bg-[#F9F6F1] border border-[#C49A38]/30 text-[#C49A38]/60 hover:text-[#C49A38]",
+                : "bg-white border border-[#C49A38]/30 text-[#C49A38]/60 hover:text-[#C49A38]",
               locked ? "opacity-60 cursor-default" : "",
             ].join(" ")}
           >
@@ -85,7 +85,7 @@ export function DeliverySection({
           {fedexLocationSelected && fedexLocation ? (
             <>
               {/* Selected location card */}
-              <div className="bg-[#F9F6F1]/70 border border-[#C49A38]/30 rounded-lg p-3">
+              <div className="bg-white/70 border border-[#C49A38]/30 rounded-lg p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     {/* Location type badge + name */}
@@ -123,7 +123,7 @@ export function DeliverySection({
                     value={fedexLocationHours}
                     onChange={(e) => setFedexLocationHours(e.target.value)}
                     placeholder="e.g. Mon–Fri 8am–8pm · Sat–Sun 9am–6pm"
-                    className="w-full bg-[#F9F6F1] border border-[#D4C9B5] rounded px-2 py-1.5 text-xs text-[#374560] placeholder:text-[#B0BDD0] focus:outline-none focus:border-[#C49A38]"
+                    className="w-full bg-white border border-[#D4C9B5] rounded px-2 py-1.5 text-xs text-[#374560] placeholder:text-[#B0BDD0] focus:outline-none focus:border-[#C49A38]"
                   />
                 </div>
               )}
@@ -140,7 +140,7 @@ export function DeliverySection({
                   onChange={(e) => setFedexSearchZip(e.target.value.replace(/\D/g, ""))}
                   onKeyDown={(e) => e.key === "Enter" && onSearch()}
                   placeholder="ZIP code to search"
-                  className="flex-1 bg-[#F9F6F1] border border-[#D4C9B5] rounded px-2 py-1.5 text-sm text-[#0F1C3F] placeholder:text-[#9AAAC0] focus:outline-none focus:border-[#C49A38]"
+                  className="flex-1 bg-white border border-[#D4C9B5] rounded px-2 py-1.5 text-sm text-[#0F1C3F] placeholder:text-[#9AAAC0] focus:outline-none focus:border-[#C49A38]"
                 />
                 <button
                   onClick={() => onSearch()}
@@ -164,7 +164,7 @@ export function DeliverySection({
                       <button
                         key={i}
                         onClick={() => onSelectLocation(loc)}
-                        className="w-full text-left bg-[#F9F6F1] hover:bg-[#EDE8DF]/80 border border-[#D4C9B5] hover:border-[#C49A38]/50 rounded p-3 transition-colors"
+                        className="w-full text-left bg-white hover:bg-[#EDE8DF]/80 border border-[#D4C9B5] hover:border-[#C49A38]/50 rounded p-3 transition-colors"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0 flex-1">
@@ -195,7 +195,7 @@ export function DeliverySection({
 
             </>
           ) : (
-            <div className="bg-[#F9F6F1]/40 border border-[#D4C9B5] rounded p-2">
+            <div className="bg-white/40 border border-[#D4C9B5] rounded p-2">
               <p className="text-xs text-[#6B7A99]">{fedexLocation || "—"}</p>
               {fedexLocationHours && <p className="text-xs text-[#9AAAC0] mt-0.5">{fedexLocationHours}</p>}
             </div>
@@ -223,7 +223,7 @@ export function DeliverySection({
                 value={shipToState}
                 onChange={(e) => setShipToState(e.target.value)}
                 disabled={locked}
-                className="w-full bg-[#F9F6F1] border border-[#D4C9B5] rounded px-2 py-1.5 text-sm text-[#0F1C3F] disabled:opacity-60 focus:outline-none focus:border-[#C49A38]"
+                className="w-full bg-white border border-[#D4C9B5] rounded px-2 py-1.5 text-sm text-[#0F1C3F] disabled:opacity-60 focus:outline-none focus:border-[#C49A38]"
               >
                 <option value="">—</option>
                 {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}

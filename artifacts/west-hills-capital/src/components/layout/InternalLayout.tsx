@@ -16,7 +16,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F5F0E8] text-[#0F1C3F] flex flex-col">
+    <div className="min-h-screen bg-white text-[#0F1C3F] flex flex-col">
       {/* Top nav bar */}
       <header className="bg-white" style={{ borderBottom: "1px solid #DDD5C4", boxShadow: "0 1px 3px 0 rgba(15,28,63,0.06)" }}>
         <div className="max-w-screen-xl mx-auto px-4 h-14 flex items-center gap-6">
@@ -37,7 +37,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
                     "px-3 py-1.5 rounded text-sm font-medium transition-colors",
                     active
                       ? "bg-[#C49A38]/15 text-[#C49A38]"
-                      : "text-[#4A5B7A] hover:text-[#0F1C3F] hover:bg-[#F9F6F1]",
+                      : "text-[#4A5B7A] hover:text-[#0F1C3F] hover:bg-white",
                   ].join(" ")}
                 >
                   {label}

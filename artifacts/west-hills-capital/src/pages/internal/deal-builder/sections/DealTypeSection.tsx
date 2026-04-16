@@ -25,7 +25,7 @@ export function DealTypeSection({ dealType, setDealType, iraType, setIraType, cu
               "flex-1 py-2 text-sm font-medium transition-colors",
               dealType === t
                 ? "bg-[#C49A38] text-black"
-                : "bg-[#F9F6F1] text-[#6B7A99] hover:text-[#0F1C3F]",
+                : "bg-white text-[#6B7A99] hover:text-[#0F1C3F]",
               locked ? "opacity-60 cursor-default" : "",
             ].join(" ")}
           >

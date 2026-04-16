@@ -29,11 +29,11 @@ function statusBadge(status: string) {
   const colors: Record<string, string> = {
     confirmed: "bg-green-900 text-green-300",
     cancelled: "bg-red-900 text-red-300",
-    completed: "bg-[#F9F6F1] text-[#6B7A99]",
+    completed: "bg-white text-[#6B7A99]",
     no_show:   "bg-yellow-900 text-yellow-300",
   };
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] ?? "bg-[#F9F6F1] text-[#374560]"}`}>
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] ?? "bg-white text-[#374560]"}`}>
       {status}
     </span>
   );
@@ -99,7 +99,7 @@ export default function InternalAppointments() {
               {appts.map((appt) => (
                 <tr
                   key={appt.id}
-                  className="border-b border-[#DDD5C4]/50 hover:bg-[#F5F0E8]/80 transition-colors"
+                  className="border-b border-[#DDD5C4]/50 hover:bg-white/80 transition-colors"
                 >
                   <td className="px-3 py-2.5 text-[#C49A38] font-mono text-xs">{appt.confirmation_id}</td>
                   <td className="px-3 py-2.5 text-[#0F1C3F] font-medium whitespace-nowrap">

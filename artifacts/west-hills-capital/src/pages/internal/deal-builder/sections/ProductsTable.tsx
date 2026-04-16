@@ -58,7 +58,7 @@ export function ProductsTable({ rows, setRow, locked, goldOz, silverOz, shipping
                 onChange={setRow(i, "qty")}
                 disabled={locked}
                 placeholder="0"
-                className="w-full bg-[#F9F6F1] border border-[#D4C9B5] rounded px-2 py-2 text-sm text-right text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] focus:ring-1 focus:ring-[#C49A38]/30 disabled:opacity-60"
+                className="w-full bg-white border border-[#D4C9B5] rounded px-2 py-2 text-sm text-right text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] focus:ring-1 focus:ring-[#C49A38]/30 disabled:opacity-60"
               />
 
               {/* Unit price — formatted display when locked, input when editable */}
@@ -76,7 +76,7 @@ export function ProductsTable({ rows, setRow, locked, goldOz, silverOz, shipping
                     value={row.unitPrice}
                     onChange={setRow(i, "unitPrice")}
                     placeholder="0.00"
-                    className="w-full bg-[#F9F6F1] border border-[#D4C9B5] rounded pl-5 pr-2 py-2 text-sm text-right text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] focus:ring-1 focus:ring-[#C49A38]/30"
+                    className="w-full bg-white border border-[#D4C9B5] rounded pl-5 pr-2 py-2 text-sm text-right text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] focus:ring-1 focus:ring-[#C49A38]/30"
                   />
                 </div>
               )}
