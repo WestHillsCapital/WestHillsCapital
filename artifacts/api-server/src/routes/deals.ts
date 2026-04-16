@@ -646,7 +646,10 @@ router.patch("/:id/tracking", async (req, res) => {
 });
 
 // GET /api/deals/:id
-// Returns a single saved deal by ID
+// Returns a single saved deal by ID.
+// execution_warnings (JSONB column) is normalised to the key `warnings` so the
+// frontend can use the same field name whether it reads from the execute response
+// or a subsequent GET — both surfaces now expose { warnings: string[] }.
 router.get("/:id", async (req, res) => {
   const dealId = parseInt(req.params.id, 10);
   if (isNaN(dealId)) {
@@ -659,7 +662,15 @@ router.get("/:id", async (req, res) => {
     if (!rows[0]) {
       return res.status(404).json({ error: "Deal not found" });
     }
-    return res.json({ deal: rows[0] });
+    const row = rows[0];
+    // Normalise DB column name → API response key so callers don't need to know
+    // the underlying column name.
+    const { execution_warnings, ...rest } = row;
+    const deal = {
+      ...rest,
+      warnings: Array.isArray(execution_warnings) ? execution_warnings : [],
+    };
+    return res.json({ deal });
   } catch (err) {
     logger.error({ err }, "[Deals] Failed to fetch deal");
     return res.status(500).json({ error: "Failed to fetch deal" });
