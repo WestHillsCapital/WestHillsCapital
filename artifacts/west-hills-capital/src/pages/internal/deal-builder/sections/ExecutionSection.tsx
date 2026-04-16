@@ -77,28 +77,24 @@ export function ExecutionSection({
     );
   }
 
-  // ── Lock & Execute panel ──────────────────────────────────────────────────
+  // ── Execution panel (pre-lock) ────────────────────────────────────────────
   return (
     <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-      {saveError && (
-        <div className="mb-3 text-sm text-red-400 bg-red-900/20 border border-red-800/30 rounded px-3 py-2">
-          {saveError}
-        </div>
-      )}
 
+      {/* Progress steps while saving */}
       {isSaving ? (
-        <div className="space-y-2">
+        <div className="space-y-2.5 py-1">
           {EXECUTION_STEPS.map((step, i) => {
             const done    = i < executionStep;
             const current = i === executionStep;
             return (
               <div key={step} className={`flex items-center gap-3 text-sm transition-opacity ${i > executionStep ? "opacity-30" : ""}`}>
-                <span className="w-5 h-5 flex items-center justify-center rounded-full text-xs flex-shrink-0">
+                <span className="w-5 h-5 flex items-center justify-center flex-shrink-0">
                   {done
-                    ? <span className="text-green-400">✓</span>
+                    ? <span className="text-green-400 text-base">✓</span>
                     : current
-                      ? <span className="inline-block w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
-                      : <span className="text-gray-700">○</span>
+                      ? <span className="inline-block w-3.5 h-3.5 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                      : <span className="text-gray-700 text-base">○</span>
                   }
                 </span>
                 <span className={done ? "text-green-400" : current ? "text-amber-300" : "text-gray-600"}>
@@ -110,7 +106,14 @@ export function ExecutionSection({
         </div>
       ) : (
         <>
-          <label className="flex items-start gap-3 mb-4 cursor-pointer group">
+          {saveError && (
+            <div className="mb-4 text-sm text-red-400 bg-red-900/20 border border-red-800/30 rounded px-3 py-2">
+              {saveError}
+            </div>
+          )}
+
+          {/* Terms acknowledgment */}
+          <label className="flex items-start gap-3 cursor-pointer group mb-4">
             <input
               type="checkbox"
               checked={termsAcknowledged}
@@ -131,31 +134,38 @@ export function ExecutionSection({
               were provided or referenced in the client's transaction materials.
             </span>
           </label>
-          {!termsAcknowledged && (
-            <p className="text-xs text-amber-600 mb-3 text-center">
-              Terms acknowledgment required before execution
-            </p>
-          )}
+
+          {/* Lock & Execute */}
           <button
             onClick={onLock}
             disabled={isSaving || total === 0 || !termsAcknowledged}
-            className="w-full py-3 rounded font-semibold text-sm bg-amber-500 hover:bg-amber-400 text-black disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-3.5 rounded-md font-semibold text-sm bg-amber-500 hover:bg-amber-400 text-black disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Lock &amp; Execute
           </button>
-          <p className="text-xs text-gray-500 mt-2 text-center">
-            Freezes pricing · places DG order · generates PDF invoice · emails client
-          </p>
+
+          {!termsAcknowledged && (
+            <p className="text-xs text-amber-600/80 mt-2 text-center">
+              Acknowledge terms above to enable execution
+            </p>
+          )}
+          {termsAcknowledged && (
+            <p className="text-xs text-gray-600 mt-2 text-center">
+              Freezes pricing · places DG order · generates invoice · emails client
+            </p>
+          )}
+
+          {/* Preview invoice — secondary action */}
           <div className="border-t border-gray-800 mt-4 pt-4">
             <button
               onClick={onPreview}
               disabled={isGeneratingPreview}
-              className="w-full py-2 rounded text-sm font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-2 rounded text-sm font-medium bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isGeneratingPreview ? "Generating PDF…" : "Preview Invoice PDF"}
             </button>
-            <p className="text-xs text-gray-600 mt-1.5 text-center">
-              Downloads the invoice using current form data — no trade executed
+            <p className="text-xs text-gray-700 mt-1.5 text-center">
+              Downloads draft invoice — no trade executed
             </p>
           </div>
         </>

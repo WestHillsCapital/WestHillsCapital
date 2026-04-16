@@ -22,7 +22,7 @@ interface Props {
   setFedexLocation:     (s: string) => void;
   fedexLocationHours:   string;
   setFedexLocationHours:(s: string) => void;
-  // Ship-to address
+  // Ship-to address (used for home delivery manual entry + auto-populated for FedEx Hold)
   shipToLine1:          string;
   setShipToLine1:       (s: string) => void;
   shipToCity:           string;
@@ -46,7 +46,7 @@ export function DeliverySection({
       <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Delivery</h2>
 
       {/* Method toggle */}
-      <div className="flex rounded overflow-hidden border border-gray-700 mb-3">
+      <div className="flex rounded overflow-hidden border border-gray-700 mb-4">
         {(["fedex_hold", "home_delivery"] as const).map((m) => (
           <button
             key={m}
@@ -65,18 +65,18 @@ export function DeliverySection({
         ))}
       </div>
 
-      {/* FedEx hold picker */}
+      {/* ── FedEx Hold: picker only, no manual address form ─────────── */}
       {deliveryMethod === "fedex_hold" && (
-        <div className="mb-3 space-y-2">
+        <div className="space-y-3">
           {fedexLocationSelected && fedexLocation ? (
             <>
-              {/* Selected location display */}
+              {/* Selected location card */}
               <div className="flex items-start justify-between bg-gray-800/60 border border-amber-500/30 rounded p-3">
-                <div>
+                <div className="min-w-0">
                   <p className="text-xs font-semibold text-amber-400 mb-0.5">{fedexLocation}</p>
                   {shipToLine1 && (
                     <p className="text-xs text-gray-400">
-                      {shipToLine1}{shipToCity ? `, ${shipToCity}` : ""}{shipToState ? `, ${shipToState}` : ""} {shipToZip}
+                      {shipToLine1}{shipToCity ? `, ${shipToCity}` : ""}{shipToState ? `, ${shipToState}` : ""}{shipToZip ? ` ${shipToZip}` : ""}
                     </p>
                   )}
                 </div>
@@ -89,7 +89,7 @@ export function DeliverySection({
                   </button>
                 )}
               </div>
-              {/* Location hours */}
+              {/* Hours */}
               <div>
                 <label className="block text-xs text-gray-500 mb-1">Location Hours</label>
                 {locked ? (
@@ -109,18 +109,16 @@ export function DeliverySection({
             <>
               {/* ZIP search */}
               <div className="flex gap-2">
-                <div className="flex-1">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    maxLength={5}
-                    value={fedexSearchZip}
-                    onChange={(e) => setFedexSearchZip(e.target.value.replace(/\D/g, ""))}
-                    onKeyDown={(e) => e.key === "Enter" && onSearch()}
-                    placeholder="ZIP code to search"
-                    className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={5}
+                  value={fedexSearchZip}
+                  onChange={(e) => setFedexSearchZip(e.target.value.replace(/\D/g, ""))}
+                  onKeyDown={(e) => e.key === "Enter" && onSearch()}
+                  placeholder="ZIP code to search"
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-amber-500"
+                />
                 <button
                   onClick={() => onSearch()}
                   disabled={isFedexSearching}
@@ -138,33 +136,33 @@ export function DeliverySection({
                     {fedexResults.length} location{fedexResults.length !== 1 ? "s" : ""} found — select one:
                   </p>
                   <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
-                  {fedexResults.map((loc, i) => (
-                    <button
-                      key={i}
-                      onClick={() => onSelectLocation(loc)}
-                      className="w-full text-left bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-amber-500/40 rounded p-3 transition-colors"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-xs font-semibold text-white truncate">{loc.name}</p>
-                          <p className="text-xs text-gray-400">
-                            {loc.address}{loc.city ? `, ${loc.city}` : ""}{loc.state ? `, ${loc.state}` : ""} {loc.zip}
-                          </p>
-                          {loc.phone && <p className="text-xs text-gray-500">{loc.phone}</p>}
+                    {fedexResults.map((loc, i) => (
+                      <button
+                        key={i}
+                        onClick={() => onSelectLocation(loc)}
+                        className="w-full text-left bg-gray-800 hover:bg-gray-700 border border-gray-700 hover:border-amber-500/40 rounded p-3 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-xs font-semibold text-white truncate">{loc.name}</p>
+                            <p className="text-xs text-gray-400">
+                              {loc.address}{loc.city ? `, ${loc.city}` : ""}{loc.state ? `, ${loc.state}` : ""} {loc.zip}
+                            </p>
+                            {loc.phone && <p className="text-xs text-gray-500">{loc.phone}</p>}
+                          </div>
+                          <div className="flex flex-col items-end flex-shrink-0">
+                            {loc.distance && <span className="text-xs text-amber-400">{loc.distance}</span>}
+                            <span className="text-[10px] text-gray-600 mt-0.5">
+                              {loc.locationType === "FEDEX_OFFICE"
+                                ? "FedEx Office"
+                                : loc.locationType === "SHIP_CENTER"
+                                ? "Ship Center"
+                                : loc.locationType}
+                            </span>
+                          </div>
                         </div>
-                        <div className="flex flex-col items-end flex-shrink-0">
-                          {loc.distance && <span className="text-xs text-amber-400">{loc.distance}</span>}
-                          <span className="text-[10px] text-gray-600 mt-0.5">
-                            {loc.locationType === "FEDEX_OFFICE"
-                              ? "FedEx Office"
-                              : loc.locationType === "SHIP_CENTER"
-                              ? "Ship Center"
-                              : loc.locationType}
-                          </span>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
@@ -189,41 +187,38 @@ export function DeliverySection({
         </div>
       )}
 
-      {/* Structured ship-to address */}
-      <div className="border border-gray-700/50 rounded p-3 space-y-2 mt-2">
-        <p className="text-xs text-gray-500 mb-2">
-          {deliveryMethod === "fedex_hold"
-            ? "FedEx Hold Location Address (for trade execution)"
-            : "Home Delivery Address"}
-        </p>
-        <Field
-          label="Street Address"
-          value={shipToLine1}
-          onChange={(e) => setShipToLine1(e.target.value)}
-          disabled={locked}
-          placeholder="123 Main St"
-        />
-        <div className="grid grid-cols-3 gap-2">
-          <div className="col-span-1">
-            <Field label="City" value={shipToCity} onChange={(e) => setShipToCity(e.target.value)} disabled={locked} placeholder="Wichita" />
-          </div>
-          <div>
-            <label className="block text-xs text-gray-400 mb-1">State</label>
-            <select
-              value={shipToState}
-              onChange={(e) => setShipToState(e.target.value)}
-              disabled={locked}
-              className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white disabled:opacity-60 focus:outline-none focus:border-amber-500"
-            >
-              <option value="">—</option>
-              {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </div>
-          <div>
-            <Field label="Zip" value={shipToZip} onChange={(e) => setShipToZip(e.target.value)} disabled={locked} placeholder="67201" />
+      {/* ── Home Delivery: address entry only, no FedEx picker ──────── */}
+      {deliveryMethod === "home_delivery" && (
+        <div className="space-y-2">
+          <Field
+            label="Street Address"
+            value={shipToLine1}
+            onChange={(e) => setShipToLine1(e.target.value)}
+            disabled={locked}
+            placeholder="123 Main St"
+          />
+          <div className="grid grid-cols-3 gap-2">
+            <div className="col-span-1">
+              <Field label="City" value={shipToCity} onChange={(e) => setShipToCity(e.target.value)} disabled={locked} placeholder="Wichita" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-400 mb-1">State</label>
+              <select
+                value={shipToState}
+                onChange={(e) => setShipToState(e.target.value)}
+                disabled={locked}
+                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-white disabled:opacity-60 focus:outline-none focus:border-amber-500"
+              >
+                <option value="">—</option>
+                {US_STATES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <Field label="ZIP" value={shipToZip} onChange={(e) => setShipToZip(e.target.value)} disabled={locked} placeholder="67201" />
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </section>
   );
 }

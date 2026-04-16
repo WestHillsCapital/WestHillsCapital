@@ -8,15 +8,14 @@ import { useDealExecution }  from "./deal-builder/hooks/useDealExecution";
 import { useInvoicePreview } from "./deal-builder/hooks/useInvoicePreview";
 import { useOpsActions }     from "./deal-builder/hooks/useOpsActions";
 
-import { CustomerSection }      from "./deal-builder/sections/CustomerSection";
-import { DealTypeSection }      from "./deal-builder/sections/DealTypeSection";
-import { DeliverySection }      from "./deal-builder/sections/DeliverySection";
-import { BillingAddressSection }from "./deal-builder/sections/BillingAddressSection";
-import { SpotSection }          from "./deal-builder/sections/SpotSection";
-import { ProductsTable }        from "./deal-builder/sections/ProductsTable";
-import { SummarySection }       from "./deal-builder/sections/SummarySection";
-import { ExecutionSection }     from "./deal-builder/sections/ExecutionSection";
-import { OpsActionsSection }    from "./deal-builder/sections/OpsActionsSection";
+import { CustomerSection }  from "./deal-builder/sections/CustomerSection";
+import { DealTypeSection }  from "./deal-builder/sections/DealTypeSection";
+import { DeliverySection }  from "./deal-builder/sections/DeliverySection";
+import { SpotSection }      from "./deal-builder/sections/SpotSection";
+import { ProductsTable }    from "./deal-builder/sections/ProductsTable";
+import { SummarySection }   from "./deal-builder/sections/SummarySection";
+import { ExecutionSection } from "./deal-builder/sections/ExecutionSection";
+import { OpsActionsSection }from "./deal-builder/sections/OpsActionsSection";
 
 import { parseNum, parseQty } from "./deal-builder/utils";
 import type { Customer }      from "./deal-builder/types";
@@ -79,7 +78,7 @@ export default function DealBuilder() {
   const { markPaymentReceived, saveTrackingNumber, isMarkingPayment, isSavingTracking, opsActionError } =
     useOpsActions(getAuthHeaders, s.savedDealId, s.setPaymentReceivedAt);
 
-  // ── Field helper ──────────────────────────────────────────────────────────
+  // ── Field helpers ─────────────────────────────────────────────────────────
   const setCust = (field: keyof Customer) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
       s.setCustomer((c) => ({ ...c, [field]: e.target.value }));
@@ -94,7 +93,7 @@ export default function DealBuilder() {
   // Render
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8">
 
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -133,54 +132,65 @@ export default function DealBuilder() {
         <div className="text-gray-400 text-sm mb-4">Loading customer data…</div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-        {/* Left column */}
-        <div className="lg:col-span-1 space-y-5">
+        {/* ── Left column: identity / setup / logistics ────────────── */}
+        <div className="space-y-5">
+
+          {/* Combined Customer + Billing Address */}
           <CustomerSection
             customer={s.customer}
             setCust={setCust}
             locked={s.isLocked}
             deliveryMethod={s.deliveryMethod}
             fedexLocationSelected={s.fedexLocationSelected}
+            billingLine1={s.billingLine1}   setBillingLine1={s.setBillingLine1}
+            billingLine2={s.billingLine2}   setBillingLine2={s.setBillingLine2}
+            billingCity={s.billingCity}     setBillingCity={s.setBillingCity}
+            billingState={s.billingState}   setBillingState={s.setBillingState}
+            billingZip={s.billingZip}       setBillingZip={s.setBillingZip}
           />
+
+          {/* Deal Type */}
           <DealTypeSection
             dealType={s.dealType}     setDealType={s.setDealType}
             iraType={s.iraType}       setIraType={s.setIraType}
             customer={s.customer}     setCust={setCust}
             locked={s.isLocked}
           />
-          <DeliverySection
-            locked={s.isLocked}
-            deliveryMethod={s.deliveryMethod}   setDeliveryMethod={s.setDeliveryMethod}
-            fedexSearchZip={s.fedexSearchZip}   setFedexSearchZip={s.setFedexSearchZip}
-            fedexResults={s.fedexResults}
-            isFedexSearching={s.isFedexSearching}
-            fedexSearchError={s.fedexSearchError}
-            fedexLocationSelected={s.fedexLocationSelected}
-            setFedexLocationSelected={s.setFedexLocationSelected}
-            setFedexResults={s.setFedexResults}
-            onSearch={searchFedexLocations}
-            onSelectLocation={selectFedexLocation}
-            fedexLocation={s.fedexLocation}         setFedexLocation={s.setFedexLocation}
-            fedexLocationHours={s.fedexLocationHours} setFedexLocationHours={s.setFedexLocationHours}
-            shipToLine1={s.shipToLine1}   setShipToLine1={s.setShipToLine1}
-            shipToCity={s.shipToCity}     setShipToCity={s.setShipToCity}
-            shipToState={s.shipToState}   setShipToState={s.setShipToState}
-            shipToZip={s.shipToZip}       setShipToZip={s.setShipToZip}
-          />
-          <BillingAddressSection
-            billingLine1={s.billingLine1} setBillingLine1={s.setBillingLine1}
-            billingLine2={s.billingLine2} setBillingLine2={s.setBillingLine2}
-            billingCity={s.billingCity}   setBillingCity={s.setBillingCity}
-            billingState={s.billingState} setBillingState={s.setBillingState}
-            billingZip={s.billingZip}     setBillingZip={s.setBillingZip}
-            locked={s.isLocked}
-          />
 
-          {/* Notes */}
+          {/* Delivery — CASH deals only */}
+          {s.dealType === "cash" && (
+            <DeliverySection
+              locked={s.isLocked}
+              deliveryMethod={s.deliveryMethod}     setDeliveryMethod={s.setDeliveryMethod}
+              fedexSearchZip={s.fedexSearchZip}     setFedexSearchZip={s.setFedexSearchZip}
+              fedexResults={s.fedexResults}
+              isFedexSearching={s.isFedexSearching}
+              fedexSearchError={s.fedexSearchError}
+              fedexLocationSelected={s.fedexLocationSelected}
+              setFedexLocationSelected={s.setFedexLocationSelected}
+              setFedexResults={s.setFedexResults}
+              onSearch={searchFedexLocations}
+              onSelectLocation={selectFedexLocation}
+              fedexLocation={s.fedexLocation}         setFedexLocation={s.setFedexLocation}
+              fedexLocationHours={s.fedexLocationHours} setFedexLocationHours={s.setFedexLocationHours}
+              shipToLine1={s.shipToLine1}   setShipToLine1={s.setShipToLine1}
+              shipToCity={s.shipToCity}     setShipToCity={s.setShipToCity}
+              shipToState={s.shipToState}   setShipToState={s.setShipToState}
+              shipToZip={s.shipToZip}       setShipToZip={s.setShipToZip}
+            />
+          )}
+
+          {/*
+           * IRA deals — Depository section placeholder
+           * When dealType === "ira", this area will render a depository
+           * section once that feature is built. For now, nothing is shown.
+           */}
+
+          {/* Notes — bottom of left column */}
           <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Notes</h2>
+            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Notes</h2>
             <textarea
               value={s.notes}
               onChange={(e) => s.setNotes(e.target.value)}
@@ -192,8 +202,8 @@ export default function DealBuilder() {
           </section>
         </div>
 
-        {/* Right column */}
-        <div className="lg:col-span-2 space-y-5">
+        {/* ── Right column: pricing / products / execute ───────────── */}
+        <div className="space-y-5">
           <SpotSection
             spotData={s.spotData}
             isFetchingSpot={isFetchingSpot}
@@ -216,7 +226,6 @@ export default function DealBuilder() {
             goldOz={goldOz}
             silverOz={silverOz}
           />
-
           <ExecutionSection
             locked={s.isLocked}
             termsAcknowledged={s.termsAcknowledged}
