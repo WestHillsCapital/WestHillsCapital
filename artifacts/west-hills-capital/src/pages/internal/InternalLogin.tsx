@@ -31,22 +31,22 @@ export default function InternalLogin() {
   const displayError = localError ?? authError;
 
   return (
-    <div className="min-h-screen bg-[#07101f] flex flex-col items-center justify-center px-4">
+    <div className="min-h-screen bg-[#F5F0E8] flex flex-col items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Logo mark */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 mb-3">
             <span className="text-2xl font-bold tracking-widest text-[#C49A38] uppercase">WHC</span>
-            <span className="text-lg text-gray-400 font-medium">Internal</span>
+            <span className="text-lg text-[#6B7A99] font-medium">Internal</span>
           </div>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-[#8A9BB8]">
             Sign in with your authorized Google account to access the internal portal.
           </p>
         </div>
 
         {/* Card */}
-        <div className="bg-[#0d1728] border border-[#1a2640] rounded-xl p-8 shadow-2xl">
-          <h1 className="text-white text-lg font-semibold mb-6 text-center">
+        <div className="bg-white border border-[#DDD5C4] rounded-xl p-8 shadow-2xl">
+          <h1 className="text-[#0F1C3F] text-lg font-semibold mb-6 text-center">
             Internal Portal Sign-In
           </h1>
 
@@ -61,7 +61,7 @@ export default function InternalLogin() {
           ) : loading ? (
             <div className="flex flex-col items-center gap-3 py-2">
               <div className="w-6 h-6 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-gray-400">Verifying your account…</p>
+              <p className="text-sm text-[#6B7A99]">Verifying your account…</p>
             </div>
           ) : (
             <div ref={containerRef} className="flex justify-center">
@@ -84,7 +84,7 @@ export default function InternalLogin() {
           )}
         </div>
 
-        <p className="mt-6 text-center text-xs text-gray-600">
+        <p className="mt-6 text-center text-xs text-[#9AAAC0]">
           Access restricted to authorized team members only.
         </p>
       </div>

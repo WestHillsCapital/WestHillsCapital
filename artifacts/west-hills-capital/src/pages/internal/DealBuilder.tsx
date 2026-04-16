@@ -100,7 +100,7 @@ export default function DealBuilder() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-semibold text-white">Deal Builder</h1>
+            <h1 className="text-2xl font-semibold text-[#0F1C3F]">Deal Builder</h1>
             {s.isLocked && (
               <span className="text-xs px-2.5 py-1 rounded-full bg-green-900 text-green-300 font-medium">
                 LOCKED — Deal #{s.savedDealId}
@@ -108,7 +108,7 @@ export default function DealBuilder() {
             )}
           </div>
           {s.isLocked && s.lockedAt && (
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-[#8A9BB8] mt-1">
               {s.executionResult ? "Executed" : "Locked"} {new Date(s.lockedAt).toLocaleString()} · Deals ledger updated
             </p>
           )}
@@ -116,13 +116,13 @@ export default function DealBuilder() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate("/internal/leads")}
-            className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5"
+            className="text-sm text-[#6B7A99] hover:text-[#0F1C3F] transition-colors px-3 py-1.5"
           >
             ← Leads
           </button>
           <button
             onClick={() => navigate("/internal/appointments")}
-            className="text-sm text-gray-400 hover:text-white transition-colors px-3 py-1.5"
+            className="text-sm text-[#6B7A99] hover:text-[#0F1C3F] transition-colors px-3 py-1.5"
           >
             Appointments
           </button>
@@ -130,7 +130,7 @@ export default function DealBuilder() {
       </div>
 
       {s.loadingCustomer && (
-        <div className="text-gray-400 text-sm mb-4">Loading customer data…</div>
+        <div className="text-[#6B7A99] text-sm mb-4">Loading customer data…</div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -191,14 +191,14 @@ export default function DealBuilder() {
 
           {/* Notes — bottom of left column */}
           <section className="px-1">
-            <h2 className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-1.5">Notes</h2>
+            <h2 className="text-xs font-medium text-[#9AAAC0] uppercase tracking-wider mb-1.5">Notes</h2>
             <textarea
               value={s.notes}
               onChange={(e) => s.setNotes(e.target.value)}
               disabled={s.isLocked}
               rows={2}
               placeholder="Internal notes…"
-              className="w-full bg-[#0d1728]/60 border border-[#1a2640] rounded px-3 py-2 text-xs text-gray-400 placeholder-gray-700 focus:outline-none focus:border-[#243355] disabled:opacity-60 resize-none"
+              className="w-full bg-white/60 border border-[#DDD5C4] rounded px-3 py-2 text-xs text-[#6B7A99] placeholder-gray-700 focus:outline-none focus:border-[#D4C9B5] disabled:opacity-60 resize-none"
             />
           </section>
         </div>

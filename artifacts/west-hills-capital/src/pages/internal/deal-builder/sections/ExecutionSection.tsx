@@ -27,7 +27,7 @@ export function ExecutionSection({
   // ── Post-lock result card ─────────────────────────────────────────────────
   if (locked) {
     return (
-      <section className={`rounded-lg p-4 ${executionResult ? "bg-green-900/20 border border-green-800/40" : "bg-[#0d1728] border border-[#1a2640]"}`}>
+      <section className={`rounded-lg p-4 ${executionResult ? "bg-green-900/20 border border-green-800/40" : "bg-white border border-[#DDD5C4]"}`}>
         <div className="flex items-start gap-3">
           <div className={`text-xl mt-0.5 ${executionResult ? "text-green-400" : "text-[#C49A38]"}`}>✓</div>
           <div className="flex-1 min-w-0">
@@ -35,7 +35,7 @@ export function ExecutionSection({
               Deal #{savedDealId} — {executionResult ? "Executed" : "Locked"}
             </div>
             {lockedAt && (
-              <div className="text-gray-500 text-xs mt-0.5">
+              <div className="text-[#8A9BB8] text-xs mt-0.5">
                 {new Date(lockedAt).toLocaleString()}
               </div>
             )}
@@ -43,13 +43,13 @@ export function ExecutionSection({
               <div className="mt-3 space-y-1.5 text-xs">
                 {executionResult.invoiceId && (
                   <div className="flex gap-2">
-                    <span className="text-gray-500 w-24 flex-shrink-0">Invoice #</span>
-                    <span className="text-white font-mono">{executionResult.invoiceId}</span>
+                    <span className="text-[#8A9BB8] w-24 flex-shrink-0">Invoice #</span>
+                    <span className="text-[#0F1C3F] font-mono">{executionResult.invoiceId}</span>
                   </div>
                 )}
                 {executionResult.invoiceUrl && (
                   <div className="flex gap-2">
-                    <span className="text-gray-500 w-24 flex-shrink-0">Drive</span>
+                    <span className="text-[#8A9BB8] w-24 flex-shrink-0">Drive</span>
                     <a href={executionResult.invoiceUrl} target="_blank" rel="noreferrer" className="text-blue-400 hover:underline truncate">
                       View PDF ↗
                     </a>
@@ -57,7 +57,7 @@ export function ExecutionSection({
                 )}
                 {executionResult.emailSentTo && (
                   <div className="flex gap-2">
-                    <span className="text-gray-500 w-24 flex-shrink-0">Email sent</span>
+                    <span className="text-[#8A9BB8] w-24 flex-shrink-0">Email sent</span>
                     <span className="text-green-400">{executionResult.emailSentTo}</span>
                   </div>
                 )}
@@ -77,7 +77,7 @@ export function ExecutionSection({
 
   // ── Execution panel (pre-lock) ────────────────────────────────────────────
   return (
-    <section className="bg-[#0d1728] border border-[#1a2640] rounded-lg p-4">
+    <section className="bg-white border border-[#DDD5C4] rounded-lg shadow-sm p-4">
 
       {/* Progress steps while saving */}
       {isSaving ? (
@@ -92,10 +92,10 @@ export function ExecutionSection({
                     ? <span className="text-green-400 text-base">✓</span>
                     : current
                       ? <span className="inline-block w-3.5 h-3.5 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
-                      : <span className="text-gray-700 text-base">○</span>
+                      : <span className="text-[#B0BDD0] text-base">○</span>
                   }
                 </span>
-                <span className={done ? "text-green-400" : current ? "text-[#d4a93e]" : "text-gray-600"}>
+                <span className={done ? "text-green-400" : current ? "text-[#d4a93e]" : "text-[#9AAAC0]"}>
                   {step}
                 </span>
               </div>
@@ -116,9 +116,9 @@ export function ExecutionSection({
               type="checkbox"
               checked={termsAcknowledged}
               onChange={(e) => setTermsAcknowledged(e.target.checked)}
-              className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-[#162038] text-[#C49A38] focus:ring-[#C49A38] flex-shrink-0"
+              className="mt-0.5 h-4 w-4 rounded border-gray-600 bg-[#F9F6F1] text-[#C49A38] focus:ring-[#C49A38] flex-shrink-0"
             />
-            <span className="text-xs text-gray-400 leading-relaxed group-hover:text-gray-300 transition-colors">
+            <span className="text-xs text-[#6B7A99] leading-relaxed group-hover:text-[#374560] transition-colors">
               I confirm this trade was executed verbally on a recorded line and that West Hills Capital's{" "}
               <a
                 href="/terms"
@@ -143,11 +143,11 @@ export function ExecutionSection({
           </button>
 
           {/* Preview invoice — secondary action */}
-          <div className="mt-3 pt-3 border-t border-[#1a2640]">
+          <div className="mt-3 pt-3 border-t border-[#DDD5C4]">
             <button
               onClick={onPreview}
               disabled={isGeneratingPreview}
-              className="w-full py-2 rounded text-sm font-medium bg-[#162038] hover:bg-[#1e2d4a] text-gray-400 hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="w-full py-2 rounded text-sm font-medium bg-[#F9F6F1] hover:bg-[#EDE8DF] text-[#6B7A99] hover:text-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {isGeneratingPreview ? "Generating PDF…" : "Preview Invoice PDF"}
             </button>

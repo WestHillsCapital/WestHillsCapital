@@ -27,10 +27,10 @@ function statusBadge(status: string) {
     new:       "bg-blue-900 text-blue-300",
     contacted: "bg-yellow-900 text-yellow-300",
     qualified: "bg-green-900 text-green-300",
-    closed:    "bg-[#162038] text-gray-400",
+    closed:    "bg-[#F9F6F1] text-[#6B7A99]",
   };
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] ?? "bg-[#162038] text-gray-300"}`}>
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] ?? "bg-[#F9F6F1] text-[#374560]"}`}>
       {status}
     </span>
   );
@@ -59,15 +59,15 @@ export default function InternalLeads() {
     <div className="max-w-screen-xl mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Leads</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-semibold text-[#0F1C3F]">Leads</h1>
+          <p className="text-sm text-[#8A9BB8] mt-1">
             {leads.length} lead{leads.length !== 1 ? "s" : ""} · click a row or use Open Deal
           </p>
         </div>
       </div>
 
       {isLoading && (
-        <div className="text-gray-400 text-sm py-12 text-center">Loading leads…</div>
+        <div className="text-[#6B7A99] text-sm py-12 text-center">Loading leads…</div>
       )}
 
       {error && (
@@ -77,16 +77,16 @@ export default function InternalLeads() {
       )}
 
       {!isLoading && !error && leads.length === 0 && (
-        <div className="text-gray-500 text-sm py-12 text-center">No leads found.</div>
+        <div className="text-[#8A9BB8] text-sm py-12 text-center">No leads found.</div>
       )}
 
       {leads.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-[#1a2640]">
+        <div className="overflow-x-auto rounded-lg border border-[#DDD5C4] shadow-sm bg-white">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#1a2640] bg-[#0d1728]">
+              <tr className="border-b border-[#DDD5C4] bg-white">
                 {["ID", "Name", "Email", "Phone", "State", "Structure", "Status", "Created", ""].map((h) => (
-                  <th key={h} className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                  <th key={h} className="text-left px-3 py-2.5 text-xs font-medium text-[#6B7A99] uppercase tracking-wide whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -96,20 +96,20 @@ export default function InternalLeads() {
               {leads.map((lead) => (
                 <tr
                   key={lead.id}
-                  className="border-b border-[#1a2640]/50 hover:bg-[#0d1728]/60 transition-colors"
+                  className="border-b border-[#DDD5C4]/50 hover:bg-[#F5F0E8]/80 transition-colors"
                 >
-                  <td className="px-3 py-2.5 text-gray-400 font-mono text-xs">{lead.id}</td>
-                  <td className="px-3 py-2.5 text-white font-medium whitespace-nowrap">
+                  <td className="px-3 py-2.5 text-[#6B7A99] font-mono text-xs">{lead.id}</td>
+                  <td className="px-3 py-2.5 text-[#0F1C3F] font-medium whitespace-nowrap">
                     {lead.first_name} {lead.last_name}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-300">{lead.email}</td>
-                  <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap">{lead.phone ?? "—"}</td>
-                  <td className="px-3 py-2.5 text-gray-400">{lead.state ?? "—"}</td>
-                  <td className="px-3 py-2.5 text-gray-400 max-w-[140px] truncate">
+                  <td className="px-3 py-2.5 text-[#374560]">{lead.email}</td>
+                  <td className="px-3 py-2.5 text-[#6B7A99] whitespace-nowrap">{lead.phone ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-[#6B7A99]">{lead.state ?? "—"}</td>
+                  <td className="px-3 py-2.5 text-[#6B7A99] max-w-[140px] truncate">
                     {lead.allocation_type ?? "—"}
                   </td>
                   <td className="px-3 py-2.5">{statusBadge(lead.status)}</td>
-                  <td className="px-3 py-2.5 text-gray-500 text-xs whitespace-nowrap">
+                  <td className="px-3 py-2.5 text-[#8A9BB8] text-xs whitespace-nowrap">
                     {new Date(lead.created_at).toLocaleDateString()}
                   </td>
                   <td className="px-3 py-2.5">

@@ -16,14 +16,14 @@ export function InternalLayout({ children }: InternalLayoutProps) {
   ];
 
   return (
-    <div className="min-h-screen bg-[#07101f] text-white flex flex-col">
+    <div className="min-h-screen bg-[#F5F0E8] text-[#0F1C3F] flex flex-col">
       {/* Top nav bar */}
-      <header className="bg-[#0d1728]" style={{ borderBottom: "1px solid #1a2640", boxShadow: "0 1px 0 0 rgba(196,154,56,0.12)" }}>
+      <header className="bg-white" style={{ borderBottom: "1px solid #DDD5C4", boxShadow: "0 1px 3px 0 rgba(15,28,63,0.06)" }}>
         <div className="max-w-screen-xl mx-auto px-4 h-14 flex items-center gap-6">
           <Link href="/internal/leads" className="flex items-center gap-2.5 shrink-0">
             <span className="font-serif text-base font-semibold tracking-widest text-[#C49A38] uppercase leading-none">WHC</span>
             <span className="w-px h-4 bg-[#C49A38]/25" />
-            <span className="text-xs text-[#8fa3c0] font-medium tracking-wide uppercase">Internal</span>
+            <span className="text-xs text-[#4A5B7A] font-medium tracking-wide uppercase">Internal</span>
           </Link>
 
           <nav className="flex items-center gap-0.5">
@@ -37,7 +37,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
                     "px-3 py-1.5 rounded text-sm font-medium transition-colors",
                     active
                       ? "bg-[#C49A38]/15 text-[#C49A38]"
-                      : "text-[#8fa3c0] hover:text-white hover:bg-[#162038]",
+                      : "text-[#4A5B7A] hover:text-[#0F1C3F] hover:bg-[#F9F6F1]",
                   ].join(" ")}
                 >
                   {label}
@@ -49,7 +49,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
           <div className="ml-auto flex items-center gap-4">
             <a
               href="/"
-              className="text-xs text-[#4a6080] hover:text-[#8fa3c0] transition-colors"
+              className="text-xs text-[#8A9BB8] hover:text-[#4A5B7A] transition-colors"
             >
               ← Public site
             </a>
@@ -60,7 +60,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
                   <img
                     src={user.picture}
                     alt={user.name}
-                    className="w-7 h-7 rounded-full border border-[#243355] object-cover"
+                    className="w-7 h-7 rounded-full border border-[#D4C9B5] object-cover"
                     referrerPolicy="no-referrer"
                   />
                 ) : (
@@ -68,12 +68,12 @@ export function InternalLayout({ children }: InternalLayoutProps) {
                     {user.name.charAt(0).toUpperCase()}
                   </div>
                 )}
-                <span className="text-xs text-[#8fa3c0] hidden sm:block max-w-[140px] truncate">
+                <span className="text-xs text-[#4A5B7A] hidden sm:block max-w-[140px] truncate">
                   {user.name}
                 </span>
                 <button
                   onClick={signOut}
-                  className="text-xs text-[#4a6080] hover:text-red-400 transition-colors px-2 py-1 rounded hover:bg-red-500/10"
+                  className="text-xs text-[#8A9BB8] hover:text-red-400 transition-colors px-2 py-1 rounded hover:bg-red-500/10"
                 >
                   Sign out
                 </button>

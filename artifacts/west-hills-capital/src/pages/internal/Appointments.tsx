@@ -29,11 +29,11 @@ function statusBadge(status: string) {
   const colors: Record<string, string> = {
     confirmed: "bg-green-900 text-green-300",
     cancelled: "bg-red-900 text-red-300",
-    completed: "bg-[#162038] text-gray-400",
+    completed: "bg-[#F9F6F1] text-[#6B7A99]",
     no_show:   "bg-yellow-900 text-yellow-300",
   };
   return (
-    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] ?? "bg-[#162038] text-gray-300"}`}>
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors[status] ?? "bg-[#F9F6F1] text-[#374560]"}`}>
       {status}
     </span>
   );
@@ -62,15 +62,15 @@ export default function InternalAppointments() {
     <div className="max-w-screen-xl mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-white">Appointments</h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <h1 className="text-2xl font-semibold text-[#0F1C3F]">Appointments</h1>
+          <p className="text-sm text-[#8A9BB8] mt-1">
             {appts.length} appointment{appts.length !== 1 ? "s" : ""} · use Open Deal to start a deal for any contact
           </p>
         </div>
       </div>
 
       {isLoading && (
-        <div className="text-gray-400 text-sm py-12 text-center">Loading appointments…</div>
+        <div className="text-[#6B7A99] text-sm py-12 text-center">Loading appointments…</div>
       )}
 
       {error && (
@@ -80,16 +80,16 @@ export default function InternalAppointments() {
       )}
 
       {!isLoading && !error && appts.length === 0 && (
-        <div className="text-gray-500 text-sm py-12 text-center">No appointments found.</div>
+        <div className="text-[#8A9BB8] text-sm py-12 text-center">No appointments found.</div>
       )}
 
       {appts.length > 0 && (
-        <div className="overflow-x-auto rounded-lg border border-[#1a2640]">
+        <div className="overflow-x-auto rounded-lg border border-[#DDD5C4] shadow-sm bg-white">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-[#1a2640] bg-[#0d1728]">
+              <tr className="border-b border-[#DDD5C4] bg-white">
                 {["Confirmation", "Name", "Email", "Phone", "State", "Scheduled", "Structure", "Status", "Lead", ""].map((h) => (
-                  <th key={h} className="text-left px-3 py-2.5 text-xs font-medium text-gray-400 uppercase tracking-wide whitespace-nowrap">
+                  <th key={h} className="text-left px-3 py-2.5 text-xs font-medium text-[#6B7A99] uppercase tracking-wide whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -99,23 +99,23 @@ export default function InternalAppointments() {
               {appts.map((appt) => (
                 <tr
                   key={appt.id}
-                  className="border-b border-[#1a2640]/50 hover:bg-[#0d1728]/60 transition-colors"
+                  className="border-b border-[#DDD5C4]/50 hover:bg-[#F5F0E8]/80 transition-colors"
                 >
                   <td className="px-3 py-2.5 text-[#C49A38] font-mono text-xs">{appt.confirmation_id}</td>
-                  <td className="px-3 py-2.5 text-white font-medium whitespace-nowrap">
+                  <td className="px-3 py-2.5 text-[#0F1C3F] font-medium whitespace-nowrap">
                     {appt.first_name} {appt.last_name}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-300">{appt.email}</td>
-                  <td className="px-3 py-2.5 text-gray-400 whitespace-nowrap">{appt.phone}</td>
-                  <td className="px-3 py-2.5 text-gray-400">{appt.state}</td>
-                  <td className="px-3 py-2.5 text-gray-300 whitespace-nowrap">
+                  <td className="px-3 py-2.5 text-[#374560]">{appt.email}</td>
+                  <td className="px-3 py-2.5 text-[#6B7A99] whitespace-nowrap">{appt.phone}</td>
+                  <td className="px-3 py-2.5 text-[#6B7A99]">{appt.state}</td>
+                  <td className="px-3 py-2.5 text-[#374560] whitespace-nowrap">
                     {appt.day_label} {appt.time_label}
                   </td>
-                  <td className="px-3 py-2.5 text-gray-400 max-w-[120px] truncate">
+                  <td className="px-3 py-2.5 text-[#6B7A99] max-w-[120px] truncate">
                     {appt.allocation_type ?? "—"}
                   </td>
                   <td className="px-3 py-2.5">{statusBadge(appt.status)}</td>
-                  <td className="px-3 py-2.5 text-gray-500 text-xs">
+                  <td className="px-3 py-2.5 text-[#8A9BB8] text-xs">
                     {appt.lead_id ?? "—"}
                   </td>
                   <td className="px-3 py-2.5">

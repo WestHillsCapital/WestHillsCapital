@@ -13,9 +13,9 @@ interface Props {
 
 export function DealTypeSection({ dealType, setDealType, iraType, setIraType, customer, setCust, locked }: Props) {
   return (
-    <section className="bg-[#0d1728] border border-[#1a2640] rounded-lg p-5">
-      <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Deal Type</h2>
-      <div className="flex rounded overflow-hidden border border-[#243355]">
+    <section className="bg-white border border-[#DDD5C4] rounded-lg shadow-sm p-5">
+      <h2 className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wider mb-4">Deal Type</h2>
+      <div className="flex rounded overflow-hidden border border-[#D4C9B5]">
         {(["cash", "ira"] as const).map((t) => (
           <button
             key={t}
@@ -25,7 +25,7 @@ export function DealTypeSection({ dealType, setDealType, iraType, setIraType, cu
               "flex-1 py-2 text-sm font-medium transition-colors",
               dealType === t
                 ? "bg-[#C49A38] text-black"
-                : "bg-[#162038] text-gray-400 hover:text-white",
+                : "bg-[#F9F6F1] text-[#6B7A99] hover:text-[#0F1C3F]",
               locked ? "opacity-60 cursor-default" : "",
             ].join(" ")}
           >
