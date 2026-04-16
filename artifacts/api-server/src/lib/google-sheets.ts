@@ -6,6 +6,13 @@ import { logger } from "./logger";
 const SPREADSHEET_ID = process.env.GOOGLE_SHEETS_SPREADSHEET_ID ?? "";
 const FRONTEND_URL   = (process.env.FRONTEND_URL ?? "").replace(/\/$/, "");
 
+// Separate spreadsheets set in Railway — fall back to master sheet if absent.
+const DEAL_BUILDER_SPREADSHEET_ID =
+  (process.env.GOOGLE_DEAL_BUILDER_SHEET_ID ?? "").trim() || SPREADSHEET_ID;
+
+const OPS_SPREADSHEET_ID =
+  (process.env.GOOGLE_DEALS_OPS_SHEET_ID ?? "").trim() || SPREADSHEET_ID;
+
 const TABS = {
   appointments:    "appointments",
   leads:           "leads",
@@ -271,16 +278,19 @@ function colLetter(col: number): string {
 async function ensureTabHeaders(
   sheets: SheetsClient,
   tabName: string,
-  allHeaders: readonly string[]
+  allHeaders: readonly string[],
+  spreadsheetIdOverride?: string
 ): Promise<{ nameToCol: Map<string, number>; sheetId: number }> {
+  const sid = spreadsheetIdOverride || SPREADSHEET_ID;
+
   // 1. Create the tab if it doesn't exist; always capture sheetId
-  const meta = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID });
+  const meta = await sheets.spreadsheets.get({ spreadsheetId: sid });
   let sheetMeta = meta.data.sheets?.find(
     (s) => s.properties?.title === tabName
   );
   if (!sheetMeta) {
     const addResp = await sheets.spreadsheets.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
+      spreadsheetId: sid,
       requestBody: {
         requests: [{ addSheet: { properties: { title: tabName } } }],
       },
@@ -293,7 +303,7 @@ async function ensureTabHeaders(
 
   // 2. Read row 1
   const row1Resp = await sheets.spreadsheets.values.get({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId: sid,
     range: `${tabName}!1:1`,
   });
   const existingRow: string[] = (row1Resp.data.values?.[0] ?? []) as string[];
@@ -312,7 +322,7 @@ async function ensureTabHeaders(
     const startLetter = colLetter(startCol);
     const endLetter = colLetter(startCol + missing.length - 1);
     await sheets.spreadsheets.values.update({
-      spreadsheetId: SPREADSHEET_ID,
+      spreadsheetId: sid,
       range: `${tabName}!${startLetter}1:${endLetter}1`,
       valueInputOption: "RAW",
       requestBody: { values: [missing] },
@@ -1142,11 +1152,11 @@ function fmtDate(iso: string): string {
  * auto-generates from the sheet's existing formulas.
  *
  * Tab: "Deal Builder"  (spaces → must be quoted in A1 notation as 'Deal Builder')
- * Uses the master spreadsheet (GOOGLE_SHEETS_SPREADSHEET_ID).
+ * Uses GOOGLE_DEAL_BUILDER_SHEET_ID if set, otherwise falls back to GOOGLE_SHEETS_SPREADSHEET_ID.
  */
 export async function writeDealToBuilderSheet(deal: DealPayload): Promise<void> {
-  if (!SPREADSHEET_ID) {
-    logger.warn("[Sheets] GOOGLE_SHEETS_SPREADSHEET_ID not set — skipping Deal Builder write");
+  if (!DEAL_BUILDER_SPREADSHEET_ID) {
+    logger.warn("[Sheets] No Deal Builder spreadsheet ID set — skipping Deal Builder write");
     return;
   }
 
@@ -1219,7 +1229,7 @@ export async function writeDealToBuilderSheet(deal: DealPayload): Promise<void> 
   }
 
   await sheets.spreadsheets.values.batchUpdate({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId: DEAL_BUILDER_SPREADSHEET_ID,
     requestBody: {
       valueInputOption: "USER_ENTERED",
       data,
@@ -1244,8 +1254,8 @@ export async function writeDealToBuilderSheet(deal: DealPayload): Promise<void> 
  * will append any headers that are missing from row 1 of the Deals tab.
  */
 export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
-  if (!SPREADSHEET_ID) {
-    logger.warn("[Sheets] GOOGLE_SHEETS_SPREADSHEET_ID not set — skipping Deals write");
+  if (!OPS_SPREADSHEET_ID) {
+    logger.warn("[Sheets] No Deals ops spreadsheet ID set — skipping Deals write");
     return;
   }
 
@@ -1256,7 +1266,7 @@ export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
   }
 
   // Resolve actual column positions from the live sheet header row.
-  const { nameToCol } = await ensureTabHeaders(sheets, "Deals", DEALS_ALL_HEADERS);
+  const { nameToCol } = await ensureTabHeaders(sheets, "Deals", DEALS_ALL_HEADERS, OPS_SPREADSHEET_ID);
 
   const clientName = `${deal.firstName} ${deal.lastName}`;
 
@@ -1337,7 +1347,7 @@ export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
   }
 
   await sheets.spreadsheets.values.append({
-    spreadsheetId: SPREADSHEET_ID,
+    spreadsheetId: OPS_SPREADSHEET_ID,
     range:             "Deals!A:A",
     valueInputOption:  "USER_ENTERED",
     insertDataOption:  "INSERT_ROWS",
@@ -1395,14 +1405,14 @@ export async function syncDealOpsStatus(deal: {
   trackingNumber?:    string | null;
   orderPlacedAt?:     Date | null;
 }): Promise<void> {
-  if (!SPREADSHEET_ID) return;
+  if (!OPS_SPREADSHEET_ID) return;
 
   const sheets = getAnySheetsClient();
   if (!sheets) return;
 
   try {
     // Ensure columns exist and get their positions
-    const { nameToCol } = await ensureTabHeaders(sheets, "Deals", DEALS_ALL_HEADERS);
+    const { nameToCol } = await ensureTabHeaders(sheets, "Deals", DEALS_ALL_HEADERS, OPS_SPREADSHEET_ID);
 
     const dealIdCol    = nameToCol.get("Deal ID");
     const statusCol    = nameToCol.get("Ops Status");
@@ -1417,7 +1427,7 @@ export async function syncDealOpsStatus(deal: {
     // Find the row for this deal
     const keyColLetter = colLetter(dealIdCol);
     const colResp = await sheets.spreadsheets.values.get({
-      spreadsheetId: SPREADSHEET_ID,
+      spreadsheetId: OPS_SPREADSHEET_ID,
       range: `Deals!${keyColLetter}:${keyColLetter}`,
     });
     const colRows = colResp.data.values ?? [];
@@ -1454,7 +1464,7 @@ export async function syncDealOpsStatus(deal: {
     }
 
     await sheets.spreadsheets.values.batchUpdate({
-      spreadsheetId: SPREADSHEET_ID,
+      spreadsheetId: OPS_SPREADSHEET_ID,
       requestBody: { valueInputOption: "RAW", data },
     });
 

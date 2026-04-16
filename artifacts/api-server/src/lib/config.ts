@@ -15,17 +15,19 @@ const REQUIRED_VARS = ["PORT", "DATABASE_URL"] as const;
 
 // ── Optional — absence degrades a specific feature but server still starts ────
 const OPTIONAL_VARS: Record<string, string> = {
-  GOOGLE_SERVICE_ACCOUNT_KEY:  "Google Sheets sync disabled",
-  GOOGLE_SHEETS_SPREADSHEET_ID: "Master Sheet sync disabled",
-  DILLON_GAGE_API_KEY:         "Live spot pricing disabled (will 404)",
-  GOOGLE_BOOKING_CALENDAR_ID:  "Appointment calendar events disabled",
-  GOOGLE_BLOCKER_CALENDAR_IDS: "Blocker calendar sync disabled",
-  RESEND_API_KEY:              "Transactional email disabled",
-  GOOGLE_CLIENT_ID:            "Internal portal Google auth disabled",
-  INTERNAL_ALLOWED_EMAILS:     "All internal users will be blocked after sign-in",
-  FRONTEND_URL:                "Open Deal Builder links in Sheets disabled",
-  ADMIN_EMAIL:                 "Admin notification emails disabled",
-  CORS_ALLOWED_ORIGINS:        "CORS open to all origins (set to restrict to production domain)",
+  GOOGLE_SERVICE_ACCOUNT_KEY:   "Google Sheets sync disabled",
+  GOOGLE_SHEETS_SPREADSHEET_ID: "Master CRM sheet sync disabled",
+  GOOGLE_DEAL_BUILDER_SHEET_ID: "Deal Builder sheet write disabled (falls back to master sheet if absent)",
+  GOOGLE_DEALS_OPS_SHEET_ID:    "Deals ops sheet write disabled (falls back to master sheet if absent)",
+  DILLON_GAGE_API_KEY:          "Live spot pricing disabled (will 404)",
+  GOOGLE_BOOKING_CALENDAR_ID:   "Appointment calendar events disabled",
+  GOOGLE_BLOCKER_CALENDAR_IDS:  "Blocker calendar sync disabled",
+  RESEND_API_KEY:               "Transactional email disabled",
+  GOOGLE_CLIENT_ID:             "Internal portal Google auth disabled",
+  INTERNAL_ALLOWED_EMAILS:      "All internal users will be blocked after sign-in",
+  FRONTEND_URL:                 "Open Deal Builder links in Sheets disabled",
+  ADMIN_EMAIL:                  "Admin notification emails disabled",
+  CORS_ALLOWED_ORIGINS:         "CORS open to all origins (set to restrict to production domain)",
   GOOGLE_DRIVE_DEALS_FOLDER_ID: "Deal invoice PDF Drive upload disabled",
 };
 
