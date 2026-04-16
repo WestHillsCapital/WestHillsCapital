@@ -4,20 +4,21 @@ import type { FedExLocationResult } from "../types";
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 interface FedexSearchParams {
-  fedexSearchZip:         string;
-  deliveryMethod:         string;
-  fedexLocationSelected:  boolean;
-  isFedexSearching:       boolean;
-  getAuthHeaders:         () => HeadersInit;
-  setFedexResults:        (r: FedExLocationResult[]) => void;
-  setFedexSearchError:    (e: string | null) => void;
-  setIsFedexSearching:    (b: boolean) => void;
-  setFedexLocation:       (s: string) => void;
+  fedexSearchZip:           string;
+  deliveryMethod:           string;
+  fedexLocationSelected:    boolean;
+  isFedexSearching:         boolean;
+  getAuthHeaders:           () => HeadersInit;
+  setFedexResults:          (r: FedExLocationResult[]) => void;
+  setFedexSearchError:      (e: string | null) => void;
+  setIsFedexSearching:      (b: boolean) => void;
+  setFedexLocation:         (s: string) => void;
+  setFedexLocationHours:    (s: string) => void;
   setFedexLocationSelected: (b: boolean) => void;
-  setShipToLine1:         (s: string) => void;
-  setShipToCity:          (s: string) => void;
-  setShipToState:         (s: string) => void;
-  setShipToZip:           (s: string) => void;
+  setShipToLine1:           (s: string) => void;
+  setShipToCity:            (s: string) => void;
+  setShipToState:           (s: string) => void;
+  setShipToZip:             (s: string) => void;
 }
 
 export function useFedexSearch({
@@ -30,6 +31,7 @@ export function useFedexSearch({
   setFedexSearchError,
   setIsFedexSearching,
   setFedexLocation,
+  setFedexLocationHours,
   setFedexLocationSelected,
   setShipToLine1,
   setShipToCity,
@@ -66,14 +68,15 @@ export function useFedexSearch({
 
   const selectFedexLocation = useCallback((loc: FedExLocationResult) => {
     setFedexLocation(loc.name);
+    setFedexLocationHours(loc.hours || "");
     setShipToLine1(loc.address);
     setShipToCity(loc.city);
     setShipToState(loc.state);
     setShipToZip(loc.zip);
     setFedexResults([]);
     setFedexLocationSelected(true);
-  }, [setFedexLocation, setShipToLine1, setShipToCity, setShipToState, setShipToZip,
-      setFedexResults, setFedexLocationSelected]);
+  }, [setFedexLocation, setFedexLocationHours, setShipToLine1, setShipToCity,
+      setShipToState, setShipToZip, setFedexResults, setFedexLocationSelected]);
 
   // Auto-fire search when fedexSearchZip becomes a valid 5-digit code
   useEffect(() => {

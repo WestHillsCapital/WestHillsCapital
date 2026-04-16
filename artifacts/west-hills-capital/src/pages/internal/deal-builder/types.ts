@@ -21,6 +21,7 @@ export interface FedExLocationResult {
   zip:          string;
   distance:     string;
   phone:        string;
+  hours:        string;
 }
 
 export interface Customer {

@@ -3,7 +3,6 @@ import { EXECUTION_STEPS } from "../hooks/useDealExecution";
 
 interface Props {
   locked:               boolean;
-  // pre-lock
   termsAcknowledged:    boolean;
   setTermsAcknowledged: (b: boolean) => void;
   isSaving:             boolean;
@@ -13,7 +12,6 @@ interface Props {
   onLock:               () => void;
   onPreview:            () => void;
   isGeneratingPreview:  boolean;
-  // post-lock
   savedDealId:          number | null;
   lockedAt:             string | null;
   executionResult:      ExecutionResult | null;
@@ -29,7 +27,7 @@ export function ExecutionSection({
   // ── Post-lock result card ─────────────────────────────────────────────────
   if (locked) {
     return (
-      <section className={`rounded-lg p-5 ${executionResult ? "bg-green-900/20 border border-green-800/40" : "bg-gray-900 border border-gray-800"}`}>
+      <section className={`rounded-lg p-4 ${executionResult ? "bg-green-900/20 border border-green-800/40" : "bg-gray-900 border border-gray-800"}`}>
         <div className="flex items-start gap-3">
           <div className={`text-xl mt-0.5 ${executionResult ? "text-green-400" : "text-amber-400"}`}>✓</div>
           <div className="flex-1 min-w-0">
@@ -37,7 +35,7 @@ export function ExecutionSection({
               Deal #{savedDealId} — {executionResult ? "Executed" : "Locked"}
             </div>
             {lockedAt && (
-              <div className="text-gray-500 text-xs mt-1">
+              <div className="text-gray-500 text-xs mt-0.5">
                 {new Date(lockedAt).toLocaleString()}
               </div>
             )}
@@ -79,7 +77,7 @@ export function ExecutionSection({
 
   // ── Execution panel (pre-lock) ────────────────────────────────────────────
   return (
-    <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
+    <section className="bg-gray-900 border border-gray-800 rounded-lg p-4">
 
       {/* Progress steps while saving */}
       {isSaving ? (
@@ -107,13 +105,13 @@ export function ExecutionSection({
       ) : (
         <>
           {saveError && (
-            <div className="mb-4 text-sm text-red-400 bg-red-900/20 border border-red-800/30 rounded px-3 py-2">
+            <div className="mb-3 text-sm text-red-400 bg-red-900/20 border border-red-800/30 rounded px-3 py-2">
               {saveError}
             </div>
           )}
 
           {/* Terms acknowledgment */}
-          <label className="flex items-start gap-3 cursor-pointer group mb-4">
+          <label className="flex items-start gap-3 cursor-pointer group mb-3">
             <input
               type="checkbox"
               checked={termsAcknowledged}
@@ -144,19 +142,8 @@ export function ExecutionSection({
             Lock &amp; Execute
           </button>
 
-          {!termsAcknowledged && (
-            <p className="text-xs text-amber-600/80 mt-2 text-center">
-              Acknowledge terms above to enable execution
-            </p>
-          )}
-          {termsAcknowledged && (
-            <p className="text-xs text-gray-600 mt-2 text-center">
-              Freezes pricing · places DG order · generates invoice · emails client
-            </p>
-          )}
-
           {/* Preview invoice — secondary action */}
-          <div className="border-t border-gray-800 mt-4 pt-4">
+          <div className="mt-3 pt-3 border-t border-gray-800">
             <button
               onClick={onPreview}
               disabled={isGeneratingPreview}
@@ -164,9 +151,6 @@ export function ExecutionSection({
             >
               {isGeneratingPreview ? "Generating PDF…" : "Preview Invoice PDF"}
             </button>
-            <p className="text-xs text-gray-700 mt-1.5 text-center">
-              Downloads draft invoice — no trade executed
-            </p>
           </div>
         </>
       )}

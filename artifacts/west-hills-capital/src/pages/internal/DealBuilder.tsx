@@ -51,20 +51,21 @@ export default function DealBuilder() {
   );
 
   const { searchFedexLocations, selectFedexLocation } = useFedexSearch({
-    fedexSearchZip:          s.fedexSearchZip,
-    deliveryMethod:          s.deliveryMethod,
-    fedexLocationSelected:   s.fedexLocationSelected,
-    isFedexSearching:        s.isFedexSearching,
+    fedexSearchZip:            s.fedexSearchZip,
+    deliveryMethod:            s.deliveryMethod,
+    fedexLocationSelected:     s.fedexLocationSelected,
+    isFedexSearching:          s.isFedexSearching,
     getAuthHeaders,
-    setFedexResults:         s.setFedexResults,
-    setFedexSearchError:     s.setFedexSearchError,
-    setIsFedexSearching:     s.setIsFedexSearching,
-    setFedexLocation:        s.setFedexLocation,
-    setFedexLocationSelected:s.setFedexLocationSelected,
-    setShipToLine1:          s.setShipToLine1,
-    setShipToCity:           s.setShipToCity,
-    setShipToState:          s.setShipToState,
-    setShipToZip:            s.setShipToZip,
+    setFedexResults:           s.setFedexResults,
+    setFedexSearchError:       s.setFedexSearchError,
+    setIsFedexSearching:       s.setIsFedexSearching,
+    setFedexLocation:          s.setFedexLocation,
+    setFedexLocationHours:     s.setFedexLocationHours,
+    setFedexLocationSelected:  s.setFedexLocationSelected,
+    setShipToLine1:            s.setShipToLine1,
+    setShipToCity:             s.setShipToCity,
+    setShipToState:            s.setShipToState,
+    setShipToZip:              s.setShipToZip,
   });
 
   const { lockDeal, isSaving, executionStep, saveError } = useDealExecution(
@@ -189,15 +190,15 @@ export default function DealBuilder() {
            */}
 
           {/* Notes — bottom of left column */}
-          <section className="bg-gray-900 border border-gray-800 rounded-lg p-5">
-            <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Notes</h2>
+          <section className="px-1">
+            <h2 className="text-xs font-medium text-gray-600 uppercase tracking-wider mb-1.5">Notes</h2>
             <textarea
               value={s.notes}
               onChange={(e) => s.setNotes(e.target.value)}
               disabled={s.isLocked}
-              rows={3}
-              placeholder="Internal notes for this deal…"
-              className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-amber-500 disabled:opacity-60 resize-none"
+              rows={2}
+              placeholder="Internal notes…"
+              className="w-full bg-gray-900/60 border border-gray-800 rounded px-3 py-2 text-xs text-gray-400 placeholder-gray-700 focus:outline-none focus:border-gray-600 disabled:opacity-60 resize-none"
             />
           </section>
         </div>
@@ -219,6 +220,8 @@ export default function DealBuilder() {
             silverOz={silverOz}
             shipping={shipping}
           />
+          {/* Summary + Execution — unified final block */}
+          <div className="space-y-1.5">
           <SummarySection
             subtotal={subtotal}
             shipping={shipping}
@@ -241,6 +244,8 @@ export default function DealBuilder() {
             lockedAt={s.lockedAt}
             executionResult={s.executionResult}
           />
+
+          </div>{/* end Summary+Execution block */}
 
           {s.isLocked && s.savedDealId && (
             <OpsActionsSection

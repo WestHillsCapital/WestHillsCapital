@@ -60,6 +60,7 @@ export interface FedExLocation {
   zip:          string;
   distance:     string;
   phone:        string;
+  hours:        string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -104,6 +105,71 @@ function addressCandidates(detail: Record<string, unknown>): Record<string, unkn
   list.push(detail);
 
   return list;
+}
+
+/** Format a 24h "HH:MM" string as "8am" / "8:30am" / "8pm" etc. */
+function formatTime(t: string): string {
+  const cleaned = t.trim();
+  if (/[ap]m/i.test(cleaned)) return cleaned;
+  const parts = cleaned.replace(/[^\d:]/g, "").split(":");
+  const h = parseInt(parts[0] ?? "0", 10);
+  const m = parseInt(parts[1] ?? "0", 10);
+  if (isNaN(h)) return t;
+  const suffix = h >= 12 ? "pm" : "am";
+  const h12    = h === 0 ? 12 : h > 12 ? h - 12 : h;
+  return m ? `${h12}:${String(m).padStart(2, "0")}${suffix}` : `${h12}${suffix}`;
+}
+
+/** Extract a compact hours string from a locationDetail object.
+ *  Returns "" when no usable hours data is present. */
+function extractHours(detail: Record<string, unknown>): string {
+  const hoursWrapper =
+    pick<Record<string, unknown>>(detail, "hoursOfOperation") ??
+    pick<Record<string, unknown>>(detail, "operationalSchedule") ??
+    pick<Record<string, unknown>>(detail, "storeHours");
+  if (!hoursWrapper) return "";
+
+  const schedule = (
+    pick<unknown[]>(hoursWrapper, "hoursOfOperation", "operationalSchedule", "dayHours") ??
+    (Array.isArray(hoursWrapper) ? hoursWrapper : [])
+  ) as Array<Record<string, unknown>>;
+  if (!schedule.length) return "";
+
+  const ORDER = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
+  const LABEL: Record<string, string> = {
+    MON: "Mon", TUE: "Tue", WED: "Wed", THU: "Thu",
+    FRI: "Fri", SAT: "Sat", SUN: "Sun",
+  };
+
+  const map: Record<string, string> = {};
+  for (const slot of schedule) {
+    const day   = pickStr(slot, "dayOfWeek", "day").toUpperCase().slice(0, 3);
+    const begin = pickStr(slot, "timeBegin", "openTime", "opens", "begin");
+    const end   = pickStr(slot, "timeEnd",   "closeTime", "closes", "end");
+    if (day && begin && end && ORDER.includes(day as typeof ORDER[number])) {
+      map[day] = `${formatTime(begin)}–${formatTime(end)}`;
+    }
+  }
+
+  if (!Object.keys(map).length) return "";
+
+  const parts: string[] = [];
+  const wkHours = ["MON","TUE","WED","THU","FRI"].map((d) => map[d]).filter(Boolean);
+  const allSameWk = wkHours.length === 5 && wkHours.every((h) => h === wkHours[0]);
+  if (allSameWk) {
+    parts.push(`Mon–Fri ${wkHours[0]}`);
+  } else {
+    ["MON","TUE","WED","THU","FRI"].forEach((d) => {
+      if (map[d]) parts.push(`${LABEL[d]} ${map[d]}`);
+    });
+  }
+  const sat = map["SAT"], sun = map["SUN"];
+  if (sat && sun && sat === sun) parts.push(`Sat–Sun ${sat}`);
+  else {
+    if (sat) parts.push(`Sat ${sat}`);
+    if (sun) parts.push(`Sun ${sun}`);
+  }
+  return parts.join(" · ");
 }
 
 function parseStreet(addr: Record<string, unknown>): string {
@@ -257,6 +323,9 @@ export async function searchFedExLocations(postalCode: string): Promise<FedExLoc
     const contact = pick<Record<string, unknown>>(lca, "contact") ?? {};
     const phone   = pickStr(contact, "phoneNumber", "phone");
 
+    // Hours — try on detail first, then on the raw list item
+    const hours = extractHours(detail) || extractHours(loc);
+
     if (addr) {
       results.push({
         name,
@@ -267,6 +336,7 @@ export async function searchFedExLocations(postalCode: string): Promise<FedExLoc
         zip:          addr.zip,
         distance,
         phone,
+        hours,
       });
     } else {
       // Graceful degradation: no address data found anywhere in this entry.
@@ -291,6 +361,7 @@ export async function searchFedExLocations(postalCode: string): Promise<FedExLoc
         zip:          "",
         distance,
         phone,
+        hours,
       });
     }
   }

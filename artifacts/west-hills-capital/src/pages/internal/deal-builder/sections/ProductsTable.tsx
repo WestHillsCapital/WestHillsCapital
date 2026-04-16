@@ -18,7 +18,7 @@ export function ProductsTable({ rows, setRow, locked, goldOz, silverOz, shipping
       <div className="overflow-x-auto">
       <div className="min-w-[440px] space-y-1">
         {/* Header row */}
-        <div className="grid grid-cols-[1fr_52px_88px_100px_100px] gap-2 pb-2 border-b border-gray-800">
+        <div className="grid grid-cols-[1fr_52px_80px_110px_110px] gap-2 pb-2 border-b border-gray-800">
           <span className="text-xs font-medium text-gray-500">Product</span>
           <span className="text-xs font-medium text-gray-500 text-center">Metal</span>
           <span className="text-xs font-medium text-gray-500 text-right">Qty</span>
@@ -34,7 +34,7 @@ export function ProductsTable({ rows, setRow, locked, goldOz, silverOz, shipping
           return (
             <div
               key={row.productId}
-              className="grid grid-cols-[1fr_52px_88px_100px_100px] gap-2 items-center py-2.5 border-b border-gray-800/40 last:border-0"
+              className="grid grid-cols-[1fr_52px_80px_110px_110px] gap-2 items-center py-2.5 border-b border-gray-800/40 last:border-0"
             >
               {/* Product name */}
               <span className="text-sm text-white leading-tight">{row.productName}</span>
@@ -61,17 +61,25 @@ export function ProductsTable({ rows, setRow, locked, goldOz, silverOz, shipping
                 className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm text-right text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 disabled:opacity-60"
               />
 
-              {/* Unit price input */}
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={row.unitPrice}
-                onChange={setRow(i, "unitPrice")}
-                disabled={locked}
-                placeholder="0.00"
-                className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm text-right text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 disabled:opacity-60"
-              />
+              {/* Unit price — formatted display when locked, input when editable */}
+              {locked ? (
+                <span className="text-right font-mono text-sm text-gray-300 pr-0.5">
+                  {up > 0 ? fmtMoney(up) : "—"}
+                </span>
+              ) : (
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none select-none">$</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={row.unitPrice}
+                    onChange={setRow(i, "unitPrice")}
+                    placeholder="0.00"
+                    className="w-full bg-gray-800 border border-gray-700 rounded pl-5 pr-2 py-2 text-sm text-right text-white focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30"
+                  />
+                </div>
+              )}
 
               {/* Line total */}
               <span className={`text-right font-mono text-sm ${
@@ -86,7 +94,7 @@ export function ProductsTable({ rows, setRow, locked, goldOz, silverOz, shipping
       </div>
 
       {(goldOz > 0 || silverOz > 0) && (
-        <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-500">
+        <div className="mt-3 flex flex-wrap gap-3 text-xs text-gray-600">
           {goldOz   > 0 && <span>{goldOz} oz gold</span>}
           {silverOz > 0 && <span>{silverOz} oz silver</span>}
           <span className="text-gray-700">·</span>
