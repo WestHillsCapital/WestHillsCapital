@@ -514,7 +514,7 @@ router.get("/products", async (_req, res) => {
         finalPrice: eagleDG
           ? withCommission(eagleDG.tier1.ask, GOLD_COMMISSION_PERCENT)
           : fallbackPrice(spot.goldAsk, DG_FALLBACK_PREMIUM_PERCENT.goldEagle, GOLD_COMMISSION_PERCENT),
-        iraEligible: eagleDG ? eagleDG.isIRAConnectBidEligible === "Y" : true,
+        iraEligible: true, // Gold Eagles are IRA-eligible via congressional exception (Taxpayer Relief Act 1997) regardless of DG's purity-based flag
         deliveryWindow: eagleDG?.availability ?? "",
         imageUrl: pickImage(eagleDG?.images ?? [], "1EAGLE"),
         reverseImageUrl: pickReverseImage(eagleDG?.images ?? [], "1EAGLE"),
