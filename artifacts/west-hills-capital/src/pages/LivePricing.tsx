@@ -1,10 +1,10 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useProductPrices, useBuybackPrices, useSpotPrices, useSpotHistory, type ChartPeriod } from "@/hooks/use-pricing";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Link } from "wouter";
-import { Shield, ArrowRight, ZoomIn, RotateCcw, TrendingDown, TrendingUp, Info, X } from "lucide-react";
+import { Shield, ArrowRight, ZoomIn, RotateCcw, TrendingDown, TrendingUp, Info, X, RefreshCw } from "lucide-react";
 import {
   ComposedChart,
   Area,
@@ -430,15 +430,45 @@ function RatioCard({ ratio }: { ratio: string | null }) {
 
 // ─── LIVE PRICING PAGE ────────────────────────────────────────────────────────
 
+function useSecondsSince(isoString: string | undefined) {
+  const [seconds, setSeconds] = useState<number | null>(null);
+  useEffect(() => {
+    if (!isoString) { setSeconds(null); return; }
+    const tick = () => setSeconds(Math.floor((Date.now() - new Date(isoString).getTime()) / 1000));
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [isoString]);
+  return seconds;
+}
+
+function formatAge(s: number | null): string {
+  if (s === null) return "";
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  return `${Math.floor(s / 3600)}h ago`;
+}
+
 export default function LivePricing() {
-  const { data: pricingData, isLoading: loadingProducts } = useProductPrices();
+  const { data: pricingData, isLoading: loadingProducts, refetch: refetchProducts } = useProductPrices();
   const { data: buybackData, isLoading: loadingBuybacks } = useBuybackPrices();
-  const { data: spotData } = useSpotPrices();
+  const { data: spotData, refetch: refetchSpot, dataUpdatedAt: spotUpdatedAt } = useSpotPrices();
   const [zoomProduct, setZoomProduct] = useState<Product | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const ratio = spotData?.gold && spotData?.silver
     ? (spotData.gold / spotData.silver).toFixed(1)
     : null;
+
+  // Use the earliest of the two update times for the display
+  const updatedAt = spotData?.lastUpdated ?? (spotUpdatedAt ? new Date(spotUpdatedAt).toISOString() : undefined);
+  const ageSeconds = useSecondsSince(updatedAt);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await Promise.all([refetchSpot(), refetchProducts()]);
+    setIsRefreshing(false);
+  }, [refetchSpot, refetchProducts]);
 
   return (
     <div className="w-full bg-background min-h-screen pt-12 pb-24">
@@ -447,9 +477,30 @@ export default function LivePricing() {
         {/* PAGE HEADER */}
         <div className="text-center max-w-3xl mx-auto mb-12">
           <h1 className="text-4xl lg:text-5xl font-serif font-semibold mb-5">Live Market Pricing</h1>
-          <p className="text-foreground/60 text-lg leading-relaxed">
+          <p className="text-foreground/60 text-lg leading-relaxed mb-4">
             Pricing is based on live market conditions and updated regularly. We apply a consistent, transparent spread to market-based pricing across the products we offer.
           </p>
+          {/* Refresh indicator */}
+          <div className="inline-flex items-center gap-2.5 text-xs text-foreground/40">
+            <span
+              className="inline-block w-1.5 h-1.5 rounded-full bg-green-500"
+              style={{ animation: "pulse 2s infinite" }}
+            />
+            {ageSeconds !== null ? (
+              <span>Updated {formatAge(ageSeconds)}</span>
+            ) : (
+              <span>Loading prices…</span>
+            )}
+            <button
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              className="ml-1 inline-flex items-center gap-1 text-foreground/40 hover:text-primary transition-colors disabled:opacity-50"
+              title="Refresh prices"
+            >
+              <RefreshCw className={`w-3 h-3 ${isRefreshing ? "animate-spin" : ""}`} />
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
 
         {/* MARKET DATA — spot stats + chart */}

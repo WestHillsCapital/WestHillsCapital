@@ -1,10 +1,49 @@
 import { Link, useParams } from "wouter";
-import { ArrowLeft, ArrowRight } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
 import {
   getArticleBySlug,
   getRelatedArticles,
   INSIGHT_GROUPS,
 } from "@/data/insights";
+
+// ─── READING PROGRESS BAR ─────────────────────────────────────────────────────
+
+function ReadingProgressBar() {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    function onScroll() {
+      const el = document.documentElement;
+      const scrollTop = el.scrollTop || document.body.scrollTop;
+      const height = el.scrollHeight - el.clientHeight;
+      setProgress(height > 0 ? Math.min(100, (scrollTop / height) * 100) : 0);
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  return (
+    <div className="fixed top-0 left-0 right-0 z-50 h-[3px] bg-transparent">
+      <div
+        className="h-full bg-primary transition-[width] duration-75 ease-out"
+        style={{ width: `${progress}%` }}
+      />
+    </div>
+  );
+}
+
+// ─── READ TIME ESTIMATE ───────────────────────────────────────────────────────
+
+function estimateReadTime(sections: { paragraphs: string[] }[]): number {
+  const wordCount = sections
+    .flatMap((s) => s.paragraphs)
+    .join(" ")
+    .split(/\s+/).length;
+  return Math.max(1, Math.round(wordCount / 200));
+}
+
+// ─── ARTICLE CTA ──────────────────────────────────────────────────────────────
 
 function ArticleCTA() {
   return (
@@ -35,6 +74,8 @@ function ArticleCTA() {
   );
 }
 
+// ─── MAIN PAGE ────────────────────────────────────────────────────────────────
+
 export default function InsightArticle() {
   const params = useParams<{ slug: string }>();
   const article = getArticleBySlug(params.slug ?? "");
@@ -60,87 +101,127 @@ export default function InsightArticle() {
 
   const group = INSIGHT_GROUPS.find((g) => g.id === article.group);
   const related = getRelatedArticles(article.related);
+  const readTime = estimateReadTime(article.sections);
+
+  // Article JSON-LD for search engines and LLMs
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    "headline": article.title,
+    "description": article.metaDescription,
+    "author": {
+      "@type": "Organization",
+      "name": "West Hills Capital",
+      "url": "https://westhillscapital.com"
+    },
+    "publisher": {
+      "@type": "Organization",
+      "name": "West Hills Capital",
+      "logo": {
+        "@type": "ImageObject",
+        "url": "https://westhillscapital.com/images/logo.png"
+      }
+    },
+    "url": `https://westhillscapital.com/insights/${article.slug}`,
+    "mainEntityOfPage": `https://westhillscapital.com/insights/${article.slug}`,
+    "articleSection": group?.title ?? "Insights",
+    "keywords": ["gold", "silver", "precious metals", "physical gold", "gold IRA"],
+  };
 
   return (
-    <div className="w-full bg-background min-h-screen pt-10 pb-28">
-      <div className="max-w-[680px] mx-auto px-4 sm:px-6 lg:px-8">
+    <>
+      <ReadingProgressBar />
 
-        {/* BACK LINK */}
-        <Link href="/insights">
-          <span className="inline-flex items-center gap-1.5 text-xs text-foreground/55 hover:text-primary transition-colors mb-10 font-medium cursor-pointer">
-            <ArrowLeft className="w-3.5 h-3.5" />
-            Insights
-          </span>
-        </Link>
+      {/* Per-article structured data */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
-        {/* ARTICLE HEADER */}
-        <header className="mb-10">
-          {group && (
-            <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-4">
-              {group.title}
+      <div className="w-full bg-background min-h-screen pt-10 pb-28">
+        <div className="max-w-[680px] mx-auto px-4 sm:px-6 lg:px-8">
+
+          {/* BACK LINK */}
+          <Link href="/insights">
+            <span className="inline-flex items-center gap-1.5 text-xs text-foreground/55 hover:text-primary transition-colors mb-10 font-medium cursor-pointer">
+              <ArrowLeft className="w-3.5 h-3.5" />
+              Insights
+            </span>
+          </Link>
+
+          {/* ARTICLE HEADER */}
+          <header className="mb-10">
+            {group && (
+              <p className="text-xs font-semibold text-primary uppercase tracking-widest mb-4">
+                {group.title}
+              </p>
+            )}
+            <h1 className="text-3xl lg:text-[2.4rem] font-serif font-semibold leading-tight mb-4">
+              {article.title}
+            </h1>
+            <div className="flex items-center gap-1.5 text-xs text-foreground/40 mb-5">
+              <Clock className="w-3.5 h-3.5" />
+              <span>{readTime} min read</span>
+            </div>
+            <p className="text-[17px] text-foreground/70 leading-[1.75] border-b border-border/30 pb-8">
+              {article.excerpt}
             </p>
-          )}
-          <h1 className="text-3xl lg:text-[2.4rem] font-serif font-semibold leading-tight mb-5">
-            {article.title}
-          </h1>
-          <p className="text-[17px] text-foreground/70 leading-[1.75] border-b border-border/30 pb-8">
-            {article.excerpt}
-          </p>
-        </header>
+          </header>
 
-        {/* ARTICLE BODY */}
-        <article className="space-y-10">
-          {article.sections.map((section, i) => (
-            <section key={i} className="space-y-4">
-              {section.heading && (
-                <h2 className="text-[1.2rem] font-serif font-semibold text-foreground leading-snug pt-2">
-                  {section.heading}
-                </h2>
-              )}
-              <div className="space-y-5">
-                {section.paragraphs.map((para, j) => (
-                  <p
-                    key={j}
-                    className="text-[16px] text-foreground/78 leading-[1.8]"
-                  >
-                    {para}
-                  </p>
+          {/* ARTICLE BODY */}
+          <article className="space-y-10">
+            {article.sections.map((section, i) => (
+              <section key={i} className="space-y-4">
+                {section.heading && (
+                  <h2 className="text-[1.2rem] font-serif font-semibold text-foreground leading-snug pt-2">
+                    {section.heading}
+                  </h2>
+                )}
+                <div className="space-y-5">
+                  {section.paragraphs.map((para, j) => (
+                    <p
+                      key={j}
+                      className="text-[16px] text-foreground/78 leading-[1.8]"
+                    >
+                      {para}
+                    </p>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </article>
+
+          {/* RELATED ARTICLES */}
+          {related.length > 0 && (
+            <div className="mt-16 border-t border-border/30 pt-10">
+              <p className="text-xs font-semibold text-foreground/50 uppercase tracking-widest mb-6">
+                Continue Reading
+              </p>
+              <div className="space-y-3">
+                {related.map((rel) => (
+                  <Link key={rel.slug} href={`/insights/${rel.slug}`}>
+                    <div className="group flex items-start justify-between gap-5 bg-white border border-border/40 rounded-xl p-5 sm:p-6 hover:shadow-sm hover:border-border/60 transition-all cursor-pointer">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] font-semibold text-foreground group-hover:text-primary transition-colors leading-snug mb-1.5">
+                          {rel.title}
+                        </p>
+                        <p className="text-[13px] text-foreground/62 leading-relaxed line-clamp-2">
+                          {rel.excerpt}
+                        </p>
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-foreground/35 shrink-0 mt-0.5 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                    </div>
+                  </Link>
                 ))}
               </div>
-            </section>
-          ))}
-        </article>
-
-        {/* RELATED ARTICLES */}
-        {related.length > 0 && (
-          <div className="mt-16 border-t border-border/30 pt-10">
-            <p className="text-xs font-semibold text-foreground/50 uppercase tracking-widest mb-6">
-              Continue Reading
-            </p>
-            <div className="space-y-3">
-              {related.map((rel) => (
-                <Link key={rel.slug} href={`/insights/${rel.slug}`}>
-                  <div className="group flex items-start justify-between gap-5 bg-white border border-border/40 rounded-xl p-5 sm:p-6 hover:shadow-sm hover:border-border/60 transition-all cursor-pointer">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[15px] font-semibold text-foreground group-hover:text-primary transition-colors leading-snug mb-1.5">
-                        {rel.title}
-                      </p>
-                      <p className="text-[13px] text-foreground/62 leading-relaxed line-clamp-2">
-                        {rel.excerpt}
-                      </p>
-                    </div>
-                    <ArrowRight className="w-4 h-4 text-foreground/35 shrink-0 mt-0.5 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                  </div>
-                </Link>
-              ))}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* BOTTOM CTA */}
-        <ArticleCTA />
+          {/* BOTTOM CTA */}
+          <ArticleCTA />
 
+        </div>
       </div>
-    </div>
+    </>
   );
 }

@@ -1,0 +1,50 @@
+# West Hills Capital — llms.txt
+# This file describes West Hills Capital for AI language model crawlers.
+# See https://llmstxt.org for the specification.
+
+# About West Hills Capital
+West Hills Capital is a physical gold and silver allocation company based in Wichita, Kansas.
+We help long-term investors buy physical gold and silver for direct delivery or through
+tax-advantaged IRA accounts. We focus on three products: the 1 oz Gold American Eagle,
+the 1 oz Gold American Buffalo, and the 1 oz Silver American Eagle.
+
+# Contact
+Phone: (800) 867-6768
+Address: 1314 N. Oliver Ave. #8348, Wichita, KS 67208
+Website: https://westhillscapital.com
+
+# What We Do
+- Physical gold and silver allocation for direct delivery (home or vault)
+- IRA rollovers and transfers into physical precious metals
+- Transparent, market-based pricing with a consistent disclosed spread
+- No speculative positioning, no leverage, no high-commission products
+- Pricing confirmed at the time of execution on every trade
+
+# Products
+1 oz Gold American Eagle — produced by the United States Mint, IRA eligible
+1 oz Gold American Buffalo — produced by the United States Mint, IRA eligible
+1 oz Silver American Eagle — produced by the United States Mint, IRA eligible
+
+# Why Only Three Products
+We focus on widely recognized, highly liquid, straightforward products. Our product
+selection is not a limitation — it is a discipline. We avoid high-commission collectibles,
+proof coins, and foreign coins that introduce complexity without improving outcomes for
+wealth-preservation buyers.
+
+# Educational Content
+We publish educational articles on precious metals investing at /insights.
+Topics include: how spot price works, why people overpay, bullion vs. proof coins,
+the gold-to-silver ratio, IRA structure, physical delivery logistics, and how to
+evaluate a precious metals dealer.
+
+# Key Pages
+- Home: https://westhillscapital.com/
+- Schedule a Call: https://westhillscapital.com/schedule
+- Live Pricing: https://westhillscapital.com/pricing
+- Gold IRA: https://westhillscapital.com/ira
+- About: https://westhillscapital.com/about
+- Insights: https://westhillscapital.com/insights
+
+# Indexing Policy
+All public pages may be indexed and cited. Internal portal pages (/internal/*) are
+not publicly accessible and should not be indexed.
