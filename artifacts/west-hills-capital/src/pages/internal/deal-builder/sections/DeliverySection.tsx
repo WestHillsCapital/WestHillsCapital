@@ -134,7 +134,10 @@ export function DeliverySection({
 
               {fedexResults.length > 0 && (
                 <div className="space-y-1.5">
-                  <p className="text-xs text-gray-500">Select a location:</p>
+                  <p className="text-xs text-gray-500">
+                    {fedexResults.length} location{fedexResults.length !== 1 ? "s" : ""} found — select one:
+                  </p>
+                  <div className="max-h-72 overflow-y-auto space-y-1.5 pr-1 scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent">
                   {fedexResults.map((loc, i) => (
                     <button
                       key={i}
@@ -162,6 +165,7 @@ export function DeliverySection({
                       </div>
                     </button>
                   ))}
+                  </div>
                 </div>
               )}
 
