@@ -515,7 +515,7 @@ router.get("/products", async (_req, res) => {
           ? withCommission(eagleDG.tier1.ask, GOLD_COMMISSION_PERCENT)
           : fallbackPrice(spot.goldAsk, DG_FALLBACK_PREMIUM_PERCENT.goldEagle, GOLD_COMMISSION_PERCENT),
         iraEligible: eagleDG ? eagleDG.isIRAConnectBidEligible === "Y" : true,
-        deliveryWindow: eagleDG?.availability || "Ships within 48 hrs · FedEx 2-Day",
+        deliveryWindow: eagleDG?.availability ?? "",
         imageUrl: pickImage(eagleDG?.images ?? [], "1EAGLE"),
         reverseImageUrl: pickReverseImage(eagleDG?.images ?? [], "1EAGLE"),
         description:
@@ -532,7 +532,7 @@ router.get("/products", async (_req, res) => {
           ? withCommission(buffDG.tier1.ask, GOLD_COMMISSION_PERCENT)
           : fallbackPrice(spot.goldAsk, DG_FALLBACK_PREMIUM_PERCENT.goldBuffalo, GOLD_COMMISSION_PERCENT),
         iraEligible: buffDG ? buffDG.isIRAConnectBidEligible === "Y" : true,
-        deliveryWindow: buffDG?.availability || "Ships within 48 hrs · FedEx 2-Day",
+        deliveryWindow: buffDG?.availability ?? "",
         imageUrl: pickImage(buffDG?.images ?? [], "1B"),
         reverseImageUrl: pickReverseImage(buffDG?.images ?? [], "1B"),
         description:
@@ -549,7 +549,7 @@ router.get("/products", async (_req, res) => {
           ? withCommission(silverDG.tier1.ask, SILVER_COMMISSION_PERCENT)
           : fallbackPrice(spot.silverAsk, DG_FALLBACK_PREMIUM_PERCENT.silverEagle, SILVER_COMMISSION_PERCENT),
         iraEligible: silverDG ? silverDG.isIRAConnectBidEligible === "Y" : true,
-        deliveryWindow: silverDG?.availability || "Ships within 48 hrs · FedEx 2-Day",
+        deliveryWindow: silverDG?.availability ?? "",
         imageUrl: pickImage(silverDG?.images ?? [], "SE"),
         reverseImageUrl: pickReverseImage(silverDG?.images ?? [], "SE"),
         description:
