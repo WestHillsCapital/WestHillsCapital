@@ -279,16 +279,24 @@ async function ensureTabHeaders(
   sheets: SheetsClient,
   tabName: string,
   allHeaders: readonly string[],
-  spreadsheetIdOverride?: string
-): Promise<{ nameToCol: Map<string, number>; sheetId: number }> {
+  spreadsheetIdOverride?: string,
+  options: { autoCreate?: boolean } = {},
+): Promise<{ nameToCol: Map<string, number>; sheetId: number; extensionError?: string }> {
   const sid = spreadsheetIdOverride || SPREADSHEET_ID;
+  const autoCreate = options.autoCreate !== false; // default true
 
-  // 1. Create the tab if it doesn't exist; always capture sheetId
+  // 1. Locate (or optionally create) the tab; always capture sheetId
   const meta = await sheets.spreadsheets.get({ spreadsheetId: sid });
   let sheetMeta = meta.data.sheets?.find(
     (s) => s.properties?.title === tabName
   );
   if (!sheetMeta) {
+    if (!autoCreate) {
+      throw new Error(
+        `Required tab "${tabName}" does not exist in the Google Sheet. ` +
+        `Please create it manually (with the correct header row) and re-run.`,
+      );
+    }
     const addResp = await sheets.spreadsheets.batchUpdate({
       spreadsheetId: sid,
       requestBody: {
@@ -314,10 +322,12 @@ async function ensureTabHeaders(
     if (h) nameToCol.set(h, i);
   });
 
-  // 4. Find headers in allHeaders that are not yet present
+  // 4. Find headers in allHeaders that are not yet present; try to append them.
+  //    If the sheet is at its column limit (or another write error occurs), capture
+  //    the error and return it to the caller for surfacing — do NOT swallow it silently.
   const missing = allHeaders.filter((h) => !nameToCol.has(h));
+  let extensionError: string | undefined;
   if (missing.length > 0) {
-    // Append missing headers immediately after the last existing header
     const startCol = existingRow.length;
     const startLetter = colLetter(startCol);
     const endLetter = colLetter(startCol + missing.length - 1);
@@ -331,15 +341,15 @@ async function ensureTabHeaders(
       missing.forEach((h, i) => nameToCol.set(h, startCol + i));
       logger.info({ tabName, missing }, "[Sheets] Headers extended");
     } catch (extErr: unknown) {
-      const msg = extErr instanceof Error ? extErr.message : String(extErr);
+      extensionError = extErr instanceof Error ? extErr.message : String(extErr);
       logger.warn(
-        { tabName, missing, err: msg },
-        "[Sheets] Could not extend headers (sheet may be at column limit) — continuing with existing columns only",
+        { tabName, missing, err: extensionError },
+        "[Sheets] Could not extend headers — returning existing columns only",
       );
     }
   }
 
-  return { nameToCol, sheetId };
+  return { nameToCol, sheetId, extensionError };
 }
 
 // ── Core upsert: header-name-aware ───────────────────────────────────────────
@@ -1308,7 +1318,11 @@ export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
   }
 
   // Resolve actual column positions from the live sheet header row.
-  const { nameToCol } = await ensureTabHeaders(sheets, "Deals", DEALS_ALL_HEADERS, OPS_SPREADSHEET_ID);
+  // autoCreate:false — the Deals tab must be created manually; we surface a
+  // clear error rather than silently failing with a 403 batchUpdate.
+  const { nameToCol, extensionError } = await ensureTabHeaders(
+    sheets, "Deals", DEALS_ALL_HEADERS, OPS_SPREADSHEET_ID, { autoCreate: false },
+  );
 
   const clientName = `${deal.firstName} ${deal.lastName}`;
 
@@ -1397,6 +1411,21 @@ export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
   });
 
   logger.info({ dealId: deal.id }, "[Sheets] Deal appended to Deals tab");
+
+  // Surface any header-extension failure as a warning AFTER the row is written.
+  // This lets the Deal Builder amber block show what columns are missing from the
+  // sheet without blocking the row write for the columns that do exist.
+  if (extensionError) {
+    const missingCols = (DEALS_ALL_HEADERS as readonly string[]).filter(
+      (h) => !nameToCol.has(h),
+    );
+    throw new Error(
+      `Deals row written, but ${missingCols.length} column(s) could not be added ` +
+      `(sheet column limit). To track these fields, add the headers to your Deals tab: ` +
+      missingCols.join(", ") +
+      `. (${extensionError})`,
+    );
+  }
 }
 
 // ── Ops status sync ───────────────────────────────────────────────────────────
@@ -1453,8 +1482,11 @@ export async function syncDealOpsStatus(deal: {
   if (!sheets) return;
 
   try {
-    // Ensure columns exist and get their positions
-    const { nameToCol } = await ensureTabHeaders(sheets, "Deals", DEALS_ALL_HEADERS, OPS_SPREADSHEET_ID);
+    // Ensure columns exist and get their positions.
+    // autoCreate:false — Deals tab must exist manually; missing tab throws a clear error.
+    const { nameToCol } = await ensureTabHeaders(
+      sheets, "Deals", DEALS_ALL_HEADERS, OPS_SPREADSHEET_ID, { autoCreate: false },
+    );
 
     const dealIdCol    = nameToCol.get("Deal ID");
     const statusCol    = nameToCol.get("Ops Status");
