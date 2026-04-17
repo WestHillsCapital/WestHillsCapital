@@ -16,7 +16,7 @@ import { SpotSection }      from "./deal-builder/sections/SpotSection";
 import { ProductsTable }    from "./deal-builder/sections/ProductsTable";
 import { SummarySection }   from "./deal-builder/sections/SummarySection";
 import { ExecutionSection } from "./deal-builder/sections/ExecutionSection";
-import { OpsActionsSection }from "./deal-builder/sections/OpsActionsSection";
+import { FulfillmentSection } from "./deal-builder/sections/FulfillmentSection";
 
 import { parseNum, parseQty } from "./deal-builder/utils";
 import type { Customer }      from "./deal-builder/types";
@@ -86,8 +86,26 @@ export default function DealBuilder() {
     getAuthHeaders, s, subtotal, shipping, total,
   );
 
-  const { markPaymentReceived, saveTrackingNumber, isMarkingPayment, isSavingTracking, opsActionError } =
-    useOpsActions(getAuthHeaders, s.savedDealId, s.setPaymentReceivedAt);
+  const {
+    markWireReceived,
+    markOrderPaid,
+    saveTrackingNumber,
+    markDelivered,
+    isMarkingWire,
+    isMarkingDGPaid,
+    isSavingTracking,
+    isMarkingDelivered,
+    opsActionError,
+  } = useOpsActions(
+    getAuthHeaders,
+    s.savedDealId,
+    s.setPaymentReceivedAt,
+    s.setWireReceivedAt,
+    s.setOrderPaidAt,
+    s.setShippedAt,
+    s.setDeliveredAt,
+    s.setShippingNotificationScheduledAt,
+  );
 
   // ── Field helpers ─────────────────────────────────────────────────────────
   const setCust = (field: keyof Customer) =>
@@ -267,15 +285,24 @@ export default function DealBuilder() {
           </div>{/* end Summary+Execution block */}
 
           {s.isLocked && s.savedDealId && (
-            <OpsActionsSection
-              paymentReceivedAt={s.paymentReceivedAt}
+            <FulfillmentSection
+              orderPlacedAt={s.lockedAt}
+              wireReceivedAt={s.wireReceivedAt}
+              orderPaidAt={s.orderPaidAt}
               trackingNumber={s.trackingNumber}
               setTrackingNumber={s.setTrackingNumber}
-              isMarkingPayment={isMarkingPayment}
+              shippingNotificationScheduledAt={s.shippingNotificationScheduledAt}
+              shippedAt={s.shippedAt}
+              deliveredAt={s.deliveredAt}
+              isMarkingWire={isMarkingWire}
+              isMarkingDGPaid={isMarkingDGPaid}
               isSavingTracking={isSavingTracking}
+              isMarkingDelivered={isMarkingDelivered}
               opsActionError={opsActionError}
-              onMarkPayment={markPaymentReceived}
+              onMarkWireReceived={markWireReceived}
+              onMarkOrderPaid={markOrderPaid}
               onSaveTracking={() => saveTrackingNumber(s.trackingNumber)}
+              onMarkDelivered={markDelivered}
             />
           )}
         </div>

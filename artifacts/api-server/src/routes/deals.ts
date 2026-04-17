@@ -3,8 +3,10 @@ import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import {
   appendDealToOpsSheet,
+  appendDealToOperationsTab,
   writeDealLinkToMasterSheet,
   syncDealOpsStatus,
+  updateOperationsMilestone,
   type DealPayload,
 } from "../lib/google-sheets";
 import { sendDealLockNotification, sendDealRecapEmail } from "../lib/email";
@@ -24,11 +26,16 @@ export const CURRENT_TERMS_VERSION = "v1.0";
 /** Non-fatal wrapper — call syncDealOpsStatus and log errors without throwing. */
 async function syncDealStatus(deal: Record<string, unknown>): Promise<void> {
   await syncDealOpsStatus({
-    id:                 deal.id                  as number,
-    lockedAt:           deal.locked_at            as string | Date,
-    paymentReceivedAt:  deal.payment_received_at  as Date | null | undefined,
-    trackingNumber:     deal.tracking_number      as string | null | undefined,
-    orderPlacedAt:      deal.order_placed_at      as Date | null | undefined,
+    id:                  deal.id                  as number,
+    lockedAt:            deal.locked_at            as string | Date,
+    paymentReceivedAt:   deal.payment_received_at  as Date | null | undefined,
+    trackingNumber:      deal.tracking_number      as string | null | undefined,
+    orderPlacedAt:       deal.order_placed_at      as Date | null | undefined,
+    wireReceivedAt:      deal.wire_received_at     as Date | null | undefined,
+    orderPaidAt:         deal.order_paid_at        as Date | null | undefined,
+    shippedAt:           deal.shipped_at           as Date | null | undefined,
+    deliveredAt:         deal.delivered_at         as Date | null | undefined,
+    shippingEmailSentAt: deal.shipping_email_sent_at as Date | null | undefined,
   });
 }
 
@@ -426,14 +433,20 @@ router.post("/", async (req, res) => {
     // ── 6. Sheets sync + admin notification ──────────────────────────────────
     // Sheets sync is awaited so failures surface as warnings in the response.
     // Admin notification is fire-and-forget (non-critical, never blocks response).
-    const [sheetsResult, linkResult] = await Promise.allSettled([
+    const [sheetsResult, operationsResult, linkResult] = await Promise.allSettled([
       appendDealToOpsSheet(deal),
+      appendDealToOperationsTab(deal),
       writeDealLinkToMasterSheet(deal),
     ]);
     if (sheetsResult.status === "rejected") {
       const errMsg = sheetsResult.reason instanceof Error ? sheetsResult.reason.message : String(sheetsResult.reason);
       logger.error({ err: sheetsResult.reason, errMsg, dealId }, "[Deals] appendDealToOpsSheet failed");
       warnings.push(`Deals tab sync failed: ${errMsg}`);
+    }
+    if (operationsResult.status === "rejected") {
+      const errMsg = operationsResult.reason instanceof Error ? operationsResult.reason.message : String(operationsResult.reason);
+      logger.error({ err: operationsResult.reason, errMsg, dealId }, "[Deals] appendDealToOperationsTab failed (non-fatal)");
+      warnings.push(`Operations tab sync failed: ${errMsg}`);
     }
     if (linkResult.status === "rejected") {
       const errMsg = linkResult.reason instanceof Error ? linkResult.reason.message : String(linkResult.reason);
@@ -588,15 +601,15 @@ router.post("/preview-invoice", async (req, res) => {
   }
 });
 
-// PATCH /api/deals/:id/payment
-// Marks payment received — sets payment_received_at = NOW() and syncs Ops status
+// PATCH /api/deals/:id/payment  (legacy — kept for backward compat)
+// Sets payment_received_at. New code should use /wire-received instead.
 router.patch("/:id/payment", async (req, res) => {
   const dealId = parseInt(req.params.id, 10);
   if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
 
   try {
     const db = getDb();
-    const { rows } = await db.query<{ id: number; payment_received_at: Date | null }>(
+    const { rows } = await db.query(
       `UPDATE deals SET payment_received_at = NOW(), updated_at = NOW()
        WHERE id = $1 RETURNING *`,
       [dealId],
@@ -614,8 +627,78 @@ router.patch("/:id/payment", async (req, res) => {
   }
 });
 
+// PATCH /api/deals/:id/wire-received
+// Records the date the customer's wire arrives in WHC's account.
+router.patch("/:id/wire-received", async (req, res) => {
+  const dealId = parseInt(req.params.id, 10);
+  if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
+
+  try {
+    const db = getDb();
+    const { rows } = await db.query(
+      `UPDATE deals
+          SET wire_received_at = NOW(),
+              payment_received_at = COALESCE(payment_received_at, NOW()),
+              updated_at = NOW()
+        WHERE id = $1 RETURNING *`,
+      [dealId],
+    );
+    if (!rows[0]) return res.status(404).json({ error: "Deal not found" });
+
+    const row = rows[0];
+    // Sync Deals tab + Operations tab in parallel
+    syncDealStatus(row).catch((err) =>
+      logger.error({ err, dealId }, "[Deals] Deals tab sync failed after wire-received")
+    );
+    updateOperationsMilestone(dealId, {
+      "Wire Received Date": new Date(row.wire_received_at).toLocaleString(),
+      "Status": "Wire Received",
+    }).catch((err) =>
+      logger.error({ err, dealId }, "[Deals] Operations tab sync failed after wire-received")
+    );
+
+    return res.json({ success: true, wireReceivedAt: row.wire_received_at });
+  } catch (err) {
+    logger.error({ err }, "[Deals] Failed to mark wire received");
+    return res.status(500).json({ error: "Failed to mark wire received" });
+  }
+});
+
+// PATCH /api/deals/:id/order-paid
+// Records the date WHC pays Dillon Gage via ACH on Fiztrade.
+router.patch("/:id/order-paid", async (req, res) => {
+  const dealId = parseInt(req.params.id, 10);
+  if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
+
+  try {
+    const db = getDb();
+    const { rows } = await db.query(
+      `UPDATE deals SET order_paid_at = NOW(), updated_at = NOW()
+        WHERE id = $1 RETURNING *`,
+      [dealId],
+    );
+    if (!rows[0]) return res.status(404).json({ error: "Deal not found" });
+
+    const row = rows[0];
+    syncDealStatus(row).catch((err) =>
+      logger.error({ err, dealId }, "[Deals] Deals tab sync failed after order-paid")
+    );
+    updateOperationsMilestone(dealId, {
+      "Order Paid Date": new Date(row.order_paid_at).toLocaleString(),
+      "Status": "Paid to DG",
+    }).catch((err) =>
+      logger.error({ err, dealId }, "[Deals] Operations tab sync failed after order-paid")
+    );
+
+    return res.json({ success: true, orderPaidAt: row.order_paid_at });
+  } catch (err) {
+    logger.error({ err }, "[Deals] Failed to mark order paid");
+    return res.status(500).json({ error: "Failed to mark order paid" });
+  }
+});
+
 // PATCH /api/deals/:id/tracking
-// Records a tracking number and syncs Ops status
+// Records a tracking number and schedules the shipping notification email for 24h later.
 router.patch("/:id/tracking", async (req, res) => {
   const dealId = parseInt(req.params.id, 10);
   if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
@@ -627,21 +710,74 @@ router.patch("/:id/tracking", async (req, res) => {
 
   try {
     const db = getDb();
+    // Set shipping_notification_scheduled_at to 24 hours from now.
+    // The background scheduler will fire the shipping email when this time passes
+    // (unless the email was already sent).
     const { rows } = await db.query(
-      `UPDATE deals SET tracking_number = $1, updated_at = NOW()
-       WHERE id = $2 RETURNING *`,
+      `UPDATE deals
+          SET tracking_number = $1,
+              shipping_notification_scheduled_at = NOW() + INTERVAL '24 hours',
+              updated_at = NOW()
+        WHERE id = $2 RETURNING *`,
       [trackingNumber.trim(), dealId],
     );
     if (!rows[0]) return res.status(404).json({ error: "Deal not found" });
 
-    syncDealStatus(rows[0]).catch((err) =>
-      logger.error({ err, dealId }, "[Deals] Ops status sync failed after tracking update")
+    const row = rows[0];
+    syncDealStatus(row).catch((err) =>
+      logger.error({ err, dealId }, "[Deals] Deals tab sync failed after tracking update")
+    );
+    updateOperationsMilestone(dealId, {
+      "Tracking Number": trackingNumber.trim(),
+      "Status": "Label Created",
+    }).catch((err) =>
+      logger.error({ err, dealId }, "[Deals] Operations tab sync failed after tracking update")
     );
 
-    return res.json({ success: true, trackingNumber: trackingNumber.trim() });
+    return res.json({
+      success: true,
+      trackingNumber: trackingNumber.trim(),
+      shippingNotificationScheduledAt: row.shipping_notification_scheduled_at,
+    });
   } catch (err) {
     logger.error({ err }, "[Deals] Failed to update tracking number");
     return res.status(500).json({ error: "Failed to update tracking number" });
+  }
+});
+
+// PATCH /api/deals/:id/delivered
+// Confirms the customer has received their package. Triggers delivery email scheduling
+// and schedules 7-day and 30-day follow-up emails.
+router.patch("/:id/delivered", async (req, res) => {
+  const dealId = parseInt(req.params.id, 10);
+  if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
+
+  try {
+    const db = getDb();
+    const { rows } = await db.query(
+      `UPDATE deals
+          SET delivered_at = NOW(),
+              updated_at = NOW()
+        WHERE id = $1 RETURNING *`,
+      [dealId],
+    );
+    if (!rows[0]) return res.status(404).json({ error: "Deal not found" });
+
+    const row = rows[0];
+    syncDealStatus(row).catch((err) =>
+      logger.error({ err, dealId }, "[Deals] Deals tab sync failed after delivered")
+    );
+    updateOperationsMilestone(dealId, {
+      "Delivered Date": new Date(row.delivered_at).toLocaleString(),
+      "Status": "Delivered",
+    }).catch((err) =>
+      logger.error({ err, dealId }, "[Deals] Operations tab sync failed after delivered")
+    );
+
+    return res.json({ success: true, deliveredAt: row.delivered_at });
+  } catch (err) {
+    logger.error({ err }, "[Deals] Failed to mark delivered");
+    return res.status(500).json({ error: "Failed to mark delivered" });
   }
 });
 

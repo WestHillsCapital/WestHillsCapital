@@ -60,9 +60,16 @@ export function useDealState(
   const [lockedAt,          setLockedAt]          = useState<string | null>(null);
   const [savedDealId,       setSavedDealId]       = useState<number | null>(null);
   const [termsAcknowledged, setTermsAcknowledged] = useState(false);
-  const [paymentReceivedAt, setPaymentReceivedAt] = useState<string | null>(null);
+  const [paymentReceivedAt, setPaymentReceivedAt] = useState<string | null>(null); // legacy
   const [trackingNumber,    setTrackingNumber]    = useState("");
   const [executionResult,   setExecutionResult]   = useState<ExecutionResult | null>(null);
+
+  // ── Fulfillment milestone timestamps ─────────────────────────────────────
+  const [wireReceivedAt,                   setWireReceivedAt]                   = useState<string | null>(null);
+  const [orderPaidAt,                      setOrderPaidAt]                      = useState<string | null>(null);
+  const [shippedAt,                        setShippedAt]                        = useState<string | null>(null);
+  const [deliveredAt,                      setDeliveredAt]                      = useState<string | null>(null);
+  const [shippingNotificationScheduledAt,  setShippingNotificationScheduledAt]  = useState<string | null>(null);
 
   // ── Load saved deal ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -137,6 +144,12 @@ export function useDealState(
         setIsLocked(true);
         setLockedAt(deal.locked_at ?? null);
         setSavedDealId(deal.id);
+        // Fulfillment milestones
+        setWireReceivedAt(deal.wire_received_at ?? null);
+        setOrderPaidAt(deal.order_paid_at ?? null);
+        setShippedAt(deal.shipped_at ?? null);
+        setDeliveredAt(deal.delivered_at ?? null);
+        setShippingNotificationScheduledAt(deal.shipping_notification_scheduled_at ?? null);
         setCustomerLoaded(true);
       } finally {
         setLoadingCustomer(false);
@@ -264,6 +277,12 @@ export function useDealState(
     paymentReceivedAt, setPaymentReceivedAt,
     trackingNumber, setTrackingNumber,
     executionResult, setExecutionResult,
+    // fulfillment milestones
+    wireReceivedAt, setWireReceivedAt,
+    orderPaidAt, setOrderPaidAt,
+    shippedAt, setShippedAt,
+    deliveredAt, setDeliveredAt,
+    shippingNotificationScheduledAt, setShippingNotificationScheduledAt,
   };
 }
 

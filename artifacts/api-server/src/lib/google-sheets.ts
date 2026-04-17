@@ -181,7 +181,53 @@ const DEALS_ALL_HEADERS = [
   "Ops Status",
   "Payment Received At",
   "Tracking Number",
+  // Fulfillment milestone columns (added Task #30)
+  "Wire Received At",
+  "Order Paid At",
+  "Shipped At",
+  "Delivered At",
 ] as const;
+
+// ── Operations tab column definitions ─────────────────────────────────────────
+//
+// The Operations tab is the operational workflow view — one row per deal,
+// tracking every fulfillment milestone from metal ordered through delivery.
+// It is auto-created when a deal executes. "Open Deal Builder" is a formula
+// column written separately. Days-to-* columns are intentionally left for the
+// operator to set as NETWORKDAYS sheet formulas; the system only writes dates.
+//
+// SYSTEM columns — written at row creation and updated on each milestone action.
+// OPERATOR columns — written blank at creation, never touched again by app.
+const OPS_OPERATIONS_SYSTEM_HEADERS = [
+  "Deal ID",
+  "Client Name",
+  "Email",
+  "Phone",
+  "Deal Type",
+  "Total",
+  "Metal Ordered Date",
+  "Wire Received Date",
+  "Order Paid Date",
+  "Tracking Number",
+  "Shipped Date",
+  "Delivered Date",
+  "Status",
+] as const;
+
+const OPS_OPERATIONS_OPERATOR_HEADERS = [
+  "Days to Fund",
+  "Days to Ship",
+  "Days to Complete",
+  "Notes",
+] as const;
+
+const OPS_OPERATIONS_ALL_HEADERS = [
+  ...OPS_OPERATIONS_SYSTEM_HEADERS,
+  ...OPS_OPERATIONS_OPERATOR_HEADERS,
+  "Open Deal Builder",
+] as const;
+
+const OPS_OPERATIONS_SYSTEM_SET = new Set<string>(OPS_OPERATIONS_SYSTEM_HEADERS);
 
 // The scheduling fields that mergeAppointmentIntoPipeline writes (targeted update only).
 const PIPELINE_SCHEDULING_FIELDS = new Set([
@@ -1442,39 +1488,59 @@ function addBusinessDays(date: Date, n: number): Date {
   return result;
 }
 
-/** Compute the correct Ops-tab status string for a deal. */
+/** Compute the correct Ops-tab status string for a deal.
+ *
+ * Status priority chain (highest wins):
+ *   Delivered → Shipped → Label Created → Paid to DG → Wire Received
+ *   → time-based: Cancel Eligible / At Risk / Awaiting Wire
+ */
 function computeOpsStatus(deal: {
-  paymentReceivedAt?: Date | null;
+  deliveredAt?:       Date | null;
+  shippingEmailSentAt?: Date | null;
   trackingNumber?:    string | null;
+  orderPaidAt?:       Date | null;
+  wireReceivedAt?:    Date | null;
+  paymentReceivedAt?: Date | null; // legacy alias for wireReceivedAt
   lockedAt:           Date | string;
 }): string {
-  if (deal.trackingNumber) return "Shipped";
-  if (deal.paymentReceivedAt) return "Paid";
+  if (deal.deliveredAt)         return "Delivered";
+  if (deal.shippingEmailSentAt) return "Shipped";
+  if (deal.trackingNumber)      return "Label Created";
+  if (deal.orderPaidAt)         return "Paid to DG";
+
+  // Wire received — prefer new field, fall back to legacy field
+  const wireDate = deal.wireReceivedAt ?? deal.paymentReceivedAt;
+  if (wireDate) return "Wire Received";
 
   const now      = new Date();
   const lockDate = new Date(deal.lockedAt);
 
   const nbd1 = addBusinessDays(lockDate, 1);
-  nbd1.setUTCHours(23, 0, 0, 0); // 5 pm CST = 23:00 UTC
+  nbd1.setUTCHours(23, 0, 0, 0); // 5 pm CST ≈ 23:00 UTC
 
   const nbd2 = addBusinessDays(lockDate, 2);
   nbd2.setUTCHours(23, 0, 0, 0);
 
   if (now > nbd2) return "Cancel Eligible";
   if (now > nbd1) return "At Risk";
-  return "Pending Wire";
+  return "Awaiting Wire";
 }
 
 /**
- * Recomputes the Ops-tab status for one deal and writes it (plus Payment Received At
- * and Tracking Number) to the "Deals" tab. Non-fatal when Sheets is unavailable.
+ * Recomputes the Ops-tab status for one deal and writes it plus all milestone
+ * columns to the "Deals" tab. Non-fatal when Sheets is unavailable.
  */
 export async function syncDealOpsStatus(deal: {
-  id:                number;
-  lockedAt:          Date | string;
-  paymentReceivedAt?: Date | null;
-  trackingNumber?:    string | null;
-  orderPlacedAt?:     Date | null;
+  id:                  number;
+  lockedAt:            Date | string;
+  paymentReceivedAt?:  Date | null; // legacy — kept for scheduler backward compat
+  trackingNumber?:     string | null;
+  orderPlacedAt?:      Date | null;
+  wireReceivedAt?:     Date | null;
+  orderPaidAt?:        Date | null;
+  shippedAt?:          Date | null;
+  deliveredAt?:        Date | null;
+  shippingEmailSentAt?: Date | null;
 }): Promise<void> {
   if (!OPS_SPREADSHEET_ID) return;
 
@@ -1482,23 +1548,19 @@ export async function syncDealOpsStatus(deal: {
   if (!sheets) return;
 
   try {
-    // Ensure columns exist and get their positions.
-    // autoCreate:false — Deals tab must exist manually; missing tab throws a clear error.
+    // autoCreate:false — Deals tab must be created manually
     const { nameToCol } = await ensureTabHeaders(
       sheets, "Deals", DEALS_ALL_HEADERS, OPS_SPREADSHEET_ID, { autoCreate: false },
     );
 
-    const dealIdCol    = nameToCol.get("Deal ID");
-    const statusCol    = nameToCol.get("Ops Status");
-    const paymentCol   = nameToCol.get("Payment Received At");
-    const trackingCol  = nameToCol.get("Tracking Number");
-
+    const dealIdCol   = nameToCol.get("Deal ID");
+    const statusCol   = nameToCol.get("Ops Status");
     if (dealIdCol === undefined || statusCol === undefined) {
       logger.warn({ dealId: deal.id }, "[Sheets] Ops Status column not found — skipping sync");
       return;
     }
 
-    // Find the row for this deal
+    // Locate the row for this deal by scanning Deal ID column
     const keyColLetter = colLetter(dealIdCol);
     const colResp = await sheets.spreadsheets.values.get({
       spreadsheetId: OPS_SPREADSHEET_ID,
@@ -1508,7 +1570,7 @@ export async function syncDealOpsStatus(deal: {
     let targetRow = -1;
     for (let i = 1; i < colRows.length; i++) {
       if (colRows[i]?.[0] === String(deal.id)) {
-        targetRow = i + 1; // 1-indexed
+        targetRow = i + 1;
         break;
       }
     }
@@ -1520,31 +1582,204 @@ export async function syncDealOpsStatus(deal: {
     const newStatus = computeOpsStatus(deal);
     const data: { range: string; values: string[][] }[] = [];
 
-    data.push({
-      range: `Deals!${colLetter(statusCol)}${targetRow}`,
-      values: [[newStatus]],
-    });
-    if (paymentCol !== undefined) {
-      data.push({
-        range: `Deals!${colLetter(paymentCol)}${targetRow}`,
-        values: [[deal.paymentReceivedAt ? new Date(deal.paymentReceivedAt).toLocaleString() : ""]],
-      });
-    }
-    if (trackingCol !== undefined) {
-      data.push({
-        range: `Deals!${colLetter(trackingCol)}${targetRow}`,
-        values: [[deal.trackingNumber ?? ""]],
-      });
-    }
+    const pushCol = (header: string, value: string) => {
+      const col = nameToCol.get(header);
+      if (col !== undefined) {
+        data.push({ range: `Deals!${colLetter(col)}${targetRow}`, values: [[value]] });
+      }
+    };
+
+    pushCol("Ops Status",         newStatus);
+    pushCol("Payment Received At", deal.paymentReceivedAt
+      ? new Date(deal.paymentReceivedAt).toLocaleString() : "");
+    pushCol("Tracking Number",     deal.trackingNumber  ?? "");
+    pushCol("Wire Received At",    deal.wireReceivedAt
+      ? new Date(deal.wireReceivedAt).toLocaleString()  : "");
+    pushCol("Order Paid At",       deal.orderPaidAt
+      ? new Date(deal.orderPaidAt).toLocaleString()     : "");
+    pushCol("Shipped At",          deal.shippedAt
+      ? new Date(deal.shippedAt).toLocaleString()       : "");
+    pushCol("Delivered At",        deal.deliveredAt
+      ? new Date(deal.deliveredAt).toLocaleString()     : "");
 
     await sheets.spreadsheets.values.batchUpdate({
       spreadsheetId: OPS_SPREADSHEET_ID,
       requestBody: { valueInputOption: "RAW", data },
     });
 
-    logger.info({ dealId: deal.id, newStatus }, "[Sheets] Ops status synced");
+    logger.info({ dealId: deal.id, newStatus }, "[Sheets] Deals tab Ops status synced");
   } catch (err) {
     logger.error({ err, dealId: deal.id }, "[Sheets] syncDealOpsStatus failed (non-fatal)");
+  }
+}
+
+// ── Operations tab functions ───────────────────────────────────────────────────
+
+/** fmt helper (local copy to avoid hoisting issues in this block) */
+function fmtCurrency(value: number | null | undefined): string {
+  if (value == null) return "";
+  return value.toLocaleString("en-US", { style: "currency", currency: "USD" });
+}
+
+/**
+ * Appends a row to the "Operations" tab in the Ops spreadsheet when a deal
+ * executes. The tab is auto-created if it doesn't exist (unlike the Deals tab
+ * which requires manual creation). Also writes the Open Deal Builder hyperlink.
+ *
+ * Non-fatal — caller should wrap in try/catch or Promise.allSettled.
+ */
+export async function appendDealToOperationsTab(deal: DealPayload): Promise<void> {
+  if (!OPS_SPREADSHEET_ID) {
+    logger.warn("[Sheets] No Ops spreadsheet ID — skipping Operations tab write");
+    return;
+  }
+
+  const sheets = getAnySheetsClient();
+  if (!sheets) return;
+
+  // autoCreate: true — Operations tab is managed entirely by the system
+  const { nameToCol } = await ensureTabHeaders(
+    sheets, "Operations", OPS_OPERATIONS_ALL_HEADERS, OPS_SPREADSHEET_ID, { autoCreate: true },
+  );
+
+  const clientName = `${deal.firstName} ${deal.lastName}`;
+  const metalOrderedDate = deal.lockedAt
+    ? new Date(deal.lockedAt).toLocaleString()
+    : "";
+
+  const valueMap: Record<string, string> = {
+    "Deal ID":           String(deal.id),
+    "Client Name":       clientName,
+    "Email":             deal.email,
+    "Phone":             deal.phone ?? "",
+    "Deal Type":         deal.dealType === "ira" ? "IRA" : "Cash",
+    "Total":             fmtCurrency(deal.total),
+    "Metal Ordered Date": metalOrderedDate,
+    "Wire Received Date": "",
+    "Order Paid Date":    "",
+    "Tracking Number":    "",
+    "Shipped Date":       "",
+    "Delivered Date":     "",
+    "Status":             "Awaiting Wire",
+  };
+
+  // Build row array covering all known columns
+  const maxCol = Math.max(...Array.from(nameToCol.values()));
+  const row: string[] = Array(maxCol + 1).fill("");
+  for (const [header, value] of Object.entries(valueMap)) {
+    const col = nameToCol.get(header);
+    if (col !== undefined) row[col] = value;
+  }
+
+  await sheets.spreadsheets.values.append({
+    spreadsheetId:    OPS_SPREADSHEET_ID,
+    range:            "Operations!A:A",
+    valueInputOption: "USER_ENTERED",
+    insertDataOption: "INSERT_ROWS",
+    requestBody:      { values: [row] },
+  });
+
+  logger.info({ dealId: deal.id }, "[Sheets] Operations tab row created");
+
+  // Write Open Deal Builder hyperlink — locate the row we just appended
+  if (FRONTEND_URL) {
+    try {
+      const dealUrl = `${FRONTEND_URL}/internal/deal-builder?dealId=${deal.id}`;
+      const formula  = `=HYPERLINK("${dealUrl}","Open Deal")`;
+      const linkCol  = nameToCol.get("Open Deal Builder");
+      if (linkCol !== undefined) {
+        // Find the newly inserted row by Deal ID
+        const dealIdCol = nameToCol.get("Deal ID");
+        if (dealIdCol !== undefined) {
+          const colLtr = colLetter(dealIdCol);
+          const colResp = await sheets.spreadsheets.values.get({
+            spreadsheetId: OPS_SPREADSHEET_ID,
+            range: `Operations!${colLtr}:${colLtr}`,
+          });
+          const colRows = colResp.data.values ?? [];
+          for (let i = 1; i < colRows.length; i++) {
+            if (colRows[i]?.[0] === String(deal.id)) {
+              const sheetRow = i + 1;
+              await sheets.spreadsheets.values.update({
+                spreadsheetId:    OPS_SPREADSHEET_ID,
+                range:            `Operations!${colLetter(linkCol)}${sheetRow}`,
+                valueInputOption: "USER_ENTERED",
+                requestBody:      { values: [[formula]] },
+              });
+              logger.info({ dealId: deal.id, sheetRow }, "[Sheets] Operations Deal Builder link written");
+              break;
+            }
+          }
+        }
+      }
+    } catch (linkErr) {
+      logger.error({ linkErr, dealId: deal.id }, "[Sheets] Operations link write failed (non-fatal)");
+    }
+  }
+}
+
+/**
+ * Updates a specific milestone column in the Operations tab for a deal.
+ * Column must be a system-owned column in OPS_OPERATIONS_SYSTEM_HEADERS.
+ * Non-fatal — callers wrap in catch.
+ */
+export async function updateOperationsMilestone(
+  dealId:     number,
+  updates:    Partial<Record<
+    "Wire Received Date" | "Order Paid Date" | "Tracking Number" |
+    "Shipped Date" | "Delivered Date" | "Status",
+    string
+  >>,
+): Promise<void> {
+  if (!OPS_SPREADSHEET_ID) return;
+
+  const sheets = getAnySheetsClient();
+  if (!sheets) return;
+
+  try {
+    const { nameToCol } = await ensureTabHeaders(
+      sheets, "Operations", OPS_OPERATIONS_ALL_HEADERS, OPS_SPREADSHEET_ID, { autoCreate: true },
+    );
+
+    const dealIdCol = nameToCol.get("Deal ID");
+    if (dealIdCol === undefined) return;
+
+    // Locate the deal's row
+    const colLtr = colLetter(dealIdCol);
+    const colResp = await sheets.spreadsheets.values.get({
+      spreadsheetId: OPS_SPREADSHEET_ID,
+      range: `Operations!${colLtr}:${colLtr}`,
+    });
+    const colRows = colResp.data.values ?? [];
+    let targetRow = -1;
+    for (let i = 1; i < colRows.length; i++) {
+      if (colRows[i]?.[0] === String(dealId)) {
+        targetRow = i + 1;
+        break;
+      }
+    }
+    if (targetRow < 2) {
+      logger.warn({ dealId }, "[Sheets] Operations row not found for milestone update");
+      return;
+    }
+
+    const data: { range: string; values: string[][] }[] = [];
+    for (const [header, value] of Object.entries(updates)) {
+      const col = nameToCol.get(header);
+      if (col !== undefined) {
+        data.push({ range: `Operations!${colLetter(col)}${targetRow}`, values: [[value ?? ""]] });
+      }
+    }
+    if (data.length === 0) return;
+
+    await sheets.spreadsheets.values.batchUpdate({
+      spreadsheetId: OPS_SPREADSHEET_ID,
+      requestBody: { valueInputOption: "RAW", data },
+    });
+
+    logger.info({ dealId, updates }, "[Sheets] Operations milestone updated");
+  } catch (err) {
+    logger.error({ err, dealId }, "[Sheets] updateOperationsMilestone failed (non-fatal)");
   }
 }
 

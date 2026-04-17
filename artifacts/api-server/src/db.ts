@@ -215,12 +215,25 @@ export async function initDb(): Promise<void> {
   await safeAdd("terms_provided_at",    "TIMESTAMPTZ");
   await safeAdd("terms_version",        "TEXT");
   await safeAdd("confirmation_method",  "TEXT");
-  // Ops status tracking
+  // Ops status tracking (legacy column — kept for backward compat)
   await safeAdd("payment_received_at",  "TIMESTAMPTZ");
   await safeAdd("tracking_number",      "TEXT");
   await safeAdd("order_placed_at",      "TIMESTAMPTZ");
   // Execution warnings (persisted so they survive page reload)
   await safeAdd("execution_warnings",   "JSONB DEFAULT '[]'::jsonb");
+  // ── Fulfillment milestone dates ─────────────────────────────────────────
+  // Two payment dates: customer pays WHC vs. WHC pays Dillon Gage
+  await safeAdd("wire_received_at",     "TIMESTAMPTZ"); // customer wire arrives in WHC account
+  await safeAdd("order_paid_at",        "TIMESTAMPTZ"); // Joe pays DG via ACH on Fiztrade
+  // Shipping milestone dates
+  await safeAdd("shipped_at",           "TIMESTAMPTZ"); // product ships from DG
+  await safeAdd("delivered_at",         "TIMESTAMPTZ"); // customer confirms receipt
+  // Scheduled email timestamps (set by system, consumed by background scheduler)
+  await safeAdd("shipping_notification_scheduled_at", "TIMESTAMPTZ"); // NOW() + 24h when tracking # received
+  await safeAdd("shipping_email_sent_at",             "TIMESTAMPTZ"); // when shipping email fired
+  await safeAdd("delivery_email_sent_at",             "TIMESTAMPTZ"); // when delivery email fired
+  await safeAdd("follow_up_7d_sent_at",               "TIMESTAMPTZ"); // when 7-day nurture sent
+  await safeAdd("follow_up_30d_sent_at",              "TIMESTAMPTZ"); // when 30-day nurture sent
 
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
