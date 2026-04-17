@@ -260,11 +260,8 @@ export async function sendDealRecapEmail(
   const invoiceId = deal.invoiceId ?? `WHC-${deal.id}`;
 
   // Next-business-day deadline from the lock timestamp
-  const lockedDate   = new Date(deal.lockedAt);
-  const deadlineDate = nextBusinessDayFrom(lockedDate);
-  const deadlineStr  = deadlineDate.toLocaleDateString("en-US", {
-    weekday: "long", year: "numeric", month: "long", day: "numeric",
-  });
+  const lockedDate  = new Date(deal.lockedAt);
+  const deadlineStr = nextBusinessDayFrom(lockedDate);
 
   // ── Order Summary bullets ────────────────────────────────────────────────
   const li = (text: string) =>

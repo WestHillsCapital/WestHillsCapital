@@ -321,14 +321,22 @@ async function ensureTabHeaders(
     const startCol = existingRow.length;
     const startLetter = colLetter(startCol);
     const endLetter = colLetter(startCol + missing.length - 1);
-    await sheets.spreadsheets.values.update({
-      spreadsheetId: sid,
-      range: `${tabName}!${startLetter}1:${endLetter}1`,
-      valueInputOption: "RAW",
-      requestBody: { values: [missing] },
-    });
-    missing.forEach((h, i) => nameToCol.set(h, startCol + i));
-    logger.info({ tabName, missing }, "[Sheets] Headers extended");
+    try {
+      await sheets.spreadsheets.values.update({
+        spreadsheetId: sid,
+        range: `${tabName}!${startLetter}1:${endLetter}1`,
+        valueInputOption: "RAW",
+        requestBody: { values: [missing] },
+      });
+      missing.forEach((h, i) => nameToCol.set(h, startCol + i));
+      logger.info({ tabName, missing }, "[Sheets] Headers extended");
+    } catch (extErr: unknown) {
+      const msg = extErr instanceof Error ? extErr.message : String(extErr);
+      logger.warn(
+        { tabName, missing, err: msg },
+        "[Sheets] Could not extend headers (sheet may be at column limit) — continuing with existing columns only",
+      );
+    }
   }
 
   return { nameToCol, sheetId };
