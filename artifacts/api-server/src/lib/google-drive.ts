@@ -78,6 +78,27 @@ export interface DriveUploadResult {
   webViewLink: string;
 }
 
+/**
+ * Uploads the deal invoice PDF to Google Drive under a date/client folder
+ * hierarchy inside `rootFolderId`.
+ *
+ * IMPORTANT — rootFolderId must be a folder inside a **Shared Drive**
+ * (Google Workspace Team Drive). Service accounts have no personal Drive
+ * storage quota, so uploads to regular My Drive folders fail with:
+ *   "Service Accounts do not have storage quota. Leverage shared drives."
+ * `supportsAllDrives` is set on every API call so Shared Drive folders
+ * are located and written to correctly.
+ *
+ * Errors thrown by this function are caught by the deal execute route
+ * (src/routes/deals.ts) and surfaced in the Deal Builder amber warning
+ * block — they do not abort invoice generation or other execution steps.
+ *
+ * Setup: create a Shared Drive in Google Workspace, add the service
+ * account email (GOOGLE_SERVICE_ACCOUNT_KEY → client_email) as a
+ * Contributor, create a "WHC Deals" folder inside it, and set
+ * GOOGLE_DRIVE_DEALS_FOLDER_ID in Railway to that folder's ID.
+ * See artifacts/api-server/docs/google-sheets-setup.md for full steps.
+ */
 export async function saveDealPdfToDrive(
   pdfBuffer:    Buffer,
   deal: {

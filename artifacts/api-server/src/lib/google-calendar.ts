@@ -197,6 +197,12 @@ export async function createBookingEvent(params: {
 
   try {
     const calendar = google.calendar({ version: "v3", auth });
+    // NOTE: attendees[] and sendUpdates are intentionally omitted.
+    // Service accounts cannot add external attendees to calendar events without
+    // domain-wide delegation — attempting to do so causes the entire insert to
+    // fail (no event is created at all). The event appears on the WHC Bookings
+    // calendar only; clients are informed of the appointment via the booking
+    // confirmation email instead.
     const event = await calendar.events.insert({
       calendarId: BOOKING_CALENDAR_ID,
       requestBody: {
