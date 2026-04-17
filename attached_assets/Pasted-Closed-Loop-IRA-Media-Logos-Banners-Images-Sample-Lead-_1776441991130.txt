@@ -1,0 +1,154 @@
+Closed Loop IRA™ Media
+Logos / Banners / Images
+Sample Lead Capture Page
+Closed Loop IRA™ Dealer
+Setup
+GetIRACustomers
+GetIRACustomer
+IRACustomerSetup
+GetIRACustodians
+SetActiveIRACustomer
+ClearActiveIRACustomer
+GetIRAStorageFacilities
+SetIRAPremiums
+GetIRAPrice
+GetIRAPrices
+Lead Capture Widget
+Closed Loop IRA™ Administrator
+Overview
+DealerOptIn
+GetAccountBalance
+GetAccountHoldings
+GetDealerName
+IRAAccountSetup
+IRASetAvailableFunds
+LeadCapture
+TradeComplete
+IRASettleTrade
+Consignment
+Overview
+GetInventoryLocations
+Custom Premiums
+Overview
+GetDropShipLocations
+GetCustomPremiums
+Expected Shipments
+Overview
+ExpectShipment
+GetExpectedShipment
+CancelExpectedShipment
+SimulateShipmentReceived
+FizCharts
+Overview
+Examples Using Defaults
+Examples Using Options
+Integration Guide
+Command Reference
+Spot Price Ticker
+Spot Price Chart
+Spot Intraday Chart
+Spot History Chart
+Spot Ratio Chart
+Combo Chart
+World Clock
+Globalization
+SetAlternateCurrencies
+ClearAlternateCurrencies
+Market Information
+Overview
+GetMarketSchedule
+GetMarketStatus
+Notifications
+Overview
+RegisterForNotification
+ClearNotificationRegistration
+GetRegisteredNotifications
+FizTradeNotification (Client Callback)
+TestNotification
+Price Alerts
+Overview
+SetPriceAlert
+CancelPriceAlert
+GetPriceAlerts
+Product Catalog
+Overview
+GetProductsByMetalV2
+GetProductsByMetal - Deprecated
+GetProduct
+GetCoinImages
+GetCustomProducts
+GetProductCatalog
+GetProductFamiliesByMetal
+GetPriceTiers
+Browse
+Product Prices
+Overview
+GetPrices
+GetPricesForProducts
+GetPrice
+GetPriceCalcInfo
+GetPremiums
+Retail Prices
+Overview - Deprecated
+GetRetailPricesV2 - Deprecated
+GetAllRetailPricesV2 - Deprecated
+SetRetailPremiumsV2 - Deprecated
+GetRetailPremiumsV2 - Deprecated
+SetRetailPriceBreaks - Deprecated
+GetRetailPriceBreaks - Deprecated
+GetAllRetailPriceBreaks - Deprecated
+GetRetailPremiums - Deprecated
+SetRetailPriceTier - Deprecated
+GetRetailPriceTiers - Deprecated
+SetRetailPremiums - Deprecated
+GetAllRetailPrices - Deprecated
+GetRetailPrice - Deprecated
+GetRetailPrices - Deprecated
+Retail Product Catalog
+Overview - Deprecated
+GetDealerProductsByMetal - Deprecated
+GetDealerProducts - Deprecated
+SetRetailProductInfo - Deprecated
+GetRetailProductInfo - Deprecated
+GetAllRetailProductInfo - Deprecated
+AddDealerProduct - Deprecated
+Shipping
+Overview
+ClearDropShipHold
+UpdateDropShipInfo
+EstimateShippingCharge
+GetShippingStatus
+SearchDropShips
+UpdateShippingInfo
+SimulateOrderShipment
+Spot Prices
+Overview
+GetSpotPriceData
+GetExtendedSpotPriceData
+GetSpotTickHistoryData
+GetSpotCloseHistoryData
+GetSpotRatioHistoryData
+Digital Metals
+Overview
+GetDigitalMetalsHoldingsByAccountId
+GetDigitalMetalsHoldingsForMasterAccount
+GetDigitalMetalsHoldingsSumForMasterAccount
+Trading
+Overview
+LockPrices
+ExecuteTrade
+PriceTrade
+CancelTrade
+Trade History
+Overview
+GetTradeHistory
+GetTradeHistoryWithShippingInfo
+GetTradeWithShippingInfo
+GetTrade
+GetTradeByCustomerReferenceNumber
+GetDetailedTradeHistory
+SetTradeReferenceNumber
+Release Notes
+Release 3.0
+Release 2.0
+Release 1.10 - 1.17
