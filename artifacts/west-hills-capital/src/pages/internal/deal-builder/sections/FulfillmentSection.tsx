@@ -108,11 +108,13 @@ interface Props {
   shippedAt:                          string | null;
   deliveredAt:                        string | null;
   isMarkingWire:                      boolean;
+  isResendingWireEmail:               boolean;
   isMarkingDGPaid:                    boolean;
   isSavingTracking:                   boolean;
   isMarkingDelivered:                 boolean;
   opsActionError:                     string | null;
   onMarkWireReceived:                 () => void;
+  onResendWireEmail:                  () => void;
   onMarkOrderPaid:                    () => void;
   onSaveTracking:                     () => void;
   onMarkDelivered:                    () => void;
@@ -134,11 +136,13 @@ export function FulfillmentSection({
   shippedAt,
   deliveredAt,
   isMarkingWire,
+  isResendingWireEmail,
   isMarkingDGPaid,
   isSavingTracking,
   isMarkingDelivered,
   opsActionError,
   onMarkWireReceived,
+  onResendWireEmail,
   onMarkOrderPaid,
   onSaveTracking,
   onMarkDelivered,
@@ -223,7 +227,18 @@ export function FulfillmentSection({
           {step2done ? (
             <div className="space-y-1.5">
               <DoneChip ts={wireReceivedAt!} />
-              <EmailStatus label="Wire email" sentAt={wireConfirmationEmailSentAt} />
+              <div className="flex items-center gap-2 flex-wrap">
+                <EmailStatus label="Wire email" sentAt={wireConfirmationEmailSentAt} />
+                {!wireConfirmationEmailSentAt && (
+                  <ActionBtn
+                    label="Resend wire email"
+                    loadingLabel="Sending…"
+                    onClick={onResendWireEmail}
+                    disabled={false}
+                    loading={isResendingWireEmail}
+                  />
+                )}
+              </div>
             </div>
           ) : step1done ? (
             <ActionBtn

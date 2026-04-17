@@ -88,10 +88,12 @@ export default function DealBuilder() {
 
   const {
     markWireReceived,
+    resendWireEmail,
     markOrderPaid,
     saveTrackingNumber,
     markDelivered,
     isMarkingWire,
+    isResendingWireEmail,
     isMarkingDGPaid,
     isSavingTracking,
     isMarkingDelivered,
@@ -296,11 +298,13 @@ export default function DealBuilder() {
               shippedAt={s.shippedAt}
               deliveredAt={s.deliveredAt}
               isMarkingWire={isMarkingWire}
+              isResendingWireEmail={isResendingWireEmail}
               isMarkingDGPaid={isMarkingDGPaid}
               isSavingTracking={isSavingTracking}
               isMarkingDelivered={isMarkingDelivered}
               opsActionError={opsActionError}
               onMarkWireReceived={markWireReceived}
+              onResendWireEmail={resendWireEmail}
               onMarkOrderPaid={markOrderPaid}
               onSaveTracking={() => saveTrackingNumber(s.trackingNumber)}
               onMarkDelivered={markDelivered}

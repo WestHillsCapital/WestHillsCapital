@@ -693,6 +693,50 @@ router.patch("/:id/wire-received", async (req, res) => {
   }
 });
 
+// PATCH /api/deals/:id/resend-wire-email
+// Retries the wire confirmation email when the original send failed.
+router.patch("/:id/resend-wire-email", async (req, res) => {
+  const dealId = parseInt(req.params.id, 10);
+  if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
+
+  try {
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT id, first_name, email, wire_received_at, wire_confirmation_email_sent_at FROM deals WHERE id = $1`,
+      [dealId],
+    );
+    if (!rows[0]) return res.status(404).json({ error: "Deal not found" });
+
+    const row = rows[0];
+    if (!row.wire_received_at) {
+      return res.status(400).json({ error: "Wire has not been marked as received for this deal" });
+    }
+    if (row.wire_confirmation_email_sent_at) {
+      return res.status(409).json({
+        error: "Wire confirmation email was already sent",
+        wireConfirmationEmailSentAt: row.wire_confirmation_email_sent_at,
+      });
+    }
+
+    await sendWireConfirmationEmail({
+      firstName: row.first_name as string,
+      email:     row.email     as string,
+    });
+
+    const emailUpdateResult = await db.query(
+      `UPDATE deals SET wire_confirmation_email_sent_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING wire_confirmation_email_sent_at`,
+      [dealId],
+    );
+    const wireConfirmationEmailSentAt = emailUpdateResult.rows[0]?.wire_confirmation_email_sent_at ?? null;
+    logger.info({ dealId }, "[Deals] Wire confirmation email resent successfully");
+
+    return res.json({ success: true, wireConfirmationEmailSentAt });
+  } catch (err) {
+    logger.error({ err, dealId: parseInt(req.params.id, 10) }, "[Deals] Failed to resend wire confirmation email");
+    return res.status(500).json({ error: err instanceof Error ? err.message : "Failed to resend wire confirmation email" });
+  }
+});
+
 // PATCH /api/deals/:id/order-paid
 // Records the date WHC pays Dillon Gage via ACH on Fiztrade.
 router.patch("/:id/order-paid", async (req, res) => {

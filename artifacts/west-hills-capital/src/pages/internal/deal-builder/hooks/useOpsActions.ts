@@ -13,11 +13,12 @@ export function useOpsActions(
   setDeliveredAt:                     (ts: string) => void,
   setShippingNotificationScheduledAt: (ts: string) => void,
 ) {
-  const [isMarkingWire,     setIsMarkingWire]     = useState(false);
-  const [isMarkingDGPaid,   setIsMarkingDGPaid]   = useState(false);
-  const [isSavingTracking,  setIsSavingTracking]  = useState(false);
-  const [isMarkingDelivered,setIsMarkingDelivered]= useState(false);
-  const [opsActionError,    setOpsActionError]    = useState<string | null>(null);
+  const [isMarkingWire,        setIsMarkingWire]        = useState(false);
+  const [isResendingWireEmail, setIsResendingWireEmail] = useState(false);
+  const [isMarkingDGPaid,      setIsMarkingDGPaid]      = useState(false);
+  const [isSavingTracking,     setIsSavingTracking]     = useState(false);
+  const [isMarkingDelivered,   setIsMarkingDelivered]   = useState(false);
+  const [opsActionError,       setOpsActionError]       = useState<string | null>(null);
 
   const patchDeal = useCallback(async (endpoint: string): Promise<unknown> => {
     const res = await fetch(`${API_BASE}/api/deals/${savedDealId}/${endpoint}`, {
@@ -47,6 +48,34 @@ export function useOpsActions(
       setIsMarkingWire(false);
     }
   }, [savedDealId, patchDeal, setWireReceivedAt, setPaymentReceivedAt, setWireConfirmationEmailSentAt]);
+
+  // Resend wire confirmation email when the original send failed.
+  // 409 means it was already sent (stale UI state) — silently refresh the badge.
+  const resendWireEmail = useCallback(async () => {
+    if (!savedDealId) return;
+    setIsResendingWireEmail(true);
+    setOpsActionError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/deals/${savedDealId}/resend-wire-email`, {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      });
+      const data = await res.json().catch(() => ({})) as { wireConfirmationEmailSentAt?: string | null; error?: string };
+      if (res.status === 409) {
+        // Email was already sent — update badge to reflect actual DB state
+        setWireConfirmationEmailSentAt(data.wireConfirmationEmailSentAt ?? null);
+        return;
+      }
+      if (!res.ok) {
+        throw new Error(data.error ?? "Could not resend wire confirmation email.");
+      }
+      setWireConfirmationEmailSentAt(data.wireConfirmationEmailSentAt ?? null);
+    } catch (err) {
+      setOpsActionError(err instanceof Error ? err.message : "Could not resend wire confirmation email.");
+    } finally {
+      setIsResendingWireEmail(false);
+    }
+  }, [savedDealId, getAuthHeaders, setWireConfirmationEmailSentAt]);
 
   // Mark Dillon Gage paid via ACH on Fiztrade
   const markOrderPaid = useCallback(async () => {
@@ -110,10 +139,12 @@ export function useOpsActions(
 
   return {
     markWireReceived,
+    resendWireEmail,
     markOrderPaid,
     saveTrackingNumber,
     markDelivered,
     isMarkingWire,
+    isResendingWireEmail,
     isMarkingDGPaid,
     isSavingTracking,
     isMarkingDelivered,
