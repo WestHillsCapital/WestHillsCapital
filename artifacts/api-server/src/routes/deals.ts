@@ -792,16 +792,18 @@ router.patch("/:id/delivered", async (req, res) => {
     );
 
     // Email 3 — Delivery Confirmation (idempotent — only fires once per deal)
+    let deliveryEmailSentAt: string | null = row.delivery_email_sent_at ?? null;
     if (!row.delivery_email_sent_at) {
       try {
         await sendDeliveryConfirmationEmail({
           firstName: row.first_name as string,
           email:     row.email     as string,
         });
-        await db.query(
-          `UPDATE deals SET delivery_email_sent_at = NOW(), updated_at = NOW() WHERE id = $1`,
+        const { rows: emailRows } = await db.query<{ delivery_email_sent_at: string }>(
+          `UPDATE deals SET delivery_email_sent_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING delivery_email_sent_at`,
           [dealId],
         );
+        deliveryEmailSentAt = emailRows[0]?.delivery_email_sent_at ?? null;
         logger.info({ dealId }, "[Deals] Delivery confirmation email sent");
       } catch (emailErr) {
         logger.error({ err: emailErr, dealId }, "[Deals] Delivery confirmation email failed (non-fatal)");
@@ -809,10 +811,11 @@ router.patch("/:id/delivered", async (req, res) => {
     }
 
     return res.json({
-      success: true,
-      deliveredAt:              row.delivered_at,
-      followUp7dScheduledAt:    row.follow_up_7d_scheduled_at,
-      followUp30dScheduledAt:   row.follow_up_30d_scheduled_at,
+      success:               true,
+      deliveredAt:           row.delivered_at,
+      followUp7dScheduledAt: row.follow_up_7d_scheduled_at,
+      followUp30dScheduledAt:row.follow_up_30d_scheduled_at,
+      deliveryEmailSentAt,
     });
   } catch (err) {
     logger.error({ err }, "[Deals] Failed to mark delivered");
