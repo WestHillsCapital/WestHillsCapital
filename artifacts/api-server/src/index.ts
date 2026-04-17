@@ -3,7 +3,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { initDb, getDb } from "./db";
 import { validateConfig } from "./lib/config";
-import { syncDealOpsStatus, updateOperationsMilestone } from "./lib/google-sheets";
+import { syncDealOpsStatus, updateOperationsMilestone, computeOpsStatus } from "./lib/google-sheets";
 
 // ── 1. Validate configuration before anything else ────────────────────────────
 // Logs all env var statuses and exits immediately if required vars are missing.
@@ -66,8 +66,13 @@ async function runScheduler(): Promise<void> {
   try {
     const db = getDb();
 
-    // Fetch all open/in-flight deals — any deal that hasn't completed the 30d follow-up
-    // (or that hasn't been delivered yet). Covers every milestone state.
+    // Fetch all open/in-flight deals.
+    // A deal "exits" the scheduler when:
+    //   - shipped (shipping_email_sent_at IS NOT NULL), AND
+    //   - delivered (delivered_at IS NOT NULL), AND
+    //   - both follow-ups scheduled (follow_up_7d_scheduled_at + follow_up_30d_scheduled_at IS NOT NULL)
+    // delivery_email_sent_at is intentionally excluded from the completion check —
+    // it is set by Task #31 (not this task).
     const { rows } = await db.query<SchedulerDeal>(
       `SELECT
          id, locked_at, payment_received_at, tracking_number, order_placed_at,
@@ -76,11 +81,12 @@ async function runScheduler(): Promise<void> {
          delivery_email_sent_at, follow_up_7d_scheduled_at, follow_up_30d_scheduled_at
        FROM deals
        WHERE status IN ('locked', 'executed')
-         AND (delivered_at IS NULL
-              OR delivery_email_sent_at IS NULL
-              OR follow_up_7d_scheduled_at  IS NULL
-              OR follow_up_30d_scheduled_at IS NULL
-              OR shipping_email_sent_at IS NULL)
+         AND (
+               shipping_email_sent_at IS NULL
+            OR delivered_at IS NULL
+            OR follow_up_7d_scheduled_at  IS NULL
+            OR follow_up_30d_scheduled_at IS NULL
+         )
        ORDER BY id DESC
        LIMIT 500`
     );
@@ -126,10 +132,12 @@ async function runScheduler(): Promise<void> {
         }
       }
 
-      // ── 2. Sync Deals tab Ops status for all in-flight states ─────────────
+      // ── 2. Sync Deals tab + Operations tab Ops status ─────────────────────
       // Covers time-based transitions (Awaiting Wire → At Risk → Cancel Eligible)
-      // as well as Wire Received / Paid to DG / Label Created / Shipped / Delivered.
-      syncDealOpsStatus({
+      // as well as all later milestone states. Both the Deals tab (syncDealOpsStatus)
+      // and the Operations tab (updateOperationsMilestone) receive the updated status
+      // so they stay in sync regardless of which path triggered the change.
+      const dealForStatus = {
         id:                  deal.id,
         lockedAt:            deal.locked_at,
         paymentReceivedAt:   deal.payment_received_at,
@@ -140,8 +148,17 @@ async function runScheduler(): Promise<void> {
         shippedAt:           deal.shipped_at,
         deliveredAt:         deal.delivered_at,
         shippingEmailSentAt: deal.shipping_email_sent_at,
-      }).catch((err) =>
+      };
+      const computedStatus = computeOpsStatus(dealForStatus);
+
+      syncDealOpsStatus(dealForStatus).catch((err) =>
         logger.error({ err, dealId: deal.id }, "[Scheduler] Deals tab sync failed")
+      );
+
+      // Also propagate computed status to the Operations tab so time-based
+      // transitions (At Risk, Cancel Eligible) are visible there too.
+      updateOperationsMilestone(deal.id, { "Status": computedStatus }).catch((err) =>
+        logger.error({ err, dealId: deal.id }, "[Scheduler] Operations tab status sync failed")
       );
     }
 

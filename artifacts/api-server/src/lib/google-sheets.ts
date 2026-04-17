@@ -1435,7 +1435,7 @@ export async function appendDealToOpsSheet(deal: DealPayload): Promise<void> {
     "Created":               deal.lockedAt,
     "Updated":               deal.lockedAt,
     "Notes":                 deal.notes ?? "",
-    "Ops Status":            "Pending Wire",
+    "Ops Status":            "Awaiting Wire",
     "Payment Received At":   "",
     "Tracking Number":       "",
   };
@@ -1493,8 +1493,11 @@ function addBusinessDays(date: Date, n: number): Date {
  * Status priority chain (highest wins):
  *   Delivered → Shipped → Label Created → Paid to DG → Wire Received
  *   → time-based: Cancel Eligible / At Risk / Awaiting Wire
+ *
+ * Exported so the scheduler can compute status for Operations tab updates
+ * without an extra Sheets read round-trip.
  */
-function computeOpsStatus(deal: {
+export function computeOpsStatus(deal: {
   deliveredAt?:       Date | null;
   shippingEmailSentAt?: Date | null;
   trackingNumber?:    string | null;
