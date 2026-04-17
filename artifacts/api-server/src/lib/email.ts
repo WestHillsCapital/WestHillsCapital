@@ -39,15 +39,14 @@ interface SendEmailOptions {
 
 async function sendEmail(opts: SendEmailOptions): Promise<void> {
   if (!RESEND_API_KEY) {
-    logger.warn(
-      { subject: opts.subject, to: opts.to },
-      "[Email] RESEND_API_KEY not configured — email skipped"
-    );
-    return;
+    const msg = `[Email] RESEND_API_KEY not configured — ${opts.subject} not sent`;
+    logger.warn({ subject: opts.subject, to: opts.to }, msg);
+    throw new Error(msg);
   }
   if (!opts.to) {
-    logger.warn({ subject: opts.subject }, "[Email] No recipient — email skipped");
-    return;
+    const msg = `[Email] No recipient — ${opts.subject} not sent`;
+    logger.warn({ subject: opts.subject }, msg);
+    throw new Error(msg);
   }
 
   const payload: Record<string, unknown> = {
