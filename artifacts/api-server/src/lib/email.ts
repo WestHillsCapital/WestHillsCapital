@@ -616,47 +616,77 @@ export async function sendBookingConfirmation(params: {
   allocationRange: string;
   timeline: string;
 }): Promise<void> {
+  const li = (text: string) =>
+    `<li style="margin-bottom:6px;color:#374151;">${text}</li>`;
+
   await sendEmail({
     to:      params.to,
     subject: `Your Allocation Call is Confirmed — ${params.dayLabel}`,
     html:    whcEmailWrapper(`
-      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Dear ${params.firstName.trim()},</p>
+      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName.trim()},</p>
 
       <p style="margin:0 0 20px;font-size:15px;color:#374151;">
-        Your allocation discussion with West Hills Capital has been confirmed.
-        We look forward to speaking with you.
+        Your allocation consultation with West Hills Capital is confirmed.
+        I personally look forward to speaking with you and walking through your options.
       </p>
 
+      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#0F1C3F;">Appointment Details</p>
       <div style="margin:0 0 20px;padding:18px;background:#ffffff;border:1px solid #d4b896;border-radius:6px;">
-        <p style="margin:0 0 6px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;">Appointment</p>
-        <p style="margin:0 0 4px;font-size:18px;font-weight:bold;color:#0F1C3F;">${params.dayLabel}</p>
-        <p style="margin:0 0 14px;font-size:15px;color:#374151;">${params.timeLabel}</p>
+        <p style="margin:0 0 2px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;">Date &amp; Time</p>
+        <p style="margin:0 0 4px;font-size:20px;font-weight:bold;color:#0F1C3F;">${params.dayLabel}</p>
+        <p style="margin:0 0 16px;font-size:16px;color:#374151;">${params.timeLabel}</p>
         <p style="margin:0;font-size:12px;color:#9ca3af;">
           Confirmation ID: <strong style="color:#1a1a1a;font-family:monospace;">${params.confirmationId}</strong>
         </p>
       </div>
 
-      <div style="margin:0 0 24px;padding:14px 18px;background:#C49A38;border-radius:6px;">
+      <div style="margin:0 0 28px;padding:14px 18px;background:#C49A38;border-radius:6px;">
         <p style="margin:0;font-size:14px;color:#0F1C3F;font-weight:bold;">
-          We will call you from (800) 867-6768 at your scheduled time. Save this number.
+          We will call you from <span style="font-family:monospace;">(800) 867-6768</span> at your scheduled time &mdash; please save this number.
         </p>
       </div>
 
-      <p style="margin:0 0 8px;font-size:13px;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;">Your Submission Summary</p>
-      <table style="border-collapse:collapse;width:100%;font-size:14px;margin:0 0 24px;">
-        <tr><td style="padding:6px 0;color:#9ca3af;width:130px;border-bottom:1px solid #e5e7eb;">Structure</td><td style="padding:6px 0;color:#374151;border-bottom:1px solid #e5e7eb;">${ALLOCATION_LABELS[params.allocationType] ?? params.allocationType}</td></tr>
-        <tr><td style="padding:6px 0;color:#9ca3af;border-bottom:1px solid #e5e7eb;">Allocation</td><td style="padding:6px 0;color:#374151;border-bottom:1px solid #e5e7eb;">${RANGE_LABELS[params.allocationRange] ?? params.allocationRange}</td></tr>
-        <tr><td style="padding:6px 0;color:#9ca3af;border-bottom:1px solid #e5e7eb;">Timeline</td><td style="padding:6px 0;color:#374151;border-bottom:1px solid #e5e7eb;">${TIMELINE_LABELS[params.timeline] ?? params.timeline}</td></tr>
-        <tr><td style="padding:6px 0;color:#9ca3af;">State</td><td style="padding:6px 0;color:#374151;">${params.state}</td></tr>
-      </table>
+      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#0F1C3F;">What to Expect on the Call</p>
+      <ul style="margin:0 0 28px 18px;padding:0;font-size:15px;line-height:1.8;">
+        ${li("We will review your intended allocation size and structure")}
+        ${li("We will walk through current live pricing on gold and silver")}
+        ${li("We will confirm your delivery or storage preference")}
+        ${li("If you decide to move forward, we can lock your trade on the call")}
+        ${li("No commitment is required &mdash; this is a consultation")}
+      </ul>
 
-      <p style="margin:0 0 24px;font-size:15px;color:#374151;">
-        During the call we will review your intended allocation, confirm current pricing, and discuss execution steps.
+      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#0F1C3F;">Your Submission</p>
+      <div style="margin:0 0 28px;padding:14px 18px;background:#ffffff;border:1px solid #d4b896;border-radius:6px;">
+        <table style="border-collapse:collapse;width:100%;font-size:14px;">
+          <tr>
+            <td style="padding:6px 0;color:#9ca3af;width:140px;border-bottom:1px solid #f3f4f6;">Structure</td>
+            <td style="padding:6px 0;color:#374151;border-bottom:1px solid #f3f4f6;">${ALLOCATION_LABELS[params.allocationType] ?? params.allocationType}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#9ca3af;border-bottom:1px solid #f3f4f6;">Allocation Range</td>
+            <td style="padding:6px 0;color:#374151;border-bottom:1px solid #f3f4f6;">${RANGE_LABELS[params.allocationRange] ?? params.allocationRange}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#9ca3af;border-bottom:1px solid #f3f4f6;">Timeline</td>
+            <td style="padding:6px 0;color:#374151;border-bottom:1px solid #f3f4f6;">${TIMELINE_LABELS[params.timeline] ?? params.timeline}</td>
+          </tr>
+          <tr>
+            <td style="padding:6px 0;color:#9ca3af;">State</td>
+            <td style="padding:6px 0;color:#374151;">${params.state}</td>
+          </tr>
+        </table>
+      </div>
+
+      <p style="margin:0 0 28px;font-size:15px;color:#374151;">
+        If anything comes up before the call, don&rsquo;t hesitate to reach out. I want to make sure
+        you feel fully prepared and comfortable when we connect.
       </p>
 
-      <p style="margin:0;font-size:12px;color:#9ca3af;border-top:1px solid #d4b896;padding-top:16px;line-height:1.7;">
-        <strong>Important:</strong> Trades are executed only after verbal confirmation and receipt of cleared funds.
-        This call is a consultation only &mdash; no commitment is required.
+      ${joeSig()}
+
+      <p style="margin:24px 0 0;font-size:11px;color:#9ca3af;border-top:1px solid #d4b896;padding-top:14px;line-height:1.7;">
+        Trades are executed only after verbal confirmation on a recorded call and receipt of cleared funds.
+        This appointment is a consultation only &mdash; no obligation or commitment is required.
       </p>
     `),
   });
