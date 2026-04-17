@@ -374,6 +374,224 @@ export async function sendDealRecapEmail(
   });
 }
 
+// ── Shared HTML helpers ───────────────────────────────────────────────────────
+
+function whcEmailWrapper(body: string): string {
+  return `
+    <div style="font-family:Georgia,serif;max-width:620px;margin:auto;padding:32px 24px;color:#1a1a1a;background:#ffffff;">
+      ${body}
+      <p style="margin:32px 0 0;font-size:11px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:14px;line-height:1.6;">
+        West Hills Capital &nbsp;|&nbsp; (800) 867-6768 &nbsp;|&nbsp; westhillscapital.com
+      </p>
+    </div>
+  `;
+}
+
+function joeSig(): string {
+  return `
+    <p style="margin:0 0 4px;font-size:15px;color:#374151;">My very best,</p>
+    <p style="margin:0 0 28px;font-size:15px;font-weight:bold;color:#1a1a1a;">Joe</p>
+    <p style="margin:0 0 4px;font-size:13px;color:#9ca3af;">West Hills Capital &nbsp;|&nbsp; (800) 867-6768</p>
+  `;
+}
+
+// ── Email 1 — Wire Received Confirmation ──────────────────────────────────────
+
+export async function sendWireConfirmationEmail(params: {
+  firstName: string;
+  email:     string;
+}): Promise<void> {
+  await sendEmail({
+    to:      params.email,
+    subject: "We received your wire — your metals are being prepared",
+    html:    whcEmailWrapper(`
+      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName},</p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        Great news &mdash; your wire has arrived. I wanted to reach out right away so you know things are moving.
+      </p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        We&rsquo;re coordinating with our dealer now to secure your metals and get your order on its way. Once the package ships,
+        I&rsquo;ll send over your FedEx tracking information so you can follow along every step of the way.
+      </p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        In the meantime, if you have any questions or just want to check in, don&rsquo;t hesitate to reach out.
+        I&rsquo;m here to make sure this goes smoothly for you.
+      </p>
+
+      <p style="margin:0 0 28px;font-size:15px;color:#374151;">
+        We appreciate your trust &mdash; you made a sound decision, and we take that responsibility seriously.
+      </p>
+
+      ${joeSig()}
+    `),
+  });
+}
+
+// ── Email 2 — Shipping Notification ───────────────────────────────────────────
+
+export async function sendShippingNotificationEmail(params: {
+  firstName:      string;
+  email:          string;
+  trackingNumber: string;
+}): Promise<void> {
+  const trackingUrl = `https://www.fedex.com/apps/fedextrack/?tracknumbers=${encodeURIComponent(params.trackingNumber)}`;
+
+  await sendEmail({
+    to:      params.email,
+    subject: "Your metals are on the way — FedEx tracking inside",
+    html:    whcEmailWrapper(`
+      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName},</p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        Your package is in transit &mdash; I&rsquo;m glad we&rsquo;re at this step. Your metals have been fully allocated,
+        packaged, and handed off to FedEx for delivery.
+      </p>
+
+      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#1a1a1a;">Your FedEx Tracking</p>
+      <div style="margin:0 0 24px;padding:14px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;">
+        <p style="margin:0 0 8px;font-size:14px;color:#374151;">
+          Tracking Number: <strong style="font-family:monospace;">${params.trackingNumber}</strong>
+        </p>
+        <a href="${trackingUrl}"
+           style="display:inline-block;padding:8px 16px;background:#0F1C3F;color:#ffffff;text-decoration:none;border-radius:4px;font-size:14px;font-family:Georgia,serif;">
+          Track Your Package &rarr;
+        </a>
+      </div>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        FedEx typically delivers insured shipments like yours with signature required. Please make sure someone is available
+        to receive the package, or confirm with us if you&rsquo;re picking up at a FedEx location.
+      </p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        When your package arrives, take a moment to inspect the exterior before signing. If anything looks off &mdash; any
+        damage or tampering &mdash; please call me right away at <strong>(800) 867-6768</strong> before opening it.
+      </p>
+
+      <p style="margin:0 0 28px;font-size:15px;color:#374151;">
+        I&rsquo;ll follow up once we see delivery confirmed. We&rsquo;re almost there.
+      </p>
+
+      ${joeSig()}
+    `),
+  });
+}
+
+// ── Email 3 — Delivery Confirmation ───────────────────────────────────────────
+
+export async function sendDeliveryConfirmationEmail(params: {
+  firstName: string;
+  email:     string;
+}): Promise<void> {
+  await sendEmail({
+    to:      params.email,
+    subject: "Your metals have been delivered — how is everything looking?",
+    html:    whcEmailWrapper(`
+      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName},</p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        We&rsquo;re showing your package as delivered &mdash; congratulations on completing your allocation.
+        I hope everything arrived in perfect condition.
+      </p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        Once you&rsquo;ve had a chance to open the package, please take a moment to verify that the contents match
+        your order confirmation. Everything should be exactly as specified.
+      </p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        If anything at all seems off &mdash; a discrepancy in quantity, condition, or anything unexpected &mdash;
+        please call me immediately at <strong>(800) 867-6768</strong>. We will make it right, no questions asked.
+      </p>
+
+      <p style="margin:0 0 28px;font-size:15px;color:#374151;">
+        It&rsquo;s been a genuine pleasure working with you on this. Your metals are now a real, tangible part of
+        your financial foundation &mdash; and that&rsquo;s something worth feeling good about.
+      </p>
+
+      ${joeSig()}
+    `),
+  });
+}
+
+// ── Email 4 — 7-Day Follow-Up ─────────────────────────────────────────────────
+
+export async function sendFollowUp7DayEmail(params: {
+  firstName: string;
+  email:     string;
+}): Promise<void> {
+  await sendEmail({
+    to:      params.email,
+    subject: "Quick check-in — how are your metals?",
+    html:    whcEmailWrapper(`
+      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName},</p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        It&rsquo;s been about a week since your metals arrived, and I just wanted to check in personally.
+      </p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        I hope everything is settled in nicely &mdash; whether that&rsquo;s a home safe, a private vault, or somewhere
+        else entirely. If you have any questions about storage, insurance, or just want to talk through your allocation
+        strategy, I&rsquo;m always happy to spend some time on that.
+      </p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        Markets keep moving, and so do people&rsquo;s situations. If anything has changed in your financial picture
+        since we last spoke, this is a good time to revisit where you stand.
+      </p>
+
+      <p style="margin:0 0 28px;font-size:15px;color:#374151;">
+        Also &mdash; if you know anyone who&rsquo;s been asking about protecting their savings with physical metals,
+        I&rsquo;d be glad to have that conversation with them. A personal introduction means a lot in this business.
+      </p>
+
+      ${joeSig()}
+    `),
+  });
+}
+
+// ── Email 5 — 30-Day Follow-Up ────────────────────────────────────────────────
+
+export async function sendFollowUp30DayEmail(params: {
+  firstName: string;
+  email:     string;
+}): Promise<void> {
+  await sendEmail({
+    to:      params.email,
+    subject: "One month in — let\u2019s catch up",
+    html:    whcEmailWrapper(`
+      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName},</p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        It&rsquo;s been a month since your metals were delivered, and I wanted to reach out with a proper check-in.
+      </p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        A lot can happen in thirty days &mdash; markets shift, headlines change, and allocation strategies that
+        felt complete often reveal new opportunities on reflection. If you&rsquo;ve been thinking about adding to
+        your position or adjusting your mix between gold and silver, now&rsquo;s a good time to have that conversation.
+      </p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        My direct line is <strong>(800) 867-6768</strong> &mdash; feel free to call anytime. No pressure, no agenda.
+        Just a conversation between two people who take this stuff seriously.
+      </p>
+
+      <p style="margin:0 0 28px;font-size:15px;color:#374151;">
+        And if you&rsquo;ve had a good experience working with us, I&rsquo;d genuinely appreciate an introduction
+        to anyone in your circle who might benefit from the same kind of straightforward guidance. Referrals are how
+        we grow, and I promise to take good care of anyone you send our way.
+      </p>
+
+      ${joeSig()}
+    `),
+  });
+}
+
 // ── Prospect confirmation ─────────────────────────────────────────────────────
 
 export async function sendBookingConfirmation(params: {

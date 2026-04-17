@@ -9,7 +9,12 @@ import {
   updateOperationsMilestone,
   type DealPayload,
 } from "../lib/google-sheets";
-import { sendDealLockNotification, sendDealRecapEmail } from "../lib/email";
+import {
+  sendDealLockNotification,
+  sendDealRecapEmail,
+  sendWireConfirmationEmail,
+  sendDeliveryConfirmationEmail,
+} from "../lib/email";
 import { lockAndExecuteTrade }   from "../lib/fiztrade";
 import { generateInvoicePdf }   from "../lib/invoice-pdf";
 import { saveDealPdfToDrive }   from "../lib/google-drive";
@@ -657,6 +662,14 @@ router.patch("/:id/wire-received", async (req, res) => {
       logger.error({ err, dealId }, "[Deals] Operations tab sync failed after wire-received")
     );
 
+    // Email 1 — Wire Received Confirmation (fire-and-forget, non-fatal)
+    sendWireConfirmationEmail({
+      firstName: row.first_name as string,
+      email:     row.email     as string,
+    }).catch((err) =>
+      logger.error({ err, dealId }, "[Deals] Wire confirmation email failed (non-fatal)")
+    );
+
     return res.json({ success: true, wireReceivedAt: row.wire_received_at });
   } catch (err) {
     logger.error({ err }, "[Deals] Failed to mark wire received");
@@ -776,6 +789,14 @@ router.patch("/:id/delivered", async (req, res) => {
       "Status": "Delivered",
     }).catch((err) =>
       logger.error({ err, dealId }, "[Deals] Operations tab sync failed after delivered")
+    );
+
+    // Email 3 — Delivery Confirmation (fire-and-forget, non-fatal)
+    sendDeliveryConfirmationEmail({
+      firstName: row.first_name as string,
+      email:     row.email     as string,
+    }).catch((err) =>
+      logger.error({ err, dealId }, "[Deals] Delivery confirmation email failed (non-fatal)")
     );
 
     return res.json({

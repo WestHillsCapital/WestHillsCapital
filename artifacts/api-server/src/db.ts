@@ -232,8 +232,11 @@ export async function initDb(): Promise<void> {
   await safeAdd("shipping_notification_scheduled_at", "TIMESTAMPTZ"); // NOW() + 24h when tracking # received
   await safeAdd("shipping_email_sent_at",             "TIMESTAMPTZ"); // when shipping email fired
   await safeAdd("delivery_email_sent_at",             "TIMESTAMPTZ"); // when delivery email fired
-  await safeAdd("follow_up_7d_scheduled_at",           "TIMESTAMPTZ"); // set at delivery+7d; Task#31 fires email when this passes
-  await safeAdd("follow_up_30d_scheduled_at",         "TIMESTAMPTZ"); // set at delivery+30d; Task#31 fires email when this passes
+  await safeAdd("follow_up_7d_scheduled_at",           "TIMESTAMPTZ"); // set at delivery+7d; scheduler fires email when this passes
+  await safeAdd("follow_up_30d_scheduled_at",         "TIMESTAMPTZ"); // set at delivery+30d; scheduler fires email when this passes
+  // Sent-at columns — set after each email actually sends (idempotency guards)
+  await safeAdd("follow_up_7d_sent_at",               "TIMESTAMPTZ"); // when 7-day follow-up email was sent
+  await safeAdd("follow_up_30d_sent_at",              "TIMESTAMPTZ"); // when 30-day follow-up email was sent
 
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
