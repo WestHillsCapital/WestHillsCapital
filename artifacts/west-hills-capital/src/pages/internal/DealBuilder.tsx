@@ -101,6 +101,7 @@ export default function DealBuilder() {
     s.savedDealId,
     s.setPaymentReceivedAt,
     s.setWireReceivedAt,
+    s.setWireConfirmationEmailSentAt,
     s.setOrderPaidAt,
     s.setShippedAt,
     s.setDeliveredAt,
@@ -303,6 +304,7 @@ export default function DealBuilder() {
               onMarkOrderPaid={markOrderPaid}
               onSaveTracking={() => saveTrackingNumber(s.trackingNumber)}
               onMarkDelivered={markDelivered}
+              wireConfirmationEmailSentAt={s.wireConfirmationEmailSentAt}
               shippingEmailSentAt={s.shippingEmailSentAt}
               deliveryEmailSentAt={s.deliveryEmailSentAt}
               followUp7dSentAt={s.followUp7dSentAt}

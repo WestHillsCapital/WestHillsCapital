@@ -662,15 +662,26 @@ router.patch("/:id/wire-received", async (req, res) => {
       logger.error({ err, dealId }, "[Deals] Operations tab sync failed after wire-received")
     );
 
-    // Email 1 — Wire Received Confirmation (fire-and-forget, non-fatal)
-    sendWireConfirmationEmail({
-      firstName: row.first_name as string,
-      email:     row.email     as string,
-    }).catch((err) =>
-      logger.error({ err, dealId }, "[Deals] Wire confirmation email failed (non-fatal)")
-    );
+    // Email 1 — Wire Received Confirmation (idempotent — only fires once per deal)
+    let wireConfirmationEmailSentAt: Date | null = row.wire_confirmation_email_sent_at ?? null;
+    if (!row.wire_confirmation_email_sent_at) {
+      try {
+        await sendWireConfirmationEmail({
+          firstName: row.first_name as string,
+          email:     row.email     as string,
+        });
+        const emailUpdateResult = await db.query(
+          `UPDATE deals SET wire_confirmation_email_sent_at = NOW(), updated_at = NOW() WHERE id = $1 RETURNING wire_confirmation_email_sent_at`,
+          [dealId],
+        );
+        wireConfirmationEmailSentAt = emailUpdateResult.rows[0]?.wire_confirmation_email_sent_at ?? null;
+        logger.info({ dealId }, "[Deals] Wire confirmation email sent");
+      } catch (emailErr) {
+        logger.error({ err: emailErr, dealId }, "[Deals] Wire confirmation email failed (non-fatal)");
+      }
+    }
 
-    return res.json({ success: true, wireReceivedAt: row.wire_received_at });
+    return res.json({ success: true, wireReceivedAt: row.wire_received_at, wireConfirmationEmailSentAt });
   } catch (err) {
     logger.error({ err }, "[Deals] Failed to mark wire received");
     return res.status(500).json({ error: "Failed to mark wire received" });

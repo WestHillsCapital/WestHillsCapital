@@ -7,6 +7,7 @@ export function useOpsActions(
   savedDealId:                        number | null,
   setPaymentReceivedAt:               (ts: string) => void, // legacy
   setWireReceivedAt:                  (ts: string) => void,
+  setWireConfirmationEmailSentAt:     (ts: string | null) => void,
   setOrderPaidAt:                     (ts: string) => void,
   setShippedAt:                       (ts: string) => void,
   setDeliveredAt:                     (ts: string) => void,
@@ -36,15 +37,16 @@ export function useOpsActions(
     setIsMarkingWire(true);
     setOpsActionError(null);
     try {
-      const data = await patchDeal("wire-received") as { wireReceivedAt?: string };
+      const data = await patchDeal("wire-received") as { wireReceivedAt?: string; wireConfirmationEmailSentAt?: string | null };
       setWireReceivedAt(data.wireReceivedAt ?? new Date().toISOString());
       setPaymentReceivedAt(data.wireReceivedAt ?? new Date().toISOString()); // keep legacy in sync
+      setWireConfirmationEmailSentAt(data.wireConfirmationEmailSentAt ?? null);
     } catch (err) {
       setOpsActionError(err instanceof Error ? err.message : "Could not mark wire received.");
     } finally {
       setIsMarkingWire(false);
     }
-  }, [savedDealId, patchDeal, setWireReceivedAt, setPaymentReceivedAt]);
+  }, [savedDealId, patchDeal, setWireReceivedAt, setPaymentReceivedAt, setWireConfirmationEmailSentAt]);
 
   // Mark Dillon Gage paid via ACH on Fiztrade
   const markOrderPaid = useCallback(async () => {

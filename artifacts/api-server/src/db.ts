@@ -237,6 +237,7 @@ export async function initDb(): Promise<void> {
   // Sent-at columns — set after each email actually sends (idempotency guards)
   await safeAdd("follow_up_7d_sent_at",               "TIMESTAMPTZ"); // when 7-day follow-up email was sent
   await safeAdd("follow_up_30d_sent_at",              "TIMESTAMPTZ"); // when 30-day follow-up email was sent
+  await safeAdd("wire_confirmation_email_sent_at",    "TIMESTAMPTZ"); // when wire confirmation email (Email 1) was sent
 
   dbReady = true;
   logger.info("Database tables and indexes verified / created");

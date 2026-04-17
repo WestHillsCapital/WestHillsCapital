@@ -117,6 +117,7 @@ interface Props {
   onSaveTracking:                     () => void;
   onMarkDelivered:                    () => void;
   // Email send timestamps
+  wireConfirmationEmailSentAt:        string | null | undefined;
   shippingEmailSentAt:                string | null | undefined;
   deliveryEmailSentAt:                string | null | undefined;
   followUp7dSentAt:                   string | null | undefined;
@@ -141,6 +142,7 @@ export function FulfillmentSection({
   onMarkOrderPaid,
   onSaveTracking,
   onMarkDelivered,
+  wireConfirmationEmailSentAt,
   shippingEmailSentAt,
   deliveryEmailSentAt,
   followUp7dSentAt,
@@ -219,7 +221,10 @@ export function FulfillmentSection({
           active={step1done && !step2done}
         >
           {step2done ? (
-            <DoneChip ts={wireReceivedAt!} />
+            <div className="space-y-1.5">
+              <DoneChip ts={wireReceivedAt!} />
+              <EmailStatus label="Wire email" sentAt={wireConfirmationEmailSentAt} />
+            </div>
           ) : step1done ? (
             <ActionBtn
               label="Mark Wire Received"

@@ -72,6 +72,7 @@ export function useDealState(
   const [shippingNotificationScheduledAt,  setShippingNotificationScheduledAt]  = useState<string | null>(null);
 
   // ── Email send timestamps ─────────────────────────────────────────────────
+  const [wireConfirmationEmailSentAt, setWireConfirmationEmailSentAt] = useState<string | null>(null);
   const [shippingEmailSentAt,  setShippingEmailSentAt]  = useState<string | null>(null);
   const [deliveryEmailSentAt,  setDeliveryEmailSentAt]  = useState<string | null>(null);
   const [followUp7dSentAt,     setFollowUp7dSentAt]     = useState<string | null>(null);
@@ -157,6 +158,7 @@ export function useDealState(
         setDeliveredAt(deal.delivered_at ?? null);
         setShippingNotificationScheduledAt(deal.shipping_notification_scheduled_at ?? null);
         // Email send timestamps
+        setWireConfirmationEmailSentAt(deal.wire_confirmation_email_sent_at ?? null);
         setShippingEmailSentAt(deal.shipping_email_sent_at ?? null);
         setDeliveryEmailSentAt(deal.delivery_email_sent_at ?? null);
         setFollowUp7dSentAt(deal.follow_up_7d_sent_at ?? null);
@@ -295,6 +297,7 @@ export function useDealState(
     deliveredAt, setDeliveredAt,
     shippingNotificationScheduledAt, setShippingNotificationScheduledAt,
     // email send timestamps
+    wireConfirmationEmailSentAt, setWireConfirmationEmailSentAt,
     shippingEmailSentAt, setShippingEmailSentAt,
     deliveryEmailSentAt, setDeliveryEmailSentAt,
     followUp7dSentAt, setFollowUp7dSentAt,
