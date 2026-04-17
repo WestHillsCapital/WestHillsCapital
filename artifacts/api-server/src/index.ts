@@ -132,7 +132,29 @@ async function runScheduler(): Promise<void> {
         }
       }
 
-      // ── 2. Sync Deals tab + Operations tab Ops status ─────────────────────
+      // ── 2. Backfill follow-up schedule timestamps for already-delivered deals ─
+      // Idempotently set follow_up_{7d,30d}_scheduled_at if delivered_at exists
+      // but the schedule fields are null (handles records created before Task #30
+      // shipped, or records where the /delivered endpoint was bypassed).
+      if (deal.delivered_at) {
+        if (!deal.follow_up_7d_scheduled_at || !deal.follow_up_30d_scheduled_at) {
+          try {
+            await db.query(
+              `UPDATE deals
+                  SET follow_up_7d_scheduled_at  = COALESCE(follow_up_7d_scheduled_at,  delivered_at + INTERVAL '7 days'),
+                      follow_up_30d_scheduled_at = COALESCE(follow_up_30d_scheduled_at, delivered_at + INTERVAL '30 days'),
+                      updated_at                 = NOW()
+                WHERE id = $1`,
+              [deal.id],
+            );
+            logger.info({ dealId: deal.id }, "[Scheduler] Backfilled follow-up schedule timestamps");
+          } catch (err) {
+            logger.error({ err, dealId: deal.id }, "[Scheduler] Failed to backfill follow-up schedules");
+          }
+        }
+      }
+
+      // ── 3. Sync Deals tab + Operations tab Ops status ─────────────────────
       // Covers time-based transitions (Awaiting Wire → At Risk → Cancel Eligible)
       // as well as all later milestone states. Both the Deals tab (syncDealOpsStatus)
       // and the Operations tab (updateOperationsMilestone) receive the updated status
