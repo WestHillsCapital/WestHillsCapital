@@ -123,18 +123,6 @@ function formatTime(t: string): string {
 /** Extract a compact hours string from a locationDetail object.
  *  Returns "" when no usable hours data is present. */
 function extractHours(detail: Record<string, unknown>): string {
-  const hoursWrapper =
-    pick<Record<string, unknown>>(detail, "hoursOfOperation") ??
-    pick<Record<string, unknown>>(detail, "operationalSchedule") ??
-    pick<Record<string, unknown>>(detail, "storeHours");
-  if (!hoursWrapper) return "";
-
-  const schedule = (
-    pick<unknown[]>(hoursWrapper, "hoursOfOperation", "operationalSchedule", "dayHours") ??
-    (Array.isArray(hoursWrapper) ? hoursWrapper : [])
-  ) as Array<Record<string, unknown>>;
-  if (!schedule.length) return "";
-
   const ORDER = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"] as const;
   const LABEL: Record<string, string> = {
     MON: "Mon", TUE: "Tue", WED: "Wed", THU: "Thu",
@@ -142,12 +130,43 @@ function extractHours(detail: Record<string, unknown>): string {
   };
 
   const map: Record<string, string> = {};
+
+  // Pull the top-level hours container — try every known alias
+  const hoursWrapper =
+    pick<Record<string, unknown>>(detail, "hoursOfOperation") ??
+    pick<Record<string, unknown>>(detail, "operationalSchedule") ??
+    pick<Record<string, unknown>>(detail, "storeHours") ??
+    pick<Record<string, unknown>>(detail, "operationalDetail");
+  if (!hoursWrapper) return "";
+
+  // The container may itself be an array, or may hold an array under a named key
+  const rawSchedule =
+    pick<unknown[]>(hoursWrapper, "hoursOfOperation", "operationalSchedule", "dayHours", "schedules") ??
+    (Array.isArray(hoursWrapper) ? hoursWrapper : []);
+  const schedule = rawSchedule as Array<Record<string, unknown>>;
+
   for (const slot of schedule) {
+    // Pattern A: flat slot  { dayOfWeek, timeBegin, timeEnd }
     const day   = pickStr(slot, "dayOfWeek", "day").toUpperCase().slice(0, 3);
     const begin = pickStr(slot, "timeBegin", "openTime", "opens", "begin");
     const end   = pickStr(slot, "timeEnd",   "closeTime", "closes", "end");
     if (day && begin && end && ORDER.includes(day as typeof ORDER[number])) {
       map[day] = `${formatTime(begin)}–${formatTime(end)}`;
+      continue;
+    }
+
+    // Pattern B: { operationalCategory, openSchedules: [{ dayOfWeek, opens, closes }] }
+    // FedEx production API wraps hours inside operationalCategory entries
+    const openSchedules = pick<unknown[]>(slot, "openSchedules", "schedules", "hours");
+    if (Array.isArray(openSchedules)) {
+      for (const s of openSchedules as Array<Record<string, unknown>>) {
+        const d  = pickStr(s, "dayOfWeek", "day").toUpperCase().slice(0, 3);
+        const b  = pickStr(s, "opens", "timeBegin", "openTime", "begin");
+        const e  = pickStr(s, "closes", "timeEnd",  "closeTime", "end");
+        if (d && b && e && ORDER.includes(d as typeof ORDER[number])) {
+          map[d] = `${formatTime(b)}–${formatTime(e)}`;
+        }
+      }
     }
   }
 
@@ -325,6 +344,20 @@ export async function searchFedExLocations(postalCode: string): Promise<FedExLoc
 
     // Hours — try on detail first, then on the raw list item
     const hours = extractHours(detail) || extractHours(loc);
+
+    // Diagnostic: log hours-related keys on the first result so Railway logs
+    // reveal the exact field names the production API uses if hours come back empty.
+    if (results.length === 0) {
+      const hoursKeys = Object.keys(detail).filter(k =>
+        /hour|schedule|operation|open|close|time/i.test(k)
+      );
+      logger.info(
+        { hoursFound: !!hours, hoursValue: hours, hoursRelatedKeys: hoursKeys,
+          hoursOfOperationShape: detail["hoursOfOperation"],
+          operationalDetailShape: detail["operationalDetail"] },
+        "[FedEx] First location hours diagnostic",
+      );
+    }
 
     if (addr) {
       results.push({
