@@ -207,6 +207,7 @@ const OPS_OPERATIONS_SYSTEM_HEADERS = [
   "Total",
   "Metal Ordered Date",
   "Wire Received Date",
+  "Wire Email Sent",
   "Order Paid Date",
   "Tracking Number",
   "Shipped Date",
@@ -1659,6 +1660,7 @@ export async function appendDealToOperationsTab(deal: DealPayload): Promise<void
     "Total":             fmtCurrency(deal.total),
     "Metal Ordered Date": metalOrderedDate,
     "Wire Received Date": "",
+    "Wire Email Sent":    "",
     "Order Paid Date":    "",
     "Tracking Number":    "",
     "Shipped Date":       "",
@@ -1729,7 +1731,7 @@ export async function appendDealToOperationsTab(deal: DealPayload): Promise<void
 export async function updateOperationsMilestone(
   dealId:     number,
   updates:    Partial<Record<
-    "Wire Received Date" | "Order Paid Date" | "Tracking Number" |
+    "Wire Received Date" | "Wire Email Sent" | "Order Paid Date" | "Tracking Number" |
     "Shipped Date" | "Delivered Date" | "Status",
     string
   >>,

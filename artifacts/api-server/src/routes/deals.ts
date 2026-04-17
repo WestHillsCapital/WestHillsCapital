@@ -651,15 +651,9 @@ router.patch("/:id/wire-received", async (req, res) => {
     if (!rows[0]) return res.status(404).json({ error: "Deal not found" });
 
     const row = rows[0];
-    // Sync Deals tab + Operations tab in parallel
+    // Sync Deals tab (fire and forget — non-fatal)
     syncDealStatus(row).catch((err) =>
       logger.error({ err, dealId }, "[Deals] Deals tab sync failed after wire-received")
-    );
-    updateOperationsMilestone(dealId, {
-      "Wire Received Date": new Date(row.wire_received_at).toLocaleString(),
-      "Status": "Wire Received",
-    }).catch((err) =>
-      logger.error({ err, dealId }, "[Deals] Operations tab sync failed after wire-received")
     );
 
     // Email 1 — Wire Received Confirmation (idempotent — only fires once per deal)
@@ -680,6 +674,17 @@ router.patch("/:id/wire-received", async (req, res) => {
         logger.error({ err: emailErr, dealId }, "[Deals] Wire confirmation email failed (non-fatal)");
       }
     }
+
+    // Update Operations tab with wire date, status, and email confirmation in one call
+    updateOperationsMilestone(dealId, {
+      "Wire Received Date": new Date(row.wire_received_at).toLocaleString(),
+      "Wire Email Sent": wireConfirmationEmailSentAt
+        ? new Date(wireConfirmationEmailSentAt).toLocaleString()
+        : "",
+      "Status": "Wire Received",
+    }).catch((err) =>
+      logger.error({ err, dealId }, "[Deals] Operations tab sync failed after wire-received")
+    );
 
     return res.json({ success: true, wireReceivedAt: row.wire_received_at, wireConfirmationEmailSentAt });
   } catch (err) {
