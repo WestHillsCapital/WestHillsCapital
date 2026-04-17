@@ -1,0 +1,105 @@
+Please generate a complete documentation set for this project, focused on maintainability, safe updates, onboarding, and operations.
+
+Create the documentation as separate markdown files in a /docs folder.
+
+I do not want generic documentation. I want documentation that explains the real business logic, system behavior, data flow, dependencies, and operational use of both the public site and the internal tool.
+
+Please create these files:
+
+1. docs/README.md
+- Master overview of the entire system
+- What the public site does
+- What the internal tool does
+- Major workflows
+- Live features vs incomplete features vs planned features
+
+2. docs/architecture.md
+- Frontend/backend architecture
+- Services used
+- API structure
+- Data flow diagrams in plain English
+- How leads, bookings, pricing, and deals move through the system
+
+3. docs/environment-variables.md
+- Every environment variable
+- What it does
+- Where it is used
+- Whether it is required
+- What breaks if it is missing
+- Do not expose secret values
+
+4. docs/setup-local-development.md
+- Prerequisites
+- Install steps
+- Run steps
+- Test steps
+- Common setup issues and fixes
+
+5. docs/deployment.md
+- How deployment works
+- Which services are deployed where
+- Environment setup
+- Post-deploy verification checklist
+- Rollback guidance
+
+6. docs/api-reference.md
+- All backend/API routes
+- Request/response shapes
+- Validation rules
+- Dependencies
+- Error cases
+
+7. docs/data-models.md
+- Data objects and field dictionary
+- Leads
+- Appointments
+- Deals
+- Customers
+- Products
+- Operational records
+- Field meanings, allowed values, and dependencies
+
+8. docs/google-sheets-integration.md
+- Every sheet/tab used by the app
+- Required headers
+- Columns or cells the code reads/writes
+- Formulas or layouts the app depends on
+- What breaks if a header/tab/cell changes
+
+9. docs/business-rules.md
+- Plain-English documentation of all business rules and operational logic
+- Include delivery rules, booking logic, pricing logic, internal workflow assumptions, formatting standards, manual exceptions, and current limitations
+
+10. docs/internal-tool-user-guide.md
+- How a staff member should use the internal tool
+- What each page/button does
+- Recommended sequence of operations
+- Common mistakes to avoid
+
+11. docs/troubleshooting.md
+- Known failure points
+- Symptoms
+- Likely causes
+- How to diagnose
+- How to fix
+
+12. docs/technical-debt.md
+- Known shortcuts
+- Temporary/manual processes
+- Future improvements
+- Risk areas
+
+13. docs/source-of-truth-map.md
+- Identify the source of truth for each major type of data or calculation
+
+14. docs/access-and-ownership.md
+- Which accounts/services own which parts of the system
+- What credentials/access are needed to maintain it
+
+Requirements:
+- Write based on the actual codebase, not assumptions
+- Be precise
+- Call out uncertainty if something cannot be determined from code
+- Include examples where helpful
+- Use tables where useful
+- Flag any missing documentation-worthy decisions that need human confirmation
