@@ -58,25 +58,29 @@ type SchedulerDeal = {
   shipping_notification_scheduled_at:  Date | null;
   shipping_email_sent_at:              Date | null;
   delivery_email_sent_at:              Date | null;
-  follow_up_7d_sent_at:                Date | null;
-  follow_up_30d_sent_at:               Date | null;
+  follow_up_7d_scheduled_at:           Date | null; // set at delivery+7d; Task#31 fires email
+  follow_up_30d_scheduled_at:          Date | null; // set at delivery+30d; Task#31 fires email
 };
 
 async function runScheduler(): Promise<void> {
   try {
     const db = getDb();
 
-    // Fetch all open/in-flight deals (not yet fully delivered+followed up).
-    // Broad WHERE to catch anything still in-flight.
+    // Fetch all open/in-flight deals — any deal that hasn't completed the 30d follow-up
+    // (or that hasn't been delivered yet). Covers every milestone state.
     const { rows } = await db.query<SchedulerDeal>(
       `SELECT
          id, locked_at, payment_received_at, tracking_number, order_placed_at,
          wire_received_at, order_paid_at, shipped_at, delivered_at,
          shipping_notification_scheduled_at, shipping_email_sent_at,
-         delivery_email_sent_at, follow_up_7d_sent_at, follow_up_30d_sent_at
+         delivery_email_sent_at, follow_up_7d_scheduled_at, follow_up_30d_scheduled_at
        FROM deals
        WHERE status IN ('locked', 'executed')
-         AND (follow_up_30d_sent_at IS NULL OR delivered_at IS NULL)
+         AND (delivered_at IS NULL
+              OR delivery_email_sent_at IS NULL
+              OR follow_up_7d_scheduled_at  IS NULL
+              OR follow_up_30d_scheduled_at IS NULL
+              OR shipping_email_sent_at IS NULL)
        ORDER BY id DESC
        LIMIT 500`
     );
@@ -89,9 +93,9 @@ async function runScheduler(): Promise<void> {
 
     for (const deal of rows) {
       // ── 1. Shipping email scheduling ─────────────────────────────────────
-      // When the tracking number has been saved for 24h and the shipping email
-      // hasn't fired yet, mark shipped_at + shipping_email_sent_at.
-      // The actual email send will be added in Task #31.
+      // When shipping_notification_scheduled_at has passed and the email hasn't
+      // fired yet, mark shipped_at + shipping_email_sent_at.
+      // Task #31 will add the actual Resend API call here.
       if (
         deal.shipping_notification_scheduled_at &&
         deal.shipping_notification_scheduled_at <= now &&
@@ -100,16 +104,16 @@ async function runScheduler(): Promise<void> {
         try {
           await db.query(
             `UPDATE deals
-                SET shipped_at              = COALESCE(shipped_at, NOW()),
-                    shipping_email_sent_at  = NOW(),
-                    updated_at              = NOW()
+                SET shipped_at             = COALESCE(shipped_at, NOW()),
+                    shipping_email_sent_at = NOW(),
+                    updated_at             = NOW()
               WHERE id = $1`,
             [deal.id],
           );
           deal.shipped_at             = deal.shipped_at ?? now;
           deal.shipping_email_sent_at = now;
 
-          logger.info({ dealId: deal.id }, "[Scheduler] Shipping email milestone marked (email send: Task #31)");
+          logger.info({ dealId: deal.id }, "[Scheduler] Shipping milestone marked (email: Task #31)");
 
           updateOperationsMilestone(deal.id, {
             "Shipped Date": now.toLocaleString(),
@@ -122,60 +126,23 @@ async function runScheduler(): Promise<void> {
         }
       }
 
-      // ── 2. 7-day follow-up marker ─────────────────────────────────────────
-      if (
-        deal.delivered_at &&
-        !deal.follow_up_7d_sent_at &&
-        now.getTime() - new Date(deal.delivered_at).getTime() >= 7 * 24 * 60 * 60 * 1000
-      ) {
-        try {
-          await db.query(
-            `UPDATE deals SET follow_up_7d_sent_at = NOW(), updated_at = NOW() WHERE id = $1`,
-            [deal.id],
-          );
-          deal.follow_up_7d_sent_at = now;
-          logger.info({ dealId: deal.id }, "[Scheduler] 7-day follow-up marked (email send: Task #31)");
-        } catch (err) {
-          logger.error({ err, dealId: deal.id }, "[Scheduler] Failed to mark 7d follow-up");
-        }
-      }
-
-      // ── 3. 30-day follow-up marker ────────────────────────────────────────
-      if (
-        deal.delivered_at &&
-        !deal.follow_up_30d_sent_at &&
-        now.getTime() - new Date(deal.delivered_at).getTime() >= 30 * 24 * 60 * 60 * 1000
-      ) {
-        try {
-          await db.query(
-            `UPDATE deals SET follow_up_30d_sent_at = NOW(), updated_at = NOW() WHERE id = $1`,
-            [deal.id],
-          );
-          deal.follow_up_30d_sent_at = now;
-          logger.info({ dealId: deal.id }, "[Scheduler] 30-day follow-up marked (email send: Task #31)");
-        } catch (err) {
-          logger.error({ err, dealId: deal.id }, "[Scheduler] Failed to mark 30d follow-up");
-        }
-      }
-
-      // ── 4. Sync Deals tab Ops status (time-based: Awaiting Wire → At Risk → Cancel Eligible) ─
-      // Only sync deals still awaiting wire to avoid unnecessary API calls for completed ones.
-      if (!deal.wire_received_at && !deal.payment_received_at) {
-        syncDealOpsStatus({
-          id:                  deal.id,
-          lockedAt:            deal.locked_at,
-          paymentReceivedAt:   deal.payment_received_at,
-          trackingNumber:      deal.tracking_number,
-          orderPlacedAt:       deal.order_placed_at,
-          wireReceivedAt:      deal.wire_received_at,
-          orderPaidAt:         deal.order_paid_at,
-          shippedAt:           deal.shipped_at,
-          deliveredAt:         deal.delivered_at,
-          shippingEmailSentAt: deal.shipping_email_sent_at,
-        }).catch((err) =>
-          logger.error({ err, dealId: deal.id }, "[Scheduler] Deals tab sync failed")
-        );
-      }
+      // ── 2. Sync Deals tab Ops status for all in-flight states ─────────────
+      // Covers time-based transitions (Awaiting Wire → At Risk → Cancel Eligible)
+      // as well as Wire Received / Paid to DG / Label Created / Shipped / Delivered.
+      syncDealOpsStatus({
+        id:                  deal.id,
+        lockedAt:            deal.locked_at,
+        paymentReceivedAt:   deal.payment_received_at,
+        trackingNumber:      deal.tracking_number,
+        orderPlacedAt:       deal.order_placed_at,
+        wireReceivedAt:      deal.wire_received_at,
+        orderPaidAt:         deal.order_paid_at,
+        shippedAt:           deal.shipped_at,
+        deliveredAt:         deal.delivered_at,
+        shippingEmailSentAt: deal.shipping_email_sent_at,
+      }).catch((err) =>
+        logger.error({ err, dealId: deal.id }, "[Scheduler] Deals tab sync failed")
+      );
     }
 
     logger.info({ count: rows.length }, "[Scheduler] Fulfillment scheduler tick complete");
@@ -187,8 +154,8 @@ async function runScheduler(): Promise<void> {
 initDb()
   .then(() => {
     logger.info("Database ready — all systems operational");
-    // Start the 30-minute fulfillment scheduler
-    setInterval(() => { void runScheduler(); }, 30 * 60 * 1000).unref();
+    // Run every 15 minutes to keep milestone states fresh
+    setInterval(() => { void runScheduler(); }, 15 * 60 * 1000).unref();
   })
   .catch((err) => {
     const detail = err instanceof Error ? err.message : String(err);

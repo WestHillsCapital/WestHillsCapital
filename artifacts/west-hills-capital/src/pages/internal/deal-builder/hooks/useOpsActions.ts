@@ -79,12 +79,10 @@ export function useOpsActions(
       const data = await res.json() as {
         shippingNotificationScheduledAt?: string;
       };
+      // Only update the scheduled time — shippedAt stays null until the
+      // scheduler actually marks the shipping email as sent (after 24h).
       if (data.shippingNotificationScheduledAt) {
         setShippingNotificationScheduledAt(data.shippingNotificationScheduledAt);
-      }
-      // Optimistically set shipped_at to the scheduled time so the UI updates
-      if (data.shippingNotificationScheduledAt) {
-        setShippedAt(data.shippingNotificationScheduledAt);
       }
     } catch (err) {
       setOpsActionError(err instanceof Error ? err.message : "Could not save tracking number.");

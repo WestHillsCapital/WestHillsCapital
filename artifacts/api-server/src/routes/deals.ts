@@ -754,10 +754,14 @@ router.patch("/:id/delivered", async (req, res) => {
 
   try {
     const db = getDb();
+    // Set delivered_at and immediately schedule both follow-up emails at +7d and +30d.
+    // Task #31 will actually fire the emails when those timestamps pass via the scheduler.
     const { rows } = await db.query(
       `UPDATE deals
-          SET delivered_at = NOW(),
-              updated_at = NOW()
+          SET delivered_at              = NOW(),
+              follow_up_7d_scheduled_at  = NOW() + INTERVAL '7 days',
+              follow_up_30d_scheduled_at = NOW() + INTERVAL '30 days',
+              updated_at                = NOW()
         WHERE id = $1 RETURNING *`,
       [dealId],
     );
@@ -774,7 +778,12 @@ router.patch("/:id/delivered", async (req, res) => {
       logger.error({ err, dealId }, "[Deals] Operations tab sync failed after delivered")
     );
 
-    return res.json({ success: true, deliveredAt: row.delivered_at });
+    return res.json({
+      success: true,
+      deliveredAt:              row.delivered_at,
+      followUp7dScheduledAt:    row.follow_up_7d_scheduled_at,
+      followUp30dScheduledAt:   row.follow_up_30d_scheduled_at,
+    });
   } catch (err) {
     logger.error({ err }, "[Deals] Failed to mark delivered");
     return res.status(500).json({ error: "Failed to mark delivered" });
