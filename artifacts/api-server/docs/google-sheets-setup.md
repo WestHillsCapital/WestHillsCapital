@@ -90,11 +90,33 @@ missing these 8:
 
 ---
 
-## Required: Ops Tab (if used for pipeline operations)
+## Operations Tab (current state: manually maintained)
 
-The code does **not** auto-write to an `Ops` tab on deal execution. The
-Operations tab in your sheet is currently maintained manually. If you want
-the system to auto-populate an Ops tab, that is a separate development task.
+The system does **not** auto-write to the Operations tab on deal execution.
+It is filled in manually as each milestone (docs, wire, metal, shipping)
+completes. The tab must have the following headers for compatibility if
+auto-sync is added later:
+
+| Column | Header |
+|--------|--------|
+| A | Deal ID |
+| B | Client Name |
+| C | Docs Received Date |
+| D | Wire Sent Date |
+| E | Wire Received Date |
+| F | Metal Ordered Date |
+| G | Shipped Date |
+| H | Delivered Date |
+| I | Days to Fund |
+| J | Days to Ship |
+| K | Days to Complete |
+| L | Status |
+| M | Notes |
+
+> Ops Status tracking (`Pending Wire`, `Paid`, etc.) happens in the
+> **Deals tab** via the `Ops Status` column, not in the Operations tab.
+> The "Mark Payment Received" button in the Deal Builder updates the Deals
+> tab, not this Operations tab.
 
 ---
 
