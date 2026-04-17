@@ -290,17 +290,22 @@ export async function sendDealRecapEmail(
   let shippingAddrHtml: string;
 
   if (isFedexHold && deal.fedexLocation) {
-    const fullName  = `${deal.firstName} ${deal.lastName}`;
-    const hoursLine = deal.fedexLocationHours
-      ? `<br><span style="color:#374151;">Location Hours:</span><br><span style="color:#374151;">${deal.fedexLocationHours}</span>`
+    const fullName   = `${deal.firstName.trim()} ${deal.lastName.trim()}`;
+    const addrLine   = [deal.shipToLine1, [deal.shipToCity, deal.shipToState].filter(Boolean).join(", ") + (deal.shipToZip ? ` ${deal.shipToZip}` : "")].filter(Boolean).join(", ");
+    const mapsUrl    = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${deal.fedexLocation} ${addrLine}`)}`;
+    const hoursBlock = deal.fedexLocationHours
+      ? `<p style="margin:8px 0 0;font-size:13px;color:#374151;"><strong>Store Hours:</strong><br>${deal.fedexLocationHours.replace(/\n/g, "<br>")}</p>`
       : "";
     shippingAddrHtml = `
-      <p style="margin:0;color:#374151;line-height:1.6;">
-        ${deal.fedexLocation}<br>
+      <p style="margin:0 0 4px;color:#374151;line-height:1.6;">
+        <strong>${deal.fedexLocation}</strong><br>
         FBO ${fullName}<br>
         ${deal.shipToLine1 ?? ""}<br>
         ${[deal.shipToCity, deal.shipToState].filter(Boolean).join(", ")}${deal.shipToZip ? ` ${deal.shipToZip}` : ""}
-        ${hoursLine}
+      </p>
+      ${hoursBlock}
+      <p style="margin:10px 0 0;">
+        <a href="${mapsUrl}" style="font-size:13px;color:#C49A38;font-family:Georgia,serif;">Get Directions &rarr;</a>
       </p>`;
   } else {
     const addrParts: string[] = [];
@@ -320,56 +325,53 @@ export async function sendDealRecapEmail(
       filename: `${invoiceId}.pdf`,
       content:  pdfBuffer.toString("base64"),
     }],
-    html: `
-      <div style="font-family:Georgia,serif;max-width:620px;margin:auto;padding:32px 24px;color:#1a1a1a;background:#ffffff;">
+    html: whcEmailWrapper(`
+      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${deal.firstName.trim()},</p>
 
-        <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${deal.firstName},</p>
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        I&rsquo;m glad we were able to get everything squared away today&mdash;thank you again for trusting us with your purchase.
+      </p>
 
-        <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-          I'm glad we were able to get everything squared away today&mdash;thank you again for trusting us with your purchase.
-        </p>
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">Here&rsquo;s a clear recap for your records:</p>
 
-        <p style="margin:0 0 16px;font-size:15px;color:#374151;">Here's a clear recap for your records:</p>
+      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#0F1C3F;">Order Summary</p>
+      <ul style="margin:0 0 24px 18px;padding:0;font-size:15px;line-height:1.7;">
+        ${summaryBullets}
+      </ul>
 
-        <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#1a1a1a;">Order Summary</p>
-        <ul style="margin:0 0 24px 18px;padding:0;font-size:15px;line-height:1.7;">
-          ${summaryBullets}
-        </ul>
+      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#0F1C3F;">Next Steps</p>
+      <ul style="margin:0 0 24px 18px;padding:0;font-size:15px;line-height:1.7;">
+        ${li("Your invoice is attached, which includes bank wire instructions")}
+        ${li(`Payment must be received by the close of business on the next business day (<strong>${deadlineStr}</strong>) to secure this pricing`)}
+        ${li("If payment is not received in time, the trade may be cancelled and any market loss may be subject to an offset fee")}
+        ${li("If you anticipate any delay, just let me know and we can coordinate")}
+        ${li("Once payment is received and cleared, we will secure and ship your metals")}
+        ${li("We will monitor the shipment and coordinate delivery with you as it gets close")}
+      </ul>
 
-        <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#1a1a1a;">Next Steps</p>
-        <ul style="margin:0 0 24px 18px;padding:0;font-size:15px;line-height:1.7;">
-          ${li("Your invoice is attached, which includes bank wire instructions")}
-          ${li(`Payment must be received by the close of business on the next business day (<strong>${deadlineStr}</strong>) to secure this pricing`)}
-          ${li("If payment is not received in time, the trade may be cancelled and any market loss may be subject to an offset fee")}
-          ${li("If you anticipate any delay, just let me know and we can coordinate")}
-          ${li("Once payment is received and cleared, we will secure and ship your metals")}
-          ${li("We will monitor the shipment and coordinate delivery with you as it gets close")}
-        </ul>
-
-        <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#1a1a1a;">Shipping Address</p>
-        <div style="margin:0 0 24px;padding:14px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;font-size:14px;">
-          ${shippingAddrHtml}
-        </div>
-
-        <p style="margin:0 0 12px;font-size:15px;color:#374151;">
-          You don't need to worry about a thing from here&mdash;we'll handle the logistics and keep you updated every step of the way.
-        </p>
-        <p style="margin:0 0 12px;font-size:15px;color:#374151;">
-          Once your order ships, I'll personally follow up with tracking and delivery timing.
-        </p>
-        <p style="margin:0 0 28px;font-size:15px;color:#374151;">
-          If you need anything at all in the meantime, just reach out.
-        </p>
-
-        <p style="margin:0 0 4px;font-size:15px;color:#374151;">My very best,</p>
-        <p style="margin:0 0 32px;font-size:15px;font-weight:bold;color:#1a1a1a;">Joe</p>
-
-        <p style="margin:0;font-size:11px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:14px;line-height:1.6;">
-          West Hills Capital &nbsp;|&nbsp; (800) 867-6768 &nbsp;|&nbsp; westhillscapital.com<br>
-          This transaction is subject to West Hills Capital's Terms of Service: westhillscapital.com/terms
-        </p>
+      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#0F1C3F;">Shipping Address</p>
+      <div style="margin:0 0 24px;padding:14px 16px;background:#ffffff;border:1px solid #d4b896;border-radius:6px;font-size:14px;">
+        ${shippingAddrHtml}
       </div>
-    `,
+
+      <p style="margin:0 0 12px;font-size:15px;color:#374151;">
+        You don&rsquo;t need to worry about a thing from here&mdash;we&rsquo;ll handle the logistics and keep you updated every step of the way.
+      </p>
+      <p style="margin:0 0 12px;font-size:15px;color:#374151;">
+        Once your order ships, I&rsquo;ll personally follow up with tracking and delivery timing.
+      </p>
+      <p style="margin:0 0 28px;font-size:15px;color:#374151;">
+        If you need anything at all in the meantime, just reach out.
+      </p>
+
+      <p style="margin:0 0 4px;font-size:15px;color:#374151;">My very best,</p>
+      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#1a1a1a;">Joe</p>
+      <p style="margin:0 0 0;font-size:13px;color:#9ca3af;">West Hills Capital &nbsp;|&nbsp; (800) 867-6768</p>
+
+      <p style="margin:24px 0 0;font-size:11px;color:#9ca3af;border-top:1px solid #d4b896;padding-top:14px;line-height:1.6;">
+        This transaction is subject to West Hills Capital&rsquo;s Terms of Service: westhillscapital.com/terms
+      </p>
+    `),
   });
 }
 
@@ -615,44 +617,47 @@ export async function sendBookingConfirmation(params: {
   timeline: string;
 }): Promise<void> {
   await sendEmail({
-    to: params.to,
+    to:      params.to,
     subject: `Your Allocation Call is Confirmed — ${params.dayLabel}`,
-    html: `
-      <div style="font-family:sans-serif;max-width:600px;margin:auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
-        <h2 style="margin-top:0;color:#1a1a1a;">Your Allocation Discussion is Confirmed</h2>
-        <p style="color:#374151;">Dear ${params.firstName},</p>
-        <p style="color:#374151;">Your allocation discussion with West Hills Capital has been scheduled. A member of our team will call you at your scheduled time.</p>
+    html:    whcEmailWrapper(`
+      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Dear ${params.firstName.trim()},</p>
 
-        <div style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;padding:16px;margin:20px 0;">
-          <p style="margin:0 0 6px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Appointment</p>
-          <p style="margin:0 0 4px;font-size:16px;font-weight:600;color:#1a1a1a;">${params.dayLabel}</p>
-          <p style="margin:0 0 12px;font-size:16px;color:#374151;">${params.timeLabel}</p>
-          <p style="margin:0;font-size:13px;color:#6b7280;">Confirmation ID: <strong style="color:#1a1a1a;">${params.confirmationId}</strong></p>
-        </div>
+      <p style="margin:0 0 20px;font-size:15px;color:#374151;">
+        Your allocation discussion with West Hills Capital has been confirmed.
+        We look forward to speaking with you.
+      </p>
 
-        <div style="background:#fefce8;border:1px solid #fde68a;border-radius:6px;padding:12px 16px;margin:16px 0;">
-          <p style="margin:0;font-size:14px;color:#92400e;">
-            We will call you from <strong>(800) 867-6768</strong> at your scheduled time. Save this number.
-          </p>
-        </div>
-
-        <table style="border-collapse:collapse;width:100%;font-size:14px;margin:16px 0;">
-          <tr><td colspan="2" style="padding:0 0 8px;font-size:13px;color:#6b7280;text-transform:uppercase;letter-spacing:.05em;">Your submission summary</td></tr>
-          <tr><td style="padding:5px 0;color:#6b7280;width:130px;">Structure</td><td style="padding:5px 0;">${ALLOCATION_LABELS[params.allocationType] ?? params.allocationType}</td></tr>
-          <tr><td style="padding:5px 0;color:#6b7280;">Allocation</td><td style="padding:5px 0;">${RANGE_LABELS[params.allocationRange] ?? params.allocationRange}</td></tr>
-          <tr><td style="padding:5px 0;color:#6b7280;">Timeline</td><td style="padding:5px 0;">${TIMELINE_LABELS[params.timeline] ?? params.timeline}</td></tr>
-          <tr><td style="padding:5px 0;color:#6b7280;">State</td><td style="padding:5px 0;">${params.state}</td></tr>
-        </table>
-
-        <p style="color:#374151;font-size:14px;">During the call we will review your intended allocation, confirm current pricing, and discuss execution steps.</p>
-
-        <p style="color:#6b7280;font-size:12px;border-top:1px solid #e5e7eb;padding-top:16px;margin-top:20px;">
-          <strong>Important:</strong> Trades are executed only after verbal confirmation and receipt of cleared funds.
-          This call is a consultation only — no commitment is required.
-          <br><br>
-          West Hills Capital &nbsp;|&nbsp; (800) 867-6768
+      <div style="margin:0 0 20px;padding:18px;background:#ffffff;border:1px solid #d4b896;border-radius:6px;">
+        <p style="margin:0 0 6px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;">Appointment</p>
+        <p style="margin:0 0 4px;font-size:18px;font-weight:bold;color:#0F1C3F;">${params.dayLabel}</p>
+        <p style="margin:0 0 14px;font-size:15px;color:#374151;">${params.timeLabel}</p>
+        <p style="margin:0;font-size:12px;color:#9ca3af;">
+          Confirmation ID: <strong style="color:#1a1a1a;font-family:monospace;">${params.confirmationId}</strong>
         </p>
       </div>
-    `,
+
+      <div style="margin:0 0 24px;padding:14px 18px;background:#C49A38;border-radius:6px;">
+        <p style="margin:0;font-size:14px;color:#0F1C3F;font-weight:bold;">
+          We will call you from (800) 867-6768 at your scheduled time. Save this number.
+        </p>
+      </div>
+
+      <p style="margin:0 0 8px;font-size:13px;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;">Your Submission Summary</p>
+      <table style="border-collapse:collapse;width:100%;font-size:14px;margin:0 0 24px;">
+        <tr><td style="padding:6px 0;color:#9ca3af;width:130px;border-bottom:1px solid #e5e7eb;">Structure</td><td style="padding:6px 0;color:#374151;border-bottom:1px solid #e5e7eb;">${ALLOCATION_LABELS[params.allocationType] ?? params.allocationType}</td></tr>
+        <tr><td style="padding:6px 0;color:#9ca3af;border-bottom:1px solid #e5e7eb;">Allocation</td><td style="padding:6px 0;color:#374151;border-bottom:1px solid #e5e7eb;">${RANGE_LABELS[params.allocationRange] ?? params.allocationRange}</td></tr>
+        <tr><td style="padding:6px 0;color:#9ca3af;border-bottom:1px solid #e5e7eb;">Timeline</td><td style="padding:6px 0;color:#374151;border-bottom:1px solid #e5e7eb;">${TIMELINE_LABELS[params.timeline] ?? params.timeline}</td></tr>
+        <tr><td style="padding:6px 0;color:#9ca3af;">State</td><td style="padding:6px 0;color:#374151;">${params.state}</td></tr>
+      </table>
+
+      <p style="margin:0 0 24px;font-size:15px;color:#374151;">
+        During the call we will review your intended allocation, confirm current pricing, and discuss execution steps.
+      </p>
+
+      <p style="margin:0;font-size:12px;color:#9ca3af;border-top:1px solid #d4b896;padding-top:16px;line-height:1.7;">
+        <strong>Important:</strong> Trades are executed only after verbal confirmation and receipt of cleared funds.
+        This call is a consultation only &mdash; no commitment is required.
+      </p>
+    `),
   });
 }
