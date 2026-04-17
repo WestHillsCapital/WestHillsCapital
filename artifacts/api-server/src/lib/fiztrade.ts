@@ -1,9 +1,12 @@
 /**
- * Dillon Gage / Fiztrade trade execution.
+ * Dillon Gage / Fiztrade API client.
  *
- * Flow (must complete within 20 seconds):
+ * Trade execution flow (must complete within 20 seconds):
  *   1. LockPrices  — locks DG wholesale pricing for 20 s
  *   2. ExecuteTrade — places the buy order using the locked price
+ *
+ * Shipping:
+ *   3. GetShippingStatus — batch-poll confirmation numbers for tracking numbers
  *
  * The client-facing invoice always uses the prices entered in the Deal Builder
  * (WHC's retail price = DG wholesale + commission). The DG locked price is
@@ -176,4 +179,48 @@ export async function lockAndExecuteTrade(
     rawLockResponse:        lockRaw,
     rawTradeResponse:       tradeRaw,
   };
+}
+
+// ── Shipping status ────────────────────────────────────────────────────────────
+
+export interface DGShippingStatus {
+  confirmationNumber: string;
+  trackingNumbers:    string;   // may be empty string or semicolon-separated
+  statusDesc:         string;   // "pending" | "ready to ship" | "shipped"
+  shipDate:           string;
+  shipMethod:         string;
+  erpOrderNumber:     string;
+  shippingCharge:     number;
+  freightCharge:      number;
+}
+
+/**
+ * GetShippingStatus — batch-poll DG for shipment info on a list of
+ * supplier confirmation numbers (the values stored in supplier_confirmation_id).
+ *
+ * Returns an empty array in DRY_RUN mode so the scheduler never stamps
+ * tracking numbers on fake confirmation IDs.
+ */
+export async function getShippingStatus(
+  confirmationNumbers: string[],
+): Promise<DGShippingStatus[]> {
+  if (confirmationNumbers.length === 0) return [];
+
+  if (DRY_RUN) {
+    logger.warn(
+      { confirmationNumbers },
+      "[DG DRY RUN] Skipping GetShippingStatus — returning empty (no real confirmation IDs)",
+    );
+    return [];
+  }
+
+  logger.info({ count: confirmationNumbers.length }, "[DG] Calling GetShippingStatus");
+  const raw = await dgPost("GetShippingStatus", confirmationNumbers) as unknown;
+
+  if (!Array.isArray(raw)) {
+    logger.error({ raw }, "[DG] GetShippingStatus returned unexpected shape");
+    throw new Error("GetShippingStatus: unexpected response shape");
+  }
+
+  return raw as DGShippingStatus[];
 }

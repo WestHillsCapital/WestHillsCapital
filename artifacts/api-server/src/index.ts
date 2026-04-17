@@ -9,6 +9,7 @@ import {
   sendFollowUp7DayEmail,
   sendFollowUp30DayEmail,
 } from "./lib/email";
+import { getShippingStatus } from "./lib/fiztrade";
 
 // ── 1. Validate configuration before anything else ────────────────────────────
 // Logs all env var statuses and exits immediately if required vars are missing.
@@ -257,11 +258,103 @@ async function runScheduler(): Promise<void> {
   }
 }
 
+// ── Tracking auto-fetch — polls DG for tracking numbers on unshipped deals ────
+//
+// Queries all executed deals missing a tracking number but with a
+// supplier_confirmation_id, then calls GetShippingStatus in one batch.
+// When DG reports "shipped" with a tracking number, the deal is updated and
+// the shipping notification email is scheduled for 24 hours later (the same
+// path as the manual "Save Tracking #" button in Deal Builder).
+
+async function runTrackingSync(): Promise<void> {
+  try {
+    const db = getDb();
+
+    // Fetch deals that have a DG confirmation ID but no tracking number yet.
+    // Exclude deals already delivered — no point polling those.
+    const { rows: pending } = await db.query<{
+      id:                      number;
+      supplier_confirmation_id: string;
+    }>(
+      `SELECT id, supplier_confirmation_id
+         FROM deals
+        WHERE supplier_confirmation_id IS NOT NULL
+          AND supplier_confirmation_id NOT LIKE 'DRY-%'
+          AND tracking_number IS NULL
+          AND delivered_at IS NULL
+          AND status IN ('locked', 'executed')
+        ORDER BY id DESC
+        LIMIT 100`,
+    );
+
+    if (pending.length === 0) return;
+
+    const confirmationNumbers = pending.map((r) => r.supplier_confirmation_id);
+    logger.info(
+      { count: confirmationNumbers.length },
+      "[TrackingSync] Polling DG for shipping status",
+    );
+
+    const statuses = await getShippingStatus(confirmationNumbers);
+
+    // Build a lookup: confirmationNumber → status row
+    const byConfirmation = new Map(statuses.map((s) => [s.confirmationNumber, s]));
+
+    for (const deal of pending) {
+      const status = byConfirmation.get(deal.supplier_confirmation_id);
+      if (!status) continue;
+
+      const rawTracking = status.trackingNumbers?.trim();
+      if (!rawTracking || status.statusDesc?.toLowerCase() !== "shipped") continue;
+
+      // DG may return multiple tracking numbers separated by semicolons.
+      // Store the first one — the others (if any) typically cover the same
+      // shipment on a different carrier scan.
+      const trackingNumber = rawTracking.split(";")[0].trim();
+      if (!trackingNumber) continue;
+
+      try {
+        await db.query(
+          `UPDATE deals
+              SET tracking_number                    = $1,
+                  shipping_notification_scheduled_at = NOW() + INTERVAL '24 hours',
+                  updated_at                         = NOW()
+            WHERE id = $2
+              AND tracking_number IS NULL`,
+          [trackingNumber, deal.id],
+        );
+
+        logger.info(
+          { dealId: deal.id, trackingNumber, confirmationNumber: deal.supplier_confirmation_id },
+          "[TrackingSync] Tracking number auto-populated from DG",
+        );
+
+        updateOperationsMilestone(deal.id, {
+          "Tracking Number": trackingNumber,
+          "Status":          "Label Created",
+        }).catch((err) =>
+          logger.error({ err, dealId: deal.id }, "[TrackingSync] Ops tab update failed"),
+        );
+
+      } catch (err) {
+        logger.error({ err, dealId: deal.id }, "[TrackingSync] Failed to update tracking number");
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, "[TrackingSync] Tracking sync run failed (non-fatal)");
+  }
+}
+
 initDb()
   .then(() => {
     logger.info("Database ready — all systems operational");
     // Run every 15 minutes to keep milestone states fresh
     setInterval(() => { void runScheduler(); }, 15 * 60 * 1000).unref();
+    // Run tracking sync every 15 minutes (offset by 2 minutes to avoid collision)
+    setTimeout(() => {
+      void runTrackingSync();
+      setInterval(() => { void runTrackingSync(); }, 15 * 60 * 1000).unref();
+    }, 2 * 60 * 1000).unref();
   })
   .catch((err) => {
     const detail = err instanceof Error ? err.message : String(err);
