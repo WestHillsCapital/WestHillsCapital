@@ -303,6 +303,10 @@ export default function DealBuilder() {
               onMarkOrderPaid={markOrderPaid}
               onSaveTracking={() => saveTrackingNumber(s.trackingNumber)}
               onMarkDelivered={markDelivered}
+              shippingEmailSentAt={s.shippingEmailSentAt}
+              deliveryEmailSentAt={s.deliveryEmailSentAt}
+              followUp7dSentAt={s.followUp7dSentAt}
+              followUp30dSentAt={s.followUp30dSentAt}
             />
           )}
         </div>

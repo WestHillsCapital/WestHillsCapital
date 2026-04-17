@@ -79,6 +79,23 @@ function ActionBtn({
   );
 }
 
+function EmailStatus({ label, sentAt }: { label: string; sentAt: string | null | undefined }) {
+  if (sentAt) {
+    return (
+      <div className="inline-flex items-center gap-1.5 text-xs text-[#7BB3E0] bg-blue-900/20 border border-blue-800/30 rounded-full px-2.5 py-1">
+        <span>✉</span>
+        <span>{label} sent {fmtDate(sentAt)}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="inline-flex items-center gap-1.5 text-xs text-[#5A6A88] bg-[#1A2840]/60 border border-[#2A3A58] rounded-full px-2.5 py-1">
+      <span>✉</span>
+      <span>{label} not sent yet</span>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 interface Props {
@@ -99,6 +116,11 @@ interface Props {
   onMarkOrderPaid:                    () => void;
   onSaveTracking:                     () => void;
   onMarkDelivered:                    () => void;
+  // Email send timestamps
+  shippingEmailSentAt:                string | null | undefined;
+  deliveryEmailSentAt:                string | null | undefined;
+  followUp7dSentAt:                   string | null | undefined;
+  followUp30dSentAt:                  string | null | undefined;
 }
 
 export function FulfillmentSection({
@@ -119,6 +141,10 @@ export function FulfillmentSection({
   onMarkOrderPaid,
   onSaveTracking,
   onMarkDelivered,
+  shippingEmailSentAt,
+  deliveryEmailSentAt,
+  followUp7dSentAt,
+  followUp30dSentAt,
 }: Props) {
   const [trackingInput, setTrackingInputLocal] = useState(trackingNumber);
 
@@ -245,6 +271,7 @@ export function FulfillmentSection({
             <div className="space-y-1.5">
               <DoneChip ts={shippedAt ?? shippingNotificationScheduledAt ?? ""} />
               <div className="text-xs text-[#8A9BB8] font-mono">{trackingNumber}</div>
+              <EmailStatus label="Shipping email" sentAt={shippingEmailSentAt} />
             </div>
           ) : step3done ? (
             <div className="flex gap-2">
@@ -278,7 +305,10 @@ export function FulfillmentSection({
           active={step4done && !step5done}
         >
           {step5done ? (
-            <DoneChip ts={deliveredAt!} />
+            <div className="space-y-1.5">
+              <DoneChip ts={deliveredAt!} />
+              <EmailStatus label="Delivery email" sentAt={deliveryEmailSentAt} />
+            </div>
           ) : step4done ? (
             <ActionBtn
               label="Mark Delivered"
@@ -291,10 +321,14 @@ export function FulfillmentSection({
         </Step>
       </div>
 
-      {/* Footer note when delivered */}
+      {/* Footer: follow-up email status */}
       {step5done && (
-        <div className="mt-1 pt-3 border-t border-[#EDE8DF] text-xs text-[#9AAAC0]">
-          7-day and 30-day follow-up emails will send automatically.
+        <div className="mt-1 pt-3 border-t border-[#EDE8DF] space-y-2">
+          <div className="text-xs font-medium text-[#6B7A99] uppercase tracking-wider mb-1.5">Follow-up emails</div>
+          <div className="flex flex-wrap gap-2">
+            <EmailStatus label="7-day follow-up" sentAt={followUp7dSentAt} />
+            <EmailStatus label="30-day follow-up" sentAt={followUp30dSentAt} />
+          </div>
         </div>
       )}
     </section>

@@ -71,6 +71,12 @@ export function useDealState(
   const [deliveredAt,                      setDeliveredAt]                      = useState<string | null>(null);
   const [shippingNotificationScheduledAt,  setShippingNotificationScheduledAt]  = useState<string | null>(null);
 
+  // ── Email send timestamps ─────────────────────────────────────────────────
+  const [shippingEmailSentAt,  setShippingEmailSentAt]  = useState<string | null>(null);
+  const [deliveryEmailSentAt,  setDeliveryEmailSentAt]  = useState<string | null>(null);
+  const [followUp7dSentAt,     setFollowUp7dSentAt]     = useState<string | null>(null);
+  const [followUp30dSentAt,    setFollowUp30dSentAt]    = useState<string | null>(null);
+
   // ── Load saved deal ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!urlDealId) return;
@@ -150,6 +156,11 @@ export function useDealState(
         setShippedAt(deal.shipped_at ?? null);
         setDeliveredAt(deal.delivered_at ?? null);
         setShippingNotificationScheduledAt(deal.shipping_notification_scheduled_at ?? null);
+        // Email send timestamps
+        setShippingEmailSentAt(deal.shipping_email_sent_at ?? null);
+        setDeliveryEmailSentAt(deal.delivery_email_sent_at ?? null);
+        setFollowUp7dSentAt(deal.follow_up_7d_sent_at ?? null);
+        setFollowUp30dSentAt(deal.follow_up_30d_sent_at ?? null);
         setCustomerLoaded(true);
       } finally {
         setLoadingCustomer(false);
@@ -283,6 +294,11 @@ export function useDealState(
     shippedAt, setShippedAt,
     deliveredAt, setDeliveredAt,
     shippingNotificationScheduledAt, setShippingNotificationScheduledAt,
+    // email send timestamps
+    shippingEmailSentAt, setShippingEmailSentAt,
+    deliveryEmailSentAt, setDeliveryEmailSentAt,
+    followUp7dSentAt, setFollowUp7dSentAt,
+    followUp30dSentAt, setFollowUp30dSentAt,
   };
 }
 
