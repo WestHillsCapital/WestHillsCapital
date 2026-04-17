@@ -791,13 +791,22 @@ router.patch("/:id/delivered", async (req, res) => {
       logger.error({ err, dealId }, "[Deals] Operations tab sync failed after delivered")
     );
 
-    // Email 3 — Delivery Confirmation (fire-and-forget, non-fatal)
-    sendDeliveryConfirmationEmail({
-      firstName: row.first_name as string,
-      email:     row.email     as string,
-    }).catch((err) =>
-      logger.error({ err, dealId }, "[Deals] Delivery confirmation email failed (non-fatal)")
-    );
+    // Email 3 — Delivery Confirmation (idempotent — only fires once per deal)
+    if (!row.delivery_email_sent_at) {
+      try {
+        await sendDeliveryConfirmationEmail({
+          firstName: row.first_name as string,
+          email:     row.email     as string,
+        });
+        await db.query(
+          `UPDATE deals SET delivery_email_sent_at = NOW(), updated_at = NOW() WHERE id = $1`,
+          [dealId],
+        );
+        logger.info({ dealId }, "[Deals] Delivery confirmation email sent");
+      } catch (emailErr) {
+        logger.error({ err: emailErr, dealId }, "[Deals] Delivery confirmation email failed (non-fatal)");
+      }
+    }
 
     return res.json({
       success: true,

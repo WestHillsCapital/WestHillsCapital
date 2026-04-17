@@ -72,9 +72,9 @@ async function sendEmail(opts: SendEmailOptions): Promise<void> {
   if (!res.ok) {
     const text = await res.text();
     logger.error({ status: res.status, body: text }, "[Email] Send failed");
-  } else {
-    logger.info({ subject: opts.subject, to: opts.to }, "[Email] Sent");
+    throw new Error(`Resend API error ${res.status}: ${text}`);
   }
+  logger.info({ subject: opts.subject, to: opts.to }, "[Email] Sent");
 }
 
 // ── Owner notification ────────────────────────────────────────────────────────
@@ -378,11 +378,20 @@ export async function sendDealRecapEmail(
 
 function whcEmailWrapper(body: string): string {
   return `
-    <div style="font-family:Georgia,serif;max-width:620px;margin:auto;padding:32px 24px;color:#1a1a1a;background:#ffffff;">
-      ${body}
-      <p style="margin:32px 0 0;font-size:11px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:14px;line-height:1.6;">
-        West Hills Capital &nbsp;|&nbsp; (800) 867-6768 &nbsp;|&nbsp; westhillscapital.com
-      </p>
+    <div style="font-family:Georgia,serif;max-width:620px;margin:auto;background:#F5F0E8;">
+      <div style="background:#0F1C3F;padding:18px 24px;">
+        <span style="font-family:Georgia,serif;font-size:18px;color:#C49A38;letter-spacing:.04em;font-weight:bold;">
+          West Hills Capital
+        </span>
+      </div>
+      <div style="padding:32px 24px;color:#1a1a1a;">
+        ${body}
+      </div>
+      <div style="padding:16px 24px;background:#0F1C3F;">
+        <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;">
+          West Hills Capital &nbsp;|&nbsp; (800) 867-6768 &nbsp;|&nbsp; westhillscapital.com
+        </p>
+      </div>
     </div>
   `;
 }
