@@ -6,10 +6,9 @@ Known shortcuts, temporary solutions, and risk areas that should be addressed be
 
 ## Critical risks
 
-### DST / time zone handling is broken in winter
-**File**: `scheduling.ts` line 52  
-**Issue**: `CT_OFFSET_HOURS = -5` is hardcoded (CDT). During Central Standard Time (November–March), the correct offset is -6. All displayed appointment times will be 1 hour off during this period.  
-**Fix needed**: Use a proper time zone library (e.g. `date-fns-tz`) to compute the UTC offset from `America/Chicago` at the time of each slot, rather than a fixed offset.
+### ~~DST / time zone handling is broken in winter~~ ✅ Fixed
+**File**: `scheduling.ts`  
+**Fix applied**: Replaced hardcoded `CT_OFFSET_HOURS = -5` with `getChicagoOffsetHours(date)`, which uses the built-in `Intl` API to compute the real UTC offset for `America/Chicago` on each slot's date. Returns -5 during CDT and -6 during CST automatically. No external packages required.
 
 ### Wire instructions are hardcoded in source
 **File**: `invoice-pdf.ts` (the `WIRE` constant)  

@@ -43,13 +43,23 @@ function getIp(req: Request): string {
   );
 }
 
+/**
+ * Returns the UTC offset for America/Chicago at the given date.
+ * Returns -5 during CDT (summer) and -6 during CST (winter).
+ * Uses the built-in Intl API — no external packages required.
+ */
+function getChicagoOffsetHours(date: Date): number {
+  const chicago = new Date(date.toLocaleString("en-US", { timeZone: "America/Chicago" }));
+  const utc     = new Date(date.toLocaleString("en-US", { timeZone: "UTC" }));
+  return (chicago.getTime() - utc.getTime()) / 3_600_000;
+}
+
 function generateAvailableSlots(
   bookedSlotIds: Set<string>,
   busyPeriods: { start: Date; end: Date }[]
 ) {
   const slots = [];
   const now = new Date();
-  const CT_OFFSET_HOURS = -5; // CDT (UTC-5); conservative for DST
   let count = 0;
   let dayOffset = 0;
 
@@ -63,6 +73,9 @@ function generateAvailableSlots(
       continue;
     }
 
+    // Compute the correct UTC offset for this specific day (handles DST transitions)
+    const ctOffset = getChicagoOffsetHours(day);
+
     // Iterate candidate start times within the business window
     const stepMs = SLOT_STEP_MINUTES * 60 * 1000;
     for (
@@ -71,7 +84,7 @@ function generateAvailableSlots(
       hour += SLOT_STEP_MINUTES / 60
     ) {
       const slotDate = new Date(day);
-      slotDate.setUTCHours(hour - CT_OFFSET_HOURS, 0, 0, 0);
+      slotDate.setUTCHours(hour - ctOffset, 0, 0, 0);
 
       // Skip slots too soon
       const hoursFromNow = (slotDate.getTime() - now.getTime()) / (1000 * 60 * 60);
