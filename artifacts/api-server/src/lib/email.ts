@@ -651,7 +651,7 @@ export async function sendWireConfirmationEmail(params: {
         <tr>
           <td style="background:#ffffff;padding:28px ${G} 0;">
             <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
-              We are coordinating with our dealer now to secure your metals and prepare your shipment.
+              We are coordinating the details of securing your metals and getting them on the way to you.
               Once the package ships, I will personally send over your FedEx tracking information.
             </p>
             <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
