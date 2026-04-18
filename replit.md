@@ -52,3 +52,100 @@ The project is structured as a pnpm monorepo using TypeScript, with separate `ap
 -   **React, Vite, Tailwind CSS, shadcn/ui:** Frontend stack.
 -   **Zod:** Data validation.
 -   **pdfkit:** PDF generation library.
+
+---
+
+# How-To Guides
+
+## Changing Wire Transfer Instructions on Invoices
+
+Every customer invoice PDF includes the bank wiring details (bank name, routing number, account number, etc.). These are controlled by environment variables on Railway so you can update them any time without touching code or waiting for a redeploy.
+
+**Steps:**
+1. Go to [Railway](https://railway.app) → your project → the **API Server** service → click **Variables** in the left menu.
+2. Find or add the following variables (create them if they don't exist yet):
+
+| Variable name | What it controls | Example value |
+|---|---|---|
+| `WIRE_BANK` | Bank name that appears on invoice | `Commerce Bank` |
+| `WIRE_BANK_ADDRESS` | Bank's mailing address | `1551 Waterfront, Wichita, KS 67206` |
+| `WIRE_ROUTING` | ABA routing number | `101000019` |
+| `WIRE_ACCOUNT_NAME` | Account holder name | `West Hills Capital` |
+| `WIRE_ACCOUNT_ADDR` | Account holder mailing address | `1314 N. Oliver Ave. #8348, Wichita, KS 67208` |
+| `WIRE_ACCOUNT_NUM` | Account number | `690108249` |
+
+3. After saving, Railway automatically redeploys the API server. New invoices will use the updated values within a minute or two. **Old invoices already sent are not affected.**
+
+> If a variable is missing, the invoice falls back to the current hardcoded Commerce Bank values — nothing will break.
+
+---
+
+## Adding a New Product to the Deal Builder
+
+Adding a new coin or bar (e.g., a 10 oz Gold Bar) requires two small code changes, both in the API server. Once done, the Deal Builder picks up the new product automatically — no frontend changes needed.
+
+**Step 1 — Get the Dillon Gage product code**
+Log into the Fiztrade portal (connect.fiztrade.com) and find the product code for the item. It will be a short string like `10GBAR`.
+
+**Step 2 — Edit `artifacts/api-server/src/routes/pricing.ts`**
+Near the top, find the line that says:
+```
+const DG_PRODUCTS = ["1EAGLE", "1B", "SE"] as const;
+```
+Add the new product code to that list:
+```
+const DG_PRODUCTS = ["1EAGLE", "1B", "SE", "10GBAR"] as const;
+```
+Then scroll down to the `products = [...]` array and add a new entry following the same pattern as the existing ones — copy one of the gold products, paste it, and update the `id`, `name`, `metal`, `weight`, `description`, and `spreadPercent` fields.
+
+**Step 3 — Edit `artifacts/api-server/src/lib/fiztrade.ts`**
+Find the `DG_CODE` object near the top:
+```
+const DG_CODE: Record<string, string> = {
+  "gold-american-eagle-1oz":   "1EAGLE",
+  "gold-american-buffalo-1oz": "1B",
+  "silver-american-eagle-1oz": "SE",
+};
+```
+Add a line for the new product (the key must match the `id` you used in step 2):
+```
+  "gold-bar-10oz": "10GBAR",
+```
+
+**Step 4 — Push to GitHub**
+Commit and push the changes to the `main` branch on GitHub. Railway and Vercel will deploy automatically within a few minutes. The new product will appear in the Deal Builder's product table immediately after the next "Get Spot Price" click.
+
+---
+
+## Verifying Production Is Fully Configured (Railway Health Check)
+
+After a fresh deployment — or whenever something seems off — you can check which features are active on Railway without SSH access.
+
+**How to access it:**
+Open your browser and go to:
+```
+https://workspaceapi-server-production-987b.up.railway.app/api/healthz/config
+```
+(If your Railway URL is different, add `/api/healthz/config` to the end of it.)
+
+**What you'll see:**
+A JSON response that lists every feature and whether it's turned on (`"configured": true`) or off (`"configured": false`). Example:
+```json
+{
+  "status": "ok",
+  "configuredCount": 18,
+  "totalCount": 22,
+  "features": {
+    "dillonGageApi":      { "configured": true,  "impact": "Live spot pricing and product prices" },
+    "googleCalendar":     { "configured": true,  "impact": "Appointment booking creates Google Calendar events" },
+    "resendEmail":        { "configured": false, "impact": "Transactional email disabled" },
+    "wireBank":           { "configured": true,  "impact": "Bank name on invoice wire instructions" },
+    ...
+  }
+}
+```
+
+**What to look for:**
+- Anything showing `"configured": false` with an `"impact"` that says a critical feature is "disabled" needs its Railway variable set.
+- It's normal for `fiztradeDryRun` to show `false` in production (that means real trades are being placed, which is correct).
+- `googleOAuth` should be `true` in production — if it's `false`, the internal portal is running in dev-bypass mode and anyone can access it.
