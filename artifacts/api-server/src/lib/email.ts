@@ -616,78 +616,218 @@ export async function sendBookingConfirmation(params: {
   allocationRange: string;
   timeline: string;
 }): Promise<void> {
-  const li = (text: string) =>
-    `<li style="margin-bottom:6px;color:#374151;">${text}</li>`;
+  // Logo hosted on Vercel — falls back gracefully if not yet deployed
+  const SITE_URL = (process.env.FRONTEND_URL ?? "https://www.westhillscapital.com").replace(/\/$/, "");
+  const LOGO_URL = `${SITE_URL}/images/logo.png`;
+
+  // Brand palette
+  const NAVY  = "#0F1C3F";
+  const IVORY = "#F8F5EF";
+  const GOLD  = "#C49A38";
+  const LGOLD = "#EEE4CC";  // light gold for card borders
+  const MUTED = "#7A7060";  // muted warm-gray for secondary labels
+  const BODY  = "#2D2A25";  // near-black for primary body text
+  const FAINT = "#DAD3C4";  // faint divider line
+
+  const summaryRow = (label: string, value: string, last = false) => `
+    <tr>
+      <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;${last ? "" : `border-bottom:1px solid ${FAINT};`}">${label}</td>
+      <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;${last ? "" : `border-bottom:1px solid ${FAINT};`}">${value}</td>
+    </tr>`;
+
+  const expectItem = (text: string) => `
+    <tr>
+      <td style="padding:0 0 10px 0;vertical-align:top;width:18px;">
+        <span style="display:inline-block;width:5px;height:5px;background:${GOLD};border-radius:50%;margin-top:7px;"></span>
+      </td>
+      <td style="padding:0 0 10px 12px;font-size:14px;color:${BODY};font-family:Georgia,serif;line-height:1.65;">${text}</td>
+    </tr>`;
 
   await sendEmail({
     to:      params.to,
-    subject: `Your Allocation Call is Confirmed — ${params.dayLabel}`,
-    html:    whcEmailWrapper(`
-      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName.trim()},</p>
+    subject: `Your Allocation Discussion Is Confirmed — ${params.dayLabel}`,
+    html: `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Appointment Confirmed — West Hills Capital</title>
+</head>
+<body style="margin:0;padding:0;background:#EEEBE4;font-family:Georgia,serif;">
 
-      <p style="margin:0 0 20px;font-size:15px;color:#374151;">
-        Your allocation consultation with West Hills Capital is confirmed.
-        I personally look forward to speaking with you and walking through your options.
-      </p>
+<!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEEBE4;">
+  <tr>
+    <td align="center" style="padding:28px 16px;">
 
-      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#0F1C3F;">Appointment Details</p>
-      <div style="margin:0 0 20px;padding:18px;background:#ffffff;border:1px solid #d4b896;border-radius:6px;">
-        <p style="margin:0 0 2px;font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.08em;">Date &amp; Time</p>
-        <p style="margin:0 0 4px;font-size:20px;font-weight:bold;color:#0F1C3F;">${params.dayLabel}</p>
-        <p style="margin:0 0 16px;font-size:16px;color:#374151;">${params.timeLabel}</p>
-        <p style="margin:0;font-size:12px;color:#9ca3af;">
-          Confirmation ID: <strong style="color:#1a1a1a;font-family:monospace;">${params.confirmationId}</strong>
-        </p>
-      </div>
+      <!-- Card wrapper -->
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);">
 
-      <div style="margin:0 0 28px;padding:14px 18px;background:#C49A38;border-radius:6px;">
-        <p style="margin:0;font-size:14px;color:#0F1C3F;font-weight:bold;">
-          We will call you from <span style="font-family:monospace;">(800) 867-6768</span> at your scheduled time &mdash; please save this number.
-        </p>
-      </div>
+        <!-- ─── HEADER ─── -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:32px 40px 24px;">
+            <img src="${LOGO_URL}" alt="West Hills Capital" width="180" style="display:block;max-width:180px;height:auto;border:0;">
+          </td>
+        </tr>
 
-      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#0F1C3F;">What to Expect on the Call</p>
-      <ul style="margin:0 0 28px 18px;padding:0;font-size:15px;line-height:1.8;">
-        ${li("We will review your intended allocation size and structure")}
-        ${li("We will walk through current live pricing on gold and silver")}
-        ${li("We will confirm your delivery or storage preference")}
-        ${li("If you decide to move forward, we can lock your trade on the call")}
-        ${li("No commitment is required &mdash; this is a consultation")}
-      </ul>
+        <!-- Header divider -->
+        <tr>
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:0 40px;">
+            <div style="height:1px;background:${FAINT};"></div>
+          </td>
+        </tr>
 
-      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#0F1C3F;">Your Submission</p>
-      <div style="margin:0 0 28px;padding:14px 18px;background:#ffffff;border:1px solid #d4b896;border-radius:6px;">
-        <table style="border-collapse:collapse;width:100%;font-size:14px;">
-          <tr>
-            <td style="padding:6px 0;color:#9ca3af;width:140px;border-bottom:1px solid #f3f4f6;">Structure</td>
-            <td style="padding:6px 0;color:#374151;border-bottom:1px solid #f3f4f6;">${ALLOCATION_LABELS[params.allocationType] ?? params.allocationType}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 0;color:#9ca3af;border-bottom:1px solid #f3f4f6;">Allocation Range</td>
-            <td style="padding:6px 0;color:#374151;border-bottom:1px solid #f3f4f6;">${RANGE_LABELS[params.allocationRange] ?? params.allocationRange}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 0;color:#9ca3af;border-bottom:1px solid #f3f4f6;">Timeline</td>
-            <td style="padding:6px 0;color:#374151;border-bottom:1px solid #f3f4f6;">${TIMELINE_LABELS[params.timeline] ?? params.timeline}</td>
-          </tr>
-          <tr>
-            <td style="padding:6px 0;color:#9ca3af;">State</td>
-            <td style="padding:6px 0;color:#374151;">${params.state}</td>
-          </tr>
-        </table>
-      </div>
+        <!-- ─── CONFIRMATION HEADLINE ─── -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:32px 40px 28px;">
+            <p style="margin:0 0 10px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">
+              Your allocation discussion is confirmed.
+            </p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${MUTED};line-height:1.6;">
+              We look forward to speaking with you at the time below.
+            </p>
+          </td>
+        </tr>
 
-      <p style="margin:0 0 28px;font-size:15px;color:#374151;">
-        If anything comes up before the call, don&rsquo;t hesitate to reach out. I want to make sure
-        you feel fully prepared and comfortable when we connect.
-      </p>
+        <!-- ─── APPOINTMENT CARD ─── -->
+        <tr>
+          <td style="padding:0 40px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:#FDFAF5;border:1px solid ${LGOLD};border-radius:3px;">
+              <tr>
+                <td style="padding:10px 22px 0;border-bottom:1px solid ${LGOLD};">
+                  <p style="margin:0;font-size:9px;font-family:Georgia,serif;color:${GOLD};letter-spacing:.14em;text-transform:uppercase;font-weight:bold;padding-bottom:10px;">
+                    Appointment
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:22px 22px 8px;">
+                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:24px;font-weight:bold;color:${NAVY};line-height:1.2;">
+                    ${params.dayLabel}
+                  </p>
+                  <p style="margin:0;font-family:Georgia,serif;font-size:17px;color:${BODY};line-height:1.4;">
+                    ${params.timeLabel}
+                  </p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:0 22px 20px;">
+                  <p style="margin:0;font-size:11px;font-family:Georgia,serif;color:${MUTED};">
+                    Confirmation ID &nbsp;<strong style="color:${BODY};font-family:'Courier New',monospace;letter-spacing:.04em;font-size:11px;">${params.confirmationId}</strong>
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-      ${joeSig()}
+        <!-- ─── PHONE CALLOUT ─── -->
+        <tr>
+          <td style="padding:0 40px 32px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:#FAF6ED;border-left:3px solid ${GOLD};border-radius:0 3px 3px 0;">
+              <tr>
+                <td style="padding:14px 18px;">
+                  <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${NAVY};line-height:1.6;">
+                    We will call you from&nbsp;
+                    <strong style="font-size:15px;letter-spacing:.01em;">(800) 867-6768</strong>
+                    &nbsp;at your scheduled time.
+                    <span style="color:${MUTED};">&nbsp;Please save this number.</span>
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
 
-      <p style="margin:24px 0 0;font-size:11px;color:#9ca3af;border-top:1px solid #d4b896;padding-top:14px;line-height:1.7;">
-        Trades are executed only after verbal confirmation on a recorded call and receipt of cleared funds.
-        This appointment is a consultation only &mdash; no obligation or commitment is required.
-      </p>
-    `),
+        <!-- ─── SUBMISSION SUMMARY ─── -->
+        <tr>
+          <td style="padding:0 40px 32px;">
+            <p style="margin:0 0 12px;font-family:Georgia,serif;font-size:11px;color:${GOLD};letter-spacing:.14em;text-transform:uppercase;font-weight:bold;">
+              Your Submission
+            </p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:#FDFAF5;border:1px solid ${LGOLD};border-radius:3px;">
+              <tr>
+                <td style="padding:0 22px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    ${summaryRow("Structure",       ALLOCATION_LABELS[params.allocationType] ?? params.allocationType)}
+                    ${summaryRow("Allocation",      RANGE_LABELS[params.allocationRange]     ?? params.allocationRange)}
+                    ${summaryRow("Timeline",        TIMELINE_LABELS[params.timeline]         ?? params.timeline)}
+                    ${summaryRow("State",           params.state, true)}
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- ─── WHAT TO EXPECT ─── -->
+        <tr>
+          <td style="padding:0 40px 32px;">
+            <p style="margin:0 0 12px;font-family:Georgia,serif;font-size:11px;color:${GOLD};letter-spacing:.14em;text-transform:uppercase;font-weight:bold;">
+              What to Expect
+            </p>
+            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.7;">
+              During the call we will review your intended allocation, confirm current pricing on gold and silver,
+              and discuss delivery or storage structure. If you decide to move forward, we can lock your trade
+              on the call. No commitment is required &mdash; this is a consultation.
+            </p>
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              ${expectItem("Review your allocation size and structure")}
+              ${expectItem("Walk through current live pricing")}
+              ${expectItem("Confirm delivery or storage preference")}
+              ${expectItem("Lock your trade on the call if you choose to proceed")}
+            </table>
+          </td>
+        </tr>
+
+        <!-- ─── CLOSING ─── -->
+        <tr>
+          <td style="padding:0 40px 32px;">
+            <p style="margin:0 0 20px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.7;">
+              If anything comes up before the call, don&rsquo;t hesitate to reach out.
+              I want to make sure you feel fully prepared when we connect.
+            </p>
+            <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:14px;color:${BODY};">My very best,</p>
+            <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:15px;font-weight:bold;color:${NAVY};">Joe</p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768</p>
+          </td>
+        </tr>
+
+        <!-- ─── COMPLIANCE NOTE ─── -->
+        <tr>
+          <td style="padding:0 40px 28px;">
+            <div style="height:1px;background:${FAINT};margin-bottom:16px;"></div>
+            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.7;">
+              <strong style="color:${BODY};font-weight:bold;">Important:</strong>
+              Trades are executed only after verbal confirmation on a recorded call and receipt of cleared funds.
+              This appointment is a consultation only &mdash; no obligation or commitment is required.
+            </p>
+          </td>
+        </tr>
+
+        <!-- ─── FOOTER ─── -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:18px 40px;border-top:1px solid ${FAINT};">
+            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;">
+              West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
+            </p>
+          </td>
+        </tr>
+
+      </table>
+      <!-- /Card wrapper -->
+
+    </td>
+  </tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+
+</body>
+</html>
+    `,
   });
 }
