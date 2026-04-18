@@ -279,10 +279,10 @@ export async function sendDealRecapEmail(
     .filter((p) => p.qty > 0)
     .map((p) => `
       <tr>
-        <td style="padding:0 0 8px;font-family:Georgia,serif;font-size:13px;color:${BODY};line-height:1.5;">
+        <td style="padding:0 0 8px;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${BODY};line-height:1.5;">
           ${p.qty} &times; ${p.productName}
         </td>
-        <td style="padding:0 0 8px;font-family:Georgia,serif;font-size:13px;color:${BODY};text-align:right;white-space:nowrap;">
+        <td style="padding:0 0 8px;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${BODY};text-align:right;white-space:nowrap;">
           ${usd(p.lineTotal)}
         </td>
       </tr>`)
@@ -304,28 +304,28 @@ export async function sendDealRecapEmail(
     const mapsUrl  = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${deal.fedexLocation} ${addrLine}`)}`;
     const hoursRow = deal.fedexLocationHours ? `
       <tr>
-        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;border-top:1px solid ${FAINT};">Hours</td>
-        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;border-top:1px solid ${FAINT};">${deal.fedexLocationHours.replace(/\n/g, "<br>")}</td>
+        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;width:130px;border-top:1px solid ${FAINT};">Hours</td>
+        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;border-top:1px solid ${FAINT};">${deal.fedexLocationHours.replace(/\n/g, "<br>")}</td>
       </tr>` : "";
     shipRows = `
       <tr>
-        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;border-bottom:1px solid ${FAINT};">Location</td>
-        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;font-weight:500;border-bottom:1px solid ${FAINT};">
+        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;width:130px;border-bottom:1px solid ${FAINT};">Location</td>
+        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;font-weight:500;border-bottom:1px solid ${FAINT};">
           ${deal.fedexLocation}<br>
           <span style="font-weight:normal;color:${MUTED};">FBO ${fullName}</span><br>
           <a href="${mapsUrl}" style="font-size:12px;color:${GOLD};text-decoration:none;">Get Directions &rarr;</a>
         </td>
       </tr>
       <tr>
-        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;border-bottom:1px solid ${FAINT};">Address</td>
-        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;font-weight:500;border-bottom:1px solid ${FAINT};">
+        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;width:130px;border-bottom:1px solid ${FAINT};">Address</td>
+        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;font-weight:500;border-bottom:1px solid ${FAINT};">
           ${deal.shipToLine1 ?? ""}<br>
           ${[deal.shipToCity, deal.shipToState].filter(Boolean).join(", ")}${deal.shipToZip ? ` ${deal.shipToZip}` : ""}
         </td>
       </tr>
       <tr>
-        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;">Method</td>
-        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;font-weight:500;">FedEx Hold for Pickup</td>
+        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;width:130px;">Method</td>
+        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;font-weight:500;">FedEx Hold for Pickup</td>
       </tr>
       ${hoursRow}`;
   } else {
@@ -340,12 +340,12 @@ export async function sendDealRecapEmail(
       : `<span style="color:${MUTED};font-style:italic;">Address on file</span>`;
     shipRows = `
       <tr>
-        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;border-bottom:1px solid ${FAINT};">Name</td>
-        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;font-weight:500;border-bottom:1px solid ${FAINT};">${nameLine}</td>
+        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;width:130px;border-bottom:1px solid ${FAINT};">Name</td>
+        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;font-weight:500;border-bottom:1px solid ${FAINT};">${nameLine}</td>
       </tr>
       <tr>
-        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;">Address</td>
-        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;font-weight:500;">${addrStr}</td>
+        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;width:130px;">Address</td>
+        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;font-weight:500;">${addrStr}</td>
       </tr>`;
   }
 
@@ -356,8 +356,10 @@ export async function sendDealRecapEmail(
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Order Confirmed — West Hills Capital</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
-<body style="margin:0;padding:0;background:#ECE8DC;font-family:Georgia,serif;">
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:'DM Sans',Arial,sans-serif;">
 
 <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
@@ -383,8 +385,8 @@ export async function sendDealRecapEmail(
         <!-- ─── HEADLINE, ivory bg ─── -->
         <tr>
           <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
-            <p style="margin:0 0 11px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Your order is confirmed.</p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${MUTED};line-height:1.65;">
+            <p style="margin:0 0 11px;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Your order is confirmed.</p>
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${MUTED};line-height:1.65;">
               Thank you for trusting us with your purchase. Your invoice is attached &mdash; please review the wire instructions inside.
             </p>
           </td>
@@ -399,7 +401,7 @@ export async function sendDealRecapEmail(
               <!-- card label row -->
               <tr>
                 <td style="padding:9px 22px 8px;border-bottom:1px solid ${LGOLD};">
-                  <p style="margin:0;font-size:9px;font-family:Georgia,serif;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Order Confirmed</p>
+                  <p style="margin:0;font-size:9px;font-family:'DM Sans',Arial,sans-serif;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Order Confirmed</p>
                 </td>
               </tr>
 
@@ -410,17 +412,17 @@ export async function sendDealRecapEmail(
                     ${productRows}
                     <tr><td colspan="2" style="border-top:1px solid ${LGOLD};padding:0;"></td></tr>
                     <tr>
-                      <td style="padding:10px 0 4px;font-family:Georgia,serif;font-size:12px;color:${MUTED};">Subtotal</td>
-                      <td style="padding:10px 0 4px;font-family:Georgia,serif;font-size:12px;color:${MUTED};text-align:right;">${usd(deal.subtotal)}</td>
+                      <td style="padding:10px 0 4px;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${MUTED};">Subtotal</td>
+                      <td style="padding:10px 0 4px;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${MUTED};text-align:right;">${usd(deal.subtotal)}</td>
                     </tr>
                     <tr>
-                      <td style="padding:0 0 10px;font-family:Georgia,serif;font-size:12px;color:${MUTED};">Shipping</td>
-                      <td style="padding:0 0 10px;font-family:Georgia,serif;font-size:12px;color:${MUTED};text-align:right;">${usd(deal.shipping)}</td>
+                      <td style="padding:0 0 10px;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${MUTED};">Shipping</td>
+                      <td style="padding:0 0 10px;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${MUTED};text-align:right;">${usd(deal.shipping)}</td>
                     </tr>
                     <tr><td colspan="2" style="border-top:1px solid ${LGOLD};padding:0;"></td></tr>
                     <tr>
-                      <td style="padding:14px 0 0;font-family:Georgia,serif;font-size:15px;font-weight:bold;color:${NAVY};">Total Due</td>
-                      <td style="padding:14px 0 0;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};text-align:right;letter-spacing:-.01em;">${usd(deal.total)}</td>
+                      <td style="padding:14px 0 0;font-family:'DM Sans',Arial,sans-serif;font-size:15px;font-weight:bold;color:${NAVY};">Total Due</td>
+                      <td style="padding:14px 0 0;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};text-align:right;letter-spacing:-.01em;">${usd(deal.total)}</td>
                     </tr>
                   </table>
                 </td>
@@ -431,10 +433,10 @@ export async function sendDealRecapEmail(
                 <td style="padding:14px 22px 18px;border-top:1px solid ${LGOLD};margin-top:14px;">
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                     <tr>
-                      <td style="font-family:Georgia,serif;font-size:11px;color:${MUTED};">
+                      <td style="font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};">
                         Invoice&nbsp;<span style="font-family:'Courier New',monospace;letter-spacing:.04em;color:${DIM};">${invoiceId}</span>
                       </td>
-                      ${spotText ? `<td style="font-family:Georgia,serif;font-size:11px;color:${MUTED};text-align:right;">${spotText}</td>` : ""}
+                      ${spotText ? `<td style="font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};text-align:right;">${spotText}</td>` : ""}
                     </tr>
                   </table>
                 </td>
@@ -451,9 +453,9 @@ export async function sendDealRecapEmail(
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td align="center" style="padding:22px 0;">
-                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">Payment due by</p>
-                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">${deadlineStr}</p>
-                  <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">Wire instructions are included in the attached invoice</p>
+                  <p style="margin:0 0 4px;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">Payment due by</p>
+                  <p style="margin:0 0 4px;font-family:'Playfair Display',Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">${deadlineStr}</p>
+                  <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${MUTED};">Wire instructions are included in the attached invoice</p>
                 </td>
               </tr>
             </table>
@@ -464,7 +466,7 @@ export async function sendDealRecapEmail(
         <!-- ─── SHIP TO: bare rows on white ─── -->
         <tr>
           <td style="background:#ffffff;padding:24px ${G} 0;">
-            <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Ship To</p>
+            <p style="margin:0 0 4px;font-family:'DM Sans',Arial,sans-serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Ship To</p>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
               ${shipRows}
             </table>
@@ -474,19 +476,19 @@ export async function sendDealRecapEmail(
         <!-- ─── NEXT STEPS: bullets ─── -->
         <tr>
           <td style="background:#ffffff;padding:24px ${G} 0;">
-            <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Next Steps</p>
+            <p style="margin:0 0 4px;font-family:'DM Sans',Arial,sans-serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Next Steps</p>
             <table role="presentation" cellpadding="0" cellspacing="0">
               <tr>
                 <td style="padding:0 0 9px 0;vertical-align:top;width:16px;"><span style="display:inline-block;width:4px;height:4px;background:${GOLD};border-radius:50%;margin-top:8px;"></span></td>
-                <td style="padding:0 0 9px 12px;font-size:13px;color:${BODY};font-family:Georgia,serif;line-height:1.6;">Once payment clears, we will secure your metals and prepare your shipment</td>
+                <td style="padding:0 0 9px 12px;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;line-height:1.6;">Once payment clears, we will secure your metals and prepare your shipment</td>
               </tr>
               <tr>
                 <td style="padding:0 0 9px 0;vertical-align:top;width:16px;"><span style="display:inline-block;width:4px;height:4px;background:${GOLD};border-radius:50%;margin-top:8px;"></span></td>
-                <td style="padding:0 0 9px 12px;font-size:13px;color:${BODY};font-family:Georgia,serif;line-height:1.6;">I will personally follow up with your FedEx tracking number once the order ships</td>
+                <td style="padding:0 0 9px 12px;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;line-height:1.6;">I will personally follow up with your FedEx tracking number once the order ships</td>
               </tr>
               <tr>
                 <td style="padding:0 0 9px 0;vertical-align:top;width:16px;"><span style="display:inline-block;width:4px;height:4px;background:${GOLD};border-radius:50%;margin-top:8px;"></span></td>
-                <td style="padding:0 0 9px 12px;font-size:13px;color:${BODY};font-family:Georgia,serif;line-height:1.6;">If payment may be delayed, please reach out and we will coordinate</td>
+                <td style="padding:0 0 9px 12px;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;line-height:1.6;">If payment may be delayed, please reach out and we will coordinate</td>
               </tr>
             </table>
           </td>
@@ -495,12 +497,12 @@ export async function sendDealRecapEmail(
         <!-- ─── SIGNOFF ─── -->
         <tr>
           <td style="background:#ffffff;padding:24px ${G} 28px;">
-            <p style="margin:0 0 16px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.7;">
+            <p style="margin:0 0 16px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.7;">
               Please don&rsquo;t hesitate to reach out if you have any questions &mdash; it is a pleasure to work with you.
             </p>
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
+            <p style="margin:0 0 2px;font-family:'Playfair Display',Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
+            <p style="margin:0 0 2px;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
           </td>
         </tr>
 
@@ -508,7 +510,7 @@ export async function sendDealRecapEmail(
         <tr>
           <td style="background:#ffffff;padding:0 ${G} 26px;">
             <div style="height:1px;background:${FAINT};margin-bottom:16px;"></div>
-            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${DIM};line-height:1.75;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${DIM};line-height:1.75;">
               Payment must be received by the close of business on the date shown above to secure this pricing. If payment is not received in time, the trade may be cancelled and any market loss may be subject to an offset fee. This transaction is subject to West Hills Capital&rsquo;s Terms of Service: westhillscapital.com/terms
             </p>
           </td>
@@ -517,7 +519,7 @@ export async function sendDealRecapEmail(
         <!-- ─── FOOTER ─── -->
         <tr>
           <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
-            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
               West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
             </p>
           </td>
@@ -547,9 +549,9 @@ export async function sendDealRecapEmail(
 
 function whcEmailWrapper(body: string): string {
   return `
-    <div style="font-family:Georgia,serif;max-width:620px;margin:auto;background:#F5F0E8;">
+    <div style="font-family:'DM Sans',Arial,sans-serif;max-width:620px;margin:auto;background:#F5F0E8;">
       <div style="background:#0F1C3F;padding:18px 24px;">
-        <span style="font-family:Georgia,serif;font-size:18px;color:#C49A38;letter-spacing:.04em;font-weight:bold;">
+        <span style="font-family:'DM Sans',Arial,sans-serif;font-size:18px;color:#C49A38;letter-spacing:.04em;font-weight:bold;">
           West Hills Capital
         </span>
       </div>
@@ -596,8 +598,10 @@ export async function sendWireConfirmationEmail(params: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Wire Received — West Hills Capital</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
-<body style="margin:0;padding:0;background:#ECE8DC;font-family:Georgia,serif;">
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:'DM Sans',Arial,sans-serif;">
 
 <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
@@ -623,8 +627,8 @@ export async function sendWireConfirmationEmail(params: {
         <!-- ─── HEADLINE ─── -->
         <tr>
           <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
-            <p style="margin:0 0 11px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Your wire has arrived.</p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${MUTED};line-height:1.65;">
+            <p style="margin:0 0 11px;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Your wire has arrived.</p>
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${MUTED};line-height:1.65;">
               We wanted to reach out right away so you know things are moving.
             </p>
           </td>
@@ -637,9 +641,9 @@ export async function sendWireConfirmationEmail(params: {
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td align="center" style="padding:22px 0;">
-                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">Status</p>
-                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">Wire Received &mdash; Your Order Is Being Prepared</p>
-                  <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">We will follow up with your FedEx tracking once the order ships</p>
+                  <p style="margin:0 0 4px;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">Status</p>
+                  <p style="margin:0 0 4px;font-family:'Playfair Display',Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">Wire Received &mdash; Your Order Is Being Prepared</p>
+                  <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${MUTED};">We will follow up with your FedEx tracking once the order ships</p>
                 </td>
               </tr>
             </table>
@@ -650,15 +654,15 @@ export async function sendWireConfirmationEmail(params: {
         <!-- ─── BODY COPY ─── -->
         <tr>
           <td style="background:#ffffff;padding:28px ${G} 0;">
-            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0 0 14px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               We are coordinating the details of securing your metals and getting them on the way to you.
               Once the package ships, I will personally send over your FedEx tracking information.
             </p>
-            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0 0 14px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               In the meantime, if you have any questions or just want to check in, don&rsquo;t hesitate to reach out.
               I am here to make sure this goes smoothly for you.
             </p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               We appreciate your trust &mdash; you made a sound decision, and we take that responsibility seriously.
             </p>
           </td>
@@ -667,16 +671,16 @@ export async function sendWireConfirmationEmail(params: {
         <!-- ─── SIGNOFF ─── -->
         <tr>
           <td style="background:#ffffff;padding:24px ${G} 28px;">
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
+            <p style="margin:0 0 2px;font-family:'Playfair Display',Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
+            <p style="margin:0 0 2px;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
           </td>
         </tr>
 
         <!-- ─── FOOTER ─── -->
         <tr>
           <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
-            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
               West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
             </p>
           </td>
@@ -729,9 +733,9 @@ export async function sendShippingNotificationEmail(params: {
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td align="center" style="padding:22px 0;">
-                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">Expected Delivery</p>
-                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">${params.estimatedDelivery}</p>
-                  <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">Package held at your FedEx location for up to five days if needed</p>
+                  <p style="margin:0 0 4px;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">Expected Delivery</p>
+                  <p style="margin:0 0 4px;font-family:'Playfair Display',Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">${params.estimatedDelivery}</p>
+                  <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${MUTED};">Package held at your FedEx location for up to five days if needed</p>
                 </td>
               </tr>
             </table>
@@ -745,8 +749,10 @@ export async function sendShippingNotificationEmail(params: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Your Package Is On the Way — West Hills Capital</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
-<body style="margin:0;padding:0;background:#ECE8DC;font-family:Georgia,serif;">
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:'DM Sans',Arial,sans-serif;">
 
 <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
@@ -771,8 +777,8 @@ export async function sendShippingNotificationEmail(params: {
         <!-- ─── HEADLINE ─── -->
         <tr>
           <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
-            <p style="margin:0 0 11px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Your package is on the way.</p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${MUTED};line-height:1.65;">
+            <p style="margin:0 0 11px;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Your package is on the way.</p>
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${MUTED};line-height:1.65;">
               Your metals have been fully allocated, packaged, and handed off to FedEx for delivery.
             </p>
           </td>
@@ -785,19 +791,19 @@ export async function sendShippingNotificationEmail(params: {
                    style="background:${CBACK};border:1px solid ${LGOLD};border-top:3px solid ${NAVY};border-radius:0 0 3px 3px;">
               <tr>
                 <td style="padding:9px 22px 8px;border-bottom:1px solid ${LGOLD};">
-                  <p style="margin:0;font-size:9px;font-family:Georgia,serif;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Your FedEx Tracking</p>
+                  <p style="margin:0;font-size:9px;font-family:'DM Sans',Arial,sans-serif;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Your FedEx Tracking</p>
                 </td>
               </tr>
               <tr>
                 <td style="padding:20px 22px 8px;">
-                  <p style="margin:0 0 6px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.04em;text-transform:uppercase;">Tracking Number</p>
+                  <p style="margin:0 0 6px;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};letter-spacing:.04em;text-transform:uppercase;">Tracking Number</p>
                   <p style="margin:0;font-family:'Courier New',monospace;font-size:18px;font-weight:bold;color:${NAVY};letter-spacing:.06em;">${params.trackingNumber}</p>
                 </td>
               </tr>
               <tr>
                 <td style="padding:14px 22px 20px;border-top:1px solid ${LGOLD};">
                   <a href="${trackingUrl}"
-                     style="font-family:Georgia,serif;font-size:13px;color:${GOLD};text-decoration:none;letter-spacing:.02em;">
+                     style="font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${GOLD};text-decoration:none;letter-spacing:.02em;">
                     Track Your Package &rarr;
                   </a>
                 </td>
@@ -811,15 +817,15 @@ export async function sendShippingNotificationEmail(params: {
         <!-- ─── BODY COPY ─── -->
         <tr>
           <td style="background:#ffffff;padding:24px ${G} 0;">
-            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0 0 14px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               If for any reason you need additional time before pickup, please let me know as soon as possible
               so we can make sure everything is timed appropriately.
             </p>
-            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0 0 14px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               When you pick it up, please take a quick look at the outside of the package before signing.
               If anything looks unusual, please call me right away at (800) 867-6768.
             </p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               I will be tracking the package all the way through to your signature. Congrats &mdash; it&rsquo;s almost here!
             </p>
           </td>
@@ -828,16 +834,16 @@ export async function sendShippingNotificationEmail(params: {
         <!-- ─── SIGNOFF ─── -->
         <tr>
           <td style="background:#ffffff;padding:24px ${G} 28px;">
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
+            <p style="margin:0 0 2px;font-family:'Playfair Display',Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
+            <p style="margin:0 0 2px;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
           </td>
         </tr>
 
         <!-- ─── FOOTER ─── -->
         <tr>
           <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
-            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
               West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
             </p>
           </td>
@@ -880,8 +886,10 @@ export async function sendDeliveryConfirmationEmail(params: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Delivered — West Hills Capital</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
-<body style="margin:0;padding:0;background:#ECE8DC;font-family:Georgia,serif;">
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:'DM Sans',Arial,sans-serif;">
 
 <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
@@ -906,8 +914,8 @@ export async function sendDeliveryConfirmationEmail(params: {
         <!-- ─── HEADLINE ─── -->
         <tr>
           <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
-            <p style="margin:0 0 11px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Your metals have been delivered.</p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${MUTED};line-height:1.65;">
+            <p style="margin:0 0 11px;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Your metals have been delivered.</p>
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${MUTED};line-height:1.65;">
               Congratulations on completing your allocation.
             </p>
           </td>
@@ -920,9 +928,9 @@ export async function sendDeliveryConfirmationEmail(params: {
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td align="center" style="padding:22px 0;">
-                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">Status</p>
-                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">Delivery Confirmed</p>
-                  <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">Please look everything over and reach out if you need anything</p>
+                  <p style="margin:0 0 4px;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">Status</p>
+                  <p style="margin:0 0 4px;font-family:'Playfair Display',Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">Delivery Confirmed</p>
+                  <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${MUTED};">Please look everything over and reach out if you need anything</p>
                 </td>
               </tr>
             </table>
@@ -933,12 +941,12 @@ export async function sendDeliveryConfirmationEmail(params: {
         <!-- ─── BODY COPY ─── -->
         <tr>
           <td style="background:#ffffff;padding:28px ${G} 0;">
-            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0 0 14px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               There is something different about this part. What took years of work and discipline to build is now
               sitting in your hands in a form you can actually see and feel. I am really happy for you and hope
               receiving it has been a wonderful experience.
             </p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               It has been a real pleasure working with you on this. Please do not hesitate to call me at
               (800) 867-6768 if I can help in any way.
             </p>
@@ -948,16 +956,16 @@ export async function sendDeliveryConfirmationEmail(params: {
         <!-- ─── SIGNOFF ─── -->
         <tr>
           <td style="background:#ffffff;padding:24px ${G} 28px;">
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
+            <p style="margin:0 0 2px;font-family:'Playfair Display',Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
+            <p style="margin:0 0 2px;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
           </td>
         </tr>
 
         <!-- ─── FOOTER ─── -->
         <tr>
           <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
-            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
               West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
             </p>
           </td>
@@ -1000,8 +1008,10 @@ export async function sendFollowUp7DayEmail(params: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Quick Check-In — West Hills Capital</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
-<body style="margin:0;padding:0;background:#ECE8DC;font-family:Georgia,serif;">
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:'DM Sans',Arial,sans-serif;">
 
 <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
@@ -1026,25 +1036,25 @@ export async function sendFollowUp7DayEmail(params: {
         <!-- ─── HEADLINE ─── -->
         <tr>
           <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
-            <p style="margin:0;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Just checking in.</p>
+            <p style="margin:0;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Just checking in.</p>
           </td>
         </tr>
 
         <!-- ─── BODY COPY ─── -->
         <tr>
           <td style="background:#ffffff;padding:28px ${G} 0;">
-            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0 0 14px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               It has been about a week since your metals arrived, and I wanted to check in with you.
             </p>
-            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0 0 14px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               I hope everything has settled in well. If you have any questions about your purchase, or just want to
               visit about the weather in Wichita, I am always happy to spend some time with you on that too.
             </p>
-            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0 0 14px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               Markets move, and life does too. If you think of something you did not ask, or something new has
               landed on your radar, let me know. I am here to help.
             </p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               And if you know someone who has been thinking about physical metals and would value a straightforward
               conversation, I would be glad to speak with them. Personal introductions mean a great deal in this business.
             </p>
@@ -1054,16 +1064,16 @@ export async function sendFollowUp7DayEmail(params: {
         <!-- ─── SIGNOFF ─── -->
         <tr>
           <td style="background:#ffffff;padding:24px ${G} 28px;">
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
+            <p style="margin:0 0 2px;font-family:'Playfair Display',Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
+            <p style="margin:0 0 2px;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
           </td>
         </tr>
 
         <!-- ─── FOOTER ─── -->
         <tr>
           <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
-            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
               West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
             </p>
           </td>
@@ -1106,8 +1116,10 @@ export async function sendFollowUp30DayEmail(params: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>One Month In — West Hills Capital</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
-<body style="margin:0;padding:0;background:#ECE8DC;font-family:Georgia,serif;">
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:'DM Sans',Arial,sans-serif;">
 
 <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
@@ -1132,27 +1144,27 @@ export async function sendFollowUp30DayEmail(params: {
         <!-- ─── HEADLINE ─── -->
         <tr>
           <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
-            <p style="margin:0;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">One month in.</p>
+            <p style="margin:0;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">One month in.</p>
           </td>
         </tr>
 
         <!-- ─── BODY COPY ─── -->
         <tr>
           <td style="background:#ffffff;padding:28px ${G} 0;">
-            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0 0 14px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               Hard to believe it has been a month since your metals arrived. I hope the experience has been exactly
               what you were hoping for.
             </p>
-            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0 0 14px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               This is usually the point where clients either feel very settled in their decision, or start thinking
               about what is next. Either is completely natural, and I am happy to talk through wherever you are.
             </p>
-            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0 0 14px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               A few things worth knowing: we do work with clients on ongoing allocation strategies, incremental
               purchases, and storage options if any of those are on your mind. No pressure at all &mdash; just want
               you to know those conversations are always available.
             </p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
               And as always, if you know someone who might benefit from a straightforward conversation about
               physical metals, I would be glad to be introduced.
             </p>
@@ -1162,16 +1174,16 @@ export async function sendFollowUp30DayEmail(params: {
         <!-- ─── SIGNOFF ─── -->
         <tr>
           <td style="background:#ffffff;padding:24px ${G} 28px;">
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
+            <p style="margin:0 0 2px;font-family:'Playfair Display',Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
+            <p style="margin:0 0 2px;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
           </td>
         </tr>
 
         <!-- ─── FOOTER ─── -->
         <tr>
           <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
-            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
               West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
             </p>
           </td>
@@ -1224,8 +1236,8 @@ export async function sendBookingConfirmation(params: {
 
   const summaryRow = (label: string, value: string, last = false) => `
     <tr>
-      <td style="padding:11px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;${last ? "" : `border-bottom:1px solid ${FAINT};`}">${label}</td>
-      <td style="padding:11px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;font-weight:500;${last ? "" : `border-bottom:1px solid ${FAINT};`}">${value}</td>
+      <td style="padding:11px 0;font-size:13px;color:${MUTED};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;width:130px;${last ? "" : `border-bottom:1px solid ${FAINT};`}">${label}</td>
+      <td style="padding:11px 0;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;font-weight:500;${last ? "" : `border-bottom:1px solid ${FAINT};`}">${value}</td>
     </tr>`;
 
   const expectItem = (text: string) => `
@@ -1233,7 +1245,7 @@ export async function sendBookingConfirmation(params: {
       <td style="padding:0 0 9px 0;vertical-align:top;width:16px;">
         <span style="display:inline-block;width:4px;height:4px;background:${GOLD};border-radius:50%;margin-top:8px;"></span>
       </td>
-      <td style="padding:0 0 9px 12px;font-size:13px;color:${BODY};font-family:Georgia,serif;line-height:1.6;">${text}</td>
+      <td style="padding:0 0 9px 12px;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;line-height:1.6;">${text}</td>
     </tr>`;
 
   // Single master gutter — every row uses this on left and right
@@ -1249,8 +1261,10 @@ export async function sendBookingConfirmation(params: {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Appointment Confirmed — West Hills Capital</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
-<body style="margin:0;padding:0;background:#ECE8DC;font-family:Georgia,serif;">
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:'DM Sans',Arial,sans-serif;">
 
 <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
@@ -1279,10 +1293,10 @@ export async function sendBookingConfirmation(params: {
         <!-- ─── HEADLINE, ivory bg ─── -->
         <tr>
           <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
-            <p style="margin:0 0 11px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">
+            <p style="margin:0 0 11px;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">
               Your allocation discussion is confirmed.
             </p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${MUTED};line-height:1.65;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${MUTED};line-height:1.65;">
               We look forward to speaking with you at the scheduled time below.
             </p>
           </td>
@@ -1295,24 +1309,24 @@ export async function sendBookingConfirmation(params: {
                    style="background:${CBACK};border:1px solid ${LGOLD};border-top:3px solid ${NAVY};border-radius:0 0 3px 3px;">
               <tr>
                 <td style="padding:9px 22px 8px;border-bottom:1px solid ${LGOLD};">
-                  <p style="margin:0;font-size:9px;font-family:Georgia,serif;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
+                  <p style="margin:0;font-size:9px;font-family:'DM Sans',Arial,sans-serif;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
                     Appointment
                   </p>
                 </td>
               </tr>
               <tr>
                 <td style="padding:24px 22px 8px;">
-                  <p style="margin:0 0 6px;font-family:Georgia,serif;font-size:27px;font-weight:bold;color:${NAVY};line-height:1.15;letter-spacing:-.01em;">
+                  <p style="margin:0 0 6px;font-family:'Playfair Display',Georgia,serif;font-size:27px;font-weight:bold;color:${NAVY};line-height:1.15;letter-spacing:-.01em;">
                     ${params.dayLabel}
                   </p>
-                  <p style="margin:0;font-family:Georgia,serif;font-size:16px;color:${MUTED};line-height:1.4;">
+                  <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:16px;color:${MUTED};line-height:1.4;">
                     ${params.timeLabel}
                   </p>
                 </td>
               </tr>
               <tr>
                 <td style="padding:0 22px 20px;">
-                  <p style="margin:0;font-size:11px;font-family:Georgia,serif;color:${MUTED};">
+                  <p style="margin:0;font-size:11px;font-family:'DM Sans',Arial,sans-serif;color:${MUTED};">
                     Confirmation&nbsp;
                     <span style="font-family:'Courier New',monospace;letter-spacing:.04em;color:${DIM};">${params.confirmationId}</span>
                   </p>
@@ -1329,13 +1343,13 @@ export async function sendBookingConfirmation(params: {
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
               <tr>
                 <td align="center" style="padding:22px 0;">
-                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">
+                  <p style="margin:0 0 4px;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">
                     We will call you from
                   </p>
-                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">
+                  <p style="margin:0 0 4px;font-family:'Playfair Display',Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">
                     (800) 867-6768
                   </p>
-                  <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">
+                  <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${MUTED};">
                     at your scheduled time &mdash; please save this number
                   </p>
                 </td>
@@ -1348,7 +1362,7 @@ export async function sendBookingConfirmation(params: {
         <!-- ─── SUBMISSION SUMMARY: bare rows on white, no card ─── -->
         <tr>
           <td style="background:#ffffff;padding:24px ${G} 0;">
-            <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
+            <p style="margin:0 0 4px;font-family:'DM Sans',Arial,sans-serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
               Your Submission
             </p>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
@@ -1363,7 +1377,7 @@ export async function sendBookingConfirmation(params: {
         <!-- ─── WHAT TO EXPECT: label + bullets, no container ─── -->
         <tr>
           <td style="background:#ffffff;padding:24px ${G} 0;">
-            <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
+            <p style="margin:0 0 4px;font-family:'DM Sans',Arial,sans-serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
               What to Expect
             </p>
             <table role="presentation" cellpadding="0" cellspacing="0">
@@ -1378,12 +1392,12 @@ export async function sendBookingConfirmation(params: {
         <!-- ─── SIGNOFF, white bg ─── -->
         <tr>
           <td style="background:#ffffff;padding:24px ${G} 28px;">
-            <p style="margin:0 0 16px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.7;">
+            <p style="margin:0 0 16px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.7;">
               Please don&rsquo;t hesitate to reach out if you have any questions before the call.
             </p>
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
-            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
+            <p style="margin:0 0 2px;font-family:'Playfair Display',Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
+            <p style="margin:0 0 2px;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
           </td>
         </tr>
 
@@ -1391,7 +1405,7 @@ export async function sendBookingConfirmation(params: {
         <tr>
           <td style="background:#ffffff;padding:0 ${G} 26px;">
             <div style="height:1px;background:${FAINT};margin-bottom:16px;"></div>
-            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${DIM};line-height:1.75;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${DIM};line-height:1.75;">
               <strong style="color:${BODY};font-weight:bold;">Important:</strong>
               Trades are executed only after verbal confirmation on a recorded call and receipt of cleared funds.
               This appointment is a consultation only &mdash; no obligation or commitment is required.
@@ -1403,7 +1417,7 @@ export async function sendBookingConfirmation(params: {
         <tr>
           <td align="center" bgcolor="${IVORY}"
               style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
-            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
               West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
             </p>
           </td>
