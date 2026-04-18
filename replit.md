@@ -1,247 +1,54 @@
-# Workspace
+# Overview
 
-## Overview
+West Hills Capital is a physical gold and silver allocation company. This project is a production-ready website designed to facilitate their operations, featuring live precious metal pricing, a 2-step appointment scheduling system, an IRA allocation section, and an educational content hub. The primary goal is to drive "Schedule Allocation Call" actions, supported by robust backend services for pricing, scheduling, lead capture, and deal execution. The business vision is to provide a seamless and informative platform for clients interested in gold and silver allocation, with ambitions to streamline internal processes through automated deal execution and record-keeping.
 
-pnpm workspace monorepo using TypeScript. Each package manages its own dependencies.
+# User Preferences
 
-## Project: West Hills Capital
+I prefer iterative development. I want to be asked before making major changes.
 
-West Hills Capital is a physical gold and silver allocation company. The website is a production-ready site with live Dillon Gage pricing, a 2-step appointment scheduling flow, an IRA allocation section, and a 12-article Insights educational hub. Primary CTA is "Schedule Allocation Call" — phone (800) 867-6768.
+# System Architecture
 
-### Pages / Routes
-- `/` — Home
-- `/pricing` — Live Pricing (spot stats, 8-period chart, product cards, buyback table)
-- `/schedule` — Schedule Allocation Call (2-step form)
-- `/ira` — IRA Allocation
-- `/about` — About
-- `/disclosures` — Disclosures & Operating Policies (12 sections, links to /terms)
-- `/terms` — Terms of Service (14 sections, version v1.0)
-- `/insights` — Insights hub (12 articles across 4 topic groups)
-- `/insights/:slug` — Individual article pages
+The project is structured as a pnpm monorepo using TypeScript, with separate `api-server` (Express) and `west-hills-capital` (React + Vite + Tailwind + shadcn) packages. Data validation is handled by Zod. The UI/UX emphasizes a professional aesthetic with an off-white, navy, and gold color scheme, featuring a fixed header with a live spot ticker.
 
-### Insights Section
-- **Data file**: `artifacts/west-hills-capital/src/data/insights.ts` — all article metadata, body content, group assignments, and related-article wiring
-- **Landing page**: `src/pages/Insights.tsx`
-- **Article page**: `src/pages/InsightArticle.tsx` (dynamic, uses slug routing)
-- 4 topic groups: Understanding Pricing | Making Smart Decisions | Ownership and Practical Reality | Choosing Who to Trust
-- 12 articles with full body copy, section headings, excerpts, and related-article internal links
-- Each article has a bottom CTA linking to `/schedule`
+**Frontend (React + Vite + Tailwind + shadcn):**
+- **Pages:** Home, Live Pricing, Schedule Allocation Call, IRA Allocation, About, Disclosures, Terms, Insights Hub, and individual Insight Article pages.
+- **Components:** Reusable UI components from shadcn-ui, `react-hook-form` for forms.
+- **Routing:** Handled by React Router, with dynamic slug-based routing for articles.
+- **Design:** Consistent theming across the site, using Tailwind CSS for utility-first styling.
 
-## Stack
+**Backend (Express 5 + PostgreSQL):**
+- **API:** RESTful API mounted at `/api` providing endpoints for pricing (spot, products, buyback), scheduling (slots, booking), and lead capture.
+- **Database:** PostgreSQL used for storing leads and appointments.
+- **Pricing Logic:** Spreads for gold (+2%), silver (+5%), and buyback prices (gold -1%, silver -3%) are applied server-side.
+- **Deal Builder Workflow:** A server-side pipeline for "Lock & Execute" functionality, involving:
+    1.  Database save of deal details.
+    2.  Dillon Gage `LockPrices` and `ExecuteTrade` calls.
+    3.  PDF invoice generation with wire instructions.
+    4.  Google Drive upload of the invoice.
+    5.  Client recap email via Resend.
+    6.  Admin notification and Sheets sync.
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL (Replit built-in, pg client)
-- **Validation**: Zod (`zod/v4`)
-- **Build**: esbuild (CJS bundle)
-- **Frontend**: React + Vite + Tailwind + shadcn
-- **Frontend packages**: react-hook-form, @hookform/resolvers, lucide-react, date-fns, tailwind-merge, clsx
+**Key Features:**
+-   **Live Pricing:** Integration with Dillon Gage Fiztrade API for real-time gold and silver spot prices.
+-   **Appointment Scheduling:** A 2-step form to schedule allocation calls, with available slots generated deterministically (Mon-Fri, 9 am-5 pm CT, 14 days ahead) and booked slots excluded.
+-   **Insights Hub:** A content management system for educational articles, with metadata and content managed in `insights.ts`.
+-   **Deal Builder:** An internal tool to manage and execute client deals, automating pricing, trade execution, invoicing, and record-keeping.
+-   **FedEx Location Search:** Integration to find nearest FedEx locations for shipping.
 
-## Structure
+**Deployment:**
+-   The monorepo is deployed to Railway (API server) and Vercel (frontend), both configured to watch the GitHub `main` branch.
+-   Vercel handles API rewrites to proxy requests to the Railway-hosted API.
 
-```text
-artifacts-monorepo/
-├── artifacts/
-│   ├── api-server/             # Express API server (port 8080)
-│   └── west-hills-capital/     # React + Vite frontend (preview path: /)
-├── lib/
-│   ├── api-spec/               # OpenAPI spec + Orval codegen config
-│   ├── api-zod/                # Generated Zod schemas from OpenAPI
-│   └── ...
-├── pnpm-workspace.yaml
-└── tsconfig.json
-```
+# External Dependencies
 
-## Pages
-
-1. **Home** (`/`) — Hero, live product prices, principles, CTAs
-2. **Live Pricing** (`/pricing`) — Spot ticker, 3 product cards with live pricing, buyback table
-3. **Schedule Allocation Call** (`/schedule`) — 2-step flow: intake form → slot picker → confirmation
-4. **IRA Allocation** (`/ira`) — IRA education + intake form
-5. **About** (`/about`) — Company story and philosophy
-6. **Disclosures** (`/disclosures`) — Legal disclosures and policies
-
-## API Routes
-
-All routes mounted at `/api`:
-
-- `GET /api/pricing/spot` — Live gold/silver spot prices from Dillon Gage Fiztrade API
-- `GET /api/pricing/products` — 3 featured products with spreads (gold +2%, silver +5%)
-- `GET /api/pricing/buyback` — Buyback prices (gold -1%, silver -3%)
-- `GET /api/scheduling/slots` — Available slots, Mon-Fri 9am-5pm CT, 14 days ahead, excludes booked slots
-- `POST /api/scheduling/book` — Book a slot, persists to DB, returns confirmation ID
-- `POST /api/leads/intake` — Lead capture, persists to DB
-
-## Key Files
-
-- `lib/api-spec/openapi.yaml` — Full API contract (source of truth)
-- `artifacts/api-server/src/routes/pricing.ts` — Live pricing via Dillon Gage Fiztrade API
-- `artifacts/api-server/src/routes/scheduling.ts` — Scheduling with DB persistence
-- `artifacts/api-server/src/routes/leads.ts` — Lead capture with DB persistence
-- `artifacts/api-server/src/db.ts` — PostgreSQL pool connection utility
-- `artifacts/west-hills-capital/src/App.tsx` — Frontend entry point and routing
-- `artifacts/west-hills-capital/src/components/layout/SpotTicker.tsx` — Live spot price bar (top of every page)
-- `artifacts/west-hills-capital/src/index.css` — Design theme (off-white / navy / gold)
-
-## Live Data Integration
-
-### Dillon Gage Fiztrade API
-
-- **Production token**: stored as `DILLON_GAGE_API_KEY` env var (`1119-...`)
-- **Staging token**: `1466-...` — staged but not yet activated by Dillon Gage; staging environment is incomplete
-- **Working endpoint**: `GET https://connect.fiztrade.com/FizServices/GetSpotPriceData/{token}` — returns live gold/silver/platinum/palladium prices with daily changes
-- **Account**: WEST HILLS CAPITAL, LLC — Account #167542
-- **Cache**: 5-second TTL in-memory cache on the backend
-- **Blocked endpoints**: `GetProductCatalog` and `GetPricesForProducts` crash with 500 (NullReferenceException on Dillon Gage's server) because the 3 products have not been added as "favorites" in the Fiztrade portal (connect.fiztrade.com). Once configured, these endpoints will return product images, account-specific pricing, and availability.
-
-### Dillon Gage Product Codes (confirmed from existing WordPress site)
-
-These are the exact Fiztrade product codes for the 3 featured products. They are documented in `pricing.ts` and ready to use with `GetPricesForProducts` once portal setup is complete:
-
-| Product | Fiztrade Code |
-|---|---|
-| 1 oz American Gold Eagle | `1EAGLE` |
-| 1 oz American Gold Buffalo | `1B` |
-| 1 oz American Silver Eagle (Random Year) | `SE` |
-
-### Pricing configuration
-
-- Gold spread: +2% over spot bid
-- Silver spread: +5% over spot bid
-- Gold buyback: -1% from spot
-- Silver buyback: -3% from spot
-
-## Database
-
-- **Platform**: Replit built-in PostgreSQL (`DATABASE_URL` env var)
-- **Tables**:
-  - `leads` — All form submissions from Schedule and IRA pages
-  - `appointments` — All booked calls with confirmation IDs, used to prevent double-booking
-
-## Email Notifications (Pending)
-
-- SendGrid integration was declined (user dismissed the Replit connector)
-- To add email confirmations later:
-  - Option A: Connect SendGrid via Replit integrations (ask agent to "add SendGrid email")
-  - Option B: Provide a `SENDGRID_API_KEY` directly so it can be stored as a secret
-- Hook points already exist in `leads.ts` and `scheduling.ts` (add send logic after DB inserts)
-
-## Google Calendar (Pending)
-
-- The scheduling system uses deterministic time slot generation (Mon-Fri 9am-5pm CT)
-- Booked slots are excluded via DB query — no double-booking is possible
-- To integrate real Google Calendar availability:
-  - Connect Google Calendar via Replit integrations (ask agent to "add Google Calendar")
-  - The agent will query freebusy and create calendar events on booking
-
-## Git & Deployment Setup
-
-### Source of Truth
-
-**GitHub** is the single source of truth: `WestHillsCapital/WestHillsCapital`, branch `main`.
-
-- Replit local branch: `main` (tracking `github/main`)
-- Local and GitHub are in sync — run `git status` to confirm "up to date with 'github/main'"
-
-### History
-
-Previously, Replit local (`master`) and GitHub (`main`) had completely divergent histories — no common ancestor. Task agents pushed directly to GitHub from isolated environments without syncing back to Replit. This was resolved by:
-1. Fetching all GitHub objects locally
-2. Adding `README.md` (the one file GitHub had that local didn't)
-3. Force-pushing Replit's local history to `github/main` to unify into one linear history
-4. Renaming local branch `master` → `main`
-5. Setting upstream: `git branch --set-upstream-to=github/main main`
-
-### Auto-Deploy Wiring
-
-| Service | Watches | Deploys |
-|---|---|---|
-| **Railway** | GitHub `WestHillsCapital/WestHillsCapital` `main` | API server (`artifacts/api-server`) |
-| **Vercel** | GitHub `WestHillsCapital/WestHillsCapital` `main` | Frontend (`artifacts/west-hills-capital`) |
-
-Railway URL: `https://workspaceapi-server-production-987b.up.railway.app`
-
-### Vercel Configuration
-
-Root `vercel.json` controls the Vercel build:
-- **Install**: `pnpm install`
-- **Build**: `pnpm --filter @workspace/west-hills-capital build`
-- **Output**: `artifacts/west-hills-capital/dist/public`
-- **API rewrite**: `/api/(.*)` → Railway URL (so the Vercel-hosted frontend reaches Railway)
-- **SPA fallback**: `/(.*)` → `/index.html`
-
-### Git Remotes (Replit)
-
-- `github` → `https://github.com/WestHillsCapital/WestHillsCapital.git` (push/fetch)
-- `gitsafe-backup` → internal Replit backup
-- `subrepl-848h6cbd` → isolated task agent communication
-
-## Deal Builder — Lock & Execute Chain (Task #12)
-
-When the internal user clicks **Lock & Execute** in the Deal Builder, the following synchronous pipeline runs server-side:
-
-1. **DB save** — deal inserted with all fields including ship-to address
-2. **DG LockPrices** — locks Fiztrade wholesale prices (20-second window)
-3. **DG ExecuteTrade** — places the wholesale buy order immediately after lock
-4. **Invoice PDF** — `pdfkit` generates a WHC-branded invoice (no DG references); wire instructions reference Commerce Bank account (hardcoded in `lib/invoice-pdf.ts`)
-5. **Google Drive upload** — PDF saved to `{YEAR}/{MM–Month}/{FI LastName}/{MMDDYY FI LastName Invoice.pdf}` under root folder ID (e.g. `2026/04 – April/J Smith/041526 J Smith Invoice.pdf`)
-6. **Client recap email** — PDF attached, with wire instructions; sent via Resend
-7. **Admin notification + Sheets sync** — fire-and-forget
-
-### Key files
-- `artifacts/api-server/src/lib/fiztrade.ts` — LockPrices + ExecuteTrade (defensive field-name extraction; logs raw responses)
-- `artifacts/api-server/src/lib/invoice-pdf.ts` — pdfkit invoice (Commerce Bank wire instructions hardcoded)
-- `artifacts/api-server/src/lib/google-drive.ts` — Drive folder hierarchy + upload
-- `artifacts/api-server/src/lib/email.ts` — attachment support + `sendDealRecapEmail`
-- `artifacts/api-server/src/routes/deals.ts` — full orchestration pipeline
-
-### Railway env vars required for full functionality
-| Var | Value | Purpose |
-|---|---|---|
-| `DILLON_GAGE_API_KEY` | (set in Railway) | Fiztrade token |
-| `GOOGLE_DRIVE_DEALS_FOLDER_ID` | `13CrCk1OVZDiSVK6zk44d7YEaDdyGo9sp` | Root Drive folder |
-| `FEDEX_CLIENT_ID` | `l7b9d07dbde93c4446a649934cb2898d02` | FedEx API key |
-| `FEDEX_CLIENT_SECRET` | `3cc1d6e0832545d588a79e9ccdfefa32` | FedEx secret |
-
-### Google Drive sharing requirement
-The service account `whc-scheduling@mapdrive-380403.iam.gserviceaccount.com` must have **Editor** access to the root Drive folder `13CrCk1OVZDiSVK6zk44d7YEaDdyGo9sp`.
-
-### FedEx Location Search
-- **Endpoint**: `POST /api/fedex/locations` (requires internal auth)
-- **Flow**: FedEx OAuth (client_credentials) → POST `https://apis.fedex.com/location/v1/locations`
-- **Filter**: `locationTypes: ["FEDEX_OFFICE", "SHIP_CENTER"]` — only these two types shown
-- **Result**: Up to 2 nearest locations sorted by distance; raw response logged at `INFO`
-- **Deal Builder UI**: ZIP search → 2 clickable result cards → auto-fills ship-to address + fedex_location name
-- **Credentials stored**: `FEDEX_CLIENT_ID`, `FEDEX_CLIENT_SECRET` in Replit env vars and Railway
-
-### Fiztrade API note
-`lib/fiztrade.ts` implements LockPrices and ExecuteTrade based on the existing API pattern. The raw responses are logged at `INFO` level in Railway. If the API returns field names different from what was assumed, check Railway logs and adjust the `pickField(...)` calls in `fiztrade.ts`.
-
-### Commerce Bank wire instructions
-Hardcoded in `lib/invoice-pdf.ts` and `lib/email.ts`:
-- Bank: Commerce Bank, 1551 Waterfront, Wichita, KS 67206
-- Routing: 101000019 | Account: 690108249
-- Account Name: West Hills Capital, 1314 N. Oliver Ave. #8348, Wichita, KS 67208
-
-## Business Rules
-
-- NO cart, checkout, or payment flows
-- ALL trades require verbal confirmation and cleared funds
-- Phone 800-867-6768 must appear in header, footer, and confirmation screens
-- No fear marketing, countdown timers, or "limited supply" language
-- Products: 1oz Gold American Eagle, 1oz Gold American Buffalo, 1oz Silver American Eagle
-
-## Bug Fixes Applied
-
-- `h-13` non-standard Tailwind class in Home.tsx → corrected to `h-12`
-- Dead `animationDelay` style and unused `idx` variable removed from LivePricing.tsx product card map
-- API image URLs from `/api/pricing/products` return root-relative paths (e.g. `/images/gold-eagle.png`); `useProductPrices` hook now prepends `import.meta.env.BASE_URL` to correctly resolve them under the `/west-hills-capital/` base path
-- `staleTime: 4000` added to all three pricing queries (spot, products, buyback) to prevent unnecessary refetch flicker
-- State of Residence in Schedule.tsx converted from free-text Input to a native `<select>` with all 50 US states
-- State field in IRA.tsx also converted from free-text Input to a native `<select>` with all 50 US states
-- Privacy Policy and Terms of Service sections added to Disclosures.tsx with `id="privacy-policy"` and `id="terms-of-service"` anchors and `scroll-mt-24` for proper offset under the fixed header
-- Footer links updated to `/disclosures#privacy-policy` and `/disclosures#terms-of-service`
-- `ScrollToTop` in App.tsx updated to skip scrolling when `window.location.hash` is present so anchor links navigate correctly
+-   **Dillon Gage Fiztrade API:** Used for live gold/silver spot prices and wholesale trade execution (`LockPrices`, `ExecuteTrade`).
+-   **PostgreSQL:** Replit's built-in PostgreSQL for `leads` and `appointments` data.
+-   **Resend:** For sending client recap emails with invoice attachments.
+-   **Google Drive API:** For uploading generated PDF invoices to a structured folder hierarchy.
+-   **FedEx API:** For searching and retrieving nearby FedEx shipping locations.
+-   **pnpm workspaces:** Monorepo management.
+-   **TypeScript:** Language.
+-   **Express:** Backend API framework.
+-   **React, Vite, Tailwind CSS, shadcn/ui:** Frontend stack.
+-   **Zod:** Data validation.
+-   **pdfkit:** PDF generation library.

@@ -25,14 +25,16 @@ const LOGO_PATH  = path.resolve(
 );
 const HAS_LOGO = existsSync(LOGO_PATH);
 
-// ── Wire instructions (Commerce Bank) ─────────────────────────────────────────
+// ── Wire instructions — read from env vars, fall back to defaults ──────────────
+// Set WIRE_BANK, WIRE_BANK_ADDRESS, WIRE_ROUTING, WIRE_ACCOUNT_NAME,
+// WIRE_ACCOUNT_ADDR, WIRE_ACCOUNT_NUM on Railway to override without redeploying.
 const WIRE = {
-  bank:        "Commerce Bank",
-  bankAddress: "1551 Waterfront, Wichita, KS 67206",
-  routing:     "101000019",
-  accountName: "West Hills Capital",
-  accountAddr: "1314 N. Oliver Ave. #8348, Wichita, KS 67208",
-  accountNum:  "690108249",
+  bank:        process.env.WIRE_BANK         ?? "Commerce Bank",
+  bankAddress: process.env.WIRE_BANK_ADDRESS ?? "1551 Waterfront, Wichita, KS 67206",
+  routing:     process.env.WIRE_ROUTING      ?? "101000019",
+  accountName: process.env.WIRE_ACCOUNT_NAME ?? "West Hills Capital",
+  accountAddr: process.env.WIRE_ACCOUNT_ADDR ?? "1314 N. Oliver Ave. #8348, Wichita, KS 67208",
+  accountNum:  process.env.WIRE_ACCOUNT_NUM  ?? "690108249",
 };
 
 // ── Types ─────────────────────────────────────────────────────────────────────

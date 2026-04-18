@@ -30,18 +30,27 @@ export function useSpotPricing(
         spotTimestamp: new Date().toISOString(),
       });
 
-      const priceMap: Record<string, number> = {};
-      for (const p of prodJson.products ?? []) {
-        priceMap[p.id] = p.finalPrice;
-      }
-      setRows((prev) =>
-        prev.map((r) => ({
-          ...r,
-          unitPrice: priceMap[r.productId] != null
-            ? String(priceMap[r.productId])
-            : r.unitPrice,
-        }))
-      );
+      const apiProducts: { id: string; name: string; metal: "gold" | "silver"; finalPrice: number }[] =
+        prodJson.products ?? [];
+
+      setRows((prev) => {
+        // Build a map of what the user has typed so far (qty, unitPrice overrides)
+        const prevMap: Record<string, { qty: string; unitPrice: string }> = {};
+        for (const r of prev) prevMap[r.productId] = { qty: r.qty, unitPrice: r.unitPrice };
+
+        // Rebuild rows from the API response — this is the single source of truth
+        // for productId, productName, and metal.  Qty is preserved from previous state.
+        const updated = apiProducts.map((p) => ({
+          productId:   p.id,
+          productName: p.name,
+          metal:       p.metal,
+          qty:         prevMap[p.id]?.qty ?? "",
+          unitPrice:   String(p.finalPrice),
+        }));
+
+        // If the API returned nothing (e.g. network glitch), keep existing rows unchanged
+        return updated.length > 0 ? updated : prev;
+      });
     } catch {
       setSpotError("Could not fetch live pricing. Check API connection.");
     } finally {

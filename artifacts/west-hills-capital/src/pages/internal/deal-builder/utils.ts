@@ -37,9 +37,9 @@ export function parseQty(s: string): number {
 }
 
 export const PRODUCT_DEFS: Pick<ProductRow, "productId" | "productName" | "metal">[] = [
-  { productId: "gold-american-eagle-1oz",   productName: "1 oz Gold Eagle",  metal: "gold"   },
-  { productId: "gold-american-buffalo-1oz", productName: "1 oz Gold Buffalo", metal: "gold"   },
-  { productId: "silver-american-eagle-1oz", productName: "1 oz Silver Eagle", metal: "silver" },
+  { productId: "gold-american-eagle-1oz",   productName: "1 oz American Gold Eagle",   metal: "gold"   },
+  { productId: "gold-american-buffalo-1oz", productName: "1 oz American Gold Buffalo", metal: "gold"   },
+  { productId: "silver-american-eagle-1oz", productName: "1 oz American Silver Eagle", metal: "silver" },
 ];
 
 export const EMPTY_ROWS: ProductRow[] = PRODUCT_DEFS.map((d) => ({

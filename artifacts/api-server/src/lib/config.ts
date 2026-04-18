@@ -30,6 +30,13 @@ const OPTIONAL_VARS: Record<string, string> = {
   CORS_ALLOWED_ORIGINS:         "CORS open to all origins (set to restrict to production domain)",
   GOOGLE_DRIVE_DEALS_FOLDER_ID: "Deal invoice PDF Drive upload disabled",
   FIZTRADE_DRY_RUN:             "Set to 'true' to simulate DG trade execution without placing real orders",
+  // Wire transfer instructions on invoices — hard-coded defaults used if unset
+  WIRE_BANK:         "Invoice wire instructions will use hardcoded bank name (Commerce Bank)",
+  WIRE_BANK_ADDRESS: "Invoice wire instructions will use hardcoded bank address",
+  WIRE_ROUTING:      "Invoice wire instructions will use hardcoded routing number",
+  WIRE_ACCOUNT_NAME: "Invoice wire instructions will use hardcoded account name",
+  WIRE_ACCOUNT_ADDR: "Invoice wire instructions will use hardcoded account address",
+  WIRE_ACCOUNT_NUM:  "Invoice wire instructions will use hardcoded account number",
 };
 
 export function validateConfig(): void {
