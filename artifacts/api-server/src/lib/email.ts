@@ -629,7 +629,7 @@ export async function sendBookingConfirmation(params: {
   const DIM    = "#5C5248";   // slightly darker for compliance text legibility
   const BODY   = "#2D2A25";   // near-black for primary body text
   const FAINT  = "#D8CEBC";   // divider line
-  const CBACK  = "#F7F3EB";   // card interior background
+  const CBACK  = "#F9F6EE";   // card interior background — lighter warm off-white
 
   const summaryRow = (label: string, value: string, last = false) => `
     <tr>
@@ -659,10 +659,10 @@ export async function sendBookingConfirmation(params: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Appointment Confirmed — West Hills Capital</title>
 </head>
-<body style="margin:0;padding:0;background:#E4DFD5;font-family:Georgia,serif;">
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:Georgia,serif;">
 
 <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#E4DFD5;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
   <tr>
     <td align="center" style="padding:32px 16px;">
 
