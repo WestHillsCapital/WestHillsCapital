@@ -645,6 +645,9 @@ export async function sendBookingConfirmation(params: {
       <td style="padding:0 0 9px 12px;font-size:13px;color:${BODY};font-family:Georgia,serif;line-height:1.6;">${text}</td>
     </tr>`;
 
+  // Single master gutter — every row uses this on left and right
+  const G = "40px";
+
   await sendEmail({
     to:      params.to,
     subject: `Your Allocation Discussion Is Confirmed — ${params.dayLabel}`,
@@ -663,27 +666,29 @@ export async function sendBookingConfirmation(params: {
   <tr>
     <td align="center" style="padding:32px 16px;">
 
-      <!-- Card wrapper -->
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:3px;overflow:hidden;">
+      <!-- ═══ CARD — single 600px column, every row padded ${G} L/R ═══ -->
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0"
+             style="max-width:600px;width:100%;background:#ffffff;border-radius:3px;overflow:hidden;">
 
-        <!-- ─── HEADER ─── -->
+        <!-- ─── HEADER: logo, ivory bg ─── -->
         <tr>
-          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:36px 40px 28px;">
-            <img src="${LOGO_URL}" alt="West Hills Capital" width="210" style="display:block;max-width:210px;height:auto;border:0;">
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:26px ${G} 22px;">
+            <img src="${LOGO_URL}" alt="West Hills Capital" width="200"
+                 style="display:block;max-width:200px;height:auto;border:0;">
           </td>
         </tr>
 
-        <!-- Header divider -->
+        <!-- Inset divider — same ${G} sides as every other row ─── -->
         <tr>
-          <td bgcolor="${IVORY}" style="background:${IVORY};padding:0 0 0 0;">
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:0 ${G};">
             <div style="height:1px;background:${FAINT};"></div>
           </td>
         </tr>
 
-        <!-- ─── CONFIRMATION HEADLINE ─── -->
+        <!-- ─── HEADLINE, ivory bg ─── -->
         <tr>
-          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:40px 48px 36px;">
-            <p style="margin:0 0 12px;font-family:Georgia,serif;font-size:23px;font-weight:bold;color:${NAVY};line-height:1.3;">
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
+            <p style="margin:0 0 11px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">
               Your allocation discussion is confirmed.
             </p>
             <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${MUTED};line-height:1.65;">
@@ -692,21 +697,21 @@ export async function sendBookingConfirmation(params: {
           </td>
         </tr>
 
-        <!-- ─── APPOINTMENT CARD ─── -->
+        <!-- ─── APPOINTMENT CARD, white bg ─── -->
         <tr>
-          <td style="padding:0 36px 32px;background:#ffffff;">
+          <td style="background:#ffffff;padding:24px ${G} 20px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
                    style="background:${CBACK};border:1px solid ${LGOLD};border-top:3px solid ${NAVY};border-radius:0 0 3px 3px;">
               <tr>
-                <td style="padding:9px 24px 8px;border-bottom:1px solid ${LGOLD};">
+                <td style="padding:9px 22px 8px;border-bottom:1px solid ${LGOLD};">
                   <p style="margin:0;font-size:9px;font-family:Georgia,serif;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
                     Appointment
                   </p>
                 </td>
               </tr>
               <tr>
-                <td style="padding:26px 24px 10px;">
-                  <p style="margin:0 0 6px;font-family:Georgia,serif;font-size:28px;font-weight:bold;color:${NAVY};line-height:1.15;letter-spacing:-.01em;">
+                <td style="padding:24px 22px 8px;">
+                  <p style="margin:0 0 6px;font-family:Georgia,serif;font-size:27px;font-weight:bold;color:${NAVY};line-height:1.15;letter-spacing:-.01em;">
                     ${params.dayLabel}
                   </p>
                   <p style="margin:0;font-family:Georgia,serif;font-size:16px;color:${MUTED};line-height:1.4;">
@@ -715,7 +720,7 @@ export async function sendBookingConfirmation(params: {
                 </td>
               </tr>
               <tr>
-                <td style="padding:0 24px 22px;">
+                <td style="padding:0 22px 20px;">
                   <p style="margin:0;font-size:11px;font-family:Georgia,serif;color:${MUTED};">
                     Confirmation&nbsp;
                     <span style="font-family:'Courier New',monospace;letter-spacing:.04em;color:${DIM};">${params.confirmationId}</span>
@@ -726,17 +731,17 @@ export async function sendBookingConfirmation(params: {
           </td>
         </tr>
 
-        <!-- ─── PHONE CALLOUT ─── -->
+        <!-- ─── PHONE CALLOUT, white bg ─── -->
         <tr>
-          <td style="padding:0 36px 32px;background:#ffffff;">
+          <td style="background:#ffffff;padding:0 ${G} 20px;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
                    style="background:#ffffff;border:1px solid ${LGOLD};border-radius:3px;">
               <tr>
-                <td align="center" style="padding:20px 24px;">
-                  <p style="margin:0 0 6px;font-family:Georgia,serif;font-size:12px;color:${MUTED};letter-spacing:.06em;text-transform:uppercase;">
+                <td align="center" style="padding:18px 24px;">
+                  <p style="margin:0 0 5px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">
                     We Will Call You From
                   </p>
-                  <p style="margin:0 0 6px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};letter-spacing:.02em;">
+                  <p style="margin:0 0 5px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};letter-spacing:.02em;">
                     (800) 867-6768
                   </p>
                   <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">
@@ -748,16 +753,16 @@ export async function sendBookingConfirmation(params: {
           </td>
         </tr>
 
-        <!-- ─── SUBMISSION SUMMARY ─── -->
+        <!-- ─── SUBMISSION SUMMARY, white bg ─── -->
         <tr>
-          <td style="padding:0 36px 32px;background:#ffffff;">
-            <p style="margin:0 0 10px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
+          <td style="background:#ffffff;padding:0 ${G} 20px;">
+            <p style="margin:0 0 9px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
               Your Submission
             </p>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
                    style="background:${CBACK};border:1px solid ${LGOLD};border-radius:3px;">
               <tr>
-                <td style="padding:0 24px;">
+                <td style="padding:0 22px;">
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
                     ${summaryRow("Structure",  ALLOCATION_LABELS[params.allocationType] ?? params.allocationType)}
                     ${summaryRow("Allocation", RANGE_LABELS[params.allocationRange]     ?? params.allocationRange)}
@@ -770,10 +775,10 @@ export async function sendBookingConfirmation(params: {
           </td>
         </tr>
 
-        <!-- ─── WHAT TO EXPECT ─── -->
+        <!-- ─── WHAT TO EXPECT, white bg ─── -->
         <tr>
-          <td style="padding:0 36px 32px;background:#ffffff;">
-            <p style="margin:0 0 10px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
+          <td style="background:#ffffff;padding:0 ${G} 20px;">
+            <p style="margin:0 0 9px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
               What to Expect
             </p>
             <table role="presentation" cellpadding="0" cellspacing="0">
@@ -785,10 +790,10 @@ export async function sendBookingConfirmation(params: {
           </td>
         </tr>
 
-        <!-- ─── SIGNOFF ─── -->
+        <!-- ─── SIGNOFF, white bg ─── -->
         <tr>
-          <td style="padding:0 36px 32px;background:#ffffff;">
-            <p style="margin:0 0 18px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.7;">
+          <td style="background:#ffffff;padding:0 ${G} 28px;">
+            <p style="margin:0 0 16px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.7;">
               Please don&rsquo;t hesitate to reach out if you have any questions before the call.
             </p>
             <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
@@ -797,9 +802,9 @@ export async function sendBookingConfirmation(params: {
           </td>
         </tr>
 
-        <!-- ─── COMPLIANCE NOTE ─── -->
+        <!-- ─── COMPLIANCE NOTE, white bg ─── -->
         <tr>
-          <td style="padding:0 36px 28px;background:#ffffff;">
+          <td style="background:#ffffff;padding:0 ${G} 26px;">
             <div style="height:1px;background:${FAINT};margin-bottom:16px;"></div>
             <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${DIM};line-height:1.75;">
               <strong style="color:${BODY};font-weight:bold;">Important:</strong>
@@ -809,9 +814,10 @@ export async function sendBookingConfirmation(params: {
           </td>
         </tr>
 
-        <!-- ─── FOOTER ─── -->
+        <!-- ─── FOOTER, ivory bg ─── -->
         <tr>
-          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:18px 40px;border-top:1px solid ${FAINT};">
+          <td align="center" bgcolor="${IVORY}"
+              style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
             <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
               West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
             </p>
@@ -819,7 +825,7 @@ export async function sendBookingConfirmation(params: {
         </tr>
 
       </table>
-      <!-- /Card wrapper -->
+      <!-- /Card -->
 
     </td>
   </tr>
