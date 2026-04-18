@@ -638,7 +638,7 @@ export async function sendWireConfirmationEmail(params: {
               <tr>
                 <td align="center" style="padding:22px 0;">
                   <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">Status</p>
-                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">Wire Received &mdash; Metals Being Sourced</p>
+                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">Wire Received &mdash; Your Order Is Being Prepared</p>
                   <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">We will follow up with your FedEx tracking once the order ships</p>
                 </td>
               </tr>
