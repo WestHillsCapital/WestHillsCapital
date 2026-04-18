@@ -701,60 +701,161 @@ export async function sendWireConfirmationEmail(params: {
 // ── Email 2 — Shipping Notification ───────────────────────────────────────────
 
 export async function sendShippingNotificationEmail(params: {
-  firstName:         string;
-  email:             string;
-  trackingNumber:    string;
+  firstName:          string;
+  email:              string;
+  trackingNumber:     string;
   estimatedDelivery?: string;
 }): Promise<void> {
+
+  const G       = "40px";
+  const NAVY    = "#0F1C3F";
+  const IVORY   = "#F5F1E8";
+  const GOLD    = "#C49A38";
+  const LGOLD   = "#DDD0B0";
+  const MUTED   = "#7A7060";
+  const DIM     = "#5C5248";
+  const BODY    = "#2D2A25";
+  const FAINT   = "#D8CEBC";
+  const CBACK   = "#F9F6EE";
+  const LOGO_URL = `${process.env.FRONTEND_URL ?? "https://westhillscapital.com"}/images/logo.png`;
+
   const trackingUrl = `https://www.fedex.com/apps/fedextrack/?tracknumbers=${encodeURIComponent(params.trackingNumber)}`;
-  const deliveryLine = params.estimatedDelivery
-    ? `<p style="margin:0 0 16px;font-size:15px;color:#374151;">According to FedEx, the package is expected to arrive on <strong>${params.estimatedDelivery}</strong>.</p>`
-    : "";
+
+  const deliveryCallout = params.estimatedDelivery ? `
+        <!-- ─── ESTIMATED DELIVERY CALLOUT ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:0 ${G};">
+            <div style="height:1px;background:${FAINT};"></div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" style="padding:22px 0;">
+                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">Expected Delivery</p>
+                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">${params.estimatedDelivery}</p>
+                  <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">Package held at your FedEx location for up to five days if needed</p>
+                </td>
+              </tr>
+            </table>
+            <div style="height:1px;background:${FAINT};"></div>
+          </td>
+        </tr>` : "";
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your Package Is On the Way — West Hills Capital</title>
+</head>
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:Georgia,serif;">
+
+<!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0"
+             style="max-width:600px;width:100%;background:#ffffff;border-radius:3px;overflow:hidden;">
+
+        <!-- ─── HEADER ─── -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:26px ${G} 22px;">
+            <img src="${LOGO_URL}" alt="West Hills Capital" width="230"
+                 style="display:block;margin:0 auto;max-width:230px;height:auto;border:0;">
+          </td>
+        </tr>
+        <tr>
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:0 ${G};">
+            <div style="height:1px;background:${FAINT};"></div>
+          </td>
+        </tr>
+
+        <!-- ─── HEADLINE ─── -->
+        <tr>
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
+            <p style="margin:0 0 11px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Your package is on the way.</p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${MUTED};line-height:1.65;">
+              Your metals have been fully allocated, packaged, and handed off to FedEx for delivery.
+            </p>
+          </td>
+        </tr>
+
+        <!-- ─── TRACKING CARD: hero surface ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:24px ${G} 20px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:${CBACK};border:1px solid ${LGOLD};border-top:3px solid ${NAVY};border-radius:0 0 3px 3px;">
+              <tr>
+                <td style="padding:9px 22px 8px;border-bottom:1px solid ${LGOLD};">
+                  <p style="margin:0;font-size:9px;font-family:Georgia,serif;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Your FedEx Tracking</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:20px 22px 8px;">
+                  <p style="margin:0 0 6px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.04em;text-transform:uppercase;">Tracking Number</p>
+                  <p style="margin:0;font-family:'Courier New',monospace;font-size:18px;font-weight:bold;color:${NAVY};letter-spacing:.06em;">${params.trackingNumber}</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:14px 22px 20px;border-top:1px solid ${LGOLD};">
+                  <a href="${trackingUrl}"
+                     style="font-family:Georgia,serif;font-size:13px;color:${GOLD};text-decoration:none;letter-spacing:.02em;">
+                    Track Your Package &rarr;
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        ${deliveryCallout}
+
+        <!-- ─── BODY COPY ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:24px ${G} 0;">
+            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+              If for any reason you need additional time before pickup, please let me know as soon as possible
+              so we can make sure everything is timed appropriately.
+            </p>
+            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+              When you pick it up, please take a quick look at the outside of the package before signing.
+              If anything looks unusual, please call me right away at (800) 867-6768.
+            </p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+              I will be tracking the package all the way through to your signature. Congrats &mdash; it&rsquo;s almost here!
+            </p>
+          </td>
+        </tr>
+
+        <!-- ─── SIGNOFF ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:24px ${G} 28px;">
+            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
+            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
+          </td>
+        </tr>
+
+        <!-- ─── FOOTER ─── -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
+            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
+              West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+
+</body>
+</html>`;
 
   await sendEmail({
     to:      params.email,
     subject: "Your metals are on the way — FedEx tracking inside",
-    html:    whcEmailWrapper(`
-      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName},</p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        I wanted to send over your FedEx tracking information now that your package is on the way.
-      </p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        Your metals have been fully allocated, packaged, and handed off to FedEx for delivery.
-      </p>
-
-      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#1a1a1a;">Your FedEx Tracking</p>
-      <div style="margin:0 0 24px;padding:14px 16px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:6px;">
-        <p style="margin:0 0 8px;font-size:14px;color:#374151;">
-          Tracking Number: <strong style="font-family:monospace;">${params.trackingNumber}</strong>
-        </p>
-        <a href="${trackingUrl}"
-           style="display:inline-block;padding:8px 16px;background:#0F1C3F;color:#ffffff;text-decoration:none;border-radius:4px;font-size:14px;font-family:Georgia,serif;">
-          Track Your Package &rarr;
-        </a>
-      </div>
-
-      ${deliveryLine}
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        The FedEx location where your package is being sent will hold it for up to five days if needed.
-        If for any reason you need additional time, please let me know as soon as possible so we can make sure
-        everything is timed appropriately.
-      </p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        When you pick it up, please take a quick look at the outside of the package before signing.
-        If anything looks unusual, please call me right away at <strong>(800) 867-6768</strong>.
-      </p>
-
-      <p style="margin:0 0 28px;font-size:15px;color:#374151;">
-        I will be tracking the package all the way through to your signature. Congrats &mdash; it&rsquo;s almost here!
-      </p>
-
-      ${joeSig()}
-    `),
+    html,
   });
 }
 
@@ -764,33 +865,117 @@ export async function sendDeliveryConfirmationEmail(params: {
   firstName: string;
   email:     string;
 }): Promise<void> {
+
+  const G       = "40px";
+  const NAVY    = "#0F1C3F";
+  const IVORY   = "#F5F1E8";
+  const MUTED   = "#7A7060";
+  const BODY    = "#2D2A25";
+  const FAINT   = "#D8CEBC";
+  const LOGO_URL = `${process.env.FRONTEND_URL ?? "https://westhillscapital.com"}/images/logo.png`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Delivered — West Hills Capital</title>
+</head>
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:Georgia,serif;">
+
+<!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0"
+             style="max-width:600px;width:100%;background:#ffffff;border-radius:3px;overflow:hidden;">
+
+        <!-- ─── HEADER ─── -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:26px ${G} 22px;">
+            <img src="${LOGO_URL}" alt="West Hills Capital" width="230"
+                 style="display:block;margin:0 auto;max-width:230px;height:auto;border:0;">
+          </td>
+        </tr>
+        <tr>
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:0 ${G};">
+            <div style="height:1px;background:${FAINT};"></div>
+          </td>
+        </tr>
+
+        <!-- ─── HEADLINE ─── -->
+        <tr>
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
+            <p style="margin:0 0 11px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Your metals have been delivered.</p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${MUTED};line-height:1.65;">
+              Congratulations on completing your allocation.
+            </p>
+          </td>
+        </tr>
+
+        <!-- ─── STATUS CALLOUT ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:0 ${G};">
+            <div style="height:1px;background:${FAINT};"></div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" style="padding:22px 0;">
+                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">Status</p>
+                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">Delivery Confirmed</p>
+                  <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">Please look everything over and reach out if you need anything</p>
+                </td>
+              </tr>
+            </table>
+            <div style="height:1px;background:${FAINT};"></div>
+          </td>
+        </tr>
+
+        <!-- ─── BODY COPY ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:28px ${G} 0;">
+            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+              There is something different about this part. What took years of work and discipline to build is now
+              sitting in your hands in a form you can actually see and feel. I am really happy for you and hope
+              receiving it has been a wonderful experience.
+            </p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+              It has been a real pleasure working with you on this. Please do not hesitate to call me at
+              (800) 867-6768 if I can help in any way.
+            </p>
+          </td>
+        </tr>
+
+        <!-- ─── SIGNOFF ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:24px ${G} 28px;">
+            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
+            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
+          </td>
+        </tr>
+
+        <!-- ─── FOOTER ─── -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
+            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
+              West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+
+</body>
+</html>`;
+
   await sendEmail({
     to:      params.email,
     subject: "Your metals have been delivered — how is everything looking?",
-    html:    whcEmailWrapper(`
-      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName},</p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        We are showing your package as delivered &mdash; congratulations on completing your allocation.
-      </p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        There is something different about this part. What took years of work and discipline to build is now sitting
-        in your hands in a form you can actually see and feel. I am really happy for you and hope receiving it has
-        been a wonderful experience.
-      </p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        When you can, please look everything over and let me know if you need anything.
-      </p>
-
-      <p style="margin:0 0 28px;font-size:15px;color:#374151;">
-        It has been a real pleasure working with you on this. Please do not hesitate to call me at
-        <strong>(800) 867-6768</strong> if I can help in any way.
-      </p>
-
-      ${joeSig()}
-    `),
+    html,
   });
 }
 
@@ -800,33 +985,103 @@ export async function sendFollowUp7DayEmail(params: {
   firstName: string;
   email:     string;
 }): Promise<void> {
+
+  const G       = "40px";
+  const NAVY    = "#0F1C3F";
+  const IVORY   = "#F5F1E8";
+  const MUTED   = "#7A7060";
+  const BODY    = "#2D2A25";
+  const FAINT   = "#D8CEBC";
+  const LOGO_URL = `${process.env.FRONTEND_URL ?? "https://westhillscapital.com"}/images/logo.png`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quick Check-In — West Hills Capital</title>
+</head>
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:Georgia,serif;">
+
+<!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0"
+             style="max-width:600px;width:100%;background:#ffffff;border-radius:3px;overflow:hidden;">
+
+        <!-- ─── HEADER ─── -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:26px ${G} 22px;">
+            <img src="${LOGO_URL}" alt="West Hills Capital" width="230"
+                 style="display:block;margin:0 auto;max-width:230px;height:auto;border:0;">
+          </td>
+        </tr>
+        <tr>
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:0 ${G};">
+            <div style="height:1px;background:${FAINT};"></div>
+          </td>
+        </tr>
+
+        <!-- ─── HEADLINE ─── -->
+        <tr>
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
+            <p style="margin:0;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Just checking in.</p>
+          </td>
+        </tr>
+
+        <!-- ─── BODY COPY ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:28px ${G} 0;">
+            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+              It has been about a week since your metals arrived, and I wanted to check in with you.
+            </p>
+            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+              I hope everything has settled in well. If you have any questions about your purchase, or just want to
+              visit about the weather in Wichita, I am always happy to spend some time with you on that too.
+            </p>
+            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+              Markets move, and life does too. If you think of something you did not ask, or something new has
+              landed on your radar, let me know. I am here to help.
+            </p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+              And if you know someone who has been thinking about physical metals and would value a straightforward
+              conversation, I would be glad to speak with them. Personal introductions mean a great deal in this business.
+            </p>
+          </td>
+        </tr>
+
+        <!-- ─── SIGNOFF ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:24px ${G} 28px;">
+            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
+            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
+          </td>
+        </tr>
+
+        <!-- ─── FOOTER ─── -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
+            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
+              West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+
+</body>
+</html>`;
+
   await sendEmail({
     to:      params.email,
     subject: "Quick check-in",
-    html:    whcEmailWrapper(`
-      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName},</p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        It has been about a week since your metals arrived, and I wanted to check in with you.
-      </p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        I hope everything has settled in well. If you have any questions about your purchase, or just want to visit
-        about the weather in Wichita, I am always happy to spend some time with you on that too.
-      </p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        Markets move, and life does too. If you think of something you did not ask, or something new has landed on
-        your radar, let me know. I am here to help.
-      </p>
-
-      <p style="margin:0 0 28px;font-size:15px;color:#374151;">
-        And if you know someone who has been thinking about physical metals and would value a straightforward
-        conversation, I would be glad to speak with them. Personal introductions mean a great deal in this business.
-      </p>
-
-      ${joeSig()}
-    `),
+    html,
   });
 }
 
@@ -836,35 +1091,105 @@ export async function sendFollowUp30DayEmail(params: {
   firstName: string;
   email:     string;
 }): Promise<void> {
+
+  const G       = "40px";
+  const NAVY    = "#0F1C3F";
+  const IVORY   = "#F5F1E8";
+  const MUTED   = "#7A7060";
+  const BODY    = "#2D2A25";
+  const FAINT   = "#D8CEBC";
+  const LOGO_URL = `${process.env.FRONTEND_URL ?? "https://westhillscapital.com"}/images/logo.png`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>One Month In — West Hills Capital</title>
+</head>
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:Georgia,serif;">
+
+<!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0"
+             style="max-width:600px;width:100%;background:#ffffff;border-radius:3px;overflow:hidden;">
+
+        <!-- ─── HEADER ─── -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:26px ${G} 22px;">
+            <img src="${LOGO_URL}" alt="West Hills Capital" width="230"
+                 style="display:block;margin:0 auto;max-width:230px;height:auto;border:0;">
+          </td>
+        </tr>
+        <tr>
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:0 ${G};">
+            <div style="height:1px;background:${FAINT};"></div>
+          </td>
+        </tr>
+
+        <!-- ─── HEADLINE ─── -->
+        <tr>
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
+            <p style="margin:0;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">One month in.</p>
+          </td>
+        </tr>
+
+        <!-- ─── BODY COPY ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:28px ${G} 0;">
+            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+              Hard to believe it has been a month since your metals arrived. I hope the experience has been exactly
+              what you were hoping for.
+            </p>
+            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+              This is usually the point where clients either feel very settled in their decision, or start thinking
+              about what is next. Either is completely natural, and I am happy to talk through wherever you are.
+            </p>
+            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+              A few things worth knowing: we do work with clients on ongoing allocation strategies, incremental
+              purchases, and storage options if any of those are on your mind. No pressure at all &mdash; just want
+              you to know those conversations are always available.
+            </p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.75;">
+              And as always, if you know someone who might benefit from a straightforward conversation about
+              physical metals, I would be glad to be introduced.
+            </p>
+          </td>
+        </tr>
+
+        <!-- ─── SIGNOFF ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:24px ${G} 28px;">
+            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
+            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
+          </td>
+        </tr>
+
+        <!-- ─── FOOTER ─── -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
+            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
+              West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+
+</body>
+</html>`;
+
   await sendEmail({
     to:      params.email,
-    subject: "One month in — let\u2019s catch up",
-    html:    whcEmailWrapper(`
-      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName},</p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        It&rsquo;s been a month since your metals were delivered, and I wanted to reach out with a proper check-in.
-      </p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        A lot can happen in thirty days &mdash; markets shift, headlines change, and allocation strategies that
-        felt complete often reveal new opportunities on reflection. If you&rsquo;ve been thinking about adding to
-        your position or adjusting your mix between gold and silver, now&rsquo;s a good time to have that conversation.
-      </p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        My direct line is <strong>(800) 867-6768</strong> &mdash; feel free to call anytime. No pressure, no agenda.
-        Just a conversation between two people who take this stuff seriously.
-      </p>
-
-      <p style="margin:0 0 28px;font-size:15px;color:#374151;">
-        And if you&rsquo;ve had a good experience working with us, I&rsquo;d genuinely appreciate an introduction
-        to anyone in your circle who might benefit from the same kind of straightforward guidance. Referrals are how
-        we grow, and I promise to take good care of anyone you send our way.
-      </p>
-
-      ${joeSig()}
-    `),
+    subject: "One month in — a quick note from West Hills Capital",
+    html,
   });
 }
 
