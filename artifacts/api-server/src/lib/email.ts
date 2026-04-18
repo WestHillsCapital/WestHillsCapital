@@ -731,17 +731,17 @@ export async function sendBookingConfirmation(params: {
           </td>
         </tr>
 
-        <!-- ─── PHONE CALLOUT, white bg ─── -->
+        <!-- ─── PHONE CALLOUT: thin rules + centered text, no box ─── -->
         <tr>
-          <td style="background:#ffffff;padding:0 ${G} 20px;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                   style="background:#ffffff;border:1px solid ${LGOLD};border-radius:3px;">
+          <td style="background:#ffffff;padding:0 ${G} 0;">
+            <div style="height:1px;background:${FAINT};"></div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
               <tr>
-                <td align="center" style="padding:18px 24px;">
-                  <p style="margin:0 0 5px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">
-                    We Will Call You From
+                <td align="center" style="padding:22px 0;">
+                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">
+                    We will call you from
                   </p>
-                  <p style="margin:0 0 5px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};letter-spacing:.02em;">
+                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">
                     (800) 867-6768
                   </p>
                   <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">
@@ -750,35 +750,29 @@ export async function sendBookingConfirmation(params: {
                 </td>
               </tr>
             </table>
+            <div style="height:1px;background:${FAINT};"></div>
           </td>
         </tr>
 
-        <!-- ─── SUBMISSION SUMMARY, white bg ─── -->
+        <!-- ─── SUBMISSION SUMMARY: bare rows on white, no card ─── -->
         <tr>
-          <td style="background:#ffffff;padding:0 ${G} 20px;">
-            <p style="margin:0 0 9px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
+          <td style="background:#ffffff;padding:24px ${G} 0;">
+            <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
               Your Submission
             </p>
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                   style="background:${CBACK};border:1px solid ${LGOLD};border-radius:3px;">
-              <tr>
-                <td style="padding:0 22px;">
-                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                    ${summaryRow("Structure",  ALLOCATION_LABELS[params.allocationType] ?? params.allocationType)}
-                    ${summaryRow("Allocation", RANGE_LABELS[params.allocationRange]     ?? params.allocationRange)}
-                    ${summaryRow("Timeline",   TIMELINE_LABELS[params.timeline]         ?? params.timeline)}
-                    ${summaryRow("State",      params.state, true)}
-                  </table>
-                </td>
-              </tr>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              ${summaryRow("Structure",  ALLOCATION_LABELS[params.allocationType] ?? params.allocationType)}
+              ${summaryRow("Allocation", RANGE_LABELS[params.allocationRange]     ?? params.allocationRange)}
+              ${summaryRow("Timeline",   TIMELINE_LABELS[params.timeline]         ?? params.timeline)}
+              ${summaryRow("State",      params.state, true)}
             </table>
           </td>
         </tr>
 
-        <!-- ─── WHAT TO EXPECT, white bg ─── -->
+        <!-- ─── WHAT TO EXPECT: label + bullets, no container ─── -->
         <tr>
-          <td style="background:#ffffff;padding:0 ${G} 20px;">
-            <p style="margin:0 0 9px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
+          <td style="background:#ffffff;padding:24px ${G} 0;">
+            <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
               What to Expect
             </p>
             <table role="presentation" cellpadding="0" cellspacing="0">
@@ -792,7 +786,7 @@ export async function sendBookingConfirmation(params: {
 
         <!-- ─── SIGNOFF, white bg ─── -->
         <tr>
-          <td style="background:#ffffff;padding:0 ${G} 28px;">
+          <td style="background:#ffffff;padding:24px ${G} 28px;">
             <p style="margin:0 0 16px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.7;">
               Please don&rsquo;t hesitate to reach out if you have any questions before the call.
             </p>
