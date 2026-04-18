@@ -63,7 +63,7 @@ function SchedulingUnavailable({ message }: { message?: string }) {
           <a href="tel:8008676768" className="text-primary font-semibold">
             (800) 867-6768
           </a>{" "}
-          to schedule your allocation call.
+          to schedule your call.
         </p>
       </div>
     </div>
@@ -162,7 +162,7 @@ export default function Schedule() {
             <form onSubmit={form.handleSubmit(onSubmitPrequal)} className="space-y-8">
 
               <div className="space-y-6">
-                <h2 className="text-xl font-semibold border-b border-border pb-2">Allocation Details</h2>
+                <h2 className="text-xl font-semibold border-b border-border pb-2">About Your Interest</h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
@@ -179,7 +179,7 @@ export default function Schedule() {
                   </div>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium text-foreground">Estimated Allocation</label>
+                    <label className="text-sm font-medium text-foreground">Approximate Investment</label>
                     <Select {...form.register("allocationRange")}>
                       <option value="" disabled hidden>Select range...</option>
                       <option value="under_50k">Under $50,000</option>
@@ -356,7 +356,7 @@ export default function Schedule() {
             <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
               <CheckCircle2 className="w-10 h-10 text-green-600" />
             </div>
-            <h2 className="text-3xl font-serif font-semibold mb-4 text-foreground">Allocation Discussion Confirmed</h2>
+            <h2 className="text-3xl font-serif font-semibold mb-4 text-foreground">Call Confirmed</h2>
 
             <div className="bg-white rounded-lg p-6 mb-8 inline-block shadow-sm border border-border/50">
               <div className="flex items-center justify-center gap-3 text-lg font-medium text-foreground mb-2">
@@ -373,7 +373,7 @@ export default function Schedule() {
               <p>Your Confirmation ID: <strong className="text-foreground">{bookMutation.data.confirmationId}</strong></p>
               <p className="text-sm text-foreground/60">A confirmation has been sent to your email address.</p>
               <p className="border-t border-border pt-4">
-                During the call, we will review your intended allocation, confirm current pricing, and discuss execution steps.
+                During the call, we will review your goals, confirm current pricing, and discuss next steps.
               </p>
               <p className="font-semibold text-foreground">
                 Reminder: Trades are executed only after verbal confirmation and receipt of cleared funds. We will call you from (800) 867-6768.

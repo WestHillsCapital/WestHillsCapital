@@ -15,7 +15,7 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
         a: "We help clients allocate a portion of their savings into physical gold and silver — coins they own outright and can take delivery of or hold in an IRA. We don't sell financial products, manage portfolios, or give investment advice. Our focus is disciplined, transparent execution of physical metal purchases.",
       },
       {
-        q: "What happens on the allocation call?",
+        q: "What happens on the first call?",
         a: "We'll discuss your situation, walk through current pricing, and answer any questions. If it makes sense to move forward, the commitment happens on the call itself — that's why a phone call is necessary rather than an online order. We block 45 minutes, though calls can be more concise or run longer depending on what you need. We never rush anyone.",
       },
       {
@@ -125,7 +125,7 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
       },
       {
         q: "What's the process for an IRA rollover?",
-        a: "It starts with the same allocation call. From there we help you work through the custodian and depository setup. Most clients are surprised by how straightforward it is — it does take a few weeks, but there's no tax event if done correctly.",
+        a: "It starts with the same call. From there we help you work through the custodian and depository setup. Most clients are surprised by how straightforward it is — it does take a few weeks, but there's no tax event if done correctly.",
       },
       {
         q: "Are the products IRA-eligible?",
@@ -151,7 +151,7 @@ const SECTIONS: { title: string; items: FAQItem[] }[] = [
       },
       {
         q: "Do you sell numismatic or proof coins?",
-        a: "No. We don't recommend or sell proof coins or numismatic collectibles for allocation purposes. The premiums on those products often exceed 100% over spot, and the resale market is much thinner. If you've been pitched those products by another dealer, we're happy to give you an honest side-by-side comparison.",
+        a: "No. We don't recommend or sell proof coins or numismatic collectibles as a long-term holding. The premiums on those products often exceed 100% over spot, and the resale market is much thinner. If you've been pitched those products by another dealer, we're happy to give you an honest side-by-side comparison.",
       },
     ],
   },
@@ -224,7 +224,7 @@ export default function FAQ() {
             href="/schedule"
             className="inline-block bg-primary text-white px-8 py-3 rounded-lg font-semibold text-sm hover:bg-primary/90 transition-colors"
           >
-            Schedule Allocation Call
+            Schedule Your Call
           </a>
         </div>
 

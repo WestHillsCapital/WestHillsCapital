@@ -578,7 +578,7 @@ export default function LivePricing() {
             </p>
             <Link href="/schedule">
               <Button size="lg" className="h-12 px-10 group">
-                Schedule Allocation Call
+                Schedule Your Call
                 <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>

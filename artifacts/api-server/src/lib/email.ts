@@ -916,7 +916,7 @@ export async function sendDeliveryConfirmationEmail(params: {
           <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
             <p style="margin:0 0 11px;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Your metals have been delivered.</p>
             <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${MUTED};line-height:1.65;">
-              Congratulations on completing your allocation.
+              Congratulations — your order is complete.
             </p>
           </td>
         </tr>
@@ -1160,7 +1160,7 @@ export async function sendFollowUp30DayEmail(params: {
               about what is next. Either is completely natural, and I am happy to talk through wherever you are.
             </p>
             <p style="margin:0 0 14px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.75;">
-              A few things worth knowing: we do work with clients on ongoing allocation strategies, incremental
+              A few things worth knowing: we do work with clients on building out their position over time, incremental
               purchases, and storage options if any of those are on your mind. No pressure at all &mdash; just want
               you to know those conversations are always available.
             </p>
@@ -1253,7 +1253,7 @@ export async function sendBookingConfirmation(params: {
 
   await sendEmail({
     to:      params.to,
-    subject: `Your Allocation Discussion Is Confirmed — ${params.dayLabel}`,
+    subject: `Your Call Is Confirmed — ${params.dayLabel}`,
     html: `
 <!DOCTYPE html>
 <html lang="en">
@@ -1294,7 +1294,7 @@ export async function sendBookingConfirmation(params: {
         <tr>
           <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
             <p style="margin:0 0 11px;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">
-              Your allocation discussion is confirmed.
+              Your call is confirmed.
             </p>
             <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${MUTED};line-height:1.65;">
               We look forward to speaking with you at the scheduled time below.
@@ -1381,7 +1381,7 @@ export async function sendBookingConfirmation(params: {
               What to Expect
             </p>
             <table role="presentation" cellpadding="0" cellspacing="0">
-              ${expectItem("Review your intended allocation size and structure")}
+              ${expectItem("Review your goals and the size of your purchase")}
               ${expectItem("Walk through current live pricing on gold and silver")}
               ${expectItem("Confirm delivery or storage preference")}
               ${expectItem("Lock your trade on the call if you decide to proceed — no commitment required")}

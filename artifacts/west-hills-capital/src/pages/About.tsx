@@ -31,17 +31,17 @@ export default function About() {
 
           <h2 className="text-2xl font-serif font-semibold text-foreground mt-12 mb-6">Commitment to Discipline</h2>
           <p>
-            A serious allocation requires a disciplined operating framework.
+            A serious purchase requires a disciplined operating framework.
           </p>
           <ul className="space-y-2 mt-4 mb-8">
             <li>
-              <strong>No Leverage:</strong> We do not offer or facilitate financed trades. Every allocation is funded with cleared capital.
+              <strong>No Leverage:</strong> We do not offer or facilitate financed trades. Every order is funded with cleared capital.
             </li>
             <li>
               <strong>Cleared Funds Only:</strong> We execute physical market orders only after client funds are fully settled.
             </li>
             <li>
-              <strong>Verbal Confirmation:</strong> Every allocation requires a voice-to-voice confirmation to ensure precise alignment on price and logistics before any trade is initiated.
+              <strong>Verbal Confirmation:</strong> Every order requires a voice-to-voice confirmation to ensure precise alignment on price and logistics before any trade is initiated.
             </li>
           </ul>
 
@@ -53,7 +53,7 @@ export default function About() {
           </div>
 
           <p className="text-center">
-            We welcome the opportunity to discuss your allocation objectives.
+            We welcome the opportunity to discuss your goals.
           </p>
         </div>
 
@@ -66,12 +66,12 @@ export default function About() {
             We welcome the opportunity to speak with you.
           </h2>
           <p className="text-foreground/55 text-base mb-8 leading-relaxed max-w-xl mx-auto">
-            Every allocation begins with a private call — no pressure, no automated execution. Just an honest conversation about your objectives.
+            Every purchase begins with a private call — no pressure, no automated execution. Just an honest conversation about your objectives.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/schedule">
               <Button size="lg" className="h-11 px-9 group">
-                Schedule Allocation Call
+                Schedule Your Call
                 <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>

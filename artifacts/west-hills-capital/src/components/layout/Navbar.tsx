@@ -77,7 +77,7 @@ export function Navbar() {
               <span>(800) 867-6768</span>
             </a>
             <Link href="/schedule">
-              <Button>Schedule Allocation Call</Button>
+              <Button>Schedule Your Call</Button>
             </Link>
           </div>
 
@@ -115,7 +115,7 @@ export function Navbar() {
               (800) 867-6768
             </a>
             <Link href="/schedule" className="w-full">
-              <Button className="w-full h-12 text-base">Schedule Allocation Call</Button>
+              <Button className="w-full h-12 text-base">Schedule Your Call</Button>
             </Link>
           </div>
         </div>

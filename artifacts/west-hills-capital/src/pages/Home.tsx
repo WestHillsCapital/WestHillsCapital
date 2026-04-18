@@ -146,7 +146,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center pb-16">
             <Link href="/schedule">
               <Button size="lg" className="h-12 px-8 text-base group">
-                Schedule Allocation Call
+                Schedule Your Call
                 <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Button>
             </Link>
@@ -308,7 +308,7 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/schedule">
               <Button size="lg" className="h-12 px-10 text-base shadow-md">
-                Schedule Allocation Call
+                Schedule Your Call
               </Button>
             </Link>
             <a href="tel:8008676768">
