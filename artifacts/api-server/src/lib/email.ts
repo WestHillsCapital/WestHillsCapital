@@ -670,11 +670,11 @@ export async function sendBookingConfirmation(params: {
       <table role="presentation" width="600" cellpadding="0" cellspacing="0"
              style="max-width:600px;width:100%;background:#ffffff;border-radius:3px;overflow:hidden;">
 
-        <!-- ─── HEADER: logo, ivory bg ─── -->
+        <!-- ─── HEADER: logo centered, ivory bg ─── -->
         <tr>
-          <td bgcolor="${IVORY}" style="background:${IVORY};padding:26px ${G} 22px;">
-            <img src="${LOGO_URL}" alt="West Hills Capital" width="200"
-                 style="display:block;max-width:200px;height:auto;border:0;">
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:26px ${G} 22px;">
+            <img src="${LOGO_URL}" alt="West Hills Capital" width="230"
+                 style="display:block;margin:0 auto;max-width:230px;height:auto;border:0;">
           </td>
         </tr>
 
