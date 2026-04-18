@@ -621,26 +621,28 @@ export async function sendBookingConfirmation(params: {
   const LOGO_URL = `${SITE_URL}/images/logo.png`;
 
   // Brand palette
-  const NAVY  = "#0F1C3F";
-  const IVORY = "#F8F5EF";
-  const GOLD  = "#C49A38";
-  const LGOLD = "#EEE4CC";  // light gold for card borders
-  const MUTED = "#7A7060";  // muted warm-gray for secondary labels
-  const BODY  = "#2D2A25";  // near-black for primary body text
-  const FAINT = "#DAD3C4";  // faint divider line
+  const NAVY   = "#0F1C3F";
+  const IVORY  = "#F5F1E8";   // slightly warmer/richer ivory for header & footer
+  const GOLD   = "#C49A38";
+  const LGOLD  = "#DDD0B0";   // richer gold for card borders (more distinct)
+  const MUTED  = "#7A7060";   // muted warm-gray for secondary labels
+  const DIM    = "#5C5248";   // slightly darker for compliance text legibility
+  const BODY   = "#2D2A25";   // near-black for primary body text
+  const FAINT  = "#D8CEBC";   // divider line
+  const CBACK  = "#F7F3EB";   // card interior background
 
   const summaryRow = (label: string, value: string, last = false) => `
     <tr>
-      <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;${last ? "" : `border-bottom:1px solid ${FAINT};`}">${label}</td>
-      <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;${last ? "" : `border-bottom:1px solid ${FAINT};`}">${value}</td>
+      <td style="padding:11px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;${last ? "" : `border-bottom:1px solid ${FAINT};`}">${label}</td>
+      <td style="padding:11px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;font-weight:500;${last ? "" : `border-bottom:1px solid ${FAINT};`}">${value}</td>
     </tr>`;
 
   const expectItem = (text: string) => `
     <tr>
-      <td style="padding:0 0 10px 0;vertical-align:top;width:18px;">
-        <span style="display:inline-block;width:5px;height:5px;background:${GOLD};border-radius:50%;margin-top:7px;"></span>
+      <td style="padding:0 0 9px 0;vertical-align:top;width:16px;">
+        <span style="display:inline-block;width:4px;height:4px;background:${GOLD};border-radius:50%;margin-top:8px;"></span>
       </td>
-      <td style="padding:0 0 10px 12px;font-size:14px;color:${BODY};font-family:Georgia,serif;line-height:1.65;">${text}</td>
+      <td style="padding:0 0 9px 12px;font-size:13px;color:${BODY};font-family:Georgia,serif;line-height:1.6;">${text}</td>
     </tr>`;
 
   await sendEmail({
@@ -654,68 +656,69 @@ export async function sendBookingConfirmation(params: {
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Appointment Confirmed — West Hills Capital</title>
 </head>
-<body style="margin:0;padding:0;background:#EEEBE4;font-family:Georgia,serif;">
+<body style="margin:0;padding:0;background:#E4DFD5;font-family:Georgia,serif;">
 
 <!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#EEEBE4;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#E4DFD5;">
   <tr>
-    <td align="center" style="padding:28px 16px;">
+    <td align="center" style="padding:32px 16px;">
 
       <!-- Card wrapper -->
-      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.08);">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:3px;overflow:hidden;">
 
         <!-- ─── HEADER ─── -->
         <tr>
-          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:32px 40px 24px;">
-            <img src="${LOGO_URL}" alt="West Hills Capital" width="180" style="display:block;max-width:180px;height:auto;border:0;">
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:36px 40px 28px;">
+            <img src="${LOGO_URL}" alt="West Hills Capital" width="210" style="display:block;max-width:210px;height:auto;border:0;">
           </td>
         </tr>
 
         <!-- Header divider -->
         <tr>
-          <td bgcolor="${IVORY}" style="background:${IVORY};padding:0 40px;">
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:0 0 0 0;">
             <div style="height:1px;background:${FAINT};"></div>
           </td>
         </tr>
 
         <!-- ─── CONFIRMATION HEADLINE ─── -->
         <tr>
-          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:32px 40px 28px;">
-            <p style="margin:0 0 10px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:40px 48px 36px;">
+            <p style="margin:0 0 12px;font-family:Georgia,serif;font-size:23px;font-weight:bold;color:${NAVY};line-height:1.3;">
               Your allocation discussion is confirmed.
             </p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${MUTED};line-height:1.6;">
-              We look forward to speaking with you at the time below.
+            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${MUTED};line-height:1.65;">
+              We look forward to speaking with you at the scheduled time below.
             </p>
           </td>
         </tr>
 
         <!-- ─── APPOINTMENT CARD ─── -->
         <tr>
-          <td style="padding:0 40px 32px;">
+          <td style="padding:0 36px 32px;background:#ffffff;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                   style="background:#FDFAF5;border:1px solid ${LGOLD};border-radius:3px;">
+                   style="background:${CBACK};border:1px solid ${LGOLD};border-top:3px solid ${NAVY};border-radius:0 0 3px 3px;">
               <tr>
-                <td style="padding:10px 22px 0;border-bottom:1px solid ${LGOLD};">
-                  <p style="margin:0;font-size:9px;font-family:Georgia,serif;color:${GOLD};letter-spacing:.14em;text-transform:uppercase;font-weight:bold;padding-bottom:10px;">
+                <td style="padding:9px 24px 8px;border-bottom:1px solid ${LGOLD};">
+                  <p style="margin:0;font-size:9px;font-family:Georgia,serif;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
                     Appointment
                   </p>
                 </td>
               </tr>
               <tr>
-                <td style="padding:22px 22px 8px;">
-                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:24px;font-weight:bold;color:${NAVY};line-height:1.2;">
+                <td style="padding:26px 24px 10px;">
+                  <p style="margin:0 0 6px;font-family:Georgia,serif;font-size:28px;font-weight:bold;color:${NAVY};line-height:1.15;letter-spacing:-.01em;">
                     ${params.dayLabel}
                   </p>
-                  <p style="margin:0;font-family:Georgia,serif;font-size:17px;color:${BODY};line-height:1.4;">
+                  <p style="margin:0;font-family:Georgia,serif;font-size:16px;color:${MUTED};line-height:1.4;">
                     ${params.timeLabel}
                   </p>
                 </td>
               </tr>
               <tr>
-                <td style="padding:0 22px 20px;">
+                <td style="padding:0 24px 22px;">
                   <p style="margin:0;font-size:11px;font-family:Georgia,serif;color:${MUTED};">
-                    Confirmation ID &nbsp;<strong style="color:${BODY};font-family:'Courier New',monospace;letter-spacing:.04em;font-size:11px;">${params.confirmationId}</strong>
+                    Confirmation&nbsp;
+                    <span style="font-family:'Courier New',monospace;letter-spacing:.04em;color:${DIM};">${params.confirmationId}</span>
                   </p>
                 </td>
               </tr>
@@ -725,16 +728,19 @@ export async function sendBookingConfirmation(params: {
 
         <!-- ─── PHONE CALLOUT ─── -->
         <tr>
-          <td style="padding:0 40px 32px;">
+          <td style="padding:0 36px 32px;background:#ffffff;">
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                   style="background:#FAF6ED;border-left:3px solid ${GOLD};border-radius:0 3px 3px 0;">
+                   style="background:#ffffff;border:1px solid ${LGOLD};border-radius:3px;">
               <tr>
-                <td style="padding:14px 18px;">
-                  <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${NAVY};line-height:1.6;">
-                    We will call you from&nbsp;
-                    <strong style="font-size:15px;letter-spacing:.01em;">(800) 867-6768</strong>
-                    &nbsp;at your scheduled time.
-                    <span style="color:${MUTED};">&nbsp;Please save this number.</span>
+                <td align="center" style="padding:20px 24px;">
+                  <p style="margin:0 0 6px;font-family:Georgia,serif;font-size:12px;color:${MUTED};letter-spacing:.06em;text-transform:uppercase;">
+                    We Will Call You From
+                  </p>
+                  <p style="margin:0 0 6px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};letter-spacing:.02em;">
+                    (800) 867-6768
+                  </p>
+                  <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">
+                    at your scheduled time &mdash; please save this number
                   </p>
                 </td>
               </tr>
@@ -744,19 +750,19 @@ export async function sendBookingConfirmation(params: {
 
         <!-- ─── SUBMISSION SUMMARY ─── -->
         <tr>
-          <td style="padding:0 40px 32px;">
-            <p style="margin:0 0 12px;font-family:Georgia,serif;font-size:11px;color:${GOLD};letter-spacing:.14em;text-transform:uppercase;font-weight:bold;">
+          <td style="padding:0 36px 32px;background:#ffffff;">
+            <p style="margin:0 0 10px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
               Your Submission
             </p>
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
-                   style="background:#FDFAF5;border:1px solid ${LGOLD};border-radius:3px;">
+                   style="background:${CBACK};border:1px solid ${LGOLD};border-radius:3px;">
               <tr>
-                <td style="padding:0 22px;">
+                <td style="padding:0 24px;">
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-                    ${summaryRow("Structure",       ALLOCATION_LABELS[params.allocationType] ?? params.allocationType)}
-                    ${summaryRow("Allocation",      RANGE_LABELS[params.allocationRange]     ?? params.allocationRange)}
-                    ${summaryRow("Timeline",        TIMELINE_LABELS[params.timeline]         ?? params.timeline)}
-                    ${summaryRow("State",           params.state, true)}
+                    ${summaryRow("Structure",  ALLOCATION_LABELS[params.allocationType] ?? params.allocationType)}
+                    ${summaryRow("Allocation", RANGE_LABELS[params.allocationRange]     ?? params.allocationRange)}
+                    ${summaryRow("Timeline",   TIMELINE_LABELS[params.timeline]         ?? params.timeline)}
+                    ${summaryRow("State",      params.state, true)}
                   </table>
                 </td>
               </tr>
@@ -766,42 +772,36 @@ export async function sendBookingConfirmation(params: {
 
         <!-- ─── WHAT TO EXPECT ─── -->
         <tr>
-          <td style="padding:0 40px 32px;">
-            <p style="margin:0 0 12px;font-family:Georgia,serif;font-size:11px;color:${GOLD};letter-spacing:.14em;text-transform:uppercase;font-weight:bold;">
+          <td style="padding:0 36px 32px;background:#ffffff;">
+            <p style="margin:0 0 10px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
               What to Expect
             </p>
-            <p style="margin:0 0 14px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.7;">
-              During the call we will review your intended allocation, confirm current pricing on gold and silver,
-              and discuss delivery or storage structure. If you decide to move forward, we can lock your trade
-              on the call. No commitment is required &mdash; this is a consultation.
-            </p>
             <table role="presentation" cellpadding="0" cellspacing="0">
-              ${expectItem("Review your allocation size and structure")}
-              ${expectItem("Walk through current live pricing")}
+              ${expectItem("Review your intended allocation size and structure")}
+              ${expectItem("Walk through current live pricing on gold and silver")}
               ${expectItem("Confirm delivery or storage preference")}
-              ${expectItem("Lock your trade on the call if you choose to proceed")}
+              ${expectItem("Lock your trade on the call if you decide to proceed — no commitment required")}
             </table>
           </td>
         </tr>
 
-        <!-- ─── CLOSING ─── -->
+        <!-- ─── SIGNOFF ─── -->
         <tr>
-          <td style="padding:0 40px 32px;">
-            <p style="margin:0 0 20px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.7;">
-              If anything comes up before the call, don&rsquo;t hesitate to reach out.
-              I want to make sure you feel fully prepared when we connect.
+          <td style="padding:0 36px 32px;background:#ffffff;">
+            <p style="margin:0 0 18px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.7;">
+              Please don&rsquo;t hesitate to reach out if you have any questions before the call.
             </p>
-            <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:14px;color:${BODY};">My very best,</p>
-            <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:15px;font-weight:bold;color:${NAVY};">Joe</p>
-            <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768</p>
+            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
+            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
           </td>
         </tr>
 
         <!-- ─── COMPLIANCE NOTE ─── -->
         <tr>
-          <td style="padding:0 40px 28px;">
+          <td style="padding:0 36px 28px;background:#ffffff;">
             <div style="height:1px;background:${FAINT};margin-bottom:16px;"></div>
-            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.7;">
+            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${DIM};line-height:1.75;">
               <strong style="color:${BODY};font-weight:bold;">Important:</strong>
               Trades are executed only after verbal confirmation on a recorded call and receipt of cleared funds.
               This appointment is a consultation only &mdash; no obligation or commitment is required.
@@ -812,7 +812,7 @@ export async function sendBookingConfirmation(params: {
         <!-- ─── FOOTER ─── -->
         <tr>
           <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:18px 40px;border-top:1px solid ${FAINT};">
-            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;">
+            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
               West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
             </p>
           </td>
