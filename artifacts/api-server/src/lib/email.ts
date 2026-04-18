@@ -253,70 +253,288 @@ export async function sendDealRecapEmail(
   },
   pdfBuffer: Buffer,
 ): Promise<void> {
+
+  // ── Design tokens — matches booking confirmation ───────────────────────
+  const G      = "40px";
+  const NAVY   = "#0F1C3F";
+  const IVORY  = "#F5F1E8";
+  const GOLD   = "#C49A38";
+  const LGOLD  = "#DDD0B0";
+  const MUTED  = "#7A7060";
+  const DIM    = "#5C5248";
+  const BODY   = "#2D2A25";
+  const FAINT  = "#D8CEBC";
+  const CBACK  = "#F9F6EE";
+  const LOGO_URL = `${process.env.FRONTEND_URL ?? "https://westhillscapital.com"}/images/logo.png`;
+
   const usd = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
 
-  const invoiceId = deal.invoiceId ?? `WHC-${deal.id}`;
-
-  // Next-business-day deadline from the lock timestamp
-  const lockedDate  = new Date(deal.lockedAt);
+  const invoiceId  = deal.invoiceId ?? `WHC-${deal.id}`;
+  const lockedDate = new Date(deal.lockedAt);
   const deadlineStr = nextBusinessDayFrom(lockedDate);
 
-  // ── Order Summary bullets ────────────────────────────────────────────────
-  const li = (text: string) =>
-    `<li style="margin-bottom:4px;color:#374151;">${text}</li>`;
-
-  const productBullets = deal.products
+  // ── Product rows for the order card ────────────────────────────────────
+  const productRows = deal.products
     .filter((p) => p.qty > 0)
-    .map((p) => li(`<strong>Metal Purchased:</strong> ${p.qty} x ${p.productName}`))
+    .map((p) => `
+      <tr>
+        <td style="padding:0 0 8px;font-family:Georgia,serif;font-size:13px;color:${BODY};line-height:1.5;">
+          ${p.qty} &times; ${p.productName}
+        </td>
+        <td style="padding:0 0 8px;font-family:Georgia,serif;font-size:13px;color:${BODY};text-align:right;white-space:nowrap;">
+          ${usd(p.lineTotal)}
+        </td>
+      </tr>`)
     .join("");
 
-  const spotLines: string[] = [];
-  if (deal.goldSpotAsk)   spotLines.push(`&nbsp;&nbsp;&ndash; Gold: $${deal.goldSpotAsk.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-  if (deal.silverSpotAsk) spotLines.push(`&nbsp;&nbsp;&ndash; Silver: $${deal.silverSpotAsk.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
-  const spotBullet = spotLines.length
-    ? li(`<strong>Spot Price at Lock:</strong><br>${spotLines.join("<br>")}`)
-    : "";
+  // ── Spot price footer for the order card ───────────────────────────────
+  const spotParts: string[] = [];
+  if (deal.goldSpotAsk)   spotParts.push(`Gold spot: ${usd(deal.goldSpotAsk)}`);
+  if (deal.silverSpotAsk) spotParts.push(`Silver: ${usd(deal.silverSpotAsk)}`);
+  const spotText = spotParts.join(" &nbsp;&middot;&nbsp; ");
 
-  const summaryBullets =
-    productBullets +
-    spotBullet +
-    li(`<strong>Subtotal:</strong> ${usd(deal.subtotal)}`) +
-    li(`<strong>Shipping:</strong> ${usd(deal.shipping)}`) +
-    li(`<strong>Total Due:</strong> ${usd(deal.total)}`);
-
-  // ── Shipping Address block ───────────────────────────────────────────────
+  // ── Shipping address rows (bare-row treatment) ─────────────────────────
   const isFedexHold = deal.shippingMethod === "fedex_hold";
-  let shippingAddrHtml: string;
+  let shipRows: string;
 
   if (isFedexHold && deal.fedexLocation) {
-    const fullName   = `${deal.firstName.trim()} ${deal.lastName.trim()}`;
-    const addrLine   = [deal.shipToLine1, [deal.shipToCity, deal.shipToState].filter(Boolean).join(", ") + (deal.shipToZip ? ` ${deal.shipToZip}` : "")].filter(Boolean).join(", ");
-    const mapsUrl    = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${deal.fedexLocation} ${addrLine}`)}`;
-    const hoursBlock = deal.fedexLocationHours
-      ? `<p style="margin:8px 0 0;font-size:13px;color:#374151;"><strong>Store Hours:</strong><br>${deal.fedexLocationHours.replace(/\n/g, "<br>")}</p>`
-      : "";
-    shippingAddrHtml = `
-      <p style="margin:0 0 4px;color:#374151;line-height:1.6;">
-        <strong>${deal.fedexLocation}</strong><br>
-        FBO ${fullName}<br>
-        ${deal.shipToLine1 ?? ""}<br>
-        ${[deal.shipToCity, deal.shipToState].filter(Boolean).join(", ")}${deal.shipToZip ? ` ${deal.shipToZip}` : ""}
-      </p>
-      ${hoursBlock}
-      <p style="margin:10px 0 0;">
-        <a href="${mapsUrl}" style="font-size:13px;color:#C49A38;font-family:Georgia,serif;">Get Directions &rarr;</a>
-      </p>`;
+    const fullName = `${deal.firstName.trim()} ${deal.lastName.trim()}`;
+    const addrLine = [deal.shipToLine1, [deal.shipToCity, deal.shipToState].filter(Boolean).join(", ") + (deal.shipToZip ? ` ${deal.shipToZip}` : "")].filter(Boolean).join(", ");
+    const mapsUrl  = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${deal.fedexLocation} ${addrLine}`)}`;
+    const hoursRow = deal.fedexLocationHours ? `
+      <tr>
+        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;border-top:1px solid ${FAINT};">Hours</td>
+        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;border-top:1px solid ${FAINT};">${deal.fedexLocationHours.replace(/\n/g, "<br>")}</td>
+      </tr>` : "";
+    shipRows = `
+      <tr>
+        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;border-bottom:1px solid ${FAINT};">Location</td>
+        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;font-weight:500;border-bottom:1px solid ${FAINT};">
+          ${deal.fedexLocation}<br>
+          <span style="font-weight:normal;color:${MUTED};">FBO ${fullName}</span><br>
+          <a href="${mapsUrl}" style="font-size:12px;color:${GOLD};text-decoration:none;">Get Directions &rarr;</a>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;border-bottom:1px solid ${FAINT};">Address</td>
+        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;font-weight:500;border-bottom:1px solid ${FAINT};">
+          ${deal.shipToLine1 ?? ""}<br>
+          ${[deal.shipToCity, deal.shipToState].filter(Boolean).join(", ")}${deal.shipToZip ? ` ${deal.shipToZip}` : ""}
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;">Method</td>
+        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;font-weight:500;">FedEx Hold for Pickup</td>
+      </tr>
+      ${hoursRow}`;
   } else {
+    const nameLine  = deal.shipToName ?? `${deal.firstName.trim()} ${deal.lastName.trim()}`;
     const addrParts: string[] = [];
     if (deal.shipToLine1) addrParts.push(deal.shipToLine1);
     const cityLine = [deal.shipToCity, deal.shipToState].filter(Boolean).join(", ") +
       (deal.shipToZip ? ` ${deal.shipToZip}` : "");
     if (cityLine.trim()) addrParts.push(cityLine.trim());
-    shippingAddrHtml = addrParts.length
-      ? `<p style="margin:0;color:#374151;line-height:1.6;">${addrParts.join("<br>")}</p>`
-      : `<p style="margin:0;color:#9ca3af;font-style:italic;">Address on file</p>`;
+    const addrStr = addrParts.length
+      ? addrParts.join("<br>")
+      : `<span style="color:${MUTED};font-style:italic;">Address on file</span>`;
+    shipRows = `
+      <tr>
+        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;border-bottom:1px solid ${FAINT};">Name</td>
+        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;font-weight:500;border-bottom:1px solid ${FAINT};">${nameLine}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;border-bottom:1px solid ${FAINT};">Address</td>
+        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;font-weight:500;border-bottom:1px solid ${FAINT};">${addrStr}</td>
+      </tr>
+      <tr>
+        <td style="padding:10px 0;font-size:13px;color:${MUTED};font-family:Georgia,serif;vertical-align:top;width:130px;">Method</td>
+        <td style="padding:10px 0;font-size:13px;color:${BODY};font-family:Georgia,serif;vertical-align:top;font-weight:500;">FedEx Home Delivery (insured)</td>
+      </tr>`;
   }
+
+  // ── Full HTML ──────────────────────────────────────────────────────────
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Confirmed — West Hills Capital</title>
+</head>
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:Georgia,serif;">
+
+<!--[if mso]><table role="presentation" width="600" align="center" cellpadding="0" cellspacing="0"><tr><td><![endif]-->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0"
+             style="max-width:600px;width:100%;background:#ffffff;border-radius:3px;overflow:hidden;">
+
+        <!-- ─── HEADER: logo, ivory bg ─── -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:26px ${G} 22px;">
+            <img src="${LOGO_URL}" alt="West Hills Capital" width="230"
+                 style="display:block;margin:0 auto;max-width:230px;height:auto;border:0;">
+          </td>
+        </tr>
+        <tr>
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:0 ${G};">
+            <div style="height:1px;background:${FAINT};"></div>
+          </td>
+        </tr>
+
+        <!-- ─── HEADLINE, ivory bg ─── -->
+        <tr>
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
+            <p style="margin:0 0 11px;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">Your order is confirmed.</p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:14px;color:${MUTED};line-height:1.65;">
+              Thank you for trusting us with your purchase. Your invoice is attached &mdash; please review the wire instructions inside.
+            </p>
+          </td>
+        </tr>
+
+        <!-- ─── ORDER CARD: hero surface ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:24px ${G} 20px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:${CBACK};border:1px solid ${LGOLD};border-top:3px solid ${NAVY};border-radius:0 0 3px 3px;">
+
+              <!-- card label row -->
+              <tr>
+                <td style="padding:9px 22px 8px;border-bottom:1px solid ${LGOLD};">
+                  <p style="margin:0;font-size:9px;font-family:Georgia,serif;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Order Confirmed</p>
+                </td>
+              </tr>
+
+              <!-- products + totals -->
+              <tr>
+                <td style="padding:20px 22px 0;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    ${productRows}
+                    <tr><td colspan="2" style="border-top:1px solid ${LGOLD};padding:0;"></td></tr>
+                    <tr>
+                      <td style="padding:10px 0 4px;font-family:Georgia,serif;font-size:12px;color:${MUTED};">Subtotal</td>
+                      <td style="padding:10px 0 4px;font-family:Georgia,serif;font-size:12px;color:${MUTED};text-align:right;">${usd(deal.subtotal)}</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:0 0 10px;font-family:Georgia,serif;font-size:12px;color:${MUTED};">Shipping</td>
+                      <td style="padding:0 0 10px;font-family:Georgia,serif;font-size:12px;color:${MUTED};text-align:right;">${usd(deal.shipping)}</td>
+                    </tr>
+                    <tr><td colspan="2" style="border-top:1px solid ${LGOLD};padding:0;"></td></tr>
+                    <tr>
+                      <td style="padding:14px 0 0;font-family:Georgia,serif;font-size:15px;font-weight:bold;color:${NAVY};">Total Due</td>
+                      <td style="padding:14px 0 0;font-family:Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};text-align:right;letter-spacing:-.01em;">${usd(deal.total)}</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+              <!-- invoice + spot price footer -->
+              <tr>
+                <td style="padding:14px 22px 18px;border-top:1px solid ${LGOLD};margin-top:14px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="font-family:Georgia,serif;font-size:11px;color:${MUTED};">
+                        Invoice&nbsp;<span style="font-family:'Courier New',monospace;letter-spacing:.04em;color:${DIM};">${invoiceId}</span>
+                      </td>
+                      ${spotText ? `<td style="font-family:Georgia,serif;font-size:11px;color:${MUTED};text-align:right;">${spotText}</td>` : ""}
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+
+        <!-- ─── PAYMENT DEADLINE: thin rules, centered ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:0 ${G};">
+            <div style="height:1px;background:${FAINT};"></div>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              <tr>
+                <td align="center" style="padding:22px 0;">
+                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:11px;color:${MUTED};letter-spacing:.08em;text-transform:uppercase;">Payment due by</p>
+                  <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:21px;font-weight:bold;color:${NAVY};letter-spacing:.01em;">${deadlineStr}</p>
+                  <p style="margin:0;font-family:Georgia,serif;font-size:12px;color:${MUTED};">Wire instructions are included in the attached invoice</p>
+                </td>
+              </tr>
+            </table>
+            <div style="height:1px;background:${FAINT};"></div>
+          </td>
+        </tr>
+
+        <!-- ─── SHIP TO: bare rows on white ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:24px ${G} 0;">
+            <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Ship To</p>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+              ${shipRows}
+            </table>
+          </td>
+        </tr>
+
+        <!-- ─── NEXT STEPS: bullets ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:24px ${G} 0;">
+            <p style="margin:0 0 4px;font-family:Georgia,serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Next Steps</p>
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="padding:0 0 9px 0;vertical-align:top;width:16px;"><span style="display:inline-block;width:4px;height:4px;background:${GOLD};border-radius:50%;margin-top:8px;"></span></td>
+                <td style="padding:0 0 9px 12px;font-size:13px;color:${BODY};font-family:Georgia,serif;line-height:1.6;">Once payment clears, we will secure your metals and prepare your shipment</td>
+              </tr>
+              <tr>
+                <td style="padding:0 0 9px 0;vertical-align:top;width:16px;"><span style="display:inline-block;width:4px;height:4px;background:${GOLD};border-radius:50%;margin-top:8px;"></span></td>
+                <td style="padding:0 0 9px 12px;font-size:13px;color:${BODY};font-family:Georgia,serif;line-height:1.6;">I will personally follow up with your FedEx tracking number once the order ships</td>
+              </tr>
+              <tr>
+                <td style="padding:0 0 9px 0;vertical-align:top;width:16px;"><span style="display:inline-block;width:4px;height:4px;background:${GOLD};border-radius:50%;margin-top:8px;"></span></td>
+                <td style="padding:0 0 9px 12px;font-size:13px;color:${BODY};font-family:Georgia,serif;line-height:1.6;">If payment may be delayed, please reach out and we will coordinate</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- ─── SIGNOFF ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:24px ${G} 28px;">
+            <p style="margin:0 0 16px;font-family:Georgia,serif;font-size:14px;color:${BODY};line-height:1.7;">
+              Please don&rsquo;t hesitate to reach out if you have any questions &mdash; it is a pleasure to work with you.
+            </p>
+            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">Joe Unger</p>
+            <p style="margin:0 0 2px;font-family:Georgia,serif;font-size:13px;color:${MUTED};">West Hills Capital</p>
+            <p style="margin:0;font-family:Georgia,serif;font-size:13px;color:${MUTED};">(800) 867-6768</p>
+          </td>
+        </tr>
+
+        <!-- ─── COMPLIANCE ─── -->
+        <tr>
+          <td style="background:#ffffff;padding:0 ${G} 26px;">
+            <div style="height:1px;background:${FAINT};margin-bottom:16px;"></div>
+            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${DIM};line-height:1.75;">
+              Payment must be received by the close of business on the date shown above to secure this pricing. If payment is not received in time, the trade may be cancelled and any market loss may be subject to an offset fee. This transaction is subject to West Hills Capital&rsquo;s Terms of Service: westhillscapital.com/terms
+            </p>
+          </td>
+        </tr>
+
+        <!-- ─── FOOTER ─── -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
+            <p style="margin:0;font-family:Georgia,serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
+              West Hills Capital &nbsp;&middot;&nbsp; (800) 867-6768 &nbsp;&middot;&nbsp; westhillscapital.com
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+<!--[if mso]></td></tr></table><![endif]-->
+
+</body>
+</html>`;
 
   await sendEmail({
     to:      deal.email,
@@ -325,53 +543,7 @@ export async function sendDealRecapEmail(
       filename: `${invoiceId}.pdf`,
       content:  pdfBuffer.toString("base64"),
     }],
-    html: whcEmailWrapper(`
-      <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${deal.firstName.trim()},</p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        I&rsquo;m glad we were able to get everything squared away today&mdash;thank you again for trusting us with your purchase.
-      </p>
-
-      <p style="margin:0 0 16px;font-size:15px;color:#374151;">Here&rsquo;s a clear recap for your records:</p>
-
-      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#0F1C3F;">Order Summary</p>
-      <ul style="margin:0 0 24px 18px;padding:0;font-size:15px;line-height:1.7;">
-        ${summaryBullets}
-      </ul>
-
-      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#0F1C3F;">Next Steps</p>
-      <ul style="margin:0 0 24px 18px;padding:0;font-size:15px;line-height:1.7;">
-        ${li("Your invoice is attached, which includes bank wire instructions")}
-        ${li(`Payment must be received by the close of business on the next business day (<strong>${deadlineStr}</strong>) to secure this pricing`)}
-        ${li("If payment is not received in time, the trade may be cancelled and any market loss may be subject to an offset fee")}
-        ${li("If you anticipate any delay, just let me know and we can coordinate")}
-        ${li("Once payment is received and cleared, we will secure and ship your metals")}
-        ${li("We will monitor the shipment and coordinate delivery with you as it gets close")}
-      </ul>
-
-      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#0F1C3F;">Shipping Address</p>
-      <div style="margin:0 0 24px;padding:14px 16px;background:#ffffff;border:1px solid #d4b896;border-radius:6px;font-size:14px;">
-        ${shippingAddrHtml}
-      </div>
-
-      <p style="margin:0 0 12px;font-size:15px;color:#374151;">
-        You don&rsquo;t need to worry about a thing from here&mdash;we&rsquo;ll handle the logistics and keep you updated every step of the way.
-      </p>
-      <p style="margin:0 0 12px;font-size:15px;color:#374151;">
-        Once your order ships, I&rsquo;ll personally follow up with tracking and delivery timing.
-      </p>
-      <p style="margin:0 0 28px;font-size:15px;color:#374151;">
-        If you need anything at all in the meantime, just reach out.
-      </p>
-
-      <p style="margin:0 0 4px;font-size:15px;color:#374151;">My very best,</p>
-      <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#1a1a1a;">Joe</p>
-      <p style="margin:0 0 0;font-size:13px;color:#9ca3af;">West Hills Capital &nbsp;|&nbsp; (800) 867-6768</p>
-
-      <p style="margin:24px 0 0;font-size:11px;color:#9ca3af;border-top:1px solid #d4b896;padding-top:14px;line-height:1.6;">
-        This transaction is subject to West Hills Capital&rsquo;s Terms of Service: westhillscapital.com/terms
-      </p>
-    `),
+    html,
   });
 }
 
