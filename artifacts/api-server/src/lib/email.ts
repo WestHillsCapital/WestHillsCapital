@@ -701,11 +701,15 @@ export async function sendWireConfirmationEmail(params: {
 // ── Email 2 — Shipping Notification ───────────────────────────────────────────
 
 export async function sendShippingNotificationEmail(params: {
-  firstName:      string;
-  email:          string;
-  trackingNumber: string;
+  firstName:         string;
+  email:             string;
+  trackingNumber:    string;
+  estimatedDelivery?: string;
 }): Promise<void> {
   const trackingUrl = `https://www.fedex.com/apps/fedextrack/?tracknumbers=${encodeURIComponent(params.trackingNumber)}`;
+  const deliveryLine = params.estimatedDelivery
+    ? `<p style="margin:0 0 16px;font-size:15px;color:#374151;">According to FedEx, the package is expected to arrive on <strong>${params.estimatedDelivery}</strong>.</p>`
+    : "";
 
   await sendEmail({
     to:      params.email,
@@ -714,8 +718,11 @@ export async function sendShippingNotificationEmail(params: {
       <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName},</p>
 
       <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        Your package is in transit &mdash; I&rsquo;m glad we&rsquo;re at this step. Your metals have been fully allocated,
-        packaged, and handed off to FedEx for delivery.
+        I wanted to send over your FedEx tracking information now that your package is on the way.
+      </p>
+
+      <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+        Your metals have been fully allocated, packaged, and handed off to FedEx for delivery.
       </p>
 
       <p style="margin:0 0 8px;font-size:15px;font-weight:bold;color:#1a1a1a;">Your FedEx Tracking</p>
@@ -729,18 +736,21 @@ export async function sendShippingNotificationEmail(params: {
         </a>
       </div>
 
+      ${deliveryLine}
+
       <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        FedEx typically delivers insured shipments like yours with signature required. Please make sure someone is available
-        to receive the package, or confirm with us if you&rsquo;re picking up at a FedEx location.
+        The FedEx location where your package is being sent will hold it for up to five days if needed.
+        If for any reason you need additional time, please let me know as soon as possible so we can make sure
+        everything is timed appropriately.
       </p>
 
       <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        When your package arrives, take a moment to inspect the exterior before signing. If anything looks off &mdash; any
-        damage or tampering &mdash; please call me right away at <strong>(800) 867-6768</strong> before opening it.
+        When you pick it up, please take a quick look at the outside of the package before signing.
+        If anything looks unusual, please call me right away at <strong>(800) 867-6768</strong>.
       </p>
 
       <p style="margin:0 0 28px;font-size:15px;color:#374151;">
-        I&rsquo;ll follow up once we see delivery confirmed. We&rsquo;re almost there.
+        I will be tracking the package all the way through to your signature. Congrats &mdash; it&rsquo;s almost here!
       </p>
 
       ${joeSig()}
@@ -761,23 +771,22 @@ export async function sendDeliveryConfirmationEmail(params: {
       <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName},</p>
 
       <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        We&rsquo;re showing your package as delivered &mdash; congratulations on completing your allocation.
-        I hope everything arrived in perfect condition.
+        We are showing your package as delivered &mdash; congratulations on completing your allocation.
       </p>
 
       <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        Once you&rsquo;ve had a chance to open the package, please take a moment to verify that the contents match
-        your order confirmation. Everything should be exactly as specified.
+        There is something different about this part. What took years of work and discipline to build is now sitting
+        in your hands in a form you can actually see and feel. I am really happy for you and hope receiving it has
+        been a wonderful experience.
       </p>
 
       <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        If anything at all seems off &mdash; a discrepancy in quantity, condition, or anything unexpected &mdash;
-        please call me immediately at <strong>(800) 867-6768</strong>. We will make it right, no questions asked.
+        When you can, please look everything over and let me know if you need anything.
       </p>
 
       <p style="margin:0 0 28px;font-size:15px;color:#374151;">
-        It&rsquo;s been a genuine pleasure working with you on this. Your metals are now a real, tangible part of
-        your financial foundation &mdash; and that&rsquo;s something worth feeling good about.
+        It has been a real pleasure working with you on this. Please do not hesitate to call me at
+        <strong>(800) 867-6768</strong> if I can help in any way.
       </p>
 
       ${joeSig()}
@@ -793,28 +802,27 @@ export async function sendFollowUp7DayEmail(params: {
 }): Promise<void> {
   await sendEmail({
     to:      params.email,
-    subject: "Quick check-in — how are your metals?",
+    subject: "Quick check-in",
     html:    whcEmailWrapper(`
       <p style="margin:0 0 20px;font-size:15px;color:#374151;">Hi ${params.firstName},</p>
 
       <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        It&rsquo;s been about a week since your metals arrived, and I just wanted to check in personally.
+        It has been about a week since your metals arrived, and I wanted to check in with you.
       </p>
 
       <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        I hope everything is settled in nicely &mdash; whether that&rsquo;s a home safe, a private vault, or somewhere
-        else entirely. If you have any questions about storage, insurance, or just want to talk through your allocation
-        strategy, I&rsquo;m always happy to spend some time on that.
+        I hope everything has settled in well. If you have any questions about your purchase, or just want to visit
+        about the weather in Wichita, I am always happy to spend some time with you on that too.
       </p>
 
       <p style="margin:0 0 16px;font-size:15px;color:#374151;">
-        Markets keep moving, and so do people&rsquo;s situations. If anything has changed in your financial picture
-        since we last spoke, this is a good time to revisit where you stand.
+        Markets move, and life does too. If you think of something you did not ask, or something new has landed on
+        your radar, let me know. I am here to help.
       </p>
 
       <p style="margin:0 0 28px;font-size:15px;color:#374151;">
-        Also &mdash; if you know anyone who&rsquo;s been asking about protecting their savings with physical metals,
-        I&rsquo;d be glad to have that conversation with them. A personal introduction means a lot in this business.
+        And if you know someone who has been thinking about physical metals and would value a straightforward
+        conversation, I would be glad to speak with them. Personal introductions mean a great deal in this business.
       </p>
 
       ${joeSig()}
