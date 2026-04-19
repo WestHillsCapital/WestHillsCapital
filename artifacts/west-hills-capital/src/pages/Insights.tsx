@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { ArrowRight, Clock } from "lucide-react";
 import { INSIGHTS, INSIGHT_GROUPS, getArticlesByGroup, getFoundersPerspectiveArticle, type InsightArticle } from "@/data/insights";
 
@@ -15,6 +16,11 @@ function estimateReadTime(article: InsightArticle): number {
 // ─── PAGE ──────────────────────────────────────────────────────────────────────
 
 export default function Insights() {
+  usePageMeta({
+    title: "Insights | West Hills Capital",
+    description: "Practical education on gold, silver, and self-directed IRAs — written for investors who want clarity, not noise. Explore our guides, market commentary, and founder's perspective.",
+  });
+
   const founderArticle = getFoundersPerspectiveArticle();
 
   return (

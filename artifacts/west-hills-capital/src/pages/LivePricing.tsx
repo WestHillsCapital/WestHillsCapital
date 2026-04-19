@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { useProductPrices, useBuybackPrices, useSpotPrices, useSpotHistory, type ChartPeriod } from "@/hooks/use-pricing";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -450,6 +451,11 @@ function formatAge(s: number | null): string {
 }
 
 export default function LivePricing() {
+  usePageMeta({
+    title: "Live Precious Metals Pricing | West Hills Capital",
+    description: "View real-time gold and silver spot prices, current product pricing, and buyback rates. Updated continuously so you always know exactly what you're paying.",
+  });
+
   const { data: pricingData, isLoading: loadingProducts, refetch: refetchProducts } = useProductPrices();
   const { data: buybackData, isLoading: loadingBuybacks } = useBuybackPrices();
   const { data: spotData, refetch: refetchSpot, dataUpdatedAt: spotUpdatedAt } = useSpotPrices();

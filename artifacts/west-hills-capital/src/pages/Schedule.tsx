@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -71,6 +72,11 @@ function SchedulingUnavailable({ message }: { message?: string }) {
 }
 
 export default function Schedule() {
+  usePageMeta({
+    title: "Schedule a Consultation | West Hills Capital",
+    description: "Book a free, no-pressure conversation with a West Hills Capital specialist. We'll answer your questions about physical gold, silver, and IRA rollovers — on your schedule.",
+  });
+
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [formData, setFormData] = useState<PrequalFormValues | null>(null);
   const [leadError, setLeadError] = useState<string | null>(null);

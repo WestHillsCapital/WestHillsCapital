@@ -1,5 +1,6 @@
 import { Link, useParams } from "wouter";
 import { useEffect, useRef, useState } from "react";
+import { usePageMeta } from "@/hooks/use-page-meta";
 import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
 import {
   getArticleBySlug,
@@ -79,6 +80,13 @@ function ArticleCTA() {
 export default function InsightArticle() {
   const params = useParams<{ slug: string }>();
   const article = getArticleBySlug(params.slug ?? "");
+
+  usePageMeta({
+    title: article
+      ? `${article.title} | West Hills Capital`
+      : "Article Not Found | West Hills Capital",
+    description: article?.metaDescription ?? "Explore insights on gold, silver, and precious metals investing from West Hills Capital.",
+  });
 
   if (!article) {
     return (
