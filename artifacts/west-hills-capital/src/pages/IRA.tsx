@@ -41,6 +41,7 @@ export default function IRA() {
     description: "Roll over or transfer an existing IRA into a self-directed account holding American Gold Eagles, Gold Buffalos, or Silver Eagles. West Hills Capital walks through every step. Call (800) 867-6768.",
     ogTitle: "Precious Metals IRA | West Hills Capital",
     ogDescription: "Hold physical gold and silver in a self-directed IRA. Same coins, same transparent pricing — held at an approved depository. Call (800) 867-6768.",
+    ogImage: "https://westhillscapital.com/opengraph.jpg",
     canonical: "https://westhillscapital.com/ira",
   });
 

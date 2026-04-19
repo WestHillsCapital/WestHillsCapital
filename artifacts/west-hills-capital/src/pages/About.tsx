@@ -9,6 +9,7 @@ export default function About() {
     description: "West Hills Capital has operated since June 2011, built around transparent pricing, sovereign bullion only, and a commitment process that puts clients first. No proof coins. No speculation. No pressure.",
     ogTitle: "About West Hills Capital | Physical Gold & Silver Dealer Since 2011",
     ogDescription: "In operation since 2011. Transparent commissions, sovereign bullion only, and a purchase process that puts clients first. Call (800) 867-6768.",
+    ogImage: "https://westhillscapital.com/opengraph.jpg",
     canonical: "https://westhillscapital.com/about",
   });
 

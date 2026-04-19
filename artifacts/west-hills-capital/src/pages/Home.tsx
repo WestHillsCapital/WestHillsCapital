@@ -32,6 +32,7 @@ export default function Home() {
     description: "Buy physical gold and silver with transparent pricing for delivery or IRA accounts. American Gold Eagles, Gold Buffalos, and Silver Eagles. Disciplined execution. No hidden fees. Call (800) 867-6768.",
     ogTitle: "West Hills Capital | Physical Gold & Silver Allocation",
     ogDescription: "Buy physical gold and silver with transparent pricing for delivery or IRA accounts. Disciplined execution. No gimmicks. Call (800) 867-6768.",
+    ogImage: "https://westhillscapital.com/opengraph.jpg",
     canonical: "https://westhillscapital.com/",
   });
 

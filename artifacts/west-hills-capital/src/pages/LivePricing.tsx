@@ -454,6 +454,7 @@ export default function LivePricing() {
   usePageMeta({
     title: "Live Precious Metals Pricing | West Hills Capital",
     description: "View real-time gold and silver spot prices, current product pricing, and buyback rates. Updated continuously so you always know exactly what you're paying.",
+    ogImage: "https://westhillscapital.com/opengraph.jpg",
     canonical: "https://westhillscapital.com/pricing",
   });
 

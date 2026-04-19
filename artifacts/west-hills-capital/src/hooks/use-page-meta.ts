@@ -5,6 +5,7 @@ interface PageMeta {
   description: string;
   ogTitle?: string;
   ogDescription?: string;
+  ogImage?: string;
   canonical?: string;
 }
 
@@ -35,7 +36,7 @@ function setCanonical(href: string) {
   el.setAttribute("href", href);
 }
 
-export function usePageMeta({ title, description, ogTitle, ogDescription, canonical }: PageMeta) {
+export function usePageMeta({ title, description, ogTitle, ogDescription, ogImage, canonical }: PageMeta) {
   useEffect(() => {
     const prevCanonical = document.querySelector('link[rel="canonical"]')?.getAttribute("href") ?? "";
 
@@ -44,14 +45,20 @@ export function usePageMeta({ title, description, ogTitle, ogDescription, canoni
       description: getMetaContent("description"),
       ogTitle: getMetaContent("og:title", true),
       ogDescription: getMetaContent("og:description", true),
+      ogImage: getMetaContent("og:image", true),
       twitterTitle: getMetaContent("twitter:title"),
       twitterDescription: getMetaContent("twitter:description"),
+      twitterImage: getMetaContent("twitter:image"),
     };
 
     document.title = title;
     setMetaTag("description", description);
     setMetaTag("og:title", ogTitle ?? title, true);
     setMetaTag("og:description", ogDescription ?? description, true);
+    if (ogImage) {
+      setMetaTag("og:image", ogImage, true);
+      setMetaTag("twitter:image", ogImage);
+    }
     setMetaTag("twitter:title", ogTitle ?? title);
     setMetaTag("twitter:description", ogDescription ?? description);
     if (canonical) {
@@ -63,11 +70,15 @@ export function usePageMeta({ title, description, ogTitle, ogDescription, canoni
       setMetaTag("description", prev.description);
       setMetaTag("og:title", prev.ogTitle, true);
       setMetaTag("og:description", prev.ogDescription, true);
+      if (ogImage) {
+        setMetaTag("og:image", prev.ogImage, true);
+        setMetaTag("twitter:image", prev.twitterImage);
+      }
       setMetaTag("twitter:title", prev.twitterTitle);
       setMetaTag("twitter:description", prev.twitterDescription);
       if (canonical && prevCanonical) {
         setCanonical(prevCanonical);
       }
     };
-  }, [title, description, ogTitle, ogDescription, canonical]);
+  }, [title, description, ogTitle, ogDescription, ogImage, canonical]);
 }
