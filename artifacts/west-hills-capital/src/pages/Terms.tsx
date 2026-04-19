@@ -1,6 +1,13 @@
 import { Link } from "wouter";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 export default function Terms() {
+  usePageMeta({
+    title: "Terms of Service | West Hills Capital",
+    description: "Terms of Service for West Hills Capital. Review the terms governing use of our website and precious metals services.",
+    canonical: "https://westhillscapital.com/terms",
+  });
+
   return (
     <div className="w-full bg-background min-h-screen pt-16 pb-32">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">

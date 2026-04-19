@@ -1,6 +1,13 @@
 import { Link } from "wouter";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 export default function Privacy() {
+  usePageMeta({
+    title: "Privacy Policy | West Hills Capital",
+    description: "Privacy Policy for West Hills Capital. Learn how we collect, use, and protect your personal information in connection with our precious metals services.",
+    canonical: "https://westhillscapital.com/privacy",
+  });
+
   return (
     <div className="w-full bg-background min-h-screen pt-16 pb-32">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">

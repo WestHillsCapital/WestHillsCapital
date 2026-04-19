@@ -75,6 +75,7 @@ export default function Schedule() {
   usePageMeta({
     title: "Schedule a Consultation | West Hills Capital",
     description: "Book a free, no-pressure conversation with a West Hills Capital specialist. We'll answer your questions about physical gold, silver, and IRA rollovers — on your schedule.",
+    canonical: "https://westhillscapital.com/schedule",
   });
 
   const [step, setStep] = useState<1 | 2 | 3>(1);

@@ -1,6 +1,13 @@
 import { Link } from "wouter";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 export default function Disclosures() {
+  usePageMeta({
+    title: "Disclosures & Operating Policies | West Hills Capital",
+    description: "Disclosures and operating policies for West Hills Capital. Understand our role as a precious metals dealer, market risk, and how we operate.",
+    canonical: "https://westhillscapital.com/disclosures",
+  });
+
   return (
     <div className="w-full bg-background min-h-screen pt-16 pb-32">
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
