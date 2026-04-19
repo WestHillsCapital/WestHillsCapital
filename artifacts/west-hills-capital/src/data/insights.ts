@@ -17,6 +17,7 @@ export interface InsightArticle {
   metaDescription: string;
   sections: InsightSection[];
   related: string[];
+  foundersPerspective?: boolean;
 }
 
 export const INSIGHT_GROUPS: InsightGroup[] = [
@@ -1785,6 +1786,7 @@ export const INSIGHTS: InsightArticle[] = [
     excerpt:
       "The product selection at West Hills Capital isn't a limitation. It's the result of watching what happens when clients who bought the wrong products eventually need to sell — and deciding we wouldn't be part of that.",
     group: "choosing-who-to-trust",
+    foundersPerspective: true,
     metaDescription:
       "West Hills Capital's founder explains why we carry only three sovereign bullion products, what the proof coin model costs buyers at exit, and how our commission structure was built around the client's need to sell.",
     sections: [
@@ -1894,4 +1896,8 @@ export function getRelatedArticles(slugs: string[]): InsightArticle[] {
 
 export function getArticlesByGroup(groupId: string): InsightArticle[] {
   return INSIGHTS.filter((a) => a.group === groupId);
+}
+
+export function getFoundersPerspectiveArticle(): InsightArticle | undefined {
+  return INSIGHTS.find((a) => a.foundersPerspective === true);
 }

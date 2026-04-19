@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { ArrowRight, Clock } from "lucide-react";
-import { INSIGHTS, INSIGHT_GROUPS, getArticlesByGroup, type InsightArticle } from "@/data/insights";
+import { INSIGHTS, INSIGHT_GROUPS, getArticlesByGroup, getFoundersPerspectiveArticle, type InsightArticle } from "@/data/insights";
 
 // ─── READ TIME ─────────────────────────────────────────────────────────────────
 
@@ -15,6 +15,8 @@ function estimateReadTime(article: InsightArticle): number {
 // ─── PAGE ──────────────────────────────────────────────────────────────────────
 
 export default function Insights() {
+  const founderArticle = getFoundersPerspectiveArticle();
+
   return (
     <div className="w-full bg-background min-h-screen pt-14 pb-28">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -35,9 +37,46 @@ export default function Insights() {
         </div>
 
         {/* ARTICLE COUNT */}
-        <p className="text-[12px] text-foreground/40 font-medium tracking-wide mb-14 uppercase">
+        <p className="text-[12px] text-foreground/40 font-medium tracking-wide mb-10 uppercase">
           {INSIGHTS.length} articles &nbsp;·&nbsp; {INSIGHT_GROUPS.length} topics
         </p>
+
+        {/* FOUNDER'S PERSPECTIVE FEATURE */}
+        {founderArticle && (
+          <div className="mb-14">
+            <Link href={`/insights/${founderArticle.slug}`}>
+              <article className="group relative bg-white border border-border/50 rounded-xl overflow-hidden hover:shadow-lg hover:border-primary/30 transition-all duration-200 cursor-pointer">
+                {/* Top accent bar */}
+                <div className="h-[3px] bg-primary/80" />
+                <div className="p-8 sm:p-10 flex flex-col sm:flex-row sm:items-start gap-8">
+                  {/* Left: label + title + excerpt */}
+                  <div className="flex-1 min-w-0">
+                    <span className="inline-block text-[10px] font-semibold uppercase tracking-[0.18em] text-primary bg-primary/8 border border-primary/20 rounded-full px-3 py-1 mb-5">
+                      Founder's Perspective
+                    </span>
+                    <h2 className="text-xl sm:text-2xl font-serif font-semibold text-foreground leading-snug mb-4 group-hover:text-primary transition-colors duration-150">
+                      {founderArticle.title}
+                    </h2>
+                    <p className="text-[14.5px] text-foreground/60 leading-[1.8]">
+                      {founderArticle.excerpt}
+                    </p>
+                  </div>
+                  {/* Right: read cta + read time */}
+                  <div className="sm:pt-1 sm:shrink-0 sm:flex sm:flex-col sm:items-end sm:justify-between sm:self-stretch">
+                    <div className="flex items-center gap-1.5 text-sm font-semibold text-primary">
+                      Read article
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                    </div>
+                    <div className="flex items-center gap-1 text-[11px] text-foreground/35 tabular-nums mt-4 sm:mt-0">
+                      <Clock className="w-3 h-3" />
+                      {estimateReadTime(founderArticle)} min
+                    </div>
+                  </div>
+                </div>
+              </article>
+            </Link>
+          </div>
+        )}
 
         {/* GROUPS */}
         <div className="space-y-16">
@@ -67,7 +106,7 @@ export default function Insights() {
 
                 {/* Article cards */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {articles.map((article) => {
+                  {articles.filter((a) => !a.foundersPerspective).map((article) => {
                     const readTime = estimateReadTime(article);
                     return (
                       <Link key={article.slug} href={`/insights/${article.slug}`}>
