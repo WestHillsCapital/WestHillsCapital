@@ -119,5 +119,10 @@
     <changefreq>yearly</changefreq>
     <priority>0.7</priority>
   </url>
+  <url>
+    <loc>https://westhillscapital.com/insights/why-we-only-carry-three-products</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.7</priority>
+  </url>
 
 </urlset>
