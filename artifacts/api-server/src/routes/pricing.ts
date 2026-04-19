@@ -78,6 +78,44 @@ let productCacheTs = 0;
 
 const CACHE_TTL_MS = 5000; // Refresh every 5 seconds
 
+// ─── DG coin image cache (fetched once; images don't change often) ────────────
+type DGCoinImageData = {
+  code: string;
+  imageURL: string;
+  imageLargeObverseURL: string;
+  imageLargeReverseURL: string;
+};
+
+let cachedCoinImages: Record<string, DGCoinImageData> | null = null;
+
+async function fetchDGCoinImages(): Promise<Record<string, DGCoinImageData>> {
+  if (cachedCoinImages) return cachedCoinImages;
+  if (!DG_TOKEN) return {};
+
+  const results: Record<string, DGCoinImageData> = {};
+  await Promise.all(
+    DG_PRODUCTS.map(async (code) => {
+      try {
+        const res = await fetch(`${DG_BASE}/GetCoinImages/${DG_TOKEN}/${code}`, {
+          headers: { Accept: "application/json" },
+          signal: AbortSignal.timeout(8_000),
+        });
+        if (!res.ok) return;
+        const data = await res.json() as DGCoinImageData[] | { error: string };
+        if (Array.isArray(data) && data.length > 0) {
+          results[code] = data[0];
+        }
+      } catch (err) {
+        logger.warn({ err, code }, "[Pricing] GetCoinImages fetch failed, will use local fallback");
+      }
+    })
+  );
+
+  cachedCoinImages = results;
+  logger.info({ codes: Object.keys(results) }, "[Pricing] DG coin images cached");
+  return results;
+}
+
 async function getLiveSpot() {
   const now = Date.now();
   if (cachedSpot && now - cacheTs < CACHE_TTL_MS) {
@@ -456,7 +494,7 @@ router.get("/spot", async (_req, res) => {
   }
 });
 
-// Local images — background-removed transparent PNGs, used for all products
+// Local images — background-removed transparent PNGs, used as fallback
 const LOCAL_IMAGES: Record<string, string> = {
   "1EAGLE": "/images/gold-eagle.png",
   "1B":     "/images/gold-buffalo-obverse-clean.png",
@@ -469,24 +507,28 @@ const LOCAL_REVERSE_IMAGES: Record<string, string> = {
   "SE":     "/images/silver-eagle-reverse-clean.png",
 };
 
-function pickImage(_dgImages: { imgType: string; imgPath: string }[], code: string): string {
-  // Always use local background-removed images
-  return LOCAL_IMAGES[code] ?? "/images/gold-eagle.png";
+function pickImage(code: string, dgCoinImages: Record<string, DGCoinImageData>): string {
+  // Prefer DG's 600x600 obverse image; fall back to local background-removed PNG
+  return dgCoinImages[code]?.imageLargeObverseURL || LOCAL_IMAGES[code] || "/images/gold-eagle.png";
 }
 
-function pickReverseImage(_dgImages: { imgType: string; imgPath: string }[], code: string): string | undefined {
-  // Always use local background-removed reverse images where available
-  return LOCAL_REVERSE_IMAGES[code];
+function pickReverseImage(code: string, dgCoinImages: Record<string, DGCoinImageData>): string | undefined {
+  // Prefer DG's 600x600 reverse image; fall back to local background-removed PNG
+  return dgCoinImages[code]?.imageLargeReverseURL || LOCAL_REVERSE_IMAGES[code];
 }
 
 // GET /api/pricing/products
 router.get("/products", async (_req, res) => {
   try {
-    const [spot, dgProducts] = await Promise.all([
+    const [spot, dgProducts, dgCoinImages] = await Promise.all([
       getLiveSpot(),
       getLiveProductData().catch((err) => {
         logger.warn({ err }, "[Pricing] GetPricesForProducts failed, using spot fallback");
         return null;
+      }),
+      fetchDGCoinImages().catch((err) => {
+        logger.warn({ err }, "[Pricing] GetCoinImages failed, using local fallback");
+        return {} as Record<string, DGCoinImageData>;
       }),
     ]);
 
@@ -516,8 +558,8 @@ router.get("/products", async (_req, res) => {
           : fallbackPrice(spot.goldAsk, DG_FALLBACK_PREMIUM_PERCENT.goldEagle, GOLD_COMMISSION_PERCENT),
         iraEligible: true, // Gold Eagles are IRA-eligible via congressional exception (Taxpayer Relief Act 1997) regardless of DG's purity-based flag
         deliveryWindow: eagleDG?.availability ?? "",
-        imageUrl: pickImage(eagleDG?.images ?? [], "1EAGLE"),
-        reverseImageUrl: pickReverseImage(eagleDG?.images ?? [], "1EAGLE"),
+        imageUrl: pickImage("1EAGLE", dgCoinImages),
+        reverseImageUrl: pickReverseImage("1EAGLE", dgCoinImages),
         description:
           "The Gold American Eagle is the official gold bullion coin of the United States, struck from 91.67% pure gold. Among the most widely recognized and liquid coins in the world.",
       },
@@ -533,8 +575,8 @@ router.get("/products", async (_req, res) => {
           : fallbackPrice(spot.goldAsk, DG_FALLBACK_PREMIUM_PERCENT.goldBuffalo, GOLD_COMMISSION_PERCENT),
         iraEligible: buffDG ? buffDG.isIRAConnectBidEligible === "Y" : true,
         deliveryWindow: buffDG?.availability ?? "",
-        imageUrl: pickImage(buffDG?.images ?? [], "1B"),
-        reverseImageUrl: pickReverseImage(buffDG?.images ?? [], "1B"),
+        imageUrl: pickImage("1B", dgCoinImages),
+        reverseImageUrl: pickReverseImage("1B", dgCoinImages),
         description:
           "The Gold American Buffalo is the first 24-karat gold coin struck by the United States Mint. At .9999 fine gold purity, it is one of the most refined gold coins available.",
       },
@@ -550,8 +592,8 @@ router.get("/products", async (_req, res) => {
           : fallbackPrice(spot.silverAsk, DG_FALLBACK_PREMIUM_PERCENT.silverEagle, SILVER_COMMISSION_PERCENT),
         iraEligible: silverDG ? silverDG.isIRAConnectBidEligible === "Y" : true,
         deliveryWindow: silverDG?.availability ?? "",
-        imageUrl: pickImage(silverDG?.images ?? [], "SE"),
-        reverseImageUrl: pickReverseImage(silverDG?.images ?? [], "SE"),
+        imageUrl: pickImage("SE", dgCoinImages),
+        reverseImageUrl: pickReverseImage("SE", dgCoinImages),
         description:
           "The Silver American Eagle is the official silver bullion coin of the United States. At .999 fine silver, it is one of the most widely held and recognized silver coins globally.",
       },
