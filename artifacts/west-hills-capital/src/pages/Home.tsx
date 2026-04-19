@@ -63,7 +63,7 @@ export default function Home() {
 
           {/* HERO TEXT */}
           <div className="text-center max-w-3xl mx-auto pt-10 pb-6">
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-serif font-semibold text-foreground leading-[1.1] mb-6">
+            <h1 className="text-5xl sm:text-6xl lg:text-6xl font-serif font-semibold text-foreground leading-[1.1] mb-6">
               Physical Gold and Silver{" "}
               <span className="text-primary italic">— Something you actually own.</span>
             </h1>
