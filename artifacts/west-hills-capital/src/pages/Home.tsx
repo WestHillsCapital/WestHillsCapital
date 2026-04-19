@@ -57,7 +57,7 @@ export default function Home() {
           <div className="text-center max-w-3xl mx-auto pt-10 pb-6">
             <h1 className="text-5xl sm:text-6xl lg:text-7xl font-serif font-semibold text-foreground leading-[1.1] mb-6">
               Physical Gold and Silver{" "}
-              <span className="text-primary italic">— As True as Time.</span>
+              <span className="text-primary italic">— Something you actually own.</span>
             </h1>
             <p className="text-xl sm:text-2xl text-foreground/80 mb-2 font-medium">
               Buy physical gold and silver with transparent pricing for delivery or IRA accounts.
