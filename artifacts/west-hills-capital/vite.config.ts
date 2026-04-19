@@ -1,8 +1,10 @@
-import { defineConfig } from "vite";
+import { defineConfig, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
+import fs from "fs";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+import { INSIGHTS } from "./src/data/insights";
 
 // PORT and BASE_PATH are required in Replit but optional elsewhere (e.g. Vercel).
 // Defaults allow `vite build` to succeed without those env vars being set.
@@ -19,12 +21,73 @@ const apiUrl =
     ? ""
     : (process.env.VITE_API_URL ?? "");
 
+const SITE_BASE = "https://westhillscapital.com";
+
+const STATIC_PAGES = [
+  { loc: "/", changefreq: "weekly", priority: "1.0" },
+  { loc: "/faq", changefreq: "monthly", priority: "0.8" },
+  { loc: "/about", changefreq: "monthly", priority: "0.8" },
+  { loc: "/pricing", changefreq: "daily", priority: "0.9" },
+  { loc: "/ira", changefreq: "monthly", priority: "0.8" },
+  { loc: "/schedule", changefreq: "monthly", priority: "0.9" },
+  { loc: "/insights", changefreq: "weekly", priority: "0.8" },
+  { loc: "/disclosures", changefreq: "yearly", priority: "0.3" },
+  { loc: "/terms", changefreq: "yearly", priority: "0.3" },
+  { loc: "/privacy", changefreq: "yearly", priority: "0.3" },
+];
+
+function buildSitemapXml(): string {
+  const articlePages = INSIGHTS.map((a) => ({
+    loc: `/insights/${a.slug}`,
+    changefreq: "yearly",
+    priority: "0.7",
+  }));
+
+  const allPages = [...STATIC_PAGES, ...articlePages];
+
+  const urlEntries = allPages
+    .map(
+      ({ loc, changefreq, priority }) =>
+        `  <url>\n    <loc>${SITE_BASE}${loc}</loc>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`,
+    )
+    .join("\n");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n\n  <!-- Core pages + insight articles (auto-generated from INSIGHTS array in insights.ts) -->\n${urlEntries}\n\n</urlset>\n`;
+}
+
+function sitemapPlugin(): Plugin {
+  return {
+    name: "vite-plugin-sitemap",
+    configureServer(server) {
+      server.middlewares.use((req, res, next) => {
+        if (req.url === "/sitemap.xml") {
+          res.setHeader("Content-Type", "application/xml; charset=utf-8");
+          res.end(buildSitemapXml());
+          return;
+        }
+        next();
+      });
+    },
+    closeBundle() {
+      const outDir = path.resolve(import.meta.dirname, "dist/public");
+      if (fs.existsSync(outDir)) {
+        fs.writeFileSync(
+          path.join(outDir, "sitemap.xml"),
+          buildSitemapXml(),
+          "utf-8",
+        );
+      }
+    },
+  };
+}
+
 export default defineConfig({
   base: basePath,
   plugins: [
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
+    sitemapPlugin(),
     ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
