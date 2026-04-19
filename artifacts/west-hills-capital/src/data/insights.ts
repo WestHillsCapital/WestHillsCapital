@@ -1778,6 +1778,107 @@ export const INSIGHTS: InsightArticle[] = [
     ],
   },
 
+  // ─── Founder's Perspective ────────────────────────────────────────────────────
+  {
+    slug: "why-we-only-carry-three-products",
+    title: "Why We Only Carry Three Products — and What That Decision Says About Everything Else",
+    excerpt:
+      "The product selection at West Hills Capital isn't a limitation. It's the result of watching what happens when clients who bought the wrong products eventually need to sell — and deciding we wouldn't be part of that.",
+    group: "choosing-who-to-trust",
+    metaDescription:
+      "West Hills Capital's founder explains why we carry only three sovereign bullion products, what the proof coin model costs buyers at exit, and how our commission structure was built around the client's need to sell.",
+    sections: [
+      {
+        paragraphs: [
+          "The simplest description of West Hills Capital is that we carry three products.",
+          "The 1 oz American Gold Eagle. The 1 oz American Gold Buffalo. The 1 oz American Silver Eagle.",
+          "That's it.",
+          "Most dealers offer hundreds — sometimes thousands — of options. We don't. And the reason isn't that we couldn't source more, or that demand for other products doesn't exist.",
+          "The reason is that when you look honestly at how the precious metals industry works, the product catalog is the business model. And most business models in this space are not built around the client.",
+        ],
+      },
+      {
+        heading: "The product catalog is the business model",
+        paragraphs: [
+          "In precious metals, what a dealer sells tells you almost everything about how they make money.",
+          "Proof coins — the ones with mirror finishes, presentation boxes, certificates of authenticity — carry premiums of 100% or more above the underlying metal value. Sometimes substantially more.",
+          "That means a buyer spending $4,000 on a proof coin when gold is at $2,000 an ounce may be putting roughly $2,000 or more toward premium rather than metal.",
+          "A portion of that premium is the dealer's margin.",
+          "The higher the premium, the more revenue per transaction. The more a dealer steers clients toward higher-premium products, the higher the revenue per client, regardless of how much metal the client actually ends up holding.",
+          "That incentive is structural. It's not always about bad intent. It's about a business model that rewards a specific kind of behavior — and that behavior doesn't favor the buyer.",
+        ],
+      },
+      {
+        heading: "Why proof coins became the dominant model",
+        paragraphs: [
+          "Proof coins are genuinely beautiful. They're produced under exceptional standards, with highly polished dies and multiple strikes. The finish is distinctive. The presentation is deliberate.",
+          "They're also easy to sell emotionally.",
+          "The story writes itself: rare, collectible, limited mintage, a piece of history. And none of that is entirely false. Proof coins do have collector appeal. They are produced in smaller quantities. Some buyers genuinely want them.",
+          "But here's what rarely gets said clearly: the metal content is identical.",
+          "One ounce of gold in a proof coin is one ounce of gold in a bullion coin. The proof coin doesn't contain more gold. It contains more packaging, more presentation, and more margin — in a form that's considerably harder to recover when it comes time to sell.",
+        ],
+      },
+      {
+        heading: "What happens when you need to sell",
+        paragraphs: [
+          "Most people thinking about buying gold and silver are thinking about the purchase. Very few are thinking about the exit.",
+          "That's understandable. The purchase is the active decision. The sale feels distant.",
+          "But the exit is when everything about the original purchase gets scored.",
+          "The resale market for proof coins reflects the metal's value — not the collector premium that was paid at purchase. A coin bought for $4,500 when gold was at $2,000 an ounce doesn't sell back at $4,500.",
+          "The collector premium is negotiable, contextual, and often absent in a time-sensitive sale. Finding a buyer willing to pay a meaningful numismatic premium takes time, effort, and the right circumstances. In a forced or urgent liquidation, that premium is typically not there.",
+          "What sells back reliably — at close to spot value, consistently, globally — is sovereign bullion.",
+          "An American Gold Eagle has a bid market from thousands of dealers, banks, and institutions. No explanation required. No specialty buyer to locate. No need to discuss provenance or collector condition. The market for these coins is deep, continuous, and price-transparent on both sides of the transaction.",
+          "That's not an accident. It's the reason we chose them.",
+        ],
+      },
+      {
+        heading: "The liquidity test",
+        paragraphs: [
+          "When we built the product selection, the guiding question was: what is this worth when someone needs it most?",
+          "Not when markets are calm and a buyer has months to evaluate options. But when circumstances change — when the need to convert to cash is real and not entirely on the buyer's schedule.",
+          "Physical metals are supposed to be a form of financial resilience. If what you're holding can't be sold quickly and fairly when the moment comes, it hasn't done its job.",
+          "Sovereign bullion passes that test. Proof coins, in many real-world situations, do not.",
+          "That distinction — between what looks valuable and what is liquid — is the one that matters most for long-term buyers. And it's the one the industry is least interested in discussing.",
+        ],
+      },
+      {
+        heading: "What the commission structure required us to decide",
+        paragraphs: [
+          "The commission structure in this industry follows the product catalog.",
+          "Higher-premium products pay dealers more per transaction. Standard bullion pays less. The pressure to recommend high-premium products isn't always explicit — it's built into the economics.",
+          "When we set up West Hills Capital, we set fixed commissions: 2% on gold, 5% on silver. Disclosed upfront. The same for every client, every transaction.",
+          "The silver rate reflects real costs — silver is heavy, low value-per-ounce, expensive to insure and ship. The gold rate reflects what a fair margin looks like when the goal is a long-term relationship rather than maximum revenue per order.",
+          "At those rates, there's no financial advantage to steering a client toward a higher-premium product. Every trade pays the same commission regardless of what's being sold. That removes the conflict.",
+          "It also means that every recommendation we make is the one we would make if we had no financial stake in the outcome. That's the standard we hold it to.",
+        ],
+      },
+      {
+        heading: "Three products is also a discipline",
+        paragraphs: [
+          "Carrying three products means we know them deeply — their pricing, their liquidity profiles, their resale markets, their treatment in IRA structures, the reporting thresholds that apply to them.",
+          "It means a client doesn't spend a consultation evaluating the relative merits of sixty-five products with different premiums, different stories, and different resale realities.",
+          "Every conversation is about how much metal, at what price, and what happens from here. Not which product's presentation is most compelling today.",
+          "Simplicity isn't a constraint we work around. It's the point.",
+        ],
+      },
+      {
+        heading: "What this says about how to evaluate any dealer",
+        paragraphs: [
+          "The product catalog is the business model.",
+          "A dealer offering hundreds of products — many with high premiums and polished presentations — has built a business around maximizing revenue per client. That's not inherently dishonest, but the incentives point in a specific direction.",
+          "A dealer carrying a narrow selection of highly liquid sovereign bullion has built a business around the client's need to own something real and sell it fairly when the time comes.",
+          "These are different firms. They serve different interests. And the difference usually becomes clear not at the moment of purchase, but at the moment of sale.",
+          "We've been in operation since 2011. The clients who've been with us the longest aren't here because of anything we said at the outset. They're here because of what they found out when the time came to act on it.",
+        ],
+      },
+    ],
+    related: [
+      "bullion-vs-proof-coins",
+      "why-we-recommend-only-three-products",
+      "the-one-question-every-gold-buyer-should-ask",
+    ],
+  },
+
   // ─────────────────────────────────────────────────────────────────────────────
 ];
 

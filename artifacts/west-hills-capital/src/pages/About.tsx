@@ -53,6 +53,11 @@ export default function About() {
           <p>
             The resale market for these coins is global, deep, and consistent. Proof coins, limited editions, and numismatic collectibles carry premiums that the resale market rarely supports — if and when you need to convert to cash, that gap matters. We believe the most important thing we can do for a client is ensure that the metals they acquire can be transferred or liquidated at a fair price when the time comes.
           </p>
+          <p>
+            <Link href="/insights/why-we-only-carry-three-products" className="underline underline-offset-4 text-foreground/70 hover:text-foreground transition-colors text-sm">
+              Read more on why we only carry three products — and what that decision required us to walk away from →
+            </Link>
+          </p>
 
           {/* HOW WE OPERATE */}
           <h2 className="text-2xl font-serif font-semibold text-foreground mt-12 mb-6">
