@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, BookOpen, ShieldCheck, Scale, Banknote, History, CheckCircle2, Shield, Star } from "lucide-react";
 import { useProductPrices } from "@/hooks/use-pricing";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 const TESTIMONIALS = [
   {
@@ -26,6 +27,13 @@ const TESTIMONIALS = [
 ];
 
 export default function Home() {
+  usePageMeta({
+    title: "West Hills Capital | Physical Gold & Silver Allocation",
+    description: "Buy physical gold and silver with transparent pricing for delivery or IRA accounts. American Gold Eagles, Gold Buffalos, and Silver Eagles. Disciplined execution. No hidden fees. Call (800) 867-6768.",
+    ogTitle: "West Hills Capital | Physical Gold & Silver Allocation",
+    ogDescription: "Buy physical gold and silver with transparent pricing for delivery or IRA accounts. Disciplined execution. No gimmicks. Call (800) 867-6768.",
+  });
+
   const { data: pricingData, isLoading: loadingProducts } = useProductPrices();
 
   const principles = [

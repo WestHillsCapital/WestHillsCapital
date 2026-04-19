@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 interface FAQItem {
   q: string;
@@ -183,6 +184,13 @@ function FAQAccordion({ item }: { item: FAQItem }) {
 }
 
 export default function FAQ() {
+  usePageMeta({
+    title: "FAQ | West Hills Capital Physical Gold & Silver",
+    description: "Common questions about buying physical gold and silver through West Hills Capital — pricing, commissions, delivery, IRA rollovers, and how the purchase process works.",
+    ogTitle: "FAQ | West Hills Capital Physical Gold & Silver",
+    ogDescription: "Answers on pricing, commissions, delivery, IRA rollovers, and how purchases work at West Hills Capital. Call (800) 867-6768.",
+  });
+
   return (
     <div className="w-full bg-background pt-12 pb-24">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">

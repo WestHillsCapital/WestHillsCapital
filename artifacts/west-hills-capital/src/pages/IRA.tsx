@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Shield, Building2, FileText, CheckCircle2 } from "lucide-react";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 const US_STATES = [
   ["AL", "Alabama"], ["AK", "Alaska"], ["AZ", "Arizona"], ["AR", "Arkansas"],
@@ -35,6 +36,13 @@ const iraSchema = z.object({
 type IraFormValues = z.infer<typeof iraSchema>;
 
 export default function IRA() {
+  usePageMeta({
+    title: "Precious Metals IRA | West Hills Capital",
+    description: "Roll over or transfer an existing IRA into a self-directed account holding American Gold Eagles, Gold Buffalos, or Silver Eagles. West Hills Capital walks through every step. Call (800) 867-6768.",
+    ogTitle: "Precious Metals IRA | West Hills Capital",
+    ogDescription: "Hold physical gold and silver in a self-directed IRA. Same coins, same transparent pricing — held at an approved depository. Call (800) 867-6768.",
+  });
+
   const mutation = useSubmitLeadIntake();
 
   const form = useForm<IraFormValues>({

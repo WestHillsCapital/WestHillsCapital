@@ -1,8 +1,16 @@
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Phone } from "lucide-react";
+import { usePageMeta } from "@/hooks/use-page-meta";
 
 export default function About() {
+  usePageMeta({
+    title: "About West Hills Capital | Physical Gold & Silver Dealer Since 2011",
+    description: "West Hills Capital has operated since June 2011, built around transparent pricing, sovereign bullion only, and a commitment process that puts clients first. No proof coins. No speculation. No pressure.",
+    ogTitle: "About West Hills Capital | Physical Gold & Silver Dealer Since 2011",
+    ogDescription: "In operation since 2011. Transparent commissions, sovereign bullion only, and a purchase process that puts clients first. Call (800) 867-6768.",
+  });
+
   return (
     <div className="w-full bg-background min-h-screen pt-16 pb-0">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
