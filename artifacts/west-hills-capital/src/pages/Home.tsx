@@ -110,7 +110,11 @@ export default function Home() {
                     <img
                       src={product.imageUrl}
                       alt={product.name}
-                      className="w-40 h-40 object-contain group-hover:scale-105 transition-transform duration-500"
+                      className={`w-40 h-40 object-contain transition-transform duration-500 ${
+                        product.id === "gold-american-buffalo-1oz"
+                          ? "scale-[1.35] group-hover:scale-[1.42]"
+                          : "group-hover:scale-105"
+                      }`}
                     />
                     {product.iraEligible && (
                       <div className="absolute top-3 right-3 bg-white px-2.5 py-1 rounded-full border border-primary/20 text-xs font-semibold text-primary flex items-center gap-1.5 shadow-sm">
