@@ -190,9 +190,9 @@ router.get("/articles", async (_req, res) => {
 
 // GET /api/internal/content/articles/:id
 // Returns full article including sections and meta_description for the editor.
-router.get("/articles/:id", async (req, res) => {
+router.get("/articles/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   try {
     const db = getDb();
@@ -201,7 +201,7 @@ router.get("/articles/:id", async (req, res) => {
        FROM content_articles WHERE id = $1`,
       [id]
     );
-    if (rows.length === 0) return res.status(404).json({ error: "Article not found" });
+    if (rows.length === 0) { res.status(404).json({ error: "Article not found" }); return; }
     const r = rows[0];
     res.json({
       article: {
@@ -226,10 +226,10 @@ router.get("/articles/:id", async (req, res) => {
 // POST /api/internal/content/draft
 // Body: { topic: string }
 // Calls Anthropic and returns a structured article draft.
-router.post("/draft", async (req, res) => {
+router.post("/draft", async (req, res): Promise<void> => {
   const { topic } = req.body as { topic?: string };
   if (!topic || typeof topic !== "string" || topic.trim().length < 5) {
-    return res.status(400).json({ error: "topic is required" });
+    res.status(400).json({ error: "topic is required" }); return;
   }
 
   try {
@@ -256,7 +256,7 @@ router.post("/draft", async (req, res) => {
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       logger.error({ text }, "[Content] Anthropic response did not contain JSON");
-      return res.status(500).json({ error: "AI returned an unexpected format" });
+      res.status(500).json({ error: "AI returned an unexpected format" }); return;
     }
 
     const draft = JSON.parse(jsonMatch[0]);
@@ -269,7 +269,7 @@ router.post("/draft", async (req, res) => {
 
 // POST /api/internal/content/articles
 // Saves a draft article.
-router.post("/articles", async (req, res) => {
+router.post("/articles", async (req, res): Promise<void> => {
   const { slug, title, excerpt, group, metaDescription, sections, related } = req.body as {
     slug?: string;
     title?: string;
@@ -281,7 +281,7 @@ router.post("/articles", async (req, res) => {
   };
 
   if (!slug || !title || !excerpt || !group || !metaDescription || !sections) {
-    return res.status(400).json({ error: "Missing required fields" });
+    res.status(400).json({ error: "Missing required fields" }); return;
   }
 
   try {
@@ -309,9 +309,9 @@ router.post("/articles", async (req, res) => {
 
 // PATCH /api/internal/content/articles/:id
 // Updates an existing article's fields.
-router.patch("/articles/:id", async (req, res) => {
+router.patch("/articles/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   const { slug, title, excerpt, group, metaDescription, sections, related } = req.body as {
     slug?: string;
@@ -341,7 +341,7 @@ router.patch("/articles/:id", async (req, res) => {
        sections ? JSON.stringify(sections) : null,
        related ? JSON.stringify(related) : null]
     );
-    if (rows.length === 0) return res.status(404).json({ error: "Article not found" });
+    if (rows.length === 0) { res.status(404).json({ error: "Article not found" }); return; }
     res.json({ article: rows[0] });
   } catch (err) {
     logger.error({ err }, "[Content] Failed to update article");
@@ -351,9 +351,9 @@ router.patch("/articles/:id", async (req, res) => {
 
 // POST /api/internal/content/articles/:id/publish
 // Marks an article as published. Returns the canonical live URL.
-router.post("/articles/:id/publish", async (req, res) => {
+router.post("/articles/:id/publish", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   try {
     const db = getDb();
@@ -364,7 +364,7 @@ router.post("/articles/:id/publish", async (req, res) => {
        RETURNING id, slug, title, status, published_at`,
       [id]
     );
-    if (rows.length === 0) return res.status(404).json({ error: "Article not found" });
+    if (rows.length === 0) { res.status(404).json({ error: "Article not found" }); return; }
     const article = rows[0];
     const liveUrl = `https://westhillscapital.com/insights/${article.slug}`;
     res.json({ article: { ...article, liveUrl } });
@@ -375,9 +375,9 @@ router.post("/articles/:id/publish", async (req, res) => {
 });
 
 // POST /api/internal/content/articles/:id/unpublish
-router.post("/articles/:id/unpublish", async (req, res) => {
+router.post("/articles/:id/unpublish", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   try {
     const db = getDb();
@@ -386,7 +386,7 @@ router.post("/articles/:id/unpublish", async (req, res) => {
        WHERE id = $1 RETURNING id, slug, title, status`,
       [id]
     );
-    if (rows.length === 0) return res.status(404).json({ error: "Article not found" });
+    if (rows.length === 0) { res.status(404).json({ error: "Article not found" }); return; }
     res.json({ article: rows[0] });
   } catch (err) {
     logger.error({ err }, "[Content] Failed to unpublish article");
@@ -395,9 +395,9 @@ router.post("/articles/:id/unpublish", async (req, res) => {
 });
 
 // DELETE /api/internal/content/articles/:id
-router.delete("/articles/:id", async (req, res) => {
+router.delete("/articles/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);
-  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+  if (isNaN(id)) { res.status(400).json({ error: "Invalid id" }); return; }
 
   try {
     const db = getDb();
