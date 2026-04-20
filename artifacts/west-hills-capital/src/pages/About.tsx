@@ -33,7 +33,7 @@ export default function About() {
             Why This Firm Exists
           </h2>
           <p>
-            West Hills Capital has been in operation since June 2011 — founded not because precious metals happened to be in the news, but because of a specific moment where a choice had to be made between what was profitable and what was right. The founder spent years studying monetary systems and working inside the industry before concluding that most of it was structured around commissions, not clients.
+            West Hills Capital has been in operation since June 2011 — founded not because precious metals happened to be in the news, but because of a specific moment where a choice had to be made between what was profitable and what was right. Joe spent years studying monetary systems and working inside the industry before concluding that most of it was structured around commissions, not clients.
           </p>
           <p>
             The proof coin model is the clearest example. Products with premiums of 100% or more over spot, marketed on aesthetics and scarcity, with a resale market that rarely supports what was paid. When clients needed liquidity, those premiums often couldn't be recovered. When that reality became impossible to work around honestly, we stopped working around it and started something different.
@@ -113,9 +113,6 @@ export default function About() {
             </p>
           </div>
 
-          <p className="text-center text-foreground/70">
-            We welcome the opportunity to speak with you — on your timeline, without pressure, and with complete transparency on price and process.
-          </p>
 
         </div>
       </div>
