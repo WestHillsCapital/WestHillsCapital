@@ -1,6 +1,10 @@
 {
   "rewrites": [
     {
+      "source": "/sitemap.xml",
+      "destination": "https://workspaceapi-server-production-987b.up.railway.app/sitemap.xml"
+    },
+    {
       "source": "/api/:path*",
       "destination": "https://workspaceapi-server-production-987b.up.railway.app/api/:path*"
     }

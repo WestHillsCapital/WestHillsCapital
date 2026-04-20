@@ -3,6 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
 import router from "./routes";
+import sitemapRouter from "./routes/sitemap";
 import { logger } from "./lib/logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { dbReady, dbError } from "./db";
@@ -107,6 +108,9 @@ app.get("/healthz", (_req, res) => {
     dryRun: process.env.FIZTRADE_DRY_RUN === "true",
   });
 });
+
+// ── Root-level sitemap (must be before /api router) ───────────────────────────
+app.use(sitemapRouter);
 
 // ── API routes ─────────────────────────────────────────────────────────────────
 app.use("/api", router);

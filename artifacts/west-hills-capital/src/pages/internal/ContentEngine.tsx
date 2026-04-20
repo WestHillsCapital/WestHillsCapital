@@ -113,6 +113,9 @@ function ArticleEditor({
   const [publishing, setPublishing] = useState(false);
   const [unpublishing, setUnpublishing] = useState(false);
   const [isPublished, setIsPublished] = useState(initialPublished ?? false);
+  const [liveUrl, setLiveUrl] = useState<string | null>(
+    initialPublished ? `https://westhillscapital.com/insights/${initial.slug}` : null
+  );
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
   const handleFieldChange = (field: keyof DraftArticle, value: string) => {
@@ -183,16 +186,19 @@ function ArticleEditor({
         method: "POST",
         headers: getAuthHeaders(),
       });
-      if (!res.ok) throw new Error("Publish failed");
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Publish failed");
       setIsPublished(true);
-      setSaveMsg("Published — article is now live on Insights");
+      const url: string = data.article?.liveUrl ?? `https://westhillscapital.com/insights/${draft.slug}`;
+      setLiveUrl(url);
+      setSaveMsg("Published");
       await qc.invalidateQueries({ queryKey: ["content-articles"] });
     } catch (err) {
       setSaveMsg(err instanceof Error ? err.message : "Publish failed");
     } finally {
       setPublishing(false);
     }
-  }, [savedId, getAuthHeaders, qc]);
+  }, [savedId, draft.slug, getAuthHeaders, qc]);
 
   const unpublish = useCallback(async () => {
     if (!savedId) return;
@@ -204,6 +210,7 @@ function ArticleEditor({
       });
       if (!res.ok) throw new Error("Unpublish failed");
       setIsPublished(false);
+      setLiveUrl(null);
       setSaveMsg("Moved back to draft");
       await qc.invalidateQueries({ queryKey: ["content-articles"] });
     } catch (err) {
@@ -224,10 +231,20 @@ function ArticleEditor({
           ← New topic
         </button>
         <div className="flex-1" />
-        {saveMsg && (
-          <span className={`text-xs font-medium ${saveMsg.includes("Published") ? "text-green-600" : saveMsg.includes("fail") || saveMsg.includes("Save first") ? "text-red-500" : "text-[#C49A38]"}`}>
+        {saveMsg && !liveUrl && (
+          <span className={`text-xs font-medium ${saveMsg === "Published" || saveMsg.includes("Published") ? "text-green-600" : saveMsg.includes("fail") || saveMsg.includes("Save first") ? "text-red-500" : "text-[#C49A38]"}`}>
             {saveMsg}
           </span>
+        )}
+        {liveUrl && (
+          <a
+            href={liveUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs font-medium text-green-600 hover:underline"
+          >
+            Published — view live →
+          </a>
         )}
         <button
           onClick={save}

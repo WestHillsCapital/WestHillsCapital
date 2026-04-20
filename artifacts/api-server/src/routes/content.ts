@@ -350,7 +350,7 @@ router.patch("/articles/:id", async (req, res) => {
 });
 
 // POST /api/internal/content/articles/:id/publish
-// Marks an article as published.
+// Marks an article as published. Returns the canonical live URL.
 router.post("/articles/:id/publish", async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
@@ -361,11 +361,13 @@ router.post("/articles/:id/publish", async (req, res) => {
       `UPDATE content_articles
        SET status = 'published', published_at = COALESCE(published_at, NOW()), updated_at = NOW()
        WHERE id = $1
-       RETURNING id, slug, title, status`,
+       RETURNING id, slug, title, status, published_at`,
       [id]
     );
     if (rows.length === 0) return res.status(404).json({ error: "Article not found" });
-    res.json({ article: rows[0] });
+    const article = rows[0];
+    const liveUrl = `https://westhillscapital.com/insights/${article.slug}`;
+    res.json({ article: { ...article, liveUrl } });
   } catch (err) {
     logger.error({ err }, "[Content] Failed to publish article");
     res.status(500).json({ error: "Failed to publish" });
