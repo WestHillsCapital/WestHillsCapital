@@ -18,6 +18,7 @@ export interface InsightArticle {
   sections: InsightSection[];
   related: string[];
   foundersPerspective?: boolean;
+  publishedAt?: string;
 }
 
 export const INSIGHT_GROUPS: InsightGroup[] = [

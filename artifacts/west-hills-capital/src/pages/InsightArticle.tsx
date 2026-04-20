@@ -200,9 +200,23 @@ export default function InsightArticle() {
             <h1 className="text-3xl lg:text-[2.5rem] font-serif font-semibold leading-tight mb-4">
               {article.title}
             </h1>
-            <div className="flex items-center gap-1.5 text-xs text-foreground/35 mb-6">
-              <Clock className="w-3.5 h-3.5" />
-              <span>{readTime} min read</span>
+            <div className="flex items-center gap-3 text-xs text-foreground/35 mb-6">
+              <div className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5" />
+                <span>{readTime} min read</span>
+              </div>
+              {article.publishedAt && (
+                <>
+                  <span className="text-foreground/20">·</span>
+                  <span>
+                    {new Date(article.publishedAt).toLocaleDateString("en-US", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                  </span>
+                </>
+              )}
             </div>
             <p className="text-[17px] text-foreground/68 leading-[1.8] pb-8 border-b border-border/40">
               {article.excerpt}

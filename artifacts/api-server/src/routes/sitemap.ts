@@ -20,12 +20,20 @@ const STATIC_PAGES = [
 ];
 
 const STATIC_INSIGHT_SLUGS = [
-  "gold-vs-silver-ira",
-  "understanding-gold-premiums",
-  "sovereign-bullion-vs-generic",
-  "gold-ira-rules-explained",
-  "why-physical-gold",
-  "how-to-evaluate-a-gold-dealer",
+  "what-spot-price-really-means",
+  "why-people-overpay-for-gold-and-silver",
+  "why-free-silver-is-never-free",
+  "bullion-vs-proof-coins",
+  "what-the-gold-to-silver-ratio-actually-means",
+  "when-does-it-actually-make-sense-to-adjust-between-gold-and-silver",
+  "why-pricing-everything-in-dollars-can-be-misleading",
+  "what-happens-after-you-buy-gold",
+  "gold-vs-silver-storage-transport-and-real-world-practicality",
+  "gold-ira-what-actually-happens-step-by-step",
+  "the-one-question-every-gold-buyer-should-ask",
+  "how-to-choose-a-gold-dealer-without-getting-burned",
+  "why-we-recommend-only-three-products",
+  "why-we-only-carry-three-products",
 ];
 
 router.get("/sitemap.xml", async (_req, res) => {

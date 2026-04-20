@@ -154,9 +154,16 @@ export default function Insights() {
                               Read article
                               <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
                             </div>
-                            <div className="flex items-center gap-1 text-[11px] text-foreground/30 tabular-nums">
-                              <Clock className="w-3 h-3" />
-                              {readTime} min
+                            <div className="flex items-center gap-2 text-[11px] text-foreground/30 tabular-nums">
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {readTime} min
+                              </div>
+                              {article.publishedAt && (
+                                <span>
+                                  · {new Date(article.publishedAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                                </span>
+                              )}
                             </div>
                           </div>
                         </article>
