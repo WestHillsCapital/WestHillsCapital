@@ -96,11 +96,13 @@ function TopicPicker({ onSelect }: { onSelect: (topic: string) => void }) {
 function ArticleEditor({
   initial,
   savedId,
+  initialPublished,
   onSaved,
   onReset,
 }: {
   initial: DraftArticle;
   savedId: number | null;
+  initialPublished?: boolean;
   onSaved: (id: number) => void;
   onReset: () => void;
 }) {
@@ -110,7 +112,7 @@ function ArticleEditor({
   const [saving, setSaving] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [unpublishing, setUnpublishing] = useState(false);
-  const [isPublished, setIsPublished] = useState(false);
+  const [isPublished, setIsPublished] = useState(initialPublished ?? false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
 
   const handleFieldChange = (field: keyof DraftArticle, value: string) => {
@@ -436,6 +438,7 @@ export default function ContentEngine() {
   const [customTopic, setCustomTopic] = useState("");
   const [draft, setDraft] = useState<DraftArticle | null>(null);
   const [savedId, setSavedId] = useState<number | null>(null);
+  const [initialPublished, setInitialPublished] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
 
   const generate = useCallback(async (topic: string) => {
@@ -452,9 +455,37 @@ export default function ContentEngine() {
       if (!res.ok) throw new Error(data.error ?? "Generation failed");
       setDraft(data.draft);
       setSavedId(null);
+      setInitialPublished(false);
       setMode("editing");
     } catch (err) {
       setGenError(err instanceof Error ? err.message : "Generation failed");
+      setMode("topics");
+    }
+  }, [getAuthHeaders]);
+
+  // Fetch full article (including sections + metaDescription) before opening editor
+  const handleEdit = useCallback(async (article: SavedArticle) => {
+    setMode("generating"); // reuse spinner state while fetching
+    try {
+      const res = await fetch(`${API_BASE}/api/internal/content/articles/${article.id}`, {
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to load article");
+      const full = data.article;
+      setSavedId(full.id);
+      setInitialPublished(full.status === "published");
+      setDraft({
+        title: full.title,
+        slug: full.slug,
+        excerpt: full.excerpt,
+        group: full.group,
+        metaDescription: full.metaDescription ?? "",
+        sections: full.sections ?? [],
+      });
+      setMode("editing");
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : "Failed to load article");
       setMode("topics");
     }
   }, [getAuthHeaders]);
@@ -463,6 +494,7 @@ export default function ContentEngine() {
     setMode("topics");
     setDraft(null);
     setSavedId(null);
+    setInitialPublished(false);
     setGenError(null);
     setCustomTopic("");
   };
@@ -524,18 +556,7 @@ export default function ContentEngine() {
           </div>
 
           <div>
-            <SavedArticlesList onEdit={(a) => {
-              setMode("editing");
-              setSavedId(a.id);
-              setDraft({
-                title: a.title,
-                slug: a.slug,
-                excerpt: a.excerpt,
-                group: a.group_id,
-                metaDescription: "",
-                sections: [],
-              });
-            }} />
+            <SavedArticlesList onEdit={handleEdit} />
           </div>
         </div>
       )}
@@ -545,6 +566,7 @@ export default function ContentEngine() {
         <ArticleEditor
           initial={draft}
           savedId={savedId}
+          initialPublished={initialPublished}
           onSaved={(id) => setSavedId(id)}
           onReset={reset}
         />

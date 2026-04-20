@@ -36,14 +36,40 @@ const STATIC_PAGES = [
   { loc: "/privacy", changefreq: "yearly", priority: "0.3" },
 ];
 
-function buildSitemapXml(): string {
+async function buildSitemapXml(apiBase?: string): Promise<string> {
+  const staticSlugs = new Set(INSIGHTS.map((a) => a.slug));
+
   const articlePages = INSIGHTS.map((a) => ({
     loc: `/insights/${a.slug}`,
     changefreq: "yearly",
     priority: "0.7",
   }));
 
-  const allPages = [...STATIC_PAGES, ...articlePages];
+  // Attempt to include published DB articles not already in the static list.
+  // Works at dev-server request time and at Vercel build time (when VITE_API_URL is set).
+  const dynamicPages: { loc: string; changefreq: string; priority: string }[] = [];
+  const base = apiBase ?? process.env.VITE_API_URL ?? "http://localhost:8080";
+  try {
+    const res = await fetch(`${base}/api/content/published`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const { articles } = (await res.json()) as { articles: { slug: string }[] };
+      for (const article of articles ?? []) {
+        if (!staticSlugs.has(article.slug)) {
+          dynamicPages.push({
+            loc: `/insights/${article.slug}`,
+            changefreq: "yearly",
+            priority: "0.7",
+          });
+        }
+      }
+    }
+  } catch {
+    // Non-fatal — sitemap falls back to static articles only
+  }
+
+  const allPages = [...STATIC_PAGES, ...articlePages, ...dynamicPages];
 
   const urlEntries = allPages
     .map(
@@ -52,7 +78,7 @@ function buildSitemapXml(): string {
     )
     .join("\n");
 
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n\n  <!-- Core pages + insight articles (auto-generated from INSIGHTS array in insights.ts) -->\n${urlEntries}\n\n</urlset>\n`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n\n  <!-- Core pages + insight articles (auto-generated; includes published DB articles) -->\n${urlEntries}\n\n</urlset>\n`;
 }
 
 function sitemapPlugin(): Plugin {
@@ -62,20 +88,19 @@ function sitemapPlugin(): Plugin {
       server.middlewares.use((req, res, next) => {
         if (req.url === "/sitemap.xml") {
           res.setHeader("Content-Type", "application/xml; charset=utf-8");
-          res.end(buildSitemapXml());
+          buildSitemapXml("http://localhost:8080").then((xml) => res.end(xml)).catch(() => {
+            res.end("<?xml version=\"1.0\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"></urlset>");
+          });
           return;
         }
         next();
       });
     },
-    closeBundle() {
+    async closeBundle() {
       const outDir = path.resolve(import.meta.dirname, "dist/public");
       if (fs.existsSync(outDir)) {
-        fs.writeFileSync(
-          path.join(outDir, "sitemap.xml"),
-          buildSitemapXml(),
-          "utf-8",
-        );
+        const xml = await buildSitemapXml();
+        fs.writeFileSync(path.join(outDir, "sitemap.xml"), xml, "utf-8");
       }
     },
   };

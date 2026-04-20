@@ -188,6 +188,41 @@ router.get("/articles", async (_req, res) => {
   }
 });
 
+// GET /api/internal/content/articles/:id
+// Returns full article including sections and meta_description for the editor.
+router.get("/articles/:id", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (isNaN(id)) return res.status(400).json({ error: "Invalid id" });
+
+  try {
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT id, slug, title, excerpt, group_id, meta_description, sections, related, status, published_at
+       FROM content_articles WHERE id = $1`,
+      [id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: "Article not found" });
+    const r = rows[0];
+    res.json({
+      article: {
+        id: r.id,
+        slug: r.slug,
+        title: r.title,
+        excerpt: r.excerpt,
+        group: r.group_id,
+        metaDescription: r.meta_description,
+        sections: r.sections,
+        related: r.related,
+        status: r.status,
+        publishedAt: r.published_at,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Content] Failed to fetch article by id");
+    res.status(500).json({ error: "Failed to fetch article" });
+  }
+});
+
 // POST /api/internal/content/draft
 // Body: { topic: string }
 // Calls Anthropic and returns a structured article draft.

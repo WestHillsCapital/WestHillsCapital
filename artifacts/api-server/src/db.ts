@@ -146,6 +146,29 @@ export async function initDb(): Promise<void> {
     )
   `);
 
+  // ── Content articles table ─────────────────────────────────────────────────
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS content_articles (
+      id               SERIAL PRIMARY KEY,
+      slug             TEXT UNIQUE NOT NULL,
+      title            TEXT NOT NULL,
+      excerpt          TEXT NOT NULL,
+      group_id         TEXT NOT NULL DEFAULT 'making-smart-decisions',
+      meta_description TEXT NOT NULL DEFAULT '',
+      sections         JSONB NOT NULL DEFAULT '[]',
+      related          JSONB NOT NULL DEFAULT '[]',
+      status           TEXT NOT NULL DEFAULT 'draft',
+      published_at     TIMESTAMPTZ,
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await db.query(
+    "ALTER TABLE content_articles ADD COLUMN IF NOT EXISTS meta_description TEXT NOT NULL DEFAULT ''"
+  ).catch(() => {});
+
   // ── Deals table ────────────────────────────────────────────────────────────
 
   await db.query(`
