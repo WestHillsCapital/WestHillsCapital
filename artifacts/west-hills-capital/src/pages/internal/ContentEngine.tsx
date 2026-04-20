@@ -46,12 +46,13 @@ const GROUP_LABELS: Record<string, string> = {
 
 function TopicPicker({ onSelect }: { onSelect: (topic: string) => void }) {
   const [open, setOpen] = useState<string | null>(null);
+  const { getAuthHeaders } = useInternalAuth();
 
   const { data } = useQuery<{ clusters: TopicCluster[] }>({
     queryKey: ["content-topics"],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/api/internal/content/topics`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem("whc_internal_session") ? JSON.parse(localStorage.getItem("whc_internal_session")!).sessionToken : "dev-bypass"}` },
+        headers: getAuthHeaders(),
       });
       return res.json();
     },
@@ -117,10 +118,12 @@ function ArticleEditor({
     initialPublished ? `https://westhillscapital.com/insights/${initial.slug}` : null
   );
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(!savedId);
 
   const handleFieldChange = (field: keyof DraftArticle, value: string) => {
     setDraft((d) => ({ ...d, [field]: value }));
     setSaveMsg(null);
+    setIsDirty(true);
   };
 
   const handleSectionHeadingChange = (i: number, value: string) => {
@@ -130,6 +133,7 @@ function ArticleEditor({
       return { ...d, sections };
     });
     setSaveMsg(null);
+    setIsDirty(true);
   };
 
   const handleParagraphChange = (sectionIdx: number, paraIdx: number, value: string) => {
@@ -143,32 +147,40 @@ function ArticleEditor({
       return { ...d, sections };
     });
     setSaveMsg(null);
+    setIsDirty(true);
   };
+
+  // Returns the saved article id (creates or updates), throws on error
+  const persistDraft = useCallback(async (currentSavedId: number | null, currentDraft: DraftArticle): Promise<number> => {
+    const url = currentSavedId
+      ? `${API_BASE}/api/internal/content/articles/${currentSavedId}`
+      : `${API_BASE}/api/internal/content/articles`;
+    const method = currentSavedId ? "PATCH" : "POST";
+    const res = await fetch(url, {
+      method,
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({
+        slug:            currentDraft.slug,
+        title:           currentDraft.title,
+        excerpt:         currentDraft.excerpt,
+        group:           currentDraft.group,
+        metaDescription: currentDraft.metaDescription,
+        sections:        currentDraft.sections,
+        related:         [],
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Save failed");
+    return data.article.id as number;
+  }, [getAuthHeaders]);
 
   const save = useCallback(async () => {
     setSaving(true);
     setSaveMsg(null);
     try {
-      const url = savedId
-        ? `${API_BASE}/api/internal/content/articles/${savedId}`
-        : `${API_BASE}/api/internal/content/articles`;
-      const method = savedId ? "PATCH" : "POST";
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({
-          slug:            draft.slug,
-          title:           draft.title,
-          excerpt:         draft.excerpt,
-          group:           draft.group,
-          metaDescription: draft.metaDescription,
-          sections:        draft.sections,
-          related:         [],
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Save failed");
-      onSaved(data.article.id);
+      const id = await persistDraft(savedId, draft);
+      onSaved(id);
+      setIsDirty(false);
       setSaveMsg("Saved");
       await qc.invalidateQueries({ queryKey: ["content-articles"] });
     } catch (err) {
@@ -176,13 +188,21 @@ function ArticleEditor({
     } finally {
       setSaving(false);
     }
-  }, [draft, savedId, getAuthHeaders, onSaved, qc]);
+  }, [draft, savedId, persistDraft, onSaved, qc]);
 
   const publish = useCallback(async () => {
-    if (!savedId) { setSaveMsg("Save first before publishing"); return; }
     setPublishing(true);
+    setSaveMsg(null);
     try {
-      const res = await fetch(`${API_BASE}/api/internal/content/articles/${savedId}/publish`, {
+      let articleId = savedId;
+      // Implicitly save first if there are unsaved changes or article not yet saved
+      if (isDirty || !articleId) {
+        articleId = await persistDraft(savedId, draft);
+        onSaved(articleId);
+        setIsDirty(false);
+        await qc.invalidateQueries({ queryKey: ["content-articles"] });
+      }
+      const res = await fetch(`${API_BASE}/api/internal/content/articles/${articleId}/publish`, {
         method: "POST",
         headers: getAuthHeaders(),
       });
@@ -198,7 +218,7 @@ function ArticleEditor({
     } finally {
       setPublishing(false);
     }
-  }, [savedId, draft.slug, getAuthHeaders, qc]);
+  }, [savedId, isDirty, draft, persistDraft, onSaved, getAuthHeaders, qc]);
 
   const unpublish = useCallback(async () => {
     if (!savedId) return;
@@ -266,7 +286,7 @@ function ArticleEditor({
         ) : (
           <button
             onClick={publish}
-            disabled={publishing || !savedId}
+            disabled={publishing}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded bg-[#C49A38] text-white hover:bg-[#B8882A] transition-colors disabled:opacity-50"
           >
             <Globe className="w-3.5 h-3.5" />
