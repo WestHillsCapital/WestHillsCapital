@@ -1,7 +1,30 @@
 import { Link } from "wouter";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { ArrowRight, Clock } from "lucide-react";
-import { INSIGHTS, INSIGHT_GROUPS, getArticlesByGroup, getFoundersPerspectiveArticle, type InsightArticle } from "@/data/insights";
+import { useQuery } from "@tanstack/react-query";
+import { INSIGHTS, INSIGHT_GROUPS, getFoundersPerspectiveArticle, type InsightArticle } from "@/data/insights";
+
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+
+function useAllArticles(): InsightArticle[] {
+  const { data } = useQuery<{ articles: InsightArticle[] }>({
+    queryKey: ["published-articles"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/api/content/published`);
+      if (!res.ok) return { articles: [] };
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const staticSlugs = new Set(INSIGHTS.map((a) => a.slug));
+  const dynamicArticles = (data?.articles ?? []).filter((a) => !staticSlugs.has(a.slug));
+  return [...INSIGHTS, ...dynamicArticles];
+}
+
+function getArticlesByGroupDynamic(articles: InsightArticle[], groupId: string): InsightArticle[] {
+  return articles.filter((a) => a.group === groupId);
+}
 
 // ─── READ TIME ─────────────────────────────────────────────────────────────────
 
@@ -23,6 +46,7 @@ export default function Insights() {
     canonical: "https://westhillscapital.com/insights",
   });
 
+  const allArticles = useAllArticles();
   const founderArticle = getFoundersPerspectiveArticle();
 
   return (
@@ -46,7 +70,7 @@ export default function Insights() {
 
         {/* ARTICLE COUNT */}
         <p className="text-[12px] text-foreground/40 font-medium tracking-wide mb-10 uppercase">
-          {INSIGHTS.length} articles &nbsp;·&nbsp; {INSIGHT_GROUPS.length} topics
+          {allArticles.length} articles &nbsp;·&nbsp; {INSIGHT_GROUPS.length} topics
         </p>
 
         {/* FOUNDER'S PERSPECTIVE FEATURE */}
@@ -89,7 +113,7 @@ export default function Insights() {
         {/* GROUPS */}
         <div className="space-y-16">
           {INSIGHT_GROUPS.map((group, idx) => {
-            const articles = getArticlesByGroup(group.id);
+            const articles = getArticlesByGroupDynamic(allArticles, group.id);
             const groupNum = String(idx + 1).padStart(2, "0");
             return (
               <section key={group.id} aria-labelledby={`group-${group.id}`}>

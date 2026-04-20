@@ -41,6 +41,7 @@ const NotFound      = lazy(() => import("@/pages/not-found"));
 const InternalLeads        = lazy(() => import("@/pages/internal/Leads"));
 const InternalAppointments = lazy(() => import("@/pages/internal/Appointments"));
 const DealBuilder          = lazy(() => import("@/pages/internal/DealBuilder"));
+const ContentEngine        = lazy(() => import("@/pages/internal/ContentEngine"));
 
 // ── Shared fallback spinner ───────────────────────────────────────────────────
 function PageSpinner() {
@@ -77,6 +78,7 @@ function InternalRouter() {
         <Route path="/internal/leads"        component={InternalLeads}        />
         <Route path="/internal/appointments"  component={InternalAppointments} />
         <Route path="/internal/deal-builder"  component={DealBuilder}          />
+        <Route path="/internal/content"       component={ContentEngine}        />
         <Route>
           <Redirect to="/internal/leads" />
         </Route>

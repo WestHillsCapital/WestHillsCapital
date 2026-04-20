@@ -183,6 +183,50 @@ function FAQAccordion({ item }: { item: FAQItem }) {
   );
 }
 
+// ── FAQ JSON-LD schema data (plain text for structured data / AI search) ──────
+const FAQ_SCHEMA_ITEMS = [
+  {
+    q: "What does West Hills Capital actually do?",
+    a: "West Hills Capital helps clients allocate a portion of their savings into physical gold and silver — coins they own outright and can take delivery of or hold in an IRA. The firm does not sell financial products, manage portfolios, or give investment advice. The focus is disciplined, transparent execution of physical metal purchases.",
+  },
+  {
+    q: "What happens on the first call?",
+    a: "West Hills Capital discusses your situation, walks through current pricing, and answers any questions. If it makes sense to move forward, the commitment happens on the call itself. The firm blocks 45 minutes, though calls can be shorter or longer. There is no pressure.",
+  },
+  {
+    q: "How is pricing determined?",
+    a: "All pricing is based on the live spot price of gold or silver at the time of your trade. West Hills Capital sources metal through its wholesale supplier and adds a flat commission on top of its cost. The per-unit breakdown is always shown before commitment.",
+  },
+  {
+    q: "What commission does West Hills Capital charge?",
+    a: "West Hills Capital charges a flat percentage over its cost: 2% for gold and 5% for silver. There are no hidden fees or handling add-ons. The commission is built into the per-unit price quoted on the call.",
+  },
+  {
+    q: "When is pricing locked in?",
+    a: "Pricing is locked at the moment of your verbal commitment on the call. Spot prices move continuously, so locking in requires a live conversation — one of the reasons orders are not taken online.",
+  },
+  {
+    q: "What payment methods do you accept?",
+    a: "West Hills Capital accepts wire transfer, cashier's check, and personal check. Wire transfer is recommended as the safest method. Credit cards and ACH transfers are not accepted.",
+  },
+  {
+    q: "How is metal shipped?",
+    a: "All shipments go out via FedEx 2-Day, fully insured, with adult signature required at delivery. Standard postal services are not used. Directing shipments to a FedEx Office or Ship Center is recommended over home delivery.",
+  },
+  {
+    q: "Can I buy gold or silver inside my IRA?",
+    a: "Yes. West Hills Capital works with clients on self-directed IRA rollovers that allow physical precious metals to be held as IRA assets. The metal is stored with an approved depository — the client owns it outright and it stays at the custodian until distributions are taken.",
+  },
+  {
+    q: "Why does West Hills Capital focus on only three products?",
+    a: "West Hills Capital carries the 1 oz American Gold Eagle, the 1 oz American Gold Buffalo, and the 1 oz American Silver Eagle. These are the most liquid, most widely recognized bullion coins in the world and the easiest to resell. Other products, especially proof coins and collectibles, carry premiums that often cannot be recovered on resale.",
+  },
+  {
+    q: "What is the difference between a Gold Eagle and a Gold Buffalo?",
+    a: "Both are 1 oz government-minted U.S. coins. The Gold Eagle is .9167 fine, alloyed with silver and copper for durability, and has been in continuous production since 1986. The Gold Buffalo is .9999 fine 24-karat gold, minted since 2006. Both are IRA-eligible and highly liquid.",
+  },
+];
+
 export default function FAQ() {
   usePageMeta({
     title: "FAQ | West Hills Capital Physical Gold & Silver",
@@ -193,7 +237,25 @@ export default function FAQ() {
     canonical: "https://westhillscapital.com/faq",
   });
 
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": FAQ_SCHEMA_ITEMS.map((item) => ({
+      "@type": "Question",
+      "name": item.q,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": item.a,
+      },
+    })),
+  };
+
   return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+      />
     <div className="w-full bg-background pt-12 pb-24">
       <div className="max-w-3xl mx-auto px-4 sm:px-6">
 
@@ -240,5 +302,6 @@ export default function FAQ() {
 
       </div>
     </div>
+    </>
   );
 }

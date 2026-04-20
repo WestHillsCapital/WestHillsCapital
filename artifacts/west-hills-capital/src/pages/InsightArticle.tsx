@@ -1,12 +1,32 @@
 import { Link, useParams } from "wouter";
 import { useEffect, useRef, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
 import {
   getArticleBySlug,
   getRelatedArticles,
   INSIGHT_GROUPS,
+  type InsightArticle as InsightArticleType,
 } from "@/data/insights";
+
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+
+function useDynamicArticle(slug: string, skip: boolean) {
+  return useQuery<{ articles: InsightArticleType[] }>({
+    queryKey: ["published-articles"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/api/content/published`);
+      if (!res.ok) return { articles: [] };
+      return res.json();
+    },
+    staleTime: 5 * 60 * 1000,
+    enabled: !skip,
+    select: (data) => ({
+      articles: data.articles.filter((a) => a.slug === slug),
+    }),
+  });
+}
 
 // ─── READING PROGRESS BAR ─────────────────────────────────────────────────────
 
@@ -79,7 +99,10 @@ function ArticleCTA() {
 
 export default function InsightArticle() {
   const params = useParams<{ slug: string }>();
-  const article = getArticleBySlug(params.slug ?? "");
+  const slug = params.slug ?? "";
+  const staticArticle = getArticleBySlug(slug);
+  const { data: dynamicData, isLoading: dynamicLoading } = useDynamicArticle(slug, !!staticArticle);
+  const article = staticArticle ?? dynamicData?.articles?.[0];
 
   usePageMeta({
     title: article
@@ -87,8 +110,16 @@ export default function InsightArticle() {
       : "Article Not Found | West Hills Capital",
     description: article?.metaDescription ?? "Explore insights on gold, silver, and precious metals investing from West Hills Capital.",
     ogImage: "https://westhillscapital.com/opengraph.jpg",
-    canonical: params.slug ? `https://westhillscapital.com/insights/${params.slug}` : undefined,
+    canonical: slug ? `https://westhillscapital.com/insights/${slug}` : undefined,
   });
+
+  if (!staticArticle && dynamicLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (!article) {
     return (

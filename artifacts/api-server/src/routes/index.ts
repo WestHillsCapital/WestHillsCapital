@@ -9,6 +9,7 @@ import internalAuthRouter  from "./internal-auth";
 import internalRouter      from "./internal";
 import dealsRouter         from "./deals";
 import fedexRouter         from "./fedex";
+import contentRouter, { publicContentRouter } from "./content";
 import { requireInternalAuth } from "../middleware/requireInternalAuth";
 
 const router: IRouter = Router();
@@ -20,6 +21,7 @@ router.use("/scheduling",   schedulingRouter);
 router.use("/leads",        leadsRouter);
 router.use("/calendar-setup",    calendarSetupRouter);
 router.use("/sheets-backfill",   sheetsBackfillRouter);
+router.use("/content",           publicContentRouter);
 
 // ── Internal auth (public sign-in/signout endpoints) ──────────────────────────
 router.use("/internal/auth", internalAuthRouter);
@@ -34,5 +36,8 @@ router.use("/deals", requireInternalAuth, dealsRouter);
 
 // ── FedEx location search (internal tool) ─────────────────────────────────────
 router.use("/fedex", requireInternalAuth, fedexRouter);
+
+// ── Content engine (internal tool — also require auth) ────────────────────────
+router.use("/internal/content", requireInternalAuth, contentRouter);
 
 export default router;
