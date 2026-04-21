@@ -307,6 +307,7 @@ export default function DocuFill() {
   const [isSaving, setIsSaving] = useState(false);
   const [isDeletingPackage, setIsDeletingPackage] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [isDocumentDropActive, setIsDocumentDropActive] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [driveUrl, setDriveUrl] = useState<string | null>(null);
   const [driveWarnings, setDriveWarnings] = useState<string[]>([]);
@@ -711,41 +712,72 @@ export default function DocuFill() {
     });
   }
 
+  function getPdfFiles(files: FileList | File[]) {
+    return Array.from(files).filter((file) => file.type === "application/pdf" || /\.pdf$/i.test(file.name));
+  }
+
+  async function persistDocumentPdf(file: File, documentId?: string) {
+    if (!selectedPackage) return null;
+    const endpoint = documentId
+      ? `${API_BASE}/api/internal/docufill/packages/${selectedPackage.id}/documents/${documentId}/pdf`
+      : `${API_BASE}/api/internal/docufill/packages/${selectedPackage.id}/documents`;
+    const res = await fetch(endpoint, {
+      method: documentId ? "PUT" : "POST",
+      headers: {
+        "Content-Type": "application/pdf",
+        "X-File-Name": file.name,
+        "X-Document-Title": file.name.replace(/\.pdf$/i, ""),
+        ...getAuthHeaders(),
+      },
+      body: file,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? "Could not upload PDF");
+    if (documentId) {
+      evictDocumentPreview(selectedPackage.id, documentId);
+    }
+    const loadedPackages = normalizePackages([data.package]);
+    const updatedPackage = loadedPackages[0];
+    if (updatedPackage) {
+      setPackages((prev) => prev.map((pkg) => pkg.id === updatedPackage.id ? updatedPackage : pkg));
+      const latestDoc = documentId
+        ? updatedPackage.documents.find((doc) => doc.id === documentId)
+        : updatedPackage.documents[updatedPackage.documents.length - 1];
+      setSelectedDocumentId(latestDoc?.id ?? null);
+    }
+    return updatedPackage;
+  }
+
   async function uploadDocument(file: File, documentId?: string) {
     if (!selectedPackage) return;
     setIsUploadingDocument(true);
     setError(null);
     try {
-      const endpoint = documentId
-        ? `${API_BASE}/api/internal/docufill/packages/${selectedPackage.id}/documents/${documentId}/pdf`
-        : `${API_BASE}/api/internal/docufill/packages/${selectedPackage.id}/documents`;
-      const res = await fetch(endpoint, {
-        method: documentId ? "PUT" : "POST",
-        headers: {
-          "Content-Type": "application/pdf",
-          "X-File-Name": file.name,
-          "X-Document-Title": file.name.replace(/\.pdf$/i, ""),
-          ...getAuthHeaders(),
-        },
-        body: file,
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not upload PDF");
-      if (documentId) {
-        evictDocumentPreview(selectedPackage.id, documentId);
-      }
-      const loadedPackages = normalizePackages([data.package]);
-      const updatedPackage = loadedPackages[0];
-      if (updatedPackage) {
-        setPackages((prev) => prev.map((pkg) => pkg.id === updatedPackage.id ? updatedPackage : pkg));
-        const latestDoc = documentId
-          ? updatedPackage.documents.find((doc) => doc.id === documentId)
-          : updatedPackage.documents[updatedPackage.documents.length - 1];
-        setSelectedDocumentId(latestDoc?.id ?? null);
-      }
+      await persistDocumentPdf(file, documentId);
       setStatus(documentId ? "Replaced PDF." : "Uploaded PDF.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not upload PDF");
+    } finally {
+      setIsUploadingDocument(false);
+    }
+  }
+
+  async function uploadDocuments(files: FileList | File[]) {
+    if (!selectedPackage) return;
+    const pdfFiles = getPdfFiles(files);
+    if (pdfFiles.length === 0) {
+      setError("Choose or drop one or more PDF files.");
+      return;
+    }
+    setIsUploadingDocument(true);
+    setError(null);
+    try {
+      for (const file of pdfFiles) {
+        await persistDocumentPdf(file);
+      }
+      setStatus(`Uploaded ${pdfFiles.length} PDF${pdfFiles.length === 1 ? "" : "s"}.`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not upload PDFs");
     } finally {
       setIsUploadingDocument(false);
     }
@@ -1265,21 +1297,58 @@ export default function DocuFill() {
                       <div className="flex gap-2">
                         <button type="button" onClick={addDocument} className="rounded border border-[#D4C9B5] px-3 py-2 text-sm text-[#6B7A99]">Add placeholder</button>
                         <label className="rounded bg-[#0F1C3F] px-3 py-2 text-sm text-white cursor-pointer">
-                          Upload PDF
+                          Upload PDFs
                           <input
                             type="file"
                             accept="application/pdf"
+                            multiple
                             className="sr-only"
                             onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) uploadDocument(file);
+                              if (e.target.files?.length) uploadDocuments(e.target.files);
                               e.target.value = "";
                             }}
                           />
                         </label>
                       </div>
                     </div>
-                    {isUploadingDocument && <div className="text-xs text-[#6B7A99]">Uploading PDF…</div>}
+                    <div
+                      onDragEnter={(e: ReactDragEvent<HTMLDivElement>) => {
+                        e.preventDefault();
+                        setIsDocumentDropActive(true);
+                      }}
+                      onDragOver={(e: ReactDragEvent<HTMLDivElement>) => {
+                        e.preventDefault();
+                        e.dataTransfer.dropEffect = "copy";
+                        setIsDocumentDropActive(true);
+                      }}
+                      onDragLeave={(e: ReactDragEvent<HTMLDivElement>) => {
+                        e.preventDefault();
+                        setIsDocumentDropActive(false);
+                      }}
+                      onDrop={(e: ReactDragEvent<HTMLDivElement>) => {
+                        e.preventDefault();
+                        setIsDocumentDropActive(false);
+                        uploadDocuments(e.dataTransfer.files);
+                      }}
+                      className={`rounded-xl border-2 border-dashed p-6 text-center transition ${isDocumentDropActive ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#D4C9B5] bg-[#F8F6F0]"}`}
+                    >
+                      <div className="text-sm font-semibold text-[#0F1C3F]">Drag and drop multiple PDFs here</div>
+                      <p className="mt-1 text-xs text-[#6B7A99]">Drop all paperwork documents at once. DocuFill will upload them in order and add each file to this package.</p>
+                      <label className="mt-3 inline-flex cursor-pointer rounded border border-[#D4C9B5] bg-white px-3 py-2 text-xs font-medium text-[#0F1C3F]">
+                        Browse PDF files
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          multiple
+                          className="sr-only"
+                          onChange={(e) => {
+                            if (e.target.files?.length) uploadDocuments(e.target.files);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
+                    </div>
+                    {isUploadingDocument && <div className="text-xs text-[#6B7A99]">Uploading PDF documents…</div>}
                     {selectedPackage.documents.length === 0 ? (
                       <EmptyState message="Upload the New Direction PDFs here, then arrange them into the order West Hills wants customers to receive them." />
                     ) : (
