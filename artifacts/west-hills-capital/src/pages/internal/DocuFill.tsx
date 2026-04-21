@@ -297,6 +297,9 @@ export default function DocuFill() {
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
   const [standalonePackageId, setStandalonePackageId] = useState("");
+  const [newPackageName, setNewPackageName] = useState("");
+  const [newPackageCustodianId, setNewPackageCustodianId] = useState("");
+  const [newPackageDepositoryId, setNewPackageDepositoryId] = useState("");
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null);
@@ -480,18 +483,21 @@ export default function DocuFill() {
   }
 
   async function createPackage() {
+    const trimmedName = newPackageName.trim();
+    if (!trimmedName) {
+      setError("Enter a package name before adding it.");
+      return;
+    }
     setIsSaving(true);
     setError(null);
     try {
-      const custodianId = custodians[0]?.id ?? null;
-      const depositoryId = depositories[0]?.id ?? null;
       const res = await fetch(`${API_BASE}/api/internal/docufill/packages`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
-          name: "New DocuFill Package",
-          custodianId,
-          depositoryId,
+          name: trimmedName,
+          custodianId: newPackageCustodianId ? Number(newPackageCustodianId) : null,
+          depositoryId: newPackageDepositoryId ? Number(newPackageDepositoryId) : null,
           transactionScope: "ira_transfer",
           status: "draft",
           documents: [],
@@ -503,6 +509,9 @@ export default function DocuFill() {
       if (!res.ok) throw new Error(data.error ?? "Could not create package");
       await loadBootstrap();
       setSelectedPackageId(data.package.id);
+      setNewPackageName("");
+      setNewPackageCustodianId("");
+      setNewPackageDepositoryId("");
       setBuilderStep("documents");
       setTab("packages");
     } catch (err) {
@@ -1186,7 +1195,41 @@ export default function DocuFill() {
       {tab === "packages" && (
         <div className="grid lg:grid-cols-[280px_1fr] gap-5">
           <aside className="bg-white border border-[#DDD5C4] rounded-lg p-4 space-y-3">
-            <Button onClick={createPackage} disabled={isSaving} className="w-full bg-[#0F1C3F] hover:bg-[#182B5F]">New Package</Button>
+            <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-3 space-y-3">
+              <div>
+                <div className="text-sm font-semibold">Add package</div>
+                <p className="text-[11px] text-[#6B7A99]">Name the paperwork package first. Custodian and depository are optional.</p>
+              </div>
+              <label className="block text-xs text-[#6B7A99]">
+                Package name
+                <Input
+                  value={newPackageName}
+                  onChange={(e) => setNewPackageName(e.target.value)}
+                  placeholder="e.g. New Direction IRA Rollover"
+                  className="mt-1 h-9 bg-white text-sm"
+                />
+              </label>
+              <details>
+                <summary className="cursor-pointer text-xs font-semibold text-[#0F1C3F]">Optional custodian/depository</summary>
+                <div className="mt-3 space-y-3">
+                  <label className="block text-xs text-[#6B7A99]">
+                    Custodian
+                    <select value={newPackageCustodianId} onChange={(e) => setNewPackageCustodianId(e.target.value)} className="mt-1 w-full rounded border border-[#D4C9B5] bg-white px-3 py-2 text-sm">
+                      <option value="">None</option>
+                      {custodians.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    </select>
+                  </label>
+                  <label className="block text-xs text-[#6B7A99]">
+                    Depository
+                    <select value={newPackageDepositoryId} onChange={(e) => setNewPackageDepositoryId(e.target.value)} className="mt-1 w-full rounded border border-[#D4C9B5] bg-white px-3 py-2 text-sm">
+                      <option value="">None</option>
+                      {depositories.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                  </label>
+                </div>
+              </details>
+              <Button onClick={createPackage} disabled={isSaving || !newPackageName.trim()} className="w-full bg-[#0F1C3F] hover:bg-[#182B5F]">Add Package</Button>
+            </div>
             <div className="space-y-2 max-h-[560px] overflow-y-auto">
               {packages.map((pkg) => (
                   <div key={pkg.id} className={`rounded border px-3 py-2 ${selectedPackage?.id === pkg.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4] bg-white"}`}>
@@ -1215,11 +1258,18 @@ export default function DocuFill() {
                 </div>
                 {builderStep === "documents" && (
                   <div className="space-y-4">
+                    <div className="rounded-lg border border-[#DDD5C4] bg-white p-4">
+                      <LabeledInput
+                        label="Package name"
+                        value={selectedPackage.name}
+                        onChange={(value) => updateSelectedPackage((pkg) => ({ ...pkg, name: value }))}
+                      />
+                      <p className="mt-2 text-xs text-[#8A9BB8]">This is the reusable package name staff will choose later when launching a customer interview.</p>
+                    </div>
                     <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-                      <summary className="cursor-pointer text-sm font-semibold">Package details</summary>
-                      <p className="mt-1 text-xs text-[#8A9BB8]">These help identify and route the package, but the build process starts with the documents.</p>
+                      <summary className="cursor-pointer text-sm font-semibold">Optional package routing and notes</summary>
+                      <p className="mt-1 text-xs text-[#8A9BB8]">Custodian and depository are optional. Leave them blank for paperwork that does not require either one.</p>
                       <div className="mt-4 grid md:grid-cols-2 gap-4">
-                        <LabeledInput label="Package Name" value={selectedPackage.name} onChange={(value) => updateSelectedPackage((pkg) => ({ ...pkg, name: value }))} />
                         <label className="block text-sm">
                           <span className="block text-xs text-[#6B7A99] mb-1">Status</span>
                           <select value={selectedPackage.status} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, status: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
