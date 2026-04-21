@@ -129,14 +129,13 @@ type MappingItem = {
   format?: MappingFormat;
 };
 
-type BuilderStep = "setup" | "documents" | "mapping" | "interview" | "finalize";
+type BuilderStep = "documents" | "mapping" | "interview" | "finalize";
 
 const BUILDER_STEPS: Array<{ value: BuilderStep; label: string; helper: string }> = [
-  { value: "setup", label: "1. Package setup", helper: "Name the reusable workflow" },
-  { value: "documents", label: "2. Documents", helper: "Upload and order PDFs" },
-  { value: "mapping", label: "3. Mapping rules", helper: "Place fields and set rules" },
-  { value: "interview", label: "4. Interview preview", helper: "Review generated questions" },
-  { value: "finalize", label: "5. Finalize", helper: "Activate for reuse" },
+  { value: "documents", label: "1. Document View", helper: "Add and order package PDFs" },
+  { value: "mapping", label: "2. Data + Fields View", helper: "Drag fields onto documents" },
+  { value: "interview", label: "3. Questionnaire", helper: "Review generated questions" },
+  { value: "finalize", label: "4. Finalize", helper: "Activate for reuse" },
 ];
 
 type PackageItem = {
@@ -290,7 +289,7 @@ export default function DocuFill() {
   const isPublicSession = Boolean(publicSessionToken);
   const { getAuthHeaders } = useInternalAuth();
   const [tab, setTab] = useState<"packages" | "mapper" | "interview">(sessionToken ? "interview" : "packages");
-  const [builderStep, setBuilderStep] = useState<BuilderStep>("setup");
+  const [builderStep, setBuilderStep] = useState<BuilderStep>("documents");
   const [custodians, setCustodians] = useState<Entity[]>([]);
   const [depositories, setDepositories] = useState<Entity[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
@@ -503,7 +502,7 @@ export default function DocuFill() {
       if (!res.ok) throw new Error(data.error ?? "Could not create package");
       await loadBootstrap();
       setSelectedPackageId(data.package.id);
-      setBuilderStep("setup");
+      setBuilderStep("documents");
       setTab("packages");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create package");
@@ -1176,86 +1175,88 @@ export default function DocuFill() {
                 <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4">
                   <h2 className="text-lg font-semibold">{BUILDER_STEPS.find((step) => step.value === builderStep)?.label}</h2>
                   <p className="text-sm text-[#6B7A99] mt-1">
-                    {builderStep === "setup" && "Define the reusable paperwork workflow before adding PDFs."}
-                    {builderStep === "documents" && "Upload the PDFs that belong in this package and drag or move them into the final packet order."}
+                    {builderStep === "documents" && "Start where Sally starts: add the documents that belong in this package and put them in the right order."}
+                    {builderStep === "mapping" && "Use the document list on the left, the PDF page in the center, and the field list on the right to build the package questionnaire."}
                     {builderStep === "interview" && "This is the interview the system will generate from mapped fields that still need input."}
                     {builderStep === "finalize" && "Activate the package when documents, mappings, rules, and interview questions are ready for repeated use."}
                   </p>
                 </div>
-                {builderStep === "setup" && (
-                  <>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <LabeledInput label="Package Name" value={selectedPackage.name} onChange={(value) => updateSelectedPackage((pkg) => ({ ...pkg, name: value }))} />
-                  <label className="block text-sm">
-                    <span className="block text-xs text-[#6B7A99] mb-1">Status</span>
-                    <select value={selectedPackage.status} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, status: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
-                      <option value="draft">Draft</option>
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
-                  </label>
-                  <label className="block text-sm">
-                    <span className="block text-xs text-[#6B7A99] mb-1">Custodian</span>
-                    <select value={selectedPackage.custodian_id ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, custodian_id: e.target.value ? Number(e.target.value) : null }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
-                      <option value="">None</option>
-                      {custodians.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </label>
-                  <label className="block text-sm">
-                    <span className="block text-xs text-[#6B7A99] mb-1">Depository</span>
-                    <select value={selectedPackage.depository_id ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, depository_id: e.target.value ? Number(e.target.value) : null }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
-                      <option value="">None</option>
-                      {depositories.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                    </select>
-                  </label>
-                </div>
-                <label className="block text-sm">
-                  <span className="block text-xs text-[#6B7A99] mb-1">Transaction type</span>
-                  <select value={selectedPackage.transaction_scope} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
-                    {transactionTypes.filter((item) => item.active || item.scope === selectedPackage.transaction_scope).map((item) => <option key={item.scope} value={item.scope}>{item.label}</option>)}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="block text-xs text-[#6B7A99] mb-1">Description / interview notes</span>
-                  <Textarea value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
-                </label>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <EntityPanel
-                    title="Custodians"
-                    items={custodians}
-                    onAdd={() => createEntity("custodians")}
-                    onChange={(id, patch) => updateEntityLocal("custodians", id, patch)}
-                    onSave={(item) => saveEntity("custodians", item)}
-                  />
-                  <EntityPanel
-                    title="Depositories"
-                    items={depositories}
-                    onAdd={() => createEntity("depositories")}
-                    onChange={(id, patch) => updateEntityLocal("depositories", id, patch)}
-                    onSave={(item) => saveEntity("depositories", item)}
-                  />
-                </div>
-                <TransactionTypesPanel
-                  items={transactionTypes}
-                  onAdd={createTransactionType}
-                  onChange={updateTransactionTypeLocal}
-                  onSave={saveTransactionType}
-                />
-                <FieldLibraryPanel
-                  items={fieldLibrary}
-                  onAdd={createFieldLibraryItem}
-                  onChange={updateFieldLibraryLocal}
-                  onSave={saveFieldLibraryItem}
-                  onUse={addLibraryFieldToPackage}
-                />
-                <div className="flex flex-wrap gap-2">
-                  <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Save Package Setup</Button>
-                  <Button onClick={() => goBuilderStep("documents")} variant="outline">Continue to Documents</Button>
-                </div>
-                  </>
-                )}
                 {builderStep === "documents" && (
                   <div className="space-y-4">
+                    <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
+                      <summary className="cursor-pointer text-sm font-semibold">Package details</summary>
+                      <p className="mt-1 text-xs text-[#8A9BB8]">These help identify and route the package, but the build process starts with the documents.</p>
+                      <div className="mt-4 grid md:grid-cols-2 gap-4">
+                        <LabeledInput label="Package Name" value={selectedPackage.name} onChange={(value) => updateSelectedPackage((pkg) => ({ ...pkg, name: value }))} />
+                        <label className="block text-sm">
+                          <span className="block text-xs text-[#6B7A99] mb-1">Status</span>
+                          <select value={selectedPackage.status} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, status: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
+                            <option value="draft">Draft</option>
+                            <option value="active">Active</option>
+                            <option value="inactive">Inactive</option>
+                          </select>
+                        </label>
+                        <label className="block text-sm">
+                          <span className="block text-xs text-[#6B7A99] mb-1">Custodian</span>
+                          <select value={selectedPackage.custodian_id ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, custodian_id: e.target.value ? Number(e.target.value) : null }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
+                            <option value="">None</option>
+                            {custodians.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        </label>
+                        <label className="block text-sm">
+                          <span className="block text-xs text-[#6B7A99] mb-1">Depository</span>
+                          <select value={selectedPackage.depository_id ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, depository_id: e.target.value ? Number(e.target.value) : null }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
+                            <option value="">None</option>
+                            {depositories.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                          </select>
+                        </label>
+                      </div>
+                      <label className="mt-4 block text-sm">
+                        <span className="block text-xs text-[#6B7A99] mb-1">Transaction type</span>
+                        <select value={selectedPackage.transaction_scope} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
+                          {transactionTypes.filter((item) => item.active || item.scope === selectedPackage.transaction_scope).map((item) => <option key={item.scope} value={item.scope}>{item.label}</option>)}
+                        </select>
+                      </label>
+                      <label className="mt-4 block">
+                        <span className="block text-xs text-[#6B7A99] mb-1">Description / interview notes</span>
+                        <Textarea value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
+                      </label>
+                    </details>
+                    <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
+                      <summary className="cursor-pointer text-sm font-semibold">Advanced lists and reusable fields</summary>
+                      <p className="mt-1 text-xs text-[#8A9BB8]">Use these only when you need to manage custodians, depositories, transaction types, or the shared field library.</p>
+                      <div className="mt-4 grid md:grid-cols-2 gap-4">
+                        <EntityPanel
+                          title="Custodians"
+                          items={custodians}
+                          onAdd={() => createEntity("custodians")}
+                          onChange={(id, patch) => updateEntityLocal("custodians", id, patch)}
+                          onSave={(item) => saveEntity("custodians", item)}
+                        />
+                        <EntityPanel
+                          title="Depositories"
+                          items={depositories}
+                          onAdd={() => createEntity("depositories")}
+                          onChange={(id, patch) => updateEntityLocal("depositories", id, patch)}
+                          onSave={(item) => saveEntity("depositories", item)}
+                        />
+                      </div>
+                      <div className="mt-4 space-y-4">
+                        <TransactionTypesPanel
+                          items={transactionTypes}
+                          onAdd={createTransactionType}
+                          onChange={updateTransactionTypeLocal}
+                          onSave={saveTransactionType}
+                        />
+                        <FieldLibraryPanel
+                          items={fieldLibrary}
+                          onAdd={createFieldLibraryItem}
+                          onChange={updateFieldLibraryLocal}
+                          onSave={saveFieldLibraryItem}
+                          onUse={addLibraryFieldToPackage}
+                        />
+                      </div>
+                    </details>
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <div>
                         <h2 className="text-sm font-semibold">Package documents</h2>
