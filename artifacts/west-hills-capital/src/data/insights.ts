@@ -1694,7 +1694,7 @@ export const INSIGHTS: InsightArticle[] = [
     slug: "why-we-recommend-only-three-products",
     title: "Why We Recommend Only Three Products",
     excerpt:
-      "Most dealers offer hundreds of options. We offer three. That's not a limitation — it's a discipline, and here's the thinking behind it.",
+      "Most dealers offer hundreds of options. We offer three. That is not a limitation — it is a discipline, and here is the thinking behind it.",
     group: "making-smart-decisions",
     metaDescription:
       "West Hills Capital explains why we focus on only three precious metals products, and why that discipline leads to better outcomes for long-term buyers.",
@@ -1702,17 +1702,17 @@ export const INSIGHTS: InsightArticle[] = [
       {
         paragraphs: [
           "Most precious metals dealers offer hundreds — sometimes thousands — of products.",
-          "We don't.",
-          "That's intentional.",
+          "We do not.",
+          "That is intentional.",
           "We focus on three: the 1 oz Gold American Eagle, the 1 oz Gold American Buffalo, and the 1 oz Silver American Eagle.",
-          "This isn't a limitation. It's a discipline.",
+          "This is not a limitation. It is a discipline.",
         ],
       },
       {
         heading: "A Market Full of Options — Most Unnecessary",
         paragraphs: [
           "The precious metals market is filled with bars of varying sizes, foreign coins, limited mintage products, and collectibles carrying higher premiums.",
-          "More options don't create better outcomes. They create noise.",
+          "More options do not create better outcomes. They create noise.",
           "When the goal is to preserve purchasing power — not speculate — clarity matters more than variety.",
         ],
       },
@@ -1722,7 +1722,7 @@ export const INSIGHTS: InsightArticle[] = [
           "In physical metals, what you own matters less than how easily it can be bought and sold.",
           "The products we recommend are widely recognized, actively traded, consistently in demand, and easy to price and verify.",
           "That matters both when you buy and when you sell.",
-          "A tight market with clear pricing reduces friction. That's where serious buyers want to be.",
+          "A tight market with clear pricing reduces friction. That is where serious buyers want to be.",
         ],
       },
       {
@@ -1769,10 +1769,10 @@ export const INSIGHTS: InsightArticle[] = [
       {
         heading: "Simplicity Is the Strategy",
         paragraphs: [
-          "We don't try to offer everything. We focus on what we believe works.",
+          "We do not try to offer everything. We focus on what we believe works.",
           "Highly liquid. Widely recognized. Straightforward to price. Straightforward to sell.",
           "Three products.",
-          "That's not a limitation. That's the point.",
+          "That is not a limitation. That is the point.",
         ],
       },
     ],
