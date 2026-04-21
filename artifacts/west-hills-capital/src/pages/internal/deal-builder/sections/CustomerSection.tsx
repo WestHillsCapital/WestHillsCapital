@@ -132,10 +132,10 @@ export function CustomerSection({
           </div>
         </div>
 
-        {/* Row 5: Lead ID | Confirmation ID */}
+        {/* Row 5: Prospect ID | Scheduled Call ID */}
         <div className="grid grid-cols-2 gap-2">
-          <Field label="Lead ID"          value={customer.leadId}         onChange={setCust("leadId")}         disabled={locked} />
-          <Field label="Confirmation ID"  value={customer.confirmationId} onChange={setCust("confirmationId")} disabled={locked} />
+          <Field label="Prospect ID"       value={customer.leadId}         onChange={setCust("leadId")}         disabled={locked} />
+          <Field label="Scheduled Call ID" value={customer.confirmationId} onChange={setCust("confirmationId")} disabled={locked} />
         </div>
 
       </div>

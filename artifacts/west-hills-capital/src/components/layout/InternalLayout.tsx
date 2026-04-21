@@ -10,11 +10,11 @@ export function InternalLayout({ children }: InternalLayoutProps) {
   const { user, signOut } = useInternalAuth();
 
   const navLinks = [
-    { href: "/internal/leads",        label: "Leads" },
-    { href: "/internal/appointments", label: "Appointments" },
-    { href: "/internal/deal-builder", label: "Deal Builder" },
-    { href: "/internal/docufill",      label: "DocuFill" },
-    { href: "/internal/content",      label: "Content" },
+    { href: "/internal/prospecting-pipeline", label: "Prospecting Pipeline" },
+    { href: "/internal/scheduled-calls",      label: "Scheduled Calls" },
+    { href: "/internal/deal-builder",         label: "Deal Builder" },
+    { href: "/internal/docufill",             label: "DocuFill" },
+    { href: "/internal/content",              label: "Content" },
   ];
 
   return (
@@ -22,7 +22,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
       {/* Top nav bar */}
       <header className="bg-white" style={{ borderBottom: "1px solid #DDD5C4", boxShadow: "0 1px 3px 0 rgba(15,28,63,0.06)" }}>
         <div className="max-w-screen-xl mx-auto px-3 sm:px-4 h-14 flex items-center gap-2 sm:gap-6">
-          <Link href="/internal/leads" className="flex items-center gap-2 shrink-0">
+          <Link href="/internal/prospecting-pipeline" className="flex items-center gap-2 shrink-0">
             <span className="font-serif text-base font-semibold tracking-widest text-[#C49A38] uppercase leading-none">WHC</span>
             <span className="w-px h-4 bg-[#C49A38]/25 hidden sm:block" />
             <span className="text-xs text-[#4A5B7A] font-medium tracking-wide uppercase hidden sm:block">Internal</span>

@@ -156,16 +156,16 @@ export default function DealBuilder() {
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <button
-            onClick={() => navigate("/internal/leads")}
+            onClick={() => navigate("/internal/prospecting-pipeline")}
             className="text-xs sm:text-sm text-[#6B7A99] hover:text-[#0F1C3F] transition-colors px-2 sm:px-3 py-1.5"
           >
-            ← Leads
+            ← Prospecting Pipeline
           </button>
           <button
-            onClick={() => navigate("/internal/appointments")}
+            onClick={() => navigate("/internal/scheduled-calls")}
             className="text-xs sm:text-sm text-[#6B7A99] hover:text-[#0F1C3F] transition-colors px-2 sm:px-3 py-1.5"
           >
-            Appts
+            Scheduled Calls
           </button>
         </div>
       </div>

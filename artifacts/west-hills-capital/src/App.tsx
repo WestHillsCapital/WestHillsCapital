@@ -38,11 +38,11 @@ const FAQ           = lazy(() => import("@/pages/FAQ"));
 const NotFound      = lazy(() => import("@/pages/not-found"));
 
 // ── Internal pages (lazy-loaded — never sent to public visitors) ──────────────
-const InternalLeads        = lazy(() => import("@/pages/internal/Leads"));
-const InternalAppointments = lazy(() => import("@/pages/internal/Appointments"));
-const DealBuilder          = lazy(() => import("@/pages/internal/DealBuilder"));
-const ContentEngine        = lazy(() => import("@/pages/internal/ContentEngine"));
-const DocuFill             = lazy(() => import("@/pages/internal/DocuFill"));
+const InternalProspectingPipeline = lazy(() => import("@/pages/internal/Leads"));
+const InternalScheduledCalls      = lazy(() => import("@/pages/internal/Appointments"));
+const DealBuilder                 = lazy(() => import("@/pages/internal/DealBuilder"));
+const ContentEngine               = lazy(() => import("@/pages/internal/ContentEngine"));
+const DocuFill                    = lazy(() => import("@/pages/internal/DocuFill"));
 
 // ── Shared fallback spinner ───────────────────────────────────────────────────
 function PageSpinner() {
@@ -76,13 +76,19 @@ function InternalRouter() {
   return (
     <InternalLayout>
       <Switch>
-        <Route path="/internal/leads"        component={InternalLeads}        />
-        <Route path="/internal/appointments"  component={InternalAppointments} />
-        <Route path="/internal/deal-builder"  component={DealBuilder}          />
-        <Route path="/internal/content"       component={ContentEngine}        />
-        <Route path="/internal/docufill"      component={DocuFill}             />
+        <Route path="/internal/prospecting-pipeline" component={InternalProspectingPipeline} />
+        <Route path="/internal/scheduled-calls"      component={InternalScheduledCalls}      />
+        <Route path="/internal/leads">
+          <Redirect to="/internal/prospecting-pipeline" />
+        </Route>
+        <Route path="/internal/appointments">
+          <Redirect to="/internal/scheduled-calls" />
+        </Route>
+        <Route path="/internal/deal-builder"         component={DealBuilder}                 />
+        <Route path="/internal/content"              component={ContentEngine}               />
+        <Route path="/internal/docufill"             component={DocuFill}                    />
         <Route>
-          <Redirect to="/internal/leads" />
+          <Redirect to="/internal/prospecting-pipeline" />
         </Route>
       </Switch>
     </InternalLayout>

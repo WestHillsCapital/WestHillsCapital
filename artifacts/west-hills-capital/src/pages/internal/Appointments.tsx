@@ -62,25 +62,25 @@ export default function InternalAppointments() {
     <div className="max-w-screen-xl mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-[#0F1C3F]">Appointments</h1>
+          <h1 className="text-2xl font-semibold text-[#0F1C3F]">Scheduled Calls</h1>
           <p className="text-sm text-[#8A9BB8] mt-1">
-            {appts.length} appointment{appts.length !== 1 ? "s" : ""} · use Open Deal to start a deal for any contact
+            {appts.length} scheduled call{appts.length !== 1 ? "s" : ""} · use Open Deal to start a deal for any contact
           </p>
         </div>
       </div>
 
       {isLoading && (
-        <div className="text-[#6B7A99] text-sm py-12 text-center">Loading appointments…</div>
+        <div className="text-[#6B7A99] text-sm py-12 text-center">Loading scheduled calls…</div>
       )}
 
       {error && (
         <div className="bg-red-900/30 border border-red-700 text-red-300 rounded px-4 py-3 text-sm">
-          Failed to load appointments. Check that the API server is running.
+          Failed to load scheduled calls. Check that the API server is running.
         </div>
       )}
 
       {!isLoading && !error && appts.length === 0 && (
-        <div className="text-[#8A9BB8] text-sm py-12 text-center">No appointments found.</div>
+        <div className="text-[#8A9BB8] text-sm py-12 text-center">No scheduled calls found.</div>
       )}
 
       {appts.length > 0 && (
@@ -88,7 +88,7 @@ export default function InternalAppointments() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[#DDD5C4] bg-white">
-                {["Confirmation", "Name", "Email", "Phone", "State", "Scheduled", "Structure", "Status", "Lead", ""].map((h) => (
+                {["Call ID", "Name", "Email", "Phone", "State", "Scheduled", "Structure", "Status", "Prospect", ""].map((h) => (
                   <th key={h} className="text-left px-3 py-2.5 text-xs font-medium text-[#6B7A99] uppercase tracking-wide whitespace-nowrap">
                     {h}
                   </th>
