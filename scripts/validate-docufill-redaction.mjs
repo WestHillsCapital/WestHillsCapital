@@ -111,6 +111,12 @@ assert.equal(hydratedFields[0].adminOnly, true);
 assert.equal(hydratedFields[0].color, "#123456");
 assert.equal(hydratedFields[0].mappings.length, 1);
 
+const inheritedOptionFields = hydratePackageFields(
+  [{ id: "package_inherited_dropdown", libraryFieldId: "shared_distribution_method", optionsMode: "inherit", options: ["Old package option"] }],
+  [{ id: "shared_distribution_method", label: "Distribution method", type: "dropdown", source: "distributionMethod", options: ["Library check", "Library wire"] }],
+);
+assert.deepEqual(inheritedOptionFields[0].options, ["Library check", "Library wire"]);
+
 if (process.env.DATABASE_URL) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();

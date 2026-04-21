@@ -6,6 +6,7 @@ export type DocuFillFieldItem = {
   category?: string;
   type?: string;
   options?: unknown[];
+  optionsMode?: "inherit" | "override";
   source?: string;
   defaultValue?: unknown;
   sensitive?: boolean;
@@ -93,7 +94,7 @@ export function hydratePackageFields(fields: unknown, library: Array<Record<stri
       category: String(libraryField.category ?? field.category ?? ""),
       type: String(libraryField.type ?? field.type ?? "text"),
       source: String(libraryField.source ?? field.source ?? "interview"),
-      options: Array.isArray(field.options) ? field.options : Array.isArray(libraryField.options) ? libraryField.options : [],
+      options: field.optionsMode === "inherit" ? Array.isArray(libraryField.options) ? libraryField.options : [] : Array.isArray(field.options) ? field.options : Array.isArray(libraryField.options) ? libraryField.options : [],
       sensitive: libraryField.sensitive === true,
       required: libraryField.required === true,
       validationType: normalizeValidationType(libraryField.validationType ?? field.validationType),

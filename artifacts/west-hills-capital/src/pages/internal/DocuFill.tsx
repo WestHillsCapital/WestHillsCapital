@@ -71,7 +71,8 @@ type FieldItem = {
   name: string;
   color: string;
   type: "text" | "radio" | "checkbox" | "dropdown" | "date";
-  options: string[];
+  options?: string[];
+  optionsMode?: "inherit" | "override";
   interviewVisible: boolean;
   adminOnly: boolean;
   defaultValue: string;
@@ -171,7 +172,8 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
       libraryFieldId: field.libraryFieldId ?? "",
       sensitive: field.sensitive === true,
       required: field.required === true,
-      options: Array.isArray(field.options) ? field.options : [],
+      options: Array.isArray(field.options) ? field.options : undefined,
+      optionsMode: field.optionsMode === "inherit" ? "inherit" : "override",
       validationType: field.validationType ?? "none",
       validationPattern: field.validationPattern ?? "",
       validationMessage: field.validationMessage ?? "",
@@ -583,7 +585,7 @@ export default function DocuFill() {
         name: libraryField.label,
         color: libraryField.sensitive ? "#D94A4A" : "#8BC34A",
         type: libraryField.type,
-        options: libraryField.options,
+      optionsMode: "inherit",
         interviewVisible: true,
         adminOnly: false,
         defaultValue: "",
@@ -1336,7 +1338,22 @@ export default function DocuFill() {
                     <option value="checkbox">Checkboxes</option>
                     <option value="dropdown">Dropdown</option>
                   </select>
-                  <Textarea placeholder="Options, one per line" value={selectedField.options.join("\n")} onChange={(e) => updateSelectedField({ options: e.target.value.split("\n").filter(Boolean) })} />
+                  {selectedField.libraryFieldId && (
+                    <label className="flex items-center gap-2 rounded border border-[#EFE8D8] bg-[#F8F6F0] px-2 py-1 text-[11px] text-[#6B7A99]">
+                      <input
+                        type="checkbox"
+                        checked={selectedField.optionsMode === "inherit"}
+                        onChange={(e) => updateSelectedField(e.target.checked ? { optionsMode: "inherit", options: undefined } : { optionsMode: "override", options: selectedField.options ?? [] })}
+                      />
+                      Inherit options from shared library
+                    </label>
+                  )}
+                  <Textarea
+                    placeholder={selectedField.optionsMode === "inherit" ? "Using shared library options" : "Package override options, one per line"}
+                    value={(selectedField.options ?? []).join("\n")}
+                    onChange={(e) => updateSelectedField({ optionsMode: "override", options: e.target.value.split("\n").filter(Boolean) })}
+                    disabled={selectedField.optionsMode === "inherit"}
+                  />
                   <Input type={selectedField.sensitive ? "password" : "text"} placeholder="Default/admin value" value={selectedField.defaultValue} onChange={(e) => updateSelectedField({ defaultValue: e.target.value })} />
                   <div className="rounded border border-[#EFE8D8] bg-[#F8F6F0] p-2 space-y-2">
                     <div className="text-xs font-semibold">Validation</div>
@@ -1455,10 +1472,10 @@ export default function DocuFill() {
                     {field.type === "dropdown" ? (
                       <select value={interviewFieldValue(field, answers, session.prefill)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
                         <option value="">Select</option>
-                        {field.options.map((option) => <option key={option} value={option}>{option}</option>)}
+                        {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
                       </select>
                     ) : field.type === "checkbox" ? (
-                      <div className="space-y-1">{(field.options.length ? field.options : ["Yes"]).map((option) => <label key={option} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={interviewFieldValue(field, answers, session.prefill).split(", ").includes(option)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.checked ? [...interviewFieldValue(field, prev, session.prefill).split(", ").filter(Boolean), option].join(", ") : interviewFieldValue(field, prev, session.prefill).split(", ").filter((v) => v !== option).join(", ") }))} /> {option}</label>)}</div>
+                      <div className="space-y-1">{((field.options ?? []).length ? field.options ?? [] : ["Yes"]).map((option) => <label key={option} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={interviewFieldValue(field, answers, session.prefill).split(", ").includes(option)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.checked ? [...interviewFieldValue(field, prev, session.prefill).split(", ").filter(Boolean), option].join(", ") : interviewFieldValue(field, prev, session.prefill).split(", ").filter((v) => v !== option).join(", ") }))} /> {option}</label>)}</div>
                     ) : (
                       <Input type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"} value={interviewFieldValue(field, answers, session.prefill)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} />
                     )}
