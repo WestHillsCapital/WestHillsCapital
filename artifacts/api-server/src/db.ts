@@ -421,32 +421,49 @@ export async function initDb(): Promise<void> {
     ADD COLUMN IF NOT EXISTS transaction_scope TEXT NOT NULL DEFAULT 'Custodial paperwork'
   `);
   await db.query(`
-    UPDATE docufill_packages p
-       SET fields = COALESCE((
-         SELECT jsonb_agg(
-           CASE
-             WHEN field_item.item ? 'libraryFieldId' THEN field_item.item
-             WHEN matched.id IS NOT NULL THEN field_item.item || jsonb_build_object('libraryFieldId', matched.id)
-             ELSE field_item.item
-           END
-           ORDER BY field_item.ordinality
-         )
-         FROM jsonb_array_elements(p.fields) WITH ORDINALITY AS field_item(item, ordinality)
-         LEFT JOIN LATERAL (
-           SELECT id
-             FROM docufill_fields
-            WHERE lower(label) = lower(COALESCE(field_item.item->>'label', field_item.item->>'name'))
-               OR (
-                 COALESCE(field_item.item->>'label', field_item.item->>'name', '') = ''
-                 AND lower(source) = lower(field_item.item->>'source')
-               )
-            ORDER BY sort_order ASC
-            LIMIT 1
-         ) matched ON TRUE
-       ), '[]'::jsonb)
-     WHERE jsonb_typeof(p.fields) = 'array'
-       AND p.fields <> '[]'::jsonb
+    CREATE TABLE IF NOT EXISTS docufill_migration_state (
+      key        TEXT PRIMARY KEY,
+      applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
   `);
+  const sharedFieldBackfill = await db.query(
+    "SELECT 1 FROM docufill_migration_state WHERE key = $1",
+    ["shared_field_backfill_v1"],
+  );
+  if (!sharedFieldBackfill.rows[0]) {
+    const backfillResult = await db.query(`
+      UPDATE docufill_packages p
+         SET fields = COALESCE((
+           SELECT jsonb_agg(
+             CASE
+               WHEN field_item.item ? 'libraryFieldId' THEN field_item.item
+               WHEN matched.id IS NOT NULL THEN field_item.item || jsonb_build_object('libraryFieldId', matched.id)
+               ELSE field_item.item
+             END
+             ORDER BY field_item.ordinality
+           )
+           FROM jsonb_array_elements(p.fields) WITH ORDINALITY AS field_item(item, ordinality)
+           LEFT JOIN LATERAL (
+             SELECT id
+               FROM docufill_fields
+              WHERE lower(label) = lower(COALESCE(field_item.item->>'label', field_item.item->>'name'))
+                 OR (
+                   COALESCE(field_item.item->>'label', field_item.item->>'name', '') = ''
+                   AND lower(source) = lower(field_item.item->>'source')
+                 )
+              ORDER BY sort_order ASC
+              LIMIT 1
+           ) matched ON TRUE
+         ), '[]'::jsonb)
+       WHERE jsonb_typeof(p.fields) = 'array'
+         AND p.fields <> '[]'::jsonb
+    `);
+    await db.query(
+      "INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
+      ["shared_field_backfill_v1"],
+    );
+    logger.info({ updatedPackages: backfillResult.rowCount }, "DocuFill shared field backfill completed");
+  }
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_interview_sessions (
