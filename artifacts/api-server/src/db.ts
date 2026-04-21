@@ -314,7 +314,10 @@ export async function initDb(): Promise<void> {
       ('ira_distribution', 'IRA distribution', TRUE, 30),
       ('cash_purchase', 'Cash purchase', TRUE, 40),
       ('storage_change', 'Storage change', TRUE, 50),
-      ('beneficiary_update', 'Beneficiary update', TRUE, 60)
+      ('beneficiary_update', 'Beneficiary update', TRUE, 60),
+      ('liquidation', 'Liquidation', TRUE, 70),
+      ('buy_sell_direction', 'Buy / sell direction', TRUE, 80),
+      ('address_change', 'Address change', TRUE, 90)
     ON CONFLICT (scope) DO NOTHING
   `);
 

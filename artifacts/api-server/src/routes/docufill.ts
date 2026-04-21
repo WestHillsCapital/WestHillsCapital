@@ -17,7 +17,7 @@ import { saveDocuFillPacketToDrive } from "../lib/google-drive";
 const router: IRouter = Router();
 export const publicDocufillRouter: IRouter = Router();
 const MAX_PACKAGE_PDF_BYTES = 100 * 1024 * 1024;
-const TRANSACTION_SCOPES = new Set(["ira_transfer", "ira_contribution", "ira_distribution", "cash_purchase", "storage_change", "beneficiary_update"]);
+const TRANSACTION_SCOPES = new Set(["ira_transfer", "ira_contribution", "ira_distribution", "cash_purchase", "storage_change", "beneficiary_update", "liquidation", "buy_sell_direction", "address_change"]);
 
 type JsonValue = Record<string, unknown> | unknown[] | string | number | boolean | null;
 type QueryClient = Pool | PoolClient;
@@ -122,6 +122,9 @@ function normalizeTransactionScope(value: unknown): string {
   if (lower.includes("cash")) return "cash_purchase";
   if (lower.includes("storage")) return "storage_change";
   if (lower.includes("beneficiary")) return "beneficiary_update";
+  if (lower.includes("liquidation")) return "liquidation";
+  if (lower.includes("buy") || lower.includes("sell") || lower.includes("direction")) return "buy_sell_direction";
+  if (lower.includes("address")) return "address_change";
   if (lower.includes("transfer") || lower.includes("rollover") || lower.includes("ira")) return "ira_transfer";
   if (/^[a-z0-9_]{2,48}$/.test(text)) return text;
   return "ira_transfer";

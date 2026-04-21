@@ -69,6 +69,9 @@ export const DOCUFILL_TRANSACTION_TYPES = [
   { value: "cash_purchase", label: "Cash purchase" },
   { value: "storage_change", label: "Storage change" },
   { value: "beneficiary_update", label: "Beneficiary update" },
+  { value: "liquidation", label: "Liquidation" },
+  { value: "buy_sell_direction", label: "Buy / sell direction" },
+  { value: "address_change", label: "Address change" },
 ] as const;
 
 export function getDocuFillTransactionLabel(scope: string | null | undefined) {
@@ -83,6 +86,9 @@ export function normalizeDocuFillTransactionScope(scope: string | null | undefin
   if (text.includes("cash")) return "cash_purchase";
   if (text.includes("storage")) return "storage_change";
   if (text.includes("beneficiary")) return "beneficiary_update";
+  if (text.includes("liquidation")) return "liquidation";
+  if (text.includes("buy") || text.includes("sell") || text.includes("direction")) return "buy_sell_direction";
+  if (text.includes("address")) return "address_change";
   if (text.includes("transfer") || text.includes("rollover") || text.includes("ira")) return "ira_transfer";
   if (/^[a-z0-9_]{2,48}$/.test(String(scope ?? ""))) return String(scope);
   return "ira_transfer";
