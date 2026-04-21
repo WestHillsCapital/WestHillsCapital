@@ -1319,6 +1319,7 @@ export const INSIGHTS: InsightArticle[] = [
           "This is where many people make mistakes.",
           "The IRS requires that metals held in a self-directed IRA meet minimum purity standards — generally .995 fine for gold and .999 fine for silver. Not every product on the market qualifies.",
           "Standard bullion products — widely recognized coins and bars with strong liquidity — are precisely what those requirements were designed for. They meet the fineness thresholds, carry fair premiums, and are easy to sell when the time comes.",
+          "Lower premiums mean more of your dollars go into actual metal. Inside a retirement account, that means greater exposure to the underlying asset — which is the entire point.",
           "Proof coins are a different story. Some may technically qualify, but they carry significantly higher premiums with no additional benefit inside a retirement account. In an IRA, the goal is metal — not presentation. Standard bullion serves that purpose far better.",
         ],
       },
@@ -1561,34 +1562,11 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
       {
-        heading: "Why this matters for buyers",
+        heading: "Watch the conversation closely",
         paragraphs: [
-          "People naturally trust voices they recognize. That is human.",
-          "But in a financial transaction, trust should come from understanding the product, understanding the pricing, and understanding the structure, not from familiarity.",
-          "Even well-known personalities are paid to promote, not responsible for your outcome.",
-        ],
-      },
-      {
-        heading: "Watch the product conversation",
-        paragraphs: [
-          "A good dealer will ask about your goals, explain options clearly, and keep things simple.",
-          "A less aligned experience often looks like immediate product pushing, steering into specific coins, or emphasis on special or exclusive offerings.",
-          "If the conversation moves quickly toward high-premium products, pay attention.",
-        ],
-      },
-      {
-        heading: "Simplicity is a signal",
-        paragraphs: [
-          "Clear, simple recommendations are often a good sign.",
-          "For most buyers, that means widely recognized bullion, standard weights, and transparent pricing.",
-          "If things feel overly complex, they usually are.",
-        ],
-      },
-      {
-        heading: "Pricing should be understandable",
-        paragraphs: [
-          "You do not need to know everything, but you should understand what you are paying, what the premium is, and how pricing is structured.",
-          "If that is unclear, that alone tells you something.",
+          "A good dealer asks about your goals, explains options clearly, and keeps things simple. For most buyers, that means widely recognized bullion, standard weights, and transparent pricing.",
+          "A less aligned experience often looks different: immediate product pushing, steering toward specific coins, or emphasis on special or exclusive offerings. If the conversation moves quickly toward high-premium products, pay attention.",
+          "You should also be able to understand what you are paying and why. If the pricing structure is unclear, that alone tells you something.",
         ],
       },
       {
@@ -1599,33 +1577,19 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
       {
-        heading: "Look beyond surface reviews",
+        heading: "Read the reviews — especially the negative ones",
         paragraphs: [
-          "Reviews can be helpful, but they should be read carefully.",
-          "Look for patterns, consistency, and detailed experiences, not just star ratings.",
-          "Surface-level feedback does not always tell the full story.",
+          "Reviews can be helpful, but the star rating is the least informative part.",
+          "Negative reviews tend to reveal far more than positive ones. Look for patterns: do complaints center on product switching, unexpected markups, pressure tactics, or difficulty selling back? One or two complaints mean little. A consistent pattern means something.",
+          "Also pay attention to how the company responds to criticism. Deflection, dismissal, or silence is a signal of its own.",
         ],
       },
       {
-        heading: "Pay attention to how they handle questions",
+        heading: "Watch for pressure and confusion",
         paragraphs: [
-          "A strong sign of a good dealer is clear answers, no pressure, and willingness to explain.",
-          "A warning sign is deflection, urgency, or pushing past your questions.",
-        ],
-      },
-      {
-        heading: "Understand what you are being sold",
-        paragraphs: [
-          "Before moving forward, be clear on the type of product, why it is being recommended, and how it fits your goal.",
-          "If that remains fuzzy, step back.",
-        ],
-      },
-      {
-        heading: "Avoid being rushed",
-        paragraphs: [
-          "Good decisions do not require pressure.",
-          "If you feel rushed, pushed, or nudged toward urgency, take a step back.",
-          "Clarity should come before commitment.",
+          "A strong sign of a good dealer is clear answers, no pressure, and willingness to explain until you understand.",
+          "Warning signs include deflection, urgency, rushing past your questions, or leaving you unclear on what you are actually buying and why.",
+          "Good decisions do not require pressure. Clarity should come before commitment.",
         ],
       },
       {
