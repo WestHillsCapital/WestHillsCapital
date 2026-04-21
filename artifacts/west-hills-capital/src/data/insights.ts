@@ -1486,15 +1486,9 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
       {
-        heading: "A simple way to think about it",
-        paragraphs: [
-          "When you buy metals, you are stepping into a market.",
-          "This question shows you where you stand in that market the moment you enter.",
-        ],
-      },
-      {
         heading: "The takeaway",
         paragraphs: [
+          "When you buy metals, you are stepping into a market. This question shows you exactly where you stand the moment you enter.",
           "You can ask a hundred questions.",
           "But if you ask just one, make it this one.",
           "What would you pay me for this today?",
