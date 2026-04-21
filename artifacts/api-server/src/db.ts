@@ -422,8 +422,11 @@ export async function initDb(): Promise<void> {
          LEFT JOIN LATERAL (
            SELECT id
              FROM docufill_fields
-            WHERE lower(source) = lower(field_item.item->>'source')
-               OR lower(label) = lower(COALESCE(field_item.item->>'label', field_item.item->>'name'))
+            WHERE lower(label) = lower(COALESCE(field_item.item->>'label', field_item.item->>'name'))
+               OR (
+                 COALESCE(field_item.item->>'label', field_item.item->>'name', '') = ''
+                 AND lower(source) = lower(field_item.item->>'source')
+               )
             ORDER BY sort_order ASC
             LIMIT 1
          ) matched ON TRUE

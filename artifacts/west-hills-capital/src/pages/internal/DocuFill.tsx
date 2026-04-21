@@ -762,6 +762,11 @@ export default function DocuFill() {
     }));
   }
 
+  function unlinkSelectedFieldFromLibrary() {
+    if (!selectedField?.libraryFieldId) return;
+    updateSelectedField({ libraryFieldId: "" });
+  }
+
   function removeField(fieldId: string) {
     updateSelectedPackage((pkg) => ({
       ...pkg,
@@ -1317,7 +1322,12 @@ export default function DocuFill() {
               {selectedField && (
                 <div className="border-t border-[#DDD5C4] pt-3 mt-3 space-y-2">
                   <Input value={selectedField.name} onChange={(e) => updateSelectedField({ name: e.target.value })} disabled={selectedFieldIsShared} />
-                  {selectedField.libraryFieldId && <div className="rounded border border-[#EFE8D8] bg-[#F8F6F0] px-2 py-1 text-[11px] text-[#6B7A99]">Linked to shared field: {fieldLibrary.find((item) => item.id === selectedField.libraryFieldId)?.label ?? selectedField.libraryFieldId}</div>}
+                  {selectedField.libraryFieldId && (
+                    <div className="rounded border border-[#EFE8D8] bg-[#F8F6F0] px-2 py-1 text-[11px] text-[#6B7A99]">
+                      <div>Linked to shared field: {fieldLibrary.find((item) => item.id === selectedField.libraryFieldId)?.label ?? selectedField.libraryFieldId}</div>
+                      <button type="button" onClick={unlinkSelectedFieldFromLibrary} className="mt-1 text-[#C49A38]">Unlink for this package</button>
+                    </div>
+                  )}
                   <Input type="color" value={selectedField.color} onChange={(e) => updateSelectedField({ color: e.target.value })} />
                   <select value={selectedField.type} onChange={(e) => updateSelectedField({ type: e.target.value as FieldItem["type"] })} disabled={selectedFieldIsShared} className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm disabled:opacity-60">
                     <option value="text">Text box</option>
