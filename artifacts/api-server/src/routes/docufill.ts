@@ -266,12 +266,12 @@ async function readPdfBody(req: Request): Promise<Buffer> {
   }
   const chunks: Buffer[] = [];
   let size = 0;
-  const maxSize = 25 * 1024 * 1024;
+  const maxSize = MAX_PACKAGE_PDF_BYTES;
   for await (const chunk of req) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     size += buffer.length;
     if (size > maxSize) {
-      throw new PdfUploadError("PDF must be 25 MB or smaller");
+      throw new PdfUploadError("PDF must be 100 MB or smaller");
     }
     chunks.push(buffer);
   }

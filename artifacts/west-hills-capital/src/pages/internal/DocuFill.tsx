@@ -619,6 +619,19 @@ export default function DocuFill() {
     });
   }
 
+  function moveDocumentToIndex(docId: string, targetIndex: number) {
+    updateSelectedPackage((pkg) => {
+      const docs = [...pkg.documents];
+      const index = docs.findIndex((doc) => doc.id === docId);
+      if (index < 0) return pkg;
+      const boundedTarget = Math.max(0, Math.min(targetIndex, docs.length - 1));
+      if (index === boundedTarget) return pkg;
+      const [item] = docs.splice(index, 1);
+      docs.splice(boundedTarget, 0, item);
+      return { ...pkg, documents: docs };
+    });
+  }
+
   function addField() {
     updateSelectedPackage((pkg) => {
       const field: FieldItem = {
@@ -1027,7 +1040,17 @@ export default function DocuFill() {
               </div>
               <div className="space-y-2 overflow-y-auto flex-1">
                 {selectedPackage.documents.map((doc, index) => (
-                  <div key={doc.id} draggable onDragStart={(e) => e.dataTransfer.setData("text/doc", doc.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => moveDocument(e.dataTransfer.getData("text/doc"), index > selectedPackage.documents.findIndex((d) => d.id === e.dataTransfer.getData("text/doc")) ? 1 : -1)} className={`border rounded p-2 ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4]"}`}>
+                  <div
+                    key={doc.id}
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData("text/doc", doc.id)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      moveDocumentToIndex(e.dataTransfer.getData("text/doc"), index);
+                    }}
+                    className={`border rounded p-2 ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4]"}`}
+                  >
                     <DocumentPreviewTile
                       packageId={selectedPackage.id}
                       doc={doc}
