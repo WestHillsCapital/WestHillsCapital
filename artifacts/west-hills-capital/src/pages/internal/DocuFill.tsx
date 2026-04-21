@@ -713,6 +713,18 @@ export default function DocuFill() {
     documentPreviewCacheOrder.current = documentPreviewCacheOrder.current.filter((cacheKey) => !cacheKey.startsWith(`${packageId}:`));
   }
 
+  function mergeServerDocumentUpdate(updatedPackage: PackageItem, removedDocumentId?: string) {
+    setPackages((prev) => prev.map((pkg) => {
+      if (pkg.id !== updatedPackage.id) return pkg;
+      return {
+        ...pkg,
+        ...updatedPackage,
+        fields: pkg.fields,
+        mappings: removedDocumentId ? pkg.mappings.filter((mapping) => mapping.documentId !== removedDocumentId) : pkg.mappings,
+      };
+    }));
+  }
+
   function addDocument() {
     updateSelectedPackage((pkg) => {
       const doc: DocItem = { id: newId("doc"), title: `Document ${pkg.documents.length + 1}`, pages: 1 };
@@ -748,7 +760,7 @@ export default function DocuFill() {
     const loadedPackages = normalizePackages([data.package]);
     const updatedPackage = loadedPackages[0];
     if (updatedPackage) {
-      setPackages((prev) => prev.map((pkg) => pkg.id === updatedPackage.id ? updatedPackage : pkg));
+      mergeServerDocumentUpdate(updatedPackage);
       const latestDoc = documentId
         ? updatedPackage.documents.find((doc) => doc.id === documentId)
         : updatedPackage.documents[updatedPackage.documents.length - 1];
@@ -808,7 +820,7 @@ export default function DocuFill() {
         const updatedPackage = loadedPackages[0];
         if (updatedPackage) {
           evictDocumentPreview(selectedPackage.id, docId);
-          setPackages((prev) => prev.map((pkg) => pkg.id === updatedPackage.id ? updatedPackage : pkg));
+          mergeServerDocumentUpdate(updatedPackage, docId);
           setSelectedDocumentId(updatedPackage.documents[0]?.id ?? null);
         }
         setStatus("Removed document.");
@@ -1700,7 +1712,7 @@ export default function DocuFill() {
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap justify-end gap-2">
-                <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Save Mapping</Button>
+                <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Save {selectedPackage.fields.length} Fields / {selectedPackage.mappings.length} Placements</Button>
                 <Button onClick={() => goBuilderStep("interview")} variant="outline">Review Generated Interview</Button>
               </div>
             </section>
