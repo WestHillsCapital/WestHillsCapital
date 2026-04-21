@@ -930,14 +930,12 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
       {
-        heading: "A simple example",
+        heading: "A concrete illustration",
         paragraphs: [
-          "There was a time when gold was fixed at 35 dollars per ounce.",
-          "If you compare relationships between gold, housing, stocks, and oil then versus now, you notice something.",
-          "The numbers have changed. But more importantly, the relationships have changed.",
-          "Some assets have become expensive relative to others.",
-          "Some have become cheap.",
-          "And that is not always obvious when you only look at dollar prices.",
+          "Consider gold and housing. In dollar terms, both have risen substantially over the past fifty years.",
+          "But the relationship between them has shifted considerably across different periods. At certain points in history, buying a median American home required the equivalent of several hundred ounces of gold. At others, far fewer — sometimes under a hundred.",
+          "The dollar price of both assets kept climbing. But measured against each other, their relative value told a very different story depending on when you looked.",
+          "That difference is invisible if you only follow dollar prices. It becomes visible the moment you compare the two assets directly.",
         ],
       },
       {
