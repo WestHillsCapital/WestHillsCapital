@@ -9,7 +9,7 @@ import internalAuthRouter  from "./internal-auth";
 import internalRouter      from "./internal";
 import dealsRouter         from "./deals";
 import fedexRouter         from "./fedex";
-import docufillRouter      from "./docufill";
+import docufillRouter, { publicDocufillRouter } from "./docufill";
 import contentRouter, { publicContentRouter } from "./content";
 import { requireInternalAuth } from "../middleware/requireInternalAuth";
 
@@ -23,6 +23,7 @@ router.use("/leads",        leadsRouter);
 router.use("/calendar-setup",    calendarSetupRouter);
 router.use("/sheets-backfill",   sheetsBackfillRouter);
 router.use("/content",           publicContentRouter);
+router.use("/docufill/public",   publicDocufillRouter);
 
 // ── Internal auth (public sign-in/signout endpoints) ──────────────────────────
 router.use("/internal/auth", internalAuthRouter);

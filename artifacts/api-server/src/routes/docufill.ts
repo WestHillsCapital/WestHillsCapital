@@ -12,9 +12,12 @@ import {
   parseDocuFillFields as parseFields,
   type DocuFillFieldItem,
 } from "../lib/docufill-redaction";
+import { saveDocuFillPacketToDrive } from "../lib/google-drive";
 
 const router: IRouter = Router();
+export const publicDocufillRouter: IRouter = Router();
 const MAX_PACKAGE_PDF_BYTES = 100 * 1024 * 1024;
+const TRANSACTION_SCOPES = new Set(["ira_transfer", "ira_contribution", "ira_distribution", "cash_purchase", "storage_change", "beneficiary_update"]);
 
 type JsonValue = Record<string, unknown> | unknown[] | string | number | boolean | null;
 type QueryClient = Pool | PoolClient;
@@ -88,6 +91,7 @@ type SessionInput = {
   packageId?: number;
   custodianId?: number | string | null;
   depositoryId?: number | string | null;
+  transactionScope?: string | null;
   dealId?: number | null;
   source?: string;
   prefill?: JsonValue;
@@ -100,6 +104,19 @@ type AnswersInput = {
 
 function cleanText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeTransactionScope(value: unknown): string {
+  const text = cleanText(value);
+  if (TRANSACTION_SCOPES.has(text)) return text;
+  const lower = text.toLowerCase();
+  if (lower.includes("contribution")) return "ira_contribution";
+  if (lower.includes("distribution")) return "ira_distribution";
+  if (lower.includes("cash")) return "cash_purchase";
+  if (lower.includes("storage")) return "storage_change";
+  if (lower.includes("beneficiary")) return "beneficiary_update";
+  if (lower.includes("transfer") || lower.includes("rollover") || lower.includes("ira")) return "ira_transfer";
+  return "ira_transfer";
 }
 
 function nullableText(value: unknown): string | null {
@@ -318,6 +335,142 @@ async function getPackage(packageId: number, client: QueryClient = getDb()): Pro
   const pkg = rows[0] as PackageRow | undefined;
   if (!pkg) return undefined;
   return (await hydrateStoredDocumentMetadata([pkg], client))[0];
+}
+
+async function getSession(token: string, client: QueryClient = getDb()): Promise<Record<string, unknown> | undefined> {
+  const { rows } = await client.query(
+    `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
+            p.transaction_scope, p.custodian_id, p.depository_id,
+            c.name AS custodian_name, d.name AS depository_name
+       FROM docufill_interview_sessions s
+       JOIN docufill_packages p ON p.id = s.package_id
+       LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
+       LEFT JOIN docufill_depositories d ON d.id = p.depository_id
+      WHERE s.token = $1
+        AND s.expires_at > NOW()`,
+    [token],
+  );
+  const session = rows[0] as Record<string, unknown> | undefined;
+  if (!session) return undefined;
+  const hydratedPackage = (await hydrateStoredDocumentMetadata([{ id: session.package_id, documents: session.documents }], client))[0];
+  return { ...session, documents: hydratedPackage.documents };
+}
+
+function validateSessionAnswers(session: Record<string, unknown>): { valid: boolean; missingFields: string[]; errors: string[] } {
+  const answers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
+  const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+  const fields = parseFields(session.fields);
+  const missingFields: string[] = [];
+  const errors: string[] = [];
+  fields.filter((field) => field.interviewVisible).forEach((field) => {
+    const value = fieldAnswerValue(field, answers, prefill).trim();
+    if (field.required && !value) {
+      missingFields.push(field.name);
+      return;
+    }
+    if (!value) return;
+    const validationType = field.validationType ?? "none";
+    if (validationType === "name" && !/^[a-z ,.'-]+$/i.test(value)) errors.push(field.validationMessage || `${field.name} must be a valid name.`);
+    if (validationType === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errors.push(field.validationMessage || `${field.name} must be a valid email.`);
+    if (validationType === "phone" && value.replace(/\D+/g, "").length < 10) errors.push(field.validationMessage || `${field.name} must be a valid phone number.`);
+    if (validationType === "number" && Number.isNaN(Number(value.replace(/,/g, "")))) errors.push(field.validationMessage || `${field.name} must be a number.`);
+    if (validationType === "currency" && Number.isNaN(Number(value.replace(/[$,]/g, "")))) errors.push(field.validationMessage || `${field.name} must be a currency amount.`);
+    if (validationType === "date" && Number.isNaN(new Date(value).getTime())) errors.push(field.validationMessage || `${field.name} must be a valid date.`);
+    if (validationType === "ssn" && !/^\d{3}-?\d{2}-?\d{4}$/.test(value)) errors.push(field.validationMessage || `${field.name} must be a valid SSN format.`);
+    if (validationType === "custom" && field.validationPattern) {
+      try {
+        if (!new RegExp(field.validationPattern).test(value)) errors.push(field.validationMessage || `${field.name} is not in the expected format.`);
+      } catch {
+        errors.push(`${field.name} has an invalid validation pattern.`);
+      }
+    }
+  });
+  return { valid: missingFields.length === 0 && errors.length === 0, missingFields, errors };
+}
+
+async function buildPacketPdfBuffer(session: Record<string, unknown>, client: QueryClient = getDb()): Promise<Buffer> {
+  const answers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
+  const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+  const fields = parseFields(session.fields);
+  const fieldsById = new Map(fields.map((field) => [field.id, field]));
+  const packageId = Number(session.package_id);
+  const storedDocuments = parseDocuments(session.documents).filter((sourceDoc) => sourceDoc.pdfStored);
+  const storedRowsResult = Number.isInteger(packageId) && storedDocuments.length > 0
+    ? await client.query(
+      `SELECT document_id, filename, content_type, byte_size, page_count, pdf_data, created_at, updated_at
+         FROM docufill_package_documents
+        WHERE package_id=$1 AND document_id = ANY($2::text[])`,
+      [packageId, storedDocuments.map((doc) => doc.id)],
+    )
+    : { rows: [] };
+  const storedRows = storedRowsResult.rows as StoredDocumentRow[];
+  if (storedRows.length > 0) {
+    const mappingsByDocument = new Map<string, MappingItem[]>();
+    parseMappings(session.mappings).forEach((mapping) => {
+      if (!mapping.documentId) return;
+      const documentMappings = mappingsByDocument.get(mapping.documentId) ?? [];
+      documentMappings.push(mapping);
+      mappingsByDocument.set(mapping.documentId, documentMappings);
+    });
+    const merged = await PdfLibDocument.create();
+    const font = await merged.embedFont(StandardFonts.Helvetica);
+    const storedRowById = new Map(storedRows.map((row) => [row.document_id, row]));
+    for (const sourceDoc of storedDocuments) {
+      const row = storedRowById.get(sourceDoc.id);
+      if (!row?.pdf_data) continue;
+      const sourcePdf = await PdfLibDocument.load(row.pdf_data, { ignoreEncryption: true });
+      const copiedPages = await merged.copyPages(sourcePdf, sourcePdf.getPageIndices());
+      copiedPages.forEach((page) => merged.addPage(page));
+      const documentMappings = mappingsByDocument.get(sourceDoc.id) ?? [];
+      documentMappings.forEach((mapping) => {
+        const field = mapping.fieldId ? fieldsById.get(mapping.fieldId) : undefined;
+        if (!field) return;
+        const value = fieldAnswerValue(field, answers, prefill);
+        const mappedValue = formatMappedValue(value, mapping);
+        if (!mappedValue) return;
+        const pageIndex = Math.max(Number(mapping.page ?? 1) - 1, 0);
+        const page = merged.getPages()[merged.getPageCount() - copiedPages.length + pageIndex];
+        if (!page) return;
+        const { width, height } = page.getSize();
+        const x = Math.max(0, Math.min(width - 12, (Number(mapping.x ?? 0) / 100) * width));
+        const y = Math.max(12, Math.min(height - 12, height - (Number(mapping.y ?? 0) / 100) * height));
+        const fontSize = clampNumber(mapping.fontSize, 9, 5, 24);
+        const maxWidth = Math.max(18, (clampNumber(mapping.w, 26, 2, 100) / 100) * width);
+        const align = mapping.align === "center" || mapping.align === "right" ? mapping.align : "left";
+        drawWrappedText(page, mappedValue, x, y, fontSize, font, maxWidth, align);
+      });
+    }
+    return Buffer.from(await merged.save());
+  }
+  return new Promise((resolve) => {
+    const chunks: Buffer[] = [];
+    const doc = new PDFDocument({ margin: 54 });
+    doc.on("data", (chunk: Buffer) => chunks.push(chunk));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.fontSize(18).text("DocuFill Packet", { align: "center" });
+    doc.moveDown();
+    doc.fontSize(12).text(`Package: ${String(session.package_name ?? "")}`);
+    doc.text(`Custodian: ${String(session.custodian_name ?? "")}`);
+    doc.text(`Depository: ${String(session.depository_name ?? "")}`);
+    doc.text(`Generated: ${new Date().toLocaleString()}`);
+    doc.moveDown();
+    doc.fontSize(14).text("Known Deal Data");
+    const fallbackRows = buildDocuFillFallbackSummaryRows(session);
+    fallbackRows.prefillRows.forEach((row) => {
+      doc.fontSize(10).text(`${row.label}: ${row.displayValue}`);
+    });
+    doc.moveDown();
+    doc.fontSize(14).text("Interview Answers");
+    fallbackRows.answerRows.forEach((row) => {
+      doc.fontSize(10).text(`${row.label}: ${row.displayValue}`);
+    });
+    doc.moveDown();
+    doc.fontSize(14).fillColor("#000000").text("Stored Source PDFs");
+    parseDocuments(session.documents).filter((sourceDoc) => sourceDoc.pdfStored).forEach((sourceDoc) => {
+      doc.fontSize(10).text(`${sourceDoc.title} — ${sourceDoc.pages} page(s), ${sourceDoc.fileName ?? "stored PDF"}`);
+    });
+    doc.end();
+  });
 }
 
 async function upsertPackageDocument(params: {
@@ -547,7 +700,7 @@ router.post("/packages", async (req, res) => {
         name,
         body.custodianId ?? null,
         body.depositoryId ?? null,
-        cleanText(body.transactionScope) || "Custodial paperwork",
+        normalizeTransactionScope(body.transactionScope),
         nullableText(body.description),
         cleanText(body.status) || "draft",
         jsonParam(body.documents),
@@ -614,7 +767,7 @@ router.patch("/packages/:id", async (req, res) => {
         name,
         body.custodianId === undefined ? existing.custodian_id : body.custodianId,
         body.depositoryId === undefined ? existing.depository_id : body.depositoryId,
-        body.transactionScope === undefined ? existing.transaction_scope : cleanText(body.transactionScope),
+        body.transactionScope === undefined ? existing.transaction_scope : normalizeTransactionScope(body.transactionScope),
         body.description === undefined ? existing.description : nullableText(body.description),
         body.status === undefined ? existing.status : cleanText(body.status),
         nextDocumentsJson,
@@ -827,14 +980,19 @@ router.post("/sessions", async (req, res) => {
       res.status(400).json({ error: "Selected package does not match the selected depository" });
       return;
     }
+    const requestedScope = normalizeTransactionScope(body.transactionScope ?? pkg.transaction_scope);
+    if (requestedScope !== normalizeTransactionScope(pkg.transaction_scope)) {
+      res.status(400).json({ error: "Selected package does not match the selected transaction type" });
+      return;
+    }
     const token = createSessionToken();
     const db = getDb();
     const { rows } = await db.query(
       `INSERT INTO docufill_interview_sessions
-         (token, package_id, package_version, deal_id, source, status, prefill, answers, expires_at)
-       VALUES ($1,$2,$3,$4,$5,'draft',$6::jsonb,'{}'::jsonb,NOW() + INTERVAL '90 days')
+         (token, package_id, package_version, transaction_scope, deal_id, source, status, prefill, answers, expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,'draft',$7::jsonb,'{}'::jsonb,NOW() + INTERVAL '90 days')
        RETURNING *`,
-      [token, packageId, pkg.version ?? 1, body.dealId ?? null, cleanText(body.source) || "deal_builder", jsonParam(body.prefill ?? {})],
+      [token, packageId, pkg.version ?? 1, requestedScope, body.dealId ?? null, cleanText(body.source) || "deal_builder", jsonParam(body.prefill ?? {})],
     );
     res.status(201).json({ session: rows[0], token });
   } catch (err) {
@@ -845,25 +1003,12 @@ router.post("/sessions", async (req, res) => {
 
 router.get("/sessions/:token", async (req, res) => {
   try {
-    const db = getDb();
-    const { rows } = await db.query(
-      `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
-              p.transaction_scope, p.custodian_id, p.depository_id,
-              c.name AS custodian_name, d.name AS depository_name
-         FROM docufill_interview_sessions s
-         JOIN docufill_packages p ON p.id = s.package_id
-         LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
-         LEFT JOIN docufill_depositories d ON d.id = p.depository_id
-        WHERE s.token = $1
-          AND s.expires_at > NOW()`,
-      [req.params.token],
-    );
-    if (!rows[0]) {
+    const session = await getSession(req.params.token);
+    if (!session) {
       res.status(404).json({ error: "Interview session not found" });
       return;
     }
-    const hydratedPackage = (await hydrateStoredDocumentMetadata([{ id: rows[0].package_id, documents: rows[0].documents }], db))[0];
-    res.json({ session: { ...rows[0], documents: hydratedPackage.documents } });
+    res.json({ session });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load interview session");
     res.status(500).json({ error: "Failed to load interview session" });
@@ -896,30 +1041,54 @@ router.patch("/sessions/:token", async (req, res) => {
 router.post("/sessions/:token/generate", async (req, res) => {
   try {
     const db = getDb();
-    const { rows } = await db.query(
-      `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
-              c.name AS custodian_name, d.name AS depository_name
-         FROM docufill_interview_sessions s
-         JOIN docufill_packages p ON p.id = s.package_id
-         LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
-         LEFT JOIN docufill_depositories d ON d.id = p.depository_id
-        WHERE s.token = $1
-          AND s.expires_at > NOW()`,
-      [req.params.token],
-    );
-    const session = rows[0] as Record<string, unknown> | undefined;
+    const session = await getSession(req.params.token, db);
     if (!session) {
       res.status(404).json({ error: "Interview session not found" });
       return;
     }
-    const hydratedPackage = (await hydrateStoredDocumentMetadata([{ id: session.package_id, documents: session.documents }], db))[0];
-    session.documents = hydratedPackage.documents;
+    const validation = validateSessionAnswers(session);
+    if (!validation.valid) {
+      res.status(400).json({ error: "Packet is missing required or valid fields", ...validation });
+      return;
+    }
     const generated = buildDocuFillPacketSummary(session);
+    const pdfBuffer = await buildPacketPdfBuffer(session, db);
+    const generatedAt = new Date().toISOString();
+    let driveResult: { fileId: string; webViewLink: string } | null = null;
+    let driveWarning: string | null = null;
+    const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID;
+    if (rootFolderId) {
+      try {
+        const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+        driveResult = await saveDocuFillPacketToDrive(pdfBuffer, {
+          dealId: Number(session.deal_id) || null,
+          firstName: cleanText(prefill.firstName),
+          lastName: cleanText(prefill.lastName),
+          packageName: String(session.package_name ?? "DocuFill"),
+          generatedAt,
+        }, rootFolderId);
+      } catch (err) {
+        driveWarning = err instanceof Error ? err.message : "Could not save packet to Google Drive";
+        logger.error({ err, token: req.params.token }, "[DocuFill] Failed to save packet to Drive");
+      }
+    }
     await db.query(
-      `UPDATE docufill_interview_sessions SET status='generated', generated_packet=$1::jsonb, updated_at=NOW() WHERE token=$2`,
-      [JSON.stringify(generated), req.params.token],
+      `UPDATE docufill_interview_sessions
+          SET status='generated',
+              generated_packet=$1::jsonb,
+              generated_pdf_drive_id=$2,
+              generated_pdf_url=$3,
+              generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
+              updated_at=NOW()
+        WHERE token=$4`,
+      [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token],
     );
-    res.json({ packet: generated, downloadUrl: `/api/internal/docufill/sessions/${req.params.token}/packet.pdf` });
+    res.json({
+      packet: generated,
+      downloadUrl: `/api/internal/docufill/sessions/${req.params.token}/packet.pdf`,
+      drive: driveResult ? { fileId: driveResult.fileId, url: driveResult.webViewLink } : null,
+      warnings: driveWarning ? [driveWarning] : [],
+    });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to generate packet");
     res.status(500).json({ error: "Failed to generate packet" });
@@ -929,114 +1098,132 @@ router.post("/sessions/:token/generate", async (req, res) => {
 router.get("/sessions/:token/packet.pdf", async (req, res) => {
   try {
     const db = getDb();
-    const { rows } = await db.query(
-      `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
-              c.name AS custodian_name, d.name AS depository_name
-         FROM docufill_interview_sessions s
-         JOIN docufill_packages p ON p.id = s.package_id
-         LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
-         LEFT JOIN docufill_depositories d ON d.id = p.depository_id
-        WHERE s.token = $1
-          AND s.expires_at > NOW()`,
-      [req.params.token],
-    );
-    const session = rows[0] as Record<string, unknown> | undefined;
+    const session = await getSession(req.params.token, db);
     if (!session) {
       res.status(404).json({ error: "Interview session not found" });
       return;
     }
-    const hydratedPackage = (await hydrateStoredDocumentMetadata([{ id: session.package_id, documents: session.documents }], db))[0];
-    session.documents = hydratedPackage.documents;
-    const answers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
-    const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-    const fields = parseFields(session.fields);
-    const fieldsById = new Map(fields.map((field) => [field.id, field]));
-    const packageId = Number(session.package_id);
-    const storedDocuments = parseDocuments(session.documents).filter((sourceDoc) => sourceDoc.pdfStored);
-    const storedRowsResult = Number.isInteger(packageId) && storedDocuments.length > 0
-      ? await db.query(
-        `SELECT document_id, filename, content_type, byte_size, page_count, pdf_data, created_at, updated_at
-           FROM docufill_package_documents
-          WHERE package_id=$1 AND document_id = ANY($2::text[])`,
-        [packageId, storedDocuments.map((doc) => doc.id)],
-      )
-      : { rows: [] };
-    const storedRows = storedRowsResult.rows as StoredDocumentRow[];
-    if (storedRows.length > 0) {
-      const mappingsByDocument = new Map<string, MappingItem[]>();
-      parseMappings(session.mappings).forEach((mapping) => {
-        if (!mapping.documentId) return;
-        const documentMappings = mappingsByDocument.get(mapping.documentId) ?? [];
-        documentMappings.push(mapping);
-        mappingsByDocument.set(mapping.documentId, documentMappings);
-      });
-      const merged = await PdfLibDocument.create();
-      const font = await merged.embedFont(StandardFonts.Helvetica);
-      const storedRowById = new Map(storedRows.map((row) => [row.document_id, row]));
-      for (const sourceDoc of storedDocuments) {
-        const row = storedRowById.get(sourceDoc.id);
-        if (!row?.pdf_data) continue;
-        const sourcePdf = await PdfLibDocument.load(row.pdf_data, { ignoreEncryption: true });
-        const copiedPages = await merged.copyPages(sourcePdf, sourcePdf.getPageIndices());
-        copiedPages.forEach((page) => merged.addPage(page));
-        const documentMappings = mappingsByDocument.get(sourceDoc.id) ?? [];
-        documentMappings.forEach((mapping) => {
-          const field = mapping.fieldId ? fieldsById.get(mapping.fieldId) : undefined;
-          if (!field) return;
-          const value = fieldAnswerValue(field, answers, prefill);
-          const mappedValue = formatMappedValue(value, mapping);
-          if (!mappedValue) return;
-          const pageIndex = Math.max(Number(mapping.page ?? 1) - 1, 0);
-          const page = merged.getPages()[merged.getPageCount() - copiedPages.length + pageIndex];
-          if (!page) return;
-          const { width, height } = page.getSize();
-          const x = Math.max(0, Math.min(width - 12, (Number(mapping.x ?? 0) / 100) * width));
-          const y = Math.max(12, Math.min(height - 12, height - (Number(mapping.y ?? 0) / 100) * height));
-          const fontSize = clampNumber(mapping.fontSize, 9, 5, 24);
-          const maxWidth = Math.max(18, (clampNumber(mapping.w, 26, 2, 100) / 100) * width);
-          const align = mapping.align === "center" || mapping.align === "right" ? mapping.align : "left";
-          drawWrappedText(page, mappedValue, x, y, fontSize, font, maxWidth, align);
-        });
-      }
-      const output = Buffer.from(await merged.save());
-      res.setHeader("Content-Type", "application/pdf");
-      res.setHeader("Content-Disposition", `attachment; filename=docufill-${req.params.token}.pdf`);
-      res.setHeader("Content-Length", String(output.length));
-      res.end(output);
-      return;
-    }
+    const output = await buildPacketPdfBuffer(session, db);
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename=docufill-${req.params.token}.pdf`);
-    const doc = new PDFDocument({ margin: 54 });
-    doc.pipe(res);
-    doc.fontSize(18).text("DocuFill Packet", { align: "center" });
-    doc.moveDown();
-    doc.fontSize(12).text(`Package: ${String(session.package_name ?? "")}`);
-    doc.text(`Custodian: ${String(session.custodian_name ?? "")}`);
-    doc.text(`Depository: ${String(session.depository_name ?? "")}`);
-    doc.text(`Generated: ${new Date().toLocaleString()}`);
-    doc.moveDown();
-    doc.fontSize(14).text("Known Deal Data");
-    const fallbackRows = buildDocuFillFallbackSummaryRows(session);
-    fallbackRows.prefillRows.forEach((row) => {
-      doc.fontSize(10).text(`${row.label}: ${row.displayValue}`);
-    });
-    doc.moveDown();
-    doc.fontSize(14).text("Interview Answers");
-    fallbackRows.answerRows.forEach((row) => {
-      doc.fontSize(10).text(`${row.label}: ${row.displayValue}`);
-    });
-    doc.moveDown();
-    doc.fontSize(14).fillColor("#000000").text("Stored Source PDFs");
-    parseDocuments(session.documents).filter((sourceDoc) => sourceDoc.pdfStored).forEach((sourceDoc) => {
-      doc.fontSize(10).text(`${sourceDoc.title} — ${sourceDoc.pages} page(s), ${sourceDoc.fileName ?? "stored PDF"}`);
-    });
-    doc.moveDown();
-    doc.fontSize(9).fillColor("#666666").text("This first DocuFill packet summarizes the mapped data captured for the selected package. The saved field placement map is stored with the package for final PDF overlay expansion.");
-    doc.end();
+    res.setHeader("Content-Length", String(output.length));
+    res.end(output);
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to download packet PDF");
     if (!res.headersSent) res.status(500).json({ error: "Failed to download packet" });
+  }
+});
+
+publicDocufillRouter.get("/sessions/:token", async (req, res) => {
+  try {
+    const session = await getSession(req.params.token);
+    if (!session) {
+      res.status(404).json({ error: "Interview session not found" });
+      return;
+    }
+    res.json({ session });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to load public interview session");
+    res.status(500).json({ error: "Failed to load interview session" });
+  }
+});
+
+publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
+  try {
+    const body = req.body as AnswersInput;
+    const db = getDb();
+    const { rows } = await db.query(
+      `UPDATE docufill_interview_sessions SET
+          answers=$1::jsonb, status=COALESCE($2, status), updated_at=NOW()
+        WHERE token=$3
+          AND expires_at > NOW()
+        RETURNING *`,
+      [jsonParam(body.answers ?? {}), body.status ?? null, req.params.token],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Interview session not found" });
+      return;
+    }
+    res.json({ session: rows[0] });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to save public interview answers");
+    res.status(500).json({ error: "Failed to save interview answers" });
+  }
+});
+
+publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
+  try {
+    const db = getDb();
+    const session = await getSession(req.params.token, db);
+    if (!session) {
+      res.status(404).json({ error: "Interview session not found" });
+      return;
+    }
+    const validation = validateSessionAnswers(session);
+    if (!validation.valid) {
+      res.status(400).json({ error: "Packet is missing required or valid fields", ...validation });
+      return;
+    }
+    const generated = buildDocuFillPacketSummary(session);
+    const pdfBuffer = await buildPacketPdfBuffer(session, db);
+    const generatedAt = new Date().toISOString();
+    let driveResult: { fileId: string; webViewLink: string } | null = null;
+    let driveWarning: string | null = null;
+    const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID;
+    if (rootFolderId) {
+      try {
+        const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+        driveResult = await saveDocuFillPacketToDrive(pdfBuffer, {
+          dealId: Number(session.deal_id) || null,
+          firstName: cleanText(prefill.firstName),
+          lastName: cleanText(prefill.lastName),
+          packageName: String(session.package_name ?? "DocuFill"),
+          generatedAt,
+        }, rootFolderId);
+      } catch (err) {
+        driveWarning = err instanceof Error ? err.message : "Could not save packet to Google Drive";
+        logger.error({ err, token: req.params.token }, "[DocuFill] Failed to save public packet to Drive");
+      }
+    }
+    await db.query(
+      `UPDATE docufill_interview_sessions
+          SET status='generated',
+              generated_packet=$1::jsonb,
+              generated_pdf_drive_id=$2,
+              generated_pdf_url=$3,
+              generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
+              updated_at=NOW()
+        WHERE token=$4`,
+      [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token],
+    );
+    res.json({
+      packet: generated,
+      downloadUrl: `/api/docufill/public/sessions/${req.params.token}/packet.pdf`,
+      drive: driveResult ? { fileId: driveResult.fileId, url: driveResult.webViewLink } : null,
+      warnings: driveWarning ? [driveWarning] : [],
+    });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to generate public packet");
+    res.status(500).json({ error: "Failed to generate packet" });
+  }
+});
+
+publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
+  try {
+    const db = getDb();
+    const session = await getSession(req.params.token, db);
+    if (!session) {
+      res.status(404).json({ error: "Interview session not found" });
+      return;
+    }
+    const output = await buildPacketPdfBuffer(session, db);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename=docufill-${req.params.token}.pdf`);
+    res.setHeader("Content-Length", String(output.length));
+    res.end(output);
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to preview public packet PDF");
+    if (!res.headersSent) res.status(500).json({ error: "Failed to preview packet" });
   }
 });
 

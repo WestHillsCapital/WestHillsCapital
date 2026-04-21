@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from
 import { useLocation } from "wouter";
 import type { Customer } from "../types";
 import {
+  DOCUFILL_TRANSACTION_TYPES,
   getMatchingDocuFillPackages,
+  getDocuFillTransactionLabel,
   resolveDocuFillSelections,
   type DocuFillEntity,
   type DocuFillPackage,
@@ -24,6 +26,7 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
   const [depositories, setDepositories] = useState<DocuFillEntity[]>([]);
   const [packages, setPackages] = useState<DocuFillPackage[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState("");
+  const [transactionScope, setTransactionScope] = useState("ira_transfer");
   const [isLoading, setIsLoading] = useState(false);
   const [isLaunching, setIsLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,8 +47,8 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
   const { selectedCustodian, selectedDepository } = resolveDocuFillSelections(customer, custodians, depositories);
 
   const matchingPackages = useMemo(() => {
-    return getMatchingDocuFillPackages(packages, selectedCustodian, selectedDepository);
-  }, [packages, selectedCustodian, selectedDepository]);
+    return getMatchingDocuFillPackages(packages, selectedCustodian, selectedDepository, transactionScope);
+  }, [packages, selectedCustodian, selectedDepository, transactionScope]);
 
   useEffect(() => {
     if (selectedCustodian && customer.custodianId !== String(selectedCustodian.id)) {
@@ -78,6 +81,7 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           packageId,
+          transactionScope,
           custodianId: customer.custodianId ? Number(customer.custodianId) : null,
           depositoryId: customer.depositoryId ? Number(customer.depositoryId) : null,
           dealId: savedDealId,
@@ -165,6 +169,18 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
       </div>
 
       <label className="block mt-3">
+        <span className="block text-xs text-[#6B7A99] mb-1">Transaction type</span>
+        <select
+          value={transactionScope}
+          onChange={(e) => setTransactionScope(e.target.value)}
+          disabled={locked || isLoading}
+          className="w-full bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
+        >
+          {DOCUFILL_TRANSACTION_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+        </select>
+      </label>
+
+      <label className="block mt-3">
         <span className="block text-xs text-[#6B7A99] mb-1">Matching Package Interview</span>
         <select
           value={selectedPackageId}
@@ -172,8 +188,8 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
           disabled={isLoading || matchingPackages.length === 0}
           className="w-full bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
         >
-          <option value="">{matchingPackages.length ? "Select package" : "No active package for this combination"}</option>
-          {matchingPackages.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name} · v{pkg.version}</option>)}
+          <option value="">{matchingPackages.length ? "Select package" : `No active ${getDocuFillTransactionLabel(transactionScope)} package for this combination`}</option>
+          {matchingPackages.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name} · {getDocuFillTransactionLabel(pkg.transaction_scope)} · v{pkg.version}</option>)}
         </select>
       </label>
 

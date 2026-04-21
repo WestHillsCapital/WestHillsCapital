@@ -62,6 +62,30 @@ export type DocuFillPackage = {
   version: number;
 };
 
+export const DOCUFILL_TRANSACTION_TYPES = [
+  { value: "ira_transfer", label: "IRA transfer / rollover" },
+  { value: "ira_contribution", label: "IRA contribution" },
+  { value: "ira_distribution", label: "IRA distribution" },
+  { value: "cash_purchase", label: "Cash purchase" },
+  { value: "storage_change", label: "Storage change" },
+  { value: "beneficiary_update", label: "Beneficiary update" },
+] as const;
+
+export function getDocuFillTransactionLabel(scope: string | null | undefined) {
+  return DOCUFILL_TRANSACTION_TYPES.find((item) => item.value === scope)?.label ?? "IRA transfer / rollover";
+}
+
+export function normalizeDocuFillTransactionScope(scope: string | null | undefined) {
+  if (DOCUFILL_TRANSACTION_TYPES.some((item) => item.value === scope)) return scope as string;
+  const text = String(scope ?? "").toLowerCase();
+  if (text.includes("contribution")) return "ira_contribution";
+  if (text.includes("distribution")) return "ira_distribution";
+  if (text.includes("cash")) return "cash_purchase";
+  if (text.includes("storage")) return "storage_change";
+  if (text.includes("beneficiary")) return "beneficiary_update";
+  return "ira_transfer";
+}
+
 export function resolveDocuFillSelections(
   customer: Pick<Customer, "custodianId" | "custodian" | "depositoryId" | "depository">,
   custodians: DocuFillEntity[],
@@ -79,11 +103,13 @@ export function getMatchingDocuFillPackages(
   packages: DocuFillPackage[],
   selectedCustodian: DocuFillEntity | undefined,
   selectedDepository: DocuFillEntity | undefined,
+  transactionScope: string,
 ) {
   return packages.filter((pkg) => {
     if (pkg.status !== "active") return false;
     if (selectedCustodian && pkg.custodian_id !== selectedCustodian.id) return false;
     if (selectedDepository && pkg.depository_id !== selectedDepository.id) return false;
+    if (normalizeDocuFillTransactionScope(pkg.transaction_scope) !== transactionScope) return false;
     return true;
   });
 }

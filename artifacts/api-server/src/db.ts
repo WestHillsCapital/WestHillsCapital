@@ -334,6 +334,10 @@ export async function initDb(): Promise<void> {
     ALTER TABLE docufill_package_documents
     ADD COLUMN IF NOT EXISTS page_sizes JSONB NOT NULL DEFAULT '[]'::jsonb
   `);
+  await db.query(`
+    ALTER TABLE docufill_packages
+    ADD COLUMN IF NOT EXISTS transaction_scope TEXT NOT NULL DEFAULT 'Custodial paperwork'
+  `);
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_interview_sessions (
@@ -358,6 +362,18 @@ export async function initDb(): Promise<void> {
     ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ
   `);
   await db.query(`
+    ALTER TABLE docufill_interview_sessions
+    ADD COLUMN IF NOT EXISTS generated_pdf_drive_id TEXT
+  `);
+  await db.query(`
+    ALTER TABLE docufill_interview_sessions
+    ADD COLUMN IF NOT EXISTS generated_pdf_url TEXT
+  `);
+  await db.query(`
+    ALTER TABLE docufill_interview_sessions
+    ADD COLUMN IF NOT EXISTS generated_pdf_saved_at TIMESTAMPTZ
+  `);
+  await db.query(`
     UPDATE docufill_interview_sessions
        SET expires_at = NOW() + INTERVAL '90 days'
      WHERE expires_at IS NULL
@@ -370,6 +386,10 @@ export async function initDb(): Promise<void> {
   await db.query(`
     CREATE INDEX IF NOT EXISTS docufill_packages_combo_idx
       ON docufill_packages (custodian_id, depository_id, status)
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS docufill_packages_workflow_idx
+      ON docufill_packages (transaction_scope, status)
   `);
 
   await db.query(`

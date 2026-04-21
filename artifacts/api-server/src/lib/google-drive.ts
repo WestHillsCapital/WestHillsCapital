@@ -158,3 +158,53 @@ export async function saveDealPdfToDrive(
   logger.info({ dealId: deal.id, fileId, clientFolder, fileName }, "[Drive] PDF uploaded");
   return { fileId, webViewLink };
 }
+
+export async function saveDocuFillPacketToDrive(
+  pdfBuffer: Buffer,
+  packet: {
+    dealId?: number | null;
+    firstName: string;
+    lastName: string;
+    packageName: string;
+    generatedAt: string;
+  },
+  rootFolderId: string,
+): Promise<DriveUploadResult> {
+  const drive = getDriveClient();
+  if (!drive) throw new Error("Google Drive client unavailable (check GOOGLE_SERVICE_ACCOUNT_KEY)");
+
+  const d = new Date(packet.generatedAt);
+  const yyyy = String(d.getFullYear());
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  const yy = yyyy.slice(2);
+  const month = d.toLocaleString("en-US", { month: "long" });
+  const firstInitial = (packet.firstName.trim()[0] ?? "").toUpperCase();
+  const lastName = packet.lastName.trim() || "Client";
+  const clientLabel = `${firstInitial || "C"} ${lastName}`;
+  const dateLabel = `${mm}${dd}${yy}`;
+  const packageLabel = packet.packageName.replace(/[^\w.\- ()]+/g, " ").replace(/\s+/g, " ").trim() || "DocuFill";
+  const fileName = `${dateLabel} ${clientLabel} ${packageLabel} Packet.pdf`;
+
+  const yearFolderId = await getOrCreateFolder(drive, yyyy, rootFolderId);
+  const monthFolderId = await getOrCreateFolder(drive, `${mm} \u2013 ${month}`, yearFolderId);
+  const clientFolderId = await getOrCreateFolder(drive, clientLabel, monthFolderId);
+
+  const uploaded = await drive.files.create({
+    requestBody: {
+      name: fileName,
+      parents: [clientFolderId],
+    },
+    media: {
+      mimeType: "application/pdf",
+      body: Readable.from(pdfBuffer),
+    },
+    fields: "id, webViewLink",
+    supportsAllDrives: true,
+  });
+
+  const fileId = uploaded.data.id as string;
+  const webViewLink = (uploaded.data.webViewLink ?? `https://drive.google.com/file/d/${fileId}/view`) as string;
+  logger.info({ dealId: packet.dealId ?? null, fileId, clientFolder: clientLabel, fileName }, "[Drive] DocuFill packet uploaded");
+  return { fileId, webViewLink };
+}

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { useSearch } from "wouter";
+import { useParams, useSearch } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,6 +7,29 @@ import { Textarea } from "@/components/ui/textarea";
 import { getDocuFillPrefillDisplayValue } from "@/lib/docufill-redaction";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+const DOCUFILL_TRANSACTION_TYPES = [
+  { value: "ira_transfer", label: "IRA transfer / rollover" },
+  { value: "ira_contribution", label: "IRA contribution" },
+  { value: "ira_distribution", label: "IRA distribution" },
+  { value: "cash_purchase", label: "Cash purchase" },
+  { value: "storage_change", label: "Storage change" },
+  { value: "beneficiary_update", label: "Beneficiary update" },
+] as const;
+
+function transactionScopeLabel(scope: string | null | undefined) {
+  return DOCUFILL_TRANSACTION_TYPES.find((item) => item.value === scope)?.label ?? "IRA transfer / rollover";
+}
+
+function normalizeTransactionScope(scope: string | null | undefined) {
+  if (DOCUFILL_TRANSACTION_TYPES.some((item) => item.value === scope)) return scope as string;
+  const text = String(scope ?? "").toLowerCase();
+  if (text.includes("contribution")) return "ira_contribution";
+  if (text.includes("distribution")) return "ira_distribution";
+  if (text.includes("cash")) return "cash_purchase";
+  if (text.includes("storage")) return "storage_change";
+  if (text.includes("beneficiary")) return "beneficiary_update";
+  return "ira_transfer";
+}
 
 type Entity = {
   id: number;
@@ -89,6 +112,9 @@ type Session = {
   prefill: Record<string, string>;
   answers: Record<string, string>;
   status: string;
+  transaction_scope?: string;
+  generated_pdf_url?: string | null;
+  generated_pdf_saved_at?: string | null;
 };
 
 function newId(prefix: string) {
@@ -110,6 +136,7 @@ function defaultMappingFormat(field: FieldItem): MappingItem["format"] {
 function normalizePackages(items: PackageItem[]): PackageItem[] {
   return items.map((pkg) => ({
     ...pkg,
+    transaction_scope: normalizeTransactionScope(pkg.transaction_scope),
     documents: Array.isArray(pkg.documents) ? pkg.documents : [],
     fields: Array.isArray(pkg.fields) ? pkg.fields.map((field) => ({
       ...field,
@@ -128,9 +155,22 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
   }));
 }
 
+function interviewFieldValue(field: FieldItem, answers: Record<string, string>, prefill: Record<string, string> | undefined) {
+  return String(
+    answers[field.id]
+    ?? (field.source ? prefill?.[field.source] : undefined)
+    ?? prefill?.[field.name]
+    ?? field.defaultValue
+    ?? "",
+  );
+}
+
 export default function DocuFill() {
   const search = useSearch();
-  const sessionToken = new URLSearchParams(search).get("session");
+  const params = useParams<{ token?: string }>();
+  const publicSessionToken = params.token ?? null;
+  const sessionToken = publicSessionToken ?? new URLSearchParams(search).get("session");
+  const isPublicSession = Boolean(publicSessionToken);
   const { getAuthHeaders } = useInternalAuth();
   const [tab, setTab] = useState<"packages" | "mapper" | "interview">(sessionToken ? "interview" : "packages");
   const [custodians, setCustodians] = useState<Entity[]>([]);
@@ -148,6 +188,8 @@ export default function DocuFill() {
   const [isDeletingPackage, setIsDeletingPackage] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
+  const [driveUrl, setDriveUrl] = useState<string | null>(null);
+  const [driveWarnings, setDriveWarnings] = useState<string[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
   const [documentPreviewUrl, setDocumentPreviewUrl] = useState<string | null>(null);
   const [selectedPage, setSelectedPage] = useState(1);
@@ -167,6 +209,14 @@ export default function DocuFill() {
     if (!selectedPackage || !selectedDocument) return [];
     return selectedPackage.mappings.filter((m) => m.documentId === selectedDocument.id && (m.page ?? 1) === selectedPage);
   }, [selectedPackage, selectedDocument, selectedPage]);
+  const visibleInterviewFields = useMemo(() => session?.fields.filter((field) => field.interviewVisible) ?? [], [session]);
+  const missingRequiredFields = useMemo(() => {
+    if (!session) return [];
+    return visibleInterviewFields.filter((field) => field.required && !interviewFieldValue(field, answers, session.prefill).trim()).map((field) => field.name);
+  }, [session, visibleInterviewFields, answers]);
+  const answeredFieldCount = visibleInterviewFields.filter((field) => interviewFieldValue(field, answers, session?.prefill).trim()).length;
+  const sessionBasePath = isPublicSession ? "/api/docufill/public/sessions" : "/api/internal/docufill/sessions";
+  const sessionHeaders = isPublicSession ? {} : { ...getAuthHeaders() };
 
   async function loadBootstrap() {
     try {
@@ -185,20 +235,23 @@ export default function DocuFill() {
   }
 
   useEffect(() => {
+    if (isPublicSession) return;
     loadBootstrap();
-  }, []);
+  }, [isPublicSession]);
 
   useEffect(() => {
     if (!sessionToken) return;
-    fetch(`${API_BASE}/api/internal/docufill/sessions/${sessionToken}`, { headers: { ...getAuthHeaders() } })
+    fetch(`${API_BASE}${sessionBasePath}/${sessionToken}`, { headers: sessionHeaders })
       .then((res) => res.ok ? res.json() : Promise.reject(new Error("Could not load interview")))
       .then((data: { session: Session }) => {
         setSession(data.session);
         setAnswers(data.session.answers ?? {});
+        setDriveUrl(data.session.generated_pdf_url ?? null);
+        setGeneratedUrl(data.session.status === "generated" ? `${API_BASE}${sessionBasePath}/${sessionToken}/packet.pdf` : null);
         setTab("interview");
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not load interview"));
-  }, [sessionToken, getAuthHeaders]);
+  }, [sessionToken, sessionBasePath, getAuthHeaders, isPublicSession]);
 
   useEffect(() => {
     if (selectedPackage && !selectedDocumentId) setSelectedDocumentId(selectedPackage.documents[0]?.id ?? null);
@@ -306,7 +359,7 @@ export default function DocuFill() {
           name: "New DocuFill Package",
           custodianId,
           depositoryId,
-          transactionScope: "Custodial paperwork",
+          transactionScope: "ira_transfer",
           status: "draft",
           documents: [],
           fields: [],
@@ -658,7 +711,7 @@ export default function DocuFill() {
     if (!session) return null;
     const visibleFields = session.fields.filter((field) => field.interviewVisible);
     for (const field of visibleFields) {
-      const value = String(answers[field.id] ?? field.defaultValue ?? "").trim();
+      const value = interviewFieldValue(field, answers, session.prefill).trim();
       if (field.required && !value) return `${field.name} is required.`;
       if (!value) continue;
       const validationType = field.validationType ?? "none";
@@ -682,17 +735,12 @@ export default function DocuFill() {
 
   async function saveAnswers(nextStatus = "in_progress"): Promise<boolean> {
     if (!session) return false;
-    const validationError = validateInterviewAnswers();
-    if (validationError) {
-      setError(validationError);
-      return false;
-    }
     setIsSaving(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/sessions/${session.token}`, {
+      const res = await fetch(`${API_BASE}${sessionBasePath}/${session.token}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        headers: { "Content-Type": "application/json", ...sessionHeaders },
         body: JSON.stringify({ answers, status: nextStatus }),
       });
       const data = await res.json();
@@ -710,18 +758,26 @@ export default function DocuFill() {
 
   async function generatePacket() {
     if (!session) return;
+    const validationError = validateInterviewAnswers();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
     const saved = await saveAnswers("answered");
     if (!saved) return;
-    const res = await fetch(`${API_BASE}/api/internal/docufill/sessions/${session.token}/generate`, {
+    const res = await fetch(`${API_BASE}${sessionBasePath}/${session.token}/generate`, {
       method: "POST",
-      headers: { ...getAuthHeaders() },
+      headers: { ...sessionHeaders },
     });
     const data = await res.json();
     if (res.ok) {
       setGeneratedUrl(data.downloadUrl);
-      setStatus("Packet generated.");
+      setDriveUrl(data.drive?.url ?? null);
+      setDriveWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+      setSession((prev) => prev ? { ...prev, status: "generated", generated_pdf_url: data.drive?.url ?? prev.generated_pdf_url } : prev);
+      setStatus(data.drive?.url ? "Packet generated and saved to Drive." : "Packet generated.");
     } else {
-      setError(data.error ?? "Could not generate packet");
+      setError(data.missingFields?.length ? `Missing required fields: ${data.missingFields.join(", ")}` : data.error ?? "Could not generate packet");
     }
   }
 
@@ -731,7 +787,7 @@ export default function DocuFill() {
     setError(null);
     try {
       const url = generatedUrl.startsWith("http") ? generatedUrl : `${API_BASE}${generatedUrl}`;
-      const res = await fetch(url, { headers: { ...getAuthHeaders() } });
+      const res = await fetch(url, { headers: sessionHeaders });
       if (!res.ok) throw new Error("Could not download packet PDF");
       const blob = await res.blob();
       const objectUrl = URL.createObjectURL(blob);
@@ -754,13 +810,13 @@ export default function DocuFill() {
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-semibold">DocuFill</h1>
-          <p className="text-sm text-[#6B7A99] mt-1">Set up custodial packages once, then launch clean interviews from Deal Builder.</p>
+          <p className="text-sm text-[#6B7A99] mt-1">{isPublicSession ? "Complete your secure paperwork interview for West Hills Capital." : "Set up custodial packages once, then launch clean interviews from Deal Builder."}</p>
         </div>
-        <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
+        {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
           {(["packages", "mapper", "interview"] as const).map((item) => (
             <button key={item} onClick={() => setTab(item)} className={`px-3 py-2 text-sm capitalize ${tab === item ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>{item}</button>
           ))}
-        </div>
+        </div>}
       </div>
       {error && <div className="mb-4 rounded border border-red-200 bg-red-50 text-red-800 px-3 py-2 text-sm">{error}</div>}
       {status && <div className="mb-4 rounded border border-green-200 bg-green-50 text-green-800 px-3 py-2 text-sm">{status}</div>}
@@ -811,7 +867,12 @@ export default function DocuFill() {
                     </select>
                   </label>
                 </div>
-                <LabeledInput label="Package Scope" value={selectedPackage.transaction_scope} onChange={(value) => updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: value }))} />
+                <label className="block text-sm">
+                  <span className="block text-xs text-[#6B7A99] mb-1">Transaction type</span>
+                  <select value={selectedPackage.transaction_scope} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
+                    {DOCUFILL_TRANSACTION_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </label>
                 <label className="block">
                   <span className="block text-xs text-[#6B7A99] mb-1">Description / interview notes</span>
                   <Textarea value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
@@ -1081,8 +1142,17 @@ export default function DocuFill() {
             <div className="space-y-5">
               <div>
                 <h2 className="text-xl font-semibold">{session.package_name}</h2>
-                <p className="text-sm text-[#6B7A99]">{session.custodian_name ?? "No custodian"} · {session.depository_name ?? "No depository"}</p>
+                <p className="text-sm text-[#6B7A99]">{session.custodian_name ?? "No custodian"} · {session.depository_name ?? "No depository"} · {transactionScopeLabel(session.transaction_scope)}</p>
+                <p className="text-xs text-[#8A9BB8] mt-1">{answeredFieldCount} of {visibleInterviewFields.length} interview fields answered. Your progress is saved when you click Save Interview.</p>
               </div>
+              {missingRequiredFields.length > 0 && (
+                <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  <div className="font-semibold mb-1">Missing required fields</div>
+                  <div className="flex flex-wrap gap-1">
+                    {missingRequiredFields.map((name) => <span key={name} className="rounded bg-white border border-amber-200 px-2 py-0.5 text-xs">{name}</span>)}
+                  </div>
+                </div>
+              )}
               <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] p-4">
                 <h3 className="text-sm font-semibold mb-2">Prefilled from Deal Builder</h3>
                 <div className="grid sm:grid-cols-2 gap-2 text-xs text-[#6B7A99]">
@@ -1092,31 +1162,45 @@ export default function DocuFill() {
                 </div>
               </div>
               <div className="space-y-3">
-                {session.fields.filter((field) => field.interviewVisible).map((field) => (
+                {visibleInterviewFields.map((field) => (
                   <label key={field.id} className="block border rounded p-3" style={{ borderColor: field.color }}>
-                    <span className="block text-sm font-medium mb-1">{field.name}</span>
+                    <span className="flex items-center justify-between gap-2 text-sm font-medium mb-1">
+                      <span>{field.name}</span>
+                      <span className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${field.required ? "bg-red-50 text-red-700 border border-red-100" : "bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8]"}`}>{field.required ? "Required" : "Optional"}</span>
+                    </span>
                     {field.type === "dropdown" ? (
-                      <select value={answers[field.id] ?? ""} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
+                      <select value={interviewFieldValue(field, answers, session.prefill)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
                         <option value="">Select</option>
                         {field.options.map((option) => <option key={option} value={option}>{option}</option>)}
                       </select>
                     ) : field.type === "checkbox" ? (
-                      <div className="space-y-1">{(field.options.length ? field.options : ["Yes"]).map((option) => <label key={option} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={(answers[field.id] ?? "").split(", ").includes(option)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.checked ? [...(prev[field.id] ?? "").split(", ").filter(Boolean), option].join(", ") : (prev[field.id] ?? "").split(", ").filter((v) => v !== option).join(", ") }))} /> {option}</label>)}</div>
+                      <div className="space-y-1">{(field.options.length ? field.options : ["Yes"]).map((option) => <label key={option} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={interviewFieldValue(field, answers, session.prefill).split(", ").includes(option)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.checked ? [...interviewFieldValue(field, prev, session.prefill).split(", ").filter(Boolean), option].join(", ") : interviewFieldValue(field, prev, session.prefill).split(", ").filter((v) => v !== option).join(", ") }))} /> {option}</label>)}</div>
                     ) : (
-                      <Input type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"} value={answers[field.id] ?? field.defaultValue ?? ""} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} />
+                      <Input type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"} value={interviewFieldValue(field, answers, session.prefill)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} />
                     )}
                   </label>
                 ))}
               </div>
+              <div className="rounded border border-[#DDD5C4] bg-white p-4">
+                <h3 className="text-sm font-semibold mb-2">Preview before send</h3>
+                <div className="grid sm:grid-cols-2 gap-2 text-xs text-[#6B7A99]">
+                  {visibleInterviewFields.map((field) => {
+                    const value = interviewFieldValue(field, answers, session.prefill).trim();
+                    return <div key={field.id}><span className="font-medium text-[#0F1C3F]">{field.name}:</span> {value || <span className="text-[#B58B2B]">{field.required ? "Missing" : "Not provided"}</span>}</div>;
+                  })}
+                </div>
+              </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Button onClick={() => saveAnswers()} disabled={isSaving} variant="outline">Save Interview</Button>
-                <Button onClick={generatePacket} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Generate Packet</Button>
+                <Button onClick={generatePacket} disabled={isSaving || missingRequiredFields.length > 0} className="bg-[#0F1C3F] hover:bg-[#182B5F] disabled:opacity-60">Generate Packet</Button>
                 {generatedUrl && (
                   <button type="button" onClick={downloadGeneratedPacket} disabled={isDownloading} className="text-sm text-[#C49A38] underline disabled:opacity-60">
                     {isDownloading ? "Downloading…" : "Download packet PDF"}
                   </button>
                 )}
+                {driveUrl && <a href={driveUrl} target="_blank" rel="noreferrer" className="text-sm text-[#C49A38] underline">Open saved Drive packet</a>}
               </div>
+              {driveWarnings.length > 0 && <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{driveWarnings.join(" ")}</div>}
             </div>
           )}
         </section>

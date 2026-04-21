@@ -126,6 +126,7 @@ function Router() {
           <Route path="/insights"        component={Insights}       />
           <Route path="/insights/:slug"  component={InsightArticle} />
           <Route path="/faq"             component={FAQ}            />
+          <Route path="/docufill/public/:token" component={DocuFill} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>
