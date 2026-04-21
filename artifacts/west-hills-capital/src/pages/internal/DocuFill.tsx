@@ -766,7 +766,7 @@ export default function DocuFill() {
 
   function unlinkSelectedFieldFromLibrary() {
     if (!selectedField?.libraryFieldId) return;
-    updateSelectedField({ libraryFieldId: "" });
+    updateSelectedField({ libraryFieldId: "", optionsMode: undefined });
   }
 
   function removeField(fieldId: string) {
