@@ -595,6 +595,31 @@ router.patch("/packages/:id", async (req, res) => {
   }
 });
 
+router.delete("/packages/:id", async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) {
+      res.status(400).json({ error: "Invalid package id" });
+      return;
+    }
+    const db = getDb();
+    const { rows } = await db.query(
+      `DELETE FROM docufill_packages
+        WHERE id=$1
+        RETURNING id`,
+      [id],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Package not found" });
+      return;
+    }
+    res.json({ deletedPackageId: rows[0].id });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to delete package");
+    res.status(500).json({ error: "Failed to delete package" });
+  }
+});
+
 router.post("/packages/:id/documents", async (req, res) => {
   try {
     const packageId = parseId(req.params.id);

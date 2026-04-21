@@ -113,6 +113,7 @@ export default function DocuFill() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeletingPackage, setIsDeletingPackage] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -285,6 +286,35 @@ export default function DocuFill() {
     }
   }
 
+  async function deletePackage(pkg: PackageItem) {
+    const confirmed = window.confirm(`Delete "${pkg.name}" and all of its documents, mappings, and interview sessions? This cannot be undone.`);
+    if (!confirmed) return;
+    setIsDeletingPackage(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/internal/docufill/packages/${pkg.id}`, {
+        method: "DELETE",
+        headers: { ...getAuthHeaders() },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not delete package");
+      clearPackageDocumentPreviews(pkg.id);
+      setPackages((prev) => {
+        const nextPackages = prev.filter((item) => item.id !== pkg.id);
+        const nextSelection = nextPackages[0]?.id ?? null;
+        setSelectedPackageId(nextSelection);
+        setSelectedDocumentId(nextPackages[0]?.documents[0]?.id ?? null);
+        setSelectedFieldId(nextPackages[0]?.fields[0]?.id ?? null);
+        return nextPackages;
+      });
+      setStatus("Deleted package.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not delete package");
+    } finally {
+      setIsDeletingPackage(false);
+    }
+  }
+
   async function createEntity(type: "custodians" | "depositories") {
     const count = type === "custodians" ? custodians.length + 1 : depositories.length + 1;
     const label = type === "custodians" ? `New Custodian ${count}` : `New Depository ${count}`;
@@ -330,6 +360,23 @@ export default function DocuFill() {
     setPackages((prev) => prev.map((pkg) => pkg.id === selectedPackage.id ? updater(pkg) : pkg));
   }
 
+  function evictDocumentPreview(packageId: number, docId: string) {
+    const cacheKey = `${packageId}:${docId}`;
+    const cachedUrl = documentPreviewCache.current[cacheKey];
+    if (cachedUrl) URL.revokeObjectURL(cachedUrl);
+    delete documentPreviewCache.current[cacheKey];
+    documentPreviewCacheOrder.current = documentPreviewCacheOrder.current.filter((key) => key !== cacheKey);
+  }
+
+  function clearPackageDocumentPreviews(packageId: number) {
+    Object.entries(documentPreviewCache.current).forEach(([cacheKey, previewUrl]) => {
+      if (!cacheKey.startsWith(`${packageId}:`)) return;
+      URL.revokeObjectURL(previewUrl);
+      delete documentPreviewCache.current[cacheKey];
+    });
+    documentPreviewCacheOrder.current = documentPreviewCacheOrder.current.filter((cacheKey) => !cacheKey.startsWith(`${packageId}:`));
+  }
+
   function addDocument() {
     updateSelectedPackage((pkg) => {
       const doc: DocItem = { id: newId("doc"), title: `Document ${pkg.documents.length + 1}`, pages: 1 };
@@ -359,11 +406,7 @@ export default function DocuFill() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not upload PDF");
       if (documentId) {
-        const cacheKey = `${selectedPackage.id}:${documentId}`;
-        const cachedUrl = documentPreviewCache.current[cacheKey];
-        if (cachedUrl) URL.revokeObjectURL(cachedUrl);
-        delete documentPreviewCache.current[cacheKey];
-        documentPreviewCacheOrder.current = documentPreviewCacheOrder.current.filter((key) => key !== cacheKey);
+        evictDocumentPreview(selectedPackage.id, documentId);
       }
       const loadedPackages = normalizePackages([data.package]);
       const updatedPackage = loadedPackages[0];
@@ -397,11 +440,7 @@ export default function DocuFill() {
         const loadedPackages = normalizePackages([data.package]);
         const updatedPackage = loadedPackages[0];
         if (updatedPackage) {
-          const cacheKey = `${selectedPackage.id}:${docId}`;
-          const cachedUrl = documentPreviewCache.current[cacheKey];
-          if (cachedUrl) URL.revokeObjectURL(cachedUrl);
-          delete documentPreviewCache.current[cacheKey];
-          documentPreviewCacheOrder.current = documentPreviewCacheOrder.current.filter((key) => key !== cacheKey);
+          evictDocumentPreview(selectedPackage.id, docId);
           setPackages((prev) => prev.map((pkg) => pkg.id === updatedPackage.id ? updatedPackage : pkg));
           setSelectedDocumentId(updatedPackage.documents[0]?.id ?? null);
         }
@@ -561,11 +600,14 @@ export default function DocuFill() {
             <Button onClick={createPackage} disabled={isSaving} className="w-full bg-[#0F1C3F] hover:bg-[#182B5F]">New Package</Button>
             <div className="space-y-2 max-h-[560px] overflow-y-auto">
               {packages.map((pkg) => (
-                <button key={pkg.id} onClick={() => setSelectedPackageId(pkg.id)} className={`w-full text-left rounded border px-3 py-2 ${selectedPackage?.id === pkg.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4] bg-white"}`}>
-                  <div className="font-medium text-sm">{pkg.name}</div>
-                  <div className="text-xs text-[#6B7A99]">{pkg.custodian_name ?? "No custodian"} · {pkg.depository_name ?? "No depository"}</div>
-                  <div className="text-[11px] text-[#8A9BB8]">v{pkg.version} · {pkg.status}</div>
-                </button>
+                  <div key={pkg.id} className={`rounded border px-3 py-2 ${selectedPackage?.id === pkg.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4] bg-white"}`}>
+                    <button type="button" onClick={() => setSelectedPackageId(pkg.id)} className="w-full text-left">
+                      <div className="font-medium text-sm">{pkg.name}</div>
+                      <div className="text-xs text-[#6B7A99]">{pkg.custodian_name ?? "No custodian"} · {pkg.depository_name ?? "No depository"}</div>
+                      <div className="text-[11px] text-[#8A9BB8]">v{pkg.version} · {pkg.status}</div>
+                    </button>
+                    <button type="button" onClick={() => deletePackage(pkg)} disabled={isDeletingPackage} className="mt-2 text-[11px] text-red-600 disabled:opacity-50">Delete package</button>
+                  </div>
               ))}
             </div>
           </aside>
@@ -652,7 +694,16 @@ export default function DocuFill() {
               <div className="space-y-2 overflow-y-auto flex-1">
                 {selectedPackage.documents.map((doc, index) => (
                   <div key={doc.id} draggable onDragStart={(e) => e.dataTransfer.setData("text/doc", doc.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => moveDocument(e.dataTransfer.getData("text/doc"), index > selectedPackage.documents.findIndex((d) => d.id === e.dataTransfer.getData("text/doc")) ? 1 : -1)} className={`border rounded p-2 ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4]"}`}>
-                    <button onClick={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }} className="w-full h-20 bg-[#F5F0E8] border border-[#DDD5C4] rounded text-xs text-[#6B7A99]">{index + 1}<br />{doc.pages} page(s)<br />{doc.pdfStored ? "PDF stored" : "No PDF"}</button>
+                    <DocumentPreviewTile
+                      packageId={selectedPackage.id}
+                      doc={doc}
+                      order={index + 1}
+                      selected={selectedDocument?.id === doc.id}
+                      getAuthHeaders={getAuthHeaders}
+                      previewCache={documentPreviewCache}
+                      previewCacheOrder={documentPreviewCacheOrder}
+                      onSelect={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }}
+                    />
                     <Input value={doc.title} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))} className="mt-2 h-8 text-xs" />
                     <div className="mt-1 text-[10px] text-[#8A9BB8] truncate">{doc.fileName ?? "Metadata only"}</div>
                     <div className="flex gap-1 mt-1">
@@ -814,6 +865,99 @@ export default function DocuFill() {
 
 function EmptyState({ message }: { message: string }) {
   return <div className="rounded border border-dashed border-[#D4C9B5] bg-white p-8 text-center text-sm text-[#6B7A99]">{message}</div>;
+}
+
+function DocumentPreviewTile({
+  packageId,
+  doc,
+  order,
+  selected,
+  getAuthHeaders,
+  previewCache,
+  previewCacheOrder,
+  onSelect,
+}: {
+  packageId: number;
+  doc: DocItem;
+  order: number;
+  selected: boolean;
+  getAuthHeaders: () => HeadersInit;
+  previewCache: { current: Record<string, string> };
+  previewCacheOrder: { current: string[] };
+  onSelect: () => void;
+}) {
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setPreviewUrl(null);
+    setFailed(false);
+    if (!doc.pdfStored) return;
+    const cacheKey = `${packageId}:${doc.id}`;
+    const cachedUrl = previewCache.current[cacheKey];
+    if (cachedUrl) {
+      setPreviewUrl(cachedUrl);
+      return;
+    }
+    fetch(`${API_BASE}/api/internal/docufill/packages/${packageId}/documents/${doc.id}.pdf`, { headers: { ...getAuthHeaders() } })
+      .then((res) => {
+        if (!res.ok) throw new Error("Could not load document preview");
+        return res.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        const objectUrl = URL.createObjectURL(blob);
+        previewCacheOrder.current = previewCacheOrder.current.filter((key) => key !== cacheKey);
+        previewCacheOrder.current.push(cacheKey);
+        previewCache.current[cacheKey] = objectUrl;
+        while (previewCacheOrder.current.length > 24) {
+          const oldestKey = previewCacheOrder.current.shift();
+          if (!oldestKey) break;
+          const oldestUrl = previewCache.current[oldestKey];
+          if (oldestUrl) URL.revokeObjectURL(oldestUrl);
+          delete previewCache.current[oldestKey];
+        }
+        setPreviewUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [packageId, doc.id, doc.pdfStored, getAuthHeaders, previewCache, previewCacheOrder]);
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onSelect}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onSelect();
+      }}
+      className={`relative w-full h-28 overflow-hidden rounded border bg-[#F8F6F0] text-left focus:outline-none focus:ring-2 focus:ring-[#C49A38]/40 ${selected ? "border-[#C49A38]" : "border-[#DDD5C4]"}`}
+    >
+      {previewUrl ? (
+        <iframe
+          title={`${doc.title} preview`}
+          src={`${previewUrl}#page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+          className="absolute inset-0 h-[170%] w-full origin-top pointer-events-none bg-white"
+          loading="lazy"
+        />
+      ) : (
+        <div className="absolute inset-0 flex flex-col items-center justify-center px-2 text-center text-xs text-[#6B7A99]">
+          <div className="font-semibold text-[#0F1C3F]">{order}</div>
+          <div>{doc.pages} page(s)</div>
+          <div>{failed ? "Preview unavailable" : doc.pdfStored ? "Loading preview" : "No PDF"}</div>
+        </div>
+      )}
+      <div className="absolute left-1.5 top-1.5 rounded bg-white/90 border border-[#DDD5C4] px-1.5 py-0.5 text-[10px] font-semibold text-[#0F1C3F] shadow-sm">{order}</div>
+      <div className="absolute bottom-0 left-0 right-0 bg-white/90 border-t border-[#DDD5C4] px-2 py-1 text-[10px] text-[#6B7A99]">
+        {doc.pages} page{doc.pages === 1 ? "" : "s"} · {doc.pdfStored ? "PDF preview" : "No PDF"}
+      </div>
+    </div>
+  );
 }
 
 function LabeledInput({ label, value, onChange }: { label: string; value: string; onChange: (value: string) => void }) {
