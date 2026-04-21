@@ -104,7 +104,7 @@ export default function Insights() {
   usePageMeta({
     title: "Insights | West Hills Capital",
     description: "Practical education on gold, silver, and self-directed IRAs — written for investors who want clarity, not noise. Explore our guides, market commentary, and founder's perspective.",
-    ogImage: "https://westhillscapital.com/opengraph.jpg",
+    ogImage: "https://westhillscapital.com/og-insights.jpg",
     canonical: "https://westhillscapital.com/insights",
   });
 

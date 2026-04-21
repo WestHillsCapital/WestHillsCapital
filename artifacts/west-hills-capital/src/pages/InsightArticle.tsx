@@ -110,7 +110,7 @@ export default function InsightArticle() {
       ? `${article.title} | West Hills Capital`
       : "Article Not Found | West Hills Capital",
     description: article?.metaDescription ?? "Explore insights on gold, silver, and precious metals investing from West Hills Capital.",
-    ogImage: "https://westhillscapital.com/opengraph.jpg",
+    ogImage: "https://westhillscapital.com/og-insights.jpg",
     canonical: slug ? `https://westhillscapital.com/insights/${slug}` : undefined,
   });
 

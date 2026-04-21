@@ -233,7 +233,7 @@ export default function FAQ() {
     description: "Common questions about buying physical gold and silver through West Hills Capital — pricing, commissions, delivery, IRA rollovers, and how the purchase process works.",
     ogTitle: "FAQ | West Hills Capital Physical Gold & Silver",
     ogDescription: "Answers on pricing, commissions, delivery, IRA rollovers, and how purchases work at West Hills Capital. Call (800) 867-6768.",
-    ogImage: "https://westhillscapital.com/opengraph.jpg",
+    ogImage: "https://westhillscapital.com/og-faq.jpg",
     canonical: "https://westhillscapital.com/faq",
   });
 
