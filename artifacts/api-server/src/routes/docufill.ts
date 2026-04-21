@@ -46,6 +46,7 @@ type FieldItem = {
   label?: string;
   source?: string;
   defaultValue?: unknown;
+  sensitive?: boolean;
 };
 
 type MappingItem = {
@@ -258,6 +259,33 @@ function fieldAnswerValue(field: FieldItem, answers: Record<string, unknown>, pr
   ];
   const value = candidates.find((candidate) => candidate !== undefined && candidate !== null && String(candidate).trim() !== "");
   return value === undefined || value === null ? "" : String(value);
+}
+
+const SENSITIVE_KEY_PATTERN = /\b(ssn|social\s*security|dob|date\s*of\s*birth|tax\s*id|tin|ein|account\s*number|routing|bank\s*account|passport|driver.?s?\s*license)\b/i;
+
+function isSensitiveField(field: FieldItem): boolean {
+  if (field.sensitive === true) return true;
+  return [field.name, field.label, field.source].some((value) => typeof value === "string" && SENSITIVE_KEY_PATTERN.test(value));
+}
+
+function maskSensitiveValue(value: unknown): string {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  const visible = text.replace(/\s+/g, "").length > 4 ? text.slice(-4) : "";
+  return visible ? `••••${visible}` : "••••";
+}
+
+function sensitivePrefillKeys(fields: FieldItem[], prefill: Record<string, unknown>): Set<string> {
+  const keys = new Set<string>();
+  fields.filter(isSensitiveField).forEach((field) => {
+    [field.source, field.name, field.label].forEach((candidate) => {
+      if (typeof candidate === "string" && candidate.trim()) keys.add(candidate);
+    });
+  });
+  Object.keys(prefill).forEach((key) => {
+    if (SENSITIVE_KEY_PATTERN.test(key)) keys.add(key);
+  });
+  return keys;
 }
 
 function drawWrappedText(page: PDFPage, text: string, x: number, y: number, size: number, font: PDFFont) {
@@ -870,6 +898,8 @@ router.post("/sessions/:token/generate", async (req, res) => {
       depository: session.depository_name,
       documentCount: Array.isArray(session.documents) ? session.documents.length : 0,
       mappingCount: Array.isArray(session.mappings) ? session.mappings.length : 0,
+      sensitiveFieldCount: parseFields(session.fields).filter(isSensitiveField).length,
+      valuePolicy: "Sensitive answers are omitted from generated summaries and only applied to mapped packet fields.",
       sourceDocuments: parseDocuments(session.documents).filter((doc) => doc.pdfStored).map((doc) => ({
         documentId: doc.id,
         title: doc.title,
@@ -913,6 +943,9 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
     session.documents = hydratedPackage.documents;
     const answers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
     const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+    const fields = parseFields(session.fields);
+    const fieldsById = new Map(fields.map((field) => [field.id, field]));
+    const sensitivePrefill = sensitivePrefillKeys(fields, prefill);
     const packageId = Number(session.package_id);
     const storedDocuments = parseDocuments(session.documents).filter((sourceDoc) => sourceDoc.pdfStored);
     const storedRowsResult = Number.isInteger(packageId) && storedDocuments.length > 0
@@ -925,8 +958,6 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
       : { rows: [] };
     const storedRows = storedRowsResult.rows as StoredDocumentRow[];
     if (storedRows.length > 0) {
-      const fields = parseFields(session.fields);
-      const fieldsById = new Map(fields.map((field) => [field.id, field]));
       const mappingsByDocument = new Map<string, MappingItem[]>();
       parseMappings(session.mappings).forEach((mapping) => {
         if (!mapping.documentId) return;
@@ -978,12 +1009,16 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
     doc.moveDown();
     doc.fontSize(14).text("Known Deal Data");
     Object.entries(prefill).forEach(([key, value]) => {
-      doc.fontSize(10).text(`${key}: ${String(value ?? "")}`);
+      const displayValue = sensitivePrefill.has(key) ? maskSensitiveValue(value) : String(value ?? "");
+      doc.fontSize(10).text(`${key}: ${displayValue}`);
     });
     doc.moveDown();
     doc.fontSize(14).text("Interview Answers");
     Object.entries(answers).forEach(([key, value]) => {
-      doc.fontSize(10).text(`${key}: ${String(value ?? "")}`);
+      const field = fieldsById.get(key);
+      const label = field?.name || field?.label || key;
+      const displayValue = field && isSensitiveField(field) ? maskSensitiveValue(value) : String(value ?? "");
+      doc.fontSize(10).text(`${label}: ${displayValue}`);
     });
     doc.moveDown();
     doc.fontSize(14).fillColor("#000000").text("Stored Source PDFs");

@@ -40,6 +40,7 @@ type FieldItem = {
   adminOnly: boolean;
   defaultValue: string;
   source: string;
+  sensitive: boolean;
 };
 
 type MappingItem = {
@@ -90,9 +91,23 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
   return items.map((pkg) => ({
     ...pkg,
     documents: Array.isArray(pkg.documents) ? pkg.documents : [],
-    fields: Array.isArray(pkg.fields) ? pkg.fields : [],
+    fields: Array.isArray(pkg.fields) ? pkg.fields.map((field) => ({ ...field, sensitive: field.sensitive === true })) : [],
     mappings: Array.isArray(pkg.mappings) ? pkg.mappings : [],
   }));
+}
+
+const SENSITIVE_PREFILL_PATTERN = /\b(ssn|social\s*security|dob|date\s*of\s*birth|tax\s*id|tin|ein|account\s*number|routing|bank\s*account|passport|driver.?s?\s*license)\b/i;
+
+function maskSensitiveValue(value: unknown) {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  const visible = text.replace(/\s+/g, "").length > 4 ? text.slice(-4) : "";
+  return visible ? `••••${visible}` : "••••";
+}
+
+function isSensitivePrefillKey(key: string, fields: FieldItem[]) {
+  if (SENSITIVE_PREFILL_PATTERN.test(key)) return true;
+  return fields.some((field) => field.sensitive && [field.source, field.name].includes(key));
 }
 
 export default function DocuFill() {
@@ -443,6 +458,7 @@ export default function DocuFill() {
         adminOnly: false,
         defaultValue: "",
         source: "interview",
+        sensitive: false,
       };
       setSelectedFieldId(field.id);
       return { ...pkg, fields: [...pkg.fields, field] };
@@ -728,8 +744,11 @@ export default function DocuFill() {
               <div className="space-y-2 overflow-y-auto flex-1">
                 {selectedPackage.fields.map((field) => (
                   <button key={field.id} onClick={() => setSelectedFieldId(field.id)} className={`w-full text-left border-2 rounded px-3 py-2 bg-white ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`} style={{ borderColor: field.color }}>
-                    <div className="text-sm font-medium">{field.name}</div>
-                    <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewVisible ? "Interview" : "Admin default"}</div>
+                    <div className="text-sm font-medium flex items-center gap-2">
+                      <span>{field.name}</span>
+                      {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
+                    </div>
+                    <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewVisible ? "Interview" : "Admin default"}{field.sensitive ? " · masked" : ""}</div>
                   </button>
                 ))}
               </div>
@@ -745,8 +764,9 @@ export default function DocuFill() {
                     <option value="dropdown">Dropdown</option>
                   </select>
                   <Textarea placeholder="Options, one per line" value={selectedField.options.join("\n")} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, fields: pkg.fields.map((f) => f.id === selectedField.id ? { ...f, options: e.target.value.split("\n").filter(Boolean) } : f) }))} />
-                  <Input placeholder="Default/admin value" value={selectedField.defaultValue} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, fields: pkg.fields.map((f) => f.id === selectedField.id ? { ...f, defaultValue: e.target.value } : f) }))} />
+                  <Input type={selectedField.sensitive ? "password" : "text"} placeholder="Default/admin value" value={selectedField.defaultValue} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, fields: pkg.fields.map((f) => f.id === selectedField.id ? { ...f, defaultValue: e.target.value } : f) }))} />
                   <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.interviewVisible} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, fields: pkg.fields.map((f) => f.id === selectedField.id ? { ...f, interviewVisible: e.target.checked } : f) }))} /> Show in interview</label>
+                  <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.sensitive} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, fields: pkg.fields.map((f) => f.id === selectedField.id ? { ...f, sensitive: e.target.checked } : f) }))} /> Sensitive — mask in internal summaries</label>
                   <button onClick={() => removeField(selectedField.id)} className="text-xs text-red-600">Remove field</button>
                 </div>
               )}
@@ -766,7 +786,10 @@ export default function DocuFill() {
               <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] p-4">
                 <h3 className="text-sm font-semibold mb-2">Prefilled from Deal Builder</h3>
                 <div className="grid sm:grid-cols-2 gap-2 text-xs text-[#6B7A99]">
-                  {Object.entries(session.prefill ?? {}).filter(([, value]) => String(value ?? "").trim()).map(([key, value]) => <div key={key}><span className="font-medium text-[#0F1C3F]">{key}:</span> {String(value)}</div>)}
+                  {Object.entries(session.prefill ?? {}).filter(([, value]) => String(value ?? "").trim()).map(([key, value]) => {
+                    const sensitive = isSensitivePrefillKey(key, session.fields);
+                    return <div key={key}><span className="font-medium text-[#0F1C3F]">{key}:</span> {sensitive ? maskSensitiveValue(value) : String(value)}</div>;
+                  })}
                 </div>
               </div>
               <div className="space-y-3">
@@ -781,7 +804,7 @@ export default function DocuFill() {
                     ) : field.type === "checkbox" ? (
                       <div className="space-y-1">{(field.options.length ? field.options : ["Yes"]).map((option) => <label key={option} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={(answers[field.id] ?? "").split(", ").includes(option)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.checked ? [...(prev[field.id] ?? "").split(", ").filter(Boolean), option].join(", ") : (prev[field.id] ?? "").split(", ").filter((v) => v !== option).join(", ") }))} /> {option}</label>)}</div>
                     ) : (
-                      <Input type={field.type === "date" ? "date" : "text"} value={answers[field.id] ?? field.defaultValue ?? ""} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} />
+                      <Input type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"} value={answers[field.id] ?? field.defaultValue ?? ""} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} />
                     )}
                   </label>
                 ))}
