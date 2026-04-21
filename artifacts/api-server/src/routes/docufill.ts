@@ -214,6 +214,11 @@ function normalizeValidationType(value: unknown): string {
   return ["none", "name", "number", "currency", "email", "phone", "date", "ssn", "custom"].includes(text) ? text : "none";
 }
 
+function normalizeSortOrder(value: unknown): number {
+  const order = Number(value ?? 100);
+  return Number.isFinite(order) ? Math.trunc(order) : 100;
+}
+
 function isUniqueViolation(err: unknown): boolean {
   return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === "23505";
 }
@@ -738,7 +743,7 @@ router.post("/field-library", async (req, res) => {
         nullableText(body.validationPattern),
         nullableText(body.validationMessage),
         body.active !== false,
-        Number(body.sortOrder ?? 100),
+        normalizeSortOrder(body.sortOrder),
       ],
     );
     if (!rows[0]) {
@@ -798,7 +803,7 @@ router.patch("/field-library/:id", async (req, res) => {
         nullableText(body.validationPattern),
         nullableText(body.validationMessage),
         body.active !== false,
-        Number(body.sortOrder ?? 100),
+        normalizeSortOrder(body.sortOrder),
         id,
       ],
     );
