@@ -4,6 +4,7 @@ import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { getDocuFillPrefillDisplayValue } from "@/lib/docufill-redaction";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -94,20 +95,6 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     fields: Array.isArray(pkg.fields) ? pkg.fields.map((field) => ({ ...field, sensitive: field.sensitive === true })) : [],
     mappings: Array.isArray(pkg.mappings) ? pkg.mappings : [],
   }));
-}
-
-const SENSITIVE_PREFILL_PATTERN = /\b(ssn|social\s*security|dob|date\s*of\s*birth|tax\s*id|tin|ein|account\s*number|routing|bank\s*account|passport|driver.?s?\s*license)\b/i;
-
-function maskSensitiveValue(value: unknown) {
-  const text = String(value ?? "").trim();
-  if (!text) return "";
-  const visible = text.replace(/\s+/g, "").length > 4 ? text.slice(-4) : "";
-  return visible ? `••••${visible}` : "••••";
-}
-
-function isSensitivePrefillKey(key: string, fields: FieldItem[]) {
-  if (SENSITIVE_PREFILL_PATTERN.test(key)) return true;
-  return fields.some((field) => field.sensitive && [field.source, field.name].includes(key));
 }
 
 export default function DocuFill() {
@@ -786,10 +773,9 @@ export default function DocuFill() {
               <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] p-4">
                 <h3 className="text-sm font-semibold mb-2">Prefilled from Deal Builder</h3>
                 <div className="grid sm:grid-cols-2 gap-2 text-xs text-[#6B7A99]">
-                  {Object.entries(session.prefill ?? {}).filter(([, value]) => String(value ?? "").trim()).map(([key, value]) => {
-                    const sensitive = isSensitivePrefillKey(key, session.fields);
-                    return <div key={key}><span className="font-medium text-[#0F1C3F]">{key}:</span> {sensitive ? maskSensitiveValue(value) : String(value)}</div>;
-                  })}
+                  {Object.entries(session.prefill ?? {}).filter(([, value]) => String(value ?? "").trim()).map(([key, value]) => (
+                    <div key={key}><span className="font-medium text-[#0F1C3F]">{key}:</span> {getDocuFillPrefillDisplayValue(key, value, session.fields)}</div>
+                  ))}
                 </div>
               </div>
               <div className="space-y-3">

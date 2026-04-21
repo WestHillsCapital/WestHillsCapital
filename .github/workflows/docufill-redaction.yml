@@ -1,0 +1,29 @@
+name: DocuFill redaction validation
+
+on:
+  push:
+    paths:
+      - "artifacts/api-server/src/lib/docufill-redaction.ts"
+      - "artifacts/api-server/src/routes/docufill.ts"
+      - "artifacts/west-hills-capital/src/lib/docufill-redaction.ts"
+      - "artifacts/west-hills-capital/src/pages/internal/DocuFill.tsx"
+      - "scripts/validate-docufill-redaction.mjs"
+      - ".github/workflows/docufill-redaction.yml"
+  pull_request:
+    paths:
+      - "artifacts/api-server/src/lib/docufill-redaction.ts"
+      - "artifacts/api-server/src/routes/docufill.ts"
+      - "artifacts/west-hills-capital/src/lib/docufill-redaction.ts"
+      - "artifacts/west-hills-capital/src/pages/internal/DocuFill.tsx"
+      - "scripts/validate-docufill-redaction.mjs"
+      - ".github/workflows/docufill-redaction.yml"
+
+jobs:
+  docufill-redaction:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node --experimental-transform-types scripts/validate-docufill-redaction.mjs

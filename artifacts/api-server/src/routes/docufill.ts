@@ -5,6 +5,13 @@ import { PDFDocument as PdfLibDocument, StandardFonts, rgb, type PDFFont, type P
 import PDFDocument from "pdfkit";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
+import {
+  buildDocuFillFallbackSummaryRows,
+  buildDocuFillPacketSummary,
+  fieldAnswerValue,
+  parseDocuFillFields as parseFields,
+  type DocuFillFieldItem,
+} from "../lib/docufill-redaction";
 
 const router: IRouter = Router();
 const MAX_PACKAGE_PDF_BYTES = 100 * 1024 * 1024;
@@ -40,14 +47,7 @@ type DocItem = {
   updatedAt?: string;
 };
 
-type FieldItem = {
-  id: string;
-  name?: string;
-  label?: string;
-  source?: string;
-  defaultValue?: unknown;
-  sensitive?: boolean;
-};
+type FieldItem = DocuFillFieldItem;
 
 type MappingItem = {
   fieldId?: string;
@@ -127,12 +127,6 @@ function createDocumentId(): string {
 function parseDocuments(value: unknown): DocItem[] {
   return Array.isArray(value) ? value.filter((item): item is DocItem => {
     return Boolean(item && typeof item === "object" && typeof (item as DocItem).id === "string");
-  }) : [];
-}
-
-function parseFields(value: unknown): FieldItem[] {
-  return Array.isArray(value) ? value.filter((item): item is FieldItem => {
-    return Boolean(item && typeof item === "object" && typeof (item as FieldItem).id === "string");
   }) : [];
 }
 
@@ -247,45 +241,6 @@ async function readPdfBody(req: Request): Promise<Buffer> {
     throw new PdfUploadError("Uploaded file is not a valid PDF");
   }
   return body;
-}
-
-function fieldAnswerValue(field: FieldItem, answers: Record<string, unknown>, prefill: Record<string, unknown>): string {
-  const candidates = [
-    answers[field.id],
-    field.source ? prefill[field.source] : undefined,
-    field.name ? prefill[field.name] : undefined,
-    field.label ? prefill[field.label] : undefined,
-    field.defaultValue,
-  ];
-  const value = candidates.find((candidate) => candidate !== undefined && candidate !== null && String(candidate).trim() !== "");
-  return value === undefined || value === null ? "" : String(value);
-}
-
-const SENSITIVE_KEY_PATTERN = /\b(ssn|social\s*security|dob|date\s*of\s*birth|tax\s*id|tin|ein|account\s*number|routing|bank\s*account|passport|driver.?s?\s*license)\b/i;
-
-function isSensitiveField(field: FieldItem): boolean {
-  if (field.sensitive === true) return true;
-  return [field.name, field.label, field.source].some((value) => typeof value === "string" && SENSITIVE_KEY_PATTERN.test(value));
-}
-
-function maskSensitiveValue(value: unknown): string {
-  const text = String(value ?? "").trim();
-  if (!text) return "";
-  const visible = text.replace(/\s+/g, "").length > 4 ? text.slice(-4) : "";
-  return visible ? `••••${visible}` : "••••";
-}
-
-function sensitivePrefillKeys(fields: FieldItem[], prefill: Record<string, unknown>): Set<string> {
-  const keys = new Set<string>();
-  fields.filter(isSensitiveField).forEach((field) => {
-    [field.source, field.name, field.label].forEach((candidate) => {
-      if (typeof candidate === "string" && candidate.trim()) keys.add(candidate);
-    });
-  });
-  Object.keys(prefill).forEach((key) => {
-    if (SENSITIVE_KEY_PATTERN.test(key)) keys.add(key);
-  });
-  return keys;
 }
 
 function drawWrappedText(page: PDFPage, text: string, x: number, y: number, size: number, font: PDFFont) {
@@ -891,24 +846,7 @@ router.post("/sessions/:token/generate", async (req, res) => {
     }
     const hydratedPackage = (await hydrateStoredDocumentMetadata([{ id: session.package_id, documents: session.documents }], db))[0];
     session.documents = hydratedPackage.documents;
-    const generated = {
-      packageName: session.package_name,
-      packageVersion: session.package_version,
-      custodian: session.custodian_name,
-      depository: session.depository_name,
-      documentCount: Array.isArray(session.documents) ? session.documents.length : 0,
-      mappingCount: Array.isArray(session.mappings) ? session.mappings.length : 0,
-      sensitiveFieldCount: parseFields(session.fields).filter(isSensitiveField).length,
-      valuePolicy: "Sensitive answers are omitted from generated summaries and only applied to mapped packet fields.",
-      sourceDocuments: parseDocuments(session.documents).filter((doc) => doc.pdfStored).map((doc) => ({
-        documentId: doc.id,
-        title: doc.title,
-        fileName: doc.fileName,
-        pages: doc.pages,
-        byteSize: doc.byteSize,
-      })),
-      generatedAt: new Date().toISOString(),
-    };
+    const generated = buildDocuFillPacketSummary(session);
     await db.query(
       `UPDATE docufill_interview_sessions SET status='generated', generated_packet=$1::jsonb, updated_at=NOW() WHERE token=$2`,
       [JSON.stringify(generated), req.params.token],
@@ -945,7 +883,6 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
     const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
     const fields = parseFields(session.fields);
     const fieldsById = new Map(fields.map((field) => [field.id, field]));
-    const sensitivePrefill = sensitivePrefillKeys(fields, prefill);
     const packageId = Number(session.package_id);
     const storedDocuments = parseDocuments(session.documents).filter((sourceDoc) => sourceDoc.pdfStored);
     const storedRowsResult = Number.isInteger(packageId) && storedDocuments.length > 0
@@ -1008,17 +945,14 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
     doc.text(`Generated: ${new Date().toLocaleString()}`);
     doc.moveDown();
     doc.fontSize(14).text("Known Deal Data");
-    Object.entries(prefill).forEach(([key, value]) => {
-      const displayValue = sensitivePrefill.has(key) ? maskSensitiveValue(value) : String(value ?? "");
-      doc.fontSize(10).text(`${key}: ${displayValue}`);
+    const fallbackRows = buildDocuFillFallbackSummaryRows(session);
+    fallbackRows.prefillRows.forEach((row) => {
+      doc.fontSize(10).text(`${row.label}: ${row.displayValue}`);
     });
     doc.moveDown();
     doc.fontSize(14).text("Interview Answers");
-    Object.entries(answers).forEach(([key, value]) => {
-      const field = fieldsById.get(key);
-      const label = field?.name || field?.label || key;
-      const displayValue = field && isSensitiveField(field) ? maskSensitiveValue(value) : String(value ?? "");
-      doc.fontSize(10).text(`${label}: ${displayValue}`);
+    fallbackRows.answerRows.forEach((row) => {
+      doc.fontSize(10).text(`${row.label}: ${row.displayValue}`);
     });
     doc.moveDown();
     doc.fontSize(14).fillColor("#000000").text("Stored Source PDFs");
