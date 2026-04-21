@@ -14,7 +14,7 @@ export function useDealState(
   const [customer, setCustomer] = useState<Customer>({
     firstName: "", lastName: "", email: "", phone: "", state: "", zip: "",
     leadId: urlLeadId, confirmationId: urlConfirmationId,
-    custodian: "", depository: "", iraAccountNumber: "",
+    custodianId: "", custodian: "", depositoryId: "", depository: "", iraAccountNumber: "",
   });
   const [customerLoaded, setCustomerLoaded] = useState(false);
   const [loadingCustomer, setLoadingCustomer] = useState(false);
@@ -99,7 +99,9 @@ export function useDealState(
           zip:              "",
           leadId:           deal.lead_id ? String(deal.lead_id) : "",
           confirmationId:   deal.confirmation_id    ?? "",
+          custodianId:      deal.custodian_id ? String(deal.custodian_id) : "",
           custodian:        deal.custodian          ?? "",
+          depositoryId:     deal.depository_id ? String(deal.depository_id) : "",
           depository:       deal.depository         ?? "",
           iraAccountNumber: deal.ira_account_number ?? "",
         });

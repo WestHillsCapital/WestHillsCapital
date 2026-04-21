@@ -51,8 +51,10 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
       .finally(() => setIsLoading(false));
   }, [getAuthHeaders]);
 
-  const selectedCustodian = custodians.find((c) => c.name === customer.custodian);
-  const selectedDepository = depositories.find((d) => d.name === customer.depository);
+  const selectedCustodian = custodians.find((c) => String(c.id) === customer.custodianId)
+    ?? custodians.find((c) => c.name === customer.custodian);
+  const selectedDepository = depositories.find((d) => String(d.id) === customer.depositoryId)
+    ?? depositories.find((d) => d.name === customer.depository);
 
   const matchingPackages = useMemo(() => {
     return packages.filter((pkg) => {
@@ -62,6 +64,15 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
       return true;
     });
   }, [packages, selectedCustodian, selectedDepository]);
+
+  useEffect(() => {
+    if (selectedCustodian && customer.custodianId !== String(selectedCustodian.id)) {
+      setCustomer((prev) => ({ ...prev, custodianId: String(selectedCustodian.id), custodian: selectedCustodian.name }));
+    }
+    if (selectedDepository && customer.depositoryId !== String(selectedDepository.id)) {
+      setCustomer((prev) => ({ ...prev, depositoryId: String(selectedDepository.id), depository: selectedDepository.name }));
+    }
+  }, [customer.custodianId, customer.depositoryId, selectedCustodian, selectedDepository, setCustomer]);
 
   useEffect(() => {
     if (matchingPackages.length === 1) setSelectedPackageId(String(matchingPackages[0]!.id));
@@ -91,7 +102,9 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
             phone: customer.phone,
             state: customer.state,
             custodian: customer.custodian,
+            custodianId: customer.custodianId,
             depository: customer.depository,
+            depositoryId: customer.depositoryId,
             iraAccountNumber: customer.iraAccountNumber,
             dealId: savedDealId,
           },
@@ -127,25 +140,39 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
         <label className="block">
           <span className="block text-xs text-[#6B7A99] mb-1">Custodian</span>
           <select
-            value={customer.custodian}
+            value={customer.custodianId}
             disabled={locked || isLoading}
-            onChange={(e) => setCustomer((prev) => ({ ...prev, custodian: e.target.value }))}
+            onChange={(e) => {
+              const custodian = custodians.find((c) => String(c.id) === e.target.value);
+              setCustomer((prev) => ({
+                ...prev,
+                custodianId: custodian ? String(custodian.id) : "",
+                custodian: custodian?.name ?? "",
+              }));
+            }}
             className="w-full bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
           >
             <option value="">Select custodian</option>
-            {custodians.filter((c) => c.active).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+            {custodians.filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </label>
         <label className="block">
           <span className="block text-xs text-[#6B7A99] mb-1">Depository</span>
           <select
-            value={customer.depository}
+            value={customer.depositoryId}
             disabled={locked || isLoading}
-            onChange={(e) => setCustomer((prev) => ({ ...prev, depository: e.target.value }))}
+            onChange={(e) => {
+              const depository = depositories.find((d) => String(d.id) === e.target.value);
+              setCustomer((prev) => ({
+                ...prev,
+                depositoryId: depository ? String(depository.id) : "",
+                depository: depository?.name ?? "",
+              }));
+            }}
             className="w-full bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
           >
             <option value="">Select depository</option>
-            {depositories.filter((d) => d.active).map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
+            {depositories.filter((d) => d.active).map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </label>
       </div>
