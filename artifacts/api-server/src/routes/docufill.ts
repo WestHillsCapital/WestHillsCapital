@@ -239,7 +239,7 @@ function hydratePackageFields(fields: unknown, library: Array<Record<string, unk
       category: String(libraryField.category ?? field.category ?? ""),
       type: String(libraryField.type ?? field.type ?? "text"),
       source: String(libraryField.source ?? field.source ?? "interview"),
-      options: Array.isArray(libraryField.options) ? libraryField.options : field.options,
+      options: Array.isArray(field.options) ? field.options : Array.isArray(libraryField.options) ? libraryField.options : [],
       sensitive: libraryField.sensitive === true,
       required: libraryField.required === true,
       validationType: normalizeValidationType(libraryField.validationType ?? field.validationType),
@@ -420,7 +420,7 @@ function drawWrappedText(page: PDFPage, text: string, x: number, y: number, size
   });
 }
 
-async function getPackage(packageId: number, client: QueryClient = getDb()): Promise<PackageRow | undefined> {
+async function getPackage(packageId: number, client: QueryClient = getDb(), hydrate = true): Promise<PackageRow | undefined> {
   const { rows } = await client.query(
     `SELECT p.*, c.name AS custodian_name, d.name AS depository_name
        FROM docufill_packages p
@@ -431,6 +431,7 @@ async function getPackage(packageId: number, client: QueryClient = getDb()): Pro
   );
   const pkg = rows[0] as PackageRow | undefined;
   if (!pkg) return undefined;
+  if (!hydrate) return pkg;
   return (await hydratePackages([pkg], client))[0];
 }
 
@@ -977,7 +978,7 @@ router.patch("/packages/:id", async (req, res) => {
       return;
     }
     const body = req.body as PackageInput;
-    const existing = await getPackage(id);
+    const existing = await getPackage(id, getDb(), false);
     if (!existing) {
       res.status(404).json({ error: "Package not found" });
       return;

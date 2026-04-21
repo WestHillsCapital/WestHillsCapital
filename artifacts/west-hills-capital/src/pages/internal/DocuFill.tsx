@@ -1326,7 +1326,7 @@ export default function DocuFill() {
                     <option value="checkbox">Checkboxes</option>
                     <option value="dropdown">Dropdown</option>
                   </select>
-                  <Textarea placeholder="Options, one per line" value={selectedField.options.join("\n")} onChange={(e) => updateSelectedField({ options: e.target.value.split("\n").filter(Boolean) })} disabled={selectedFieldIsShared} />
+                  <Textarea placeholder="Options, one per line" value={selectedField.options.join("\n")} onChange={(e) => updateSelectedField({ options: e.target.value.split("\n").filter(Boolean) })} />
                   <Input type={selectedField.sensitive ? "password" : "text"} placeholder="Default/admin value" value={selectedField.defaultValue} onChange={(e) => updateSelectedField({ defaultValue: e.target.value })} />
                   <div className="rounded border border-[#EFE8D8] bg-[#F8F6F0] p-2 space-y-2">
                     <div className="text-xs font-semibold">Validation</div>
@@ -1344,7 +1344,7 @@ export default function DocuFill() {
                     </select>
                     {selectedField.validationType === "custom" && <Input placeholder="Regex pattern" value={selectedField.validationPattern ?? ""} onChange={(e) => updateSelectedField({ validationPattern: e.target.value })} disabled={selectedFieldIsShared} className="h-8 text-xs bg-white" />}
                     <Input placeholder="Custom validation message" value={selectedField.validationMessage ?? ""} onChange={(e) => updateSelectedField({ validationMessage: e.target.value })} disabled={selectedFieldIsShared} className="h-8 text-xs bg-white" />
-                    {selectedFieldIsShared && <div className="text-[11px] text-[#8A9BB8]">Shared field rules are edited in the Shared Field Library. This package can still control visibility, defaults, color, mappings, and document placement.</div>}
+                    {selectedFieldIsShared && <div className="text-[11px] text-[#8A9BB8]">Shared field rules are edited in the Shared Field Library. This package can still control options, visibility, defaults, color, mappings, and document placement.</div>}
                   </div>
                   <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.interviewVisible} onChange={(e) => updateSelectedField({ interviewVisible: e.target.checked })} /> Show in interview</label>
                   <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.sensitive} onChange={(e) => updateSelectedField({ sensitive: e.target.checked })} disabled={selectedFieldIsShared} /> Sensitive — mask in internal summaries</label>
