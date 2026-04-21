@@ -14,6 +14,9 @@ const DOCUFILL_TRANSACTION_TYPES = [
   { value: "cash_purchase", label: "Cash purchase" },
   { value: "storage_change", label: "Storage change" },
   { value: "beneficiary_update", label: "Beneficiary update" },
+  { value: "liquidation", label: "Liquidation" },
+  { value: "buy_sell_direction", label: "Buy / sell direction" },
+  { value: "address_change", label: "Address change" },
 ] as const;
 
 function transactionScopeLabel(scope: string | null | undefined) {
@@ -220,6 +223,7 @@ export default function DocuFill() {
   const selectedField = selectedPackage?.fields.find((field) => field.id === selectedFieldId) ?? selectedPackage?.fields[0] ?? null;
   const selectedMapping = selectedPackage?.mappings.find((mapping) => mapping.id === selectedMappingId) ?? null;
   const selectedPageSize = selectedDocument?.pageSizes?.[selectedPage - 1] ?? selectedDocument?.pageSizes?.[0];
+  const labelForTransactionScope = (scope: string | null | undefined) => transactionTypes.find((item) => item.scope === scope)?.label ?? transactionScopeLabel(scope);
   const selectedPageAspect = selectedPageSize && selectedPageSize.width > 0 && selectedPageSize.height > 0
     ? `${selectedPageSize.width} / ${selectedPageSize.height}`
     : "612 / 792";
@@ -1280,7 +1284,7 @@ export default function DocuFill() {
                   <div className="flex flex-col sm:flex-row gap-2">
                     <select value={standalonePackageId} onChange={(e) => setStandalonePackageId(e.target.value)} className="flex-1 border border-[#D4C9B5] rounded px-3 py-2 text-sm bg-white">
                       <option value="">Select active package</option>
-                      {activePackages.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name} · {transactionScopeLabel(pkg.transaction_scope)}</option>)}
+                      {activePackages.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name} · {labelForTransactionScope(pkg.transaction_scope)}</option>)}
                     </select>
                     <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Start Interview</Button>
                   </div>
@@ -1291,7 +1295,7 @@ export default function DocuFill() {
             <div className="space-y-5">
               <div>
                 <h2 className="text-xl font-semibold">{session.package_name}</h2>
-                <p className="text-sm text-[#6B7A99]">{session.custodian_name ?? "No custodian"} · {session.depository_name ?? "No depository"} · {transactionScopeLabel(session.transaction_scope)}</p>
+                <p className="text-sm text-[#6B7A99]">{session.custodian_name ?? "No custodian"} · {session.depository_name ?? "No depository"} · {labelForTransactionScope(session.transaction_scope)}</p>
                 <p className="text-xs text-[#8A9BB8] mt-1">{answeredFieldCount} of {visibleInterviewFields.length} interview fields answered. Your progress is saved when you click Save Interview.</p>
               </div>
               {missingRequiredFields.length > 0 && (
