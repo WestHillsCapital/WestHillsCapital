@@ -93,19 +93,11 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
       {
-        heading: "Why spot price can feel disconnected",
-        paragraphs: [
-          "At times, people notice strong demand for physical metals but very little movement in spot price.",
-          "Or they see premiums rise while spot stays flat.",
-          "That is because spot price reflects financial market activity first, not physical demand alone.",
-        ],
-      },
-      {
-        heading: "Spot price is useful, but incomplete",
+        heading: "What spot price can and cannot tell you",
         paragraphs: [
           "Spot price plays an important role. It provides a common reference, allows pricing comparison, and creates structure across the global market.",
-          "But it should not be misunderstood as a perfect measure of physical supply and demand.",
-          "It is better described as a highly liquid financial price.",
+          "But it should not be mistaken for a perfect measure of physical supply and demand. It is better described as a highly liquid financial price.",
+          "That is why, at times, people notice strong demand for physical metals but very little movement in spot. Or they see premiums rise while spot stays flat. The financial market moves on its own logic.",
         ],
       },
       {
@@ -133,14 +125,6 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
       {
-        heading: "The connection to other decisions",
-        paragraphs: [
-          "Spot price is just one part of the equation.",
-          "It connects directly to premiums, product choice, and relative value.",
-          "Understanding spot helps you understand everything else.",
-        ],
-      },
-      {
         heading: "The takeaway",
         paragraphs: [
           "Spot price matters, but it is not the full picture.",
@@ -151,8 +135,8 @@ export const INSIGHTS: InsightArticle[] = [
         heading: "Final thought",
         paragraphs: [
           "The industry often presents spot price as if it tells you everything. It does not.",
-          "But once you understand what it is and what it is not, you can make decisions based on clarity instead of assumption.",
-          "And in this space, that makes a meaningful difference.",
+          "But once you understand what it is and what it is not, you can see how it connects to everything else — premiums, product choice, and real-world value.",
+          "That understanding alone puts you ahead of most buyers.",
         ],
       },
     ],
