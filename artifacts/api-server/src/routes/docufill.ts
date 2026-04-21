@@ -55,6 +55,11 @@ type MappingItem = {
   page?: number;
   x?: number;
   y?: number;
+  w?: number;
+  h?: number;
+  fontSize?: number;
+  align?: "left" | "center" | "right";
+  format?: string;
 };
 
 type StoredDocumentRow = {
@@ -243,24 +248,62 @@ async function readPdfBody(req: Request): Promise<Buffer> {
   return body;
 }
 
-function drawWrappedText(page: PDFPage, text: string, x: number, y: number, size: number, font: PDFFont) {
+function formatMappedValue(value: string, mapping: MappingItem): string {
+  const format = String(mapping.format ?? "as-entered");
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  if (format === "uppercase") return text.toUpperCase();
+  if (format === "lowercase") return text.toLowerCase();
+  if (format === "first-name") return text.split(/\s+/)[0] ?? text;
+  if (format === "last-name") {
+    const parts = text.split(/\s+/).filter(Boolean);
+    return parts.length > 1 ? parts[parts.length - 1] : text;
+  }
+  if (format === "initials") return text.split(/\s+/).filter(Boolean).map((part) => part[0]?.toUpperCase() ?? "").join("");
+  if (format === "digits-only") return text.replace(/\D+/g, "");
+  if (format === "last-four") return text.replace(/\D+/g, "").slice(-4);
+  if (format === "currency") {
+    const numeric = Number(text.replace(/[$,]/g, ""));
+    return Number.isFinite(numeric) ? numeric.toLocaleString("en-US", { style: "currency", currency: "USD" }) : text;
+  }
+  if (format === "date-mm-dd-yyyy") {
+    const date = new Date(text);
+    if (!Number.isNaN(date.getTime())) {
+      const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(date.getUTCDate()).padStart(2, "0");
+      const yyyy = String(date.getUTCFullYear());
+      return `${mm}/${dd}/${yyyy}`;
+    }
+  }
+  if (format === "checkbox-yes") return /^(true|yes|y|1|checked)$/i.test(text) ? "X" : "";
+  return text;
+}
+
+function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return fallback;
+  return Math.max(min, Math.min(max, numeric));
+}
+
+function drawWrappedText(page: PDFPage, text: string, x: number, y: number, size: number, font: PDFFont, maxWidth = 180, align: "left" | "center" | "right" = "left") {
   const words = text.split(/\s+/).filter(Boolean);
-  const maxChars = 60;
+  const lines: string[] = [];
   let line = "";
-  let currentY = y;
   words.forEach((word) => {
     const nextLine = line ? `${line} ${word}` : word;
-    if (nextLine.length > maxChars) {
-      page.drawText(line, { x, y: currentY, size, font, color: rgb(0, 0, 0) });
+    if (font.widthOfTextAtSize(nextLine, size) > maxWidth && line) {
+      lines.push(line);
       line = word;
-      currentY -= size + 2;
     } else {
       line = nextLine;
     }
   });
-  if (line) {
-    page.drawText(line, { x, y: currentY, size, font, color: rgb(0, 0, 0) });
-  }
+  if (line) lines.push(line);
+  lines.forEach((textLine, index) => {
+    const lineWidth = font.widthOfTextAtSize(textLine, size);
+    const offset = align === "center" ? Math.max(0, (maxWidth - lineWidth) / 2) : align === "right" ? Math.max(0, maxWidth - lineWidth) : 0;
+    page.drawText(textLine, { x: x + offset, y: y - index * (size + 2), size, font, color: rgb(0, 0, 0) });
+  });
 }
 
 async function getPackage(packageId: number, client: QueryClient = getDb()): Promise<PackageRow | undefined> {
@@ -941,14 +984,18 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
           const field = mapping.fieldId ? fieldsById.get(mapping.fieldId) : undefined;
           if (!field) return;
           const value = fieldAnswerValue(field, answers, prefill);
-          if (!value) return;
+          const mappedValue = formatMappedValue(value, mapping);
+          if (!mappedValue) return;
           const pageIndex = Math.max(Number(mapping.page ?? 1) - 1, 0);
           const page = merged.getPages()[merged.getPageCount() - copiedPages.length + pageIndex];
           if (!page) return;
           const { width, height } = page.getSize();
           const x = Math.max(0, Math.min(width - 12, (Number(mapping.x ?? 0) / 100) * width));
           const y = Math.max(12, Math.min(height - 12, height - (Number(mapping.y ?? 0) / 100) * height));
-          drawWrappedText(page, value, x, y, 9, font);
+          const fontSize = clampNumber(mapping.fontSize, 9, 5, 24);
+          const maxWidth = Math.max(18, (clampNumber(mapping.w, 26, 2, 100) / 100) * width);
+          const align = mapping.align === "center" || mapping.align === "right" ? mapping.align : "left";
+          drawWrappedText(page, mappedValue, x, y, fontSize, font, maxWidth, align);
         });
       }
       const output = Buffer.from(await merged.save());

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { useSearch } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { Button } from "@/components/ui/button";
@@ -42,6 +42,10 @@ type FieldItem = {
   defaultValue: string;
   source: string;
   sensitive: boolean;
+  required?: boolean;
+  validationType?: "none" | "name" | "number" | "currency" | "email" | "phone" | "date" | "ssn" | "custom";
+  validationPattern?: string;
+  validationMessage?: string;
 };
 
 type MappingItem = {
@@ -53,6 +57,9 @@ type MappingItem = {
   y: number;
   w: number;
   h: number;
+  fontSize?: number;
+  align?: "left" | "center" | "right";
+  format?: "as-entered" | "uppercase" | "lowercase" | "first-name" | "last-name" | "initials" | "digits-only" | "last-four" | "currency" | "date-mm-dd-yyyy" | "checkbox-yes";
 };
 
 type PackageItem = {
@@ -88,12 +95,36 @@ function newId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
+function clampPercent(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
+}
+
+function defaultMappingFormat(field: FieldItem): MappingItem["format"] {
+  if (field.validationType === "currency") return "currency";
+  if (field.validationType === "number") return "digits-only";
+  if (field.validationType === "date" || field.type === "date") return "date-mm-dd-yyyy";
+  if (field.type === "checkbox") return "checkbox-yes";
+  return "as-entered";
+}
+
 function normalizePackages(items: PackageItem[]): PackageItem[] {
   return items.map((pkg) => ({
     ...pkg,
     documents: Array.isArray(pkg.documents) ? pkg.documents : [],
-    fields: Array.isArray(pkg.fields) ? pkg.fields.map((field) => ({ ...field, sensitive: field.sensitive === true })) : [],
-    mappings: Array.isArray(pkg.mappings) ? pkg.mappings : [],
+    fields: Array.isArray(pkg.fields) ? pkg.fields.map((field) => ({
+      ...field,
+      sensitive: field.sensitive === true,
+      required: field.required === true,
+      validationType: field.validationType ?? "none",
+      validationPattern: field.validationPattern ?? "",
+      validationMessage: field.validationMessage ?? "",
+    })) : [],
+    mappings: Array.isArray(pkg.mappings) ? pkg.mappings.map((mapping) => ({
+      ...mapping,
+      fontSize: Number(mapping.fontSize ?? 9),
+      align: mapping.align ?? "left",
+      format: mapping.format ?? "as-entered",
+    })) : [],
   }));
 }
 
@@ -108,6 +139,7 @@ export default function DocuFill() {
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
+  const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
@@ -119,12 +151,14 @@ export default function DocuFill() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [documentPreviewUrl, setDocumentPreviewUrl] = useState<string | null>(null);
   const [selectedPage, setSelectedPage] = useState(1);
+  const pageFrameRef = useRef<HTMLDivElement | null>(null);
   const documentPreviewCache = useRef<Record<string, string>>({});
   const documentPreviewCacheOrder = useRef<string[]>([]);
 
   const selectedPackage = packages.find((pkg) => pkg.id === selectedPackageId) ?? packages[0] ?? null;
   const selectedDocument = selectedPackage?.documents.find((doc) => doc.id === selectedDocumentId) ?? selectedPackage?.documents[0] ?? null;
   const selectedField = selectedPackage?.fields.find((field) => field.id === selectedFieldId) ?? selectedPackage?.fields[0] ?? null;
+  const selectedMapping = selectedPackage?.mappings.find((mapping) => mapping.id === selectedMappingId) ?? null;
   const selectedPageSize = selectedDocument?.pageSizes?.[selectedPage - 1] ?? selectedDocument?.pageSizes?.[0];
   const selectedPageAspect = selectedPageSize && selectedPageSize.width > 0 && selectedPageSize.height > 0
     ? `${selectedPageSize.width} / ${selectedPageSize.height}`
@@ -176,6 +210,11 @@ export default function DocuFill() {
     if (selectedPage > pageCount) setSelectedPage(pageCount);
     if (selectedPage < 1) setSelectedPage(1);
   }, [selectedDocument?.id, selectedDocument?.pages, selectedPage]);
+
+  useEffect(() => {
+    if (!selectedMappingId) return;
+    if (!pageMappings.some((mapping) => mapping.id === selectedMappingId)) setSelectedMappingId(null);
+  }, [pageMappings, selectedMappingId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -305,6 +344,7 @@ export default function DocuFill() {
         setSelectedPackageId(nextSelection);
         setSelectedDocumentId(nextPackages[0]?.documents[0]?.id ?? null);
         setSelectedFieldId(nextPackages[0]?.fields[0]?.id ?? null);
+        setSelectedMappingId(null);
         return nextPackages;
       });
       setStatus("Deleted package.");
@@ -485,10 +525,22 @@ export default function DocuFill() {
         defaultValue: "",
         source: "interview",
         sensitive: false,
+        required: false,
+        validationType: "none",
+        validationPattern: "",
+        validationMessage: "",
       };
       setSelectedFieldId(field.id);
       return { ...pkg, fields: [...pkg.fields, field] };
     });
+  }
+
+  function updateSelectedField(patch: Partial<FieldItem>) {
+    if (!selectedField) return;
+    updateSelectedPackage((pkg) => ({
+      ...pkg,
+      fields: pkg.fields.map((field) => field.id === selectedField.id ? { ...field, ...patch } : field),
+    }));
   }
 
   function removeField(fieldId: string) {
@@ -498,27 +550,143 @@ export default function DocuFill() {
       mappings: pkg.mappings.filter((m) => m.fieldId !== fieldId),
     }));
     setSelectedFieldId(null);
+    setSelectedMappingId(null);
   }
 
   function placeField() {
     if (!selectedField || !selectedDocument) return;
+    addMappingForField(selectedField, 18 + (selectedPackage?.mappings.length ?? 0) % 5 * 12, 20 + (selectedPackage?.mappings.length ?? 0) % 8 * 8);
+  }
+
+  function addMappingForField(field: FieldItem, x: number, y: number) {
+    if (!selectedDocument) return;
+    const mappingId = newId("map");
     updateSelectedPackage((pkg) => ({
       ...pkg,
       mappings: [...pkg.mappings, {
-        id: newId("map"),
-        fieldId: selectedField.id,
+        id: mappingId,
+        fieldId: field.id,
         documentId: selectedDocument.id,
         page: selectedPage,
-        x: 18 + (pkg.mappings.length % 5) * 12,
-        y: 20 + (pkg.mappings.length % 8) * 8,
+        x: clampPercent(x, 0, 74),
+        y: clampPercent(y, 0, 94),
         w: 26,
         h: 6,
+        fontSize: 9,
+        align: "left",
+        format: defaultMappingFormat(field),
       }],
+    }));
+    setSelectedMappingId(mappingId);
+    setSelectedFieldId(field.id);
+  }
+
+  function dropFieldOnPage(e: ReactDragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    if (!selectedPackage || !selectedDocument) return;
+    const fieldId = e.dataTransfer.getData("text/field");
+    const field = selectedPackage.fields.find((item) => item.id === fieldId);
+    const frame = pageFrameRef.current;
+    if (!field || !frame) return;
+    const rect = frame.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    addMappingForField(field, x, y);
+  }
+
+  function updateSelectedMapping(patch: Partial<MappingItem>) {
+    if (!selectedMapping) return;
+    updateSelectedPackage((pkg) => ({
+      ...pkg,
+      mappings: pkg.mappings.map((mapping) => mapping.id === selectedMapping.id ? { ...mapping, ...patch } : mapping),
     }));
   }
 
-  async function saveAnswers(nextStatus = "in_progress") {
-    if (!session) return;
+  function removeSelectedMapping() {
+    if (!selectedMapping) return;
+    updateSelectedPackage((pkg) => ({
+      ...pkg,
+      mappings: pkg.mappings.filter((mapping) => mapping.id !== selectedMapping.id),
+    }));
+    setSelectedMappingId(null);
+  }
+
+  function beginMappingPointer(e: ReactPointerEvent<HTMLButtonElement>, mapping: MappingItem, mode: "move" | "resize") {
+    const frame = pageFrameRef.current;
+    if (!frame) return;
+    e.preventDefault();
+    e.stopPropagation();
+    setSelectedMappingId(mapping.id);
+    setSelectedFieldId(mapping.fieldId);
+    const rect = frame.getBoundingClientRect();
+    const startX = e.clientX;
+    const startY = e.clientY;
+    const original = { ...mapping };
+    const onMove = (event: PointerEvent) => {
+      const dx = ((event.clientX - startX) / rect.width) * 100;
+      const dy = ((event.clientY - startY) / rect.height) * 100;
+      updateSelectedPackage((pkg) => ({
+        ...pkg,
+        mappings: pkg.mappings.map((item) => {
+          if (item.id !== original.id) return item;
+          if (mode === "resize") {
+            return {
+              ...item,
+              w: clampPercent((original.w ?? 26) + dx, 3, 100),
+              h: clampPercent((original.h ?? 6) + dy, 2, 100),
+            };
+          }
+          const width = original.w ?? 26;
+          const height = original.h ?? 6;
+          return {
+            ...item,
+            x: clampPercent((original.x ?? 0) + dx, 0, 100 - width),
+            y: clampPercent((original.y ?? 0) + dy, 0, 100 - height),
+          };
+        }),
+      }));
+    };
+    const onUp = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
+
+  function validateInterviewAnswers(): string | null {
+    if (!session) return null;
+    const visibleFields = session.fields.filter((field) => field.interviewVisible);
+    for (const field of visibleFields) {
+      const value = String(answers[field.id] ?? field.defaultValue ?? "").trim();
+      if (field.required && !value) return `${field.name} is required.`;
+      if (!value) continue;
+      const validationType = field.validationType ?? "none";
+      if (validationType === "name" && !/^[a-z ,.'-]+$/i.test(value)) return field.validationMessage || `${field.name} must be a valid name.`;
+      if (validationType === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return field.validationMessage || `${field.name} must be a valid email.`;
+      if (validationType === "phone" && value.replace(/\D+/g, "").length < 10) return field.validationMessage || `${field.name} must be a valid phone number.`;
+      if (validationType === "number" && Number.isNaN(Number(value.replace(/,/g, "")))) return field.validationMessage || `${field.name} must be a number.`;
+      if (validationType === "currency" && Number.isNaN(Number(value.replace(/[$,]/g, "")))) return field.validationMessage || `${field.name} must be a currency amount.`;
+      if (validationType === "date" && Number.isNaN(new Date(value).getTime())) return field.validationMessage || `${field.name} must be a valid date.`;
+      if (validationType === "ssn" && !/^\d{3}-?\d{2}-?\d{4}$/.test(value)) return field.validationMessage || `${field.name} must be a valid SSN format.`;
+      if (validationType === "custom" && field.validationPattern) {
+        try {
+          if (!new RegExp(field.validationPattern).test(value)) return field.validationMessage || `${field.name} is not in the expected format.`;
+        } catch {
+          return `${field.name} has an invalid validation pattern.`;
+        }
+      }
+    }
+    return null;
+  }
+
+  async function saveAnswers(nextStatus = "in_progress"): Promise<boolean> {
+    if (!session) return false;
+    const validationError = validateInterviewAnswers();
+    if (validationError) {
+      setError(validationError);
+      return false;
+    }
     setIsSaving(true);
     setError(null);
     try {
@@ -531,8 +699,10 @@ export default function DocuFill() {
       if (!res.ok) throw new Error(data.error ?? "Could not save interview");
       setSession((prev) => prev ? { ...prev, status: data.session.status, answers } : prev);
       setStatus("Interview saved.");
+      return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save interview");
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -540,7 +710,8 @@ export default function DocuFill() {
 
   async function generatePacket() {
     if (!session) return;
-    await saveAnswers("answered");
+    const saved = await saveAnswers("answered");
+    if (!saved) return;
     const res = await fetch(`${API_BASE}/api/internal/docufill/sessions/${session.token}/generate`, {
       method: "POST",
       headers: { ...getAuthHeaders() },
@@ -744,7 +915,13 @@ export default function DocuFill() {
               </div>
               {isUploadingDocument && <div className="mb-2 text-xs text-[#6B7A99]">Uploading PDF…</div>}
               <div className="relative mx-auto bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner h-[620px] max-w-[720px] overflow-hidden flex items-center justify-center p-4">
-                <div className="relative bg-white border border-[#D4C9B5] shadow-sm max-w-full max-h-full overflow-hidden" style={{ aspectRatio: selectedPageAspect, height: "100%" }}>
+                <div
+                  ref={pageFrameRef}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={dropFieldOnPage}
+                  className="relative bg-white border border-[#D4C9B5] shadow-sm max-w-full max-h-full overflow-hidden"
+                  style={{ aspectRatio: selectedPageAspect, height: "100%" }}
+                >
                   {documentPreviewUrl ? (
                     <object data={`${documentPreviewUrl}#page=${selectedPage}&toolbar=0&navpanes=0&view=FitH`} type="application/pdf" className="absolute inset-0 w-full h-full pointer-events-none">
                       <iframe title={selectedDocument?.title ?? "PDF preview"} src={documentPreviewUrl} className="w-full h-full" />
@@ -761,9 +938,33 @@ export default function DocuFill() {
                   )}
                   {pageMappings.map((m) => {
                     const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
+                    const isSelected = selectedMapping?.id === m.id;
                     return (
-                      <button key={m.id} onClick={() => setSelectedFieldId(m.fieldId)} className="absolute border-2 bg-white/90 rounded px-2 py-1 text-[11px] text-left shadow" style={{ left: `${m.x}%`, top: `${m.y}%`, width: `${m.w}%`, minHeight: `${m.h * 4}px`, borderColor: field?.color ?? "#C49A38" }}>
-                        {field?.name ?? "Field"}
+                      <button
+                        key={m.id}
+                        type="button"
+                        onPointerDown={(e) => beginMappingPointer(e, m, "move")}
+                        onClick={() => { setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); }}
+                        onContextMenu={(e) => { e.preventDefault(); setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); }}
+                        className={`absolute border-2 bg-white/90 rounded px-2 py-1 text-left shadow cursor-move ${isSelected ? "ring-2 ring-[#C49A38]/50" : ""}`}
+                        style={{
+                          left: `${m.x}%`,
+                          top: `${m.y}%`,
+                          width: `${m.w}%`,
+                          height: `${m.h}%`,
+                          minHeight: "20px",
+                          borderColor: field?.color ?? "#C49A38",
+                          fontSize: `${m.fontSize ?? 9}px`,
+                          textAlign: m.align ?? "left",
+                        }}
+                      >
+                        <span className="pointer-events-none">{field?.name ?? "Field"}</span>
+                        {isSelected && (
+                          <span
+                            onPointerDown={(e) => beginMappingPointer(e, m, "resize")}
+                            className="absolute bottom-0 right-0 h-3 w-3 translate-x-1 translate-y-1 rounded-sm border border-[#0F1C3F] bg-[#C49A38] cursor-nwse-resize"
+                          />
+                        )}
                       </button>
                     );
                   })}
@@ -781,31 +982,92 @@ export default function DocuFill() {
               </div>
               <div className="space-y-2 overflow-y-auto flex-1">
                 {selectedPackage.fields.map((field) => (
-                  <button key={field.id} onClick={() => setSelectedFieldId(field.id)} className={`w-full text-left border-2 rounded px-3 py-2 bg-white ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`} style={{ borderColor: field.color }}>
+                  <button
+                    key={field.id}
+                    draggable
+                    onDragStart={(e) => e.dataTransfer.setData("text/field", field.id)}
+                    onClick={() => setSelectedFieldId(field.id)}
+                    className={`w-full text-left border-2 rounded px-3 py-2 bg-white cursor-grab ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
+                    style={{ borderColor: field.color }}
+                  >
                     <div className="text-sm font-medium flex items-center gap-2">
                       <span>{field.name}</span>
                       {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
                     </div>
-                    <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewVisible ? "Interview" : "Admin default"}{field.sensitive ? " · masked" : ""}</div>
+                    <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewVisible ? "Interview" : "Admin default"}{field.required ? " · required" : ""}{field.sensitive ? " · masked" : ""}</div>
                   </button>
                 ))}
               </div>
               {selectedField && (
                 <div className="border-t border-[#DDD5C4] pt-3 mt-3 space-y-2">
-                  <Input value={selectedField.name} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, fields: pkg.fields.map((f) => f.id === selectedField.id ? { ...f, name: e.target.value } : f) }))} />
-                  <Input type="color" value={selectedField.color} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, fields: pkg.fields.map((f) => f.id === selectedField.id ? { ...f, color: e.target.value } : f) }))} />
-                  <select value={selectedField.type} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, fields: pkg.fields.map((f) => f.id === selectedField.id ? { ...f, type: e.target.value as FieldItem["type"] } : f) }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm">
+                  <Input value={selectedField.name} onChange={(e) => updateSelectedField({ name: e.target.value })} />
+                  <Input type="color" value={selectedField.color} onChange={(e) => updateSelectedField({ color: e.target.value })} />
+                  <select value={selectedField.type} onChange={(e) => updateSelectedField({ type: e.target.value as FieldItem["type"] })} className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm">
                     <option value="text">Text box</option>
                     <option value="date">Date</option>
                     <option value="radio">Radio buttons</option>
                     <option value="checkbox">Checkboxes</option>
                     <option value="dropdown">Dropdown</option>
                   </select>
-                  <Textarea placeholder="Options, one per line" value={selectedField.options.join("\n")} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, fields: pkg.fields.map((f) => f.id === selectedField.id ? { ...f, options: e.target.value.split("\n").filter(Boolean) } : f) }))} />
-                  <Input type={selectedField.sensitive ? "password" : "text"} placeholder="Default/admin value" value={selectedField.defaultValue} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, fields: pkg.fields.map((f) => f.id === selectedField.id ? { ...f, defaultValue: e.target.value } : f) }))} />
-                  <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.interviewVisible} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, fields: pkg.fields.map((f) => f.id === selectedField.id ? { ...f, interviewVisible: e.target.checked } : f) }))} /> Show in interview</label>
-                  <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.sensitive} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, fields: pkg.fields.map((f) => f.id === selectedField.id ? { ...f, sensitive: e.target.checked } : f) }))} /> Sensitive — mask in internal summaries</label>
+                  <Textarea placeholder="Options, one per line" value={selectedField.options.join("\n")} onChange={(e) => updateSelectedField({ options: e.target.value.split("\n").filter(Boolean) })} />
+                  <Input type={selectedField.sensitive ? "password" : "text"} placeholder="Default/admin value" value={selectedField.defaultValue} onChange={(e) => updateSelectedField({ defaultValue: e.target.value })} />
+                  <div className="rounded border border-[#EFE8D8] bg-[#F8F6F0] p-2 space-y-2">
+                    <div className="text-xs font-semibold">Validation</div>
+                    <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.required === true} onChange={(e) => updateSelectedField({ required: e.target.checked })} /> Required before packet generation</label>
+                    <select value={selectedField.validationType ?? "none"} onChange={(e) => updateSelectedField({ validationType: e.target.value as FieldItem["validationType"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
+                      <option value="none">No format rule</option>
+                      <option value="name">Name</option>
+                      <option value="number">Number</option>
+                      <option value="currency">Currency</option>
+                      <option value="email">Email</option>
+                      <option value="phone">Phone</option>
+                      <option value="date">Date</option>
+                      <option value="ssn">SSN</option>
+                      <option value="custom">Custom pattern</option>
+                    </select>
+                    {selectedField.validationType === "custom" && <Input placeholder="Regex pattern" value={selectedField.validationPattern ?? ""} onChange={(e) => updateSelectedField({ validationPattern: e.target.value })} className="h-8 text-xs bg-white" />}
+                    <Input placeholder="Custom validation message" value={selectedField.validationMessage ?? ""} onChange={(e) => updateSelectedField({ validationMessage: e.target.value })} className="h-8 text-xs bg-white" />
+                  </div>
+                  <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.interviewVisible} onChange={(e) => updateSelectedField({ interviewVisible: e.target.checked })} /> Show in interview</label>
+                  <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.sensitive} onChange={(e) => updateSelectedField({ sensitive: e.target.checked })} /> Sensitive — mask in internal summaries</label>
                   <button onClick={() => removeField(selectedField.id)} className="text-xs text-red-600">Remove field</button>
+                </div>
+              )}
+              {selectedMapping && (
+                <div className="border-t border-[#DDD5C4] pt-3 mt-3 space-y-2">
+                  <div>
+                    <h3 className="text-xs font-semibold">Selected placement</h3>
+                    <p className="text-[11px] text-[#8A9BB8]">Drag on the PDF to move. Use the gold corner to resize.</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input type="number" min={5} max={24} value={selectedMapping.fontSize ?? 9} onChange={(e) => updateSelectedMapping({ fontSize: Number(e.target.value) })} className="h-8 text-xs" />
+                    <select value={selectedMapping.align ?? "left"} onChange={(e) => updateSelectedMapping({ align: e.target.value as MappingItem["align"] })} className="border border-[#D4C9B5] rounded px-2 py-1 text-xs">
+                      <option value="left">Left</option>
+                      <option value="center">Center</option>
+                      <option value="right">Right</option>
+                    </select>
+                  </div>
+                  <select value={selectedMapping.format ?? "as-entered"} onChange={(e) => updateSelectedMapping({ format: e.target.value as MappingItem["format"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs">
+                    <option value="as-entered">Use value as entered</option>
+                    <option value="uppercase">Uppercase</option>
+                    <option value="lowercase">Lowercase</option>
+                    <option value="first-name">First name only</option>
+                    <option value="last-name">Last name only</option>
+                    <option value="initials">Initials</option>
+                    <option value="digits-only">Digits only</option>
+                    <option value="last-four">Last four digits</option>
+                    <option value="currency">Currency</option>
+                    <option value="date-mm-dd-yyyy">Date MM/DD/YYYY</option>
+                    <option value="checkbox-yes">Checkbox X when yes</option>
+                  </select>
+                  <div className="grid grid-cols-4 gap-1">
+                    <Input type="number" value={Math.round(selectedMapping.x)} onChange={(e) => updateSelectedMapping({ x: clampPercent(Number(e.target.value), 0, 100) })} className="h-8 text-xs" />
+                    <Input type="number" value={Math.round(selectedMapping.y)} onChange={(e) => updateSelectedMapping({ y: clampPercent(Number(e.target.value), 0, 100) })} className="h-8 text-xs" />
+                    <Input type="number" value={Math.round(selectedMapping.w)} onChange={(e) => updateSelectedMapping({ w: clampPercent(Number(e.target.value), 3, 100) })} className="h-8 text-xs" />
+                    <Input type="number" value={Math.round(selectedMapping.h)} onChange={(e) => updateSelectedMapping({ h: clampPercent(Number(e.target.value), 2, 100) })} className="h-8 text-xs" />
+                  </div>
+                  <div className="text-[10px] text-[#8A9BB8]">X · Y · W · H are saved as page percentages so placements survive different PDF sizes.</div>
+                  <button type="button" onClick={removeSelectedMapping} className="text-xs text-red-600">Remove placement</button>
                 </div>
               )}
             </section>
