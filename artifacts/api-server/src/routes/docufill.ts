@@ -21,7 +21,7 @@ const TRANSACTION_SCOPES = new Set(["ira_transfer", "ira_contribution", "ira_dis
 
 type JsonValue = Record<string, unknown> | unknown[] | string | number | boolean | null;
 type QueryClient = Pool | PoolClient;
-type PackageRow = Record<string, unknown> & { documents?: unknown };
+type PackageRow = Record<string, unknown> & { documents?: unknown; fields?: unknown };
 
 class PdfUploadError extends Error {}
 
@@ -94,6 +94,22 @@ type TransactionTypeInput = {
   sortOrder?: number;
 };
 
+type FieldLibraryInput = {
+  id?: string;
+  label?: string;
+  category?: string;
+  type?: string;
+  source?: string;
+  options?: unknown;
+  sensitive?: boolean;
+  required?: boolean;
+  validationType?: string;
+  validationPattern?: string;
+  validationMessage?: string;
+  active?: boolean;
+  sortOrder?: number;
+};
+
 type SessionInput = {
   packageId?: number;
   custodianId?: number | string | null;
@@ -136,6 +152,12 @@ function transactionScopeFromLabel(value: unknown): string {
   return slug || "transaction_type";
 }
 
+function fieldLibraryIdFromLabel(value: unknown): string {
+  const text = cleanText(value).toLowerCase();
+  const slug = text.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64);
+  return slug || `field_${randomBytes(5).toString("hex")}`;
+}
+
 function nullableText(value: unknown): string | null {
   const text = cleanText(value);
   return text ? text : null;
@@ -173,6 +195,58 @@ function parseMappings(value: unknown): MappingItem[] {
   return Array.isArray(value) ? value.filter((item): item is MappingItem => {
     return Boolean(item && typeof item === "object");
   }) : [];
+}
+
+function parseOptions(value: unknown): string[] {
+  if (Array.isArray(value)) return value.map((item) => cleanText(item)).filter(Boolean);
+  if (typeof value === "string") return value.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean);
+  return [];
+}
+
+function normalizeFieldType(value: unknown): string {
+  const text = cleanText(value);
+  return ["text", "date", "radio", "checkbox", "dropdown"].includes(text) ? text : "text";
+}
+
+function normalizeValidationType(value: unknown): string {
+  const text = cleanText(value);
+  return ["none", "name", "number", "currency", "email", "phone", "date", "ssn", "custom"].includes(text) ? text : "none";
+}
+
+function fieldLibrarySelectSql(): string {
+  return `SELECT id, label, category, field_type AS type, source, options, sensitive, required,
+                 validation_type AS "validationType", validation_pattern AS "validationPattern",
+                 validation_message AS "validationMessage", active, sort_order AS "sortOrder"
+            FROM docufill_fields`;
+}
+
+async function getFieldLibrary(client: QueryClient = getDb()) {
+  const { rows } = await client.query(`${fieldLibrarySelectSql()} ORDER BY active DESC, sort_order ASC, label ASC`);
+  return rows as Array<Record<string, unknown> & { id: string }>;
+}
+
+function hydratePackageFields(fields: unknown, library: Array<Record<string, unknown> & { id: string }>): FieldItem[] {
+  const byId = new Map(library.map((field) => [field.id, field]));
+  return parseFields(fields).map((field) => {
+    const rawLibraryId = cleanText(field.libraryFieldId) || cleanText((field as Record<string, unknown>).library_field_id);
+    const libraryField = rawLibraryId ? byId.get(rawLibraryId) : undefined;
+    if (!libraryField) return field;
+    return {
+      ...field,
+      libraryFieldId: libraryField.id,
+      name: String(libraryField.label ?? field.name ?? ""),
+      label: String(libraryField.label ?? field.label ?? ""),
+      category: String(libraryField.category ?? field.category ?? ""),
+      type: String(libraryField.type ?? field.type ?? "text"),
+      source: String(libraryField.source ?? field.source ?? "interview"),
+      options: Array.isArray(libraryField.options) ? libraryField.options : field.options,
+      sensitive: libraryField.sensitive === true,
+      required: libraryField.required === true,
+      validationType: normalizeValidationType(libraryField.validationType ?? field.validationType),
+      validationPattern: cleanText(libraryField.validationPattern) || field.validationPattern,
+      validationMessage: cleanText(libraryField.validationMessage) || field.validationMessage,
+    };
+  });
 }
 
 function safePdfFilename(value: unknown): string {
@@ -257,6 +331,12 @@ async function hydrateStoredDocumentMetadata(packages: PackageRow[], client: Que
     const packageRows = byPackageId.get(Number(pkg.id)) ?? [];
     return { ...pkg, documents: mergeStoredDocumentMetadata(parseDocuments(pkg.documents), packageRows) };
   });
+}
+
+async function hydratePackages(packages: PackageRow[], client: QueryClient = getDb(), fieldLibrary?: Array<Record<string, unknown> & { id: string }>): Promise<PackageRow[]> {
+  const library = fieldLibrary ?? await getFieldLibrary(client);
+  const withDocuments = await hydrateStoredDocumentMetadata(packages, client);
+  return withDocuments.map((pkg) => ({ ...pkg, fields: hydratePackageFields(pkg.fields, library) }));
 }
 
 async function readPdfBody(req: Request): Promise<Buffer> {
@@ -351,7 +431,7 @@ async function getPackage(packageId: number, client: QueryClient = getDb()): Pro
   );
   const pkg = rows[0] as PackageRow | undefined;
   if (!pkg) return undefined;
-  return (await hydrateStoredDocumentMetadata([pkg], client))[0];
+  return (await hydratePackages([pkg], client))[0];
 }
 
 async function getSession(token: string, client: QueryClient = getDb()): Promise<Record<string, unknown> | undefined> {
@@ -369,8 +449,8 @@ async function getSession(token: string, client: QueryClient = getDb()): Promise
   );
   const session = rows[0] as Record<string, unknown> | undefined;
   if (!session) return undefined;
-  const hydratedPackage = (await hydrateStoredDocumentMetadata([{ id: session.package_id, documents: session.documents }], client))[0];
-  return { ...session, documents: hydratedPackage.documents };
+  const hydratedPackage = (await hydratePackages([{ id: session.package_id, documents: session.documents, fields: session.fields }], client))[0];
+  return { ...session, documents: hydratedPackage.documents, fields: hydratedPackage.fields };
 }
 
 function validateSessionAnswers(session: Record<string, unknown>): { valid: boolean; missingFields: string[]; errors: string[] } {
@@ -573,21 +653,133 @@ async function upsertPackageDocument(params: {
 router.get("/bootstrap", async (_req, res) => {
   try {
     const db = getDb();
-    const [custodians, depositories, transactionTypes, packages] = await Promise.all([
+    const [custodians, depositories, transactionTypes, fieldLibrary, packages] = await Promise.all([
       db.query("SELECT * FROM docufill_custodians ORDER BY active DESC, name ASC"),
       db.query("SELECT * FROM docufill_depositories ORDER BY active DESC, name ASC"),
       db.query("SELECT * FROM docufill_transaction_types ORDER BY active DESC, sort_order ASC, label ASC"),
+      getFieldLibrary(db),
       db.query(`SELECT p.*, c.name AS custodian_name, d.name AS depository_name
                   FROM docufill_packages p
                   LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
                   LEFT JOIN docufill_depositories d ON d.id = p.depository_id
                  ORDER BY p.updated_at DESC, p.name ASC`),
     ]);
-    const hydratedPackages = await hydrateStoredDocumentMetadata(packages.rows as PackageRow[], db);
-    res.json({ custodians: custodians.rows, depositories: depositories.rows, transactionTypes: transactionTypes.rows, packages: hydratedPackages });
+    const hydratedPackages = await hydratePackages(packages.rows as PackageRow[], db, fieldLibrary);
+    res.json({ custodians: custodians.rows, depositories: depositories.rows, transactionTypes: transactionTypes.rows, fieldLibrary, packages: hydratedPackages });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load bootstrap data");
     res.status(500).json({ error: "Failed to load DocuFill data" });
+  }
+});
+
+router.get("/field-library", async (_req, res) => {
+  try {
+    res.json({ fieldLibrary: await getFieldLibrary() });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to load field library");
+    res.status(500).json({ error: "Failed to load field library" });
+  }
+});
+
+router.post("/field-library", async (req, res) => {
+  try {
+    const body = req.body as FieldLibraryInput;
+    const label = cleanText(body.label);
+    if (!label) {
+      res.status(400).json({ error: "Field label is required" });
+      return;
+    }
+    const id = cleanText(body.id) || fieldLibraryIdFromLabel(label);
+    const db = getDb();
+    const { rows } = await db.query(
+      `WITH upserted AS (
+         INSERT INTO docufill_fields
+           (id, label, category, field_type, source, options, sensitive, required,
+            validation_type, validation_pattern, validation_message, active, sort_order)
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13)
+         ON CONFLICT (id) DO UPDATE SET
+           label=EXCLUDED.label,
+           category=EXCLUDED.category,
+           field_type=EXCLUDED.field_type,
+           source=EXCLUDED.source,
+           options=EXCLUDED.options,
+           sensitive=EXCLUDED.sensitive,
+           required=EXCLUDED.required,
+           validation_type=EXCLUDED.validation_type,
+           validation_pattern=EXCLUDED.validation_pattern,
+           validation_message=EXCLUDED.validation_message,
+           active=EXCLUDED.active,
+           sort_order=EXCLUDED.sort_order,
+           updated_at=NOW()
+         RETURNING id
+       )
+       ${fieldLibrarySelectSql()} WHERE id = (SELECT id FROM upserted)`,
+      [
+        id,
+        label,
+        cleanText(body.category) || "General",
+        normalizeFieldType(body.type),
+        cleanText(body.source) || "interview",
+        JSON.stringify(parseOptions(body.options)),
+        body.sensitive === true,
+        body.required === true,
+        normalizeValidationType(body.validationType),
+        nullableText(body.validationPattern),
+        nullableText(body.validationMessage),
+        body.active !== false,
+        Number(body.sortOrder ?? 100),
+      ],
+    );
+    res.status(201).json({ field: rows[0] });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to create field library item");
+    res.status(500).json({ error: "Failed to create field library item" });
+  }
+});
+
+router.patch("/field-library/:id", async (req, res) => {
+  try {
+    const id = cleanText(req.params.id);
+    const body = req.body as FieldLibraryInput;
+    const label = cleanText(body.label);
+    if (!id || !label) {
+      res.status(400).json({ error: "Field label is required" });
+      return;
+    }
+    const db = getDb();
+    const { rows } = await db.query(
+      `UPDATE docufill_fields SET
+          label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
+          sensitive=$6, required=$7, validation_type=$8, validation_pattern=$9,
+          validation_message=$10, active=$11, sort_order=$12, updated_at=NOW()
+        WHERE id=$13
+        RETURNING id, label, category, field_type AS type, source, options, sensitive, required,
+                  validation_type AS "validationType", validation_pattern AS "validationPattern",
+                  validation_message AS "validationMessage", active, sort_order AS "sortOrder"`,
+      [
+        label,
+        cleanText(body.category) || "General",
+        normalizeFieldType(body.type),
+        cleanText(body.source) || "interview",
+        JSON.stringify(parseOptions(body.options)),
+        body.sensitive === true,
+        body.required === true,
+        normalizeValidationType(body.validationType),
+        nullableText(body.validationPattern),
+        nullableText(body.validationMessage),
+        body.active !== false,
+        Number(body.sortOrder ?? 100),
+        id,
+      ],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Field library item not found" });
+      return;
+    }
+    res.json({ field: rows[0] });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to update field library item");
+    res.status(500).json({ error: "Failed to update field library item" });
   }
 });
 
@@ -778,7 +970,8 @@ router.post("/packages", async (req, res) => {
         jsonParam(body.mappings),
       ],
     );
-    res.status(201).json({ package: rows[0] });
+    const hydrated = await hydratePackages(rows as PackageRow[], db);
+    res.status(201).json({ package: hydrated[0] });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to create package");
     res.status(500).json({ error: "Failed to create package" });
@@ -847,7 +1040,7 @@ router.patch("/packages/:id", async (req, res) => {
       ],
       );
       await client.query("COMMIT");
-      const hydrated = await hydrateStoredDocumentMetadata(rows as PackageRow[], client);
+      const hydrated = await hydratePackages(rows as PackageRow[], client);
       res.json({ package: hydrated[0] });
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});

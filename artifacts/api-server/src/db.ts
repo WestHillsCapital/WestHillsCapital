@@ -322,6 +322,50 @@ export async function initDb(): Promise<void> {
   `);
 
   await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_fields (
+      id                 TEXT PRIMARY KEY,
+      label              TEXT NOT NULL,
+      category           TEXT NOT NULL DEFAULT 'General',
+      field_type         TEXT NOT NULL DEFAULT 'text',
+      source             TEXT NOT NULL DEFAULT 'interview',
+      options            JSONB NOT NULL DEFAULT '[]'::jsonb,
+      sensitive          BOOLEAN NOT NULL DEFAULT FALSE,
+      required           BOOLEAN NOT NULL DEFAULT FALSE,
+      validation_type    TEXT NOT NULL DEFAULT 'none',
+      validation_pattern TEXT,
+      validation_message TEXT,
+      active             BOOLEAN NOT NULL DEFAULT TRUE,
+      sort_order         INTEGER NOT NULL DEFAULT 100,
+      created_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    INSERT INTO docufill_fields
+      (id, label, category, field_type, source, options, sensitive, required, validation_type, validation_message, active, sort_order)
+    VALUES
+      ('client_first_name', 'Client first name', 'Customer identity', 'text', 'firstName', '[]'::jsonb, FALSE, TRUE, 'name', NULL, TRUE, 10),
+      ('client_last_name', 'Client last name', 'Customer identity', 'text', 'lastName', '[]'::jsonb, FALSE, TRUE, 'name', NULL, TRUE, 20),
+      ('client_full_name', 'Client full legal name', 'Customer identity', 'text', 'fullName', '[]'::jsonb, FALSE, TRUE, 'name', NULL, TRUE, 30),
+      ('client_email', 'Client email', 'Contact', 'text', 'email', '[]'::jsonb, FALSE, TRUE, 'email', NULL, TRUE, 40),
+      ('client_phone', 'Client phone', 'Contact', 'text', 'phone', '[]'::jsonb, FALSE, TRUE, 'phone', NULL, TRUE, 50),
+      ('client_ssn', 'Client SSN', 'Customer identity', 'text', 'ssn', '[]'::jsonb, TRUE, TRUE, 'ssn', 'Enter a valid SSN.', TRUE, 60),
+      ('client_dob', 'Client date of birth', 'Customer identity', 'date', 'dateOfBirth', '[]'::jsonb, TRUE, TRUE, 'date', NULL, TRUE, 70),
+      ('client_address_line1', 'Client address line 1', 'Address', 'text', 'addressLine1', '[]'::jsonb, FALSE, TRUE, 'none', NULL, TRUE, 80),
+      ('client_address_line2', 'Client address line 2', 'Address', 'text', 'addressLine2', '[]'::jsonb, FALSE, FALSE, 'none', NULL, TRUE, 90),
+      ('client_city', 'Client city', 'Address', 'text', 'city', '[]'::jsonb, FALSE, TRUE, 'none', NULL, TRUE, 100),
+      ('client_state', 'Client state', 'Address', 'text', 'state', '[]'::jsonb, FALSE, TRUE, 'none', NULL, TRUE, 110),
+      ('client_zip', 'Client ZIP code', 'Address', 'text', 'zip', '[]'::jsonb, FALSE, TRUE, 'custom', 'Enter a valid ZIP code.', TRUE, 120),
+      ('ira_account_number', 'IRA account number', 'IRA account', 'text', 'iraAccountNumber', '[]'::jsonb, TRUE, FALSE, 'none', NULL, TRUE, 130),
+      ('custodian_name', 'Custodian name', 'IRA account', 'text', 'custodian', '[]'::jsonb, FALSE, FALSE, 'none', NULL, TRUE, 140),
+      ('beneficiary_name', 'Beneficiary full name', 'Beneficiary', 'text', 'beneficiaryName', '[]'::jsonb, FALSE, FALSE, 'name', NULL, TRUE, 150),
+      ('beneficiary_relationship', 'Beneficiary relationship', 'Beneficiary', 'text', 'beneficiaryRelationship', '[]'::jsonb, FALSE, FALSE, 'none', NULL, TRUE, 160),
+      ('client_signature', 'Client signature', 'Signature', 'text', 'signature', '[]'::jsonb, FALSE, TRUE, 'none', NULL, TRUE, 170),
+      ('signature_date', 'Signature date', 'Signature', 'date', 'signatureDate', '[]'::jsonb, FALSE, TRUE, 'date', NULL, TRUE, 180)
+    ON CONFLICT (id) DO NOTHING
+  `);
+
+  await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_packages (
       id                SERIAL PRIMARY KEY,
       name              TEXT NOT NULL,
@@ -362,6 +406,30 @@ export async function initDb(): Promise<void> {
   await db.query(`
     ALTER TABLE docufill_packages
     ADD COLUMN IF NOT EXISTS transaction_scope TEXT NOT NULL DEFAULT 'Custodial paperwork'
+  `);
+  await db.query(`
+    UPDATE docufill_packages p
+       SET fields = COALESCE((
+         SELECT jsonb_agg(
+           CASE
+             WHEN field_item.item ? 'libraryFieldId' THEN field_item.item
+             WHEN matched.id IS NOT NULL THEN field_item.item || jsonb_build_object('libraryFieldId', matched.id)
+             ELSE field_item.item
+           END
+           ORDER BY field_item.ordinality
+         )
+         FROM jsonb_array_elements(p.fields) WITH ORDINALITY AS field_item(item, ordinality)
+         LEFT JOIN LATERAL (
+           SELECT id
+             FROM docufill_fields
+            WHERE lower(source) = lower(field_item.item->>'source')
+               OR lower(label) = lower(COALESCE(field_item.item->>'label', field_item.item->>'name'))
+            ORDER BY sort_order ASC
+            LIMIT 1
+         ) matched ON TRUE
+       ), '[]'::jsonb)
+     WHERE jsonb_typeof(p.fields) = 'array'
+       AND p.fields <> '[]'::jsonb
   `);
 
   await db.query(`

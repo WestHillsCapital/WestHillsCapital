@@ -67,6 +67,7 @@ type DocItem = {
 
 type FieldItem = {
   id: string;
+  libraryFieldId?: string;
   name: string;
   color: string;
   type: "text" | "radio" | "checkbox" | "dropdown" | "date";
@@ -80,6 +81,22 @@ type FieldItem = {
   validationType?: "none" | "name" | "number" | "currency" | "email" | "phone" | "date" | "ssn" | "custom";
   validationPattern?: string;
   validationMessage?: string;
+};
+
+type FieldLibraryItem = {
+  id: string;
+  label: string;
+  category: string;
+  type: FieldItem["type"];
+  source: string;
+  options: string[];
+  sensitive: boolean;
+  required: boolean;
+  validationType: FieldItem["validationType"];
+  validationPattern?: string;
+  validationMessage?: string;
+  active: boolean;
+  sortOrder: number;
 };
 
 type MappingItem = {
@@ -151,8 +168,10 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     documents: Array.isArray(pkg.documents) ? pkg.documents : [],
     fields: Array.isArray(pkg.fields) ? pkg.fields.map((field) => ({
       ...field,
+      libraryFieldId: field.libraryFieldId ?? "",
       sensitive: field.sensitive === true,
       required: field.required === true,
+      options: Array.isArray(field.options) ? field.options : [],
       validationType: field.validationType ?? "none",
       validationPattern: field.validationPattern ?? "",
       validationMessage: field.validationMessage ?? "",
@@ -164,6 +183,23 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
       format: mapping.format ?? "as-entered",
     })) : [],
   }));
+}
+
+function normalizeFieldLibrary(items: FieldLibraryItem[]): FieldLibraryItem[] {
+  return Array.isArray(items) ? items.map((item) => ({
+    ...item,
+    category: item.category || "General",
+    type: ["text", "date", "radio", "checkbox", "dropdown"].includes(item.type) ? item.type : "text",
+    source: item.source || "interview",
+    options: Array.isArray(item.options) ? item.options : [],
+    sensitive: item.sensitive === true,
+    required: item.required === true,
+    validationType: item.validationType ?? "none",
+    validationPattern: item.validationPattern ?? "",
+    validationMessage: item.validationMessage ?? "",
+    active: item.active !== false,
+    sortOrder: Number(item.sortOrder ?? 100),
+  })) : [];
 }
 
 function interviewFieldValue(field: FieldItem, answers: Record<string, string>, prefill: Record<string, string> | undefined) {
@@ -195,6 +231,7 @@ export default function DocuFill() {
   const [custodians, setCustodians] = useState<Entity[]>([]);
   const [depositories, setDepositories] = useState<Entity[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
+  const [fieldLibrary, setFieldLibrary] = useState<FieldLibraryItem[]>([]);
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
   const [standalonePackageId, setStandalonePackageId] = useState("");
@@ -251,6 +288,7 @@ export default function DocuFill() {
       setCustodians(data.custodians ?? []);
       setDepositories(data.depositories ?? []);
       setTransactionTypes(Array.isArray(data.transactionTypes) && data.transactionTypes.length ? data.transactionTypes : DOCUFILL_TRANSACTION_TYPES.map((item, index) => ({ scope: item.value, label: item.label, active: true, sort_order: (index + 1) * 10 })));
+      setFieldLibrary(normalizeFieldLibrary(data.fieldLibrary ?? []));
       setPackages(loadedPackages);
       setSelectedPackageId((current) => current ?? loadedPackages[0]?.id ?? null);
     } catch (err) {
@@ -506,6 +544,61 @@ export default function DocuFill() {
     await loadBootstrap();
   }
 
+  async function createFieldLibraryItem() {
+    const label = `Reusable field ${fieldLibrary.length + 1}`;
+    const res = await fetch(`${API_BASE}/api/internal/docufill/field-library`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({ label, category: "General", type: "text", source: "interview", active: true, sortOrder: (fieldLibrary.length + 1) * 10 }),
+    });
+    if (res.ok) await loadBootstrap();
+  }
+
+  function updateFieldLibraryLocal(id: string, patch: Partial<FieldLibraryItem>) {
+    setFieldLibrary((prev) => prev.map((item) => item.id === id ? { ...item, ...patch } : item));
+  }
+
+  async function saveFieldLibraryItem(item: FieldLibraryItem) {
+    setError(null);
+    const res = await fetch(`${API_BASE}/api/internal/docufill/field-library/${item.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify(item),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error ?? "Could not save field library item");
+      return;
+    }
+    setStatus("Saved shared field.");
+    await loadBootstrap();
+  }
+
+  function addLibraryFieldToPackage(libraryField: FieldLibraryItem) {
+    updateSelectedPackage((pkg) => {
+      const field: FieldItem = {
+        id: newId("field"),
+        libraryFieldId: libraryField.id,
+        name: libraryField.label,
+        color: libraryField.sensitive ? "#D94A4A" : "#8BC34A",
+        type: libraryField.type,
+        options: libraryField.options,
+        interviewVisible: true,
+        adminOnly: false,
+        defaultValue: "",
+        source: libraryField.source,
+        sensitive: libraryField.sensitive,
+        required: libraryField.required,
+        validationType: libraryField.validationType,
+        validationPattern: libraryField.validationPattern ?? "",
+        validationMessage: libraryField.validationMessage ?? "",
+      };
+      setSelectedFieldId(field.id);
+      return { ...pkg, fields: [...pkg.fields, field] };
+    });
+    setTab("mapper");
+  }
+
   function updateSelectedPackage(updater: (pkg: PackageItem) => PackageItem) {
     if (!selectedPackage) return;
     setPackages((prev) => prev.map((pkg) => pkg.id === selectedPackage.id ? updater(pkg) : pkg));
@@ -640,6 +733,7 @@ export default function DocuFill() {
     updateSelectedPackage((pkg) => {
       const field: FieldItem = {
         id: newId("field"),
+        libraryFieldId: "",
         name: `Field ${pkg.fields.length + 1}`,
         color: "#8BC34A",
         type: "text",
@@ -1012,6 +1106,13 @@ export default function DocuFill() {
                   onChange={updateTransactionTypeLocal}
                   onSave={saveTransactionType}
                 />
+                <FieldLibraryPanel
+                  items={fieldLibrary}
+                  onAdd={createFieldLibraryItem}
+                  onChange={updateFieldLibraryLocal}
+                  onSave={saveFieldLibraryItem}
+                  onUse={addLibraryFieldToPackage}
+                />
                 <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Save Package</Button>
               </div>
             )}
@@ -1170,6 +1271,22 @@ export default function DocuFill() {
                 <h2 className="text-sm font-semibold">Fields</h2>
                 <button onClick={addField} className="text-xs text-[#C49A38]">Add</button>
               </div>
+              {fieldLibrary.filter((item) => item.active).length > 0 && (
+                <label className="block mb-2">
+                  <span className="block text-[11px] text-[#6B7A99] mb-1">Add from shared library</span>
+                  <select
+                    value=""
+                    onChange={(e) => {
+                      const libraryField = fieldLibrary.find((item) => item.id === e.target.value);
+                      if (libraryField) addLibraryFieldToPackage(libraryField);
+                    }}
+                    className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
+                  >
+                    <option value="">Select reusable field</option>
+                    {fieldLibrary.filter((item) => item.active).map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
+                  </select>
+                </label>
+              )}
               <div className="space-y-2 overflow-y-auto flex-1">
                 {selectedPackage.fields.map((field, index) => (
                   <div
@@ -1183,6 +1300,7 @@ export default function DocuFill() {
                       <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1">
                         <div className="text-sm font-medium flex items-center gap-2">
                           <span>{field.name}</span>
+                          {field.libraryFieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>}
                           {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
                         </div>
                         <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewVisible ? "Interview" : "Admin default"}{field.required ? " · required" : ""}{field.sensitive ? " · masked" : ""}</div>
@@ -1198,6 +1316,7 @@ export default function DocuFill() {
               {selectedField && (
                 <div className="border-t border-[#DDD5C4] pt-3 mt-3 space-y-2">
                   <Input value={selectedField.name} onChange={(e) => updateSelectedField({ name: e.target.value })} />
+                  {selectedField.libraryFieldId && <div className="rounded border border-[#EFE8D8] bg-[#F8F6F0] px-2 py-1 text-[11px] text-[#6B7A99]">Linked to shared field: {fieldLibrary.find((item) => item.id === selectedField.libraryFieldId)?.label ?? selectedField.libraryFieldId}</div>}
                   <Input type="color" value={selectedField.color} onChange={(e) => updateSelectedField({ color: e.target.value })} />
                   <select value={selectedField.type} onChange={(e) => updateSelectedField({ type: e.target.value as FieldItem["type"] })} className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm">
                     <option value="text">Text box</option>
@@ -1544,6 +1663,79 @@ function TransactionTypesPanel({
             <div className="text-[10px] text-[#8A9BB8]">{item.scope}</div>
           </div>
         ))}
+      </div>
+    </div>
+  );
+}
+
+function FieldLibraryPanel({
+  items,
+  onAdd,
+  onChange,
+  onSave,
+  onUse,
+}: {
+  items: FieldLibraryItem[];
+  onAdd: () => void;
+  onChange: (id: string, patch: Partial<FieldLibraryItem>) => void;
+  onSave: (item: FieldLibraryItem) => void;
+  onUse: (item: FieldLibraryItem) => void;
+}) {
+  return (
+    <div className="border border-[#DDD5C4] rounded p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h3 className="text-sm font-semibold">Shared Field Library</h3>
+          <p className="text-[11px] text-[#8A9BB8]">Define common customer, IRA, beneficiary, and signature fields once, then reuse them in custodian packages.</p>
+        </div>
+        <button onClick={onAdd} className="text-xs text-[#C49A38]">Add</button>
+      </div>
+      <div className="grid md:grid-cols-2 gap-2 text-sm">
+        {items.map((item) => (
+          <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
+            <Input value={item.label} onChange={(e) => onChange(item.id, { label: e.target.value })} className="h-8 text-xs bg-white" />
+            <div className="grid grid-cols-2 gap-2">
+              <Input placeholder="Category" value={item.category} onChange={(e) => onChange(item.id, { category: e.target.value })} className="h-8 text-xs bg-white" />
+              <Input placeholder="Prefill source" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <select value={item.type} onChange={(e) => onChange(item.id, { type: e.target.value as FieldItem["type"] })} className="border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
+                <option value="text">Text</option>
+                <option value="date">Date</option>
+                <option value="radio">Radio</option>
+                <option value="checkbox">Checkbox</option>
+                <option value="dropdown">Dropdown</option>
+              </select>
+              <select value={item.validationType ?? "none"} onChange={(e) => onChange(item.id, { validationType: e.target.value as FieldItem["validationType"] })} className="border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
+                <option value="none">No rule</option>
+                <option value="name">Name</option>
+                <option value="number">Number</option>
+                <option value="currency">Currency</option>
+                <option value="email">Email</option>
+                <option value="phone">Phone</option>
+                <option value="date">Date</option>
+                <option value="ssn">SSN</option>
+                <option value="custom">Custom</option>
+              </select>
+            </div>
+            <Textarea placeholder="Options, one per line" value={item.options.join("\n")} onChange={(e) => onChange(item.id, { options: e.target.value.split("\n").filter(Boolean) })} className="min-h-16 text-xs bg-white" />
+            {item.validationType === "custom" && <Input placeholder="Regex pattern" value={item.validationPattern ?? ""} onChange={(e) => onChange(item.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" />}
+            <Input placeholder="Validation message" value={item.validationMessage ?? ""} onChange={(e) => onChange(item.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" />
+            <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
+              <label className="flex items-center gap-1"><input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} /> Active</label>
+              <label className="flex items-center gap-1"><input type="checkbox" checked={item.required} onChange={(e) => onChange(item.id, { required: e.target.checked })} /> Required</label>
+              <label className="flex items-center gap-1"><input type="checkbox" checked={item.sensitive} onChange={(e) => onChange(item.id, { sensitive: e.target.checked })} /> Sensitive</label>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] text-[#8A9BB8]">{item.id}</span>
+              <div className="flex gap-2">
+                <button onClick={() => onUse(item)} className="text-[11px] text-[#6B7A99]">Use in package</button>
+                <button onClick={() => onSave(item)} className="text-[11px] text-[#C49A38]">Save</button>
+              </div>
+            </div>
+          </div>
+        ))}
+        {items.length === 0 && <div className="text-xs text-[#8A9BB8]">No shared fields yet.</div>}
       </div>
     </div>
   );

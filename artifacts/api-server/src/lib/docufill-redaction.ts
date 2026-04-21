@@ -1,7 +1,11 @@
 export type DocuFillFieldItem = {
   id: string;
+  libraryFieldId?: string;
   name?: string;
   label?: string;
+  category?: string;
+  type?: string;
+  options?: unknown[];
   source?: string;
   defaultValue?: unknown;
   sensitive?: boolean;
