@@ -320,9 +320,24 @@ export async function initDb(): Promise<void> {
       prefill          JSONB NOT NULL DEFAULT '{}'::jsonb,
       answers          JSONB NOT NULL DEFAULT '{}'::jsonb,
       generated_packet JSONB,
+      expires_at       TIMESTAMPTZ NOT NULL DEFAULT (NOW() + INTERVAL '90 days'),
       created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+
+  await db.query(`
+    ALTER TABLE docufill_interview_sessions
+    ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ
+  `);
+  await db.query(`
+    UPDATE docufill_interview_sessions
+       SET expires_at = NOW() + INTERVAL '90 days'
+     WHERE expires_at IS NULL
+  `);
+  await db.query(`
+    ALTER TABLE docufill_interview_sessions
+    ALTER COLUMN expires_at SET DEFAULT (NOW() + INTERVAL '90 days')
   `);
 
   await db.query(`

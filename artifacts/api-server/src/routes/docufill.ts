@@ -1,4 +1,5 @@
 import { Router, type IRouter } from "express";
+import { randomBytes } from "node:crypto";
 import PDFDocument from "pdfkit";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
@@ -63,6 +64,10 @@ function parseId(value: unknown): number | null {
 
 function getRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function createSessionToken(): string {
+  return `df_${randomBytes(32).toString("base64url")}`;
 }
 
 async function getPackage(packageId: number) {
@@ -310,12 +315,12 @@ router.post("/sessions", async (req, res) => {
       res.status(400).json({ error: "Selected package does not match the selected depository" });
       return;
     }
-    const token = `df_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+    const token = createSessionToken();
     const db = getDb();
     const { rows } = await db.query(
       `INSERT INTO docufill_interview_sessions
-         (token, package_id, package_version, deal_id, source, status, prefill, answers)
-       VALUES ($1,$2,$3,$4,$5,'draft',$6::jsonb,'{}'::jsonb)
+         (token, package_id, package_version, deal_id, source, status, prefill, answers, expires_at)
+       VALUES ($1,$2,$3,$4,$5,'draft',$6::jsonb,'{}'::jsonb,NOW() + INTERVAL '90 days')
        RETURNING *`,
       [token, packageId, pkg.version ?? 1, body.dealId ?? null, cleanText(body.source) || "deal_builder", jsonParam(body.prefill ?? {})],
     );
@@ -337,7 +342,8 @@ router.get("/sessions/:token", async (req, res) => {
          JOIN docufill_packages p ON p.id = s.package_id
          LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
          LEFT JOIN docufill_depositories d ON d.id = p.depository_id
-        WHERE s.token = $1`,
+        WHERE s.token = $1
+          AND s.expires_at > NOW()`,
       [req.params.token],
     );
     if (!rows[0]) {
@@ -359,6 +365,7 @@ router.patch("/sessions/:token", async (req, res) => {
       `UPDATE docufill_interview_sessions SET
           answers=$1::jsonb, status=COALESCE($2, status), updated_at=NOW()
         WHERE token=$3
+          AND expires_at > NOW()
         RETURNING *`,
       [jsonParam(body.answers ?? {}), body.status ?? null, req.params.token],
     );
@@ -383,7 +390,8 @@ router.post("/sessions/:token/generate", async (req, res) => {
          JOIN docufill_packages p ON p.id = s.package_id
          LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
          LEFT JOIN docufill_depositories d ON d.id = p.depository_id
-        WHERE s.token = $1`,
+        WHERE s.token = $1
+          AND s.expires_at > NOW()`,
       [req.params.token],
     );
     const session = rows[0] as Record<string, unknown> | undefined;
@@ -421,7 +429,8 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
          JOIN docufill_packages p ON p.id = s.package_id
          LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
          LEFT JOIN docufill_depositories d ON d.id = p.depository_id
-        WHERE s.token = $1`,
+        WHERE s.token = $1
+          AND s.expires_at > NOW()`,
       [req.params.token],
     );
     const session = rows[0] as Record<string, unknown> | undefined;
