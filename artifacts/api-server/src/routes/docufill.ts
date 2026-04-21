@@ -671,25 +671,49 @@ router.post("/field-library", async (req, res) => {
       res.status(400).json({ error: "Field label is required" });
       return;
     }
-    const id = cleanText(body.id) || fieldLibraryIdFromLabel(label);
+    const requestedId = cleanText(body.id);
+    let id = requestedId || fieldLibraryIdFromLabel(label);
     const db = getDb();
-    const { rows: duplicateRows } = await db.query(
+    const { rows: labelDuplicateRows } = await db.query(
       `SELECT id, label
          FROM docufill_fields
-        WHERE id = $1 OR lower(label) = lower($2)
+        WHERE lower(label) = lower($1)
         LIMIT 1`,
-      [id, label],
+      [label],
     );
-    if (duplicateRows[0]) {
-      const duplicate = duplicateRows[0];
-      const isLabelConflict = duplicate.label?.toLowerCase() === label.toLowerCase();
+    if (labelDuplicateRows[0]) {
       res.status(409).json({
-        error: isLabelConflict
-          ? "A shared field with that label already exists"
-          : "A shared field with that id already exists",
-        fieldId: duplicate.id,
+        error: "A shared field with that label already exists",
+        fieldId: labelDuplicateRows[0].id,
       });
       return;
+    }
+    const { rows: idDuplicateRows } = await db.query(
+      `SELECT id
+         FROM docufill_fields
+        WHERE id = $1
+        LIMIT 1`,
+      [id],
+    );
+    if (idDuplicateRows[0] && requestedId) {
+      res.status(409).json({ error: "A shared field with that id already exists", fieldId: id });
+      return;
+    }
+    if (idDuplicateRows[0]) {
+      for (let suffix = 2; suffix < 1000; suffix += 1) {
+        const candidateId = `${id}_${suffix}`;
+        const { rows: candidateRows } = await db.query(
+          `SELECT id
+             FROM docufill_fields
+            WHERE id = $1
+            LIMIT 1`,
+          [candidateId],
+        );
+        if (!candidateRows[0]) {
+          id = candidateId;
+          break;
+        }
+      }
     }
     const { rows } = await db.query(
       `WITH inserted AS (
