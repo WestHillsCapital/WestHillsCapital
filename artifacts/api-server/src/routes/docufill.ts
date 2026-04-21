@@ -87,6 +87,13 @@ type EntityInput = {
   active?: boolean;
 };
 
+type TransactionTypeInput = {
+  scope?: string;
+  label?: string;
+  active?: boolean;
+  sortOrder?: number;
+};
+
 type SessionInput = {
   packageId?: number;
   custodianId?: number | string | null;
@@ -116,7 +123,14 @@ function normalizeTransactionScope(value: unknown): string {
   if (lower.includes("storage")) return "storage_change";
   if (lower.includes("beneficiary")) return "beneficiary_update";
   if (lower.includes("transfer") || lower.includes("rollover") || lower.includes("ira")) return "ira_transfer";
+  if (/^[a-z0-9_]{2,48}$/.test(text)) return text;
   return "ira_transfer";
+}
+
+function transactionScopeFromLabel(value: unknown): string {
+  const text = cleanText(value).toLowerCase();
+  const slug = text.replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 48);
+  return slug || "transaction_type";
 }
 
 function nullableText(value: unknown): string | null {
@@ -556,9 +570,10 @@ async function upsertPackageDocument(params: {
 router.get("/bootstrap", async (_req, res) => {
   try {
     const db = getDb();
-    const [custodians, depositories, packages] = await Promise.all([
+    const [custodians, depositories, transactionTypes, packages] = await Promise.all([
       db.query("SELECT * FROM docufill_custodians ORDER BY active DESC, name ASC"),
       db.query("SELECT * FROM docufill_depositories ORDER BY active DESC, name ASC"),
+      db.query("SELECT * FROM docufill_transaction_types ORDER BY active DESC, sort_order ASC, label ASC"),
       db.query(`SELECT p.*, c.name AS custodian_name, d.name AS depository_name
                   FROM docufill_packages p
                   LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
@@ -566,10 +581,61 @@ router.get("/bootstrap", async (_req, res) => {
                  ORDER BY p.updated_at DESC, p.name ASC`),
     ]);
     const hydratedPackages = await hydrateStoredDocumentMetadata(packages.rows as PackageRow[], db);
-    res.json({ custodians: custodians.rows, depositories: depositories.rows, packages: hydratedPackages });
+    res.json({ custodians: custodians.rows, depositories: depositories.rows, transactionTypes: transactionTypes.rows, packages: hydratedPackages });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load bootstrap data");
     res.status(500).json({ error: "Failed to load DocuFill data" });
+  }
+});
+
+router.post("/transaction-types", async (req, res) => {
+  try {
+    const body = req.body as TransactionTypeInput;
+    const label = cleanText(body.label);
+    if (!label) {
+      res.status(400).json({ error: "Transaction type label is required" });
+      return;
+    }
+    const scope = cleanText(body.scope) || transactionScopeFromLabel(label);
+    const db = getDb();
+    const { rows } = await db.query(
+      `INSERT INTO docufill_transaction_types (scope, label, active, sort_order)
+       VALUES ($1,$2,$3,$4)
+       RETURNING *`,
+      [scope, label, body.active !== false, Number(body.sortOrder ?? 100)],
+    );
+    res.status(201).json({ transactionType: rows[0] });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to create transaction type");
+    res.status(500).json({ error: "Failed to create transaction type" });
+  }
+});
+
+router.patch("/transaction-types/:scope", async (req, res) => {
+  try {
+    const scope = cleanText(req.params.scope);
+    const body = req.body as TransactionTypeInput;
+    const label = cleanText(body.label);
+    if (!scope || !label) {
+      res.status(400).json({ error: "Transaction type label is required" });
+      return;
+    }
+    const db = getDb();
+    const { rows } = await db.query(
+      `UPDATE docufill_transaction_types SET
+          label=$1, active=$2, sort_order=$3, updated_at=NOW()
+        WHERE scope=$4
+        RETURNING *`,
+      [label, body.active !== false, Number(body.sortOrder ?? 100), scope],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Transaction type not found" });
+      return;
+    }
+    res.json({ transactionType: rows[0] });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to update transaction type");
+    res.status(500).json({ error: "Failed to update transaction type" });
   }
 });
 

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent } from "react";
-import { useParams, useSearch } from "wouter";
+import { useLocation, useParams, useSearch } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,7 @@ function normalizeTransactionScope(scope: string | null | undefined) {
   if (text.includes("cash")) return "cash_purchase";
   if (text.includes("storage")) return "storage_change";
   if (text.includes("beneficiary")) return "beneficiary_update";
+  if (/^[a-z0-9_]{2,48}$/.test(String(scope ?? ""))) return String(scope);
   return "ira_transfer";
 }
 
@@ -39,6 +40,13 @@ type Entity = {
   phone: string | null;
   notes: string | null;
   active: boolean;
+};
+
+type TransactionType = {
+  scope: string;
+  label: string;
+  active: boolean;
+  sort_order: number;
 };
 
 type DocItem = {
@@ -175,6 +183,7 @@ function safeInterviewDisplayValue(field: FieldItem, value: string) {
 export default function DocuFill() {
   const search = useSearch();
   const params = useParams<{ token?: string }>();
+  const [, navigate] = useLocation();
   const publicSessionToken = params.token ?? null;
   const sessionToken = publicSessionToken ?? new URLSearchParams(search).get("session");
   const isPublicSession = Boolean(publicSessionToken);
@@ -182,8 +191,10 @@ export default function DocuFill() {
   const [tab, setTab] = useState<"packages" | "mapper" | "interview">(sessionToken ? "interview" : "packages");
   const [custodians, setCustodians] = useState<Entity[]>([]);
   const [depositories, setDepositories] = useState<Entity[]>([]);
+  const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
+  const [standalonePackageId, setStandalonePackageId] = useState("");
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null);
@@ -224,6 +235,7 @@ export default function DocuFill() {
   const answeredFieldCount = visibleInterviewFields.filter((field) => interviewFieldValue(field, answers, session?.prefill).trim()).length;
   const sessionBasePath = isPublicSession ? "/api/docufill/public/sessions" : "/api/internal/docufill/sessions";
   const sessionHeaders = isPublicSession ? {} : { ...getAuthHeaders() };
+  const activePackages = packages.filter((pkg) => pkg.status === "active");
 
   async function loadBootstrap() {
     try {
@@ -234,6 +246,7 @@ export default function DocuFill() {
       const loadedPackages = normalizePackages(data.packages ?? []);
       setCustodians(data.custodians ?? []);
       setDepositories(data.depositories ?? []);
+      setTransactionTypes(Array.isArray(data.transactionTypes) && data.transactionTypes.length ? data.transactionTypes : DOCUFILL_TRANSACTION_TYPES.map((item, index) => ({ scope: item.value, label: item.label, active: true, sort_order: (index + 1) * 10 })));
       setPackages(loadedPackages);
       setSelectedPackageId((current) => current ?? loadedPackages[0]?.id ?? null);
     } catch (err) {
@@ -455,6 +468,40 @@ export default function DocuFill() {
     await loadBootstrap();
   }
 
+  async function createTransactionType() {
+    const label = `New transaction type ${transactionTypes.length + 1}`;
+    const res = await fetch(`${API_BASE}/api/internal/docufill/transaction-types`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({ label, active: true, sortOrder: (transactionTypes.length + 1) * 10 }),
+    });
+    if (res.ok) await loadBootstrap();
+  }
+
+  function updateTransactionTypeLocal(scope: string, patch: Partial<TransactionType>) {
+    setTransactionTypes((prev) => prev.map((item) => item.scope === scope ? { ...item, ...patch } : item));
+  }
+
+  async function saveTransactionType(item: TransactionType) {
+    setError(null);
+    const res = await fetch(`${API_BASE}/api/internal/docufill/transaction-types/${item.scope}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      body: JSON.stringify({
+        label: item.label,
+        active: item.active,
+        sortOrder: item.sort_order,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error ?? "Could not save transaction type");
+      return;
+    }
+    setStatus("Saved transaction type.");
+    await loadBootstrap();
+  }
+
   function updateSelectedPackage(updater: (pkg: PackageItem) => PackageItem) {
     if (!selectedPackage) return;
     setPackages((prev) => prev.map((pkg) => pkg.id === selectedPackage.id ? updater(pkg) : pkg));
@@ -611,6 +658,18 @@ export default function DocuFill() {
     }));
     setSelectedFieldId(null);
     setSelectedMappingId(null);
+  }
+
+  function moveField(fieldId: string, direction: -1 | 1) {
+    updateSelectedPackage((pkg) => {
+      const fields = [...pkg.fields];
+      const index = fields.findIndex((field) => field.id === fieldId);
+      const next = index + direction;
+      if (index < 0 || next < 0 || next >= fields.length) return pkg;
+      const [item] = fields.splice(index, 1);
+      fields.splice(next, 0, item);
+      return { ...pkg, fields };
+    });
   }
 
   function placeField() {
@@ -812,6 +871,36 @@ export default function DocuFill() {
     }
   }
 
+  async function launchStandaloneInterview() {
+    const packageId = Number(standalonePackageId);
+    if (!packageId) {
+      setError("Select an active package first.");
+      return;
+    }
+    setIsSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/internal/docufill/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          packageId,
+          transactionScope: packages.find((pkg) => pkg.id === packageId)?.transaction_scope,
+          source: "staff_docufill",
+          prefill: {},
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not launch interview");
+      navigate(`/internal/docufill?session=${data.token}`);
+      setStatus("Interview session created.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not launch interview");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   return (
     <div className="max-w-screen-2xl mx-auto px-4 py-6 text-[#0F1C3F]">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
@@ -877,7 +966,7 @@ export default function DocuFill() {
                 <label className="block text-sm">
                   <span className="block text-xs text-[#6B7A99] mb-1">Transaction type</span>
                   <select value={selectedPackage.transaction_scope} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
-                    {DOCUFILL_TRANSACTION_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                    {transactionTypes.filter((item) => item.active || item.scope === selectedPackage.transaction_scope).map((item) => <option key={item.scope} value={item.scope}>{item.label}</option>)}
                   </select>
                 </label>
                 <label className="block">
@@ -900,6 +989,12 @@ export default function DocuFill() {
                     onSave={(item) => saveEntity("depositories", item)}
                   />
                 </div>
+                <TransactionTypesPanel
+                  items={transactionTypes}
+                  onAdd={createTransactionType}
+                  onChange={updateTransactionTypeLocal}
+                  onSave={saveTransactionType}
+                />
                 <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Save Package</Button>
               </div>
             )}
@@ -1049,21 +1144,28 @@ export default function DocuFill() {
                 <button onClick={addField} className="text-xs text-[#C49A38]">Add</button>
               </div>
               <div className="space-y-2 overflow-y-auto flex-1">
-                {selectedPackage.fields.map((field) => (
-                  <button
+                {selectedPackage.fields.map((field, index) => (
+                  <div
                     key={field.id}
                     draggable
                     onDragStart={(e) => e.dataTransfer.setData("text/field", field.id)}
-                    onClick={() => setSelectedFieldId(field.id)}
                     className={`w-full text-left border-2 rounded px-3 py-2 bg-white cursor-grab ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
                     style={{ borderColor: field.color }}
                   >
-                    <div className="text-sm font-medium flex items-center gap-2">
-                      <span>{field.name}</span>
-                      {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
+                    <div className="flex items-start justify-between gap-2">
+                      <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1">
+                        <div className="text-sm font-medium flex items-center gap-2">
+                          <span>{field.name}</span>
+                          {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
+                        </div>
+                        <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewVisible ? "Interview" : "Admin default"}{field.required ? " · required" : ""}{field.sensitive ? " · masked" : ""}</div>
+                      </button>
+                      <div className="flex gap-1">
+                        <button type="button" onClick={() => moveField(field.id, -1)} disabled={index === 0} className="rounded border border-[#DDD5C4] px-1.5 py-0.5 text-[10px] disabled:opacity-40">Up</button>
+                        <button type="button" onClick={() => moveField(field.id, 1)} disabled={index === selectedPackage.fields.length - 1} className="rounded border border-[#DDD5C4] px-1.5 py-0.5 text-[10px] disabled:opacity-40">Down</button>
+                      </div>
                     </div>
-                    <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewVisible ? "Interview" : "Admin default"}{field.required ? " · required" : ""}{field.sensitive ? " · masked" : ""}</div>
-                  </button>
+                  </div>
                 ))}
               </div>
               {selectedField && (
@@ -1145,7 +1247,24 @@ export default function DocuFill() {
 
       {tab === "interview" && (
         <section className="bg-white border border-[#DDD5C4] rounded-lg p-5 max-w-4xl mx-auto">
-          {!session ? <EmptyState message="Launch a DocuFill package from Deal Builder or use a session link." /> : (
+          {!session ? (
+            isPublicSession ? <EmptyState message="This interview link is invalid or expired." /> : (
+              <div className="space-y-4">
+                <EmptyState message="Launch a DocuFill package from Deal Builder, use a session link, or start a staff interview below." />
+                <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] p-4">
+                  <h2 className="text-sm font-semibold mb-2">Start a staff interview</h2>
+                  <p className="text-xs text-[#8A9BB8] mb-3">Use this for workflows that do not originate from Deal Builder.</p>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <select value={standalonePackageId} onChange={(e) => setStandalonePackageId(e.target.value)} className="flex-1 border border-[#D4C9B5] rounded px-3 py-2 text-sm bg-white">
+                      <option value="">Select active package</option>
+                      {activePackages.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name} · {transactionScopeLabel(pkg.transaction_scope)}</option>)}
+                    </select>
+                    <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Start Interview</Button>
+                  </div>
+                </div>
+              </div>
+            )
+          ) : (
             <div className="space-y-5">
               <div>
                 <h2 className="text-xl font-semibold">{session.package_name}</h2>
@@ -1359,6 +1478,45 @@ function EntityPanel({
           </div>
         ))}
         {items.length === 0 && <div className="text-xs text-[#8A9BB8]">None yet.</div>}
+      </div>
+    </div>
+  );
+}
+
+function TransactionTypesPanel({
+  items,
+  onAdd,
+  onChange,
+  onSave,
+}: {
+  items: TransactionType[];
+  onAdd: () => void;
+  onChange: (scope: string, patch: Partial<TransactionType>) => void;
+  onSave: (item: TransactionType) => void;
+}) {
+  return (
+    <div className="border border-[#DDD5C4] rounded p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h3 className="text-sm font-semibold">Transaction Types</h3>
+          <p className="text-[11px] text-[#8A9BB8]">Manage the active workflows available to packages and interview launchers.</p>
+        </div>
+        <button onClick={onAdd} className="text-xs text-[#C49A38]">Add</button>
+      </div>
+      <div className="grid md:grid-cols-2 gap-2 text-sm">
+        {items.map((item) => (
+          <div key={item.scope} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
+            <Input value={item.label} onChange={(e) => onChange(item.scope, { label: e.target.value })} className="h-8 text-xs bg-white" />
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-1 text-[11px] text-[#6B7A99]">
+                <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.scope, { active: e.target.checked })} />
+                Active
+              </label>
+              <button onClick={() => onSave(item)} className="text-[11px] text-[#C49A38]">Save</button>
+            </div>
+            <div className="text-[10px] text-[#8A9BB8]">{item.scope}</div>
+          </div>
+        ))}
       </div>
     </div>
   );

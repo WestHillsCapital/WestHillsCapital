@@ -12,6 +12,12 @@ import {
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
+type DocuFillTransactionType = {
+  scope: string;
+  label: string;
+  active: boolean;
+};
+
 interface Props {
   customer: Customer;
   setCustomer: Dispatch<SetStateAction<Customer>>;
@@ -24,6 +30,7 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
   const [, navigate] = useLocation();
   const [custodians, setCustodians] = useState<DocuFillEntity[]>([]);
   const [depositories, setDepositories] = useState<DocuFillEntity[]>([]);
+  const [transactionTypes, setTransactionTypes] = useState<DocuFillTransactionType[]>([]);
   const [packages, setPackages] = useState<DocuFillPackage[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState("");
   const [transactionScope, setTransactionScope] = useState("ira_transfer");
@@ -35,9 +42,10 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
     setIsLoading(true);
     fetch(`${API_BASE}/api/internal/docufill/bootstrap`, { headers: { ...getAuthHeaders() } })
       .then((res) => res.ok ? res.json() : Promise.reject(new Error("Could not load DocuFill packages")))
-      .then((data: { custodians: DocuFillEntity[]; depositories: DocuFillEntity[]; packages: DocuFillPackage[] }) => {
+      .then((data: { custodians: DocuFillEntity[]; depositories: DocuFillEntity[]; transactionTypes?: DocuFillTransactionType[]; packages: DocuFillPackage[] }) => {
         setCustodians(data.custodians ?? []);
         setDepositories(data.depositories ?? []);
+        setTransactionTypes(data.transactionTypes?.length ? data.transactionTypes : DOCUFILL_TRANSACTION_TYPES.map((item) => ({ scope: item.value, label: item.label, active: true })));
         setPackages(data.packages ?? []);
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not load DocuFill packages"))
@@ -49,6 +57,7 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
   const matchingPackages = useMemo(() => {
     return getMatchingDocuFillPackages(packages, selectedCustodian, selectedDepository, transactionScope);
   }, [packages, selectedCustodian, selectedDepository, transactionScope]);
+  const labelForScope = (scope: string) => transactionTypes.find((item) => item.scope === scope)?.label ?? getDocuFillTransactionLabel(scope);
 
   useEffect(() => {
     if (selectedCustodian && customer.custodianId !== String(selectedCustodian.id)) {
@@ -176,7 +185,7 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
           disabled={locked || isLoading}
           className="w-full bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
         >
-          {DOCUFILL_TRANSACTION_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+          {transactionTypes.filter((item) => item.active).map((item) => <option key={item.scope} value={item.scope}>{item.label}</option>)}
         </select>
       </label>
 
@@ -188,8 +197,8 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
           disabled={isLoading || matchingPackages.length === 0}
           className="w-full bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
         >
-          <option value="">{matchingPackages.length ? "Select package" : `No active ${getDocuFillTransactionLabel(transactionScope)} package for this combination`}</option>
-          {matchingPackages.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name} · {getDocuFillTransactionLabel(pkg.transaction_scope)} · v{pkg.version}</option>)}
+          <option value="">{matchingPackages.length ? "Select package" : `No active ${labelForScope(transactionScope)} package for this combination`}</option>
+          {matchingPackages.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name} · {labelForScope(pkg.transaction_scope)} · v{pkg.version}</option>)}
         </select>
       </label>
 

@@ -83,6 +83,8 @@ export function normalizeDocuFillTransactionScope(scope: string | null | undefin
   if (text.includes("cash")) return "cash_purchase";
   if (text.includes("storage")) return "storage_change";
   if (text.includes("beneficiary")) return "beneficiary_update";
+  if (text.includes("transfer") || text.includes("rollover") || text.includes("ira")) return "ira_transfer";
+  if (/^[a-z0-9_]{2,48}$/.test(String(scope ?? ""))) return String(scope);
   return "ira_transfer";
 }
 

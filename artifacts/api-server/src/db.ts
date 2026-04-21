@@ -297,6 +297,28 @@ export async function initDb(): Promise<void> {
   `);
 
   await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_transaction_types (
+      scope      TEXT PRIMARY KEY,
+      label      TEXT NOT NULL,
+      active     BOOLEAN NOT NULL DEFAULT TRUE,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    INSERT INTO docufill_transaction_types (scope, label, active, sort_order)
+    VALUES
+      ('ira_transfer', 'IRA transfer / rollover', TRUE, 10),
+      ('ira_contribution', 'IRA contribution', TRUE, 20),
+      ('ira_distribution', 'IRA distribution', TRUE, 30),
+      ('cash_purchase', 'Cash purchase', TRUE, 40),
+      ('storage_change', 'Storage change', TRUE, 50),
+      ('beneficiary_update', 'Beneficiary update', TRUE, 60)
+    ON CONFLICT (scope) DO NOTHING
+  `);
+
+  await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_packages (
       id                SERIAL PRIMARY KEY,
       name              TEXT NOT NULL,
