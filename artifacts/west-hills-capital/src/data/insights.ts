@@ -330,6 +330,7 @@ export const INSIGHTS: InsightArticle[] = [
         heading: "Free silver is usually not free",
         paragraphs: [
           "Bonus metal offers follow the same pattern: the cost is built in elsewhere, just not labeled as a cost.",
+          "The dealer is not absorbing it. It is priced into your transaction.",
         ],
       },
       {
