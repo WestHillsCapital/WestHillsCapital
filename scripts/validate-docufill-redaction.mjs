@@ -111,6 +111,13 @@ assert.equal(hydratedFields[0].adminOnly, true);
 assert.equal(hydratedFields[0].color, "#123456");
 assert.equal(hydratedFields[0].mappings.length, 1);
 
+const clearedValidationFields = hydratePackageFields(
+  [{ id: "package_cleared_validation", libraryFieldId: "shared_optional_note", validationPattern: "stale", validationMessage: "stale" }],
+  [{ id: "shared_optional_note", label: "Optional note", type: "text", source: "interview", validationType: "none", validationPattern: null, validationMessage: null }],
+);
+assert.equal(clearedValidationFields[0].validationPattern, "");
+assert.equal(clearedValidationFields[0].validationMessage, "");
+
 const inheritedOptionFields = hydratePackageFields(
   [{ id: "package_inherited_dropdown", libraryFieldId: "shared_distribution_method", optionsMode: "inherit", options: ["Old package option"] }],
   [{ id: "shared_distribution_method", label: "Distribution method", type: "dropdown", source: "distributionMethod", options: ["Library check", "Library wire"] }],

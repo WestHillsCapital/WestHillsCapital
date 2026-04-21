@@ -101,8 +101,8 @@ export function hydratePackageFields(fields: unknown, library: Array<Record<stri
       sensitive: libraryField.sensitive === true,
       required: libraryField.required === true,
       validationType: normalizeValidationType(libraryField.validationType ?? field.validationType),
-      validationPattern: cleanText(libraryField.validationPattern) || field.validationPattern,
-      validationMessage: cleanText(libraryField.validationMessage) || field.validationMessage,
+      validationPattern: cleanText(libraryField.validationPattern),
+      validationMessage: cleanText(libraryField.validationMessage),
     };
   });
 }
