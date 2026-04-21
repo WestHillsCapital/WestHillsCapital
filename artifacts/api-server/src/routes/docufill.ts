@@ -692,28 +692,15 @@ router.post("/field-library", async (req, res) => {
     const id = cleanText(body.id) || fieldLibraryIdFromLabel(label);
     const db = getDb();
     const { rows } = await db.query(
-      `WITH upserted AS (
+      `WITH inserted AS (
          INSERT INTO docufill_fields
            (id, label, category, field_type, source, options, sensitive, required,
             validation_type, validation_pattern, validation_message, active, sort_order)
          VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13)
-         ON CONFLICT (id) DO UPDATE SET
-           label=EXCLUDED.label,
-           category=EXCLUDED.category,
-           field_type=EXCLUDED.field_type,
-           source=EXCLUDED.source,
-           options=EXCLUDED.options,
-           sensitive=EXCLUDED.sensitive,
-           required=EXCLUDED.required,
-           validation_type=EXCLUDED.validation_type,
-           validation_pattern=EXCLUDED.validation_pattern,
-           validation_message=EXCLUDED.validation_message,
-           active=EXCLUDED.active,
-           sort_order=EXCLUDED.sort_order,
-           updated_at=NOW()
+         ON CONFLICT (id) DO NOTHING
          RETURNING id
        )
-       ${fieldLibrarySelectSql()} WHERE id = (SELECT id FROM upserted)`,
+       ${fieldLibrarySelectSql()} WHERE id = (SELECT id FROM inserted)`,
       [
         id,
         label,
@@ -730,6 +717,10 @@ router.post("/field-library", async (req, res) => {
         Number(body.sortOrder ?? 100),
       ],
     );
+    if (!rows[0]) {
+      res.status(409).json({ error: "A shared field with that id already exists" });
+      return;
+    }
     res.status(201).json({ field: rows[0] });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to create field library item");

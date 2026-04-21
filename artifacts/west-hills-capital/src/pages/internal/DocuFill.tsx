@@ -258,6 +258,7 @@ export default function DocuFill() {
   const selectedPackage = packages.find((pkg) => pkg.id === selectedPackageId) ?? packages[0] ?? null;
   const selectedDocument = selectedPackage?.documents.find((doc) => doc.id === selectedDocumentId) ?? selectedPackage?.documents[0] ?? null;
   const selectedField = selectedPackage?.fields.find((field) => field.id === selectedFieldId) ?? selectedPackage?.fields[0] ?? null;
+  const selectedFieldIsShared = Boolean(selectedField?.libraryFieldId);
   const selectedMapping = selectedPackage?.mappings.find((mapping) => mapping.id === selectedMappingId) ?? null;
   const selectedPageSize = selectedDocument?.pageSizes?.[selectedPage - 1] ?? selectedDocument?.pageSizes?.[0];
   const labelForTransactionScope = (scope: string | null | undefined) => transactionTypes.find((item) => item.scope === scope)?.label ?? transactionScopeLabel(scope);
@@ -1315,22 +1316,22 @@ export default function DocuFill() {
               </div>
               {selectedField && (
                 <div className="border-t border-[#DDD5C4] pt-3 mt-3 space-y-2">
-                  <Input value={selectedField.name} onChange={(e) => updateSelectedField({ name: e.target.value })} />
+                  <Input value={selectedField.name} onChange={(e) => updateSelectedField({ name: e.target.value })} disabled={selectedFieldIsShared} />
                   {selectedField.libraryFieldId && <div className="rounded border border-[#EFE8D8] bg-[#F8F6F0] px-2 py-1 text-[11px] text-[#6B7A99]">Linked to shared field: {fieldLibrary.find((item) => item.id === selectedField.libraryFieldId)?.label ?? selectedField.libraryFieldId}</div>}
                   <Input type="color" value={selectedField.color} onChange={(e) => updateSelectedField({ color: e.target.value })} />
-                  <select value={selectedField.type} onChange={(e) => updateSelectedField({ type: e.target.value as FieldItem["type"] })} className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm">
+                  <select value={selectedField.type} onChange={(e) => updateSelectedField({ type: e.target.value as FieldItem["type"] })} disabled={selectedFieldIsShared} className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm disabled:opacity-60">
                     <option value="text">Text box</option>
                     <option value="date">Date</option>
                     <option value="radio">Radio buttons</option>
                     <option value="checkbox">Checkboxes</option>
                     <option value="dropdown">Dropdown</option>
                   </select>
-                  <Textarea placeholder="Options, one per line" value={selectedField.options.join("\n")} onChange={(e) => updateSelectedField({ options: e.target.value.split("\n").filter(Boolean) })} />
+                  <Textarea placeholder="Options, one per line" value={selectedField.options.join("\n")} onChange={(e) => updateSelectedField({ options: e.target.value.split("\n").filter(Boolean) })} disabled={selectedFieldIsShared} />
                   <Input type={selectedField.sensitive ? "password" : "text"} placeholder="Default/admin value" value={selectedField.defaultValue} onChange={(e) => updateSelectedField({ defaultValue: e.target.value })} />
                   <div className="rounded border border-[#EFE8D8] bg-[#F8F6F0] p-2 space-y-2">
                     <div className="text-xs font-semibold">Validation</div>
-                    <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.required === true} onChange={(e) => updateSelectedField({ required: e.target.checked })} /> Required before packet generation</label>
-                    <select value={selectedField.validationType ?? "none"} onChange={(e) => updateSelectedField({ validationType: e.target.value as FieldItem["validationType"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
+                    <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.required === true} onChange={(e) => updateSelectedField({ required: e.target.checked })} disabled={selectedFieldIsShared} /> Required before packet generation</label>
+                    <select value={selectedField.validationType ?? "none"} onChange={(e) => updateSelectedField({ validationType: e.target.value as FieldItem["validationType"] })} disabled={selectedFieldIsShared} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white disabled:opacity-60">
                       <option value="none">No format rule</option>
                       <option value="name">Name</option>
                       <option value="number">Number</option>
@@ -1341,11 +1342,12 @@ export default function DocuFill() {
                       <option value="ssn">SSN</option>
                       <option value="custom">Custom pattern</option>
                     </select>
-                    {selectedField.validationType === "custom" && <Input placeholder="Regex pattern" value={selectedField.validationPattern ?? ""} onChange={(e) => updateSelectedField({ validationPattern: e.target.value })} className="h-8 text-xs bg-white" />}
-                    <Input placeholder="Custom validation message" value={selectedField.validationMessage ?? ""} onChange={(e) => updateSelectedField({ validationMessage: e.target.value })} className="h-8 text-xs bg-white" />
+                    {selectedField.validationType === "custom" && <Input placeholder="Regex pattern" value={selectedField.validationPattern ?? ""} onChange={(e) => updateSelectedField({ validationPattern: e.target.value })} disabled={selectedFieldIsShared} className="h-8 text-xs bg-white" />}
+                    <Input placeholder="Custom validation message" value={selectedField.validationMessage ?? ""} onChange={(e) => updateSelectedField({ validationMessage: e.target.value })} disabled={selectedFieldIsShared} className="h-8 text-xs bg-white" />
+                    {selectedFieldIsShared && <div className="text-[11px] text-[#8A9BB8]">Shared field rules are edited in the Shared Field Library. This package can still control visibility, defaults, color, mappings, and document placement.</div>}
                   </div>
                   <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.interviewVisible} onChange={(e) => updateSelectedField({ interviewVisible: e.target.checked })} /> Show in interview</label>
-                  <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.sensitive} onChange={(e) => updateSelectedField({ sensitive: e.target.checked })} /> Sensitive — mask in internal summaries</label>
+                  <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.sensitive} onChange={(e) => updateSelectedField({ sensitive: e.target.checked })} disabled={selectedFieldIsShared} /> Sensitive — mask in internal summaries</label>
                   <button onClick={() => removeField(selectedField.id)} className="text-xs text-red-600">Remove field</button>
                 </div>
               )}
