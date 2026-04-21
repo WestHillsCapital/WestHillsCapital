@@ -1,7 +1,8 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
-import { ChevronDown, ChevronRight, Sparkles, Save, Globe, FileText, Trash2, Eye, EyeOff } from "lucide-react";
+import { ChevronDown, ChevronRight, Sparkles, Save, Globe, FileText, Trash2, Eye, EyeOff, BarChart2, ArrowRight } from "lucide-react";
+import { INSIGHTS, INSIGHT_GROUPS } from "@/data/insights";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -465,12 +466,150 @@ function SavedArticlesList({ onEdit }: { onEdit: (article: SavedArticle) => void
   );
 }
 
+// ─── KEYWORD GAP DATA ─────────────────────────────────────────────────────────
+
+const GAP_TOPICS: Record<string, string[]> = {
+  "understanding-pricing": [
+    "Why buy price and sell price are always different",
+    "What is a spread and how does it affect what you pay",
+    "How gold prices differ between dealers",
+    "Gold vs. silver: which moves more and why",
+    "How to read a live gold price chart",
+    "Why the futures price and the physical price diverge",
+  ],
+  "making-smart-decisions": [
+    "How to sell gold and silver back — what to expect",
+    "1099 reporting rules for gold and silver sales",
+    "Junk silver vs. bullion silver — which is better",
+    "How much gold should I own relative to my savings",
+    "Fractional gold coins — worth the premium or not",
+    "Gold vs. silver — which to buy first and why",
+    "What happens to gold in an estate or inheritance",
+  ],
+  "ownership-and-practicality": [
+    "Allocated vs. segregated storage — what the difference means",
+    "How to insure physical gold and silver",
+    "What to expect when your metals are delivered",
+    "How to verify gold and silver authenticity at home",
+    "Storing gold in a safe deposit box — pros and cons",
+    "Home safe vs. depository — how to decide",
+  ],
+  "choosing-who-to-trust": [
+    "Red flags when buying gold online",
+    "Gold dealer fees — what you should and should not be paying",
+    "How to read a gold dealer's buyback policy",
+    "Questions to ask a gold dealer before you commit",
+    "How to evaluate gold dealer reviews — what to look for",
+    "Why some dealers push numismatic coins on first-time buyers",
+  ],
+};
+
+// ─── COVERAGE PANEL ───────────────────────────────────────────────────────────
+
+function CoveragePanel({ onDraft }: { onDraft: (topic: string) => void }) {
+  const { getAuthHeaders } = useInternalAuth();
+
+  const { data } = useQuery<{ articles: SavedArticle[] }>({
+    queryKey: ["content-articles"],
+    queryFn: async () => {
+      const res = await fetch(`${API_BASE}/api/internal/content/articles`, {
+        headers: getAuthHeaders(),
+      });
+      return res.json();
+    },
+  });
+
+  const publishedByGroup = (groupId: string) => {
+    const dynamicPublished = (data?.articles ?? []).filter(
+      (a) => a.status === "published" && a.group_id === groupId,
+    );
+    const staticInGroup = INSIGHTS.filter((a) => a.group === groupId && !a.foundersPerspective);
+    return { dynamic: dynamicPublished, static: staticInGroup };
+  };
+
+  return (
+    <div className="space-y-8">
+      <div className="bg-[#F5F0E8] border border-[#DDD5C4] rounded-xl px-5 py-4 text-sm text-[#4A5B7A] leading-relaxed">
+        Topics already in the library are listed under each group. Gap topics are buyer search queries the library does not yet address — click any to draft an article.
+      </div>
+
+      {INSIGHT_GROUPS.map((group) => {
+        const { dynamic, static: staticArticles } = publishedByGroup(group.id);
+        const gaps = GAP_TOPICS[group.id] ?? [];
+        const totalCovered = staticArticles.length + dynamic.length;
+
+        return (
+          <div key={group.id} className="bg-white border border-[#DDD5C4] rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#DDD5C4] flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-semibold text-[#0F1C3F]">{group.title}</h3>
+                <p className="text-xs text-[#8A9BB8] mt-0.5">{group.description}</p>
+              </div>
+              <span className="text-xs font-semibold text-[#C49A38] bg-[#C49A38]/10 px-2.5 py-1 rounded-full shrink-0 ml-4">
+                {totalCovered} article{totalCovered !== 1 ? "s" : ""}
+              </span>
+            </div>
+
+            <div className="divide-y divide-[#DDD5C4]/50">
+              {/* Covered */}
+              <div className="px-5 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8A9BB8] mb-2">In library</p>
+                <ul className="space-y-1">
+                  {staticArticles.map((a) => (
+                    <li key={a.slug} className="text-xs text-[#4A5B7A] flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                      {a.title}
+                    </li>
+                  ))}
+                  {dynamic.map((a) => (
+                    <li key={a.slug} className="text-xs text-[#4A5B7A] flex items-center gap-1.5">
+                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                      {a.title}
+                      <span className="text-[10px] text-green-600 font-medium">(Content Engine)</span>
+                    </li>
+                  ))}
+                  {totalCovered === 0 && (
+                    <li className="text-xs text-[#8A9BB8] italic">No articles yet</li>
+                  )}
+                </ul>
+              </div>
+
+              {/* Gaps */}
+              <div className="px-5 py-3">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8A9BB8] mb-2">Gaps to fill</p>
+                <ul className="space-y-1.5">
+                  {gaps.map((topic) => (
+                    <li key={topic}>
+                      <button
+                        onClick={() => onDraft(topic)}
+                        className="w-full text-left text-xs text-[#4A5B7A] flex items-center justify-between gap-2 group hover:text-[#C49A38] transition-colors"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#DDD5C4] group-hover:bg-[#C49A38] shrink-0 transition-colors" />
+                          {topic}
+                        </span>
+                        <ArrowRight className="w-3 h-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 
 type Mode = "topics" | "generating" | "editing";
+type Tab = "generate" | "coverage";
 
 export default function ContentEngine() {
   const { getAuthHeaders } = useInternalAuth();
+  const [tab, setTab] = useState<Tab>("generate");
   const [mode, setMode] = useState<Mode>("topics");
   const [customTopic, setCustomTopic] = useState("");
   const [draft, setDraft] = useState<DraftArticle | null>(null);
@@ -536,16 +675,49 @@ export default function ContentEngine() {
     setCustomTopic("");
   };
 
+  const handleDraftFromCoverage = useCallback((topic: string) => {
+    setTab("generate");
+    generate(topic);
+  }, [generate]);
+
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-8">
 
       {/* Header */}
-      <div className="mb-8">
+      <div className="mb-6">
         <h1 className="text-2xl font-semibold text-[#0F1C3F] mb-1">Content Engine</h1>
         <p className="text-sm text-[#6B7A99]">
           Generate Insights articles in the WHC voice. Review and edit before publishing.
         </p>
       </div>
+
+      {/* Tabs — only show when not in generating/editing mode */}
+      {mode === "topics" && (
+        <div className="flex gap-1 mb-8 border-b border-[#DDD5C4]">
+          <button
+            onClick={() => setTab("generate")}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              tab === "generate"
+                ? "border-[#C49A38] text-[#0F1C3F]"
+                : "border-transparent text-[#8A9BB8] hover:text-[#4A5B7A]"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Generate
+          </button>
+          <button
+            onClick={() => setTab("coverage")}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              tab === "coverage"
+                ? "border-[#C49A38] text-[#0F1C3F]"
+                : "border-transparent text-[#8A9BB8] hover:text-[#4A5B7A]"
+            }`}
+          >
+            <BarChart2 className="w-3.5 h-3.5" />
+            Coverage
+          </button>
+        </div>
+      )}
 
       {/* Generating state */}
       {mode === "generating" && (
@@ -556,8 +728,13 @@ export default function ContentEngine() {
         </div>
       )}
 
+      {/* Coverage panel */}
+      {mode === "topics" && tab === "coverage" && (
+        <CoveragePanel onDraft={handleDraftFromCoverage} />
+      )}
+
       {/* Topic picker */}
-      {mode === "topics" && (
+      {mode === "topics" && tab === "generate" && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div>
             <h2 className="text-sm font-semibold text-[#0F1C3F] mb-4">

@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { ArrowLeft, ArrowRight, Clock } from "lucide-react";
+import { EmailCapture } from "@/components/EmailCapture";
 import {
   getArticleBySlug,
   getRelatedArticles,
@@ -278,6 +279,9 @@ export default function InsightArticle() {
               </div>
             </div>
           )}
+
+          {/* EMAIL CAPTURE */}
+          <EmailCapture />
 
           {/* BOTTOM CTA */}
           <ArticleCTA />

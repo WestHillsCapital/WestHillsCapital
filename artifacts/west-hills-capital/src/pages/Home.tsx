@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, BookOpen, ShieldCheck, Scale, Banknote, History, CheckCircle2, Shield, Star } from "lucide-react";
 import { useProductPrices } from "@/hooks/use-pricing";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { EmailCapture } from "@/components/EmailCapture";
 
 const TESTIMONIALS = [
   {
@@ -303,6 +304,17 @@ export default function Home() {
               </div>
             </div>
           </div>
+        </div>
+      </section>
+
+      {/* EMAIL CAPTURE */}
+      <section className="py-12 bg-white border-t border-border/20">
+        <div className="max-w-3xl mx-auto px-4">
+          <EmailCapture
+            source="home-subscribe"
+            heading="Stay informed"
+            subtext="We publish guides on pricing, ownership, and how the market actually works — written for buyers, not traders. No spam."
+          />
         </div>
       </section>
 
