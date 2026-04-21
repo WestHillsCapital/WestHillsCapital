@@ -34,6 +34,7 @@ export interface Customer {
   leadId:           string;
   confirmationId:   string;
   custodian:        string;
+  depository:       string;
   iraAccountNumber: string;
 }
 

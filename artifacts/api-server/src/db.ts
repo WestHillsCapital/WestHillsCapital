@@ -262,6 +262,79 @@ export async function initDb(): Promise<void> {
   await safeAdd("follow_up_30d_sent_at",              "TIMESTAMPTZ"); // when 30-day follow-up email was sent
   await safeAdd("wire_confirmation_email_sent_at",    "TIMESTAMPTZ"); // when wire confirmation email (Email 1) was sent
 
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_custodians (
+      id           SERIAL PRIMARY KEY,
+      name         TEXT NOT NULL UNIQUE,
+      contact_name TEXT,
+      email        TEXT,
+      phone        TEXT,
+      notes        TEXT,
+      active       BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_depositories (
+      id           SERIAL PRIMARY KEY,
+      name         TEXT NOT NULL UNIQUE,
+      contact_name TEXT,
+      email        TEXT,
+      phone        TEXT,
+      notes        TEXT,
+      active       BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_packages (
+      id                SERIAL PRIMARY KEY,
+      name              TEXT NOT NULL,
+      custodian_id      INTEGER REFERENCES docufill_custodians(id) ON DELETE SET NULL,
+      depository_id     INTEGER REFERENCES docufill_depositories(id) ON DELETE SET NULL,
+      transaction_scope TEXT NOT NULL DEFAULT 'Custodial paperwork',
+      description       TEXT,
+      status            TEXT NOT NULL DEFAULT 'draft',
+      version           INTEGER NOT NULL DEFAULT 1,
+      documents         JSONB NOT NULL DEFAULT '[]'::jsonb,
+      fields            JSONB NOT NULL DEFAULT '[]'::jsonb,
+      mappings          JSONB NOT NULL DEFAULT '[]'::jsonb,
+      created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_interview_sessions (
+      id               SERIAL PRIMARY KEY,
+      token            TEXT NOT NULL UNIQUE,
+      package_id       INTEGER NOT NULL REFERENCES docufill_packages(id) ON DELETE CASCADE,
+      package_version  INTEGER NOT NULL,
+      deal_id          INTEGER REFERENCES deals(id) ON DELETE SET NULL,
+      source           TEXT NOT NULL DEFAULT 'deal_builder',
+      status           TEXT NOT NULL DEFAULT 'draft',
+      prefill          JSONB NOT NULL DEFAULT '{}'::jsonb,
+      answers          JSONB NOT NULL DEFAULT '{}'::jsonb,
+      generated_packet JSONB,
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS docufill_packages_combo_idx
+      ON docufill_packages (custodian_id, depository_id, status)
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS docufill_interview_sessions_token_idx
+      ON docufill_interview_sessions (token)
+  `);
+
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 

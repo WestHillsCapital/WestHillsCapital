@@ -13,6 +13,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
     { href: "/internal/leads",        label: "Leads" },
     { href: "/internal/appointments", label: "Appointments" },
     { href: "/internal/deal-builder", label: "Deal Builder" },
+    { href: "/internal/docufill",      label: "DocuFill" },
     { href: "/internal/content",      label: "Content" },
   ];
 

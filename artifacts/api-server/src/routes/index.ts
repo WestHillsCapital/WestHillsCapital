@@ -9,6 +9,7 @@ import internalAuthRouter  from "./internal-auth";
 import internalRouter      from "./internal";
 import dealsRouter         from "./deals";
 import fedexRouter         from "./fedex";
+import docufillRouter      from "./docufill";
 import contentRouter, { publicContentRouter } from "./content";
 import { requireInternalAuth } from "../middleware/requireInternalAuth";
 
@@ -36,6 +37,8 @@ router.use("/deals", requireInternalAuth, dealsRouter);
 
 // ── FedEx location search (internal tool) ─────────────────────────────────────
 router.use("/fedex", requireInternalAuth, fedexRouter);
+
+router.use("/internal/docufill", requireInternalAuth, docufillRouter);
 
 // ── Content engine (internal tool — also require auth) ────────────────────────
 router.use("/internal/content", requireInternalAuth, contentRouter);

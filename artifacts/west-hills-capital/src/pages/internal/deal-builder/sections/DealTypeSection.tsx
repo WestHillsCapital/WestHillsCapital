@@ -42,10 +42,9 @@ export function DealTypeSection({ dealType, setDealType, iraType, setIraType, cu
             onChange={(e) => setIraType(e.target.value)}
             disabled={locked}
           />
-          <Field label="Custodian"          value={customer.custodian}        onChange={setCust("custodian")}        disabled={locked} />
           <Field label="IRA Account Number" value={customer.iraAccountNumber} onChange={setCust("iraAccountNumber")} disabled={locked} />
           <p className="text-xs text-[#a8832e]/80 bg-[#C49A38]/10 border border-[#C49A38]/20 rounded px-3 py-2">
-            IRA processing is handled manually. Pricing is the same as cash.
+            Custodian, depository, and paperwork package are handled in the DocuFill section below.
           </p>
         </div>
       )}

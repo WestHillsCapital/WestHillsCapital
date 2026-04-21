@@ -34,6 +34,7 @@ The project is structured as a pnpm monorepo using TypeScript, with separate `ap
 -   **Insights Hub:** A content management system for educational articles, with metadata and content managed in `insights.ts`.
 -   **Deal Builder:** An internal tool to manage and execute client deals, automating pricing, trade execution, invoicing, and record-keeping.
 -   **FedEx Location Search:** Integration to find nearest FedEx locations for shipping.
+-   **DocuFill:** Internal custodial paperwork engine for reusable document packages. Admin users can manage custodians, depositories, packages, ordered documents, reusable interview fields, visual field placements, and launch package interviews from IRA/custodial Deal Builder workflows.
 
 **Deployment:**
 -   The monorepo is deployed to Railway (API server) and Vercel (frontend), both configured to watch the GitHub `main` branch.

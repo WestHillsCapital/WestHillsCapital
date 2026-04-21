@@ -17,6 +17,7 @@ import { ProductsTable }    from "./deal-builder/sections/ProductsTable";
 import { SummarySection }   from "./deal-builder/sections/SummarySection";
 import { ExecutionSection } from "./deal-builder/sections/ExecutionSection";
 import { FulfillmentSection } from "./deal-builder/sections/FulfillmentSection";
+import { DocuFillPackagesSection } from "./deal-builder/sections/DocuFillPackagesSection";
 
 import { parseNum, parseQty } from "./deal-builder/utils";
 import type { Customer }      from "./deal-builder/types";
@@ -199,6 +200,16 @@ export default function DealBuilder() {
             customer={s.customer}     setCust={setCust}
             locked={s.isLocked}
           />
+
+          {s.dealType === "ira" && (
+            <DocuFillPackagesSection
+              customer={s.customer}
+              setCustomer={s.setCustomer}
+              savedDealId={s.savedDealId}
+              locked={s.isLocked}
+              getAuthHeaders={getAuthHeaders}
+            />
+          )}
 
           {/* Delivery — CASH deals only */}
           {s.dealType === "cash" && (
