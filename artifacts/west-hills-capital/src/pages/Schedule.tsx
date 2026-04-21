@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import {
   useAvailableSlots,
+  type BookAppointmentResponse,
   useBookAppointment,
   submitPrequalLead,
 } from "@/hooks/use-scheduling";
@@ -35,6 +36,66 @@ const US_STATES = [
   ["VT", "Vermont"], ["VA", "Virginia"], ["WA", "Washington"], ["WV", "West Virginia"],
   ["WI", "Wisconsin"], ["WY", "Wyoming"],
 ] as const;
+
+function toCalendarUtc(date: Date): string {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function escapeCalendarText(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function downloadCalendarEvent(booking: BookAppointmentResponse, phone?: string) {
+  const slotStart = new Date(booking.scheduledTime);
+  const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
+  const description = [
+    "West Hills Capital consultation.",
+    `Confirmation ID: ${booking.confirmationId}`,
+    `Appointment: ${booking.dayLabel} at ${booking.timeLabel}`,
+    phone ? `We will call you at: ${phone}` : "",
+    "West Hills Capital phone: (800) 867-6768",
+    "",
+    "This is a consultation only. No obligation or commitment is required.",
+  ].filter(Boolean).join("\n");
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//West Hills Capital//Booking Confirmation//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:whc-booking-${escapeCalendarText(booking.confirmationId)}@westhillscapital.com`,
+    `DTSTAMP:${toCalendarUtc(new Date())}`,
+    `DTSTART:${toCalendarUtc(slotStart)}`,
+    `DTEND:${toCalendarUtc(slotEnd)}`,
+    "SUMMARY:West Hills Capital Consultation",
+    `DESCRIPTION:${escapeCalendarText(description)}`,
+    "LOCATION:West Hills Capital will call you",
+    "STATUS:CONFIRMED",
+    "SEQUENCE:0",
+    "TRANSP:OPAQUE",
+    "BEGIN:VALARM",
+    "ACTION:DISPLAY",
+    "DESCRIPTION:West Hills Capital consultation begins in 15 minutes",
+    "TRIGGER:-PT15M",
+    "END:VALARM",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `west-hills-capital-consultation-${booking.confirmationId}.ics`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
 
 const prequalSchema = z.object({
   firstName: z.string().min(2, "First name required"),
@@ -379,7 +440,17 @@ export default function Schedule() {
 
             <div className="space-y-4 text-foreground/80 max-w-lg mx-auto">
               <p>Your Confirmation ID: <strong className="text-foreground">{bookMutation.data.confirmationId}</strong></p>
-              <p className="text-sm text-foreground/60">A confirmation has been sent to your email address.</p>
+              <Button
+                type="button"
+                onClick={() => downloadCalendarEvent(bookMutation.data, formData?.phone)}
+                className="w-full sm:w-auto"
+              >
+                <CalendarIcon className="w-4 h-4 mr-2" />
+                Save this call to your calendar
+              </Button>
+              <p className="text-sm text-foreground/60">
+                A confirmation has been sent to your email address with a calendar file attached. If your email app does not add it automatically, open the attachment or use the button above.
+              </p>
               <p className="border-t border-border pt-4">
                 During the call, we will review your goals, confirm current pricing, and discuss next steps.
               </p>

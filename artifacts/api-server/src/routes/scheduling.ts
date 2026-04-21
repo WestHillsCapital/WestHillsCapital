@@ -490,6 +490,7 @@ router.post("/book", async (req, res) => {
       confirmationId,
       dayLabel: slot.dayLabel,
       timeLabel: slot.timeLabel,
+      scheduledTime: slot.dateTime,
       phone: body.phone,
       state: body.state,
       allocationType: body.allocationType,

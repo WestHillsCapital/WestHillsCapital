@@ -31,6 +31,7 @@ The project is structured as a pnpm monorepo using TypeScript, with separate `ap
 **Key Features:**
 -   **Live Pricing:** Integration with Dillon Gage Fiztrade API for real-time gold and silver spot prices.
 -   **Appointment Scheduling:** A 2-step form to schedule allocation calls, with available slots generated deterministically (Mon-Fri, 9 am-5 pm CT, 14 days ahead) and booked slots excluded.
+-   **Booking confirmations:** Customer confirmation emails include warmer consultation copy, an explicit calendar-save prompt, and an attached `.ics` calendar event with a 15-minute reminder; the frontend confirmation screen also offers a calendar download based on the booked Central Time slot.
 -   **Insights Hub:** A content management system for educational articles, with metadata and content managed in `insights.ts`.
 -   **Deal Builder:** An internal tool to manage and execute client deals, automating pricing, trade execution, invoicing, and record-keeping.
 -   **Internal workflow language:** Staff-facing navigation uses Prospecting Pipeline and Scheduled Calls to match the six-tab Google Sheets workbook. Backend tables and API routes still use the stable `leads` and `appointments` names.

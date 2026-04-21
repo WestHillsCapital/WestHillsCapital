@@ -28,6 +28,7 @@ const TIMELINE_LABELS: Record<string, string> = {
 interface EmailAttachment {
   filename: string;
   content:  string;  // base64-encoded
+  contentType?: string;
 }
 
 interface SendEmailOptions {
@@ -74,6 +75,82 @@ async function sendEmail(opts: SendEmailOptions): Promise<void> {
     throw new Error(`Resend API error ${res.status}: ${text}`);
   }
   logger.info({ subject: opts.subject, to: opts.to }, "[Email] Sent");
+}
+
+function escapeCalendarText(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function toCalendarUtc(date: Date): string {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function buildBookingCalendarEvent(params: {
+  confirmationId: string;
+  firstName: string;
+  scheduledTime: string;
+  dayLabel: string;
+  timeLabel: string;
+  phone: string;
+}): { attachment: EmailAttachment; googleCalendarUrl: string } {
+  const slotStart = new Date(params.scheduledTime);
+  const slotEnd = new Date(slotStart.getTime() + 60 * 60 * 1000);
+  const title = "West Hills Capital Consultation";
+  const location = "West Hills Capital will call you";
+  const description = [
+    `West Hills Capital consultation for ${params.firstName}.`,
+    `Confirmation ID: ${params.confirmationId}`,
+    `Appointment: ${params.dayLabel} at ${params.timeLabel}`,
+    `We will call you at: ${params.phone}`,
+    `West Hills Capital phone: (800) 867-6768`,
+    "",
+    "This is a consultation only. No obligation or commitment is required.",
+  ].join("\n");
+  const ics = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//West Hills Capital//Booking Confirmation//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:whc-booking-${escapeCalendarText(params.confirmationId)}@westhillscapital.com`,
+    `DTSTAMP:${toCalendarUtc(new Date())}`,
+    `DTSTART:${toCalendarUtc(slotStart)}`,
+    `DTEND:${toCalendarUtc(slotEnd)}`,
+    `SUMMARY:${escapeCalendarText(title)}`,
+    `DESCRIPTION:${escapeCalendarText(description)}`,
+    `LOCATION:${escapeCalendarText(location)}`,
+    "STATUS:CONFIRMED",
+    "SEQUENCE:0",
+    "TRANSP:OPAQUE",
+    "BEGIN:VALARM",
+    "ACTION:DISPLAY",
+    "DESCRIPTION:West Hills Capital consultation begins in 15 minutes",
+    "TRIGGER:-PT15M",
+    "END:VALARM",
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+  const googleParams = new URLSearchParams({
+    action: "TEMPLATE",
+    text: title,
+    dates: `${toCalendarUtc(slotStart)}/${toCalendarUtc(slotEnd)}`,
+    details: description,
+    location,
+  });
+
+  return {
+    attachment: {
+      filename: `west-hills-capital-consultation-${params.confirmationId}.ics`,
+      content: Buffer.from(ics, "utf8").toString("base64"),
+      contentType: "text/calendar; charset=utf-8; method=PUBLISH",
+    },
+    googleCalendarUrl: `https://calendar.google.com/calendar/render?${googleParams.toString()}`,
+  };
 }
 
 // ── Owner notification ────────────────────────────────────────────────────────
@@ -1213,6 +1290,7 @@ export async function sendBookingConfirmation(params: {
   confirmationId: string;
   dayLabel: string;
   timeLabel: string;
+  scheduledTime: string;
   phone: string;
   state: string;
   allocationType: string;
@@ -1234,6 +1312,15 @@ export async function sendBookingConfirmation(params: {
   const FAINT  = "#D8CEBC";   // divider line
   const CBACK  = "#F9F6EE";   // card interior background — lighter warm off-white
 
+  const calendarEvent = buildBookingCalendarEvent({
+    confirmationId: params.confirmationId,
+    firstName: params.firstName,
+    scheduledTime: params.scheduledTime,
+    dayLabel: params.dayLabel,
+    timeLabel: params.timeLabel,
+    phone: params.phone,
+  });
+
   const summaryRow = (label: string, value: string, last = false) => `
     <tr>
       <td style="padding:11px 0;font-size:13px;color:${MUTED};font-family:'DM Sans',Arial,sans-serif;vertical-align:top;width:130px;${last ? "" : `border-bottom:1px solid ${FAINT};`}">${label}</td>
@@ -1253,7 +1340,8 @@ export async function sendBookingConfirmation(params: {
 
   await sendEmail({
     to:      params.to,
-    subject: `Your Call Is Confirmed — ${params.dayLabel}`,
+    subject: `We have your West Hills Capital call reserved — ${params.dayLabel}`,
+    attachments: [calendarEvent.attachment],
     html: `
 <!DOCTYPE html>
 <html lang="en">
@@ -1294,10 +1382,10 @@ export async function sendBookingConfirmation(params: {
         <tr>
           <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
             <p style="margin:0 0 11px;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:${NAVY};line-height:1.3;">
-              Your call is confirmed.
+              We have your consultation reserved.
             </p>
             <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${MUTED};line-height:1.65;">
-              We look forward to speaking with you at the scheduled time below.
+              Thank you, ${params.firstName}. We look forward to speaking with you at the scheduled time below.
             </p>
           </td>
         </tr>
@@ -1310,7 +1398,7 @@ export async function sendBookingConfirmation(params: {
               <tr>
                 <td style="padding:9px 22px 8px;border-bottom:1px solid ${LGOLD};">
                   <p style="margin:0;font-size:9px;font-family:'DM Sans',Arial,sans-serif;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">
-                    Appointment
+                    Save this call to your calendar
                   </p>
                 </td>
               </tr>
@@ -1322,10 +1410,25 @@ export async function sendBookingConfirmation(params: {
                   <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:16px;color:${MUTED};line-height:1.4;">
                     ${params.timeLabel}
                   </p>
+                  <p style="margin:14px 0 0;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${BODY};line-height:1.6;">
+                    Please add this appointment to your calendar so the call is easy to find when the time arrives.
+                  </p>
                 </td>
               </tr>
               <tr>
                 <td style="padding:0 22px 20px;">
+                  <table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 14px;">
+                    <tr>
+                      <td bgcolor="${NAVY}" style="border-radius:3px;">
+                        <a href="${calendarEvent.googleCalendarUrl}" style="display:inline-block;padding:11px 16px;font-family:'DM Sans',Arial,sans-serif;font-size:13px;font-weight:bold;color:#ffffff;text-decoration:none;">
+                          Save this call to your calendar
+                        </a>
+                      </td>
+                    </tr>
+                  </table>
+                  <p style="margin:0 0 12px;font-size:12px;font-family:'DM Sans',Arial,sans-serif;color:${MUTED};line-height:1.55;">
+                    We also attached a calendar file you can open in Apple Calendar, Outlook, Gmail, or most calendar apps. It includes a 15-minute reminder where supported.
+                  </p>
                   <p style="margin:0;font-size:11px;font-family:'DM Sans',Arial,sans-serif;color:${MUTED};">
                     Confirmation&nbsp;
                     <span style="font-family:'Courier New',monospace;letter-spacing:.04em;color:${DIM};">${params.confirmationId}</span>
