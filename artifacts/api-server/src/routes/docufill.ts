@@ -741,7 +741,11 @@ router.post("/field-library", async (req, res) => {
       return;
     }
     res.status(201).json({ field: rows[0] });
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.code === "23505") {
+      res.status(409).json({ error: "A shared field with that label already exists" });
+      return;
+    }
     logger.error({ err }, "[DocuFill] Failed to create field library item");
     res.status(500).json({ error: "Failed to create field library item" });
   }
@@ -757,6 +761,17 @@ router.patch("/field-library/:id", async (req, res) => {
       return;
     }
     const db = getDb();
+    const { rows: duplicateRows } = await db.query(
+      `SELECT id
+         FROM docufill_fields
+        WHERE lower(label) = lower($1) AND id <> $2
+        LIMIT 1`,
+      [label, id],
+    );
+    if (duplicateRows[0]) {
+      res.status(409).json({ error: "A shared field with that label already exists", fieldId: duplicateRows[0].id });
+      return;
+    }
     const { rows } = await db.query(
       `UPDATE docufill_fields SET
           label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
@@ -787,7 +802,11 @@ router.patch("/field-library/:id", async (req, res) => {
       return;
     }
     res.json({ field: rows[0] });
-  } catch (err) {
+  } catch (err: any) {
+    if (err?.code === "23505") {
+      res.status(409).json({ error: "A shared field with that label already exists" });
+      return;
+    }
     logger.error({ err }, "[DocuFill] Failed to update field library item");
     res.status(500).json({ error: "Failed to update field library item" });
   }

@@ -1710,6 +1710,13 @@ function FieldLibraryPanel({
               <Input placeholder="Category" value={item.category} onChange={(e) => onChange(item.id, { category: e.target.value })} className="h-8 text-xs bg-white" />
               <Input placeholder="Prefill source" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" />
             </div>
+            <Input
+              type="number"
+              placeholder="Sort order"
+              value={item.sortOrder}
+              onChange={(e) => onChange(item.id, { sortOrder: Number(e.target.value || 100) })}
+              className="h-8 text-xs bg-white"
+            />
             <div className="grid grid-cols-2 gap-2">
               <select value={item.type} onChange={(e) => onChange(item.id, { type: e.target.value as FieldItem["type"] })} className="border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
                 <option value="text">Text</option>

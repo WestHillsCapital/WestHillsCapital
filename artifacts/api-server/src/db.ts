@@ -341,6 +341,10 @@ export async function initDb(): Promise<void> {
     )
   `);
   await db.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS docufill_fields_label_unique
+      ON docufill_fields (lower(label))
+  `);
+  await db.query(`
     INSERT INTO docufill_fields
       (id, label, category, field_type, source, options, sensitive, required, validation_type, validation_message, active, sort_order)
     VALUES
