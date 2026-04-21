@@ -648,6 +648,12 @@ export default function DocuFill() {
 
   function addLibraryFieldToPackage(libraryField: FieldLibraryItem) {
     updateSelectedPackage((pkg) => {
+      const existingField = pkg.fields.find((field) => field.libraryFieldId === libraryField.id);
+      if (existingField) {
+        setSelectedFieldId(existingField.id);
+        setStatus("That shared field is already in this package.");
+        return pkg;
+      }
       const field: FieldItem = {
         id: newId("field"),
         libraryFieldId: libraryField.id,
