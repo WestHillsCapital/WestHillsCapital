@@ -117,6 +117,20 @@ const inheritedOptionFields = hydratePackageFields(
 );
 assert.deepEqual(inheritedOptionFields[0].options, ["Library check", "Library wire"]);
 
+const defaultInheritedOptionFields = hydratePackageFields(
+  [{ id: "package_default_inherited_dropdown", libraryFieldId: "shared_distribution_method" }],
+  [{ id: "shared_distribution_method", label: "Distribution method", type: "dropdown", source: "distributionMethod", options: ["Library check", "Library wire"] }],
+);
+assert.equal(defaultInheritedOptionFields[0].optionsMode, "inherit");
+assert.deepEqual(defaultInheritedOptionFields[0].options, ["Library check", "Library wire"]);
+
+const explicitEmptyOverrideFields = hydratePackageFields(
+  [{ id: "package_empty_override_dropdown", libraryFieldId: "shared_distribution_method", optionsMode: "override", options: [] }],
+  [{ id: "shared_distribution_method", label: "Distribution method", type: "dropdown", source: "distributionMethod", options: ["Library check", "Library wire"] }],
+);
+assert.equal(explicitEmptyOverrideFields[0].optionsMode, "override");
+assert.deepEqual(explicitEmptyOverrideFields[0].options, []);
+
 if (process.env.DATABASE_URL) {
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();

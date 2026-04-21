@@ -173,7 +173,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
       sensitive: field.sensitive === true,
       required: field.required === true,
       options: Array.isArray(field.options) ? field.options : undefined,
-      optionsMode: field.optionsMode === "inherit" ? "inherit" : "override",
+      optionsMode: field.optionsMode === "inherit" || (field.libraryFieldId && (!Array.isArray(field.options) || field.options.length === 0)) ? "inherit" : "override",
       validationType: field.validationType ?? "none",
       validationPattern: field.validationPattern ?? "",
       validationMessage: field.validationMessage ?? "",

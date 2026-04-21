@@ -86,15 +86,18 @@ export function hydratePackageFields(fields: unknown, library: Array<Record<stri
     const rawLibraryId = cleanText(field.libraryFieldId) || cleanText((field as Record<string, unknown>).library_field_id);
     const libraryField = rawLibraryId ? byId.get(rawLibraryId) : undefined;
     if (!libraryField) return field;
+    const hasPackageOptions = Array.isArray(field.options) && field.options.length > 0;
+    const optionsMode = field.optionsMode === "override" || (!field.optionsMode && hasPackageOptions) ? "override" : "inherit";
     return {
       ...field,
       libraryFieldId: libraryField.id,
+      optionsMode,
       name: String(libraryField.label ?? field.name ?? ""),
       label: String(libraryField.label ?? field.label ?? ""),
       category: String(libraryField.category ?? field.category ?? ""),
       type: String(libraryField.type ?? field.type ?? "text"),
       source: String(libraryField.source ?? field.source ?? "interview"),
-      options: field.optionsMode === "inherit" ? Array.isArray(libraryField.options) ? libraryField.options : [] : Array.isArray(field.options) ? field.options : Array.isArray(libraryField.options) ? libraryField.options : [],
+      options: optionsMode === "inherit" ? Array.isArray(libraryField.options) ? libraryField.options : [] : Array.isArray(field.options) ? field.options : [],
       sensitive: libraryField.sensitive === true,
       required: libraryField.required === true,
       validationType: normalizeValidationType(libraryField.validationType ?? field.validationType),
