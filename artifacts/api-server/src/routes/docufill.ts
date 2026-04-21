@@ -364,24 +364,25 @@ function validateSessionAnswers(session: Record<string, unknown>): { valid: bool
   const errors: string[] = [];
   fields.filter((field) => field.interviewVisible).forEach((field) => {
     const value = fieldAnswerValue(field, answers, prefill).trim();
+    const fieldLabel = field.name ?? field.label ?? field.id;
     if (field.required && !value) {
-      missingFields.push(field.name);
+      missingFields.push(fieldLabel);
       return;
     }
     if (!value) return;
     const validationType = field.validationType ?? "none";
-    if (validationType === "name" && !/^[a-z ,.'-]+$/i.test(value)) errors.push(field.validationMessage || `${field.name} must be a valid name.`);
-    if (validationType === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errors.push(field.validationMessage || `${field.name} must be a valid email.`);
-    if (validationType === "phone" && value.replace(/\D+/g, "").length < 10) errors.push(field.validationMessage || `${field.name} must be a valid phone number.`);
-    if (validationType === "number" && Number.isNaN(Number(value.replace(/,/g, "")))) errors.push(field.validationMessage || `${field.name} must be a number.`);
-    if (validationType === "currency" && Number.isNaN(Number(value.replace(/[$,]/g, "")))) errors.push(field.validationMessage || `${field.name} must be a currency amount.`);
-    if (validationType === "date" && Number.isNaN(new Date(value).getTime())) errors.push(field.validationMessage || `${field.name} must be a valid date.`);
-    if (validationType === "ssn" && !/^\d{3}-?\d{2}-?\d{4}$/.test(value)) errors.push(field.validationMessage || `${field.name} must be a valid SSN format.`);
+    if (validationType === "name" && !/^[a-z ,.'-]+$/i.test(value)) errors.push(field.validationMessage || `${fieldLabel} must be a valid name.`);
+    if (validationType === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errors.push(field.validationMessage || `${fieldLabel} must be a valid email.`);
+    if (validationType === "phone" && value.replace(/\D+/g, "").length < 10) errors.push(field.validationMessage || `${fieldLabel} must be a valid phone number.`);
+    if (validationType === "number" && Number.isNaN(Number(value.replace(/,/g, "")))) errors.push(field.validationMessage || `${fieldLabel} must be a number.`);
+    if (validationType === "currency" && Number.isNaN(Number(value.replace(/[$,]/g, "")))) errors.push(field.validationMessage || `${fieldLabel} must be a currency amount.`);
+    if (validationType === "date" && Number.isNaN(new Date(value).getTime())) errors.push(field.validationMessage || `${fieldLabel} must be a valid date.`);
+    if (validationType === "ssn" && !/^\d{3}-?\d{2}-?\d{4}$/.test(value)) errors.push(field.validationMessage || `${fieldLabel} must be a valid SSN format.`);
     if (validationType === "custom" && field.validationPattern) {
       try {
-        if (!new RegExp(field.validationPattern).test(value)) errors.push(field.validationMessage || `${field.name} is not in the expected format.`);
+        if (!new RegExp(field.validationPattern).test(value)) errors.push(field.validationMessage || `${fieldLabel} is not in the expected format.`);
       } catch {
-        errors.push(`${field.name} has an invalid validation pattern.`);
+        errors.push(`${fieldLabel} has an invalid validation pattern.`);
       }
     }
   });

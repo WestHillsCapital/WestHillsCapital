@@ -165,6 +165,13 @@ function interviewFieldValue(field: FieldItem, answers: Record<string, string>, 
   );
 }
 
+function safeInterviewDisplayValue(field: FieldItem, value: string) {
+  if (!value) return "";
+  if (!field.sensitive) return value;
+  const compact = value.replace(/\s+/g, "");
+  return compact.length > 4 ? `••••${compact.slice(-4)}` : "••••";
+}
+
 export default function DocuFill() {
   const search = useSearch();
   const params = useParams<{ token?: string }>();
@@ -1186,7 +1193,7 @@ export default function DocuFill() {
                 <div className="grid sm:grid-cols-2 gap-2 text-xs text-[#6B7A99]">
                   {visibleInterviewFields.map((field) => {
                     const value = interviewFieldValue(field, answers, session.prefill).trim();
-                    return <div key={field.id}><span className="font-medium text-[#0F1C3F]">{field.name}:</span> {value || <span className="text-[#B58B2B]">{field.required ? "Missing" : "Not provided"}</span>}</div>;
+                    return <div key={field.id}><span className="font-medium text-[#0F1C3F]">{field.name}:</span> {value ? safeInterviewDisplayValue(field, value) : <span className="text-[#B58B2B]">{field.required ? "Missing" : "Not provided"}</span>}</div>;
                   })}
                 </div>
               </div>
