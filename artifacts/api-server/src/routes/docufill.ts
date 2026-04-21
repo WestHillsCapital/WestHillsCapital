@@ -9,6 +9,7 @@ import {
   buildDocuFillFallbackSummaryRows,
   buildDocuFillPacketSummary,
   fieldAnswerValue,
+  formatDocuFillMappedValue,
   hydratePackageFields,
   parseDocuFillFields as parseFields,
   type DocuFillFieldItem,
@@ -348,37 +349,6 @@ async function readPdfBody(req: Request): Promise<Buffer> {
   return body;
 }
 
-function formatMappedValue(value: string, mapping: MappingItem): string {
-  const format = String(mapping.format ?? "as-entered");
-  const text = String(value ?? "").trim();
-  if (!text) return "";
-  if (format === "uppercase") return text.toUpperCase();
-  if (format === "lowercase") return text.toLowerCase();
-  if (format === "first-name") return text.split(/\s+/)[0] ?? text;
-  if (format === "last-name") {
-    const parts = text.split(/\s+/).filter(Boolean);
-    return parts.length > 1 ? parts[parts.length - 1] : text;
-  }
-  if (format === "initials") return text.split(/\s+/).filter(Boolean).map((part) => part[0]?.toUpperCase() ?? "").join("");
-  if (format === "digits-only") return text.replace(/\D+/g, "");
-  if (format === "last-four") return text.replace(/\D+/g, "").slice(-4);
-  if (format === "currency") {
-    const numeric = Number(text.replace(/[$,]/g, ""));
-    return Number.isFinite(numeric) ? numeric.toLocaleString("en-US", { style: "currency", currency: "USD" }) : text;
-  }
-  if (format === "date-mm-dd-yyyy") {
-    const date = new Date(text);
-    if (!Number.isNaN(date.getTime())) {
-      const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
-      const dd = String(date.getUTCDate()).padStart(2, "0");
-      const yyyy = String(date.getUTCFullYear());
-      return `${mm}/${dd}/${yyyy}`;
-    }
-  }
-  if (format === "checkbox-yes") return /^(true|yes|y|1|checked)$/i.test(text) ? "X" : "";
-  return text;
-}
-
 function clampNumber(value: unknown, fallback: number, min: number, max: number): number {
   const numeric = Number(value);
   if (!Number.isFinite(numeric)) return fallback;
@@ -511,7 +481,7 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
         const field = mapping.fieldId ? fieldsById.get(mapping.fieldId) : undefined;
         if (!field) return;
         const value = fieldAnswerValue(field, answers, prefill);
-        const mappedValue = formatMappedValue(value, mapping);
+        const mappedValue = formatDocuFillMappedValue(value, mapping);
         if (!mappedValue) return;
         const pageIndex = Math.max(Number(mapping.page ?? 1) - 1, 0);
         const page = merged.getPages()[merged.getPageCount() - copiedPages.length + pageIndex];

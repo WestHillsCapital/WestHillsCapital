@@ -348,6 +348,7 @@ export async function initDb(): Promise<void> {
     INSERT INTO docufill_fields
       (id, label, category, field_type, source, options, sensitive, required, validation_type, validation_message, active, sort_order)
     VALUES
+      ('client_name', 'Name', 'Customer identity', 'text', 'clientName', '[]'::jsonb, FALSE, TRUE, 'name', NULL, TRUE, 5),
       ('client_first_name', 'Client first name', 'Customer identity', 'text', 'firstName', '[]'::jsonb, FALSE, TRUE, 'name', NULL, TRUE, 10),
       ('client_last_name', 'Client last name', 'Customer identity', 'text', 'lastName', '[]'::jsonb, FALSE, TRUE, 'name', NULL, TRUE, 20),
       ('client_full_name', 'Client full legal name', 'Customer identity', 'text', 'fullName', '[]'::jsonb, FALSE, TRUE, 'name', NULL, TRUE, 30),
@@ -366,7 +367,7 @@ export async function initDb(): Promise<void> {
       ('beneficiary_relationship', 'Beneficiary relationship', 'Beneficiary', 'text', 'beneficiaryRelationship', '[]'::jsonb, FALSE, FALSE, 'none', NULL, TRUE, 160),
       ('client_signature', 'Client signature', 'Signature', 'text', 'signature', '[]'::jsonb, FALSE, TRUE, 'none', NULL, TRUE, 170),
       ('signature_date', 'Signature date', 'Signature', 'date', 'signatureDate', '[]'::jsonb, FALSE, TRUE, 'date', NULL, TRUE, 180)
-    ON CONFLICT (id) DO NOTHING
+    ON CONFLICT DO NOTHING
   `);
   await db.query(`
     UPDATE docufill_fields

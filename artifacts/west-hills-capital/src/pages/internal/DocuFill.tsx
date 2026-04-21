@@ -100,6 +100,21 @@ type FieldLibraryItem = {
   sortOrder: number;
 };
 
+type MappingFormat =
+  | "as-entered"
+  | "uppercase"
+  | "lowercase"
+  | "first-name"
+  | "middle-name"
+  | "last-name"
+  | "first-last"
+  | "initials"
+  | "digits-only"
+  | "last-four"
+  | "currency"
+  | "date-mm-dd-yyyy"
+  | "checkbox-yes";
+
 type MappingItem = {
   id: string;
   fieldId: string;
@@ -111,7 +126,7 @@ type MappingItem = {
   h: number;
   fontSize?: number;
   align?: "left" | "center" | "right";
-  format?: "as-entered" | "uppercase" | "lowercase" | "first-name" | "last-name" | "initials" | "digits-only" | "last-four" | "currency" | "date-mm-dd-yyyy" | "checkbox-yes";
+  format?: MappingFormat;
 };
 
 type PackageItem = {
@@ -160,6 +175,41 @@ function defaultMappingFormat(field: FieldItem): MappingItem["format"] {
   if (field.validationType === "date" || field.type === "date") return "date-mm-dd-yyyy";
   if (field.type === "checkbox") return "checkbox-yes";
   return "as-entered";
+}
+
+const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string; group: string }> = [
+  { value: "as-entered", label: "Whole answer", group: "Common" },
+  { value: "first-name", label: "First", group: "Name" },
+  { value: "middle-name", label: "Middle", group: "Name" },
+  { value: "last-name", label: "Last", group: "Name" },
+  { value: "first-last", label: "First + Last", group: "Name" },
+  { value: "initials", label: "Initials", group: "Name" },
+  { value: "uppercase", label: "Uppercase", group: "Text" },
+  { value: "lowercase", label: "Lowercase", group: "Text" },
+  { value: "digits-only", label: "Digits only", group: "Numbers" },
+  { value: "last-four", label: "Last four", group: "Numbers" },
+  { value: "currency", label: "Currency", group: "Numbers" },
+  { value: "date-mm-dd-yyyy", label: "Date MM/DD/YYYY", group: "Dates" },
+  { value: "checkbox-yes", label: "Checkbox mark when yes", group: "Checks" },
+];
+
+const NAME_MAPPING_FORMATS: MappingFormat[] = ["as-entered", "first-name", "middle-name", "last-name", "first-last", "initials"];
+
+function labelForMappingFormat(format: MappingFormat | undefined) {
+  return MAPPING_FORMAT_OPTIONS.find((option) => option.value === (format ?? "as-entered"))?.label ?? "Whole answer";
+}
+
+function isNameLikeField(field: FieldItem | undefined) {
+  if (!field) return false;
+  const text = [field.name, field.source, field.validationType].join(" ").toLowerCase();
+  return /\b(name|firstname|lastname|fullname|clientname)\b/.test(text.replace(/[_-]/g, " "));
+}
+
+function mappingFormatOptionsForField(field: FieldItem | undefined) {
+  if (!isNameLikeField(field)) return MAPPING_FORMAT_OPTIONS;
+  const nameOptions = MAPPING_FORMAT_OPTIONS.filter((option) => NAME_MAPPING_FORMATS.includes(option.value));
+  const remaining = MAPPING_FORMAT_OPTIONS.filter((option) => !NAME_MAPPING_FORMATS.includes(option.value));
+  return [...nameOptions, ...remaining];
 }
 
 function normalizePackages(items: PackageItem[]): PackageItem[] {
@@ -252,6 +302,7 @@ export default function DocuFill() {
   const [driveWarnings, setDriveWarnings] = useState<string[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
   const [documentPreviewUrl, setDocumentPreviewUrl] = useState<string | null>(null);
+  const [formatMenu, setFormatMenu] = useState<{ mappingId: string; x: number; y: number } | null>(null);
   const [selectedPage, setSelectedPage] = useState(1);
   const pageFrameRef = useRef<HTMLDivElement | null>(null);
   const documentPreviewCache = useRef<Record<string, string>>({});
@@ -262,6 +313,8 @@ export default function DocuFill() {
   const selectedField = selectedPackage?.fields.find((field) => field.id === selectedFieldId) ?? selectedPackage?.fields[0] ?? null;
   const selectedFieldIsShared = Boolean(selectedField?.libraryFieldId);
   const selectedMapping = selectedPackage?.mappings.find((mapping) => mapping.id === selectedMappingId) ?? null;
+  const selectedMappingField = selectedMapping ? selectedPackage?.fields.find((field) => field.id === selectedMapping.fieldId) : undefined;
+  const selectedMappingFormatOptions = mappingFormatOptionsForField(selectedMappingField);
   const selectedPageSize = selectedDocument?.pageSizes?.[selectedPage - 1] ?? selectedDocument?.pageSizes?.[0];
   const labelForTransactionScope = (scope: string | null | undefined) => transactionTypes.find((item) => item.scope === scope)?.label ?? transactionScopeLabel(scope);
   const selectedPageAspect = selectedPageSize && selectedPageSize.width > 0 && selectedPageSize.height > 0
@@ -817,6 +870,7 @@ export default function DocuFill() {
     }));
     setSelectedMappingId(mappingId);
     setSelectedFieldId(field.id);
+    setFormatMenu(null);
   }
 
   function dropFieldOnPage(e: ReactDragEvent<HTMLDivElement>) {
@@ -838,6 +892,15 @@ export default function DocuFill() {
       ...pkg,
       mappings: pkg.mappings.map((mapping) => mapping.id === selectedMapping.id ? { ...mapping, ...patch } : mapping),
     }));
+  }
+
+  function chooseMappingFormat(mappingId: string, format: MappingFormat) {
+    updateSelectedPackage((pkg) => ({
+      ...pkg,
+      mappings: pkg.mappings.map((mapping) => mapping.id === mappingId ? { ...mapping, format } : mapping),
+    }));
+    setSelectedMappingId(mappingId);
+    setFormatMenu(null);
   }
 
   function removeSelectedMapping() {
@@ -1218,6 +1281,7 @@ export default function DocuFill() {
                   ref={pageFrameRef}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={dropFieldOnPage}
+                  onClick={() => setFormatMenu(null)}
                   className="relative bg-white border border-[#D4C9B5] shadow-sm max-w-full max-h-full overflow-hidden"
                   style={{ aspectRatio: selectedPageAspect, height: "100%" }}
                 >
@@ -1244,7 +1308,7 @@ export default function DocuFill() {
                         type="button"
                         onPointerDown={(e) => beginMappingPointer(e, m, "move")}
                         onClick={() => { setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); }}
-                        onContextMenu={(e) => { e.preventDefault(); setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); }}
+                        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); setFormatMenu({ mappingId: m.id, x: e.clientX, y: e.clientY }); }}
                         className={`absolute border-2 bg-white/90 rounded px-2 py-1 text-left shadow cursor-move ${isSelected ? "ring-2 ring-[#C49A38]/50" : ""}`}
                         style={{
                           left: `${m.x}%`,
@@ -1257,7 +1321,8 @@ export default function DocuFill() {
                           textAlign: m.align ?? "left",
                         }}
                       >
-                        <span className="pointer-events-none">{field?.name ?? "Field"}</span>
+                        <span className="pointer-events-none block leading-tight">{field?.name ?? "Field"}</span>
+                        <span className="pointer-events-none block text-[9px] uppercase tracking-wide text-[#6B7A99]">{labelForMappingFormat(m.format)}</span>
                         {isSelected && (
                           <span
                             onPointerDown={(e) => beginMappingPointer(e, m, "resize")}
@@ -1267,6 +1332,33 @@ export default function DocuFill() {
                       </button>
                     );
                   })}
+                  {formatMenu && (() => {
+                    const mapping = selectedPackage.mappings.find((item) => item.id === formatMenu.mappingId);
+                    const field = mapping ? selectedPackage.fields.find((item) => item.id === mapping.fieldId) : undefined;
+                    const options = mappingFormatOptionsForField(field);
+                    return mapping ? (
+                      <div
+                        className="fixed z-50 w-44 rounded-lg border border-[#D4C9B5] bg-white shadow-xl p-2"
+                        style={{ left: Math.min(formatMenu.x, window.innerWidth - 190), top: Math.min(formatMenu.y, window.innerHeight - 330) }}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        <div className="px-2 pb-1 text-[11px] font-semibold text-[#0F1C3F]">Print this as</div>
+                        <div className="max-h-72 overflow-y-auto">
+                          {options.map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              onClick={() => chooseMappingFormat(mapping.id, option.value)}
+                              className={`block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#F8F6F0] ${mapping.format === option.value ? "bg-[#F8F6F0] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
+                            >
+                              <span>{option.label}</span>
+                              <span className="ml-1 text-[10px] text-[#8A9BB8]">{option.group}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null;
+                  })()}
                 </div>
               </div>
               <div className="mt-4 flex justify-end">
@@ -1382,7 +1474,7 @@ export default function DocuFill() {
                 <div className="border-t border-[#DDD5C4] pt-3 mt-3 space-y-2">
                   <div>
                     <h3 className="text-xs font-semibold">Selected placement</h3>
-                    <p className="text-[11px] text-[#8A9BB8]">Drag on the PDF to move. Use the gold corner to resize.</p>
+                    <p className="text-[11px] text-[#8A9BB8]">Drag on the PDF to move. Right-click the field to choose First, Last, Initials, or another print variant.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <Input type="number" min={5} max={24} value={selectedMapping.fontSize ?? 9} onChange={(e) => updateSelectedMapping({ fontSize: Number(e.target.value) })} className="h-8 text-xs" />
@@ -1392,19 +1484,18 @@ export default function DocuFill() {
                       <option value="right">Right</option>
                     </select>
                   </div>
-                  <select value={selectedMapping.format ?? "as-entered"} onChange={(e) => updateSelectedMapping({ format: e.target.value as MappingItem["format"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs">
-                    <option value="as-entered">Use value as entered</option>
-                    <option value="uppercase">Uppercase</option>
-                    <option value="lowercase">Lowercase</option>
-                    <option value="first-name">First name only</option>
-                    <option value="last-name">Last name only</option>
-                    <option value="initials">Initials</option>
-                    <option value="digits-only">Digits only</option>
-                    <option value="last-four">Last four digits</option>
-                    <option value="currency">Currency</option>
-                    <option value="date-mm-dd-yyyy">Date MM/DD/YYYY</option>
-                    <option value="checkbox-yes">Checkbox X when yes</option>
+                  <label className="block">
+                    <span className="block text-[11px] text-[#6B7A99] mb-1">What should this placement print?</span>
+                    <select value={selectedMapping.format ?? "as-entered"} onChange={(e) => updateSelectedMapping({ format: e.target.value as MappingItem["format"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs">
+                      {Array.from(new Set(selectedMappingFormatOptions.map((option) => option.group))).map((group) => (
+                        <optgroup key={group} label={group}>
+                          {selectedMappingFormatOptions.filter((option) => option.group === group).map((option) => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </optgroup>
+                      ))}
                   </select>
+                  </label>
                   <div className="grid grid-cols-4 gap-1">
                     <Input type="number" value={Math.round(selectedMapping.x)} onChange={(e) => updateSelectedMapping({ x: clampPercent(Number(e.target.value), 0, 100) })} className="h-8 text-xs" />
                     <Input type="number" value={Math.round(selectedMapping.y)} onChange={(e) => updateSelectedMapping({ y: clampPercent(Number(e.target.value), 0, 100) })} className="h-8 text-xs" />

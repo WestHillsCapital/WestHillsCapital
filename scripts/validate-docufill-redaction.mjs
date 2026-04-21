@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { buildDocuFillFallbackSummaryRows, buildDocuFillPacketSummary, fieldAnswerValue, hydratePackageFields } from "../artifacts/api-server/src/lib/docufill-redaction.ts";
+import { buildDocuFillFallbackSummaryRows, buildDocuFillPacketSummary, fieldAnswerValue, formatDocuFillMappedValue, hydratePackageFields } from "../artifacts/api-server/src/lib/docufill-redaction.ts";
 import { getDocuFillPrefillDisplayValue } from "../artifacts/west-hills-capital/src/lib/docufill-redaction.ts";
 
 const apiRequire = createRequire(new URL("../artifacts/api-server/package.json", import.meta.url));
@@ -64,6 +64,12 @@ assert.equal(publicDisplay, publicValue);
 
 const overlayValue = fieldAnswerValue(sensitiveField, session.answers, session.prefill);
 assert.equal(overlayValue, sensitiveValue);
+assert.equal(fieldAnswerValue({ id: "concept_name", name: "Name", source: "clientName" }, {}, { firstName: "Alice", lastName: "Investor" }), "Alice Investor");
+assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "first-name" }), "Alice");
+assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "middle-name" }), "Beth");
+assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "last-name" }), "Investor");
+assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "first-last" }), "Alice Investor");
+assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "initials" }), "ABI");
 
 const hydratedFields = hydratePackageFields(
   [

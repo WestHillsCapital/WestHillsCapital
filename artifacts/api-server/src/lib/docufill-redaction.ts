@@ -17,6 +17,25 @@ export type DocuFillFieldItem = {
   validationMessage?: string;
 };
 
+export type DocuFillMappingFormat =
+  | "as-entered"
+  | "uppercase"
+  | "lowercase"
+  | "first-name"
+  | "middle-name"
+  | "last-name"
+  | "first-last"
+  | "initials"
+  | "digits-only"
+  | "last-four"
+  | "currency"
+  | "date-mm-dd-yyyy"
+  | "checkbox-yes";
+
+export type DocuFillMappingItem = {
+  format?: DocuFillMappingFormat | string;
+};
+
 export type DocuFillPacketSummary = {
   packageName: unknown;
   packageVersion: unknown;
@@ -72,6 +91,12 @@ export function parseDocuFillFields(value: unknown): DocuFillFieldItem[] {
 
 function cleanText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
+}
+
+function combineNameParts(prefill: Record<string, unknown>): string {
+  const first = cleanText(prefill.firstName);
+  const last = cleanText(prefill.lastName);
+  return [first, last].filter(Boolean).join(" ");
 }
 
 function normalizeValidationType(value: unknown): DocuFillFieldItem["validationType"] {
@@ -133,15 +158,48 @@ export function sensitivePrefillKeys(fields: DocuFillFieldItem[], prefill: Recor
 }
 
 export function fieldAnswerValue(field: DocuFillFieldItem, answers: Record<string, unknown>, prefill: Record<string, unknown>): string {
+  const synthesizedName = field.source === "clientName" || field.source === "fullName" || field.source === "name" ? combineNameParts(prefill) : "";
   const candidates = [
     answers[field.id],
     field.source ? prefill[field.source] : undefined,
     field.name ? prefill[field.name] : undefined,
     field.label ? prefill[field.label] : undefined,
+    synthesizedName,
     field.defaultValue,
   ];
   const value = candidates.find((candidate) => candidate !== undefined && candidate !== null && String(candidate).trim() !== "");
   return value === undefined || value === null ? "" : String(value);
+}
+
+export function formatDocuFillMappedValue(value: string, mapping: DocuFillMappingItem): string {
+  const format = String(mapping.format ?? "as-entered");
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  const nameParts = text.split(/\s+/).filter(Boolean);
+  if (format === "uppercase") return text.toUpperCase();
+  if (format === "lowercase") return text.toLowerCase();
+  if (format === "first-name") return nameParts[0] ?? text;
+  if (format === "middle-name") return nameParts.length > 2 ? nameParts.slice(1, -1).join(" ") : "";
+  if (format === "last-name") return nameParts.length > 1 ? nameParts[nameParts.length - 1] : text;
+  if (format === "first-last") return nameParts.length > 1 ? `${nameParts[0]} ${nameParts[nameParts.length - 1]}` : text;
+  if (format === "initials") return nameParts.map((part) => part[0]?.toUpperCase() ?? "").join("");
+  if (format === "digits-only") return text.replace(/\D+/g, "");
+  if (format === "last-four") return text.replace(/\D+/g, "").slice(-4);
+  if (format === "currency") {
+    const numeric = Number(text.replace(/[$,]/g, ""));
+    return Number.isFinite(numeric) ? numeric.toLocaleString("en-US", { style: "currency", currency: "USD" }) : text;
+  }
+  if (format === "date-mm-dd-yyyy") {
+    const date = new Date(text);
+    if (!Number.isNaN(date.getTime())) {
+      const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+      const dd = String(date.getUTCDate()).padStart(2, "0");
+      const yyyy = String(date.getUTCFullYear());
+      return `${mm}/${dd}/${yyyy}`;
+    }
+  }
+  if (format === "checkbox-yes") return /^(true|yes|y|1|checked)$/i.test(text) ? "X" : "";
+  return text;
 }
 
 export function buildDocuFillPacketSummary(session: Record<string, unknown>, generatedAt = new Date().toISOString()): DocuFillPacketSummary {
