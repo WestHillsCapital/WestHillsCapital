@@ -368,6 +368,15 @@ export async function initDb(): Promise<void> {
       ('signature_date', 'Signature date', 'Signature', 'date', 'signatureDate', '[]'::jsonb, FALSE, TRUE, 'date', NULL, TRUE, 180)
     ON CONFLICT (id) DO NOTHING
   `);
+  await db.query(`
+    UPDATE docufill_fields
+       SET validation_pattern = '^\\d{5}(-\\d{4})?$',
+           validation_message = COALESCE(validation_message, 'Enter a valid ZIP code.'),
+           updated_at = NOW()
+     WHERE id = 'client_zip'
+       AND validation_type = 'custom'
+       AND validation_pattern IS NULL
+  `);
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_packages (
