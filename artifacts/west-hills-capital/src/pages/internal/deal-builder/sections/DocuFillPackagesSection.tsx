@@ -75,8 +75,11 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
   }, [customer.custodianId, customer.depositoryId, selectedCustodian, selectedDepository, setCustomer]);
 
   useEffect(() => {
-    if (matchingPackages.length === 1) setSelectedPackageId(String(matchingPackages[0]!.id));
-    if (matchingPackages.length === 0) setSelectedPackageId("");
+    setSelectedPackageId((current) => {
+      if (current && matchingPackages.some((pkg) => String(pkg.id) === current)) return current;
+      if (matchingPackages.length === 1) return String(matchingPackages[0]!.id);
+      return "";
+    });
   }, [matchingPackages]);
 
   async function launchPackage() {
@@ -93,6 +96,8 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           packageId,
+          custodianId: customer.custodianId ? Number(customer.custodianId) : null,
+          depositoryId: customer.depositoryId ? Number(customer.depositoryId) : null,
           dealId: savedDealId,
           source: "deal_builder",
           prefill: {

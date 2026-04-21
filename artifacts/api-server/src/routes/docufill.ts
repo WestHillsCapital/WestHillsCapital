@@ -30,6 +30,8 @@ type EntityInput = {
 
 type SessionInput = {
   packageId?: number;
+  custodianId?: number | string | null;
+  depositoryId?: number | string | null;
   dealId?: number | null;
   source?: string;
   prefill?: JsonValue;
@@ -57,6 +59,10 @@ function jsonParam(value: unknown): string {
 function parseId(value: unknown): number | null {
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+function getRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
 }
 
 async function getPackage(packageId: number) {
@@ -135,6 +141,10 @@ router.patch("/custodians/:id", async (req, res) => {
         RETURNING *`,
       [name, nullableText(body.contactName), nullableText(body.email), nullableText(body.phone), nullableText(body.notes), body.active !== false, id],
     );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Custodian not found" });
+      return;
+    }
     res.json({ custodian: rows[0] });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to update custodian");
@@ -186,6 +196,10 @@ router.patch("/depositories/:id", async (req, res) => {
         RETURNING *`,
       [name, nullableText(body.contactName), nullableText(body.email), nullableText(body.phone), nullableText(body.notes), body.active !== false, id],
     );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Depository not found" });
+      return;
+    }
     res.json({ depository: rows[0] });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to update depository");
@@ -279,6 +293,21 @@ router.post("/sessions", async (req, res) => {
     const pkg = await getPackage(packageId);
     if (!pkg) {
       res.status(404).json({ error: "Package not found" });
+      return;
+    }
+    if (String(pkg.status ?? "") !== "active") {
+      res.status(400).json({ error: "Package must be active before launching an interview" });
+      return;
+    }
+    const prefill = getRecord(body.prefill);
+    const requestedCustodianId = parseId(body.custodianId) ?? parseId(prefill.custodianId);
+    const requestedDepositoryId = parseId(body.depositoryId) ?? parseId(prefill.depositoryId);
+    if (requestedCustodianId && pkg.custodian_id && requestedCustodianId !== Number(pkg.custodian_id)) {
+      res.status(400).json({ error: "Selected package does not match the selected custodian" });
+      return;
+    }
+    if (requestedDepositoryId && pkg.depository_id && requestedDepositoryId !== Number(pkg.depository_id)) {
+      res.status(400).json({ error: "Selected package does not match the selected depository" });
       return;
     }
     const token = `df_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
