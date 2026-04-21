@@ -1103,18 +1103,11 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
       {
-        heading: "Documentation and insurance",
+        heading: "Documentation, insurance, and movement",
         paragraphs: [
           "After purchase, it is worth thinking through whether you have documentation of what you own, whether it is insured appropriately, and whether someone else would know how to access it if needed.",
-          "These are not urgent questions, but they are important ones.",
-        ],
-      },
-      {
-        heading: "Shipping and movement",
-        paragraphs: [
-          "If you ever move or sell your metals, logistics matter.",
-          "Best practices include discreet packaging, insured shipping, signature confirmation, and minimal disclosure.",
-          "Physical assets require physical handling, and planning ahead makes that easier.",
+          "If you ever move or sell, logistics matter. Best practices include discreet packaging, insured shipping, signature confirmation, and minimal disclosure.",
+          "None of this is complicated. But physical assets require physical planning, and thinking it through early is much easier than figuring it out under pressure.",
         ],
       },
       {
