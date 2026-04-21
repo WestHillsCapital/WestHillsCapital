@@ -692,6 +692,24 @@ router.post("/field-library", async (req, res) => {
     }
     const id = cleanText(body.id) || fieldLibraryIdFromLabel(label);
     const db = getDb();
+    const { rows: duplicateRows } = await db.query(
+      `SELECT id, label
+         FROM docufill_fields
+        WHERE id = $1 OR lower(label) = lower($2)
+        LIMIT 1`,
+      [id, label],
+    );
+    if (duplicateRows[0]) {
+      const duplicate = duplicateRows[0];
+      const isLabelConflict = duplicate.label?.toLowerCase() === label.toLowerCase();
+      res.status(409).json({
+        error: isLabelConflict
+          ? "A shared field with that label already exists"
+          : "A shared field with that id already exists",
+        fieldId: duplicate.id,
+      });
+      return;
+    }
     const { rows } = await db.query(
       `WITH inserted AS (
          INSERT INTO docufill_fields
@@ -719,7 +737,7 @@ router.post("/field-library", async (req, res) => {
       ],
     );
     if (!rows[0]) {
-      res.status(409).json({ error: "A shared field with that id already exists" });
+      res.status(409).json({ error: "A shared field with that id already exists", fieldId: id });
       return;
     }
     res.status(201).json({ field: rows[0] });
