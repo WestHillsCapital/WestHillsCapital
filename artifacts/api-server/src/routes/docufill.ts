@@ -9,6 +9,7 @@ import {
   buildDocuFillFallbackSummaryRows,
   buildDocuFillPacketSummary,
   fieldAnswerValue,
+  hydratePackageFields,
   parseDocuFillFields as parseFields,
   type DocuFillFieldItem,
 } from "../lib/docufill-redaction";
@@ -223,30 +224,6 @@ function fieldLibrarySelectSql(): string {
 async function getFieldLibrary(client: QueryClient = getDb()) {
   const { rows } = await client.query(`${fieldLibrarySelectSql()} ORDER BY active DESC, sort_order ASC, label ASC`);
   return rows as Array<Record<string, unknown> & { id: string }>;
-}
-
-function hydratePackageFields(fields: unknown, library: Array<Record<string, unknown> & { id: string }>): FieldItem[] {
-  const byId = new Map(library.map((field) => [field.id, field]));
-  return parseFields(fields).map((field) => {
-    const rawLibraryId = cleanText(field.libraryFieldId) || cleanText((field as Record<string, unknown>).library_field_id);
-    const libraryField = rawLibraryId ? byId.get(rawLibraryId) : undefined;
-    if (!libraryField) return field;
-    return {
-      ...field,
-      libraryFieldId: libraryField.id,
-      name: String(libraryField.label ?? field.name ?? ""),
-      label: String(libraryField.label ?? field.label ?? ""),
-      category: String(libraryField.category ?? field.category ?? ""),
-      type: String(libraryField.type ?? field.type ?? "text"),
-      source: String(libraryField.source ?? field.source ?? "interview"),
-      options: Array.isArray(field.options) ? field.options : Array.isArray(libraryField.options) ? libraryField.options : [],
-      sensitive: libraryField.sensitive === true,
-      required: libraryField.required === true,
-      validationType: normalizeValidationType(libraryField.validationType ?? field.validationType),
-      validationPattern: cleanText(libraryField.validationPattern) || field.validationPattern,
-      validationMessage: cleanText(libraryField.validationMessage) || field.validationMessage,
-    };
-  });
 }
 
 function safePdfFilename(value: unknown): string {

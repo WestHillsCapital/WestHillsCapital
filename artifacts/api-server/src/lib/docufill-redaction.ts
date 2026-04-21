@@ -69,6 +69,40 @@ export function parseDocuFillFields(value: unknown): DocuFillFieldItem[] {
   }) : [];
 }
 
+function cleanText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function normalizeValidationType(value: unknown): DocuFillFieldItem["validationType"] {
+  const text = cleanText(value);
+  const valid = new Set(["none", "name", "number", "currency", "email", "phone", "date", "ssn", "custom"]);
+  return valid.has(text) ? text as DocuFillFieldItem["validationType"] : "none";
+}
+
+export function hydratePackageFields(fields: unknown, library: Array<Record<string, unknown> & { id: string }>): DocuFillFieldItem[] {
+  const byId = new Map(library.map((field) => [field.id, field]));
+  return parseDocuFillFields(fields).map((field) => {
+    const rawLibraryId = cleanText(field.libraryFieldId) || cleanText((field as Record<string, unknown>).library_field_id);
+    const libraryField = rawLibraryId ? byId.get(rawLibraryId) : undefined;
+    if (!libraryField) return field;
+    return {
+      ...field,
+      libraryFieldId: libraryField.id,
+      name: String(libraryField.label ?? field.name ?? ""),
+      label: String(libraryField.label ?? field.label ?? ""),
+      category: String(libraryField.category ?? field.category ?? ""),
+      type: String(libraryField.type ?? field.type ?? "text"),
+      source: String(libraryField.source ?? field.source ?? "interview"),
+      options: Array.isArray(field.options) ? field.options : Array.isArray(libraryField.options) ? libraryField.options : [],
+      sensitive: libraryField.sensitive === true,
+      required: libraryField.required === true,
+      validationType: normalizeValidationType(libraryField.validationType ?? field.validationType),
+      validationPattern: cleanText(libraryField.validationPattern) || field.validationPattern,
+      validationMessage: cleanText(libraryField.validationMessage) || field.validationMessage,
+    };
+  });
+}
+
 export function isSensitiveField(field: DocuFillFieldItem): boolean {
   if (field.sensitive === true) return true;
   return [field.name, field.label, field.source].some((value) => typeof value === "string" && SENSITIVE_KEY_PATTERN.test(value));

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { buildDocuFillFallbackSummaryRows, buildDocuFillPacketSummary, fieldAnswerValue } from "../artifacts/api-server/src/lib/docufill-redaction.ts";
+import { buildDocuFillFallbackSummaryRows, buildDocuFillPacketSummary, fieldAnswerValue, hydratePackageFields } from "../artifacts/api-server/src/lib/docufill-redaction.ts";
 import { getDocuFillPrefillDisplayValue } from "../artifacts/west-hills-capital/src/lib/docufill-redaction.ts";
 
 const sensitiveValue = "123-45-6789";
@@ -60,5 +60,51 @@ assert.equal(publicDisplay, publicValue);
 
 const overlayValue = fieldAnswerValue(sensitiveField, session.answers, session.prefill);
 assert.equal(overlayValue, sensitiveValue);
+
+const hydratedFields = hydratePackageFields(
+  [
+    {
+      id: "package_dropdown",
+      libraryFieldId: "shared_distribution_method",
+      name: "Old package label",
+      source: "legacySource",
+      type: "text",
+      sensitive: false,
+      required: false,
+      validationType: "none",
+      options: ["Package-specific option"],
+      interviewVisible: false,
+      adminOnly: true,
+      color: "#123456",
+      mappings: [{ id: "mapping_one", documentId: "doc_one", page: 1, x: 10, y: 20 }],
+    },
+  ],
+  [
+    {
+      id: "shared_distribution_method",
+      label: "Distribution method",
+      source: "distributionMethod",
+      type: "dropdown",
+      sensitive: true,
+      required: true,
+      validationType: "custom",
+      validationPattern: "^(check|wire)$",
+      validationMessage: "Choose check or wire.",
+      options: ["Library check", "Library wire"],
+    },
+  ],
+);
+assert.equal(hydratedFields[0].name, "Distribution method");
+assert.equal(hydratedFields[0].source, "distributionMethod");
+assert.equal(hydratedFields[0].type, "dropdown");
+assert.equal(hydratedFields[0].sensitive, true);
+assert.equal(hydratedFields[0].required, true);
+assert.equal(hydratedFields[0].validationType, "custom");
+assert.equal(hydratedFields[0].validationPattern, "^(check|wire)$");
+assert.deepEqual(hydratedFields[0].options, ["Package-specific option"]);
+assert.equal(hydratedFields[0].interviewVisible, false);
+assert.equal(hydratedFields[0].adminOnly, true);
+assert.equal(hydratedFields[0].color, "#123456");
+assert.equal(hydratedFields[0].mappings.length, 1);
 
 console.log("DocuFill redaction validation passed");
