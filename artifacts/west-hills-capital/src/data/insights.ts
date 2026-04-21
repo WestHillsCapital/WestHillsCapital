@@ -690,6 +690,7 @@ export const INSIGHTS: InsightArticle[] = [
         paragraphs: [
           "Like spot price, the ratio is influenced heavily by financial market activity, not just physical supply and demand.",
           "Both gold and silver prices are shaped by large-scale trading, which means the ratio reflects institutional positioning, liquidity, and market expectations as much as anything else.",
+          "That means the ratio can sit at an apparent extreme — or move dramatically — with no change in physical fundamentals at all. It is responding to how large participants are positioned, not necessarily to what is happening in the real world of supply and demand.",
         ],
       },
       {
