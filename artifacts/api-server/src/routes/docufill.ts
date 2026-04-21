@@ -214,6 +214,10 @@ function normalizeValidationType(value: unknown): string {
   return ["none", "name", "number", "currency", "email", "phone", "date", "ssn", "custom"].includes(text) ? text : "none";
 }
 
+function isUniqueViolation(err: unknown): boolean {
+  return typeof err === "object" && err !== null && "code" in err && (err as { code?: unknown }).code === "23505";
+}
+
 function fieldLibrarySelectSql(): string {
   return `SELECT id, label, category, field_type AS type, source, options, sensitive, required,
                  validation_type AS "validationType", validation_pattern AS "validationPattern",
@@ -718,8 +722,8 @@ router.post("/field-library", async (req, res) => {
       return;
     }
     res.status(201).json({ field: rows[0] });
-  } catch (err: any) {
-    if (err?.code === "23505") {
+  } catch (err) {
+    if (isUniqueViolation(err)) {
       res.status(409).json({ error: "A shared field with that label already exists" });
       return;
     }
@@ -779,8 +783,8 @@ router.patch("/field-library/:id", async (req, res) => {
       return;
     }
     res.json({ field: rows[0] });
-  } catch (err: any) {
-    if (err?.code === "23505") {
+  } catch (err) {
+    if (isUniqueViolation(err)) {
       res.status(409).json({ error: "A shared field with that label already exists" });
       return;
     }
