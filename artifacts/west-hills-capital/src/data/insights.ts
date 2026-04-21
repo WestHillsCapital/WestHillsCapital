@@ -1309,16 +1309,17 @@ export const INSIGHTS: InsightArticle[] = [
         heading: "Step 3: fund the account",
         paragraphs: [
           "This usually happens through a rollover from an existing IRA or a transfer from another custodian.",
-          "Done correctly, this is generally non-taxable and non-penalized.",
-          "Details matter here, so the process should be handled carefully and clearly.",
+          "The most important distinction is between a direct transfer and an indirect rollover. A direct transfer moves funds institution-to-institution — the simpler and cleaner path. An indirect rollover puts the funds in your hands temporarily and requires them to be deposited into the new account within 60 days to avoid taxes and penalties.",
+          "Done correctly, both are generally non-taxable and non-penalized. But the structure matters, and it should be handled clearly from the start.",
         ],
       },
       {
         heading: "Step 4: choose the metals",
         paragraphs: [
           "This is where many people make mistakes.",
-          "Not all metals are equal for an IRA, and not all product recommendations are aligned with the buyer's goal.",
-          "Typically, the most appropriate products are widely recognized bullion items with standard weights and strong liquidity.",
+          "The IRS requires that metals held in a self-directed IRA meet minimum purity standards — generally .995 fine for gold and .999 fine for silver. Not every product on the market qualifies.",
+          "Standard bullion products — widely recognized coins and bars with strong liquidity — are precisely what those requirements were designed for. They meet the fineness thresholds, carry fair premiums, and are easy to sell when the time comes.",
+          "Proof coins are a different story. Some may technically qualify, but they carry significantly higher premiums with no additional benefit inside a retirement account. In an IRA, the goal is metal — not presentation. Standard bullion serves that purpose far better.",
         ],
       },
       {
