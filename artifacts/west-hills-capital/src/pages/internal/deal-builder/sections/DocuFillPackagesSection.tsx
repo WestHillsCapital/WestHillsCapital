@@ -1,24 +1,14 @@
 import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { useLocation } from "wouter";
 import type { Customer } from "../types";
+import {
+  getMatchingDocuFillPackages,
+  resolveDocuFillSelections,
+  type DocuFillEntity,
+  type DocuFillPackage,
+} from "../utils";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-
-type DocuFillEntity = {
-  id: number;
-  name: string;
-  active: boolean;
-};
-
-type DocuFillPackage = {
-  id: number;
-  name: string;
-  custodian_id: number | null;
-  depository_id: number | null;
-  status: string;
-  transaction_scope: string;
-  version: number;
-};
 
 interface Props {
   customer: Customer;
@@ -51,18 +41,10 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
       .finally(() => setIsLoading(false));
   }, [getAuthHeaders]);
 
-  const selectedCustodian = custodians.find((c) => String(c.id) === customer.custodianId)
-    ?? custodians.find((c) => c.name === customer.custodian);
-  const selectedDepository = depositories.find((d) => String(d.id) === customer.depositoryId)
-    ?? depositories.find((d) => d.name === customer.depository);
+  const { selectedCustodian, selectedDepository } = resolveDocuFillSelections(customer, custodians, depositories);
 
   const matchingPackages = useMemo(() => {
-    return packages.filter((pkg) => {
-      if (pkg.status !== "active") return false;
-      if (selectedCustodian && pkg.custodian_id !== selectedCustodian.id) return false;
-      if (selectedDepository && pkg.depository_id !== selectedDepository.id) return false;
-      return true;
-    });
+    return getMatchingDocuFillPackages(packages, selectedCustodian, selectedDepository);
   }, [packages, selectedCustodian, selectedDepository]);
 
   useEffect(() => {

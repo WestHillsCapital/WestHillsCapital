@@ -1,4 +1,4 @@
-import type { ProductRow } from "./types";
+import type { Customer, ProductRow } from "./types";
 
 /**
  * Look up city and state abbreviation for a 5-digit US ZIP code.
@@ -45,6 +45,48 @@ export const PRODUCT_DEFS: Pick<ProductRow, "productId" | "productName" | "metal
 export const EMPTY_ROWS: ProductRow[] = PRODUCT_DEFS.map((d) => ({
   ...d, qty: "", unitPrice: "",
 }));
+
+export type DocuFillEntity = {
+  id: number;
+  name: string;
+  active: boolean;
+};
+
+export type DocuFillPackage = {
+  id: number;
+  name: string;
+  custodian_id: number | null;
+  depository_id: number | null;
+  status: string;
+  transaction_scope: string;
+  version: number;
+};
+
+export function resolveDocuFillSelections(
+  customer: Pick<Customer, "custodianId" | "custodian" | "depositoryId" | "depository">,
+  custodians: DocuFillEntity[],
+  depositories: DocuFillEntity[],
+) {
+  return {
+    selectedCustodian: custodians.find((c) => String(c.id) === customer.custodianId)
+      ?? custodians.find((c) => c.name === customer.custodian),
+    selectedDepository: depositories.find((d) => String(d.id) === customer.depositoryId)
+      ?? depositories.find((d) => d.name === customer.depository),
+  };
+}
+
+export function getMatchingDocuFillPackages(
+  packages: DocuFillPackage[],
+  selectedCustodian: DocuFillEntity | undefined,
+  selectedDepository: DocuFillEntity | undefined,
+) {
+  return packages.filter((pkg) => {
+    if (pkg.status !== "active") return false;
+    if (selectedCustodian && pkg.custodian_id !== selectedCustodian.id) return false;
+    if (selectedDepository && pkg.depository_id !== selectedDepository.id) return false;
+    return true;
+  });
+}
 
 export const US_STATES = [
   "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
