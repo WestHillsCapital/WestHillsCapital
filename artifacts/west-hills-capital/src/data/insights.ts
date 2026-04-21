@@ -1564,9 +1564,9 @@ export const INSIGHTS: InsightArticle[] = [
       {
         heading: "Watch the conversation closely",
         paragraphs: [
-          "A good dealer asks about your goals, explains options clearly, and keeps things simple. For most buyers, that means widely recognized bullion, standard weights, and transparent pricing.",
-          "A less aligned experience often looks different: immediate product pushing, steering toward specific coins, or emphasis on special or exclusive offerings. If the conversation moves quickly toward high-premium products, pay attention.",
-          "You should also be able to understand what you are paying and why. If the pricing structure is unclear, that alone tells you something.",
+          "Every dealer will ask about your goals. That is not the signal. The signal is what comes next.",
+          "A dealer whose interest is aligned with yours wants to maximize the value of your money — more metal, lower premiums, products that hold up when you go to sell. A dealer whose interest is in their own margin wants to maximize what they extract from each transaction.",
+          "Those two conversations sound different. One stays focused on ounces, price relative to spot, and simple products. The other drifts toward exclusive offerings, limited editions, product stories, and complexity. Complexity is usually where the margin hides.",
         ],
       },
       {
