@@ -50,6 +50,13 @@ function yyyymmdd(d: Date): string {
     String(d.getDate()).padStart(2, "0");
 }
 
+function normalizeEntityId(value: number | string | null | undefined): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  if (typeof value === "string" && !/^\d+$/.test(value)) return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
 // POST /api/deals
 // Full orchestration: save → DG trade → invoice PDF → Drive → recap email
 // Rate-limited: max 10 deal submissions per operator per 10 minutes.
@@ -73,6 +80,9 @@ router.post("/", async (req, res) => {
     phone,
     state,
     custodian,
+    custodianId,
+    depository,
+    depositoryId,
     iraAccountNumber,
     goldSpotAsk,
     silverSpotAsk,
@@ -114,6 +124,9 @@ router.post("/", async (req, res) => {
     phone?:            string | null;
     state?:            string | null;
     custodian?:        string | null;
+    custodianId?:      number | string | null;
+    depository?:       string | null;
+    depositoryId?:     number | string | null;
     iraAccountNumber?: string | null;
     goldSpotAsk?:      number | null;
     silverSpotAsk?:    number | null;
@@ -191,6 +204,8 @@ router.post("/", async (req, res) => {
 
   const lockedAt  = new Date();
   const invoiceId = `WHC-${0}-${yyyymmdd(lockedAt)}`; // placeholder — updated after insert
+  const savedCustodianId = dealType === "ira" ? normalizeEntityId(custodianId) : null;
+  const savedDepositoryId = dealType === "ira" ? normalizeEntityId(depositoryId) : null;
 
   try {
     const db = getDb();
@@ -200,7 +215,7 @@ router.post("/", async (req, res) => {
       `INSERT INTO deals
          (lead_id, confirmation_id, deal_type, ira_type,
           first_name, last_name, email, phone, state,
-          custodian, ira_account_number,
+          custodian, custodian_id, depository, depository_id, ira_account_number,
           gold_spot_ask, silver_spot_ask, spot_timestamp,
           products, subtotal, shipping, total, balance_due,
           shipping_method, fedex_location,
@@ -209,12 +224,17 @@ router.post("/", async (req, res) => {
           fedex_location_hours,
           terms_provided, terms_provided_at, terms_version, confirmation_method,
           notes, status, locked_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42)
        RETURNING id`,
       [
         leadId ?? null, confirmationId ?? null, dealType, iraType ?? null,
         firstName, lastName, email,
-        phone ?? null, state ?? null, custodian ?? null, iraAccountNumber ?? null,
+        phone ?? null, state ?? null,
+        dealType === "ira" ? custodian ?? null : null,
+        savedCustodianId,
+        dealType === "ira" ? depository ?? null : null,
+        savedDepositoryId,
+        dealType === "ira" ? iraAccountNumber ?? null : null,
         goldSpotAsk ?? null, silverSpotAsk ?? null,
         spotTimestamp ? new Date(spotTimestamp) : null,
         products ? JSON.stringify(products) : null,
@@ -494,6 +514,8 @@ router.post("/", async (req, res) => {
       invoiceUrl,
       emailSentTo,
       lockedAt:        lockedAt.toISOString(),
+      custodianId:     savedCustodianId,
+      depositoryId:    savedDepositoryId,
       ...(warnings.length > 0 ? { warnings } : {}),
     });
 

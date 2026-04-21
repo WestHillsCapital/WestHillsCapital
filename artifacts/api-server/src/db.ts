@@ -184,6 +184,9 @@ export async function initDb(): Promise<void> {
       phone               TEXT,
       state               TEXT,
       custodian           TEXT,
+      custodian_id        INTEGER,
+      depository          TEXT,
+      depository_id       INTEGER,
       ira_account_number  TEXT,
       gold_spot_ask       NUMERIC(12,4),
       silver_spot_ask     NUMERIC(12,4),
@@ -210,6 +213,9 @@ export async function initDb(): Promise<void> {
     );
   };
   // Ship-to address
+  await safeAdd("custodian_id",   "INTEGER");
+  await safeAdd("depository",     "TEXT");
+  await safeAdd("depository_id",  "INTEGER");
   await safeAdd("ship_to_name",  "TEXT");
   await safeAdd("ship_to_line1", "TEXT");
   await safeAdd("ship_to_city",  "TEXT");
