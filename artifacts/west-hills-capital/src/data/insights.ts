@@ -415,37 +415,17 @@ export const INSIGHTS: InsightArticle[] = [
           "They make money through premiums, spreads, and product selection.",
           "So when a company offers free silver, they are not losing money.",
           "They are restructuring the transaction.",
+          "Put plainly: the commissions built into your purchase are large enough to cover whatever is being offered for free — and still leave margin for the dealer.",
         ],
       },
       {
-        heading: "Where the cost actually shows up",
+        heading: "Where the cost is built in",
         paragraphs: [
-          "The cost is usually built into one or more parts of the deal.",
-          "Sometimes it shows up as higher premiums on the main purchase.",
-          "Sometimes it shows up through product substitution into higher-margin coins.",
-          "Sometimes it shows up later in the form of wider buy-sell spreads.",
-        ],
-      },
-      {
-        heading: "Higher premiums on the main purchase",
-        paragraphs: [
-          "Instead of clearly pricing the metal, the dealer increases the premium on the gold, silver, or IRA metals being sold.",
-          "That added margin quietly pays for the free silver and often more.",
-        ],
-      },
-      {
-        heading: "Product substitution",
-        paragraphs: [
-          "You may be steered into higher-commission products, proof coins, numismatics, or less liquid items.",
-          "This allows the dealer to increase profit while presenting the offer as a benefit.",
-        ],
-      },
-      {
-        heading: "Wider buy-sell spreads",
-        paragraphs: [
-          "Even if the purchase looks reasonable upfront, the real cost may show up later.",
-          "When you sell, a larger spread means you receive significantly less than what you paid.",
-          "That is where the difference becomes clear.",
+          "The mechanism varies, but the result is the same.",
+          "Sometimes it is higher premiums on the main purchase — the dealer quietly increases the markup on the gold or silver being sold, and that margin covers the free metal.",
+          "Sometimes it is product substitution — you are steered into higher-commission items like proof coins or numismatics, which carry more margin without that being stated.",
+          "Sometimes it shows up on the back end — a wider buy-sell spread means you receive significantly less than market value when you eventually sell.",
+          "Often it is a combination of all three.",
         ],
       },
       {
@@ -459,9 +439,10 @@ export const INSIGHTS: InsightArticle[] = [
       {
         heading: "The math most people do not do",
         paragraphs: [
-          "Two buyers can each spend the same amount of money.",
-          "One receives free silver. The other does not.",
-          "But if the second buyer pays lower premiums, gets more ounces, and has cleaner pricing, that buyer may end up with more total metal and better value even without anything labeled free.",
+          "Two buyers each spend the same amount of money.",
+          "One receives a promotion — free silver, a bonus coin, something extra. The other does not. No extras, no story, just straightforward pricing.",
+          "But the second buyer pays lower premiums and ends up with more total ounces of metal.",
+          "That is the trade. You are not getting something for free. You are being offered a narrative in exchange for margin.",
         ],
       },
       {
@@ -485,16 +466,9 @@ export const INSIGHTS: InsightArticle[] = [
       {
         heading: "What to focus on instead",
         paragraphs: [
-          "When buying gold or silver, ignore the extras.",
-          "Focus on total ounces received, price relative to spot, product type, and resale reality.",
-          "That is where the real value is.",
-        ],
-      },
-      {
-        heading: "A better question to ask",
-        paragraphs: [
-          "Instead of asking what am I getting for free, ask how much metal am I actually getting for my money.",
-          "That question cuts through almost everything.",
+          "Ignore the extras. Ask one question: how much metal am I actually getting for my money?",
+          "That means total ounces received, price relative to spot, product type, and what happens when you sell.",
+          "Everything else is presentation.",
         ],
       },
       {
