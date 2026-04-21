@@ -103,7 +103,7 @@ export function getMatchingDocuFillPackages(
   packages: DocuFillPackage[],
   selectedCustodian: DocuFillEntity | undefined,
   selectedDepository: DocuFillEntity | undefined,
-  transactionScope: string,
+  transactionScope = "ira_transfer",
 ) {
   return packages.filter((pkg) => {
     if (pkg.status !== "active") return false;

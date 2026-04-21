@@ -359,6 +359,10 @@ export async function initDb(): Promise<void> {
 
   await db.query(`
     ALTER TABLE docufill_interview_sessions
+    ADD COLUMN IF NOT EXISTS transaction_scope TEXT NOT NULL DEFAULT 'ira_transfer'
+  `);
+  await db.query(`
+    ALTER TABLE docufill_interview_sessions
     ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ
   `);
   await db.query(`

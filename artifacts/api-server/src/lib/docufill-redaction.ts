@@ -5,6 +5,11 @@ export type DocuFillFieldItem = {
   source?: string;
   defaultValue?: unknown;
   sensitive?: boolean;
+  interviewVisible?: boolean;
+  required?: boolean;
+  validationType?: "none" | "name" | "number" | "currency" | "email" | "phone" | "date" | "ssn" | "custom";
+  validationPattern?: string;
+  validationMessage?: string;
 };
 
 export type DocuFillPacketSummary = {

@@ -664,7 +664,7 @@ export default function DocuFill() {
     setSelectedMappingId(null);
   }
 
-  function beginMappingPointer(e: ReactPointerEvent<HTMLButtonElement>, mapping: MappingItem, mode: "move" | "resize") {
+  function beginMappingPointer(e: ReactPointerEvent<HTMLElement>, mapping: MappingItem, mode: "move" | "resize") {
     const frame = pageFrameRef.current;
     if (!frame) return;
     e.preventDefault();
