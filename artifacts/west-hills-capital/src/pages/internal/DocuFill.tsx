@@ -105,6 +105,7 @@ export default function DocuFill() {
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
 
   const selectedPackage = packages.find((pkg) => pkg.id === selectedPackageId) ?? packages[0] ?? null;
   const selectedDocument = selectedPackage?.documents.find((doc) => doc.id === selectedDocumentId) ?? selectedPackage?.documents[0] ?? null;
@@ -368,6 +369,30 @@ export default function DocuFill() {
     }
   }
 
+  async function downloadGeneratedPacket() {
+    if (!generatedUrl || !session) return;
+    setIsDownloading(true);
+    setError(null);
+    try {
+      const url = generatedUrl.startsWith("http") ? generatedUrl : `${API_BASE}${generatedUrl}`;
+      const res = await fetch(url, { headers: { ...getAuthHeaders() } });
+      if (!res.ok) throw new Error("Could not download packet PDF");
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = objectUrl;
+      link.download = `${session.package_name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "docufill"}-packet.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not download packet PDF");
+    } finally {
+      setIsDownloading(false);
+    }
+  }
+
   return (
     <div className="max-w-screen-2xl mx-auto px-4 py-6 text-[#0F1C3F]">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
@@ -470,7 +495,6 @@ export default function DocuFill() {
                     onChange={(e) => {
                       const file = e.target.files?.[0];
                       if (!file) {
-                        addDocument();
                         return;
                       }
                       updateSelectedPackage((pkg) => {
@@ -594,7 +618,11 @@ export default function DocuFill() {
               <div className="flex flex-wrap items-center gap-2">
                 <Button onClick={() => saveAnswers()} disabled={isSaving} variant="outline">Save Interview</Button>
                 <Button onClick={generatePacket} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Generate Packet</Button>
-                {generatedUrl && <a href={generatedUrl} className="text-sm text-[#C49A38] underline">Download packet PDF</a>}
+                {generatedUrl && (
+                  <button type="button" onClick={downloadGeneratedPacket} disabled={isDownloading} className="text-sm text-[#C49A38] underline disabled:opacity-60">
+                    {isDownloading ? "Downloading…" : "Download packet PDF"}
+                  </button>
+                )}
               </div>
             </div>
           )}
