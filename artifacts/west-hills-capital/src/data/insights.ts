@@ -329,10 +329,7 @@ export const INSIGHTS: InsightArticle[] = [
       {
         heading: "Free silver is usually not free",
         paragraphs: [
-          "This is one of the oldest games in the business.",
-          "A company offers free silver, no fees, or some kind of bonus metal to make the deal feel generous.",
-          "But the cost is usually built in somewhere else: higher markups on the main products, higher overall pricing, or less metal for the same amount of money.",
-          "Nothing is free in a transaction built for profit.",
+          "Bonus metal offers follow the same pattern: the cost is built in elsewhere, just not labeled as a cost.",
         ],
       },
       {
@@ -387,6 +384,7 @@ export const INSIGHTS: InsightArticle[] = [
     ],
     related: [
       "why-we-recommend-only-three-products",
+      "why-free-silver-is-never-free",
       "bullion-vs-proof-coins",
       "the-one-question-every-gold-buyer-should-ask",
     ],
