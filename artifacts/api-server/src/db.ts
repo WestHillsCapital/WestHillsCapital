@@ -309,6 +309,27 @@ export async function initDb(): Promise<void> {
   `);
 
   await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_package_documents (
+      id             SERIAL PRIMARY KEY,
+      package_id     INTEGER NOT NULL REFERENCES docufill_packages(id) ON DELETE CASCADE,
+      document_id    TEXT NOT NULL,
+      filename       TEXT NOT NULL,
+      content_type   TEXT NOT NULL DEFAULT 'application/pdf',
+      byte_size      INTEGER NOT NULL,
+      page_count     INTEGER NOT NULL DEFAULT 1,
+      pdf_data       BYTEA NOT NULL,
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE(package_id, document_id)
+    )
+  `);
+
+  await db.query(`
+    ALTER TABLE docufill_package_documents
+    ADD COLUMN IF NOT EXISTS page_sizes JSONB NOT NULL DEFAULT '[]'::jsonb
+  `);
+
+  await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_interview_sessions (
       id               SERIAL PRIMARY KEY,
       token            TEXT NOT NULL UNIQUE,
@@ -343,6 +364,11 @@ export async function initDb(): Promise<void> {
   await db.query(`
     CREATE INDEX IF NOT EXISTS docufill_packages_combo_idx
       ON docufill_packages (custodian_id, depository_id, status)
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS docufill_package_documents_package_idx
+      ON docufill_package_documents (package_id)
   `);
 
   await db.query(`

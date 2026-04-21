@@ -10,11 +10,11 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@types/pdfkit": "^0.17.5",
     "@types/pg": "^8.18.0",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
-    "@anthropic-ai/sdk": "^0.78.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2",
     "drizzle-orm": "catalog:",
@@ -22,6 +22,7 @@
     "google-auth-library": "^10.6.2",
     "googleapis": "^171.4.0",
     "helmet": "^8.1.0",
+    "pdf-lib": "^1.17.1",
     "pdfkit": "^0.18.0",
     "pg": "^8.20.0",
     "pino": "^9",

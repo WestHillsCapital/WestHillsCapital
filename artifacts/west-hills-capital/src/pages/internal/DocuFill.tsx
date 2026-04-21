@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearch } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { Button } from "@/components/ui/button";
@@ -21,6 +21,13 @@ type DocItem = {
   id: string;
   title: string;
   pages: number;
+  fileName?: string;
+  byteSize?: number;
+  contentType?: string;
+  pdfStored?: boolean;
+  pageSizes?: Array<{ width: number; height: number }>;
+  uploadedAt?: string;
+  updatedAt?: string;
 };
 
 type FieldItem = {
@@ -104,16 +111,25 @@ export default function DocuFill() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [documentPreviewUrl, setDocumentPreviewUrl] = useState<string | null>(null);
+  const [selectedPage, setSelectedPage] = useState(1);
+  const documentPreviewCache = useRef<Record<string, string>>({});
+  const documentPreviewCacheOrder = useRef<string[]>([]);
 
   const selectedPackage = packages.find((pkg) => pkg.id === selectedPackageId) ?? packages[0] ?? null;
   const selectedDocument = selectedPackage?.documents.find((doc) => doc.id === selectedDocumentId) ?? selectedPackage?.documents[0] ?? null;
   const selectedField = selectedPackage?.fields.find((field) => field.id === selectedFieldId) ?? selectedPackage?.fields[0] ?? null;
+  const selectedPageSize = selectedDocument?.pageSizes?.[selectedPage - 1] ?? selectedDocument?.pageSizes?.[0];
+  const selectedPageAspect = selectedPageSize && selectedPageSize.width > 0 && selectedPageSize.height > 0
+    ? `${selectedPageSize.width} / ${selectedPageSize.height}`
+    : "612 / 792";
   const pageMappings = useMemo(() => {
     if (!selectedPackage || !selectedDocument) return [];
-    return selectedPackage.mappings.filter((m) => m.documentId === selectedDocument.id);
-  }, [selectedPackage, selectedDocument]);
+    return selectedPackage.mappings.filter((m) => m.documentId === selectedDocument.id && (m.page ?? 1) === selectedPage);
+  }, [selectedPackage, selectedDocument, selectedPage]);
 
   async function loadBootstrap() {
     try {
@@ -151,6 +167,59 @@ export default function DocuFill() {
     if (selectedPackage && !selectedDocumentId) setSelectedDocumentId(selectedPackage.documents[0]?.id ?? null);
     if (selectedPackage && !selectedFieldId) setSelectedFieldId(selectedPackage.fields[0]?.id ?? null);
   }, [selectedPackage, selectedDocumentId, selectedFieldId]);
+
+  useEffect(() => {
+    const pageCount = Math.max(selectedDocument?.pages ?? 1, 1);
+    if (selectedPage > pageCount) setSelectedPage(pageCount);
+    if (selectedPage < 1) setSelectedPage(1);
+  }, [selectedDocument?.id, selectedDocument?.pages, selectedPage]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setDocumentPreviewUrl(null);
+    if (!selectedPackage || !selectedDocument?.pdfStored) return;
+    const cacheKey = `${selectedPackage.id}:${selectedDocument.id}`;
+    const cachedUrl = documentPreviewCache.current[cacheKey];
+    if (cachedUrl) {
+      setDocumentPreviewUrl(cachedUrl);
+      return;
+    }
+    const url = `${API_BASE}/api/internal/docufill/packages/${selectedPackage.id}/documents/${selectedDocument.id}.pdf`;
+    fetch(url, { headers: { ...getAuthHeaders() } })
+      .then((res) => {
+        if (!res.ok) throw new Error("Could not load PDF preview");
+        return res.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        const objectUrl = URL.createObjectURL(blob);
+        documentPreviewCacheOrder.current = documentPreviewCacheOrder.current.filter((key) => key !== cacheKey);
+        documentPreviewCacheOrder.current.push(cacheKey);
+        documentPreviewCache.current[cacheKey] = objectUrl;
+        while (documentPreviewCacheOrder.current.length > 6) {
+          const oldestKey = documentPreviewCacheOrder.current.shift();
+          if (!oldestKey) break;
+          const oldestUrl = documentPreviewCache.current[oldestKey];
+          if (oldestUrl) URL.revokeObjectURL(oldestUrl);
+          delete documentPreviewCache.current[oldestKey];
+        }
+        setDocumentPreviewUrl(objectUrl);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "Could not load PDF preview");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPackage?.id, selectedDocument?.id, selectedDocument?.pdfStored, getAuthHeaders]);
+
+  useEffect(() => {
+    return () => {
+      Object.values(documentPreviewCache.current).forEach((url) => URL.revokeObjectURL(url));
+      documentPreviewCache.current = {};
+      documentPreviewCacheOrder.current = [];
+    };
+  }, []);
 
   async function savePackage(pkg: PackageItem) {
     setIsSaving(true);
@@ -267,7 +336,81 @@ export default function DocuFill() {
     });
   }
 
-  function removeDocument(docId: string) {
+  async function uploadDocument(file: File, documentId?: string) {
+    if (!selectedPackage) return;
+    setIsUploadingDocument(true);
+    setError(null);
+    try {
+      const endpoint = documentId
+        ? `${API_BASE}/api/internal/docufill/packages/${selectedPackage.id}/documents/${documentId}/pdf`
+        : `${API_BASE}/api/internal/docufill/packages/${selectedPackage.id}/documents`;
+      const res = await fetch(endpoint, {
+        method: documentId ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/pdf",
+          "X-File-Name": file.name,
+          "X-Document-Title": file.name.replace(/\.pdf$/i, ""),
+          ...getAuthHeaders(),
+        },
+        body: file,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not upload PDF");
+      if (documentId) {
+        const cacheKey = `${selectedPackage.id}:${documentId}`;
+        const cachedUrl = documentPreviewCache.current[cacheKey];
+        if (cachedUrl) URL.revokeObjectURL(cachedUrl);
+        delete documentPreviewCache.current[cacheKey];
+        documentPreviewCacheOrder.current = documentPreviewCacheOrder.current.filter((key) => key !== cacheKey);
+      }
+      const loadedPackages = normalizePackages([data.package]);
+      const updatedPackage = loadedPackages[0];
+      if (updatedPackage) {
+        setPackages((prev) => prev.map((pkg) => pkg.id === updatedPackage.id ? updatedPackage : pkg));
+        const latestDoc = documentId
+          ? updatedPackage.documents.find((doc) => doc.id === documentId)
+          : updatedPackage.documents[updatedPackage.documents.length - 1];
+        setSelectedDocumentId(latestDoc?.id ?? null);
+      }
+      setStatus(documentId ? "Replaced PDF." : "Uploaded PDF.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not upload PDF");
+    } finally {
+      setIsUploadingDocument(false);
+    }
+  }
+
+  async function removeDocument(docId: string) {
+    const doc = selectedPackage?.documents.find((item) => item.id === docId);
+    if (selectedPackage && doc?.pdfStored) {
+      setIsSaving(true);
+      setError(null);
+      try {
+        const res = await fetch(`${API_BASE}/api/internal/docufill/packages/${selectedPackage.id}/documents/${docId}`, {
+          method: "DELETE",
+          headers: { ...getAuthHeaders() },
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Could not remove document");
+        const loadedPackages = normalizePackages([data.package]);
+        const updatedPackage = loadedPackages[0];
+        if (updatedPackage) {
+          const cacheKey = `${selectedPackage.id}:${docId}`;
+          const cachedUrl = documentPreviewCache.current[cacheKey];
+          if (cachedUrl) URL.revokeObjectURL(cachedUrl);
+          delete documentPreviewCache.current[cacheKey];
+          documentPreviewCacheOrder.current = documentPreviewCacheOrder.current.filter((key) => key !== cacheKey);
+          setPackages((prev) => prev.map((pkg) => pkg.id === updatedPackage.id ? updatedPackage : pkg));
+          setSelectedDocumentId(updatedPackage.documents[0]?.id ?? null);
+        }
+        setStatus("Removed document.");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Could not remove document");
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
     updateSelectedPackage((pkg) => ({
       ...pkg,
       documents: pkg.documents.filter((doc) => doc.id !== docId),
@@ -323,7 +466,7 @@ export default function DocuFill() {
         id: newId("map"),
         fieldId: selectedField.id,
         documentId: selectedDocument.id,
-        page: 1,
+        page: selectedPage,
         x: 18 + (pkg.mappings.length % 5) * 12,
         y: 20 + (pkg.mappings.length % 8) * 8,
         w: 26,
@@ -497,11 +640,7 @@ export default function DocuFill() {
                       if (!file) {
                         return;
                       }
-                      updateSelectedPackage((pkg) => {
-                        const doc: DocItem = { id: newId("doc"), title: file.name.replace(/\.pdf$/i, ""), pages: 1 };
-                        setSelectedDocumentId(doc.id);
-                        return { ...pkg, documents: [...pkg.documents, doc] };
-                      });
+                      uploadDocument(file);
                       e.target.value = "";
                     }}
                   />
@@ -510,11 +649,25 @@ export default function DocuFill() {
               <div className="space-y-2 overflow-y-auto flex-1">
                 {selectedPackage.documents.map((doc, index) => (
                   <div key={doc.id} draggable onDragStart={(e) => e.dataTransfer.setData("text/doc", doc.id)} onDragOver={(e) => e.preventDefault()} onDrop={(e) => moveDocument(e.dataTransfer.getData("text/doc"), index > selectedPackage.documents.findIndex((d) => d.id === e.dataTransfer.getData("text/doc")) ? 1 : -1)} className={`border rounded p-2 ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4]"}`}>
-                    <button onClick={() => setSelectedDocumentId(doc.id)} className="w-full h-20 bg-[#F5F0E8] border border-[#DDD5C4] rounded text-xs text-[#6B7A99]">{index + 1}<br />{doc.pages} page(s)</button>
+                    <button onClick={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }} className="w-full h-20 bg-[#F5F0E8] border border-[#DDD5C4] rounded text-xs text-[#6B7A99]">{index + 1}<br />{doc.pages} page(s)<br />{doc.pdfStored ? "PDF stored" : "No PDF"}</button>
                     <Input value={doc.title} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))} className="mt-2 h-8 text-xs" />
+                    <div className="mt-1 text-[10px] text-[#8A9BB8] truncate">{doc.fileName ?? "Metadata only"}</div>
                     <div className="flex gap-1 mt-1">
                       <button onClick={() => moveDocument(doc.id, -1)} className="text-[11px] text-[#6B7A99]">Up</button>
                       <button onClick={() => moveDocument(doc.id, 1)} className="text-[11px] text-[#6B7A99]">Down</button>
+                      <label className="text-[11px] text-[#C49A38] cursor-pointer">
+                        Replace
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          className="sr-only"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) uploadDocument(file, doc.id);
+                            e.target.value = "";
+                          }}
+                        />
+                      </label>
                       <button onClick={() => removeDocument(doc.id)} className="ml-auto text-[11px] text-red-600">Remove</button>
                     </div>
                   </div>
@@ -528,21 +681,39 @@ export default function DocuFill() {
                   <h2 className="text-sm font-semibold">Assign Package Fields</h2>
                   <p className="text-xs text-[#8A9BB8]">Select a field, then add it to the document preview.</p>
                 </div>
-                <Button onClick={placeField} disabled={!selectedField || !selectedDocument} className="bg-[#C49A38] hover:bg-[#b58c31] text-black">Add Field to Page</Button>
-              </div>
-              <div className="relative mx-auto bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner h-[620px] max-w-[720px] overflow-hidden">
-                <div className="absolute inset-8 bg-white border border-[#D4C9B5] shadow-sm p-6 text-xs text-[#6B7A99]">
-                  <div className="font-semibold text-[#0F1C3F] mb-3">{selectedDocument?.title ?? "No document selected"}</div>
-                  {Array.from({ length: 18 }).map((_, i) => <div key={i} className="h-2 bg-[#EFE8D8] rounded mb-3" style={{ width: `${70 + (i % 4) * 7}%` }} />)}
+                <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setSelectedPage((page) => Math.max(1, page - 1))} disabled={!selectedDocument || selectedPage <= 1} className="text-xs border border-[#D4C9B5] rounded px-2 py-1 disabled:opacity-40">Prev</button>
+                  <span className="text-xs text-[#6B7A99]">Page {selectedPage} of {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
+                  <button type="button" onClick={() => setSelectedPage((page) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), page + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument.pages, 1)} className="text-xs border border-[#D4C9B5] rounded px-2 py-1 disabled:opacity-40">Next</button>
+                  <Button onClick={placeField} disabled={!selectedField || !selectedDocument} className="bg-[#C49A38] hover:bg-[#b58c31] text-black">Add Field to Page</Button>
                 </div>
-                {pageMappings.map((m) => {
-                  const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
-                  return (
-                    <button key={m.id} onClick={() => setSelectedFieldId(m.fieldId)} className="absolute border-2 bg-white/90 rounded px-2 py-1 text-[11px] text-left shadow" style={{ left: `${m.x}%`, top: `${m.y}%`, width: `${m.w}%`, minHeight: `${m.h * 4}px`, borderColor: field?.color ?? "#C49A38" }}>
-                      {field?.name ?? "Field"}
-                    </button>
-                  );
-                })}
+              </div>
+              {isUploadingDocument && <div className="mb-2 text-xs text-[#6B7A99]">Uploading PDF…</div>}
+              <div className="relative mx-auto bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner h-[620px] max-w-[720px] overflow-hidden flex items-center justify-center p-4">
+                <div className="relative bg-white border border-[#D4C9B5] shadow-sm max-w-full max-h-full overflow-hidden" style={{ aspectRatio: selectedPageAspect, height: "100%" }}>
+                  {documentPreviewUrl ? (
+                    <object data={`${documentPreviewUrl}#page=${selectedPage}&toolbar=0&navpanes=0&view=FitH`} type="application/pdf" className="absolute inset-0 w-full h-full pointer-events-none">
+                      <iframe title={selectedDocument?.title ?? "PDF preview"} src={documentPreviewUrl} className="w-full h-full" />
+                    </object>
+                  ) : (
+                    <div className="absolute inset-0 p-6 text-xs text-[#6B7A99]">
+                      <div className="font-semibold text-[#0F1C3F] mb-3">{selectedDocument?.title ?? "No document selected"}</div>
+                      {selectedDocument ? (
+                        <div className="rounded border border-dashed border-[#D4C9B5] p-5 text-center">Upload or replace this package document with a PDF to show a true page preview.</div>
+                      ) : (
+                        Array.from({ length: 18 }).map((_, i) => <div key={i} className="h-2 bg-[#EFE8D8] rounded mb-3" style={{ width: `${70 + (i % 4) * 7}%` }} />)
+                      )}
+                    </div>
+                  )}
+                  {pageMappings.map((m) => {
+                    const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
+                    return (
+                      <button key={m.id} onClick={() => setSelectedFieldId(m.fieldId)} className="absolute border-2 bg-white/90 rounded px-2 py-1 text-[11px] text-left shadow" style={{ left: `${m.x}%`, top: `${m.y}%`, width: `${m.w}%`, minHeight: `${m.h * 4}px`, borderColor: field?.color ?? "#C49A38" }}>
+                        {field?.name ?? "Field"}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="mt-4 flex justify-end">
                 <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Save Mapping</Button>

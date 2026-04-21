@@ -34,7 +34,7 @@ The project is structured as a pnpm monorepo using TypeScript, with separate `ap
 -   **Insights Hub:** A content management system for educational articles, with metadata and content managed in `insights.ts`.
 -   **Deal Builder:** An internal tool to manage and execute client deals, automating pricing, trade execution, invoicing, and record-keeping.
 -   **FedEx Location Search:** Integration to find nearest FedEx locations for shipping.
--   **DocuFill:** Internal custodial paperwork engine for reusable document packages. Admin users can manage custodians, depositories, packages, ordered documents, reusable interview fields, visual field placements, and launch package interviews from IRA/custodial Deal Builder workflows.
+-   **DocuFill:** Internal custodial paperwork engine for reusable document packages. Admin users can manage custodians, depositories, packages, ordered documents, reusable interview fields, visual field placements, and launch package interviews from IRA/custodial Deal Builder workflows. Package PDFs are stored in PostgreSQL in `docufill_package_documents` with page count and per-page size metadata, capped at 100 MB of stored PDFs per package, reconciled into package metadata on reads and package saves, previewed page-by-page in the mapper through protected internal PDF endpoints, and used as the base PDFs for generated packets with mapped answer text overlaid when coordinates exist.
 
 **Deployment:**
 -   The monorepo is deployed to Railway (API server) and Vercel (frontend), both configured to watch the GitHub `main` branch.
@@ -52,7 +52,7 @@ The project is structured as a pnpm monorepo using TypeScript, with separate `ap
 -   **Express:** Backend API framework.
 -   **React, Vite, Tailwind CSS, shadcn/ui:** Frontend stack.
 -   **Zod:** Data validation.
--   **pdfkit:** PDF generation library.
+-   **pdfkit / pdf-lib:** PDF generation, PDF parsing, stored PDF composition, and DocuFill overlay utilities.
 
 ---
 
