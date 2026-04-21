@@ -129,6 +129,16 @@ type MappingItem = {
   format?: MappingFormat;
 };
 
+type BuilderStep = "setup" | "documents" | "mapping" | "interview" | "finalize";
+
+const BUILDER_STEPS: Array<{ value: BuilderStep; label: string; helper: string }> = [
+  { value: "setup", label: "1. Package setup", helper: "Name the reusable workflow" },
+  { value: "documents", label: "2. Documents", helper: "Upload and order PDFs" },
+  { value: "mapping", label: "3. Mapping rules", helper: "Place fields and set rules" },
+  { value: "interview", label: "4. Interview preview", helper: "Review generated questions" },
+  { value: "finalize", label: "5. Finalize", helper: "Activate for reuse" },
+];
+
 type PackageItem = {
   id: number;
   name: string;
@@ -280,6 +290,7 @@ export default function DocuFill() {
   const isPublicSession = Boolean(publicSessionToken);
   const { getAuthHeaders } = useInternalAuth();
   const [tab, setTab] = useState<"packages" | "mapper" | "interview">(sessionToken ? "interview" : "packages");
+  const [builderStep, setBuilderStep] = useState<BuilderStep>("setup");
   const [custodians, setCustodians] = useState<Entity[]>([]);
   const [depositories, setDepositories] = useState<Entity[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
@@ -333,6 +344,10 @@ export default function DocuFill() {
   const sessionBasePath = isPublicSession ? "/api/docufill/public/sessions" : "/api/internal/docufill/sessions";
   const sessionHeaders = isPublicSession ? {} : { ...getAuthHeaders() };
   const activePackages = packages.filter((pkg) => pkg.status === "active");
+  const packageInterviewFields = selectedPackage?.fields.filter((field) => field.interviewVisible) ?? [];
+  const packageFixedOrHiddenFields = selectedPackage?.fields.filter((field) => !field.interviewVisible || field.adminOnly || field.defaultValue.trim()) ?? [];
+  const packageMappedFieldIds = new Set(selectedPackage?.mappings.map((mapping) => mapping.fieldId) ?? []);
+  const unmappedPackageFields = selectedPackage?.fields.filter((field) => !packageMappedFieldIds.has(field.id)) ?? [];
 
   async function loadBootstrap() {
     try {
@@ -488,6 +503,7 @@ export default function DocuFill() {
       if (!res.ok) throw new Error(data.error ?? "Could not create package");
       await loadBootstrap();
       setSelectedPackageId(data.package.id);
+      setBuilderStep("setup");
       setTab("packages");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create package");
@@ -652,7 +668,12 @@ export default function DocuFill() {
       setSelectedFieldId(field.id);
       return { ...pkg, fields: [...pkg.fields, field] };
     });
-    setTab("mapper");
+    goBuilderStep("mapping");
+  }
+
+  function goBuilderStep(step: BuilderStep) {
+    setBuilderStep(step);
+    setTab(step === "mapping" ? "mapper" : "packages");
   }
 
   function updateSelectedPackage(updater: (pkg: PackageItem) => PackageItem) {
@@ -1091,13 +1112,39 @@ export default function DocuFill() {
           <p className="text-sm text-[#6B7A99] mt-1">{isPublicSession ? "Complete your secure paperwork interview for West Hills Capital." : "Set up custodial packages once, then launch clean interviews from Deal Builder."}</p>
         </div>
         {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
-          {(["packages", "mapper", "interview"] as const).map((item) => (
-            <button key={item} onClick={() => setTab(item)} className={`px-3 py-2 text-sm capitalize ${tab === item ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>{item}</button>
-          ))}
+          <button onClick={() => goBuilderStep(builderStep)} className={`px-3 py-2 text-sm ${tab === "packages" || tab === "mapper" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
+          <button onClick={() => setTab("interview")} className={`px-3 py-2 text-sm ${tab === "interview" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Interviews</button>
         </div>}
       </div>
       {error && <div className="mb-4 rounded border border-red-200 bg-red-50 text-red-800 px-3 py-2 text-sm">{error}</div>}
       {status && <div className="mb-4 rounded border border-green-200 bg-green-50 text-green-800 px-3 py-2 text-sm">{status}</div>}
+
+      {!isPublicSession && (tab === "packages" || tab === "mapper") && (
+        <div className="mb-5 rounded-xl border border-[#DDD5C4] bg-white p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+            <div>
+              <div className="text-sm font-semibold">{selectedPackage?.name ?? "Create a reusable paperwork package"}</div>
+              <div className="text-xs text-[#6B7A99]">
+                {selectedPackage ? `${selectedPackage.documents.length} document${selectedPackage.documents.length === 1 ? "" : "s"} · ${selectedPackage.fields.length} field${selectedPackage.fields.length === 1 ? "" : "s"} · ${selectedPackage.mappings.length} PDF placement${selectedPackage.mappings.length === 1 ? "" : "s"} · ${selectedPackage.status}` : "Build once, then future customers or reps answer a clean interview."}
+              </div>
+            </div>
+            {selectedPackage && <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline">Save Package</Button>}
+          </div>
+          <div className="grid md:grid-cols-5 gap-2">
+            {BUILDER_STEPS.map((step) => (
+              <button
+                key={step.value}
+                type="button"
+                onClick={() => goBuilderStep(step.value)}
+                className={`rounded-lg border px-3 py-2 text-left ${builderStep === step.value ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4] bg-[#F8F6F0] hover:border-[#C49A38]/60"}`}
+              >
+                <div className="text-xs font-semibold">{step.label}</div>
+                <div className="text-[11px] text-[#6B7A99]">{step.helper}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {tab === "packages" && (
         <div className="grid lg:grid-cols-[280px_1fr] gap-5">
@@ -1120,6 +1167,17 @@ export default function DocuFill() {
           <section className="bg-white border border-[#DDD5C4] rounded-lg p-5">
             {!selectedPackage ? <EmptyState message="Create a package to begin." /> : (
               <div className="space-y-5">
+                <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4">
+                  <h2 className="text-lg font-semibold">{BUILDER_STEPS.find((step) => step.value === builderStep)?.label}</h2>
+                  <p className="text-sm text-[#6B7A99] mt-1">
+                    {builderStep === "setup" && "Define the reusable paperwork workflow before adding PDFs."}
+                    {builderStep === "documents" && "Upload the PDFs that belong in this package and drag or move them into the final packet order."}
+                    {builderStep === "interview" && "This is the interview the system will generate from mapped fields that still need input."}
+                    {builderStep === "finalize" && "Activate the package when documents, mappings, rules, and interview questions are ready for repeated use."}
+                  </p>
+                </div>
+                {builderStep === "setup" && (
+                  <>
                 <div className="grid md:grid-cols-2 gap-4">
                   <LabeledInput label="Package Name" value={selectedPackage.name} onChange={(value) => updateSelectedPackage((pkg) => ({ ...pkg, name: value }))} />
                   <label className="block text-sm">
@@ -1184,7 +1242,161 @@ export default function DocuFill() {
                   onSave={saveFieldLibraryItem}
                   onUse={addLibraryFieldToPackage}
                 />
-                <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Save Package</Button>
+                <div className="flex flex-wrap gap-2">
+                  <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Save Package Setup</Button>
+                  <Button onClick={() => goBuilderStep("documents")} variant="outline">Continue to Documents</Button>
+                </div>
+                  </>
+                )}
+                {builderStep === "documents" && (
+                  <div className="space-y-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <h2 className="text-sm font-semibold">Package documents</h2>
+                        <p className="text-xs text-[#8A9BB8]">The order below becomes the order of the generated paperwork packet.</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <button type="button" onClick={addDocument} className="rounded border border-[#D4C9B5] px-3 py-2 text-sm text-[#6B7A99]">Add placeholder</button>
+                        <label className="rounded bg-[#0F1C3F] px-3 py-2 text-sm text-white cursor-pointer">
+                          Upload PDF
+                          <input
+                            type="file"
+                            accept="application/pdf"
+                            className="sr-only"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) uploadDocument(file);
+                              e.target.value = "";
+                            }}
+                          />
+                        </label>
+                      </div>
+                    </div>
+                    {isUploadingDocument && <div className="text-xs text-[#6B7A99]">Uploading PDF…</div>}
+                    {selectedPackage.documents.length === 0 ? (
+                      <EmptyState message="Upload the New Direction PDFs here, then arrange them into the order West Hills wants customers to receive them." />
+                    ) : (
+                      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
+                        {selectedPackage.documents.map((doc, index) => (
+                          <div
+                            key={doc.id}
+                            draggable
+                            onDragStart={(e) => e.dataTransfer.setData("text/doc", doc.id)}
+                            onDragOver={(e) => e.preventDefault()}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              moveDocumentToIndex(e.dataTransfer.getData("text/doc"), index);
+                            }}
+                            className={`rounded-lg border p-3 ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4] bg-white"}`}
+                          >
+                            <DocumentPreviewTile
+                              packageId={selectedPackage.id}
+                              doc={doc}
+                              order={index + 1}
+                              selected={selectedDocument?.id === doc.id}
+                              getAuthHeaders={getAuthHeaders}
+                              previewCache={documentPreviewCache}
+                              previewCacheOrder={documentPreviewCacheOrder}
+                              onSelect={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }}
+                            />
+                            <Input value={doc.title} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))} className="mt-2 h-8 text-xs" />
+                            <div className="mt-1 text-[10px] text-[#8A9BB8] truncate">{doc.fileName ?? "Metadata only"} · {doc.pages} page{doc.pages === 1 ? "" : "s"}</div>
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              <button onClick={() => moveDocument(doc.id, -1)} disabled={index === 0} className="text-[11px] text-[#6B7A99] disabled:opacity-40">Move up</button>
+                              <button onClick={() => moveDocument(doc.id, 1)} disabled={index === selectedPackage.documents.length - 1} className="text-[11px] text-[#6B7A99] disabled:opacity-40">Move down</button>
+                              <label className="text-[11px] text-[#C49A38] cursor-pointer">
+                                Replace PDF
+                                <input
+                                  type="file"
+                                  accept="application/pdf"
+                                  className="sr-only"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) uploadDocument(file, doc.id);
+                                    e.target.value = "";
+                                  }}
+                                />
+                              </label>
+                              <button onClick={() => removeDocument(doc.id)} className="ml-auto text-[11px] text-red-600">Remove</button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Save Document Order</Button>
+                      <Button onClick={() => goBuilderStep("mapping")} variant="outline" disabled={selectedPackage.documents.length === 0}>Continue to Mapping</Button>
+                    </div>
+                  </div>
+                )}
+                {builderStep === "interview" && (
+                  <div className="grid lg:grid-cols-[1fr_320px] gap-4">
+                    <div className="rounded-lg border border-[#DDD5C4] bg-white p-4">
+                      <h2 className="text-sm font-semibold mb-1">Generated interview questions</h2>
+                      <p className="text-xs text-[#8A9BB8] mb-3">DocuFill will ask only for fields marked “Show in interview.” One answer can still fill many PDF placements.</p>
+                      {packageInterviewFields.length === 0 ? <EmptyState message="No interview questions yet. Go back to Mapping Rules and mark fields that require customer or sales rep input." /> : (
+                        <div className="space-y-2">
+                          {packageInterviewFields.map((field, index) => (
+                            <div key={field.id} className="rounded border border-[#EFE8D8] bg-[#F8F6F0] p-3">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-sm font-medium">{index + 1}. {field.name}</div>
+                                  <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.required ? "required" : "optional"}{field.validationType && field.validationType !== "none" ? ` · validates as ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
+                                </div>
+                                <div className="flex gap-1">
+                                  <button type="button" onClick={() => moveField(field.id, -1)} className="rounded border border-[#D4C9B5] px-1.5 py-0.5 text-[10px]">Up</button>
+                                  <button type="button" onClick={() => moveField(field.id, 1)} className="rounded border border-[#D4C9B5] px-1.5 py-0.5 text-[10px]">Down</button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      <div className="rounded-lg border border-[#DDD5C4] bg-white p-4">
+                        <h3 className="text-sm font-semibold">Fixed, internal, or omitted</h3>
+                        <p className="text-xs text-[#8A9BB8] mb-3">These can still print on PDFs from defaults/prefill, but they will not become customer questions unless shown in the interview.</p>
+                        <div className="space-y-2 text-xs">
+                          {packageFixedOrHiddenFields.length === 0 ? <div className="text-[#8A9BB8]">None yet.</div> : packageFixedOrHiddenFields.map((field) => (
+                            <div key={field.id} className="rounded border border-[#EFE8D8] px-2 py-1">
+                              <div className="font-medium">{field.name}</div>
+                              <div className="text-[#6B7A99]">{field.interviewVisible ? "Shown" : "Omitted"}{field.defaultValue ? " · fixed/default value" : ""}{field.adminOnly ? " · admin only" : ""}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={() => goBuilderStep("mapping")} variant="outline">Edit Mapping Rules</Button>
+                        <Button onClick={() => goBuilderStep("finalize")} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Continue to Finalize</Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {builderStep === "finalize" && (
+                  <div className="space-y-4">
+                    <div className="grid md:grid-cols-4 gap-3">
+                      <SummaryCard label="Documents" value={String(selectedPackage.documents.length)} detail="Uploaded and ordered" />
+                      <SummaryCard label="Fields" value={String(selectedPackage.fields.length)} detail={`${packageInterviewFields.length} interview questions`} />
+                      <SummaryCard label="Placements" value={String(selectedPackage.mappings.length)} detail="PDF print locations" />
+                      <SummaryCard label="Unmapped fields" value={String(unmappedPackageFields.length)} detail={unmappedPackageFields.length ? "Review before activating" : "Ready"} />
+                    </div>
+                    <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4">
+                      <h2 className="text-sm font-semibold mb-2">Package status</h2>
+                      <p className="text-xs text-[#8A9BB8] mb-3">Set the package to Active when this paperwork workflow should be available in the Interviews tab and Deal Builder.</p>
+                      <select value={selectedPackage.status} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, status: e.target.value }))} className="w-full max-w-sm border border-[#D4C9B5] rounded px-3 py-2 bg-white">
+                        <option value="draft">Draft — not ready for staff/customer interviews</option>
+                        <option value="active">Active — reusable interview can be launched</option>
+                        <option value="inactive">Inactive — hidden from new interview launchers</option>
+                      </select>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || selectedPackage.mappings.length === 0} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Finalize and Activate Package</Button>
+                      <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline">Save Current Status</Button>
+                      {selectedPackage.status === "active" && <Button onClick={() => { setStandalonePackageId(String(selectedPackage.id)); setTab("interview"); }} variant="outline">Go to Interview Launcher</Button>}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </section>
@@ -1265,8 +1477,8 @@ export default function DocuFill() {
             <section className="bg-white border border-[#DDD5C4] rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
-                  <h2 className="text-sm font-semibold">Assign Package Fields</h2>
-                  <p className="text-xs text-[#8A9BB8]">Select a field, then add it to the document preview.</p>
+                  <h2 className="text-sm font-semibold">Assign Package Fields and Rules</h2>
+                  <p className="text-xs text-[#8A9BB8]">Place fields on PDFs, then decide which are required, fixed/defaulted, validated, or omitted from the generated interview.</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button type="button" onClick={() => setSelectedPage((page) => Math.max(1, page - 1))} disabled={!selectedDocument || selectedPage <= 1} className="text-xs border border-[#D4C9B5] rounded px-2 py-1 disabled:opacity-40">Prev</button>
@@ -1361,8 +1573,9 @@ export default function DocuFill() {
                   })()}
                 </div>
               </div>
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
                 <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Save Mapping</Button>
+                <Button onClick={() => goBuilderStep("interview")} variant="outline">Review Generated Interview</Button>
               </div>
             </section>
 
@@ -1603,6 +1816,16 @@ export default function DocuFill() {
 
 function EmptyState({ message }: { message: string }) {
   return <div className="rounded border border-dashed border-[#D4C9B5] bg-white p-8 text-center text-sm text-[#6B7A99]">{message}</div>;
+}
+
+function SummaryCard({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-lg border border-[#DDD5C4] bg-white p-4">
+      <div className="text-xs uppercase tracking-wide text-[#6B7A99]">{label}</div>
+      <div className="mt-1 text-2xl font-semibold">{value}</div>
+      <div className="mt-1 text-xs text-[#8A9BB8]">{detail}</div>
+    </div>
+  );
 }
 
 function DocumentPreviewTile({
