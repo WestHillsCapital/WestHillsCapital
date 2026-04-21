@@ -594,7 +594,7 @@ export default function LivePricing() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 mb-10">
-              {pricingData.products.map((product) => (
+              {(pricingData?.products ?? []).map((product) => (
                 <ProductCard key={product.id} product={product} onZoom={setZoomProduct} />
               ))}
             </div>
@@ -639,7 +639,7 @@ export default function LivePricing() {
                   </p>
                 </div>
               ) : (
-                buybackData.prices.map((item) => (
+                (buybackData?.prices ?? []).map((item) => (
                   <div key={item.productId} className="grid grid-cols-12 gap-4 p-5 items-center hover:bg-muted/20 transition-colors">
                     <div className="col-span-6 md:col-span-5 font-semibold text-sm">{item.productName}</div>
                     <div className="hidden md:block col-span-3 text-right text-foreground/50 text-sm">Market −{item.buybackSpreadPercent}%</div>

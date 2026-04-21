@@ -95,7 +95,7 @@ export default function Home() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              {pricingData.products.map((product) => (
+              {(pricingData?.products ?? []).map((product) => (
                 <Card
                   key={product.id}
                   className="overflow-hidden group border border-border/40 shadow-sm hover:shadow-md transition-shadow duration-300 bg-white"

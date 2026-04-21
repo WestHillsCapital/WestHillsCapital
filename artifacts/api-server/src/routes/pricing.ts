@@ -352,7 +352,7 @@ async function fetchYFSymbol(symbol: string, range: string, interval: string): P
     signal: AbortSignal.timeout(12_000),
   });
   if (!res.ok) throw new Error(`Yahoo Finance ${symbol}: HTTP ${res.status}`);
-  const json: YFChartResponse = await res.json();
+  const json = await res.json() as YFChartResponse;
   const result = json.chart?.result?.[0];
   if (!result) throw new Error(`Yahoo Finance ${symbol}: empty result`);
 
@@ -432,7 +432,7 @@ const DB_PERIOD_INTERVAL: Record<string, string> = {
 };
 
 // GET /api/pricing/history?period=1D|1W|1M|3M|6M|1Y|5Y|ALL
-router.get("/history", async (req, res) => {
+router.get("/history", async (req, res): Promise<void> => {
   try {
     const period = typeof req.query.period === "string" ? req.query.period : "1M";
 
@@ -451,18 +451,19 @@ router.get("/history", async (req, res) => {
          WHERE captured_at >= NOW() - INTERVAL '${interval}'
          ORDER BY captured_at ASC`,
       );
-      return res.json({
+      res.json({
         history: rows.map((r) => ({
           timestamp: r.captured_at,
           goldBid:   parseFloat(r.gold_bid),
           silverBid: parseFloat(r.silver_bid),
         })),
       });
+      return;
     }
 
     // Longer periods — real historical data from Yahoo Finance (COMEX)
     const history = await getYahooHistory(period);
-    return res.json({ history });
+    res.json({ history });
   } catch (err) {
     logger.error({ err }, "[Pricing] Error fetching spot history");
     res.status(502).json({ error: "Unable to fetch price history" });

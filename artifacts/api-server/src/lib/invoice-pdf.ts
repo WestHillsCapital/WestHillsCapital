@@ -125,7 +125,7 @@ export async function generateInvoicePdf(deal: InvoiceDeal): Promise<Buffer> {
     let logoBottomY = 40;
     if (HAS_LOGO) {
       try {
-        doc.image(LOGO_PATH, LEFT, 40, { fit: [190, 50], align: "left", valign: "top" });
+        doc.image(LOGO_PATH, LEFT, 40, { fit: [190, 50], align: "left" as "center", valign: "top" as "center" });
         logoBottomY = 93;
       } catch {
         doc.fontSize(18).font("Helvetica-Bold").fillColor(DARK)

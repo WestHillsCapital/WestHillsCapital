@@ -25,7 +25,7 @@ function getDriveClient() {
   try { credentials = JSON.parse(raw); } catch { return null; }
 
   const auth = new google.auth.GoogleAuth({
-    credentials,
+    credentials: credentials as never,
     scopes: [
       "https://www.googleapis.com/auth/drive",
       "https://www.googleapis.com/auth/drive.file",

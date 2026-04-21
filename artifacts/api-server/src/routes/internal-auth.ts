@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { OAuth2Client } from "google-auth-library";
+import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import { logger } from "../lib/logger.js";
 import { createSession, revokeSession } from "../lib/session-store";
 
@@ -40,11 +40,7 @@ router.post("/verify", async (req, res) => {
   }
 
   // ── Verify the Google ID token ──────────────────────────────────────────
-  let payload: Awaited<ReturnType<(typeof googleClient)["verifyIdToken"]>> extends {
-    getPayload(): infer P;
-  }
-    ? P
-    : never;
+  let payload: TokenPayload | undefined;
 
   try {
     const ticket = await googleClient.verifyIdToken({

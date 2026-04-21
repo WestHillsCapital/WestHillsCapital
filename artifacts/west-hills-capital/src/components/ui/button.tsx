@@ -43,4 +43,24 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 )
 Button.displayName = "Button"
 
+export function buttonVariants(opts?: { variant?: ButtonProps["variant"]; size?: ButtonProps["size"]; className?: string }): string {
+  const variant = opts?.variant ?? "default";
+  const size = opts?.size ?? "default";
+  const baseStyles = "inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]";
+  const variants: Record<NonNullable<ButtonProps["variant"]>, string> = {
+    default: "bg-primary text-primary-foreground shadow-md shadow-primary/20 hover:bg-primary/90 hover:shadow-lg hover:shadow-primary/30",
+    outline: "border-2 border-primary/20 bg-transparent hover:bg-primary/5 text-foreground hover:border-primary/40",
+    secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+    ghost: "hover:bg-accent/10 hover:text-accent",
+    link: "text-primary underline-offset-4 hover:underline",
+  };
+  const sizes: Record<NonNullable<ButtonProps["size"]>, string> = {
+    default: "h-11 px-6 py-2",
+    sm: "h-9 px-4 text-xs",
+    lg: "h-14 px-8 text-base",
+    icon: "h-10 w-10",
+  };
+  return cn(baseStyles, variants[variant], sizes[size], opts?.className ?? "");
+}
+
 export { Button }
