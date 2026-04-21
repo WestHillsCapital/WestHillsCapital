@@ -541,17 +541,11 @@ export const INSIGHTS: InsightArticle[] = [
         ],
       },
       {
-        heading: "Understanding premiums",
-        paragraphs: [
-          "Every physical metal product includes the underlying spot price plus a premium.",
-          "Premiums are normal, but not all premiums are equal.",
-        ],
-      },
-      {
         heading: "Why proof coins cost more",
         paragraphs: [
-          "Proof coins carry additional value beyond the metal. That includes collectibility, presentation, perceived rarity, and numismatic interest.",
-          "For collectors, that can make sense.",
+          "Every physical metal product includes the underlying spot price plus a premium — and premiums are not all equal.",
+          "Proof coins carry additional value beyond the metal: collectibility, presentation, perceived rarity, and numismatic interest.",
+          "For collectors, that can make sense. For investors focused on the metal itself, it usually does not.",
         ],
       },
       {
