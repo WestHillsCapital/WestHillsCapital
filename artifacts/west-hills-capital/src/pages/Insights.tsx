@@ -84,7 +84,7 @@ export default function Insights() {
                   {/* Left: label + title + excerpt */}
                   <div className="flex-1 min-w-0">
                     <span className="inline-block text-[10px] font-semibold uppercase tracking-[0.18em] text-primary bg-primary/8 border border-primary/20 rounded-full px-3 py-1 mb-5">
-                      Founder's Perspective
+                      Joe's Perspective
                     </span>
                     <h2 className="text-xl sm:text-2xl font-serif font-semibold text-foreground leading-snug mb-4 group-hover:text-primary transition-colors duration-150">
                       {founderArticle.title}
