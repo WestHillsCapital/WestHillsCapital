@@ -387,6 +387,13 @@ export default function DocuFill() {
   const selectedPageAspect = selectedPageSize && selectedPageSize.width > 0 && selectedPageSize.height > 0
     ? `${selectedPageSize.width} / ${selectedPageSize.height}`
     : "612 / 792";
+  const nativePageW = selectedPageSize?.width && selectedPageSize.width > 0 ? selectedPageSize.width : 612;
+  const nativePageH = selectedPageSize?.height && selectedPageSize.height > 0 ? selectedPageSize.height : 792;
+  const mapperMaxH = 600;
+  const mapperMaxW = 700;
+  const mapperScale = Math.min(mapperMaxH / nativePageH, mapperMaxW / nativePageW);
+  const mapperFrameW = Math.round(nativePageW * mapperScale);
+  const mapperFrameH = Math.round(nativePageH * mapperScale);
   const pageMappings = useMemo(() => {
     if (!selectedPackage || !selectedDocument) return [];
     return selectedPackage.mappings.filter((m) => m.documentId === selectedDocument.id && (m.page ?? 1) === selectedPage);
@@ -1688,14 +1695,22 @@ export default function DocuFill() {
                 </div>
               </div>
               {isUploadingDocument && <div className="mb-2 text-xs text-[#6B7A99]">Uploading PDF…</div>}
-              <div className="relative mx-auto bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner h-[620px] max-w-[720px] overflow-hidden flex items-center justify-center p-4">
+              <div
+                className="relative mx-auto bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-hidden"
+                style={{ width: mapperFrameW, height: mapperFrameH, maxWidth: "100%" }}
+              >
                 <div
                   ref={pageFrameRef}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={dropFieldOnPage}
                   onClick={() => setFormatMenu(null)}
-                  className="relative bg-white border border-[#D4C9B5] shadow-sm max-w-full max-h-full overflow-hidden"
-                  style={{ aspectRatio: selectedPageAspect, height: "100%" }}
+                  className="absolute top-0 left-0 bg-white border border-[#D4C9B5] shadow-sm overflow-hidden"
+                  style={{
+                    width: nativePageW,
+                    height: nativePageH,
+                    transform: `scale(${mapperScale})`,
+                    transformOrigin: "top left",
+                  }}
                 >
                   {documentPreviewUrl ? (
                     <object data={`${documentPreviewUrl}#page=${selectedPage}&toolbar=0&navpanes=0&view=FitH`} type="application/pdf" className="absolute inset-0 w-full h-full pointer-events-none">
@@ -1739,8 +1754,8 @@ export default function DocuFill() {
                         <div className="pointer-events-none w-full">
                           <span className="block leading-tight">{field?.name ?? "Field"}</span>
                           <span className="block text-[9px] uppercase tracking-wide text-[#6B7A99]">{labelForMappingFormat(m.format)}</span>
-                          <div style={{ borderBottom: "0.4px solid #c8c8c8", marginTop: "1px" }} />
                           <span className="block leading-tight italic truncate" style={{ color: "#9AAAC0", opacity: 0.85 }}>{sampleValueForMapping(field, m.format)}</span>
+                          <div style={{ borderBottom: "0.4px solid #c8c8c8", marginTop: "1px" }} />
                         </div>
                         {isSelected && (
                           <span
