@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent } from "react";
 import { useLocation, useParams, useSearch } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getDocuFillPrefillDisplayValue } from "@/lib/docufill-redaction";
+import * as pdfjsLib from "pdfjs-dist";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const DOCUFILL_TRANSACTION_TYPES = [
@@ -372,6 +375,13 @@ export default function DocuFill() {
   const [formatMenu, setFormatMenu] = useState<{ mappingId: string; x: number; y: number } | null>(null);
   const [selectedPage, setSelectedPage] = useState(1);
   const pageFrameRef = useRef<HTMLDivElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
+  const pdfUrlRef = useRef<string | null>(null);
+  const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
+  const mapperContainerRef = useRef<HTMLElement | null>(null);
+  const [mapperContainerWidth, setMapperContainerWidth] = useState(800);
+  const [isPdfRendering, setIsPdfRendering] = useState(false);
   const documentPreviewCache = useRef<Record<string, string>>({});
   const documentPreviewCacheOrder = useRef<string[]>([]);
 
@@ -389,8 +399,8 @@ export default function DocuFill() {
     : "612 / 792";
   const nativePageW = selectedPageSize?.width && selectedPageSize.width > 0 ? selectedPageSize.width : 612;
   const nativePageH = selectedPageSize?.height && selectedPageSize.height > 0 ? selectedPageSize.height : 792;
-  const mapperMaxH = 600;
-  const mapperMaxW = 700;
+  const mapperMaxH = 880;
+  const mapperMaxW = Math.max(320, mapperContainerWidth - 2);
   const mapperScale = Math.min(mapperMaxH / nativePageH, mapperMaxW / nativePageW);
   const mapperFrameW = Math.round(nativePageW * mapperScale);
   const mapperFrameH = Math.round(nativePageH * mapperScale);
@@ -511,6 +521,66 @@ export default function DocuFill() {
       documentPreviewCacheOrder.current = [];
     };
   }, []);
+
+  const mapperRoRef = useRef<ResizeObserver | null>(null);
+  const setMapperContainerEl = useCallback((el: HTMLElement | null) => {
+    mapperContainerRef.current = el;
+    if (mapperRoRef.current) { mapperRoRef.current.disconnect(); mapperRoRef.current = null; }
+    if (!el) return;
+    setMapperContainerWidth(el.getBoundingClientRect().width);
+    const ro = new ResizeObserver((entries) => {
+      const entry = entries[0];
+      if (entry) setMapperContainerWidth(entry.contentRect.width);
+    });
+    ro.observe(el);
+    mapperRoRef.current = ro;
+  }, []);
+
+  useEffect(() => {
+    if (!documentPreviewUrl) return;
+    let cancelled = false;
+    if (renderTaskRef.current) {
+      renderTaskRef.current.cancel();
+      renderTaskRef.current = null;
+    }
+    setIsPdfRendering(true);
+    (async () => {
+      try {
+        let doc = pdfDocRef.current;
+        if (!doc || pdfUrlRef.current !== documentPreviewUrl) {
+          if (doc) { doc.destroy().catch(() => {}); pdfDocRef.current = null; }
+          const loadingTask = pdfjsLib.getDocument(documentPreviewUrl);
+          doc = await loadingTask.promise;
+          if (cancelled) { doc.destroy(); return; }
+          pdfDocRef.current = doc;
+          pdfUrlRef.current = documentPreviewUrl;
+        }
+        const page = await doc.getPage(selectedPage);
+        if (cancelled) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const viewport = page.getViewport({ scale: 1.0 });
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
+        const ctx = canvas.getContext("2d");
+        if (!ctx || cancelled) return;
+        const renderTask = page.render({ canvas, canvasContext: ctx, viewport });
+        renderTaskRef.current = renderTask;
+        await renderTask.promise;
+        renderTaskRef.current = null;
+        if (!cancelled) setIsPdfRendering(false);
+      } catch {
+        if (!cancelled) setIsPdfRendering(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (renderTaskRef.current) {
+        renderTaskRef.current.cancel();
+        renderTaskRef.current = null;
+      }
+    };
+  }, [documentPreviewUrl, selectedPage]);
 
   async function savePackage(pkg: PackageItem) {
     setIsSaving(true);
@@ -1681,7 +1751,7 @@ export default function DocuFill() {
               </div>
             </section>
 
-            <section className="bg-white border border-[#DDD5C4] rounded-lg p-4">
+            <section ref={setMapperContainerEl} className="bg-white border border-[#DDD5C4] rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h2 className="text-sm font-semibold">Assign Package Fields and Rules</h2>
@@ -1696,8 +1766,8 @@ export default function DocuFill() {
               </div>
               {isUploadingDocument && <div className="mb-2 text-xs text-[#6B7A99]">Uploading PDF…</div>}
               <div
-                className="relative mx-auto bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-hidden"
-                style={{ width: mapperFrameW, height: mapperFrameH, maxWidth: "100%" }}
+                className="relative bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-hidden"
+                style={{ width: mapperFrameW, height: mapperFrameH }}
               >
                 <div
                   ref={pageFrameRef}
@@ -1713,9 +1783,18 @@ export default function DocuFill() {
                   }}
                 >
                   {documentPreviewUrl ? (
-                    <object data={`${documentPreviewUrl}#page=${selectedPage}&toolbar=0&navpanes=0&view=FitH`} type="application/pdf" className="absolute inset-0 w-full h-full pointer-events-none">
-                      <iframe title={selectedDocument?.title ?? "PDF preview"} src={documentPreviewUrl} className="w-full h-full" />
-                    </object>
+                    <>
+                      <canvas
+                        ref={canvasRef}
+                        className="absolute inset-0 pointer-events-none"
+                        style={{ width: nativePageW, height: nativePageH }}
+                      />
+                      {isPdfRendering && (
+                        <div className="absolute inset-0 bg-white/60 flex items-center justify-center pointer-events-none">
+                          <div className="w-6 h-6 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <div className="absolute inset-0 p-6 text-xs text-[#6B7A99]">
                       <div className="font-semibold text-[#0F1C3F] mb-3">{selectedDocument?.title ?? "No document selected"}</div>
