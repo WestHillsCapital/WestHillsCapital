@@ -11,8 +11,9 @@ export type DocuFillFieldItem = {
   defaultValue?: unknown;
   sensitive?: boolean;
   interviewVisible?: boolean;
+  interviewMode?: "required" | "optional" | "readonly" | "omitted";
   required?: boolean;
-  validationType?: "none" | "name" | "number" | "currency" | "email" | "phone" | "date" | "ssn" | "custom";
+  validationType?: "none" | "string" | "name" | "number" | "currency" | "email" | "phone" | "date" | "time" | "zip" | "zip4" | "ssn" | "percent" | "custom";
   validationPattern?: string;
   validationMessage?: string;
 };
@@ -101,7 +102,7 @@ function combineNameParts(prefill: Record<string, unknown>): string {
 
 function normalizeValidationType(value: unknown): DocuFillFieldItem["validationType"] {
   const text = cleanText(value);
-  const valid = new Set(["none", "name", "number", "currency", "email", "phone", "date", "ssn", "custom"]);
+  const valid = new Set(["none", "string", "name", "number", "currency", "email", "phone", "date", "time", "zip", "zip4", "ssn", "percent", "custom"]);
   return valid.has(text) ? text as DocuFillFieldItem["validationType"] : "none";
 }
 

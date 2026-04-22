@@ -410,29 +410,43 @@ async function getSession(token: string, client: QueryClient = getDb()): Promise
   return { ...session, documents: hydratedPackage.documents, fields: hydratedPackage.fields };
 }
 
+function fieldInInterview(field: DocuFillFieldItem): boolean {
+  if (field.interviewMode) return field.interviewMode !== "omitted";
+  return field.interviewVisible !== false;
+}
+
+function fieldIsRequired(field: DocuFillFieldItem): boolean {
+  if (field.interviewMode) return field.interviewMode === "required";
+  return field.required === true && field.interviewVisible !== false;
+}
+
 function validateSessionAnswers(session: Record<string, unknown>): { valid: boolean; missingFields: string[]; errors: string[] } {
   const answers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
   const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
   const fields = parseFields(session.fields);
   const missingFields: string[] = [];
   const errors: string[] = [];
-  fields.filter((field) => field.interviewVisible).forEach((field) => {
+  fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly").forEach((field) => {
     const value = fieldAnswerValue(field, answers, prefill).trim();
     const fieldLabel = field.name ?? field.label ?? field.id;
-    if (field.required && !value) {
+    if (fieldIsRequired(field) && !value) {
       missingFields.push(fieldLabel);
       return;
     }
     if (!value) return;
-    const validationType = field.validationType ?? "none";
-    if (validationType === "name" && !/^[a-z ,.'-]+$/i.test(value)) errors.push(field.validationMessage || `${fieldLabel} must be a valid name.`);
-    if (validationType === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errors.push(field.validationMessage || `${fieldLabel} must be a valid email.`);
-    if (validationType === "phone" && value.replace(/\D+/g, "").length < 10) errors.push(field.validationMessage || `${fieldLabel} must be a valid phone number.`);
-    if (validationType === "number" && Number.isNaN(Number(value.replace(/,/g, "")))) errors.push(field.validationMessage || `${fieldLabel} must be a number.`);
-    if (validationType === "currency" && Number.isNaN(Number(value.replace(/[$,]/g, "")))) errors.push(field.validationMessage || `${fieldLabel} must be a currency amount.`);
-    if (validationType === "date" && Number.isNaN(new Date(value).getTime())) errors.push(field.validationMessage || `${fieldLabel} must be a valid date.`);
-    if (validationType === "ssn" && !/^\d{3}-?\d{2}-?\d{4}$/.test(value)) errors.push(field.validationMessage || `${fieldLabel} must be a valid SSN format.`);
-    if (validationType === "custom" && field.validationPattern) {
+    const vt = field.validationType ?? "none";
+    if (vt === "name" && !/^[a-z ,.'-]+$/i.test(value)) errors.push(field.validationMessage || `${fieldLabel} must be a valid name.`);
+    if (vt === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) errors.push(field.validationMessage || `${fieldLabel} must be a valid email address.`);
+    if (vt === "phone" && value.replace(/\D+/g, "").length < 10) errors.push(field.validationMessage || `${fieldLabel} must be a valid phone number.`);
+    if (vt === "number" && Number.isNaN(Number(value.replace(/,/g, "")))) errors.push(field.validationMessage || `${fieldLabel} must be a number.`);
+    if (vt === "currency" && Number.isNaN(Number(value.replace(/[$,]/g, "")))) errors.push(field.validationMessage || `${fieldLabel} must be a currency amount.`);
+    if (vt === "percent" && (Number.isNaN(Number(value.replace(/%/g, ""))) || Number(value.replace(/%/g, "")) < 0 || Number(value.replace(/%/g, "")) > 100)) errors.push(field.validationMessage || `${fieldLabel} must be a percent between 0 and 100.`);
+    if (vt === "date" && Number.isNaN(new Date(value).getTime())) errors.push(field.validationMessage || `${fieldLabel} must be a valid date.`);
+    if (vt === "time" && !/^([01]?\d|2[0-3]):[0-5]\d(\s?(AM|PM))?$/i.test(value)) errors.push(field.validationMessage || `${fieldLabel} must be a valid time (e.g. 2:30 PM).`);
+    if (vt === "zip" && !/^\d{5}$/.test(value.replace(/\s/g, ""))) errors.push(field.validationMessage || `${fieldLabel} must be a 5-digit ZIP code.`);
+    if (vt === "zip4" && !/^\d{5}-\d{4}$/.test(value.replace(/\s/g, ""))) errors.push(field.validationMessage || `${fieldLabel} must be ZIP+4 format (12345-6789).`);
+    if (vt === "ssn" && !/^\d{3}-?\d{2}-?\d{4}$/.test(value)) errors.push(field.validationMessage || `${fieldLabel} must be a valid SSN format.`);
+    if (vt === "custom" && field.validationPattern) {
       try {
         if (!new RegExp(field.validationPattern).test(value)) errors.push(field.validationMessage || `${fieldLabel} is not in the expected format.`);
       } catch {

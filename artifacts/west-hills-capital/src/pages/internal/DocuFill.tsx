@@ -68,6 +68,8 @@ type DocItem = {
   updatedAt?: string;
 };
 
+type FieldInterviewMode = "required" | "optional" | "readonly" | "omitted";
+
 type FieldItem = {
   id: string;
   libraryFieldId?: string;
@@ -76,13 +78,11 @@ type FieldItem = {
   type: "text" | "radio" | "checkbox" | "dropdown" | "date";
   options?: string[];
   optionsMode?: "inherit" | "override";
-  interviewVisible: boolean;
-  adminOnly: boolean;
+  interviewMode: FieldInterviewMode;
   defaultValue: string;
   source: string;
   sensitive: boolean;
-  required?: boolean;
-  validationType?: "none" | "name" | "number" | "currency" | "email" | "phone" | "date" | "ssn" | "custom";
+  validationType?: "none" | "string" | "name" | "number" | "currency" | "email" | "phone" | "date" | "time" | "zip" | "zip4" | "ssn" | "percent" | "custom";
   validationPattern?: string;
   validationMessage?: string;
 };
@@ -330,17 +330,22 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     ...pkg,
     transaction_scope: normalizeTransactionScope(pkg.transaction_scope),
     documents: Array.isArray(pkg.documents) ? pkg.documents : [],
-    fields: Array.isArray(pkg.fields) ? pkg.fields.map((field) => ({
-      ...field,
-      libraryFieldId: field.libraryFieldId ?? "",
-      sensitive: field.sensitive === true,
-      required: field.required === true,
-      options: Array.isArray(field.options) ? field.options : undefined,
-      optionsMode: field.optionsMode === "inherit" || field.optionsMode === "override" ? field.optionsMode : field.libraryFieldId && (!Array.isArray(field.options) || field.options.length === 0) ? "inherit" : "override",
-      validationType: field.validationType ?? "none",
-      validationPattern: field.validationPattern ?? "",
-      validationMessage: field.validationMessage ?? "",
-    })) : [],
+    fields: Array.isArray(pkg.fields) ? pkg.fields.map((field) => {
+      const raw = field as FieldItem & { interviewVisible?: boolean; adminOnly?: boolean; required?: boolean };
+      const validModes: FieldInterviewMode[] = ["required", "optional", "readonly", "omitted"];
+      const legacyMode: FieldInterviewMode = (!raw.interviewVisible || raw.adminOnly) ? "omitted" : raw.required ? "required" : "optional";
+      return {
+        ...field,
+        libraryFieldId: field.libraryFieldId ?? "",
+        sensitive: field.sensitive === true,
+        interviewMode: validModes.includes(raw.interviewMode) ? raw.interviewMode : legacyMode,
+        options: Array.isArray(field.options) ? field.options : undefined,
+        optionsMode: field.optionsMode === "inherit" || field.optionsMode === "override" ? field.optionsMode : field.libraryFieldId && (!Array.isArray(field.options) || field.options.length === 0) ? "inherit" : "override",
+        validationType: field.validationType ?? "none",
+        validationPattern: field.validationPattern ?? "",
+        validationMessage: field.validationMessage ?? "",
+      };
+    }) : [],
     mappings: Array.isArray(pkg.mappings) ? pkg.mappings.map((mapping) => ({
       ...mapping,
       fontSize: Number(mapping.fontSize ?? 11),
@@ -462,17 +467,21 @@ export default function DocuFill() {
     if (!selectedPackage || !selectedDocument) return [];
     return selectedPackage.mappings.filter((m) => m.documentId === selectedDocument.id && (m.page ?? 1) === selectedPage);
   }, [selectedPackage, selectedDocument, selectedPage]);
-  const visibleInterviewFields = useMemo(() => session?.fields.filter((field) => field.interviewVisible) ?? [], [session]);
+  const fieldInInterview = (f: { interviewMode?: string; interviewVisible?: boolean }) =>
+    f.interviewMode ? f.interviewMode !== "omitted" : f.interviewVisible !== false;
+  const fieldIsRequired = (f: { interviewMode?: string; required?: boolean; interviewVisible?: boolean }) =>
+    f.interviewMode === "required" || (f.interviewMode === undefined && f.required === true && f.interviewVisible !== false);
+  const visibleInterviewFields = useMemo(() => session?.fields.filter(fieldInInterview) ?? [], [session]);
   const missingRequiredFields = useMemo(() => {
     if (!session) return [];
-    return visibleInterviewFields.filter((field) => field.required && !interviewFieldValue(field, answers, session.prefill).trim()).map((field) => field.name);
+    return visibleInterviewFields.filter((field) => fieldIsRequired(field) && !interviewFieldValue(field, answers, session.prefill).trim()).map((field) => field.name ?? field.id);
   }, [session, visibleInterviewFields, answers]);
-  const answeredFieldCount = visibleInterviewFields.filter((field) => interviewFieldValue(field, answers, session?.prefill).trim()).length;
+  const answeredFieldCount = visibleInterviewFields.filter((field) => field.interviewMode !== "readonly" && interviewFieldValue(field, answers, session?.prefill).trim()).length;
   const sessionBasePath = isPublicSession ? "/api/docufill/public/sessions" : "/api/internal/docufill/sessions";
   const sessionHeaders = isPublicSession ? {} : { ...getAuthHeaders() };
   const activePackages = packages.filter((pkg) => pkg.status === "active");
-  const packageInterviewFields = selectedPackage?.fields.filter((field) => field.interviewVisible) ?? [];
-  const packageFixedOrHiddenFields = selectedPackage?.fields.filter((field) => !field.interviewVisible || field.adminOnly || field.defaultValue.trim()) ?? [];
+  const packageInterviewFields = selectedPackage?.fields.filter((field) => field.interviewMode !== "omitted") ?? [];
+  const packageFixedOrHiddenFields = selectedPackage?.fields.filter((field) => field.interviewMode === "omitted") ?? [];
   const packageMappedFieldIds = new Set(selectedPackage?.mappings.map((mapping) => mapping.fieldId) ?? []);
   const unmappedPackageFields = selectedPackage?.fields.filter((field) => !packageMappedFieldIds.has(field.id)) ?? [];
 
@@ -885,13 +894,11 @@ export default function DocuFill() {
         name: libraryField.label,
         color: pickFieldColor(pkg.fields.map((f) => f.color), libraryField.sensitive),
         type: libraryField.type,
-      optionsMode: "inherit",
-        interviewVisible: true,
-        adminOnly: false,
+        optionsMode: "inherit",
+        interviewMode: libraryField.required ? "required" : "optional",
         defaultValue: "",
         source: libraryField.source,
         sensitive: libraryField.sensitive,
-        required: libraryField.required,
         validationType: libraryField.validationType,
         validationPattern: libraryField.validationPattern ?? "",
         validationMessage: libraryField.validationMessage ?? "",
@@ -1112,12 +1119,10 @@ export default function DocuFill() {
         color: pickFieldColor(pkg.fields.map((f) => f.color), false),
         type: "text",
         options: [],
-        interviewVisible: true,
-        adminOnly: false,
+        interviewMode: "optional",
         defaultValue: "",
         source: "interview",
         sensitive: false,
-        required: false,
         validationType: "none",
         validationPattern: "",
         validationMessage: "",
@@ -1148,6 +1153,52 @@ export default function DocuFill() {
     }));
     setSelectedFieldId(null);
     setSelectedMappingId(null);
+  }
+
+  function copyField(sourceFieldId: string) {
+    updateSelectedPackage((pkg) => {
+      const source = pkg.fields.find((f) => f.id === sourceFieldId);
+      if (!source) return pkg;
+      const copy: FieldItem = {
+        ...source,
+        id: newId("field"),
+        libraryFieldId: "",
+        name: `${source.name} (copy)`,
+        color: pickFieldColor(pkg.fields.map((f) => f.color), source.sensitive),
+        interviewMode: "optional",
+        defaultValue: "",
+      };
+      setSelectedFieldId(copy.id);
+      return { ...pkg, fields: [...pkg.fields, copy] };
+    });
+    setFormatMenu(null);
+  }
+
+  function duplicateMapping(sourceMappingId: string) {
+    updateSelectedPackage((pkg) => {
+      const srcMap = pkg.mappings.find((m) => m.id === sourceMappingId);
+      if (!srcMap) return pkg;
+      const srcField = srcMap.fieldId ? pkg.fields.find((f) => f.id === srcMap.fieldId) : undefined;
+      const newField: FieldItem | undefined = srcField ? {
+        ...srcField,
+        id: newId("field"),
+        libraryFieldId: "",
+        name: `${srcField.name} (copy)`,
+        color: pickFieldColor(pkg.fields.map((f) => f.color), srcField.sensitive),
+      } : undefined;
+      const newMapping = {
+        ...srcMap,
+        id: newId("mapping"),
+        fieldId: newField?.id ?? srcMap.fieldId,
+        x: Math.min(srcMap.x + 1, 95),
+        y: Math.min(srcMap.y + 1, 95),
+      };
+      const fields = newField ? [...pkg.fields, newField] : pkg.fields;
+      if (newField) setSelectedFieldId(newField.id);
+      setSelectedMappingId(newMapping.id);
+      return { ...pkg, fields, mappings: [...pkg.mappings, newMapping] };
+    });
+    setFormatMenu(null);
   }
 
   function moveField(fieldId: string, direction: -1 | 1) {
@@ -1288,24 +1339,29 @@ export default function DocuFill() {
 
   function validateInterviewAnswers(): string | null {
     if (!session) return null;
-    const visibleFields = session.fields.filter((field) => field.interviewVisible);
-    for (const field of visibleFields) {
+    const activeFields = session.fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly");
+    for (const field of activeFields) {
       const value = interviewFieldValue(field, answers, session.prefill).trim();
-      if (field.required && !value) return `${field.name} is required.`;
+      const label = field.name ?? field.id;
+      if (fieldIsRequired(field) && !value) return `${label} is required.`;
       if (!value) continue;
-      const validationType = field.validationType ?? "none";
-      if (validationType === "name" && !/^[a-z ,.'-]+$/i.test(value)) return field.validationMessage || `${field.name} must be a valid name.`;
-      if (validationType === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return field.validationMessage || `${field.name} must be a valid email.`;
-      if (validationType === "phone" && value.replace(/\D+/g, "").length < 10) return field.validationMessage || `${field.name} must be a valid phone number.`;
-      if (validationType === "number" && Number.isNaN(Number(value.replace(/,/g, "")))) return field.validationMessage || `${field.name} must be a number.`;
-      if (validationType === "currency" && Number.isNaN(Number(value.replace(/[$,]/g, "")))) return field.validationMessage || `${field.name} must be a currency amount.`;
-      if (validationType === "date" && Number.isNaN(new Date(value).getTime())) return field.validationMessage || `${field.name} must be a valid date.`;
-      if (validationType === "ssn" && !/^\d{3}-?\d{2}-?\d{4}$/.test(value)) return field.validationMessage || `${field.name} must be a valid SSN format.`;
-      if (validationType === "custom" && field.validationPattern) {
+      const vt = field.validationType ?? "none";
+      if (vt === "name" && !/^[a-z ,.'-]+$/i.test(value)) return field.validationMessage || `${label} must be a valid name.`;
+      if (vt === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return field.validationMessage || `${label} must be a valid email address.`;
+      if (vt === "phone" && value.replace(/\D+/g, "").length < 10) return field.validationMessage || `${label} must be a valid phone number.`;
+      if (vt === "number" && Number.isNaN(Number(value.replace(/,/g, "")))) return field.validationMessage || `${label} must be a number.`;
+      if (vt === "currency" && Number.isNaN(Number(value.replace(/[$,]/g, "")))) return field.validationMessage || `${label} must be a currency amount.`;
+      if (vt === "percent" && (Number.isNaN(Number(value.replace(/%/g, ""))) || Number(value.replace(/%/g, "")) < 0 || Number(value.replace(/%/g, "")) > 100)) return field.validationMessage || `${label} must be a percent between 0 and 100.`;
+      if (vt === "date" && Number.isNaN(new Date(value).getTime())) return field.validationMessage || `${label} must be a valid date.`;
+      if (vt === "time" && !/^([01]?\d|2[0-3]):[0-5]\d(\s?(AM|PM))?$/i.test(value)) return field.validationMessage || `${label} must be a valid time (e.g. 2:30 PM).`;
+      if (vt === "zip" && !/^\d{5}$/.test(value.replace(/\s/g, ""))) return field.validationMessage || `${label} must be a 5-digit ZIP code.`;
+      if (vt === "zip4" && !/^\d{5}-\d{4}$/.test(value.replace(/\s/g, ""))) return field.validationMessage || `${label} must be ZIP+4 format (12345-6789).`;
+      if (vt === "ssn" && !/^\d{3}-?\d{2}-?\d{4}$/.test(value)) return field.validationMessage || `${label} must be a valid SSN format.`;
+      if (vt === "custom" && field.validationPattern) {
         try {
-          if (!new RegExp(field.validationPattern).test(value)) return field.validationMessage || `${field.name} is not in the expected format.`;
+          if (!new RegExp(field.validationPattern).test(value)) return field.validationMessage || `${label} is not in the expected format.`;
         } catch {
-          return `${field.name} has an invalid validation pattern.`;
+          return `${label} has an invalid validation pattern.`;
         }
       }
     }
@@ -1757,7 +1813,7 @@ export default function DocuFill() {
                                     <span className="text-[10px] font-normal bg-orange-50 border border-orange-300 text-orange-700 rounded px-1.5 py-0.5 leading-none">Not on PDF — add placement in mapper</span>
                                   )}
                                 </div>
-                                <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.required ? "required" : "optional"}{field.validationType && field.validationType !== "none" ? ` · validates as ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
+                                <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.validationType && field.validationType !== "none" ? ` · ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
                               </div>
                             </div>
                           ))}
@@ -1766,13 +1822,13 @@ export default function DocuFill() {
                     </div>
                     <div className="space-y-3">
                       <div className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-                        <h3 className="text-sm font-semibold">Fixed, internal, or omitted</h3>
-                        <p className="text-xs text-[#8A9BB8] mb-3">These can still print on PDFs from defaults/prefill, but they will not become customer questions unless shown in the interview.</p>
+                        <h3 className="text-sm font-semibold">Omitted from interview</h3>
+                        <p className="text-xs text-[#8A9BB8] mb-3">These fields are set to Omitted. They can still print on PDFs using a default value or prefill — they just won't appear as questions.</p>
                         <div className="space-y-2 text-xs">
-                          {packageFixedOrHiddenFields.length === 0 ? <div className="text-[#8A9BB8]">None yet.</div> : packageFixedOrHiddenFields.map((field) => (
+                          {packageFixedOrHiddenFields.length === 0 ? <div className="text-[#8A9BB8]">None. All fields are shown in the interview.</div> : packageFixedOrHiddenFields.map((field) => (
                             <div key={field.id} className="rounded border border-[#EFE8D8] px-2 py-1">
                               <div className="font-medium">{field.name}</div>
-                              <div className="text-[#6B7A99]">{field.interviewVisible ? "Shown" : "Omitted"}{field.defaultValue ? " · fixed/default value" : ""}{field.adminOnly ? " · admin only" : ""}</div>
+                              <div className="text-[#6B7A99]">Omitted{field.defaultValue ? " · has default value" : " · no default"}{field.sensitive ? " · masked" : ""}</div>
                             </div>
                           ))}
                         </div>
@@ -2076,12 +2132,12 @@ export default function DocuFill() {
                     const options = mappingFormatOptionsForField(field);
                     return mapping ? (
                       <div
-                        className="fixed z-50 w-44 rounded-lg border border-[#D4C9B5] bg-white shadow-xl p-2"
-                        style={{ left: Math.min(formatMenu.x, window.innerWidth - 190), top: Math.min(formatMenu.y, window.innerHeight - 330) }}
+                        className="fixed z-50 w-52 rounded-lg border border-[#D4C9B5] bg-white shadow-xl p-2"
+                        style={{ left: Math.min(formatMenu.x, window.innerWidth - 220), top: Math.min(formatMenu.y, window.innerHeight - 380) }}
                         onClick={(event) => event.stopPropagation()}
                       >
                         <div className="px-2 pb-1 text-[11px] font-semibold text-[#0F1C3F]">Print this as</div>
-                        <div className="max-h-72 overflow-y-auto">
+                        <div className="max-h-60 overflow-y-auto">
                           {options.map((option) => (
                             <button
                               key={option.value}
@@ -2093,6 +2149,17 @@ export default function DocuFill() {
                               <span className="ml-1 text-[10px] text-[#8A9BB8]">{option.group}</span>
                             </button>
                           ))}
+                        </div>
+                        <div className="border-t border-[#EFE8D8] mt-1.5 pt-1.5 space-y-0.5">
+                          <div className="px-2 pb-0.5 text-[10px] uppercase tracking-wide text-[#8A9BB8]">Field actions</div>
+                          {field && (
+                            <button type="button" onClick={() => copyField(field.id)} className="block w-full rounded px-2 py-1.5 text-left text-xs text-[#334155] hover:bg-[#F8F6F0]">
+                              Copy field — same name &amp; validation, new placement
+                            </button>
+                          )}
+                          <button type="button" onClick={() => duplicateMapping(mapping.id)} className="block w-full rounded px-2 py-1.5 text-left text-xs text-[#334155] hover:bg-[#F8F6F0]">
+                            Duplicate — identical copy with offset placement
+                          </button>
                         </div>
                       </div>
                     ) : null;
@@ -2143,7 +2210,7 @@ export default function DocuFill() {
                           {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
                           {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
                         </div>
-                        <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewVisible ? "Interview" : "Admin default"}{field.required ? " · required" : ""}{field.sensitive ? " · masked" : ""}</div>
+                        <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
                       </button>
                       <div className="flex gap-1">
                         <button type="button" onClick={() => moveField(field.id, -1)} disabled={index === 0} className="rounded border border-[#DDD5C4] px-1.5 py-0.5 text-[10px] disabled:opacity-40">Up</button>
@@ -2189,24 +2256,36 @@ export default function DocuFill() {
                   <Input type={selectedField.sensitive ? "password" : "text"} placeholder="Default/admin value" value={selectedField.defaultValue} onChange={(e) => updateSelectedField({ defaultValue: e.target.value })} />
                   <div className="rounded border border-[#EFE8D8] bg-[#F8F6F0] p-2 space-y-2">
                     <div className="text-xs font-semibold">Validation</div>
-                    <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.required === true} onChange={(e) => updateSelectedField({ required: e.target.checked })} disabled={selectedFieldIsShared} /> Required before packet generation</label>
                     <select value={selectedField.validationType ?? "none"} onChange={(e) => updateSelectedField({ validationType: e.target.value as FieldItem["validationType"] })} disabled={selectedFieldIsShared} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white disabled:opacity-60">
                       <option value="none">No format rule</option>
+                      <option value="string">String (any text)</option>
                       <option value="name">Name</option>
                       <option value="number">Number</option>
-                      <option value="currency">Currency</option>
-                      <option value="email">Email</option>
+                      <option value="currency">Currency ($)</option>
+                      <option value="percent">Percent (0–100)</option>
+                      <option value="email">Email address</option>
                       <option value="phone">Phone</option>
                       <option value="date">Date</option>
-                      <option value="ssn">SSN</option>
+                      <option value="time">Time (HH:MM AM/PM)</option>
+                      <option value="zip">ZIP code (5 digits)</option>
+                      <option value="zip4">US ZIP+4 (12345-6789)</option>
+                      <option value="ssn">SSN (###-##-####)</option>
                       <option value="custom">Custom pattern</option>
                     </select>
                     {selectedField.validationType === "custom" && <Input placeholder="Regex pattern" value={selectedField.validationPattern ?? ""} onChange={(e) => updateSelectedField({ validationPattern: e.target.value })} disabled={selectedFieldIsShared} className="h-8 text-xs bg-white" />}
                     <Input placeholder="Custom validation message" value={selectedField.validationMessage ?? ""} onChange={(e) => updateSelectedField({ validationMessage: e.target.value })} disabled={selectedFieldIsShared} className="h-8 text-xs bg-white" />
                     {selectedFieldIsShared && <div className="text-[11px] text-[#8A9BB8]">Shared field rules are edited in the Shared Field Library. This package can still control options, visibility, defaults, color, mappings, and document placement.</div>}
                   </div>
-                  <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.interviewVisible} onChange={(e) => updateSelectedField({ interviewVisible: e.target.checked })} /> Show in interview</label>
-                  <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.sensitive} onChange={(e) => updateSelectedField({ sensitive: e.target.checked })} disabled={selectedFieldIsShared} /> Sensitive — mask in internal summaries</label>
+                  <label className="block">
+                    <span className="block text-[11px] text-[#6B7A99] mb-1">Interview behavior</span>
+                    <select value={selectedField.interviewMode} onChange={(e) => updateSelectedField({ interviewMode: e.target.value as FieldInterviewMode })} className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white">
+                      <option value="optional">Optional — staff fills in during interview</option>
+                      <option value="required">Required — must answer before generating packet</option>
+                      <option value="readonly">Read only — displayed but not editable (uses default/prefill)</option>
+                      <option value="omitted">Omitted — hidden from interview entirely</option>
+                    </select>
+                  </label>
+                  <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.sensitive} onChange={(e) => updateSelectedField({ sensitive: e.target.checked })} disabled={selectedFieldIsShared} /> Masked — hide unprotected data in interview</label>
                   <button onClick={() => removeField(selectedField.id)} className="text-xs text-red-600">Remove field</button>
                 </div>
               )}
@@ -2294,31 +2373,44 @@ export default function DocuFill() {
                 </div>
               </div>
               <div className="space-y-3">
-                {visibleInterviewFields.map((field) => (
-                  <label key={field.id} className="block border rounded p-3" style={{ borderColor: field.color }}>
+                {visibleInterviewFields.map((field) => {
+                  const mode = field.interviewMode ?? (fieldIsRequired(field) ? "required" : "optional");
+                  const isReadonly = mode === "readonly";
+                  const currentValue = interviewFieldValue(field, answers, session.prefill);
+                  return (
+                  <label key={field.id} className={`block border rounded p-3 ${isReadonly ? "opacity-75" : ""}`} style={{ borderColor: field.color }}>
                     <span className="flex items-center justify-between gap-2 text-sm font-medium mb-1">
                       <span>{field.name}</span>
-                      <span className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${field.required ? "bg-red-50 text-red-700 border border-red-100" : "bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8]"}`}>{field.required ? "Required" : "Optional"}</span>
+                      <span className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                        mode === "required" ? "bg-red-50 text-red-700 border border-red-100"
+                        : mode === "readonly" ? "bg-blue-50 text-blue-700 border border-blue-100"
+                        : "bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8]"
+                      }`}>{mode === "required" ? "Required" : mode === "readonly" ? "Read only" : "Optional"}</span>
                     </span>
-                    {field.type === "dropdown" ? (
-                      <select value={interviewFieldValue(field, answers, session.prefill)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
+                    {isReadonly ? (
+                      <div className="px-3 py-2 text-sm bg-[#F8F6F0] rounded border border-[#DDD5C4] text-[#334155]">
+                        {currentValue || <span className="text-[#8A9BB8] italic">—</span>}
+                      </div>
+                    ) : field.type === "dropdown" ? (
+                      <select value={currentValue} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
                         <option value="">Select</option>
                         {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
                       </select>
                     ) : field.type === "checkbox" ? (
-                      <div className="space-y-1">{((field.options ?? []).length ? field.options ?? [] : ["Yes"]).map((option) => <label key={option} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={interviewFieldValue(field, answers, session.prefill).split(", ").includes(option)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.checked ? [...interviewFieldValue(field, prev, session.prefill).split(", ").filter(Boolean), option].join(", ") : interviewFieldValue(field, prev, session.prefill).split(", ").filter((v) => v !== option).join(", ") }))} /> {option}</label>)}</div>
+                      <div className="space-y-1">{((field.options ?? []).length ? field.options ?? [] : ["Yes"]).map((option) => <label key={option} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={currentValue.split(", ").includes(option)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.checked ? [...interviewFieldValue(field, prev, session.prefill).split(", ").filter(Boolean), option].join(", ") : interviewFieldValue(field, prev, session.prefill).split(", ").filter((v) => v !== option).join(", ") }))} /> {option}</label>)}</div>
                     ) : (
-                      <Input type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"} value={interviewFieldValue(field, answers, session.prefill)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} />
+                      <Input type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"} value={currentValue} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} />
                     )}
                   </label>
-                ))}
+                  );
+                })}
               </div>
               <div className="rounded border border-[#DDD5C4] bg-white p-4">
                 <h3 className="text-sm font-semibold mb-2">Preview before send</h3>
                 <div className="grid sm:grid-cols-2 gap-2 text-xs text-[#6B7A99]">
                   {visibleInterviewFields.map((field) => {
                     const value = interviewFieldValue(field, answers, session.prefill).trim();
-                    return <div key={field.id}><span className="font-medium text-[#0F1C3F]">{field.name}:</span> {value ? safeInterviewDisplayValue(field, value) : <span className="text-[#B58B2B]">{field.required ? "Missing" : "Not provided"}</span>}</div>;
+                    return <div key={field.id}><span className="font-medium text-[#0F1C3F]">{field.name}:</span> {value ? safeInterviewDisplayValue(field, value) : <span className="text-[#B58B2B]">{field.interviewMode === "required" ? "Missing" : "Not provided"}</span>}</div>;
                   })}
                 </div>
               </div>
