@@ -3,9 +3,6 @@ import { createRequire } from "node:module";
 import { buildDocuFillFallbackSummaryRows, buildDocuFillPacketSummary, fieldAnswerValue, formatDocuFillMappedValue, hydratePackageFields } from "../artifacts/api-server/src/lib/docufill-redaction.ts";
 import { getDocuFillPrefillDisplayValue } from "../artifacts/west-hills-capital/src/lib/docufill-redaction.ts";
 
-const apiRequire = createRequire(new URL("../artifacts/api-server/package.json", import.meta.url));
-const { Client } = apiRequire("pg");
-
 const sensitiveValue = "123-45-6789";
 const accountValue = "IRA-9988776655";
 const publicValue = "Alice Investor";
@@ -145,6 +142,8 @@ assert.equal(explicitEmptyOverrideFields[0].optionsMode, "override");
 assert.deepEqual(explicitEmptyOverrideFields[0].options, []);
 
 if (process.env.DATABASE_URL) {
+  const apiRequire = createRequire(new URL("../artifacts/api-server/package.json", import.meta.url));
+  const { Client } = apiRequire("pg");
   const client = new Client({ connectionString: process.env.DATABASE_URL });
   await client.connect();
   try {

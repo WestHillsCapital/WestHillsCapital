@@ -26,6 +26,4 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Install api-server dependencies
-        run: npm install --prefix artifacts/api-server --omit=dev pg
       - run: node --experimental-transform-types scripts/validate-docufill-redaction.mjs
