@@ -186,6 +186,19 @@ function defaultMappingFormat(field: FieldItem): MappingItem["format"] {
   return "as-entered";
 }
 
+const FIELD_COLOR_PALETTE = [
+  "#2563EB", "#DC2626", "#16A34A", "#D97706", "#7C3AED",
+  "#0891B2", "#DB2777", "#65A30D", "#EA580C", "#4F46E5",
+  "#059669", "#B91C1C", "#1D4ED8", "#CA8A04", "#6D28D9",
+];
+
+function pickFieldColor(usedColors: string[], sensitive: boolean): string {
+  if (sensitive) return "#DC2626";
+  const available = FIELD_COLOR_PALETTE.filter((c) => !usedColors.includes(c));
+  const pool = available.length > 0 ? available : FIELD_COLOR_PALETTE;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string; group: string }> = [
   { value: "as-entered", label: "Whole answer", group: "Common" },
   { value: "first-name", label: "First", group: "Name" },
@@ -667,7 +680,7 @@ export default function DocuFill() {
         id: newId("field"),
         libraryFieldId: libraryField.id,
         name: libraryField.label,
-        color: libraryField.sensitive ? "#D94A4A" : "#8BC34A",
+        color: pickFieldColor(pkg.fields.map((f) => f.color), libraryField.sensitive),
         type: libraryField.type,
       optionsMode: "inherit",
         interviewVisible: true,
@@ -870,7 +883,7 @@ export default function DocuFill() {
         id: newId("field"),
         libraryFieldId: "",
         name: `Field ${pkg.fields.length + 1}`,
-        color: "#8BC34A",
+        color: pickFieldColor(pkg.fields.map((f) => f.color), false),
         type: "text",
         options: [],
         interviewVisible: true,
