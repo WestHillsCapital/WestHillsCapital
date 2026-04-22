@@ -493,7 +493,29 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
         const boxHeight = Math.max(fontSize + 2, (clampNumber(mapping.h, 10, 1, 100) / 100) * height);
         const maxWidth = Math.max(18, (clampNumber(mapping.w, 26, 2, 100) / 100) * width);
         const align = mapping.align === "center" || mapping.align === "right" ? mapping.align : "left";
-        const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize + 1));
+        // yDraw is the pdf-lib baseline y for the first line of printed text.
+        // pdf-lib uses a bottom-left origin; yTop is the top edge of the mapping box.
+        // The mapper preview uses CSS `flex-col justify-end` so content anchors to
+        // the bottom of each box — the PDF formula mirrors that for single-line fields.
+        //
+        // Three alignment modes:
+        //   • Single-line (default): baseline near the box bottom.
+        //       Formula: yTop - boxHeight + fontSize + 1
+        //       The "+1" gives ~1 pt bottom padding matching the mapper's paddingBottom: 2px.
+        //   • Tall/multiline box (boxHeight > fontSize × 2.5): first-line baseline near the
+        //       box top so wrapped lines flow downward inside the box.
+        //       Formula: yTop - fontSize - 2  (2 pt top padding)
+        //   • Checkbox (format === "checkbox-yes"): the "X" is vertically centred.
+        //       Formula: yTop - boxHeight/2 - fontSize * 0.35
+        //       (0.35 × fontSize offsets the baseline below the visual glyph midpoint)
+        const isCheckboxFormat = mapping.format === "checkbox-yes";
+        const isTallBox = boxHeight > fontSize * 2.5;
+        const rawYDraw = isCheckboxFormat
+          ? yTop - boxHeight / 2 - fontSize * 0.35
+          : isTallBox
+            ? yTop - fontSize - 2
+            : yTop - boxHeight + fontSize + 1;
+        const yDraw = Math.max(fontSize + 2, Math.min(height - 2, rawYDraw));
         drawWrappedText(page, mappedValue, x, yDraw, fontSize, font, maxWidth, align);
       });
     }
