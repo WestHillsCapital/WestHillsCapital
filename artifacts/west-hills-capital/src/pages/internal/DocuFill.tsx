@@ -471,7 +471,14 @@ export default function DocuFill() {
     f.interviewMode ? f.interviewMode !== "omitted" : f.interviewVisible !== false;
   const fieldIsRequired = (f: { interviewMode?: string; required?: boolean; interviewVisible?: boolean }) =>
     f.interviewMode === "required" || (f.interviewMode === undefined && f.required === true && f.interviewVisible !== false);
-  const visibleInterviewFields = useMemo(() => session?.fields.filter(fieldInInterview) ?? [], [session]);
+  const visibleInterviewFields = useMemo(() => {
+    const fields = session?.fields.filter(fieldInInterview) ?? [];
+    if (selectedPackage && selectedPackage.fields.length > 0) {
+      const orderMap = new Map(selectedPackage.fields.map((f, i) => [f.id, i]));
+      return [...fields].sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999));
+    }
+    return fields;
+  }, [session, selectedPackage]);
   const missingRequiredFields = useMemo(() => {
     if (!session) return [];
     return visibleInterviewFields.filter((field) => fieldIsRequired(field) && !interviewFieldValue(field, answers, session.prefill).trim()).map((field) => field.name ?? field.id);
