@@ -902,26 +902,29 @@ export default function DocuFill() {
     goBuilderStep("mapping");
   }
 
-  function goBuilderStep(step: BuilderStep) {
-    if (step === "interview" && selectedPackage) {
-      const docs = selectedPackage.documents;
-      const docIndexMap = new Map(docs.map((d, i) => [d.id, i]));
-      const firstMappingScore = (fieldId: string): number => {
-        let best = Infinity;
-        for (const m of selectedPackage.mappings) {
-          if (m.fieldId !== fieldId) continue;
-          const docIdx = docIndexMap.get(m.documentId ?? "") ?? 999;
-          const score = docIdx * 1_000_000 + (m.page ?? 1) * 10_000 + Math.round((m.y ?? 50) * 100);
-          if (score < best) best = score;
-        }
-        return best;
-      };
-      const scored = selectedPackage.fields.map((f) => ({ f, score: firstMappingScore(f.id) }));
-      const alreadySorted = scored.every((item, i) => i === 0 || scored[i - 1].score <= item.score);
-      if (!alreadySorted) {
-        scored.sort((a, b) => a.score - b.score);
-        updateSelectedPackage((pkg) => ({ ...pkg, fields: scored.map((item) => item.f) }));
+  function sortFieldsByPdfPosition(pkg: PackageItem): PackageItem {
+    const docIndexMap = new Map(pkg.documents.map((d, i) => [d.id, i]));
+    const firstMappingScore = (fieldId: string): number => {
+      let best = Infinity;
+      for (const m of pkg.mappings) {
+        if (m.fieldId !== fieldId) continue;
+        const docIdx = docIndexMap.get(m.documentId ?? "") ?? 999;
+        const score = docIdx * 1_000_000 + (m.page ?? 1) * 10_000 + Math.round((m.y ?? 50) * 100);
+        if (score < best) best = score;
       }
+      return best;
+    };
+    const scored = pkg.fields.map((f) => ({ f, score: firstMappingScore(f.id) }));
+    scored.sort((a, b) => a.score - b.score);
+    return { ...pkg, fields: scored.map((item) => item.f) };
+  }
+
+  function goBuilderStep(step: BuilderStep, opts: { autoSort?: boolean; saveFirst?: boolean } = {}) {
+    if (step === "interview" && opts.autoSort && selectedPackage) {
+      updateSelectedPackage((pkg) => sortFieldsByPdfPosition(pkg));
+    }
+    if (opts.saveFirst && selectedPackage) {
+      void savePackage(selectedPackage);
     }
     setBuilderStep(step);
     setTab(step === "mapping" ? "mapper" : "packages");
@@ -1729,7 +1732,7 @@ export default function DocuFill() {
                       <div className="flex items-center justify-between mb-1">
                         <h2 className="text-sm font-semibold">Generated interview questions</h2>
                         {packageInterviewFields.length > 1 && (
-                          <button type="button" onClick={() => goBuilderStep("interview")} className="text-xs text-[#6B7A99] border border-[#DDD5C4] rounded px-2 py-1 hover:border-[#C49A38] hover:text-[#C49A38] transition-colors">Sort by PDF order</button>
+                          <button type="button" onClick={() => goBuilderStep("interview", { autoSort: true })} className="text-xs text-[#6B7A99] border border-[#DDD5C4] rounded px-2 py-1 hover:border-[#C49A38] hover:text-[#C49A38] transition-colors">Sort by PDF order</button>
                         )}
                       </div>
                       <p className="text-xs text-[#8A9BB8] mb-3">Questions are ordered top-to-bottom by PDF position. Drag to reorder, or click “Sort by PDF order” to reset.</p>
@@ -1771,7 +1774,7 @@ export default function DocuFill() {
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <Button onClick={() => goBuilderStep("mapping")} variant="outline">Edit Mapping Rules</Button>
-                        <Button onClick={() => goBuilderStep("finalize")} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Continue to Finalize</Button>
+                        <Button onClick={() => goBuilderStep("finalize", { saveFirst: true })} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Continue to Finalize</Button>
                       </div>
                     </div>
                   </div>
@@ -2068,7 +2071,7 @@ export default function DocuFill() {
               </div>
               <div className="mt-4 flex flex-wrap justify-end gap-2">
                 <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : `Save ${selectedPackage.fields.length} Fields / ${selectedPackage.mappings.length} Placements`}</Button>
-                <Button onClick={() => goBuilderStep("interview")} variant="outline">Review Generated Interview</Button>
+                <Button onClick={() => goBuilderStep("interview", { autoSort: true })} variant="outline">Review Generated Interview</Button>
               </div>
             </section>
 
