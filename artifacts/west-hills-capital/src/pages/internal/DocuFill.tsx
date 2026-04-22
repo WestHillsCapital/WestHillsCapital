@@ -230,6 +230,31 @@ function labelForMappingFormat(format: MappingFormat | undefined) {
   return MAPPING_FORMAT_OPTIONS.find((option) => option.value === (format ?? "as-entered"))?.label ?? "Whole answer";
 }
 
+function inferFieldCategory(field: FieldItem): "name" | "first" | "last" | "address" | "city" | "state" | "zip" | "phone" | "email" | "ssn" | "dob" | "account" | "relationship" | "share" | "date" | "signature" | "general" {
+  const hay = [field.name, field.source, field.validationType ?? ""].join(" ").toLowerCase().replace(/[_-]/g, " ");
+  if (/\bssn\b|social.?sec/i.test(hay)) return "ssn";
+  if (/\bdob\b|date.?of.?birth|birth.?date/i.test(hay)) return "dob";
+  if (/\bzip\b|postal/i.test(hay)) return "zip";
+  if (/\bstate\b/.test(hay)) return "state";
+  if (/\bcity\b|town/.test(hay)) return "city";
+  if (/\baddress\b|street|addr/.test(hay)) return "address";
+  if (/\bphone\b|mobile|cell|fax/.test(hay)) return "phone";
+  if (/\bemail\b/.test(hay)) return "email";
+  if (/\baccount.?(num|#|no)\b/.test(hay)) return "account";
+  if (/\brelation(ship)?\b/.test(hay)) return "relationship";
+  if (/\bshare\b|percent|%/.test(hay)) return "share";
+  if (/\bsignature\b/.test(hay)) return "signature";
+  if (/\bfirst.?name\b/.test(hay)) return "first";
+  if (/\blast.?name\b/.test(hay)) return "last";
+  if (/\b(full.?)?name\b|client.?name/.test(hay)) return "name";
+  if (field.validationType === "name") return "name";
+  if (field.validationType === "phone") return "phone";
+  if (field.validationType === "email") return "email";
+  if (field.validationType === "ssn") return "ssn";
+  if (field.validationType === "date") return "date";
+  return "general";
+}
+
 function sampleValueForMapping(field: FieldItem | undefined, format: MappingFormat | undefined): string {
   if (!field) return "…";
   const fmt = format ?? "as-entered";
@@ -253,7 +278,7 @@ function sampleValueForMapping(field: FieldItem | undefined, format: MappingForm
   }
 
   if (field.type === "checkbox") return "X";
-  if (field.type === "date" || fmt === "date-mm-dd-yyyy") return "01/01/1970";
+  if (field.type === "date" || fmt === "date-mm-dd-yyyy" || field.validationType === "date") return "04/22/1965";
   if ((field.type === "radio" || field.type === "dropdown") && field.options && field.options.length > 0) return field.options[0];
 
   if (fmt === "first-name") return "Alice";
@@ -261,13 +286,30 @@ function sampleValueForMapping(field: FieldItem | undefined, format: MappingForm
   if (fmt === "middle-name") return "B.";
   if (fmt === "first-last") return "Alice Smith";
   if (fmt === "initials") return "A.B.S.";
-  if (fmt === "uppercase") return "ALICE B. SMITH";
-  if (fmt === "lowercase") return "alice b. smith";
   if (fmt === "digits-only") return "123456789";
   if (fmt === "last-four") return "1234";
   if (fmt === "currency") return "$50,000.00";
   if (fmt === "checkbox-yes") return "X";
-  return "Alice B. Smith";
+
+  const isUpper = fmt === "uppercase";
+  const isLower = fmt === "lowercase";
+  const cat = inferFieldCategory(field);
+  if (cat === "first") return isUpper ? "ALICE" : isLower ? "alice" : "Alice";
+  if (cat === "last") return isUpper ? "SMITH" : isLower ? "smith" : "Smith";
+  if (cat === "name" || cat === "signature") return isUpper ? "ALICE B. SMITH" : isLower ? "alice b. smith" : "Alice B. Smith";
+  if (cat === "address") return "123 Main St";
+  if (cat === "city") return "Wichita";
+  if (cat === "state") return "KS";
+  if (cat === "zip") return "67206";
+  if (cat === "phone") return "(316) 555-1234";
+  if (cat === "email") return "client@example.com";
+  if (cat === "ssn") return "123-45-6789";
+  if (cat === "dob") return "04/22/1965";
+  if (cat === "account") return "1234567890";
+  if (cat === "relationship") return "Spouse";
+  if (cat === "share") return "100%";
+  if (cat === "date") return "04/22/2026";
+  return isUpper ? "ALICE B. SMITH" : isLower ? "alice b. smith" : "Alice B. Smith";
 }
 
 function isNameLikeField(field: FieldItem | undefined) {
@@ -861,6 +903,26 @@ export default function DocuFill() {
   }
 
   function goBuilderStep(step: BuilderStep) {
+    if (step === "interview" && selectedPackage) {
+      const docs = selectedPackage.documents;
+      const docIndexMap = new Map(docs.map((d, i) => [d.id, i]));
+      const firstMappingScore = (fieldId: string): number => {
+        let best = Infinity;
+        for (const m of selectedPackage.mappings) {
+          if (m.fieldId !== fieldId) continue;
+          const docIdx = docIndexMap.get(m.documentId ?? "") ?? 999;
+          const score = docIdx * 1_000_000 + (m.page ?? 1) * 10_000 + Math.round((m.y ?? 50) * 100);
+          if (score < best) best = score;
+        }
+        return best;
+      };
+      const scored = selectedPackage.fields.map((f) => ({ f, score: firstMappingScore(f.id) }));
+      const alreadySorted = scored.every((item, i) => i === 0 || scored[i - 1].score <= item.score);
+      if (!alreadySorted) {
+        scored.sort((a, b) => a.score - b.score);
+        updateSelectedPackage((pkg) => ({ ...pkg, fields: scored.map((item) => item.f) }));
+      }
+    }
     setBuilderStep(step);
     setTab(step === "mapping" ? "mapper" : "packages");
   }
@@ -1664,8 +1726,13 @@ export default function DocuFill() {
                 {builderStep === "interview" && (
                   <div className="grid lg:grid-cols-[1fr_320px] gap-4">
                     <div className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-                      <h2 className="text-sm font-semibold mb-1">Generated interview questions</h2>
-                      <p className="text-xs text-[#8A9BB8] mb-3">DocuFill will ask only for fields marked “Show in interview.” One answer can still fill many PDF placements.</p>
+                      <div className="flex items-center justify-between mb-1">
+                        <h2 className="text-sm font-semibold">Generated interview questions</h2>
+                        {packageInterviewFields.length > 1 && (
+                          <button type="button" onClick={() => goBuilderStep("interview")} className="text-xs text-[#6B7A99] border border-[#DDD5C4] rounded px-2 py-1 hover:border-[#C49A38] hover:text-[#C49A38] transition-colors">Sort by PDF order</button>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#8A9BB8] mb-3">Questions are ordered top-to-bottom by PDF position. Drag to reorder, or click “Sort by PDF order” to reset.</p>
                       {packageInterviewFields.length === 0 ? <EmptyState message="No interview questions yet. Go back to Mapping Rules and mark fields that require customer or sales rep input." /> : (
                         <div className="space-y-1">
                           {packageInterviewFields.map((field, index) => (
