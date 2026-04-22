@@ -502,14 +502,14 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
         //   • Single-line (default): baseline near the box bottom.
         //       Formula: yTop - boxHeight + fontSize + 1
         //       The "+1" gives ~1 pt bottom padding matching the mapper's paddingBottom: 2px.
-        //   • Tall/multiline box (boxHeight > fontSize × 2.5): first-line baseline near the
+        //   • Tall/multiline box (boxHeight > fontSize × 5): first-line baseline near the
         //       box top so wrapped lines flow downward inside the box.
         //       Formula: yTop - fontSize - 2  (2 pt top padding)
         //   • Checkbox (format === "checkbox-yes"): the "X" is vertically centred.
         //       Formula: yTop - boxHeight/2 - fontSize * 0.35
         //       (0.35 × fontSize offsets the baseline below the visual glyph midpoint)
         const isCheckboxFormat = mapping.format === "checkbox-yes";
-        const isTallBox = boxHeight > fontSize * 2.5;
+        const isTallBox = boxHeight > fontSize * 5;
         const rawYDraw = isCheckboxFormat
           ? yTop - boxHeight / 2 - fontSize * 0.35
           : isTallBox

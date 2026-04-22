@@ -382,6 +382,7 @@ export default function DocuFill() {
   const mapperContainerRef = useRef<HTMLElement | null>(null);
   const [mapperContainerWidth, setMapperContainerWidth] = useState(800);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
+  const [interviewDragOverId, setInterviewDragOverId] = useState<string | null>(null);
   const [isPdfRendering, setIsPdfRendering] = useState(false);
   const [pdfRenderError, setPdfRenderError] = useState<string | null>(null);
   const documentPreviewCache = useRef<Record<string, string>>({});
@@ -1073,6 +1074,19 @@ export default function DocuFill() {
     });
   }
 
+  function moveFieldToIndex(draggedId: string, targetId: string) {
+    if (draggedId === targetId) return;
+    updateSelectedPackage((pkg) => {
+      const fields = [...pkg.fields];
+      const from = fields.findIndex((f) => f.id === draggedId);
+      const to = fields.findIndex((f) => f.id === targetId);
+      if (from < 0 || to < 0) return pkg;
+      const [item] = fields.splice(from, 1);
+      fields.splice(to, 0, item);
+      return { ...pkg, fields };
+    });
+  }
+
   function placeField() {
     if (!selectedField || !selectedDocument) return;
     addMappingForField(selectedField, 18 + (selectedPackage?.mappings.length ?? 0) % 5 * 12, 20 + (selectedPackage?.mappings.length ?? 0) % 8 * 8);
@@ -1630,18 +1644,22 @@ export default function DocuFill() {
                       <h2 className="text-sm font-semibold mb-1">Generated interview questions</h2>
                       <p className="text-xs text-[#8A9BB8] mb-3">DocuFill will ask only for fields marked “Show in interview.” One answer can still fill many PDF placements.</p>
                       {packageInterviewFields.length === 0 ? <EmptyState message="No interview questions yet. Go back to Mapping Rules and mark fields that require customer or sales rep input." /> : (
-                        <div className="space-y-2">
+                        <div className="space-y-1">
                           {packageInterviewFields.map((field, index) => (
-                            <div key={field.id} className="rounded border border-[#EFE8D8] bg-[#F8F6F0] p-3">
-                              <div className="flex items-start justify-between gap-3">
-                                <div>
-                                  <div className="text-sm font-medium">{index + 1}. {field.name}</div>
-                                  <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.required ? "required" : "optional"}{field.validationType && field.validationType !== "none" ? ` · validates as ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
-                                </div>
-                                <div className="flex gap-1">
-                                  <button type="button" onClick={() => moveField(field.id, -1)} className="rounded border border-[#D4C9B5] px-1.5 py-0.5 text-[10px]">Up</button>
-                                  <button type="button" onClick={() => moveField(field.id, 1)} className="rounded border border-[#D4C9B5] px-1.5 py-0.5 text-[10px]">Down</button>
-                                </div>
+                            <div
+                              key={field.id}
+                              draggable
+                              onDragStart={(e) => { e.dataTransfer.setData("text/interview-field", field.id); e.dataTransfer.effectAllowed = "move"; }}
+                              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setInterviewDragOverId(field.id); }}
+                              onDragLeave={() => setInterviewDragOverId(null)}
+                              onDrop={(e) => { e.preventDefault(); setInterviewDragOverId(null); const dragged = e.dataTransfer.getData("text/interview-field"); if (dragged) moveFieldToIndex(dragged, field.id); }}
+                              onDragEnd={() => setInterviewDragOverId(null)}
+                              className={`rounded border p-3 flex items-center gap-3 cursor-grab transition-colors ${interviewDragOverId === field.id ? "border-[#C49A38] bg-[#FDF8EE]" : "border-[#EFE8D8] bg-[#F8F6F0]"}`}
+                            >
+                              <svg className="w-4 h-4 text-[#C4B99A] shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M7 2a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4zM7 8a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4zM7 14a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4z"/></svg>
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium">{index + 1}. {field.name}</div>
+                                <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.required ? "required" : "optional"}{field.validationType && field.validationType !== "none" ? ` · validates as ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
                               </div>
                             </div>
                           ))}
@@ -1836,7 +1854,7 @@ export default function DocuFill() {
                     const isSelected = selectedMapping?.id === m.id;
                     const mFontSize = m.fontSize ?? 11;
                     const boxHeightPts = (m.h / 100) * nativePageH;
-                    const isMultiline = boxHeightPts > mFontSize * 2.5;
+                    const isMultiline = boxHeightPts > mFontSize * 5;
                     return (
                       <button
                         key={m.id}
