@@ -489,7 +489,7 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
         const { width, height } = page.getSize();
         const x = Math.max(0, Math.min(width - 12, (Number(mapping.x ?? 0) / 100) * width));
         const yTop = height - (Number(mapping.y ?? 0) / 100) * height;
-        const fontSize = clampNumber(mapping.fontSize, 9, 5, 24);
+        const fontSize = clampNumber(mapping.fontSize, 11, 5, 24);
         const boxHeight = Math.max(fontSize + 2, (clampNumber(mapping.h, 10, 1, 100) / 100) * height);
         const maxWidth = Math.max(18, (clampNumber(mapping.w, 26, 2, 100) / 100) * width);
         const align = mapping.align === "center" || mapping.align === "right" ? mapping.align : "left";

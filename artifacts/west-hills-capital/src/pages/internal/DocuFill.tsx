@@ -295,7 +295,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     })) : [],
     mappings: Array.isArray(pkg.mappings) ? pkg.mappings.map((mapping) => ({
       ...mapping,
-      fontSize: Number(mapping.fontSize ?? 9),
+      fontSize: Number(mapping.fontSize ?? 11),
       align: mapping.align ?? "left",
       format: mapping.format ?? "as-entered",
     })) : [],
@@ -1092,7 +1092,7 @@ export default function DocuFill() {
         y: clampPercent(y, 0, 94),
         w: 26,
         h: 6,
-        fontSize: 9,
+        fontSize: 11,
         align: "left",
         format: defaultMappingFormat(field),
       }],
@@ -1834,7 +1834,7 @@ export default function DocuFill() {
                   {pageMappings.map((m) => {
                     const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
                     const isSelected = selectedMapping?.id === m.id;
-                    const mFontSize = m.fontSize ?? 9;
+                    const mFontSize = m.fontSize ?? 11;
                     const boxHeightPts = (m.h / 100) * nativePageH;
                     const isMultiline = boxHeightPts > mFontSize * 2.5;
                     return (
@@ -2038,7 +2038,7 @@ export default function DocuFill() {
                     <p className="text-[11px] text-[#8A9BB8]">Drag on the PDF to move. Right-click the field to choose First, Last, Initials, or another print variant.</p>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <Input type="number" min={5} max={24} value={selectedMapping.fontSize ?? 9} onChange={(e) => updateSelectedMapping({ fontSize: Number(e.target.value) })} className="h-8 text-xs" />
+                    <Input type="number" min={5} max={24} value={selectedMapping.fontSize ?? 11} onChange={(e) => updateSelectedMapping({ fontSize: Number(e.target.value) })} className="h-8 text-xs" />
                     <select value={selectedMapping.align ?? "left"} onChange={(e) => updateSelectedMapping({ align: e.target.value as MappingItem["align"] })} className="border border-[#D4C9B5] rounded px-2 py-1 text-xs">
                       <option value="left">Left</option>
                       <option value="center">Center</option>
