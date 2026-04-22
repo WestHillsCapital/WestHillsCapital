@@ -551,8 +551,9 @@ export default function DocuFill() {
     mapperRoRef.current = ro;
   }, []);
 
+  const isMapperVisible = tab === "mapper";
   useEffect(() => {
-    if (!documentPreviewUrl) return;
+    if (!isMapperVisible || !documentPreviewUrl) return;
     let cancelled = false;
     if (renderTaskRef.current) {
       renderTaskRef.current.cancel();
@@ -574,12 +575,12 @@ export default function DocuFill() {
         const page = await doc.getPage(selectedPage);
         if (cancelled) return;
         const canvas = canvasRef.current;
-        if (!canvas) return;
+        if (!canvas) { setIsPdfRendering(false); return; }
         const viewport = page.getViewport({ scale: 1.0 });
         canvas.width = Math.round(viewport.width);
         canvas.height = Math.round(viewport.height);
         const ctx = canvas.getContext("2d");
-        if (!ctx || cancelled) return;
+        if (!ctx || cancelled) { setIsPdfRendering(false); return; }
         const renderTask = page.render({ canvas, canvasContext: ctx, viewport });
         renderTaskRef.current = renderTask;
         await renderTask.promise;
@@ -599,7 +600,7 @@ export default function DocuFill() {
         renderTaskRef.current = null;
       }
     };
-  }, [documentPreviewUrl, selectedPage]);
+  }, [isMapperVisible, documentPreviewUrl, selectedPage]);
 
   async function savePackage(pkg: PackageItem) {
     setIsSaving(true);
