@@ -494,12 +494,6 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
         const maxWidth = Math.max(18, (clampNumber(mapping.w, 26, 2, 100) / 100) * width);
         const align = mapping.align === "center" || mapping.align === "right" ? mapping.align : "left";
         const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize + 1));
-        page.drawLine({
-          start: { x, y: yDraw - 1 },
-          end: { x: Math.min(width, x + maxWidth), y: yDraw - 1 },
-          thickness: 0.4,
-          color: rgb(0.78, 0.78, 0.78),
-        });
         drawWrappedText(page, mappedValue, x, yDraw, fontSize, font, maxWidth, align);
       });
     }
