@@ -221,6 +221,46 @@ function labelForMappingFormat(format: MappingFormat | undefined) {
   return MAPPING_FORMAT_OPTIONS.find((option) => option.value === (format ?? "as-entered"))?.label ?? "Whole answer";
 }
 
+function sampleValueForMapping(field: FieldItem | undefined, format: MappingFormat | undefined): string {
+  if (!field) return "…";
+  const fmt = format ?? "as-entered";
+
+  const FALSE_LIKE = /^(no|false|0|off|n)$/i;
+
+  if (field.defaultValue) {
+    if (fmt === "checkbox-yes") return FALSE_LIKE.test(field.defaultValue.trim()) ? "" : (field.defaultValue.trim() ? "X" : "");
+    if (fmt === "first-name") return field.defaultValue.trim().split(/\s+/)[0] ?? field.defaultValue;
+    if (fmt === "last-name") { const parts = field.defaultValue.trim().split(/\s+/); return parts[parts.length - 1] ?? field.defaultValue; }
+    if (fmt === "middle-name") { const parts = field.defaultValue.trim().split(/\s+/); return parts.length >= 3 ? parts[1] : ""; }
+    if (fmt === "first-last") { const parts = field.defaultValue.trim().split(/\s+/); return parts.length >= 2 ? `${parts[0]} ${parts[parts.length - 1]}` : field.defaultValue; }
+    if (fmt === "initials") return field.defaultValue.trim().split(/\s+/).map((p) => p[0]?.toUpperCase() ?? "").filter(Boolean).join(".") + ".";
+    if (fmt === "uppercase") return field.defaultValue.toUpperCase();
+    if (fmt === "lowercase") return field.defaultValue.toLowerCase();
+    if (fmt === "digits-only") return field.defaultValue.replace(/\D/g, "");
+    if (fmt === "last-four") return field.defaultValue.replace(/\D/g, "").slice(-4);
+    if (fmt === "currency") { const n = parseFloat(field.defaultValue.replace(/[^\d.]/g, "")); return isNaN(n) ? field.defaultValue : `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
+    if (fmt === "date-mm-dd-yyyy") return field.defaultValue;
+    return field.defaultValue;
+  }
+
+  if (field.type === "checkbox") return "X";
+  if (field.type === "date" || fmt === "date-mm-dd-yyyy") return "01/01/1970";
+  if ((field.type === "radio" || field.type === "dropdown") && field.options && field.options.length > 0) return field.options[0];
+
+  if (fmt === "first-name") return "Alice";
+  if (fmt === "last-name") return "Smith";
+  if (fmt === "middle-name") return "B.";
+  if (fmt === "first-last") return "Alice Smith";
+  if (fmt === "initials") return "A.B.S.";
+  if (fmt === "uppercase") return "ALICE B. SMITH";
+  if (fmt === "lowercase") return "alice b. smith";
+  if (fmt === "digits-only") return "123456789";
+  if (fmt === "last-four") return "1234";
+  if (fmt === "currency") return "$50,000.00";
+  if (fmt === "checkbox-yes") return "X";
+  return "Alice B. Smith";
+}
+
 function isNameLikeField(field: FieldItem | undefined) {
   if (!field) return false;
   const text = [field.name, field.source, field.validationType].join(" ").toLowerCase();
@@ -1700,6 +1740,7 @@ export default function DocuFill() {
                           <span className="block leading-tight">{field?.name ?? "Field"}</span>
                           <span className="block text-[9px] uppercase tracking-wide text-[#6B7A99]">{labelForMappingFormat(m.format)}</span>
                           <div style={{ borderBottom: "0.4px solid #c8c8c8", marginTop: "1px" }} />
+                          <span className="block leading-tight italic truncate" style={{ color: "#9AAAC0", opacity: 0.85 }}>{sampleValueForMapping(field, m.format)}</span>
                         </div>
                         {isSelected && (
                           <span
