@@ -1948,7 +1948,7 @@ export default function DocuFill() {
                   </select>
                 </label>
               )}
-              <div className="space-y-2 overflow-y-auto flex-1">
+              <div className="space-y-2 overflow-y-auto max-h-[220px]">
                 {selectedPackage.fields.map((field, index) => (
                   <div
                     key={field.id}
