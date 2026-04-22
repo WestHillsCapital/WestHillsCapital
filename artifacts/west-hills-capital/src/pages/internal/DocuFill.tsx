@@ -381,7 +381,9 @@ export default function DocuFill() {
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
   const mapperContainerRef = useRef<HTMLElement | null>(null);
   const [mapperContainerWidth, setMapperContainerWidth] = useState(800);
+  const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
   const [isPdfRendering, setIsPdfRendering] = useState(false);
+  const [pdfRenderError, setPdfRenderError] = useState<string | null>(null);
   const documentPreviewCache = useRef<Record<string, string>>({});
   const documentPreviewCacheOrder = useRef<string[]>([]);
 
@@ -399,7 +401,7 @@ export default function DocuFill() {
     : "612 / 792";
   const nativePageW = selectedPageSize?.width && selectedPageSize.width > 0 ? selectedPageSize.width : 612;
   const nativePageH = selectedPageSize?.height && selectedPageSize.height > 0 ? selectedPageSize.height : 792;
-  const mapperMaxH = 880;
+  const mapperMaxH = Math.round(viewportHeight * 0.88);
   const mapperMaxW = Math.max(320, mapperContainerWidth - 2);
   const mapperScale = Math.min(mapperMaxH / nativePageH, mapperMaxW / nativePageW);
   const mapperFrameW = Math.round(nativePageW * mapperScale);
@@ -522,6 +524,19 @@ export default function DocuFill() {
     };
   }, []);
 
+  useEffect(() => {
+    const onResize = () => setViewportHeight(window.innerHeight);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (renderTaskRef.current) { renderTaskRef.current.cancel(); renderTaskRef.current = null; }
+      if (pdfDocRef.current) { pdfDocRef.current.destroy().catch(() => {}); pdfDocRef.current = null; }
+    };
+  }, []);
+
   const mapperRoRef = useRef<ResizeObserver | null>(null);
   const setMapperContainerEl = useCallback((el: HTMLElement | null) => {
     mapperContainerRef.current = el;
@@ -544,6 +559,7 @@ export default function DocuFill() {
       renderTaskRef.current = null;
     }
     setIsPdfRendering(true);
+    setPdfRenderError(null);
     (async () => {
       try {
         let doc = pdfDocRef.current;
@@ -569,8 +585,11 @@ export default function DocuFill() {
         await renderTask.promise;
         renderTaskRef.current = null;
         if (!cancelled) setIsPdfRendering(false);
-      } catch {
-        if (!cancelled) setIsPdfRendering(false);
+      } catch (err) {
+        if (!cancelled) {
+          setIsPdfRendering(false);
+          setPdfRenderError(err instanceof Error ? err.message : "Failed to render PDF preview");
+        }
       }
     })();
     return () => {
@@ -1792,6 +1811,12 @@ export default function DocuFill() {
                       {isPdfRendering && (
                         <div className="absolute inset-0 bg-white/60 flex items-center justify-center pointer-events-none">
                           <div className="w-6 h-6 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      )}
+                      {pdfRenderError && !isPdfRendering && (
+                        <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center gap-2 pointer-events-none">
+                          <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 3a9 9 0 110 18A9 9 0 0112 3z" /></svg>
+                          <span className="text-xs text-red-600 text-center px-4">{pdfRenderError}</span>
                         </div>
                       )}
                     </>
