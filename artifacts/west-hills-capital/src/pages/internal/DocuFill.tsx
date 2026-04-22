@@ -1414,12 +1414,13 @@ export default function DocuFill() {
                     >
                       <div className="text-sm font-semibold text-[#0F1C3F]">Drag and drop multiple PDFs here</div>
                       <p className="mt-1 text-xs text-[#6B7A99]">Drop all paperwork documents at once. DocuFill will upload them in order and add each file to this package.</p>
-                      <label className="mt-3 inline-flex cursor-pointer rounded border border-[#D4C9B5] bg-white px-3 py-2 text-xs font-medium text-[#0F1C3F]">
-                        Browse PDF files
+                      <label className={`mt-3 inline-flex rounded border border-[#D4C9B5] bg-white px-3 py-2 text-xs font-medium text-[#0F1C3F] ${isUploadingDocument ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer"}`}>
+                        {isUploadingDocument ? "Uploading…" : "Browse PDF files"}
                         <input
                           type="file"
                           accept="application/pdf"
                           multiple
+                          disabled={isUploadingDocument}
                           className="sr-only"
                           onChange={(e) => {
                             if (e.target.files?.length) uploadDocuments(e.target.files);
@@ -1428,7 +1429,7 @@ export default function DocuFill() {
                         />
                       </label>
                     </div>
-                    {isUploadingDocument && <div className="text-xs text-[#6B7A99]">Uploading PDF documents…</div>}
+                    {isUploadingDocument && <div className="text-xs text-[#6B7A99]">Uploading PDF documents, please wait…</div>}
                     {selectedPackage.documents.length === 0 ? (
                       <EmptyState message="Upload the New Direction PDFs here, then arrange them into the order West Hills wants customers to receive them." />
                     ) : (
@@ -1565,11 +1566,12 @@ export default function DocuFill() {
             <section className="bg-white border border-[#DDD5C4] rounded-lg p-3 flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-semibold">Documents</h2>
-                <label className="text-xs text-[#C49A38] cursor-pointer">
-                  Add
+                <label className={`text-xs ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
+                  {isUploadingDocument ? "Uploading…" : "Add"}
                   <input
                     type="file"
                     accept="application/pdf"
+                    disabled={isUploadingDocument}
                     className="sr-only"
                     onChange={(e) => {
                       const file = e.target.files?.[0];
@@ -1692,9 +1694,10 @@ export default function DocuFill() {
                           paddingRight: "2px",
                         }}
                       >
-                        <div className="pointer-events-none w-full" style={{ borderTop: "0.4px solid #c8c8c8" }}>
+                        <div className="pointer-events-none w-full">
                           <span className="block leading-tight">{field?.name ?? "Field"}</span>
                           <span className="block text-[9px] uppercase tracking-wide text-[#6B7A99]">{labelForMappingFormat(m.format)}</span>
+                          <div style={{ borderBottom: "0.4px solid #c8c8c8", marginTop: "1px" }} />
                         </div>
                         {isSelected && (
                           <span
