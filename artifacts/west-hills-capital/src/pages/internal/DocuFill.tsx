@@ -1461,11 +1461,12 @@ export default function DocuFill() {
                             <div className="flex flex-wrap gap-2 mt-2">
                               <button onClick={() => moveDocument(doc.id, -1)} disabled={index === 0} className="text-[11px] text-[#6B7A99] disabled:opacity-40">Move up</button>
                               <button onClick={() => moveDocument(doc.id, 1)} disabled={index === selectedPackage.documents.length - 1} className="text-[11px] text-[#6B7A99] disabled:opacity-40">Move down</button>
-                              <label className="text-[11px] text-[#C49A38] cursor-pointer">
-                                Replace PDF
+                              <label className={`text-[11px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
+                                {isUploadingDocument ? "Uploading…" : "Replace PDF"}
                                 <input
                                   type="file"
                                   accept="application/pdf"
+                                  disabled={isUploadingDocument}
                                   className="sr-only"
                                   onChange={(e) => {
                                     const file = e.target.files?.[0];
@@ -1612,11 +1613,12 @@ export default function DocuFill() {
                     <div className="flex gap-1 mt-1">
                       <button onClick={() => moveDocument(doc.id, -1)} className="text-[11px] text-[#6B7A99]">Up</button>
                       <button onClick={() => moveDocument(doc.id, 1)} className="text-[11px] text-[#6B7A99]">Down</button>
-                      <label className="text-[11px] text-[#C49A38] cursor-pointer">
-                        Replace
+                      <label className={`text-[11px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
+                        {isUploadingDocument ? "Uploading…" : "Replace"}
                         <input
                           type="file"
                           accept="application/pdf"
+                          disabled={isUploadingDocument}
                           className="sr-only"
                           onChange={(e) => {
                             const file = e.target.files?.[0];
