@@ -212,7 +212,8 @@ function normalizeFieldType(value: unknown): string {
 
 function normalizeValidationType(value: unknown): string {
   const text = cleanText(value);
-  return ["none", "name", "number", "currency", "email", "phone", "date", "ssn", "custom"].includes(text) ? text : "none";
+  const valid = new Set(["none", "string", "name", "number", "currency", "email", "phone", "date", "time", "zip", "zip4", "ssn", "percent", "custom"]);
+  return valid.has(text) ? text : "none";
 }
 
 function normalizeSortOrder(value: unknown): number {

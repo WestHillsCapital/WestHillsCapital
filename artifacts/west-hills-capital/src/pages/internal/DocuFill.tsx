@@ -2086,7 +2086,7 @@ export default function DocuFill() {
                         onPointerDown={(e) => beginMappingPointer(e, m, "move")}
                         onClick={() => { setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); }}
                         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); setFormatMenu({ mappingId: m.id, x: e.clientX, y: e.clientY }); }}
-                        className={`absolute rounded cursor-move flex flex-col justify-end overflow-hidden ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "border-2 bg-white/90 shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
+                        className={`absolute rounded cursor-move flex flex-col overflow-hidden ${isMultiline ? "justify-start" : "justify-end"} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "border-2 bg-white/90 shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
                         style={{
                           left: `${m.x}%`,
                           top: `${m.y}%`,
@@ -2097,7 +2097,8 @@ export default function DocuFill() {
                           backgroundColor: mapperTextMode ? (isSelected ? fieldColor + "18" : "transparent") : "rgba(255,255,255,0.9)",
                           fontSize: `${mFontSize}px`,
                           textAlign: m.align ?? "left",
-                          paddingBottom: "2px",
+                          paddingTop: isMultiline ? "2px" : undefined,
+                          paddingBottom: isMultiline ? undefined : "2px",
                           paddingLeft: "2px",
                           paddingRight: "2px",
                           zIndex: 2,
