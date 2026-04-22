@@ -103,6 +103,12 @@ type FieldLibraryItem = {
   sortOrder: number;
 };
 
+type AcroAnnotation = {
+  fieldName: string;
+  rect: [number, number, number, number];
+  fieldType: string;
+};
+
 type MappingFormat =
   | "as-entered"
   | "uppercase"
@@ -383,6 +389,9 @@ export default function DocuFill() {
   const [mapperContainerWidth, setMapperContainerWidth] = useState(800);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
   const [interviewDragOverId, setInterviewDragOverId] = useState<string | null>(null);
+  const [acroAnnotations, setAcroAnnotations] = useState<AcroAnnotation[]>([]);
+  const [showAcroLayer, setShowAcroLayer] = useState(true);
+  const [mapperTextMode, setMapperTextMode] = useState(true);
   const [isPdfRendering, setIsPdfRendering] = useState(false);
   const [pdfRenderError, setPdfRenderError] = useState<string | null>(null);
   const documentPreviewCache = useRef<Record<string, string>>({});
@@ -554,7 +563,7 @@ export default function DocuFill() {
 
   const isMapperVisible = tab === "mapper";
   useEffect(() => {
-    if (!isMapperVisible || !documentPreviewUrl) return;
+    if (!isMapperVisible || !documentPreviewUrl) { setAcroAnnotations([]); return; }
     let cancelled = false;
     if (renderTaskRef.current) {
       renderTaskRef.current.cancel();
@@ -586,7 +595,21 @@ export default function DocuFill() {
         renderTaskRef.current = renderTask;
         await renderTask.promise;
         renderTaskRef.current = null;
-        if (!cancelled) setIsPdfRendering(false);
+        if (cancelled) return;
+        setIsPdfRendering(false);
+        const rawAnnotations = await page.getAnnotations();
+        if (cancelled) return;
+        const widgets: AcroAnnotation[] = [];
+        for (const ann of rawAnnotations) {
+          const a = ann as Record<string, unknown>;
+          if (a["subtype"] !== "Widget") continue;
+          const r = a["rect"];
+          if (!Array.isArray(r) || r.length < 4) continue;
+          const [x1, y1, x2, y2] = r.map(Number);
+          if (x2 - x1 < 2 || y2 - y1 < 2) continue;
+          widgets.push({ fieldName: String(a["fieldName"] ?? a["alternativeText"] ?? ""), rect: [x1, y1, x2, y2], fieldType: String(a["fieldType"] ?? "") });
+        }
+        setAcroAnnotations(widgets);
       } catch (err) {
         if (!cancelled) {
           setIsPdfRendering(false);
@@ -1795,10 +1818,21 @@ export default function DocuFill() {
                   <h2 className="text-sm font-semibold">Assign Package Fields and Rules</h2>
                   <p className="text-xs text-[#8A9BB8]">Place fields on PDFs, then decide which are required, fixed/defaulted, validated, or omitted from the generated interview.</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <button type="button" onClick={() => setSelectedPage((page) => Math.max(1, page - 1))} disabled={!selectedDocument || selectedPage <= 1} className="text-xs border border-[#D4C9B5] rounded px-2 py-1 disabled:opacity-40">Prev</button>
                   <span className="text-xs text-[#6B7A99]">Page {selectedPage} of {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
                   <button type="button" onClick={() => setSelectedPage((page) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), page + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument.pages, 1)} className="text-xs border border-[#D4C9B5] rounded px-2 py-1 disabled:opacity-40">Next</button>
+                  <div className="h-4 w-px bg-[#DDD5C4]" />
+                  <div className="flex rounded border border-[#D4C9B5] overflow-hidden text-xs">
+                    <button type="button" onClick={() => setMapperTextMode(true)} className={`px-2 py-1 leading-none ${mapperTextMode ? "bg-[#C49A38] text-black font-medium" : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}>Text</button>
+                    <button type="button" onClick={() => setMapperTextMode(false)} className={`px-2 py-1 leading-none border-l border-[#D4C9B5] ${!mapperTextMode ? "bg-[#C49A38] text-black font-medium" : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}>Labels</button>
+                  </div>
+                  {documentPreviewUrl && acroAnnotations.length > 0 && (
+                    <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-xs border rounded px-2 py-1 leading-none transition-colors ${showAcroLayer ? "border-blue-300 bg-blue-50 text-blue-700" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]"}`}>
+                      PDF Fields {showAcroLayer ? "on" : "off"}
+                    </button>
+                  )}
+                  <div className="h-4 w-px bg-[#DDD5C4]" />
                   <Button onClick={placeField} disabled={!selectedField || !selectedDocument} className="bg-[#C49A38] hover:bg-[#b58c31] text-black">Add Field to Page</Button>
                 </div>
               </div>
@@ -1849,12 +1883,39 @@ export default function DocuFill() {
                       )}
                     </div>
                   )}
+                  {showAcroLayer && !isPdfRendering && acroAnnotations.map((ann, i) => {
+                    const [x1, y1, x2, y2] = ann.rect;
+                    return (
+                      <div
+                        key={i}
+                        className="absolute pointer-events-none"
+                        style={{
+                          left: `${(x1 / nativePageW) * 100}%`,
+                          top: `${((nativePageH - y2) / nativePageH) * 100}%`,
+                          width: `${((x2 - x1) / nativePageW) * 100}%`,
+                          height: `${((y2 - y1) / nativePageH) * 100}%`,
+                          border: "1px dashed rgba(37,99,235,0.45)",
+                          backgroundColor: "rgba(37,99,235,0.04)",
+                          boxSizing: "border-box",
+                          zIndex: 1,
+                        }}
+                        title={ann.fieldName || `PDF ${ann.fieldType || "field"}`}
+                      >
+                        {ann.fieldName ? (
+                          <span className="block overflow-hidden whitespace-nowrap select-none leading-none" style={{ fontSize: "6px", color: "rgba(37,99,235,0.6)", paddingLeft: "1px", paddingTop: "1px" }}>
+                            {ann.fieldName}
+                          </span>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                   {pageMappings.map((m) => {
                     const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
                     const isSelected = selectedMapping?.id === m.id;
                     const mFontSize = m.fontSize ?? 11;
                     const boxHeightPts = (m.h / 100) * nativePageH;
                     const isMultiline = boxHeightPts > mFontSize * 5;
+                    const fieldColor = field?.color ?? "#C49A38";
                     return (
                       <button
                         key={m.id}
@@ -1862,45 +1923,44 @@ export default function DocuFill() {
                         onPointerDown={(e) => beginMappingPointer(e, m, "move")}
                         onClick={() => { setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); }}
                         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); setFormatMenu({ mappingId: m.id, x: e.clientX, y: e.clientY }); }}
-                        className={`absolute border-2 bg-white/90 rounded shadow cursor-move flex flex-col justify-end overflow-hidden ${isSelected ? "ring-2 ring-[#C49A38]/50" : ""}`}
+                        className={`absolute rounded cursor-move flex flex-col justify-end overflow-hidden ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "border-2 bg-white/90 shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
                         style={{
                           left: `${m.x}%`,
                           top: `${m.y}%`,
                           width: `${m.w}%`,
                           height: `${m.h}%`,
                           minHeight: "20px",
-                          borderColor: field?.color ?? "#C49A38",
+                          border: mapperTextMode ? `1px ${isSelected ? "solid" : "dashed"} ${fieldColor}${isSelected ? "" : "80"}` : `2px solid ${fieldColor}`,
+                          backgroundColor: mapperTextMode ? (isSelected ? fieldColor + "18" : "transparent") : "rgba(255,255,255,0.9)",
                           fontSize: `${mFontSize}px`,
                           textAlign: m.align ?? "left",
                           paddingBottom: "2px",
                           paddingLeft: "2px",
                           paddingRight: "2px",
+                          zIndex: 2,
                         }}
                       >
-                        {isMultiline && (
-                          <span
-                            className="pointer-events-none absolute top-0 right-0 rounded-bl px-1 leading-none select-none"
-                            style={{
-                              fontSize: "7px",
-                              paddingTop: "2px",
-                              paddingBottom: "2px",
-                              backgroundColor: (field?.color ?? "#C49A38") + "33",
-                              color: field?.color ?? "#C49A38",
-                              fontWeight: 700,
-                              letterSpacing: "0.04em",
-                              textTransform: "uppercase",
-                            }}
-                            title="Multiline: text anchors to top of box"
-                          >
-                            multi
+                        {mapperTextMode ? (
+                          <span className="block leading-none select-none pointer-events-none truncate" style={{ color: "#111", fontFamily: "Helvetica, Arial, sans-serif" }}>
+                            {sampleValueForMapping(field, m.format) || "\u00A0"}
                           </span>
+                        ) : (
+                          <>
+                            {isMultiline && (
+                              <span
+                                className="pointer-events-none absolute top-0 right-0 rounded-bl px-1 leading-none select-none"
+                                style={{ fontSize: "7px", paddingTop: "2px", paddingBottom: "2px", backgroundColor: fieldColor + "33", color: fieldColor, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}
+                                title="Multiline: text anchors to top of box"
+                              >multi</span>
+                            )}
+                            <div className="pointer-events-none w-full">
+                              <span className="block leading-tight">{field?.name ?? "Field"}</span>
+                              <span className="block text-[9px] uppercase tracking-wide text-[#6B7A99]">{labelForMappingFormat(m.format)}</span>
+                              <span className="block leading-tight italic truncate" style={{ color: "#9AAAC0", opacity: 0.85 }}>{sampleValueForMapping(field, m.format)}</span>
+                              <div style={{ borderBottom: "0.4px solid #c8c8c8", marginTop: "1px" }} />
+                            </div>
+                          </>
                         )}
-                        <div className="pointer-events-none w-full">
-                          <span className="block leading-tight">{field?.name ?? "Field"}</span>
-                          <span className="block text-[9px] uppercase tracking-wide text-[#6B7A99]">{labelForMappingFormat(m.format)}</span>
-                          <span className="block leading-tight italic truncate" style={{ color: "#9AAAC0", opacity: 0.85 }}>{sampleValueForMapping(field, m.format)}</span>
-                          <div style={{ borderBottom: "0.4px solid #c8c8c8", marginTop: "1px" }} />
-                        </div>
                         {isSelected && (
                           <span
                             onPointerDown={(e) => beginMappingPointer(e, m, "resize")}
