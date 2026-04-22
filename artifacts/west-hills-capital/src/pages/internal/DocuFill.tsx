@@ -1833,6 +1833,9 @@ export default function DocuFill() {
                   {pageMappings.map((m) => {
                     const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
                     const isSelected = selectedMapping?.id === m.id;
+                    const mFontSize = m.fontSize ?? 9;
+                    const boxHeightPts = (m.h / 100) * nativePageH;
+                    const isMultiline = boxHeightPts > mFontSize * 2.5;
                     return (
                       <button
                         key={m.id}
@@ -1848,13 +1851,31 @@ export default function DocuFill() {
                           height: `${m.h}%`,
                           minHeight: "20px",
                           borderColor: field?.color ?? "#C49A38",
-                          fontSize: `${m.fontSize ?? 9}px`,
+                          fontSize: `${mFontSize}px`,
                           textAlign: m.align ?? "left",
                           paddingBottom: "2px",
                           paddingLeft: "2px",
                           paddingRight: "2px",
                         }}
                       >
+                        {isMultiline && (
+                          <span
+                            className="pointer-events-none absolute top-0 right-0 rounded-bl px-1 leading-none select-none"
+                            style={{
+                              fontSize: "7px",
+                              paddingTop: "2px",
+                              paddingBottom: "2px",
+                              backgroundColor: (field?.color ?? "#C49A38") + "33",
+                              color: field?.color ?? "#C49A38",
+                              fontWeight: 700,
+                              letterSpacing: "0.04em",
+                              textTransform: "uppercase",
+                            }}
+                            title="Multiline: text anchors to top of box"
+                          >
+                            multi
+                          </span>
+                        )}
                         <div className="pointer-events-none w-full">
                           <span className="block leading-tight">{field?.name ?? "Field"}</span>
                           <span className="block text-[9px] uppercase tracking-wide text-[#6B7A99]">{labelForMappingFormat(m.format)}</span>
