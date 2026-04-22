@@ -1751,7 +1751,12 @@ export default function DocuFill() {
                             >
                               <svg className="w-4 h-4 text-[#C4B99A] shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M7 2a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4zM7 8a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4zM7 14a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4z"/></svg>
                               <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium">{index + 1}. {field.name}</div>
+                                <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+                                  <span>{index + 1}. {field.name}</span>
+                                  {!packageMappedFieldIds.has(field.id) && (
+                                    <span className="text-[10px] font-normal bg-orange-50 border border-orange-300 text-orange-700 rounded px-1.5 py-0.5 leading-none">Not on PDF — add placement in mapper</span>
+                                  )}
+                                </div>
                                 <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.required ? "required" : "optional"}{field.validationType && field.validationType !== "none" ? ` · validates as ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
                               </div>
                             </div>
@@ -1779,7 +1784,9 @@ export default function DocuFill() {
                     </div>
                   </div>
                 )}
-                {builderStep === "finalize" && (
+                {builderStep === "finalize" && (() => {
+                  const unmappedInterviewFields = packageInterviewFields.filter((f) => !packageMappedFieldIds.has(f.id));
+                  return (
                   <div className="space-y-4">
                     <div className="grid md:grid-cols-4 gap-3">
                       <SummaryCard label="Documents" value={String(selectedPackage.documents.length)} detail="Uploaded and ordered" />
@@ -1787,6 +1794,28 @@ export default function DocuFill() {
                       <SummaryCard label="Placements" value={String(selectedPackage.mappings.length)} detail="PDF print locations" />
                       <SummaryCard label="Unmapped fields" value={String(unmappedPackageFields.length)} detail={unmappedPackageFields.length ? "Review before activating" : "Ready"} />
                     </div>
+                    {unmappedInterviewFields.length > 0 && (
+                      <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                        <div className="flex items-start gap-2">
+                          <svg className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                          <div>
+                            <div className="text-sm font-semibold text-orange-800 mb-1">
+                              {unmappedInterviewFields.length} interview {unmappedInterviewFields.length === 1 ? "field" : "fields"} {unmappedInterviewFields.length === 1 ? "has" : "have"} no PDF placement
+                            </div>
+                            <p className="text-xs text-orange-700 mb-2">
+                              Staff will be asked these questions during the interview, but the answers <strong>will not be printed on any PDF</strong> in the packet. Go to Data + Fields View and place each field in the correct row on the form before activating.
+                            </p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {unmappedInterviewFields.map((f) => (
+                                <button key={f.id} type="button" onClick={() => { setSelectedFieldId(f.id); goBuilderStep("mapping"); }} className="text-xs bg-white border border-orange-300 text-orange-800 rounded px-2 py-0.5 hover:bg-orange-100 transition-colors">
+                                  {f.name} →
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4">
                       <h2 className="text-sm font-semibold mb-2">Package status</h2>
                       <p className="text-xs text-[#8A9BB8] mb-3">Set the package to Active when this paperwork workflow should be available in the Interviews tab and Deal Builder.</p>
@@ -1802,7 +1831,8 @@ export default function DocuFill() {
                       {selectedPackage.status === "active" && <Button onClick={() => { setStandalonePackageId(String(selectedPackage.id)); setTab("interview"); }} variant="outline">Go to Interview Launcher</Button>}
                     </div>
                   </div>
-                )}
+                  );
+                })()}
               </div>
             )}
           </section>
@@ -2107,10 +2137,11 @@ export default function DocuFill() {
                   >
                     <div className="flex items-start justify-between gap-2">
                       <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1">
-                        <div className="text-sm font-medium flex items-center gap-2">
+                        <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
                           <span>{field.name}</span>
                           {field.libraryFieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>}
                           {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
+                          {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
                         </div>
                         <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewVisible ? "Interview" : "Admin default"}{field.required ? " · required" : ""}{field.sensitive ? " · masked" : ""}</div>
                       </button>
