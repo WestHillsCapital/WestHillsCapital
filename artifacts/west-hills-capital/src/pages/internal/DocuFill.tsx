@@ -1105,19 +1105,24 @@ export default function DocuFill() {
     }
     const saved = await saveAnswers("answered");
     if (!saved) return;
-    const res = await fetch(`${API_BASE}${sessionBasePath}/${session.token}/generate`, {
-      method: "POST",
-      headers: { ...sessionHeaders },
-    });
-    const data = await res.json();
-    if (res.ok) {
-      setGeneratedUrl(data.downloadUrl);
-      setDriveUrl(data.drive?.url ?? null);
-      setDriveWarnings(Array.isArray(data.warnings) ? data.warnings : []);
-      setSession((prev) => prev ? { ...prev, status: "generated", generated_pdf_url: data.drive?.url ?? prev.generated_pdf_url } : prev);
-      setStatus(data.drive?.url ? "Packet generated and saved to Drive." : "Packet generated.");
-    } else {
-      setError(data.missingFields?.length ? `Missing required fields: ${data.missingFields.join(", ")}` : data.error ?? "Could not generate packet");
+    setIsSaving(true);
+    try {
+      const res = await fetch(`${API_BASE}${sessionBasePath}/${session.token}/generate`, {
+        method: "POST",
+        headers: { ...sessionHeaders },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setGeneratedUrl(data.downloadUrl);
+        setDriveUrl(data.drive?.url ?? null);
+        setDriveWarnings(Array.isArray(data.warnings) ? data.warnings : []);
+        setSession((prev) => prev ? { ...prev, status: "generated", generated_pdf_url: data.drive?.url ?? prev.generated_pdf_url } : prev);
+        setStatus(data.drive?.url ? "Packet generated and saved to Drive." : "Packet generated.");
+      } else {
+        setError(data.missingFields?.length ? `Missing required fields: ${data.missingFields.join(", ")}` : data.error ?? "Could not generate packet");
+      }
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -1475,7 +1480,7 @@ export default function DocuFill() {
                       </div>
                     )}
                     <div className="flex flex-wrap gap-2">
-                      <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Save Document Order</Button>
+                      <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : "Save Document Order"}</Button>
                       <Button onClick={() => goBuilderStep("mapping")} variant="outline" disabled={selectedPackage.documents.length === 0}>Continue to Mapping</Button>
                     </div>
                   </div>
@@ -1542,8 +1547,8 @@ export default function DocuFill() {
                       </select>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                      <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || selectedPackage.mappings.length === 0} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Finalize and Activate Package</Button>
-                      <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline">Save Current Status</Button>
+                      <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || selectedPackage.mappings.length === 0} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : "Finalize and Activate Package"}</Button>
+                      <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save Current Status"}</Button>
                       {selectedPackage.status === "active" && <Button onClick={() => { setStandalonePackageId(String(selectedPackage.id)); setTab("interview"); }} variant="outline">Go to Interview Launcher</Button>}
                     </div>
                   </div>
@@ -1672,7 +1677,7 @@ export default function DocuFill() {
                         onPointerDown={(e) => beginMappingPointer(e, m, "move")}
                         onClick={() => { setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); }}
                         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); setFormatMenu({ mappingId: m.id, x: e.clientX, y: e.clientY }); }}
-                        className={`absolute border-2 bg-white/90 rounded px-2 py-1 text-left shadow cursor-move ${isSelected ? "ring-2 ring-[#C49A38]/50" : ""}`}
+                        className={`absolute border-2 bg-white/90 rounded shadow cursor-move flex flex-col justify-end overflow-hidden ${isSelected ? "ring-2 ring-[#C49A38]/50" : ""}`}
                         style={{
                           left: `${m.x}%`,
                           top: `${m.y}%`,
@@ -1682,10 +1687,15 @@ export default function DocuFill() {
                           borderColor: field?.color ?? "#C49A38",
                           fontSize: `${m.fontSize ?? 9}px`,
                           textAlign: m.align ?? "left",
+                          paddingBottom: "2px",
+                          paddingLeft: "2px",
+                          paddingRight: "2px",
                         }}
                       >
-                        <span className="pointer-events-none block leading-tight">{field?.name ?? "Field"}</span>
-                        <span className="pointer-events-none block text-[9px] uppercase tracking-wide text-[#6B7A99]">{labelForMappingFormat(m.format)}</span>
+                        <div className="pointer-events-none w-full" style={{ borderTop: "0.4px solid #c8c8c8" }}>
+                          <span className="block leading-tight">{field?.name ?? "Field"}</span>
+                          <span className="block text-[9px] uppercase tracking-wide text-[#6B7A99]">{labelForMappingFormat(m.format)}</span>
+                        </div>
                         {isSelected && (
                           <span
                             onPointerDown={(e) => beginMappingPointer(e, m, "resize")}
@@ -1725,7 +1735,7 @@ export default function DocuFill() {
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap justify-end gap-2">
-                <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Save {selectedPackage.fields.length} Fields / {selectedPackage.mappings.length} Placements</Button>
+                <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : `Save ${selectedPackage.fields.length} Fields / ${selectedPackage.mappings.length} Placements`}</Button>
                 <Button onClick={() => goBuilderStep("interview")} variant="outline">Review Generated Interview</Button>
               </div>
             </section>
@@ -1889,7 +1899,7 @@ export default function DocuFill() {
                       <option value="">Select active package</option>
                       {activePackages.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name} · {labelForTransactionScope(pkg.transaction_scope)}</option>)}
                     </select>
-                    <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Start Interview</Button>
+                    <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Launching…" : "Start Interview"}</Button>
                   </div>
                 </div>
               </div>
@@ -1947,8 +1957,8 @@ export default function DocuFill() {
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button onClick={() => saveAnswers()} disabled={isSaving} variant="outline">Save Interview</Button>
-                <Button onClick={generatePacket} disabled={isSaving || missingRequiredFields.length > 0} className="bg-[#0F1C3F] hover:bg-[#182B5F] disabled:opacity-60">Generate Packet</Button>
+                <Button onClick={() => saveAnswers()} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save Interview"}</Button>
+                <Button onClick={generatePacket} disabled={isSaving || missingRequiredFields.length > 0} className="bg-[#0F1C3F] hover:bg-[#182B5F] disabled:opacity-60">{isSaving ? "Generating…" : "Generate Packet"}</Button>
                 {generatedUrl && (
                   <button type="button" onClick={downloadGeneratedPacket} disabled={isDownloading} className="text-sm text-[#C49A38] underline disabled:opacity-60">
                     {isDownloading ? "Downloading…" : "Download packet PDF"}

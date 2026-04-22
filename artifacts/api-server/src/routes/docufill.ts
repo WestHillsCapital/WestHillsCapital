@@ -488,11 +488,19 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
         if (!page) return;
         const { width, height } = page.getSize();
         const x = Math.max(0, Math.min(width - 12, (Number(mapping.x ?? 0) / 100) * width));
-        const y = Math.max(12, Math.min(height - 12, height - (Number(mapping.y ?? 0) / 100) * height));
+        const yTop = height - (Number(mapping.y ?? 0) / 100) * height;
         const fontSize = clampNumber(mapping.fontSize, 9, 5, 24);
+        const boxHeight = Math.max(fontSize + 2, (clampNumber(mapping.h, 10, 1, 100) / 100) * height);
         const maxWidth = Math.max(18, (clampNumber(mapping.w, 26, 2, 100) / 100) * width);
         const align = mapping.align === "center" || mapping.align === "right" ? mapping.align : "left";
-        drawWrappedText(page, mappedValue, x, y, fontSize, font, maxWidth, align);
+        const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize + 1));
+        page.drawLine({
+          start: { x, y: yDraw - 1 },
+          end: { x: Math.min(width, x + maxWidth), y: yDraw - 1 },
+          thickness: 0.4,
+          color: rgb(0.78, 0.78, 0.78),
+        });
+        drawWrappedText(page, mappedValue, x, yDraw, fontSize, font, maxWidth, align);
       });
     }
     return Buffer.from(await merged.save());
