@@ -1496,6 +1496,36 @@ export default function DocuFill() {
     }
   }
 
+  async function launchTestInterview(pkg: PackageItem) {
+    if (!pkg.id) {
+      setError("Save the package before launching a test interview.");
+      return;
+    }
+    setIsSaving(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/internal/docufill/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          packageId: pkg.id,
+          transactionScope: pkg.transaction_scope,
+          source: "test_mode_admin",
+          testMode: true,
+          prefill: {},
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not launch test interview");
+      navigate(`/internal/docufill?session=${data.token}`);
+      setStatus("Test interview session created.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not launch test interview");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
   async function launchStandaloneInterview() {
     const packageId = Number(standalonePackageId);
     if (!packageId) {
@@ -1935,6 +1965,11 @@ export default function DocuFill() {
                     <div className="flex flex-wrap gap-2">
                       <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || selectedPackage.mappings.length === 0} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : "Finalize and Activate Package"}</Button>
                       <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save Current Status"}</Button>
+                      {selectedPackage.status !== "active" && selectedPackage.id && (
+                        <Button onClick={() => launchTestInterview(selectedPackage)} disabled={isSaving || selectedPackage.documents.length === 0} variant="outline" className="text-[#6B7A99] border-dashed">
+                          Test Interview (Draft)
+                        </Button>
+                      )}
                       {selectedPackage.status === "active" && <Button onClick={() => { setStandalonePackageId(String(selectedPackage.id)); setTab("interview"); }} variant="outline">Go to Interview Launcher</Button>}
                     </div>
                   </div>

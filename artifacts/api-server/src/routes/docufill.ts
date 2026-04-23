@@ -120,6 +120,7 @@ type SessionInput = {
   dealId?: number | null;
   source?: string;
   prefill?: JsonValue;
+  testMode?: boolean;
 };
 
 type AnswersInput = {
@@ -1273,7 +1274,8 @@ router.post("/sessions", async (req, res) => {
       res.status(404).json({ error: "Package not found" });
       return;
     }
-    if (String(pkg.status ?? "") !== "active") {
+    const testMode = body.testMode === true;
+    if (!testMode && String(pkg.status ?? "") !== "active") {
       res.status(400).json({ error: "Package must be active before launching an interview" });
       return;
     }
@@ -1297,10 +1299,10 @@ router.post("/sessions", async (req, res) => {
     const db = getDb();
     const { rows } = await db.query(
       `INSERT INTO docufill_interview_sessions
-         (token, package_id, package_version, transaction_scope, deal_id, source, status, prefill, answers, expires_at)
-       VALUES ($1,$2,$3,$4,$5,$6,'draft',$7::jsonb,'{}'::jsonb,NOW() + INTERVAL '90 days')
+         (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers, expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,'draft',$7,$8::jsonb,'{}'::jsonb,NOW() + INTERVAL '90 days')
        RETURNING *`,
-      [token, packageId, pkg.version ?? 1, requestedScope, body.dealId ?? null, cleanText(body.source) || "deal_builder", jsonParam(body.prefill ?? {})],
+      [token, packageId, pkg.version ?? 1, requestedScope, body.dealId ?? null, cleanText(body.source) || "deal_builder", testMode, jsonParam(body.prefill ?? {})],
     );
     res.status(201).json({ session: rows[0], token });
   } catch (err) {
