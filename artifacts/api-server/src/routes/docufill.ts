@@ -514,20 +514,16 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
         // The mapper uses CSS flex justify-end + paddingBottom:2px, so the visible text
         // bottom sits ~2px above the box edge, with the baseline ~fontSize*0.2 above that.
         //
-        // Three alignment modes:
-        //   • Single-line (default): baseline near box bottom.
+        // Two alignment modes:
+        //   • Default: baseline at box bottom, regardless of box height.
         //       Formula: yTop - boxHeight + fontSize*0.2 + 2
-        //   • Tall/multiline (boxHeight > fontSize × 5): first-line baseline near top.
-        //       Formula: yTop - fontSize - 2
+        //       Multiline values wrap downward from this baseline via drawWrappedText.
         //   • Checkbox (format === "checkbox-yes"): "X" vertically centred.
         //       Formula: yTop - boxHeight/2 - fontSize*0.35
         const isCheckboxFormat = mapping.format === "checkbox-yes" || String(mapping.format ?? "").startsWith("checkbox-option:");
-        const isTallBox = boxHeight > fontSize * 5;
         const rawYDraw = isCheckboxFormat
           ? yTop - boxHeight / 2 - fontSize * 0.35
-          : isTallBox
-            ? yTop - fontSize - 2
-            : yTop - boxHeight + fontSize * 0.2 + 2;
+          : yTop - boxHeight + fontSize * 0.2 + 2;
         const yDraw = Math.max(fontSize + 2, Math.min(height - 2, rawYDraw));
         drawWrappedText(page, mappedValue, x, yDraw, fontSize, font, maxWidth, align);
       });

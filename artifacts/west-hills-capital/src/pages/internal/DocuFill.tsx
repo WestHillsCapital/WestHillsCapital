@@ -2155,11 +2155,9 @@ export default function DocuFill() {
                     const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
                     const isSelected = selectedMapping?.id === m.id;
                     const mFontSize = m.fontSize ?? 11;
-                    const boxHeightPts = (m.h / 100) * nativePageH;
-                    const isMultiline = boxHeightPts > mFontSize * 5;
                     const isCheckboxMark = m.format === "checkbox-yes" || String(m.format ?? "").startsWith("checkbox-option:");
                     const fieldColor = field?.color ?? "#C49A38";
-                    const flexJustify = isCheckboxMark ? "justify-center" : isMultiline ? "justify-start" : "justify-end";
+                    const flexJustify = isCheckboxMark ? "justify-center" : "justify-end";
                     return (
                       <button
                         key={m.id}
@@ -2178,8 +2176,7 @@ export default function DocuFill() {
                           backgroundColor: mapperTextMode ? (isSelected ? fieldColor + "18" : "transparent") : "rgba(255,255,255,0.9)",
                           fontSize: `${mFontSize}px`,
                           textAlign: m.align ?? "left",
-                          paddingTop: !isCheckboxMark && isMultiline ? "2px" : undefined,
-                          paddingBottom: !isCheckboxMark && !isMultiline ? "2px" : undefined,
+                          paddingBottom: !isCheckboxMark ? "2px" : undefined,
                           paddingLeft: "2px",
                           paddingRight: "2px",
                           zIndex: 2,
@@ -2191,13 +2188,6 @@ export default function DocuFill() {
                           </span>
                         ) : (
                           <>
-                            {isMultiline && (
-                              <span
-                                className="pointer-events-none absolute top-0 right-0 rounded-bl px-1 leading-none select-none"
-                                style={{ fontSize: "7px", paddingTop: "2px", paddingBottom: "2px", backgroundColor: fieldColor + "33", color: fieldColor, fontWeight: 700, letterSpacing: "0.04em", textTransform: "uppercase" }}
-                                title="Multiline: text anchors to top of box"
-                              >multi</span>
-                            )}
                             <div className="pointer-events-none w-full">
                               <span className="block leading-tight">{field?.name ?? "Field"}</span>
                               <span className="block text-[9px] uppercase tracking-wide text-[#6B7A99]">{labelForMappingFormat(m.format)}</span>
