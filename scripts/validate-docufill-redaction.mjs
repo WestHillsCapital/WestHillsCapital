@@ -69,6 +69,7 @@ assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "first-l
 assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "last-first-m" }), "Investor, Alice B.", "three-part name: Last, First M.");
 assert.equal(formatDocuFillMappedValue("Alice Investor", { format: "last-first-m" }), "Investor, Alice", "two-part name: Last, First (no middle)");
 assert.equal(formatDocuFillMappedValue("Investor", { format: "last-first-m" }), "Investor", "single-part name: returned as-is");
+assert.equal(formatDocuFillMappedValue("Alice Beth Marie Investor", { format: "last-first-m" }), "Investor, Alice B.", "four-part name: still uses first middle initial only");
 assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "initials" }), "ABI");
 
 assert.equal(formatDocuFillMappedValue("Primary", { format: "checkbox-option:Primary" }), "X", "matching option prints X");

@@ -1275,6 +1275,10 @@ router.post("/sessions", async (req, res) => {
       return;
     }
     const testMode = body.testMode === true;
+    if (testMode && !req.internalEmail) {
+      res.status(403).json({ error: "Test mode sessions require an authenticated admin account" });
+      return;
+    }
     if (!testMode && String(pkg.status ?? "") !== "active") {
       res.status(400).json({ error: "Package must be active before launching an interview" });
       return;
