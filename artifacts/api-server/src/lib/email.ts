@@ -5,6 +5,8 @@ const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL =
   process.env.FROM_EMAIL ?? "West Hills Capital <noreply@westhillscapital.com>";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "";
+const SITE_ORIGIN = "https://westhillscapital.com";
+const LOGO_URL = `${SITE_ORIGIN}/images/logo.png`;
 
 const ALLOCATION_LABELS: Record<string, string> = {
   physical_delivery: "Physical Home/Vault Delivery",
@@ -342,7 +344,7 @@ export async function sendDealRecapEmail(
   const BODY   = "#2D2A25";
   const FAINT  = "#D8CEBC";
   const CBACK  = "#F9F6EE";
-  const LOGO_URL = `${process.env.FRONTEND_URL ?? "https://westhillscapital.com"}/images/logo.png`;
+
 
   const usd = (n: number) =>
     new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(n);
@@ -667,7 +669,7 @@ export async function sendWireConfirmationEmail(params: {
   const DIM     = "#5C5248";
   const BODY    = "#2D2A25";
   const FAINT   = "#D8CEBC";
-  const LOGO_URL = `${process.env.FRONTEND_URL ?? "https://westhillscapital.com"}/images/logo.png`;
+
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -798,7 +800,7 @@ export async function sendShippingNotificationEmail(params: {
   const BODY    = "#2D2A25";
   const FAINT   = "#D8CEBC";
   const CBACK   = "#F9F6EE";
-  const LOGO_URL = `${process.env.FRONTEND_URL ?? "https://westhillscapital.com"}/images/logo.png`;
+
 
   const trackingUrl = `https://www.fedex.com/apps/fedextrack/?tracknumbers=${encodeURIComponent(params.trackingNumber)}`;
 
@@ -955,7 +957,7 @@ export async function sendDeliveryConfirmationEmail(params: {
   const MUTED   = "#7A7060";
   const BODY    = "#2D2A25";
   const FAINT   = "#D8CEBC";
-  const LOGO_URL = `${process.env.FRONTEND_URL ?? "https://westhillscapital.com"}/images/logo.png`;
+
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -1077,7 +1079,7 @@ export async function sendFollowUp7DayEmail(params: {
   const MUTED   = "#7A7060";
   const BODY    = "#2D2A25";
   const FAINT   = "#D8CEBC";
-  const LOGO_URL = `${process.env.FRONTEND_URL ?? "https://westhillscapital.com"}/images/logo.png`;
+
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -1185,7 +1187,7 @@ export async function sendFollowUp30DayEmail(params: {
   const MUTED   = "#7A7060";
   const BODY    = "#2D2A25";
   const FAINT   = "#D8CEBC";
-  const LOGO_URL = `${process.env.FRONTEND_URL ?? "https://westhillscapital.com"}/images/logo.png`;
+
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -1297,9 +1299,6 @@ export async function sendBookingConfirmation(params: {
   allocationRange: string;
   timeline: string;
 }): Promise<void> {
-  // Logo hosted on Vercel — falls back gracefully if not yet deployed
-  const SITE_URL = (process.env.FRONTEND_URL ?? "https://www.westhillscapital.com").replace(/\/$/, "");
-  const LOGO_URL = `${SITE_URL}/images/logo.png`;
 
   // Brand palette
   const NAVY   = "#0F1C3F";
