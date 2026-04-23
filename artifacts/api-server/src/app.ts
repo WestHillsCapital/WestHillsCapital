@@ -65,12 +65,29 @@ const allowedOrigins = CORS_ORIGINS_RAW
   ? new Set(CORS_ORIGINS_RAW.split(",").map((o) => o.trim()).filter(Boolean))
   : null; // null → allow all
 
+// Normalize an origin by stripping a leading "www." subdomain so that
+// https://www.westhillscapital.com matches https://westhillscapital.com in
+// the allowed-origins list (and vice-versa), handling both DNS configurations.
+function normalizeOrigin(origin: string): string {
+  try {
+    const u = new URL(origin);
+    if (u.hostname.startsWith("www.")) {
+      u.hostname = u.hostname.slice(4);
+    }
+    return u.origin;
+  } catch {
+    return origin;
+  }
+}
+
 app.use(
   cors({
     origin: allowedOrigins
       ? (origin, cb) => {
-          // Allow server-to-server requests (no Origin header) and listed origins
-          if (!origin || allowedOrigins.has(origin)) {
+          // Allow server-to-server requests (no Origin header).
+          // Check both the raw origin and its www-normalized form so that
+          // https://www.example.com matches an entry of https://example.com.
+          if (!origin || allowedOrigins.has(origin) || allowedOrigins.has(normalizeOrigin(origin))) {
             cb(null, true);
           } else {
             cb(new Error(`CORS: origin ${origin} is not allowed`));
