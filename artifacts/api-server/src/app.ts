@@ -134,6 +134,12 @@ app.use(sitemapRouter);
 // ── API routes ─────────────────────────────────────────────────────────────────
 app.use("/api", router);
 
+// ── Debug-only Sentry test route (must be before 404 catch-all) ───────────────
+// Hit GET /api/debug-sentry to verify the Sentry connection after a deploy.
+app.get("/api/debug-sentry", (_req, _res) => {
+  throw new Error("Sentry test error — if you see this in Sentry, the integration is working.");
+});
+
 // ── 404 catch-all ─────────────────────────────────────────────────────────────
 app.use((_req, res) => {
   res.status(404).json({ error: "Not found" });
@@ -143,13 +149,6 @@ app.use((_req, res) => {
 // Captures unhandled Express errors and attaches a Sentry event ID to the
 // request so it can be referenced in support. Only active when SENTRY_DSN is set.
 Sentry.setupExpressErrorHandler(app);
-
-// ── Debug-only Sentry test route (internal use) ───────────────────────────────
-// Hit GET /api/debug-sentry to verify the Sentry connection after a deploy.
-// Remove once confirmed working, or leave — it is harmless in production.
-app.get("/api/debug-sentry", (_req, _res) => {
-  throw new Error("Sentry test error — if you see this in Sentry, the integration is working.");
-});
 
 // ── Global error handler (must be last) ───────────────────────────────────────
 app.use(errorHandler);
