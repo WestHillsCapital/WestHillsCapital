@@ -211,7 +211,6 @@ function pickFieldColor(usedColors: string[], sensitive: boolean): string {
 }
 
 const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string; group: string }> = [
-  { value: "as-entered", label: "Whole answer", group: "Common" },
   { value: "first-name", label: "First", group: "Name" },
   { value: "middle-name", label: "Middle", group: "Name" },
   { value: "last-name", label: "Last", group: "Name" },
@@ -227,7 +226,7 @@ const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string; group
   { value: "checkbox-yes", label: "Checkbox mark when yes", group: "Checks" },
 ];
 
-const NAME_MAPPING_FORMATS: MappingFormat[] = ["as-entered", "first-name", "middle-name", "last-name", "last-first-m", "first-last", "initials"];
+const NAME_MAPPING_FORMATS: MappingFormat[] = ["first-name", "middle-name", "last-name", "last-first-m", "first-last", "initials"];
 
 function labelForMappingFormat(format: MappingFormat | string | undefined) {
   const fmt = format ?? "as-entered";
@@ -335,16 +334,16 @@ function mappingFormatOptionsForField(field: FieldItem | undefined): Array<{ val
   if (!field) return MAPPING_FORMAT_OPTIONS;
   const vt = field.validationType ?? "none";
   const type = field.type;
-  if (type === "checkbox" || type === "radio") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Checks" || o.value === "as-entered");
-  if (type === "date" || vt === "date") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Dates" || o.value === "as-entered");
-  if (vt === "currency") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.value === "currency" || o.group === "Text");
-  if (vt === "number") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.value === "digits-only" || o.value === "last-four");
-  if (vt === "phone") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.value === "digits-only");
-  if (vt === "ssn") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.value === "digits-only" || o.value === "last-four");
-  if (vt === "email") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.group === "Text");
-  if (["zip", "zip4", "percent", "time", "string", "custom"].includes(vt)) return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.group === "Text");
-  if (vt === "name" || isNameLikeField(field)) return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Name" || o.value === "as-entered" || o.group === "Text");
-  return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.group === "Text");
+  if (type === "checkbox" || type === "radio") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Checks");
+  if (type === "date" || vt === "date") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Dates");
+  if (vt === "currency") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "currency" || o.group === "Text");
+  if (vt === "number") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "digits-only" || o.value === "last-four");
+  if (vt === "phone") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "digits-only");
+  if (vt === "ssn") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "digits-only" || o.value === "last-four");
+  if (vt === "email") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Text");
+  if (["zip", "zip4", "percent", "time", "string", "custom"].includes(vt)) return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Text");
+  if (vt === "name" || isNameLikeField(field)) return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Name" || o.group === "Text");
+  return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Text");
 }
 
 function normalizePackages(items: PackageItem[]): PackageItem[] {
@@ -2374,6 +2373,7 @@ export default function DocuFill() {
                     <label className="block">
                       <span className="block text-[11px] text-[#6B7A99] mb-1">What should this placement print?</span>
                       <select value={selectedMapping.format ?? "as-entered"} onChange={(e) => updateSelectedMapping({ format: e.target.value })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs">
+                        <option value="as-entered">— default (whole answer) —</option>
                         {Array.from(new Set(selectedMappingFormatOptions.map((option) => option.group))).map((group) => (
                           <optgroup key={group} label={group}>
                             {selectedMappingFormatOptions.filter((option) => option.group === group).map((option) => (
