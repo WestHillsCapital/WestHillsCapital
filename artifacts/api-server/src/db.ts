@@ -513,6 +513,10 @@ export async function initDb(): Promise<void> {
     ALTER TABLE docufill_interview_sessions
     ALTER COLUMN expires_at SET DEFAULT (NOW() + INTERVAL '90 days')
   `);
+  await db.query(`
+    ALTER TABLE docufill_interview_sessions
+    ADD COLUMN IF NOT EXISTS test_mode BOOLEAN NOT NULL DEFAULT false
+  `);
 
   await db.query(`
     CREATE INDEX IF NOT EXISTS docufill_packages_combo_idx
