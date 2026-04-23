@@ -1,3 +1,5 @@
+import "./instrument.js";
+import * as Sentry from "@sentry/node";
 import { Server } from "node:http";
 import app from "./app";
 import { logger } from "./lib/logger";
@@ -255,6 +257,7 @@ async function runScheduler(): Promise<void> {
     logger.info({ count: rows.length }, "[Scheduler] Fulfillment scheduler tick complete");
   } catch (err) {
     logger.error({ err }, "[Scheduler] Scheduler run failed (non-fatal)");
+    Sentry.captureException(err, { tags: { scheduler: "fulfillment" } });
   }
 }
 
@@ -342,6 +345,7 @@ async function runTrackingSync(): Promise<void> {
     }
   } catch (err) {
     logger.error({ err }, "[TrackingSync] Tracking sync run failed (non-fatal)");
+    Sentry.captureException(err, { tags: { scheduler: "tracking-sync" } });
   }
 }
 
@@ -390,10 +394,12 @@ process.on("SIGINT",  () => shutdown("SIGINT"));
 // These are programming errors. Log them clearly and exit so Railway restarts.
 process.on("unhandledRejection", (reason) => {
   logger.error({ reason }, "Unhandled promise rejection — exiting");
+  Sentry.captureException(reason instanceof Error ? reason : new Error(String(reason)));
   process.exit(1);
 });
 
 process.on("uncaughtException", (err) => {
   logger.error({ err }, "Uncaught exception — exiting");
+  Sentry.captureException(err);
   process.exit(1);
 });
