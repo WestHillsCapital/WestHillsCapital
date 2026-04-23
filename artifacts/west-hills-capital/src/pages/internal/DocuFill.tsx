@@ -116,6 +116,7 @@ type MappingFormat =
   | "first-name"
   | "middle-name"
   | "last-name"
+  | "last-first-m"
   | "first-last"
   | "initials"
   | "digits-only"
@@ -214,6 +215,7 @@ const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string; group
   { value: "first-name", label: "First", group: "Name" },
   { value: "middle-name", label: "Middle", group: "Name" },
   { value: "last-name", label: "Last", group: "Name" },
+  { value: "last-first-m", label: "Last, First M.", group: "Name" },
   { value: "first-last", label: "First + Last", group: "Name" },
   { value: "initials", label: "Initials", group: "Name" },
   { value: "uppercase", label: "Uppercase", group: "Text" },
@@ -225,7 +227,7 @@ const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string; group
   { value: "checkbox-yes", label: "Checkbox mark when yes", group: "Checks" },
 ];
 
-const NAME_MAPPING_FORMATS: MappingFormat[] = ["as-entered", "first-name", "middle-name", "last-name", "first-last", "initials"];
+const NAME_MAPPING_FORMATS: MappingFormat[] = ["as-entered", "first-name", "middle-name", "last-name", "last-first-m", "first-last", "initials"];
 
 function labelForMappingFormat(format: MappingFormat | string | undefined) {
   const fmt = format ?? "as-entered";
@@ -276,6 +278,7 @@ function sampleValueForMapping(field: FieldItem | undefined, format: MappingForm
     if (fmt === "last-name") { const parts = field.defaultValue.trim().split(/\s+/); return parts[parts.length - 1] ?? field.defaultValue; }
     if (fmt === "middle-name") { const parts = field.defaultValue.trim().split(/\s+/); return parts.length >= 3 ? parts[1] : ""; }
     if (fmt === "first-last") { const parts = field.defaultValue.trim().split(/\s+/); return parts.length >= 2 ? `${parts[0]} ${parts[parts.length - 1]}` : field.defaultValue; }
+    if (fmt === "last-first-m") { const parts = field.defaultValue.trim().split(/\s+/); if (parts.length < 2) return field.defaultValue; const last = parts[parts.length - 1]; const first = parts[0]; const mid = parts.length >= 3 ? ` ${parts[1][0]?.toUpperCase()}.` : ""; return `${last}, ${first}${mid}`; }
     if (fmt === "initials") return field.defaultValue.trim().split(/\s+/).map((p) => p[0]?.toUpperCase() ?? "").filter(Boolean).join(".") + ".";
     if (fmt === "uppercase") return field.defaultValue.toUpperCase();
     if (fmt === "lowercase") return field.defaultValue.toLowerCase();
@@ -293,6 +296,7 @@ function sampleValueForMapping(field: FieldItem | undefined, format: MappingForm
   if (fmt === "first-name") return "Alice";
   if (fmt === "last-name") return "Smith";
   if (fmt === "middle-name") return "B.";
+  if (fmt === "last-first-m") return "Smith, Alice B.";
   if (fmt === "first-last") return "Alice Smith";
   if (fmt === "initials") return "A.B.S.";
   if (fmt === "digits-only") return "123456789";
@@ -327,11 +331,20 @@ function isNameLikeField(field: FieldItem | undefined) {
   return /\b(name|firstname|lastname|fullname|clientname)\b/.test(text.replace(/[_-]/g, " "));
 }
 
-function mappingFormatOptionsForField(field: FieldItem | undefined) {
-  if (!isNameLikeField(field)) return MAPPING_FORMAT_OPTIONS;
-  const nameOptions = MAPPING_FORMAT_OPTIONS.filter((option) => NAME_MAPPING_FORMATS.includes(option.value));
-  const remaining = MAPPING_FORMAT_OPTIONS.filter((option) => !NAME_MAPPING_FORMATS.includes(option.value));
-  return [...nameOptions, ...remaining];
+function mappingFormatOptionsForField(field: FieldItem | undefined): Array<{ value: MappingFormat; label: string; group: string }> {
+  if (!field) return MAPPING_FORMAT_OPTIONS;
+  const vt = field.validationType ?? "none";
+  const type = field.type;
+  if (type === "checkbox" || type === "radio") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Checks" || o.value === "as-entered");
+  if (type === "date" || vt === "date") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Dates" || o.value === "as-entered");
+  if (vt === "currency") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.value === "currency" || o.group === "Text");
+  if (vt === "number") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.value === "digits-only" || o.value === "last-four");
+  if (vt === "phone") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.value === "digits-only");
+  if (vt === "ssn") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.value === "digits-only" || o.value === "last-four");
+  if (vt === "email") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.group === "Text");
+  if (["zip", "zip4", "percent", "time", "string", "custom"].includes(vt)) return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.group === "Text");
+  if (vt === "name" || isNameLikeField(field)) return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Name" || o.value === "as-entered" || o.group === "Text");
+  return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "as-entered" || o.group === "Text");
 }
 
 function normalizePackages(items: PackageItem[]): PackageItem[] {
@@ -434,7 +447,7 @@ export default function DocuFill() {
   const [driveWarnings, setDriveWarnings] = useState<string[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
   const [documentPreviewUrl, setDocumentPreviewUrl] = useState<string | null>(null);
-  const [formatMenu, setFormatMenu] = useState<{ mappingId: string; x: number; y: number } | null>(null);
+  const [formatMenu, setFormatMenu] = useState<{ mappingId: string; x: number; y: number; pdfX: number; pdfY: number } | null>(null);
   const [selectedPage, setSelectedPage] = useState(1);
   const pageFrameRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -1172,6 +1185,8 @@ export default function DocuFill() {
   }
 
   function copyField(sourceFieldId: string) {
+    const snapX = clampPercent((formatMenu?.pdfX ?? 20) + 3, 0, 74);
+    const snapY = clampPercent((formatMenu?.pdfY ?? 20) + 3, 0, 94);
     updateSelectedPackage((pkg) => {
       const source = pkg.fields.find((f) => f.id === sourceFieldId);
       if (!source) return pkg;
@@ -1184,6 +1199,25 @@ export default function DocuFill() {
         interviewMode: "optional",
         defaultValue: "",
       };
+      if (selectedDocument) {
+        const mappingId = newId("map");
+        const newMapping: MappingItem = {
+          id: mappingId,
+          fieldId: copy.id,
+          documentId: selectedDocument.id,
+          page: selectedPage,
+          x: snapX,
+          y: snapY,
+          w: 26,
+          h: 6,
+          fontSize: 11,
+          align: "left",
+          format: defaultMappingFormat(copy),
+        };
+        setSelectedFieldId(copy.id);
+        setSelectedMappingId(mappingId);
+        return { ...pkg, fields: [...pkg.fields, copy], mappings: [...pkg.mappings, newMapping] };
+      }
       setSelectedFieldId(copy.id);
       return { ...pkg, fields: [...pkg.fields, copy] };
     });
@@ -1191,6 +1225,8 @@ export default function DocuFill() {
   }
 
   function duplicateMapping(sourceMappingId: string) {
+    const snapX = clampPercent((formatMenu?.pdfX ?? 20) + 3, 0, 74);
+    const snapY = clampPercent((formatMenu?.pdfY ?? 20) + 3, 0, 94);
     updateSelectedPackage((pkg) => {
       const srcMap = pkg.mappings.find((m) => m.id === sourceMappingId);
       if (!srcMap) return pkg;
@@ -1202,12 +1238,12 @@ export default function DocuFill() {
         name: `${srcField.name} (copy)`,
         color: pickFieldColor(pkg.fields.map((f) => f.color), srcField.sensitive),
       } : undefined;
-      const newMapping = {
+      const newMapping: MappingItem = {
         ...srcMap,
         id: newId("mapping"),
         fieldId: newField?.id ?? srcMap.fieldId,
-        x: Math.min(srcMap.x + 1, 95),
-        y: Math.min(srcMap.y + 1, 95),
+        x: snapX,
+        y: snapY,
       };
       const fields = newField ? [...pkg.fields, newField] : pkg.fields;
       if (newField) setSelectedFieldId(newField.id);
@@ -2096,7 +2132,7 @@ export default function DocuFill() {
                         type="button"
                         onPointerDown={(e) => beginMappingPointer(e, m, "move")}
                         onClick={() => { setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); }}
-                        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); setFormatMenu({ mappingId: m.id, x: e.clientX, y: e.clientY }); }}
+                        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); setFormatMenu({ mappingId: m.id, x: e.clientX, y: e.clientY, pdfX: m.x, pdfY: m.y }); }}
                         className={`absolute rounded cursor-move flex flex-col overflow-hidden ${flexJustify} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "border-2 bg-white/90 shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
                         style={{
                           left: `${m.x}%`,

@@ -25,6 +25,7 @@ export type DocuFillMappingFormat =
   | "first-name"
   | "middle-name"
   | "last-name"
+  | "last-first-m"
   | "first-last"
   | "initials"
   | "digits-only"
@@ -183,6 +184,13 @@ export function formatDocuFillMappedValue(value: string, mapping: DocuFillMappin
   if (format === "middle-name") return nameParts.length > 2 ? nameParts.slice(1, -1).join(" ") : "";
   if (format === "last-name") return nameParts.length > 1 ? nameParts[nameParts.length - 1] : text;
   if (format === "first-last") return nameParts.length > 1 ? `${nameParts[0]} ${nameParts[nameParts.length - 1]}` : text;
+  if (format === "last-first-m") {
+    if (nameParts.length < 2) return text;
+    const last = nameParts[nameParts.length - 1];
+    const first = nameParts[0];
+    const mid = nameParts.length >= 3 ? ` ${(nameParts[1][0] ?? "").toUpperCase()}.` : "";
+    return `${last}, ${first}${mid}`;
+  }
   if (format === "initials") return nameParts.map((part) => part[0]?.toUpperCase() ?? "").join("");
   if (format === "digits-only") return text.replace(/\D+/g, "");
   if (format === "last-four") return text.replace(/\D+/g, "").slice(-4);
