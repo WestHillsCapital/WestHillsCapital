@@ -2448,7 +2448,23 @@ export default function DocuFill() {
                         )}
                       </div>
                     ) : field.type === "checkbox" ? (
-                      <div className="space-y-1 pt-1">{((field.options ?? []).length ? field.options ?? [] : ["Yes"]).map((option) => <label key={option} className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={currentValue.split(", ").includes(option)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.checked ? [...interviewFieldValue(field, prev, session.prefill).split(", ").filter(Boolean), option].join(", ") : interviewFieldValue(field, prev, session.prefill).split(", ").filter((v) => v !== option).join(", ") }))} /> {option}</label>)}</div>
+                      <div className="space-y-1 pt-1">{((field.options ?? []).length ? field.options ?? [] : ["Yes"]).map((option) => {
+                        const parseChecked = (v: string) => v.split(",").map((s) => s.trim()).filter(Boolean);
+                        return (
+                          <label key={option} className="flex items-center gap-2 text-sm cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={parseChecked(currentValue).includes(option)}
+                              onChange={(e) => setAnswers((prev) => {
+                                const existing = parseChecked(interviewFieldValue(field, prev, session.prefill));
+                                const updated = e.target.checked ? [...existing.filter((v) => v !== option), option] : existing.filter((v) => v !== option);
+                                return { ...prev, [field.id]: updated.join(", ") };
+                              })}
+                            />
+                            {option}
+                          </label>
+                        );
+                      })}</div>
                     ) : (
                       <Input type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"} value={currentValue} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} />
                     )}
