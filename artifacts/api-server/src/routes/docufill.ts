@@ -520,7 +520,7 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
         //       Formula: yTop - fontSize - 2
         //   • Checkbox (format === "checkbox-yes"): "X" vertically centred.
         //       Formula: yTop - boxHeight/2 - fontSize*0.35
-        const isCheckboxFormat = mapping.format === "checkbox-yes";
+        const isCheckboxFormat = mapping.format === "checkbox-yes" || String(mapping.format ?? "").startsWith("checkbox-option:");
         const isTallBox = boxHeight > fontSize * 5;
         const rawYDraw = isCheckboxFormat
           ? yTop - boxHeight / 2 - fontSize * 0.35

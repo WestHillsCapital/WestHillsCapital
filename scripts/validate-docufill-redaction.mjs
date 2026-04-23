@@ -68,6 +68,14 @@ assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "last-na
 assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "first-last" }), "Alice Investor");
 assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "initials" }), "ABI");
 
+assert.equal(formatDocuFillMappedValue("Primary", { format: "checkbox-option:Primary" }), "X", "matching option prints X");
+assert.equal(formatDocuFillMappedValue("Contingent", { format: "checkbox-option:Primary" }), "", "non-matching option prints blank");
+assert.equal(formatDocuFillMappedValue("Primary", { format: "checkbox-option:Contingent" }), "", "option value comparison is exact");
+assert.equal(formatDocuFillMappedValue("Primary, Contingent", { format: "checkbox-option:Contingent" }), "X", "comma-separated multi-select matches correctly");
+assert.equal(formatDocuFillMappedValue("Primary, Contingent", { format: "checkbox-option:Primary" }), "X", "first item in multi-select also matches");
+assert.equal(formatDocuFillMappedValue("", { format: "checkbox-option:Primary" }), "", "empty answer always prints blank");
+assert.equal(formatDocuFillMappedValue("primary", { format: "checkbox-option:Primary" }), "", "option matching is case-sensitive");
+
 const hydratedFields = hydratePackageFields(
   [
     {

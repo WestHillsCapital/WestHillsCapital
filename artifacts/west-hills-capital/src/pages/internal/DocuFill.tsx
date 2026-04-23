@@ -135,7 +135,7 @@ type MappingItem = {
   h: number;
   fontSize?: number;
   align?: "left" | "center" | "right";
-  format?: MappingFormat;
+  format?: MappingFormat | string;
 };
 
 type BuilderStep = "documents" | "mapping" | "interview" | "finalize";
@@ -191,6 +191,7 @@ function defaultMappingFormat(field: FieldItem): MappingItem["format"] {
   if (field.validationType === "currency") return "currency";
   if (field.validationType === "number") return "digits-only";
   if (field.validationType === "date" || field.type === "date") return "date-mm-dd-yyyy";
+  if ((field.type === "radio" || field.type === "checkbox") && field.options && field.options.length > 0) return `checkbox-option:${field.options[0]}`;
   if (field.type === "checkbox") return "checkbox-yes";
   return "as-entered";
 }
@@ -226,8 +227,10 @@ const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string; group
 
 const NAME_MAPPING_FORMATS: MappingFormat[] = ["as-entered", "first-name", "middle-name", "last-name", "first-last", "initials"];
 
-function labelForMappingFormat(format: MappingFormat | undefined) {
-  return MAPPING_FORMAT_OPTIONS.find((option) => option.value === (format ?? "as-entered"))?.label ?? "Whole answer";
+function labelForMappingFormat(format: MappingFormat | string | undefined) {
+  const fmt = format ?? "as-entered";
+  if (fmt.startsWith("checkbox-option:")) return `Option: ${fmt.slice("checkbox-option:".length).trim()}`;
+  return MAPPING_FORMAT_OPTIONS.find((option) => option.value === fmt)?.label ?? "Whole answer";
 }
 
 function inferFieldCategory(field: FieldItem): "name" | "first" | "last" | "address" | "city" | "state" | "zip" | "phone" | "email" | "ssn" | "dob" | "account" | "relationship" | "share" | "date" | "signature" | "general" {
@@ -255,11 +258,17 @@ function inferFieldCategory(field: FieldItem): "name" | "first" | "last" | "addr
   return "general";
 }
 
-function sampleValueForMapping(field: FieldItem | undefined, format: MappingFormat | undefined): string {
+function sampleValueForMapping(field: FieldItem | undefined, format: MappingFormat | string | undefined): string {
   if (!field) return "…";
   const fmt = format ?? "as-entered";
 
   const FALSE_LIKE = /^(no|false|0|off|n)$/i;
+
+  if (fmt.startsWith("checkbox-option:")) {
+    const optionValue = fmt.slice("checkbox-option:".length).trim();
+    const sample = field.defaultValue?.trim() || (field.options?.[0] ?? "");
+    return sample.split(",").map((s) => s.trim()).includes(optionValue) ? "X" : "";
+  }
 
   if (field.defaultValue) {
     if (fmt === "checkbox-yes") return FALSE_LIKE.test(field.defaultValue.trim()) ? "" : (field.defaultValue.trim() ? "X" : "");
@@ -1283,7 +1292,7 @@ export default function DocuFill() {
     }));
   }
 
-  function chooseMappingFormat(mappingId: string, format: MappingFormat) {
+  function chooseMappingFormat(mappingId: string, format: MappingFormat | string) {
     updateSelectedPackage((pkg) => ({
       ...pkg,
       mappings: pkg.mappings.map((mapping) => mapping.id === mappingId ? { ...mapping, format } : mapping),
@@ -2078,7 +2087,9 @@ export default function DocuFill() {
                     const mFontSize = m.fontSize ?? 11;
                     const boxHeightPts = (m.h / 100) * nativePageH;
                     const isMultiline = boxHeightPts > mFontSize * 5;
+                    const isCheckboxMark = m.format === "checkbox-yes" || String(m.format ?? "").startsWith("checkbox-option:");
                     const fieldColor = field?.color ?? "#C49A38";
+                    const flexJustify = isCheckboxMark ? "justify-center" : isMultiline ? "justify-start" : "justify-end";
                     return (
                       <button
                         key={m.id}
@@ -2086,7 +2097,7 @@ export default function DocuFill() {
                         onPointerDown={(e) => beginMappingPointer(e, m, "move")}
                         onClick={() => { setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); }}
                         onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); setFormatMenu({ mappingId: m.id, x: e.clientX, y: e.clientY }); }}
-                        className={`absolute rounded cursor-move flex flex-col overflow-hidden ${isMultiline ? "justify-start" : "justify-end"} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "border-2 bg-white/90 shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
+                        className={`absolute rounded cursor-move flex flex-col overflow-hidden ${flexJustify} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "border-2 bg-white/90 shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
                         style={{
                           left: `${m.x}%`,
                           top: `${m.y}%`,
@@ -2097,8 +2108,8 @@ export default function DocuFill() {
                           backgroundColor: mapperTextMode ? (isSelected ? fieldColor + "18" : "transparent") : "rgba(255,255,255,0.9)",
                           fontSize: `${mFontSize}px`,
                           textAlign: m.align ?? "left",
-                          paddingTop: isMultiline ? "2px" : undefined,
-                          paddingBottom: isMultiline ? undefined : "2px",
+                          paddingTop: !isCheckboxMark && isMultiline ? "2px" : undefined,
+                          paddingBottom: !isCheckboxMark && !isMultiline ? "2px" : undefined,
                           paddingLeft: "2px",
                           paddingRight: "2px",
                           zIndex: 2,
@@ -2311,18 +2322,32 @@ export default function DocuFill() {
                       <option value="right">Right</option>
                     </select>
                   </div>
-                  <label className="block">
-                    <span className="block text-[11px] text-[#6B7A99] mb-1">What should this placement print?</span>
-                    <select value={selectedMapping.format ?? "as-entered"} onChange={(e) => updateSelectedMapping({ format: e.target.value as MappingItem["format"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs">
-                      {Array.from(new Set(selectedMappingFormatOptions.map((option) => option.group))).map((group) => (
-                        <optgroup key={group} label={group}>
-                          {selectedMappingFormatOptions.filter((option) => option.group === group).map((option) => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </optgroup>
-                      ))}
-                  </select>
-                  </label>
+                  {selectedMappingField && (selectedMappingField.type === "radio" || selectedMappingField.type === "checkbox") && (selectedMappingField.options?.length ?? 0) > 0 ? (
+                    <label className="block">
+                      <span className="block text-[11px] text-[#6B7A99] mb-1">Which option does this box represent?</span>
+                      <select
+                        value={String(selectedMapping.format ?? "").startsWith("checkbox-option:") ? String(selectedMapping.format).slice("checkbox-option:".length).trim() : ""}
+                        onChange={(e) => updateSelectedMapping({ format: e.target.value ? `checkbox-option:${e.target.value}` : "checkbox-yes" })}
+                        className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs"
+                      >
+                        <option value="">— select option —</option>
+                        {(selectedMappingField.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
+                      </select>
+                    </label>
+                  ) : (
+                    <label className="block">
+                      <span className="block text-[11px] text-[#6B7A99] mb-1">What should this placement print?</span>
+                      <select value={selectedMapping.format ?? "as-entered"} onChange={(e) => updateSelectedMapping({ format: e.target.value })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs">
+                        {Array.from(new Set(selectedMappingFormatOptions.map((option) => option.group))).map((group) => (
+                          <optgroup key={group} label={group}>
+                            {selectedMappingFormatOptions.filter((option) => option.group === group).map((option) => (
+                              <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                          </optgroup>
+                        ))}
+                      </select>
+                    </label>
+                  )}
                   <div className="grid grid-cols-4 gap-1">
                     <Input type="number" value={Math.round(selectedMapping.x)} onChange={(e) => updateSelectedMapping({ x: clampPercent(Number(e.target.value), 0, 100) })} className="h-8 text-xs" />
                     <Input type="number" value={Math.round(selectedMapping.y)} onChange={(e) => updateSelectedMapping({ y: clampPercent(Number(e.target.value), 0, 100) })} className="h-8 text-xs" />
@@ -2401,11 +2426,29 @@ export default function DocuFill() {
                       </div>
                     ) : field.type === "dropdown" ? (
                       <select value={currentValue} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
-                        <option value="">Select</option>
+                        <option value="">{mode === "required" ? "— select —" : "Select"}</option>
                         {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
                       </select>
+                    ) : field.type === "radio" ? (
+                      <div className="space-y-1 pt-1">
+                        {((field.options ?? []).length ? field.options ?? [] : []).map((option) => (
+                          <label key={option} className="flex items-center gap-2 text-sm cursor-pointer">
+                            <input
+                              type="radio"
+                              name={field.id}
+                              value={option}
+                              checked={currentValue === option}
+                              onChange={() => setAnswers((prev) => ({ ...prev, [field.id]: option }))}
+                            />
+                            {option}
+                          </label>
+                        ))}
+                        {currentValue && (
+                          <button type="button" onClick={() => setAnswers((prev) => ({ ...prev, [field.id]: "" }))} className="text-[11px] text-[#8A9BB8] hover:text-[#334155]">Clear selection</button>
+                        )}
+                      </div>
                     ) : field.type === "checkbox" ? (
-                      <div className="space-y-1">{((field.options ?? []).length ? field.options ?? [] : ["Yes"]).map((option) => <label key={option} className="flex items-center gap-2 text-sm"><input type="checkbox" checked={currentValue.split(", ").includes(option)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.checked ? [...interviewFieldValue(field, prev, session.prefill).split(", ").filter(Boolean), option].join(", ") : interviewFieldValue(field, prev, session.prefill).split(", ").filter((v) => v !== option).join(", ") }))} /> {option}</label>)}</div>
+                      <div className="space-y-1 pt-1">{((field.options ?? []).length ? field.options ?? [] : ["Yes"]).map((option) => <label key={option} className="flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={currentValue.split(", ").includes(option)} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.checked ? [...interviewFieldValue(field, prev, session.prefill).split(", ").filter(Boolean), option].join(", ") : interviewFieldValue(field, prev, session.prefill).split(", ").filter((v) => v !== option).join(", ") }))} /> {option}</label>)}</div>
                     ) : (
                       <Input type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"} value={currentValue} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} />
                     )}

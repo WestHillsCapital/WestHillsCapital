@@ -200,6 +200,11 @@ export function formatDocuFillMappedValue(value: string, mapping: DocuFillMappin
     }
   }
   if (format === "checkbox-yes") return /^(true|yes|y|1|checked)$/i.test(text) ? "X" : "";
+  if (format.startsWith("checkbox-option:")) {
+    const optionValue = format.slice("checkbox-option:".length).trim();
+    const selectedOptions = text.split(",").map((s) => s.trim());
+    return selectedOptions.includes(optionValue) ? "X" : "";
+  }
   return text;
 }
 
