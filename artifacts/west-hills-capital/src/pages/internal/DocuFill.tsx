@@ -3004,6 +3004,27 @@ export default function DocuFill() {
                       const validity = matchedField ? validateCellValue(matchedField, cellVal) : "ok";
                       const isEditable = !willSkip && (validity === "invalid" || validity === "empty-required");
                       const isEditing = csvEditingCell?.rowIdx === rowIdx && csvEditingCell?.header === h;
+                      const originalCellVal = csvBatchOriginalRows.length > 0 ? (csvBatchOriginalRows[rowIdx]?.[h] ?? "") : cellVal;
+                      const isCellModified = csvBatchOriginalRows.length > 0 && originalCellVal !== cellVal;
+
+                      const revertCell = (e: React.MouseEvent | React.KeyboardEvent) => {
+                        e.stopPropagation();
+                        const newRows = csvBatchRows.map((r, i) => {
+                          if (i !== rowIdx) return r;
+                          return { ...r, [h]: originalCellVal };
+                        });
+                        setCsvBatchRows(newRows);
+                        const stillHasEdits = newRows.some((r, i) => {
+                          const orig = csvBatchOriginalRows[i];
+                          if (!orig) return false;
+                          const allKeys = new Set([...Object.keys(r), ...Object.keys(orig)]);
+                          return [...allKeys].some((k) => (r[k] ?? "") !== (orig[k] ?? ""));
+                        });
+                        setCsvBatchHasEdits(stillHasEdits);
+                        if (csvEditingCell?.rowIdx === rowIdx && csvEditingCell?.header === h) {
+                          setCsvEditingCell(null);
+                        }
+                      };
 
                       const commitEdit = (newVal: string, navigateDelta = 0) => {
                         setCsvBatchRows((prev) => {
@@ -3038,7 +3059,9 @@ export default function DocuFill() {
                           ? "px-3 py-1 bg-red-50 text-red-700 max-w-[200px]"
                           : validity === "empty-required"
                             ? "px-3 py-1 bg-amber-50 text-amber-700 max-w-[200px]"
-                            : "px-3 py-2 text-[#334155] max-w-[200px] truncate";
+                            : isCellModified
+                              ? "px-3 py-2 bg-blue-50 text-[#334155] max-w-[200px] truncate"
+                              : "px-3 py-2 text-[#334155] max-w-[200px] truncate";
 
                       if (isEditing) {
                         const hasOptions = matchedField && (matchedField.type === "dropdown" || matchedField.type === "radio") && (matchedField.options ?? []).length > 0;
@@ -3083,17 +3106,19 @@ export default function DocuFill() {
                       }
 
                       const cellTitle = validity === "invalid"
-                        ? `Click to edit — invalid value for "${h}"`
+                        ? `Click to edit — invalid value for "${h}"${isCellModified ? ` (original: "${originalCellVal}")` : ""}`
                         : validity === "empty-required"
                           ? `Click to edit — "${h}" is required`
-                          : willSkip
-                            ? "Column will be skipped"
-                            : undefined;
+                          : isCellModified
+                            ? `Modified — original value: "${originalCellVal}"`
+                            : willSkip
+                              ? "Column will be skipped"
+                              : undefined;
 
                       return (
                         <td
                           key={h}
-                          className={`${tdCls}${isEditable ? " cursor-pointer group focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400" : ""}`}
+                          className={`${tdCls}${(isEditable || isCellModified) ? " group" : ""}${isEditable ? " cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400" : ""}`}
                           title={cellTitle}
                           onClick={isEditable ? () => setCsvEditingCell({ rowIdx, header: h }) : undefined}
                           {...(isEditable ? {
@@ -3115,6 +3140,18 @@ export default function DocuFill() {
                           <span className="truncate block max-w-[200px]">{cellVal}</span>
                           {isEditable && (
                             <span className="ml-1 text-[10px] opacity-60 group-hover:opacity-100">✎</span>
+                          )}
+                          {isCellModified && (
+                            <button
+                              type="button"
+                              title={`Revert this cell to its original value: "${originalCellVal}"`}
+                              aria-label={`Revert "${h}" to original value`}
+                              className="ml-1 text-[10px] opacity-0 group-hover:opacity-100 focus:opacity-100 text-blue-500 hover:text-blue-700 focus:text-blue-700 transition-opacity leading-none focus:outline-none focus:ring-1 focus:ring-blue-400 rounded"
+                              onClick={revertCell}
+                              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); revertCell(e); } }}
+                            >
+                              ↩
+                            </button>
                           )}
                         </td>
                       );
