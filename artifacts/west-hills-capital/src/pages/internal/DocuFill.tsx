@@ -2915,12 +2915,126 @@ export default function DocuFill() {
 
           {csvBatchHeaders.length > 0 && csvBatchRows.length > 0 && (
             <div>
-              <h3 className="text-sm font-semibold mb-2">Preview (first {Math.min(5, csvBatchRows.length)} rows)</h3>
-              <div className="overflow-x-auto rounded border border-[#DDD5C4]">
-                <table className="text-xs min-w-full">
-                  <thead className="bg-[#F8F6F0] border-b border-[#DDD5C4]">
-                    <tr>
-                      {csvBatchHeaders.slice(0, 8).map((h) => {
+              {(() => {
+                const errorRowsAbovePreview = csvBatchRows
+                  .map((row, idx) => ({ row, idx }))
+                  .filter(({ row, idx }) => {
+                    if (idx < 5) return false;
+                    return csvBatchHeaders.some((h) => {
+                      const isMetadata = h === "__package_id__" || h === "__package_name__";
+                      const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
+                      if (!matchedField || isMetadata) return false;
+                      const cellVal = row[h] ?? "";
+                      const validity = validateCellValue(matchedField, cellVal);
+                      return validity === "invalid" || validity === "empty-required";
+                    });
+                  });
+                const previewCount = Math.min(5, csvBatchRows.length);
+                const headingExtra = errorRowsAbovePreview.length > 0
+                  ? ` + ${errorRowsAbovePreview.length} row${errorRowsAbovePreview.length === 1 ? "" : "s"} with errors`
+                  : "";
+                const colCount = Math.min(8, csvBatchHeaders.length) + 1 + (csvBatchHeaders.length > 8 ? 1 : 0);
+
+                const renderBodyRow = (row: Record<string, string>, rowIdx: number, isErrorRow: boolean) => (
+                  <tr key={rowIdx} className={`border-b border-[#EFE8D8] last:border-0${isErrorRow ? " bg-[#FAFAF8]" : ""}`}>
+                    <td className="px-2 py-1 text-[#9AAAC0] font-mono text-[10px] text-right select-none border-r border-[#EFE8D8] whitespace-nowrap">
+                      {rowIdx + 1}
+                    </td>
+                    {csvBatchHeaders.slice(0, 8).map((h) => {
+                      const isMetadata = h === "__package_id__" || h === "__package_name__";
+                      const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
+                      const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
+                      const cellVal = row[h] ?? "";
+                      const validity = matchedField ? validateCellValue(matchedField, cellVal) : "ok";
+                      const isEditable = !willSkip && (validity === "invalid" || validity === "empty-required");
+                      const isEditing = csvEditingCell?.rowIdx === rowIdx && csvEditingCell?.header === h;
+
+                      const commitEdit = (newVal: string) => {
+                        setCsvBatchRows((prev) => {
+                          const updated = [...prev];
+                          updated[rowIdx] = { ...updated[rowIdx], [h]: newVal };
+                          return updated;
+                        });
+                        setCsvEditingCell(null);
+                      };
+
+                      const tdCls = willSkip
+                        ? "px-3 py-1 text-[#9AAAC0] max-w-[200px]"
+                        : validity === "invalid"
+                          ? "px-3 py-1 bg-red-50 text-red-700 max-w-[200px]"
+                          : validity === "empty-required"
+                            ? "px-3 py-1 bg-amber-50 text-amber-700 max-w-[200px]"
+                            : "px-3 py-2 text-[#334155] max-w-[200px] truncate";
+
+                      if (isEditing) {
+                        const hasOptions = matchedField && (matchedField.type === "dropdown" || matchedField.type === "radio") && (matchedField.options ?? []).length > 0;
+                        return (
+                          <td key={h} className={tdCls}>
+                            {hasOptions ? (
+                              <select
+                                autoFocus
+                                defaultValue={cellVal}
+                                className="w-full text-xs border border-blue-400 rounded px-1 py-0.5 bg-white text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                onChange={(e) => commitEdit(e.target.value)}
+                              >
+                                <option value="">— select —</option>
+                                {(matchedField!.options ?? []).map((opt) => (
+                                  <option key={opt} value={opt}>{opt}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <input
+                                autoFocus
+                                defaultValue={cellVal}
+                                className="w-full text-xs border border-blue-400 rounded px-1 py-0.5 bg-white text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                onBlur={(e) => commitEdit(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") commitEdit((e.target as HTMLInputElement).value);
+                                  if (e.key === "Escape") setCsvEditingCell(null);
+                                }}
+                              />
+                            )}
+                          </td>
+                        );
+                      }
+
+                      return (
+                        <td
+                          key={h}
+                          className={`${tdCls}${isEditable ? " cursor-pointer group" : ""}`}
+                          title={
+                            validity === "invalid"
+                              ? `Click to edit — invalid value for "${h}"`
+                              : validity === "empty-required"
+                                ? `Click to edit — "${h}" is required`
+                                : willSkip
+                                  ? "Column will be skipped"
+                                  : undefined
+                          }
+                          onClick={isEditable ? () => setCsvEditingCell({ rowIdx, header: h }) : undefined}
+                        >
+                          <span className="truncate block max-w-[200px]">{cellVal}</span>
+                          {isEditable && (
+                            <span className="ml-1 text-[10px] opacity-60 group-hover:opacity-100">✎</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                    {csvBatchHeaders.length > 8 && <td className="px-3 py-2 text-[#8A9BB8]">…</td>}
+                  </tr>
+                );
+
+                return (
+                  <>
+                    <h3 className="text-sm font-semibold mb-2">
+                      Preview (first {previewCount} row{previewCount === 1 ? "" : "s"}{headingExtra})
+                    </h3>
+                    <div className="overflow-x-auto rounded border border-[#DDD5C4]">
+                      <table className="text-xs min-w-full">
+                        <thead className="bg-[#F8F6F0] border-b border-[#DDD5C4]">
+                          <tr>
+                            <th className="px-2 py-2 text-left font-medium text-[#9AAAC0] border-r border-[#DDD5C4] w-8">#</th>
+                            {csvBatchHeaders.slice(0, 8).map((h) => {
                         const isMetadata = h === "__package_id__" || h === "__package_name__";
                         const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
                         const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
@@ -2981,102 +3095,32 @@ export default function DocuFill() {
                       {csvBatchHeaders.length > 8 && <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">+{csvBatchHeaders.length - 8} more</th>}
                     </tr>
                   </thead>
-                  <tbody>
-                    {csvBatchRows.slice(0, 5).map((row, idx) => (
-                      <tr key={idx} className="border-b border-[#EFE8D8] last:border-0">
-                        {csvBatchHeaders.slice(0, 8).map((h) => {
-                          const isMetadata = h === "__package_id__" || h === "__package_name__";
-                          const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
-                          const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
-                          const cellVal = row[h] ?? "";
-                          const validity = matchedField ? validateCellValue(matchedField, cellVal) : "ok";
-                          const isEditable = !willSkip && (validity === "invalid" || validity === "empty-required");
-                          const isEditing = csvEditingCell?.rowIdx === idx && csvEditingCell?.header === h;
-
-                          const commitEdit = (newVal: string) => {
-                            setCsvBatchRows((prev) => {
-                              const updated = [...prev];
-                              updated[idx] = { ...updated[idx], [h]: newVal };
-                              return updated;
-                            });
-                            setCsvEditingCell(null);
-                          };
-
-                          const tdCls = willSkip
-                            ? "px-3 py-1 text-[#9AAAC0] max-w-[200px]"
-                            : validity === "invalid"
-                              ? "px-3 py-1 bg-red-50 text-red-700 max-w-[200px]"
-                              : validity === "empty-required"
-                                ? "px-3 py-1 bg-amber-50 text-amber-700 max-w-[200px]"
-                                : "px-3 py-2 text-[#334155] max-w-[200px] truncate";
-
-                          if (isEditing) {
-                            const hasOptions = matchedField && (matchedField.type === "dropdown" || matchedField.type === "radio") && (matchedField.options ?? []).length > 0;
-                            return (
-                              <td key={h} className={tdCls}>
-                                {hasOptions ? (
-                                  <select
-                                    autoFocus
-                                    defaultValue={cellVal}
-                                    className="w-full text-xs border border-blue-400 rounded px-1 py-0.5 bg-white text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                    onChange={(e) => commitEdit(e.target.value)}
-                                  >
-                                    <option value="">— select —</option>
-                                    {(matchedField!.options ?? []).map((opt) => (
-                                      <option key={opt} value={opt}>{opt}</option>
-                                    ))}
-                                  </select>
-                                ) : (
-                                  <input
-                                    autoFocus
-                                    defaultValue={cellVal}
-                                    className="w-full text-xs border border-blue-400 rounded px-1 py-0.5 bg-white text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                    onBlur={(e) => commitEdit(e.target.value)}
-                                    onKeyDown={(e) => {
-                                      if (e.key === "Enter") commitEdit((e.target as HTMLInputElement).value);
-                                      if (e.key === "Escape") setCsvEditingCell(null);
-                                    }}
-                                  />
-                                )}
+                        <tbody>
+                          {csvBatchRows.slice(0, 5).map((row, idx) => renderBodyRow(row, idx, false))}
+                          {errorRowsAbovePreview.length > 0 && (
+                            <tr>
+                              <td
+                                colSpan={colCount}
+                                className="px-3 py-1.5 text-[10px] font-semibold text-[#6B7A99] bg-[#F3F0E8] border-t border-b border-[#DDD5C4] tracking-wide"
+                              >
+                                Rows with errors beyond preview
                               </td>
-                            );
-                          }
-
-                          return (
-                            <td
-                              key={h}
-                              className={`${tdCls}${isEditable ? " cursor-pointer group" : ""}`}
-                              title={
-                                validity === "invalid"
-                                  ? `Click to edit — invalid value for "${h}"`
-                                  : validity === "empty-required"
-                                    ? `Click to edit — "${h}" is required`
-                                    : willSkip
-                                      ? "Column will be skipped"
-                                      : undefined
-                              }
-                              onClick={isEditable ? () => setCsvEditingCell({ rowIdx: idx, header: h }) : undefined}
-                            >
-                              <span className="truncate block max-w-[200px]">{cellVal}</span>
-                              {isEditable && (
-                                <span className="ml-1 text-[10px] opacity-60 group-hover:opacity-100">✎</span>
-                              )}
-                            </td>
-                          );
-                        })}
-                        {csvBatchHeaders.length > 8 && <td className="px-3 py-2 text-[#8A9BB8]">…</td>}
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {csvBatchPackageId && (
-                <div className="mt-2 flex items-center gap-4 text-[10px] text-[#6B7A99]">
-                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-red-100 border border-red-200" /> Invalid value <span className="text-[#9AAAC0]">(click to fix)</span></span>
-                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-amber-100 border border-amber-200" /> Required but empty <span className="text-[#9AAAC0]">(click to fix)</span></span>
-                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#F8F6F0] border border-[#DDD5C4] line-through" /><span className="line-through">Column</span> will be skipped</span>
-                </div>
-              )}
+                            </tr>
+                          )}
+                          {errorRowsAbovePreview.map(({ row, idx }) => renderBodyRow(row, idx, true))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {csvBatchPackageId && (
+                      <div className="mt-2 flex items-center gap-4 text-[10px] text-[#6B7A99]">
+                        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-red-100 border border-red-200" /> Invalid value <span className="text-[#9AAAC0]">(click to fix)</span></span>
+                        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-amber-100 border border-amber-200" /> Required but empty <span className="text-[#9AAAC0]">(click to fix)</span></span>
+                        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#F8F6F0] border border-[#DDD5C4] line-through" /><span className="line-through">Column</span> will be skipped</span>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
 
