@@ -3320,7 +3320,7 @@ export default function DocuFill() {
             >
               {csvBatchIsImporting ? "Importing…" : `Import & Generate ${csvBatchRows.length > 0 ? csvBatchRows.length : ""} row${csvBatchRows.length === 1 ? "" : "s"}`}
             </Button>
-            {csvBatchHasEdits && csvBatchRows.length > 0 && !csvBatchIsImporting && (
+            {csvBatchHasEdits && csvBatchRows.length > 0 && (
               <Button
                 variant="outline"
                 size="sm"
