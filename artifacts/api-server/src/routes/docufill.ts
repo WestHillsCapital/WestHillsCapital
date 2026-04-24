@@ -37,6 +37,7 @@ type PackageInput = {
   documents?: JsonValue;
   fields?: JsonValue;
   mappings?: JsonValue;
+  recipients?: JsonValue;
 };
 
 type DocItem = {
@@ -997,8 +998,8 @@ router.post("/packages", async (req, res) => {
     const db = getDb();
     const { rows } = await db.query(
       `INSERT INTO docufill_packages
-         (name, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings)
-       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb)
+         (name, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients)
+       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb)
        RETURNING *`,
       [
         name,
@@ -1010,6 +1011,7 @@ router.post("/packages", async (req, res) => {
         jsonParam(body.documents),
         jsonParam(body.fields),
         jsonParam(body.mappings),
+        jsonParam(body.recipients),
       ],
     );
     const hydrated = await hydratePackages(rows as PackageRow[], db);
@@ -1065,8 +1067,8 @@ router.patch("/packages/:id", async (req, res) => {
       `UPDATE docufill_packages SET
           name=$1, custodian_id=$2, depository_id=$3, transaction_scope=$4,
           description=$5, status=$6, documents=$7::jsonb, fields=$8::jsonb,
-          mappings=$9::jsonb, version=version+1, updated_at=NOW()
-        WHERE id=$10
+          mappings=$9::jsonb, recipients=$10::jsonb, version=version+1, updated_at=NOW()
+        WHERE id=$11
         RETURNING *`,
       [
         name,
@@ -1078,6 +1080,7 @@ router.patch("/packages/:id", async (req, res) => {
         nextDocumentsJson,
         body.fields === undefined ? JSON.stringify(existing.fields ?? []) : jsonParam(body.fields),
         body.mappings === undefined ? JSON.stringify(existing.mappings ?? []) : jsonParam(body.mappings),
+        body.recipients === undefined ? JSON.stringify(existing.recipients ?? []) : jsonParam(body.recipients),
         id,
       ],
       );

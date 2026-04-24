@@ -422,6 +422,10 @@ export async function initDb(): Promise<void> {
     ADD COLUMN IF NOT EXISTS transaction_scope TEXT NOT NULL DEFAULT 'Custodial paperwork'
   `);
   await db.query(`
+    ALTER TABLE docufill_packages
+    ADD COLUMN IF NOT EXISTS recipients JSONB NOT NULL DEFAULT '[]'::jsonb
+  `);
+  await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_migration_state (
       key        TEXT PRIMARY KEY,
       applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()

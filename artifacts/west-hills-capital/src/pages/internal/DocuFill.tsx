@@ -138,6 +138,15 @@ type MappingItem = {
   fontSize?: number;
   align?: "left" | "center" | "right";
   format?: MappingFormat | string;
+  recipientId?: string;
+};
+
+type RecipientItem = {
+  id: string;
+  label: string;
+  color: string;
+  type: "customer" | "custodian" | "depository" | "custom";
+  refId?: number;
 };
 
 type BuilderStep = "documents" | "mapping" | "interview" | "finalize";
@@ -163,6 +172,7 @@ type PackageItem = {
   documents: DocItem[];
   fields: FieldItem[];
   mappings: MappingItem[];
+  recipients: RecipientItem[];
 };
 
 type Session = {
@@ -210,6 +220,20 @@ function pickFieldColor(usedColors: string[], sensitive: boolean): string {
   const available = FIELD_COLOR_PALETTE.filter((c) => !usedColors.includes(c));
   const pool = available.length > 0 ? available : FIELD_COLOR_PALETTE;
   return pool[Math.floor(Math.random() * pool.length)];
+}
+
+const RECIPIENT_COLOR_PALETTE = [
+  "#3B82F6", "#10B981", "#8B5CF6", "#F59E0B",
+  "#EC4899", "#06B6D4", "#EF4444", "#84CC16",
+];
+
+function pickRecipientColor(usedColors: string[]): string {
+  const available = RECIPIENT_COLOR_PALETTE.filter((c) => !usedColors.includes(c));
+  return available.length > 0 ? available[0] : RECIPIENT_COLOR_PALETTE[usedColors.length % RECIPIENT_COLOR_PALETTE.length];
+}
+
+function newRecipientId(): string {
+  return `recip_${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function validationTypeHint(vt: FieldItem["validationType"], message?: string): string {
@@ -435,6 +459,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
       align: mapping.align ?? "left",
       format: mapping.format ?? "as-entered",
     })) : [],
+    recipients: Array.isArray(pkg.recipients) ? pkg.recipients : [],
   }));
 }
 
@@ -516,7 +541,9 @@ export default function DocuFill() {
   const [driveWarnings, setDriveWarnings] = useState<string[]>([]);
   const [isDownloading, setIsDownloading] = useState(false);
   const [documentPreviewUrl, setDocumentPreviewUrl] = useState<string | null>(null);
-  const [formatMenu, setFormatMenu] = useState<{ mappingId: string; x: number; y: number; pdfX: number; pdfY: number } | null>(null);
+  const [placementModal, setPlacementModal] = useState<{ mappingId: string; pdfX: number; pdfY: number } | null>(null);
+  const [recipientPickerOpen, setRecipientPickerOpen] = useState(false);
+  const [recipientsExpanded, setRecipientsExpanded] = useState(true);
   const [selectedPage, setSelectedPage] = useState(1);
   const pageFrameRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -575,6 +602,20 @@ export default function DocuFill() {
   useEffect(() => {
     setCsvBreakdownHighlightedField(null);
   }, [csvBatchRows, csvBatchPackageId]);
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+      if (selectedMappingId) {
+        e.preventDefault();
+        removeSelectedMapping();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [selectedMappingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const selectedPackage = packages.find((pkg) => pkg.id === selectedPackageId) ?? packages[0] ?? null;
   const selectedDocument = selectedPackage?.documents.find((doc) => doc.id === selectedDocumentId) ?? selectedPackage?.documents[0] ?? null;
@@ -881,6 +922,7 @@ export default function DocuFill() {
           documents: pkg.documents,
           fields: pkg.fields,
           mappings: pkg.mappings,
+          recipients: pkg.recipients ?? [],
         }),
       });
       const data = await res.json();
@@ -1405,8 +1447,8 @@ export default function DocuFill() {
   }
 
   function copyField(sourceFieldId: string) {
-    const snapX = clampPercent((formatMenu?.pdfX ?? 20) + 3, 0, 74);
-    const snapY = clampPercent((formatMenu?.pdfY ?? 20) + 3, 0, 94);
+    const snapX = clampPercent((placementModal?.pdfX ?? 20) + 3, 0, 74);
+    const snapY = clampPercent((placementModal?.pdfY ?? 20) + 3, 0, 94);
     updateSelectedPackage((pkg) => {
       const source = pkg.fields.find((f) => f.id === sourceFieldId);
       if (!source) return pkg;
@@ -1441,12 +1483,12 @@ export default function DocuFill() {
       setSelectedFieldId(copy.id);
       return { ...pkg, fields: [...pkg.fields, copy] };
     });
-    setFormatMenu(null);
+    setPlacementModal(null);
   }
 
   function duplicateMapping(sourceMappingId: string) {
-    const snapX = clampPercent((formatMenu?.pdfX ?? 20) + 3, 0, 74);
-    const snapY = clampPercent((formatMenu?.pdfY ?? 20) + 3, 0, 94);
+    const snapX = clampPercent((placementModal?.pdfX ?? 20) + 3, 0, 74);
+    const snapY = clampPercent((placementModal?.pdfY ?? 20) + 3, 0, 94);
     updateSelectedPackage((pkg) => {
       const srcMap = pkg.mappings.find((m) => m.id === sourceMappingId);
       if (!srcMap) return pkg;
@@ -1470,7 +1512,7 @@ export default function DocuFill() {
       setSelectedMappingId(newMapping.id);
       return { ...pkg, fields, mappings: [...pkg.mappings, newMapping] };
     });
-    setFormatMenu(null);
+    setPlacementModal(null);
   }
 
   function moveField(fieldId: string, direction: -1 | 1) {
@@ -1524,7 +1566,7 @@ export default function DocuFill() {
     }));
     setSelectedMappingId(mappingId);
     setSelectedFieldId(field.id);
-    setFormatMenu(null);
+    setPlacementModal(null);
   }
 
   function dropFieldOnPage(e: ReactDragEvent<HTMLDivElement>) {
@@ -1554,7 +1596,7 @@ export default function DocuFill() {
       mappings: pkg.mappings.map((mapping) => mapping.id === mappingId ? { ...mapping, format } : mapping),
     }));
     setSelectedMappingId(mappingId);
-    setFormatMenu(null);
+    setPlacementModal(null);
   }
 
   function removeSelectedMapping() {
@@ -1564,6 +1606,22 @@ export default function DocuFill() {
       mappings: pkg.mappings.filter((mapping) => mapping.id !== selectedMapping.id),
     }));
     setSelectedMappingId(null);
+  }
+
+  function addRecipient(recipient: RecipientItem) {
+    updateSelectedPackage((pkg) => ({
+      ...pkg,
+      recipients: [...(pkg.recipients ?? []), recipient],
+    }));
+    setRecipientPickerOpen(false);
+  }
+
+  function removeRecipient(recipientId: string) {
+    updateSelectedPackage((pkg) => ({
+      ...pkg,
+      recipients: (pkg.recipients ?? []).filter((r) => r.id !== recipientId),
+      mappings: pkg.mappings.map((m) => m.recipientId === recipientId ? { ...m, recipientId: undefined } : m),
+    }));
   }
 
   function beginMappingPointer(e: ReactPointerEvent<HTMLElement>, mapping: MappingItem, mode: "move" | "resize") {
@@ -2295,26 +2353,56 @@ export default function DocuFill() {
       {tab === "mapper" && (
         !selectedPackage ? <EmptyState message="Create or select a package first." /> : (
           <div className="grid lg:grid-cols-[190px_1fr_260px] gap-4 min-h-[720px]">
-            <section className="bg-white border border-[#DDD5C4] rounded-lg p-3 flex flex-col">
-              <div className="flex items-center justify-between mb-2">
-                <h2 className="text-sm font-semibold">Documents</h2>
-                <label className={`text-xs ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
-                  {isUploadingDocument ? "Uploading…" : "Add"}
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    disabled={isUploadingDocument}
-                    className="sr-only"
-                    onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (!file) {
-                        return;
-                      }
-                      uploadDocument(file);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
+            <section className="bg-white border border-[#DDD5C4] rounded-lg p-3 flex flex-col gap-3">
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <button type="button" onClick={() => setRecipientsExpanded((v) => !v)} className="flex items-center gap-1 text-sm font-semibold text-[#0F1C3F] hover:text-[#C49A38] transition-colors">
+                    <svg className={`w-3 h-3 transition-transform ${recipientsExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    Recipients
+                  </button>
+                  <button type="button" onClick={() => setRecipientPickerOpen(true)} className="text-xs text-[#C49A38] hover:underline">Add</button>
+                </div>
+                {recipientsExpanded && (
+                  <div className="space-y-1">
+                    {(selectedPackage.recipients ?? []).length === 0 ? (
+                      <p className="text-[11px] text-[#8A9BB8] italic px-1">No recipients yet.</p>
+                    ) : (
+                      (selectedPackage.recipients ?? []).map((r) => (
+                        <div key={r.id} className="flex items-center gap-1.5 rounded px-1.5 py-1 bg-[#F8F6F0] border border-[#EFE8D8]">
+                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
+                          <span className="text-[11px] text-[#0F1C3F] font-medium truncate flex-1">{r.label}</span>
+                          <span className="text-[10px] text-[#8A9BB8] capitalize flex-shrink-0">{r.type === "customer" ? "cust." : r.type.slice(0, 4) + "."}</span>
+                          <button type="button" onClick={() => removeRecipient(r.id)} className="text-[#8A9BB8] hover:text-red-500 flex-shrink-0 ml-0.5" title="Remove">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
+              <div className="border-t border-[#EFE8D8]" />
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <h2 className="text-sm font-semibold">Documents</h2>
+                  <label className={`text-xs ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
+                    {isUploadingDocument ? "Uploading…" : "Add"}
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      disabled={isUploadingDocument}
+                      className="sr-only"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) {
+                          return;
+                        }
+                        uploadDocument(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                </div>
               </div>
               <div className="space-y-2 overflow-y-auto flex-1">
                 {selectedPackage.documents.map((doc, index) => (
@@ -2408,7 +2496,7 @@ export default function DocuFill() {
                   ref={pageFrameRef}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={dropFieldOnPage}
-                  onClick={() => setFormatMenu(null)}
+                  onClick={() => setPlacementModal(null)}
                   className="absolute top-0 left-0 bg-white border border-[#D4C9B5] shadow-sm overflow-hidden"
                   style={{
                     width: nativePageW,
@@ -2477,7 +2565,8 @@ export default function DocuFill() {
                     const isSelected = selectedMapping?.id === m.id;
                     const mFontSize = m.fontSize ?? 11;
                     const isCheckboxMark = m.format === "checkbox-yes" || String(m.format ?? "").startsWith("checkbox-option:");
-                    const fieldColor = field?.color ?? "#C49A38";
+                    const recipient = m.recipientId ? (selectedPackage.recipients ?? []).find((r) => r.id === m.recipientId) : undefined;
+                    const fieldColor = recipient?.color ?? field?.color ?? "#C49A38";
                     const flexJustify = isCheckboxMark ? "justify-center" : "justify-end";
                     return (
                       <button
@@ -2485,7 +2574,7 @@ export default function DocuFill() {
                         type="button"
                         onPointerDown={(e) => beginMappingPointer(e, m, "move")}
                         onClick={() => { setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); }}
-                        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); setFormatMenu({ mappingId: m.id, x: e.clientX, y: e.clientY, pdfX: m.x, pdfY: m.y }); }}
+                        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y }); }}
                         className={`absolute rounded cursor-move flex flex-col overflow-hidden ${flexJustify} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "border-2 bg-white/90 shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
                         style={{
                           left: `${m.x}%`,
@@ -3527,48 +3616,169 @@ export default function DocuFill() {
         </section>
       )}
 
-      {formatMenu && selectedPackage && (() => {
-        const mapping = selectedPackage.mappings.find((item) => item.id === formatMenu.mappingId);
+      {placementModal && selectedPackage && (() => {
+        const mapping = selectedPackage.mappings.find((item) => item.id === placementModal.mappingId);
         const field = mapping ? selectedPackage.fields.find((item) => item.id === mapping.fieldId) : undefined;
-        const options = mappingFormatOptionsForField(field);
+        const formatOptions = mappingFormatOptionsForField(field);
         if (!mapping) return null;
+        const assignedRecipient = mapping.recipientId ? (selectedPackage.recipients ?? []).find((r) => r.id === mapping.recipientId) : undefined;
         return (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setFormatMenu(null)} />
-            <div
-              className="fixed z-50 w-52 rounded-lg border border-[#D4C9B5] bg-white shadow-xl p-2"
-              style={{ left: Math.min(formatMenu.x, window.innerWidth - 224), top: Math.min(formatMenu.y, window.innerHeight - 384) }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="px-2 pb-1 text-[11px] font-semibold text-[#0F1C3F]">Print this as</div>
-              <div className="max-h-60 overflow-y-auto">
-                {options.map((option) => (
-                  <button
-                    key={option.value}
-                    type="button"
-                    onClick={() => chooseMappingFormat(mapping.id, option.value)}
-                    className={`block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#F8F6F0] ${mapping.format === option.value ? "bg-[#F8F6F0] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
-                  >
-                    <span>{option.label}</span>
-                    <span className="ml-1 text-[10px] text-[#8A9BB8]">{option.group}</span>
-                  </button>
-                ))}
-              </div>
-              <div className="border-t border-[#EFE8D8] mt-1.5 pt-1.5 space-y-0.5">
-                <div className="px-2 pb-0.5 text-[10px] uppercase tracking-wide text-[#8A9BB8]">Field actions</div>
-                {field && (
-                  <button type="button" onClick={() => copyField(field.id)} className="block w-full rounded px-2 py-1.5 text-left text-xs text-[#334155] hover:bg-[#F8F6F0]">
-                    Copy field — same name &amp; validation, new placement
-                  </button>
-                )}
-                <button type="button" onClick={() => duplicateMapping(mapping.id)} className="block w-full rounded px-2 py-1.5 text-left text-xs text-[#334155] hover:bg-[#F8F6F0]">
-                  Duplicate — identical copy with offset placement
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPlacementModal(null)}>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4 border-b border-[#DDD5C4]">
+                <div>
+                  <h2 className="text-sm font-semibold text-[#0F1C3F]">Placement Settings</h2>
+                  {field && <p className="text-xs text-[#8A9BB8] mt-0.5">{field.name}</p>}
+                </div>
+                <button type="button" onClick={() => setPlacementModal(null)} className="text-[#8A9BB8] hover:text-[#0F1C3F]">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
+              <div className="px-5 py-4 space-y-5">
+                <div>
+                  <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Print this as</div>
+                  <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                    {formatOptions.map((option) => (
+                      <button
+                        key={option.value}
+                        type="button"
+                        onClick={() => chooseMappingFormat(mapping.id, option.value)}
+                        className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs hover:bg-[#F8F6F0] ${mapping.format === option.value ? "bg-[#F8F6F0] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
+                      >
+                        <span>{option.label}</span>
+                        <span className="text-[10px] text-[#8A9BB8]">{option.group}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {(selectedPackage.recipients ?? []).length > 0 && (
+                  <div>
+                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Assigned to</div>
+                    <div className="space-y-1">
+                      <button
+                        type="button"
+                        onClick={() => updateSelectedMapping({ recipientId: undefined })}
+                        className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-[#F8F6F0] ${!assignedRecipient ? "bg-[#F8F6F0] font-semibold text-[#0F1C3F]" : "text-[#334155]"}`}
+                      >
+                        <span className="w-3 h-3 rounded-full border border-[#D4C9B5] inline-block flex-shrink-0" />
+                        <span>Unassigned</span>
+                      </button>
+                      {(selectedPackage.recipients ?? []).map((r) => (
+                        <button
+                          key={r.id}
+                          type="button"
+                          onClick={() => updateSelectedMapping({ recipientId: r.id })}
+                          className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-[#F8F6F0] ${mapping.recipientId === r.id ? "bg-[#F8F6F0] font-semibold text-[#0F1C3F]" : "text-[#334155]"}`}
+                        >
+                          <span className="w-3 h-3 rounded-full inline-block flex-shrink-0" style={{ backgroundColor: r.color }} />
+                          <span>{r.label}</span>
+                          <span className="ml-auto text-[10px] text-[#8A9BB8] capitalize">{r.type}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Field actions</div>
+                  <div className="space-y-0.5">
+                    {field && (
+                      <button type="button" onClick={() => copyField(field.id)} className="block w-full rounded px-2 py-1.5 text-left text-xs text-[#334155] hover:bg-[#F8F6F0]">
+                        Copy field — same name &amp; validation, new placement
+                      </button>
+                    )}
+                    <button type="button" onClick={() => duplicateMapping(mapping.id)} className="block w-full rounded px-2 py-1.5 text-left text-xs text-[#334155] hover:bg-[#F8F6F0]">
+                      Duplicate — identical copy with offset placement
+                    </button>
+                  </div>
+                </div>
+                <div className="border-t border-[#EFE8D8] pt-3">
+                  <button
+                    type="button"
+                    onClick={() => { removeSelectedMapping(); setPlacementModal(null); }}
+                    className="w-full rounded px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 border border-red-200 hover:border-red-300 transition-colors"
+                  >
+                    Remove this placement
+                  </button>
+                </div>
+              </div>
             </div>
-          </>
+          </div>
         );
       })()}
+
+      {recipientPickerOpen && selectedPackage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setRecipientPickerOpen(false)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#DDD5C4]">
+              <h2 className="text-sm font-semibold text-[#0F1C3F]">Add Recipient</h2>
+              <button type="button" onClick={() => setRecipientPickerOpen(false)} className="text-[#8A9BB8] hover:text-[#0F1C3F]">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div>
+                <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Customer</div>
+                <button
+                  type="button"
+                  disabled={(selectedPackage.recipients ?? []).some((r) => r.type === "customer")}
+                  onClick={() => addRecipient({ id: newRecipientId(), label: "Customer", color: pickRecipientColor((selectedPackage.recipients ?? []).map((r) => r.color)), type: "customer" })}
+                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] border border-[#EFE8D8] disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  Customer
+                  {(selectedPackage.recipients ?? []).some((r) => r.type === "customer") && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
+                </button>
+              </div>
+              {custodians.filter((c) => c.active !== false).length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Custodians</div>
+                  <div className="space-y-1">
+                    {custodians.filter((c) => c.active !== false).map((c) => {
+                      const already = (selectedPackage.recipients ?? []).some((r) => r.type === "custodian" && r.refId === c.id);
+                      return (
+                        <button
+                          key={c.id}
+                          type="button"
+                          disabled={already}
+                          onClick={() => addRecipient({ id: newRecipientId(), label: c.name, color: pickRecipientColor((selectedPackage.recipients ?? []).map((r) => r.color)), type: "custodian", refId: c.id })}
+                          className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] border border-[#EFE8D8] disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 8v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                          {c.name}
+                          {already && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {depositories.filter((d) => d.active !== false).length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Depositories</div>
+                  <div className="space-y-1">
+                    {depositories.filter((d) => d.active !== false).map((d) => {
+                      const already = (selectedPackage.recipients ?? []).some((r) => r.type === "depository" && r.refId === d.id);
+                      return (
+                        <button
+                          key={d.id}
+                          type="button"
+                          disabled={already}
+                          onClick={() => addRecipient({ id: newRecipientId(), label: d.name, color: pickRecipientColor((selectedPackage.recipients ?? []).map((r) => r.color)), type: "depository", refId: d.id })}
+                          className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] border border-[#EFE8D8] disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" /></svg>
+                          {d.name}
+                          {already && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {fieldEditorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setFieldEditorModal(null)}>
