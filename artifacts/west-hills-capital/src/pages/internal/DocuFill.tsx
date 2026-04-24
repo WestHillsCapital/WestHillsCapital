@@ -539,7 +539,12 @@ export default function DocuFill() {
   const csvBatchBreakdownRef = useRef<HTMLDivElement | null>(null);
   const [csvBreakdownHighlightedField, setCsvBreakdownHighlightedField] = useState<string | null>(null);
   const [showCsvFieldKey, setShowCsvFieldKey] = useState(false);
-  const [csvBatchFieldBreakdownOpen, setCsvBatchFieldBreakdownOpen] = useState(false);
+  const [csvBatchFieldBreakdownOpen, setCsvBatchFieldBreakdownOpen] = useState<boolean>(() => {
+    try { return localStorage.getItem("csvBatchFieldBreakdownOpen") === "true"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("csvBatchFieldBreakdownOpen", csvBatchFieldBreakdownOpen ? "true" : "false"); } catch { /* ignore */ }
+  }, [csvBatchFieldBreakdownOpen]);
   const [csvEditingCell, setCsvEditingCell] = useState<{ rowIdx: number; header: string } | null>(null);
 
   useEffect(() => {
