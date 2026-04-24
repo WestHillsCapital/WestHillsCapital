@@ -23,6 +23,8 @@ import { DocuFillInterviewPanel } from "./deal-builder/components/DocuFillInterv
 import { parseNum, parseQty } from "./deal-builder/utils";
 import type { Customer }      from "./deal-builder/types";
 
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+
 export default function DealBuilder() {
   const search = useSearch();
   const [, navigate] = useLocation();
@@ -51,6 +53,20 @@ export default function DealBuilder() {
 
   const handlePackageChange = useCallback((id: string) => setDocufillPackageId(id), []);
   const handleTransactionScopeChange = useCallback((scope: string) => setDocufillTransactionScope(scope), []);
+
+  // ── Restore DocuFill session when reopening a locked deal via URL ─────────
+  const [restoredSessionToken, setRestoredSessionToken] = useState<string | null>(null);
+  useEffect(() => {
+    if (!urlDealId || !s.savedDealId || s.dealType !== "ira" || restoredSessionToken) return;
+    fetch(`${API_BASE}/api/internal/docufill/sessions?dealId=${s.savedDealId}`, {
+      headers: { ...getAuthHeaders() },
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject()))
+      .then((data: { token?: string }) => {
+        if (data.token) setRestoredSessionToken(data.token);
+      })
+      .catch(() => {});
+  }, [urlDealId, s.savedDealId, s.dealType, restoredSessionToken, getAuthHeaders]);
 
   // ── Computed totals ───────────────────────────────────────────────────────
   const rowTotals = s.rows.map((r) => {
@@ -342,10 +358,10 @@ export default function DealBuilder() {
         </div>
       </div>
 
-      {/* ── IRA Paperwork Interview — appears inline after lock ─────────────── */}
-      {docufillSessionToken && (
+      {/* ── IRA Paperwork Interview — appears inline after lock / on reload ── */}
+      {(docufillSessionToken ?? restoredSessionToken) && (
         <DocuFillInterviewPanel
-          token={docufillSessionToken}
+          token={(docufillSessionToken ?? restoredSessionToken)!}
           getAuthHeaders={getAuthHeaders}
         />
       )}

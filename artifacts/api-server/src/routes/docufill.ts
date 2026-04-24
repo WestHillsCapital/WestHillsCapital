@@ -1257,6 +1257,37 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
   }
 });
 
+router.get("/sessions", async (req, res) => {
+  try {
+    const dealId = req.query.dealId ? Number(req.query.dealId) : null;
+    if (!dealId || isNaN(dealId)) {
+      res.status(400).json({ error: "dealId query param is required" });
+      return;
+    }
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT token FROM docufill_interview_sessions
+       WHERE deal_id = $1
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [dealId],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "No session found for this deal" });
+      return;
+    }
+    const session = await getSession(String(rows[0].token), db);
+    if (!session) {
+      res.status(404).json({ error: "Session record not found" });
+      return;
+    }
+    res.json({ session, token: String(rows[0].token) });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to look up session by dealId");
+    res.status(500).json({ error: "Failed to look up session" });
+  }
+});
+
 router.post("/sessions", async (req, res) => {
   try {
     const body = req.body as SessionInput;
