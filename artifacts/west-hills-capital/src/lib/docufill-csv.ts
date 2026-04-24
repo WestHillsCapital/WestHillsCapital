@@ -57,6 +57,26 @@ export function packageTemplateToCsv(packageId: number | string, packageName: st
   return headers.map(csvQuote).join(",") + "\n";
 }
 
+type BatchResult = {
+  rowIndex: number;
+  token: string | null;
+  status: "generated" | "error" | "processing";
+  pdfUrl?: string;
+  error?: string;
+};
+
+export function batchResultsToCsv(results: BatchResult[], apiBase: string): string {
+  const headers = ["Row #", "Status", "Token", "PDF URL", "Error"];
+  const rows = results.map((r) => [
+    String(r.rowIndex + 1),
+    r.status,
+    r.token ?? "",
+    r.pdfUrl ? `${apiBase}${r.pdfUrl}` : "",
+    r.error ?? "",
+  ]);
+  return [headers, ...rows].map((row) => row.map(csvQuote).join(",")).join("\n");
+}
+
 export function downloadCsv(csvContent: string, filename: string): void {
   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);

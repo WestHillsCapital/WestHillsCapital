@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getDocuFillPrefillDisplayValue } from "@/lib/docufill-redaction";
-import { sessionToCsv, packageTemplateToCsv, downloadCsv, parseCsvString } from "@/lib/docufill-csv";
+import { sessionToCsv, packageTemplateToCsv, downloadCsv, parseCsvString, batchResultsToCsv } from "@/lib/docufill-csv";
 import * as pdfjsLib from "pdfjs-dist";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
@@ -2819,6 +2819,21 @@ export default function DocuFill() {
                   </tbody>
                 </table>
               </div>
+              {!csvBatchIsImporting && (
+                <div className="mt-3 flex justify-end">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const dateStr = new Date().toISOString().slice(0, 10);
+                      downloadCsv(batchResultsToCsv(csvBatchResults, API_BASE), `docufill-batch-results-${dateStr}.csv`);
+                    }}
+                    className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
+                  >
+                    Download Results CSV
+                  </Button>
+                </div>
+              )}
             </div>
           )}
         </section>
