@@ -139,6 +139,7 @@ type MappingItem = {
   align?: "left" | "center" | "right";
   format?: MappingFormat | string;
   recipientId?: string;
+  multiLine?: boolean;
 };
 
 type RecipientItem = {
@@ -1431,6 +1432,13 @@ export default function DocuFill() {
     }));
   }
 
+  function updateFieldInPackage(fieldId: string, patch: Partial<FieldItem>) {
+    updateSelectedPackage((pkg) => ({
+      ...pkg,
+      fields: pkg.fields.map((f) => f.id === fieldId ? { ...f, ...patch } : f),
+    }));
+  }
+
   function unlinkSelectedFieldFromLibrary() {
     if (!selectedField?.libraryFieldId) return;
     updateSelectedField({ libraryFieldId: "", optionsMode: undefined });
@@ -1596,7 +1604,6 @@ export default function DocuFill() {
       mappings: pkg.mappings.map((mapping) => mapping.id === mappingId ? { ...mapping, format } : mapping),
     }));
     setSelectedMappingId(mappingId);
-    setPlacementModal(null);
   }
 
   function removeSelectedMapping() {
@@ -3622,38 +3629,54 @@ export default function DocuFill() {
         const formatOptions = mappingFormatOptionsForField(field);
         if (!mapping) return null;
         const assignedRecipient = mapping.recipientId ? (selectedPackage.recipients ?? []).find((r) => r.id === mapping.recipientId) : undefined;
+        const isRequired = field?.interviewMode === "required";
+        const isReadOnly = field?.interviewMode === "readonly";
+        const isMasked = field?.sensitive === true;
+        const isMultiLine = mapping.multiLine === true;
+
+        function toggleRequired() {
+          if (!field) return;
+          updateFieldInPackage(field.id, { interviewMode: isRequired ? "optional" : "required" });
+        }
+        function toggleReadOnly() {
+          if (!field) return;
+          updateFieldInPackage(field.id, { interviewMode: isReadOnly ? "optional" : "readonly" });
+        }
+        function toggleMask() {
+          if (!field) return;
+          updateFieldInPackage(field.id, { sensitive: !isMasked });
+        }
+        function toggleMultiLine() {
+          updateSelectedMapping({ multiLine: !isMultiLine });
+        }
+
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPlacementModal(null)}>
             <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
               <div className="flex items-center justify-between px-5 py-4 border-b border-[#DDD5C4]">
-                <div>
-                  <h2 className="text-sm font-semibold text-[#0F1C3F]">Placement Settings</h2>
-                  {field && <p className="text-xs text-[#8A9BB8] mt-0.5">{field.name}</p>}
-                </div>
+                <h2 className="text-sm font-semibold text-[#0F1C3F]">Placement Settings</h2>
                 <button type="button" onClick={() => setPlacementModal(null)} className="text-[#8A9BB8] hover:text-[#0F1C3F]">
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
               <div className="px-5 py-4 space-y-5">
-                <div>
-                  <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Print this as</div>
-                  <div className="space-y-0.5 max-h-48 overflow-y-auto">
-                    {formatOptions.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => chooseMappingFormat(mapping.id, option.value)}
-                        className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs hover:bg-[#F8F6F0] ${mapping.format === option.value ? "bg-[#F8F6F0] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
-                      >
-                        <span>{option.label}</span>
-                        <span className="text-[10px] text-[#8A9BB8]">{option.group}</span>
-                      </button>
-                    ))}
+
+                {field && (
+                  <div>
+                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-1.5">Name</div>
+                    <input
+                      type="text"
+                      value={field.name}
+                      onChange={(e) => updateFieldInPackage(field.id, { name: e.target.value })}
+                      className="w-full border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-[#C49A38] focus:border-[#C49A38]"
+                      placeholder="Field name"
+                    />
                   </div>
-                </div>
+                )}
+
                 {(selectedPackage.recipients ?? []).length > 0 && (
                   <div>
-                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Assigned to</div>
+                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Recipient</div>
                     <div className="space-y-1">
                       <button
                         type="button"
@@ -3678,6 +3701,75 @@ export default function DocuFill() {
                     </div>
                   </div>
                 )}
+
+                {field && (
+                  <div>
+                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Field options</div>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isRequired}
+                          onChange={toggleRequired}
+                          disabled={isReadOnly}
+                          className="w-3.5 h-3.5 accent-[#C49A38] cursor-pointer disabled:opacity-40"
+                        />
+                        <span className={`text-xs ${isReadOnly ? "text-[#B0BAD0]" : "text-[#334155]"}`}>Required</span>
+                        {isRequired && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">must answer</span>}
+                      </label>
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isReadOnly}
+                          onChange={toggleReadOnly}
+                          disabled={isRequired}
+                          className="w-3.5 h-3.5 accent-[#C49A38] cursor-pointer disabled:opacity-40"
+                        />
+                        <span className={`text-xs ${isRequired ? "text-[#B0BAD0]" : "text-[#334155]"}`}>Read-only</span>
+                        {isReadOnly && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium">pre-filled only</span>}
+                      </label>
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isMasked}
+                          onChange={toggleMask}
+                          className="w-3.5 h-3.5 accent-[#C49A38] cursor-pointer"
+                        />
+                        <span className="text-xs text-[#334155]">Mask field data</span>
+                        {isMasked && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">sensitive</span>}
+                      </label>
+                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isMultiLine}
+                          onChange={toggleMultiLine}
+                          className="w-3.5 h-3.5 accent-[#C49A38] cursor-pointer"
+                        />
+                        <span className="text-xs text-[#334155]">Multi-line data entry</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
+
+                {formatOptions.length > 0 && (
+                  <div>
+                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Orientation</div>
+                    <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                      {formatOptions.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => chooseMappingFormat(mapping.id, option.value)}
+                          className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs hover:bg-[#F8F6F0] ${mapping.format === option.value ? "bg-[#F8F6F0] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
+                        >
+                          <span>{option.label}</span>
+                          <span className="text-[10px] text-[#8A9BB8]">{option.group}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Field actions</div>
                   <div className="space-y-0.5">
@@ -3691,6 +3783,7 @@ export default function DocuFill() {
                     </button>
                   </div>
                 </div>
+
                 <div className="border-t border-[#EFE8D8] pt-3">
                   <button
                     type="button"
