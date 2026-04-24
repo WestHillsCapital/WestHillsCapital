@@ -148,6 +148,7 @@ type RecipientItem = {
   color: string;
   type: "customer" | "custodian" | "depository" | "custom";
   refId?: number;
+  email?: string;
 };
 
 type BuilderStep = "documents" | "mapping" | "interview" | "finalize";
@@ -1631,6 +1632,13 @@ export default function DocuFill() {
     }));
   }
 
+  function updateRecipient(recipientId: string, patch: Partial<RecipientItem>) {
+    updateSelectedPackage((pkg) => ({
+      ...pkg,
+      recipients: (pkg.recipients ?? []).map((r) => r.id === recipientId ? { ...r, ...patch } : r),
+    }));
+  }
+
   function beginMappingPointer(e: ReactPointerEvent<HTMLElement>, mapping: MappingItem, mode: "move" | "resize") {
     const frame = pageFrameRef.current;
     if (!frame) return;
@@ -2375,13 +2383,24 @@ export default function DocuFill() {
                       <p className="text-[11px] text-[#8A9BB8] italic px-1">No recipients yet.</p>
                     ) : (
                       (selectedPackage.recipients ?? []).map((r) => (
-                        <div key={r.id} className="flex items-center gap-1.5 rounded px-1.5 py-1 bg-[#F8F6F0] border border-[#EFE8D8]">
-                          <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
-                          <span className="text-[11px] text-[#0F1C3F] font-medium truncate flex-1">{r.label}</span>
-                          <span className="text-[10px] text-[#8A9BB8] capitalize flex-shrink-0">{r.type === "customer" ? "cust." : r.type.slice(0, 4) + "."}</span>
-                          <button type="button" onClick={() => removeRecipient(r.id)} className="text-[#8A9BB8] hover:text-red-500 flex-shrink-0 ml-0.5" title="Remove">
-                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                          </button>
+                        <div key={r.id} className="rounded border border-[#EFE8D8] bg-[#F8F6F0] overflow-hidden">
+                          <div className="flex items-center gap-1.5 px-1.5 py-1">
+                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
+                            <span className="text-[11px] text-[#0F1C3F] font-medium truncate flex-1">{r.label}</span>
+                            <span className="text-[10px] text-[#8A9BB8] capitalize flex-shrink-0">{r.type === "customer" ? "cust." : r.type.slice(0, 4) + "."}</span>
+                            <button type="button" onClick={() => removeRecipient(r.id)} className="text-[#8A9BB8] hover:text-red-500 flex-shrink-0 ml-0.5" title="Remove">
+                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                          </div>
+                          <div className="border-t border-[#EFE8D8] px-1.5 py-1">
+                            <input
+                              type="email"
+                              value={r.email ?? ""}
+                              onChange={(e) => updateRecipient(r.id, { email: e.target.value })}
+                              placeholder="Email address"
+                              className="w-full bg-transparent text-[11px] text-[#0F1C3F] placeholder-[#B0BAD0] outline-none focus:placeholder-[#D4C9B5]"
+                            />
+                          </div>
                         </div>
                       ))
                     )}
