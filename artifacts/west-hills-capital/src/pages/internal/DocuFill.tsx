@@ -211,9 +211,9 @@ function defaultMappingFormat(field: FieldItem): MappingItem["format"] {
 }
 
 const FIELD_COLOR_PALETTE = [
-  "#2563EB", "#DC2626", "#16A34A", "#D97706", "#7C3AED",
-  "#0891B2", "#DB2777", "#65A30D", "#EA580C", "#4F46E5",
-  "#059669", "#B91C1C", "#1D4ED8", "#CA8A04", "#6D28D9",
+  "#EF4444", "#F97316", "#F59E0B", "#EAB308", "#84CC16",
+  "#22C55E", "#10B981", "#14B8A6", "#06B6D4", "#0EA5E9",
+  "#3B82F6", "#6366F1", "#8B5CF6", "#D946EF", "#F43F5E",
 ];
 
 function pickFieldColor(usedColors: string[], sensitive: boolean): string {
@@ -3889,17 +3889,17 @@ export default function DocuFill() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-[#6B7A99] mb-1.5">Field Color</label>
-                <div className="grid grid-cols-5 gap-1.5 mb-2">
+                <div className="grid grid-cols-5 gap-1 mb-2">
                   {FIELD_COLOR_PALETTE.map((color) => (
                     <button
                       key={color}
                       type="button"
                       title={color}
                       onClick={() => setFieldEditorDraft((d) => ({ ...d, color }))}
-                      className="w-full aspect-square rounded"
+                      className="w-full h-5 rounded-sm"
                       style={{
                         backgroundColor: color,
-                        outline: fieldEditorDraft.color.toUpperCase() === color.toUpperCase() ? `3px solid ${color}` : "none",
+                        outline: fieldEditorDraft.color.toUpperCase() === color.toUpperCase() ? `2px solid ${color}` : "none",
                         outlineOffset: "2px",
                         boxShadow: fieldEditorDraft.color.toUpperCase() === color.toUpperCase() ? "0 0 0 1px white inset" : "none",
                       }}
