@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
-import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
 import { CSS as DndCSS } from "@dnd-kit/utilities";
 import { useLocation, useParams, useSearch } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
@@ -2213,20 +2213,16 @@ export default function DocuFill() {
                           });
                         }}
                       >
-                        <SortableContext items={selectedPackage.documents.map((d) => d.id)} strategy={verticalListSortingStrategy}>
-                          <div className="flex flex-col gap-3">
+                        <SortableContext items={selectedPackage.documents.map((d) => d.id)} strategy={rectSortingStrategy}>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                             {selectedPackage.documents.map((doc, index) => (
                               <SortableItem key={doc.id} id={doc.id}>
                                 {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
                                   <div
                                     ref={wrapperRef}
                                     style={wrapperStyle}
-                                    className={`rounded-lg border p-3 bg-white transition-shadow ${isDragging ? "opacity-40 shadow-xl" : ""} ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/5" : "border-[#DDD5C4]"}`}
+                                    className={`rounded-lg border bg-white flex flex-col transition-shadow ${isDragging ? "opacity-40 shadow-2xl scale-95" : "hover:shadow-md"} ${selectedDocument?.id === doc.id ? "border-[#C49A38] ring-2 ring-[#C49A38]/20" : "border-[#DDD5C4]"}`}
                                   >
-                                    <div className="flex items-center gap-2 mb-2">
-                                      <GripHandle {...handleProps} />
-                                      <span className="text-[10px] text-[#C4B89A] select-none">drag to reorder · {index + 1} of {selectedPackage.documents.length}</span>
-                                    </div>
                                     <DocumentPreviewTile
                                       packageId={selectedPackage.id}
                                       doc={doc}
@@ -2236,15 +2232,27 @@ export default function DocuFill() {
                                       previewCache={documentPreviewCache}
                                       previewCacheOrder={documentPreviewCacheOrder}
                                       onSelect={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }}
+                                      previewHeight="h-52"
                                     />
-                                    <Input value={doc.title} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))} className="mt-2 h-8 text-xs" />
-                                    <div className="mt-1 text-[10px] text-[#8A9BB8] truncate">{doc.fileName ?? "Metadata only"} · {doc.pages} page{doc.pages === 1 ? "" : "s"}</div>
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                      <label className={`text-[11px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
-                                        {isUploadingDocument ? "Uploading…" : "Replace PDF"}
-                                        <input type="file" accept="application/pdf" disabled={isUploadingDocument} className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadDocument(file, doc.id); e.target.value = ""; }} />
-                                      </label>
-                                      <button onClick={() => removeDocument(doc.id)} className="ml-auto text-[11px] text-red-600">Remove</button>
+                                    <div className="p-2.5 flex flex-col gap-1.5 border-t border-[#EFE8D8]">
+                                      <div className="flex items-center gap-1.5">
+                                        <GripHandle {...handleProps} />
+                                        <span className="text-[10px] text-[#C4B89A] select-none flex-1 truncate">{index + 1} of {selectedPackage.documents.length}</span>
+                                      </div>
+                                      <Input
+                                        value={doc.title}
+                                        onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))}
+                                        className="h-7 text-xs px-2"
+                                        placeholder="Document title"
+                                      />
+                                      <div className="text-[10px] text-[#8A9BB8] truncate">{doc.pages} page{doc.pages === 1 ? "" : "s"}{doc.fileName ? ` · ${doc.fileName}` : ""}</div>
+                                      <div className="flex gap-2 items-center">
+                                        <label className={`text-[10px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer hover:underline"}`}>
+                                          {isUploadingDocument ? "Uploading…" : "Replace"}
+                                          <input type="file" accept="application/pdf" disabled={isUploadingDocument} className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadDocument(file, doc.id); e.target.value = ""; }} />
+                                        </label>
+                                        <button onClick={() => removeDocument(doc.id)} className="ml-auto text-[10px] text-red-500 hover:underline">Remove</button>
+                                      </div>
                                     </div>
                                   </div>
                                 )}
@@ -4073,6 +4081,7 @@ function DocumentPreviewTile({
   previewCache,
   previewCacheOrder,
   onSelect,
+  previewHeight = "h-28",
 }: {
   packageId: number;
   doc: DocItem;
@@ -4082,6 +4091,7 @@ function DocumentPreviewTile({
   previewCache: { current: Record<string, string> };
   previewCacheOrder: { current: string[] };
   onSelect: () => void;
+  previewHeight?: string;
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
@@ -4133,7 +4143,7 @@ function DocumentPreviewTile({
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") onSelect();
       }}
-      className={`relative w-full h-28 overflow-hidden rounded border bg-[#F8F6F0] text-left focus:outline-none focus:ring-2 focus:ring-[#C49A38]/40 ${selected ? "border-[#C49A38]" : "border-[#DDD5C4]"}`}
+      className={`relative w-full ${previewHeight} overflow-hidden rounded border bg-[#F8F6F0] text-left focus:outline-none focus:ring-2 focus:ring-[#C49A38]/40 ${selected ? "border-[#C49A38]" : "border-[#DDD5C4]"}`}
     >
       {previewUrl ? (
         <iframe
