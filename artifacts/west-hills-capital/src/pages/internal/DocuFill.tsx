@@ -590,7 +590,6 @@ export default function DocuFill() {
   const mapperContainerRef = useRef<HTMLElement | null>(null);
   const [mapperContainerWidth, setMapperContainerWidth] = useState(800);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
-  const [interviewDragOverId, setInterviewDragOverId] = useState<string | null>(null);
   const [acroAnnotations, setAcroAnnotations] = useState<AcroAnnotation[]>([]);
   const [showAcroLayer, setShowAcroLayer] = useState(true);
   const [mapperTextMode, setMapperTextMode] = useState(true);
@@ -1571,19 +1570,6 @@ export default function DocuFill() {
     });
   }
 
-  function moveFieldToIndex(draggedId: string, targetId: string) {
-    if (draggedId === targetId) return;
-    updateSelectedPackage((pkg) => {
-      const fields = [...pkg.fields];
-      const from = fields.findIndex((f) => f.id === draggedId);
-      const to = fields.findIndex((f) => f.id === targetId);
-      if (from < 0 || to < 0) return pkg;
-      const [item] = fields.splice(from, 1);
-      fields.splice(to, 0, item);
-      return { ...pkg, fields };
-    });
-  }
-
   function placeField() {
     if (!selectedField || !selectedDocument) return;
     addMappingForField(selectedField, 18 + (selectedPackage?.mappings.length ?? 0) % 5 * 12, 20 + (selectedPackage?.mappings.length ?? 0) % 8 * 8);
@@ -2285,31 +2271,47 @@ export default function DocuFill() {
                       </div>
                       <p className="text-xs text-[#8A9BB8] mb-3">Questions are ordered top-to-bottom by PDF position. Drag to reorder, or click “Sort by PDF order” to reset.</p>
                       {packageInterviewFields.length === 0 ? <EmptyState message="No interview questions yet. Go back to Mapping Rules and mark fields that require customer or sales rep input." /> : (
-                        <div className="space-y-1">
-                          {packageInterviewFields.map((field, index) => (
-                            <div
-                              key={field.id}
-                              draggable
-                              onDragStart={(e) => { e.dataTransfer.setData("text/interview-field", field.id); e.dataTransfer.effectAllowed = "move"; }}
-                              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; setInterviewDragOverId(field.id); }}
-                              onDragLeave={() => setInterviewDragOverId(null)}
-                              onDrop={(e) => { e.preventDefault(); setInterviewDragOverId(null); const dragged = e.dataTransfer.getData("text/interview-field"); if (dragged) moveFieldToIndex(dragged, field.id); }}
-                              onDragEnd={() => setInterviewDragOverId(null)}
-                              className={`rounded border p-3 flex items-center gap-3 cursor-grab transition-colors ${interviewDragOverId === field.id ? "border-[#C49A38] bg-[#FDF8EE]" : "border-[#EFE8D8] bg-[#F8F6F0]"}`}
-                            >
-                              <svg className="w-4 h-4 text-[#C4B99A] shrink-0 pointer-events-none" fill="currentColor" viewBox="0 0 20 20"><path d="M7 2a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4zM7 8a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4zM7 14a2 2 0 110 4 2 2 0 010-4zm6 0a2 2 0 110 4 2 2 0 010-4z"/></svg>
-                              <div className="flex-1 min-w-0">
-                                <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
-                                  <span>{index + 1}. {field.name}</span>
-                                  {!packageMappedFieldIds.has(field.id) && (
-                                    <span className="text-[10px] font-normal bg-orange-50 border border-orange-300 text-orange-700 rounded px-1.5 py-0.5 leading-none">Not on PDF — add placement in mapper</span>
+                        <DndContext
+                          sensors={sortSensors}
+                          collisionDetection={closestCenter}
+                          onDragEnd={(event: DragEndEvent) => {
+                            const { active, over } = event;
+                            if (!over || active.id === over.id) return;
+                            updateSelectedPackage((pkg) => {
+                              const oldIdx = pkg.fields.findIndex((f) => f.id === active.id);
+                              const newIdx = pkg.fields.findIndex((f) => f.id === over.id);
+                              if (oldIdx < 0 || newIdx < 0) return pkg;
+                              return { ...pkg, fields: arrayMove(pkg.fields, oldIdx, newIdx) };
+                            });
+                          }}
+                        >
+                          <SortableContext items={packageInterviewFields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                            <div className="space-y-1">
+                              {packageInterviewFields.map((field, index) => (
+                                <SortableItem key={field.id} id={field.id}>
+                                  {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
+                                    <div
+                                      ref={wrapperRef}
+                                      style={wrapperStyle}
+                                      className={`rounded border p-3 flex items-center gap-3 transition-shadow ${isDragging ? "opacity-40 shadow-lg border-[#C49A38] bg-[#FDF8EE]" : "border-[#EFE8D8] bg-[#F8F6F0]"}`}
+                                    >
+                                      <GripHandle {...handleProps} />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+                                          <span>{index + 1}. {field.name}</span>
+                                          {!packageMappedFieldIds.has(field.id) && (
+                                            <span className="text-[10px] font-normal bg-orange-50 border border-orange-300 text-orange-700 rounded px-1.5 py-0.5 leading-none">Not on PDF — add placement in mapper</span>
+                                          )}
+                                        </div>
+                                        <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.validationType && field.validationType !== "none" ? ` · ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
+                                      </div>
+                                    </div>
                                   )}
-                                </div>
-                                <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.validationType && field.validationType !== "none" ? ` · ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
-                              </div>
+                                </SortableItem>
+                              ))}
                             </div>
-                          ))}
-                        </div>
+                          </SortableContext>
+                        </DndContext>
                       )}
                     </div>
                     <div className="space-y-3">
