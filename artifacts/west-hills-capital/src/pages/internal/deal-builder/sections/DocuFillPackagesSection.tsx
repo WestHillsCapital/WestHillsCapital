@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useLocation } from "wouter";
 import type { Customer } from "../types";
 import {
@@ -24,18 +24,29 @@ interface Props {
   savedDealId: number | null;
   locked: boolean;
   getAuthHeaders: () => HeadersInit;
+  packageId: string;
+  onPackageChange: (id: string) => void;
+  transactionScope: string;
+  onTransactionScopeChange: (scope: string) => void;
 }
 
-export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, locked, getAuthHeaders }: Props) {
+export function DocuFillPackagesSection({
+  customer,
+  setCustomer,
+  savedDealId,
+  locked,
+  getAuthHeaders,
+  packageId,
+  onPackageChange,
+  transactionScope,
+  onTransactionScopeChange,
+}: Props) {
   const [, navigate] = useLocation();
   const [custodians, setCustodians] = useState<DocuFillEntity[]>([]);
   const [depositories, setDepositories] = useState<DocuFillEntity[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<DocuFillTransactionType[]>([]);
   const [packages, setPackages] = useState<DocuFillPackage[]>([]);
-  const [selectedPackageId, setSelectedPackageId] = useState("");
-  const [transactionScope, setTransactionScope] = useState("ira_transfer");
   const [isLoading, setIsLoading] = useState(false);
-  const [isLaunching, setIsLaunching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -57,6 +68,7 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
   const matchingPackages = useMemo(() => {
     return getMatchingDocuFillPackages(packages, selectedCustodian, selectedDepository, transactionScope);
   }, [packages, selectedCustodian, selectedDepository, transactionScope]);
+
   const labelForScope = (scope: string) => transactionTypes.find((item) => item.scope === scope)?.label ?? getDocuFillTransactionLabel(scope);
 
   useEffect(() => {
@@ -68,69 +80,28 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
     }
   }, [customer.custodianId, customer.depositoryId, selectedCustodian, selectedDepository, setCustomer]);
 
+  const packageIdRef = useRef(packageId);
+  packageIdRef.current = packageId;
   useEffect(() => {
-    setSelectedPackageId((current) => {
-      if (current && matchingPackages.some((pkg) => String(pkg.id) === current)) return current;
-      if (matchingPackages.length === 1) return String(matchingPackages[0]!.id);
-      return "";
-    });
-  }, [matchingPackages]);
+    const current = packageIdRef.current;
+    if (current && matchingPackages.some((pkg) => String(pkg.id) === current)) return;
+    const newId = matchingPackages.length === 1 ? String(matchingPackages[0]!.id) : "";
+    onPackageChange(newId);
+  }, [matchingPackages, onPackageChange]);
 
-  async function launchPackage() {
-    const packageId = Number(selectedPackageId);
-    if (!packageId) {
-      setError("Select a DocuFill package first.");
-      return;
-    }
-    setIsLaunching(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/sessions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({
-          packageId,
-          transactionScope,
-          custodianId: customer.custodianId ? Number(customer.custodianId) : null,
-          depositoryId: customer.depositoryId ? Number(customer.depositoryId) : null,
-          dealId: savedDealId,
-          source: "deal_builder",
-          prefill: {
-            firstName: customer.firstName,
-            lastName: customer.lastName,
-            email: customer.email,
-            phone: customer.phone,
-            state: customer.state,
-            custodian: customer.custodian,
-            custodianId: customer.custodianId,
-            depository: customer.depository,
-            depositoryId: customer.depositoryId,
-            iraAccountNumber: customer.iraAccountNumber,
-            dealId: savedDealId,
-          },
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not launch DocuFill package");
-      navigate(`/internal/docufill?session=${data.token}`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not launch DocuFill package");
-    } finally {
-      setIsLaunching(false);
-    }
-  }
+  const selectedPkg = matchingPackages.find((p) => String(p.id) === packageId);
 
   return (
     <section className="bg-white border border-[#DDD5C4] rounded-lg shadow-sm p-5">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
-          <h2 className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wider">DocuFill Packages</h2>
-          <p className="text-xs text-[#8A9BB8] mt-1">Select custodian + depository, then open the matching interview.</p>
+          <h2 className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wider">IRA Paperwork</h2>
+          <p className="text-xs text-[#8A9BB8] mt-1">Select custodian, depository, and transaction type — the interview will appear after locking the deal.</p>
         </div>
         <button
           type="button"
           onClick={() => navigate("/internal/docufill")}
-          className="text-xs px-2.5 py-1.5 rounded border border-[#DDD5C4] text-[#6B7A99] hover:text-[#0F1C3F]"
+          className="text-xs px-2.5 py-1.5 rounded border border-[#DDD5C4] text-[#6B7A99] hover:text-[#0F1C3F] shrink-0"
         >
           Manage
         </button>
@@ -181,7 +152,7 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
         <span className="block text-xs text-[#6B7A99] mb-1">Transaction type</span>
         <select
           value={transactionScope}
-          onChange={(e) => setTransactionScope(e.target.value)}
+          onChange={(e) => onTransactionScopeChange(e.target.value)}
           disabled={locked || isLoading}
           className="w-full bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
         >
@@ -190,11 +161,11 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
       </label>
 
       <label className="block mt-3">
-        <span className="block text-xs text-[#6B7A99] mb-1">Matching Package Interview</span>
+        <span className="block text-xs text-[#6B7A99] mb-1">Matching Package</span>
         <select
-          value={selectedPackageId}
-          onChange={(e) => setSelectedPackageId(e.target.value)}
-          disabled={isLoading || matchingPackages.length === 0}
+          value={packageId}
+          onChange={(e) => onPackageChange(e.target.value)}
+          disabled={isLoading || matchingPackages.length === 0 || locked}
           className="w-full bg-white border border-[#D4C9B5] rounded px-3 py-1.5 text-sm text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] disabled:opacity-60"
         >
           <option value="">{matchingPackages.length ? "Select package" : `No active ${labelForScope(transactionScope)} package for this combination`}</option>
@@ -202,17 +173,16 @@ export function DocuFillPackagesSection({ customer, setCustomer, savedDealId, lo
         </select>
       </label>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={launchPackage}
-          disabled={isLaunching || !selectedPackageId}
-          className="px-4 py-2 rounded bg-[#0F1C3F] text-white text-sm font-medium hover:bg-[#182B5F] disabled:opacity-50"
-        >
-          {isLaunching ? "Opening…" : "Open DocuFill Package"}
-        </button>
-        <span className="text-xs text-[#8A9BB8]">Known deal data will prefill; the interview asks only for missing fields.</span>
-      </div>
+      {packageId && selectedPkg && !locked && (
+        <p className="mt-2 text-xs text-[#8A9BB8]">
+          <span className="text-green-700 font-medium">✓ Package selected</span> — the IRA interview will open automatically when you lock the deal.
+        </p>
+      )}
+
+      {locked && packageId && (
+        <p className="mt-2 text-xs text-[#8A9BB8]">Package locked with deal — see interview below.</p>
+      )}
+
       {error && <p className="mt-3 text-xs text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2">{error}</p>}
     </section>
   );

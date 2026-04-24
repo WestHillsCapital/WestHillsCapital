@@ -1,5 +1,5 @@
 import { useSearch, useLocation } from "wouter";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useInternalAuth } from "../../hooks/useInternalAuth";
 
 import { useDealState }      from "./deal-builder/hooks/useDealState";
@@ -18,6 +18,7 @@ import { SummarySection }   from "./deal-builder/sections/SummarySection";
 import { ExecutionSection } from "./deal-builder/sections/ExecutionSection";
 import { FulfillmentSection } from "./deal-builder/sections/FulfillmentSection";
 import { DocuFillPackagesSection } from "./deal-builder/sections/DocuFillPackagesSection";
+import { DocuFillInterviewPanel } from "./deal-builder/components/DocuFillInterviewPanel";
 
 import { parseNum, parseQty } from "./deal-builder/utils";
 import type { Customer }      from "./deal-builder/types";
@@ -43,6 +44,13 @@ export default function DealBuilder() {
 
   // ── All form state ────────────────────────────────────────────────────────
   const s = useDealState(urlDealId, urlLeadId, urlConfirmationId, getAuthHeaders);
+
+  // ── DocuFill package selection (lifted from DocuFillPackagesSection) ──────
+  const [docufillPackageId,        setDocufillPackageId]        = useState("");
+  const [docufillTransactionScope, setDocufillTransactionScope] = useState("ira_transfer");
+
+  const handlePackageChange = useCallback((id: string) => setDocufillPackageId(id), []);
+  const handleTransactionScopeChange = useCallback((scope: string) => setDocufillTransactionScope(scope), []);
 
   // ── Computed totals ───────────────────────────────────────────────────────
   const rowTotals = s.rows.map((r) => {
@@ -79,8 +87,15 @@ export default function DealBuilder() {
     setShipToZip:              s.setShipToZip,
   });
 
-  const { lockDeal, isSaving, executionStep, saveError } = useDealExecution(
-    getAuthHeaders, s, subtotal, shipping, total,
+  const { lockDeal, isSaving, executionStep, saveError, docufillSessionToken } = useDealExecution(
+    getAuthHeaders,
+    s,
+    subtotal,
+    shipping,
+    total,
+    s.dealType === "ira" && docufillPackageId
+      ? { packageId: docufillPackageId, transactionScope: docufillTransactionScope }
+      : null,
   );
 
   const { handlePreviewInvoice, isGeneratingPreview } = useInvoicePreview(
@@ -208,6 +223,10 @@ export default function DealBuilder() {
               savedDealId={s.savedDealId}
               locked={s.isLocked}
               getAuthHeaders={getAuthHeaders}
+              packageId={docufillPackageId}
+              onPackageChange={handlePackageChange}
+              transactionScope={docufillTransactionScope}
+              onTransactionScopeChange={handleTransactionScopeChange}
             />
           )}
 
@@ -233,12 +252,6 @@ export default function DealBuilder() {
               shipToZip={s.shipToZip}       setShipToZip={s.setShipToZip}
             />
           )}
-
-          {/*
-           * IRA deals — Depository section placeholder
-           * When dealType === "ira", this area will render a depository
-           * section once that feature is built. For now, nothing is shown.
-           */}
 
           {/* Notes — bottom of left column */}
           <section className="px-1">
@@ -328,6 +341,15 @@ export default function DealBuilder() {
           )}
         </div>
       </div>
+
+      {/* ── IRA Paperwork Interview — appears inline after lock ─────────────── */}
+      {docufillSessionToken && (
+        <DocuFillInterviewPanel
+          token={docufillSessionToken}
+          getAuthHeaders={getAuthHeaders}
+        />
+      )}
+
     </div>
   );
 }

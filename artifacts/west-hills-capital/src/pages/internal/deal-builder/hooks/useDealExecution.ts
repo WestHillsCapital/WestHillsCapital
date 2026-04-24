@@ -13,16 +13,23 @@ export const EXECUTION_STEPS = [
   "Saving to Drive…",
 ];
 
+interface DocuFillParams {
+  packageId: string;
+  transactionScope: string;
+}
+
 export function useDealExecution(
   getAuthHeaders: () => HeadersInit,
   s: DealState,
   subtotal: number,
   shipping: number,
   total: number,
+  docufillParams: DocuFillParams | null = null,
 ) {
-  const [isSaving,       setIsSaving]       = useState(false);
-  const [executionStep,  setExecutionStep]  = useState(0);
-  const [saveError,      setSaveError]      = useState<string | null>(null);
+  const [isSaving,              setIsSaving]              = useState(false);
+  const [executionStep,         setExecutionStep]         = useState(0);
+  const [saveError,             setSaveError]             = useState<string | null>(null);
+  const [docufillSessionToken,  setDocufillSessionToken]  = useState<string | null>(null);
 
   const lockDeal = useCallback(async () => {
     setSaveError(null);
@@ -121,6 +128,42 @@ export function useDealExecution(
         window.history.replaceState(null, "", window.location.pathname + `?dealId=${dealId}`);
       } catch { /* ignore — some mobile browsers restrict this */ }
 
+      // ── Auto-create DocuFill session if a package was selected ───────────
+      if (docufillParams?.packageId) {
+        try {
+          const sessionRes = await fetch(`${API_BASE}/api/internal/docufill/sessions`, {
+            method:  "POST",
+            headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+            body: JSON.stringify({
+              packageId:       Number(docufillParams.packageId),
+              transactionScope: docufillParams.transactionScope,
+              custodianId:     s.customer.custodianId ? Number(s.customer.custodianId) : null,
+              depositoryId:    s.customer.depositoryId ? Number(s.customer.depositoryId) : null,
+              dealId,
+              source:          "deal_builder",
+              prefill: {
+                firstName:       s.customer.firstName,
+                lastName:        s.customer.lastName,
+                email:           s.customer.email,
+                phone:           s.customer.phone,
+                state:           s.customer.state,
+                custodian:       s.customer.custodian,
+                custodianId:     s.customer.custodianId,
+                depository:      s.customer.depository,
+                depositoryId:    s.customer.depositoryId,
+                iraAccountNumber: s.customer.iraAccountNumber,
+                dealId,
+              },
+            }),
+          });
+          if (sessionRes.ok) {
+            const sessionData = await sessionRes.json();
+            if (sessionData.token) setDocufillSessionToken(sessionData.token);
+          }
+          // Session creation failure is non-fatal — deal is already locked
+        } catch { /* session creation failure is non-fatal */ }
+      }
+
       setTimeout(() => {
         const el = document.getElementById("deal-execution-result");
         if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -133,7 +176,7 @@ export function useDealExecution(
       setIsSaving(false);
       setExecutionStep(0);
     }
-  }, [getAuthHeaders, s, subtotal, shipping, total]);
+  }, [getAuthHeaders, s, subtotal, shipping, total, docufillParams]);
 
-  return { lockDeal, isSaving, executionStep, saveError };
+  return { lockDeal, isSaving, executionStep, saveError, docufillSessionToken };
 }
