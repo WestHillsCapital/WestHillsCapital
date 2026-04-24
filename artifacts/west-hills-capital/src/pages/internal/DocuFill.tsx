@@ -532,6 +532,7 @@ export default function DocuFill() {
   const [csvBatchRows, setCsvBatchRows] = useState<Record<string, string>[]>([]);
   const [csvBatchMismatch, setCsvBatchMismatch] = useState(false);
   const [csvBatchIsImporting, setCsvBatchIsImporting] = useState(false);
+  const [csvBatchHasEdits, setCsvBatchHasEdits] = useState(false);
   type BatchResult = { rowIndex: number; token: string | null; status: "generated" | "error" | "processing"; pdfUrl?: string; error?: string };
   const [csvBatchResults, setCsvBatchResults] = useState<BatchResult[] | null>(null);
   const [csvBatchError, setCsvBatchError] = useState<string | null>(null);
@@ -1707,6 +1708,7 @@ export default function DocuFill() {
     setCsvBatchResults(null);
     setCsvBatchError(null);
     setCsvEditingCell(null);
+    setCsvBatchHasEdits(false);
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -2955,6 +2957,7 @@ export default function DocuFill() {
                           updated[rowIdx] = { ...updated[rowIdx], [h]: newVal };
                           return updated;
                         });
+                        setCsvBatchHasEdits(true);
                         setCsvEditingCell(null);
                       };
 
@@ -3225,7 +3228,7 @@ export default function DocuFill() {
             <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{csvBatchError}</div>
           )}
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <Button
               onClick={handleCsvBatchImport}
               disabled={!csvBatchPackageId || csvBatchRows.length === 0 || csvBatchIsImporting}
@@ -3233,6 +3236,25 @@ export default function DocuFill() {
             >
               {csvBatchIsImporting ? "Importing…" : `Import & Generate ${csvBatchRows.length > 0 ? csvBatchRows.length : ""} row${csvBatchRows.length === 1 ? "" : "s"}`}
             </Button>
+            {csvBatchHasEdits && csvBatchRows.length > 0 && !csvBatchIsImporting && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const q = (v: string) => /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+                  const lines = [
+                    csvBatchHeaders.map(q).join(","),
+                    ...csvBatchRows.map((row) => csvBatchHeaders.map((h) => q(row[h] ?? "")).join(",")),
+                  ];
+                  const dateStr = new Date().toISOString().slice(0, 10);
+                  const baseName = csvBatchFile?.name.replace(/\.csv$/i, "") ?? "corrected";
+                  downloadCsv(lines.join("\n"), `${baseName}-corrected-${dateStr}.csv`);
+                }}
+                className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
+              >
+                Download corrected CSV
+              </Button>
+            )}
             {csvBatchIsImporting && <span className="text-xs text-[#6B7A99]">Processing rows sequentially, please wait…</span>}
           </div>
 
