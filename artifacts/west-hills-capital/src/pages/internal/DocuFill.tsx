@@ -250,6 +250,7 @@ function validateCellValue(field: FieldItem, value: string): "ok" | "empty-requi
     }
     return "ok";
   }
+  if (field.type === "date") return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed) ? "ok" : "invalid";
   const vt = field.validationType;
   if (!vt || vt === "none" || vt === "string" || vt === "name") return "ok";
   if (vt === "email")    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? "ok" : "invalid";
