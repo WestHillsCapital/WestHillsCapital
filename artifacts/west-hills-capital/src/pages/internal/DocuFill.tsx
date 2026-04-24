@@ -2123,7 +2123,10 @@ export default function DocuFill() {
                             onDrop={(e) => {
                               e.preventDefault();
                               const srcId = e.dataTransfer.getData("text/doc");
-                              moveDocumentToIndex(srcId, dragOverDocHalf === "bottom" ? index + 1 : index);
+                              const srcIndex = selectedPackage.documents.findIndex((d) => d.id === srcId);
+                              let target = dragOverDocHalf === "bottom" ? index + 1 : index;
+                              if (srcIndex >= 0 && srcIndex < target) target -= 1;
+                              moveDocumentToIndex(srcId, target);
                               setDragOverDocId(null); setDragOverDocHalf(null);
                             }}
                             className={`relative rounded-lg border p-3 ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4] bg-white"}`}
@@ -2330,7 +2333,10 @@ export default function DocuFill() {
                     onDrop={(e) => {
                       e.preventDefault();
                       const srcId = e.dataTransfer.getData("text/doc");
-                      moveDocumentToIndex(srcId, dragOverDocHalf === "bottom" ? index + 1 : index);
+                      const srcIndex = selectedPackage.documents.findIndex((d) => d.id === srcId);
+                      let target = dragOverDocHalf === "bottom" ? index + 1 : index;
+                      if (srcIndex >= 0 && srcIndex < target) target -= 1;
+                      moveDocumentToIndex(srcId, target);
                       setDragOverDocId(null); setDragOverDocHalf(null);
                     }}
                     className={`relative border rounded p-2 ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4]"}`}
