@@ -538,6 +538,7 @@ export default function DocuFill() {
   const csvBatchFileInputRef = useRef<HTMLInputElement | null>(null);
   const [showCsvFieldKey, setShowCsvFieldKey] = useState(false);
   const [csvBatchFieldBreakdownOpen, setCsvBatchFieldBreakdownOpen] = useState(false);
+  const [csvEditingCell, setCsvEditingCell] = useState<{ rowIdx: number; header: string } | null>(null);
 
   const selectedPackage = packages.find((pkg) => pkg.id === selectedPackageId) ?? packages[0] ?? null;
   const selectedDocument = selectedPackage?.documents.find((doc) => doc.id === selectedDocumentId) ?? selectedPackage?.documents[0] ?? null;
@@ -1694,6 +1695,7 @@ export default function DocuFill() {
     setCsvBatchMismatch(false);
     setCsvBatchResults(null);
     setCsvBatchError(null);
+    setCsvEditingCell(null);
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -2761,6 +2763,7 @@ export default function DocuFill() {
                   setCsvBatchResults(null);
                   setCsvBatchError(null);
                   setShowCsvFieldKey(false);
+                  setCsvEditingCell(null);
                   if (csvBatchRows.length > 0 && e.target.value) {
                     const pkg = packages.find((p) => String(p.id) === e.target.value);
                     if (pkg) {
@@ -2935,28 +2938,77 @@ export default function DocuFill() {
                           const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
                           const cellVal = row[h] ?? "";
                           const validity = matchedField ? validateCellValue(matchedField, cellVal) : "ok";
-                          const cellCls = willSkip
-                            ? "px-3 py-2 text-[#9AAAC0] max-w-[200px] truncate"
+                          const isEditable = !willSkip && (validity === "invalid" || validity === "empty-required");
+                          const isEditing = csvEditingCell?.rowIdx === idx && csvEditingCell?.header === h;
+
+                          const commitEdit = (newVal: string) => {
+                            setCsvBatchRows((prev) => {
+                              const updated = [...prev];
+                              updated[idx] = { ...updated[idx], [h]: newVal };
+                              return updated;
+                            });
+                            setCsvEditingCell(null);
+                          };
+
+                          const tdCls = willSkip
+                            ? "px-3 py-1 text-[#9AAAC0] max-w-[200px]"
                             : validity === "invalid"
-                              ? "px-3 py-2 bg-red-50 text-red-700 max-w-[200px] truncate"
+                              ? "px-3 py-1 bg-red-50 text-red-700 max-w-[200px]"
                               : validity === "empty-required"
-                                ? "px-3 py-2 bg-amber-50 text-amber-700 max-w-[200px] truncate"
+                                ? "px-3 py-1 bg-amber-50 text-amber-700 max-w-[200px]"
                                 : "px-3 py-2 text-[#334155] max-w-[200px] truncate";
+
+                          if (isEditing) {
+                            const hasOptions = matchedField && (matchedField.type === "dropdown" || matchedField.type === "radio") && (matchedField.options ?? []).length > 0;
+                            return (
+                              <td key={h} className={tdCls}>
+                                {hasOptions ? (
+                                  <select
+                                    autoFocus
+                                    defaultValue={cellVal}
+                                    className="w-full text-xs border border-blue-400 rounded px-1 py-0.5 bg-white text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                    onChange={(e) => commitEdit(e.target.value)}
+                                  >
+                                    <option value="">— select —</option>
+                                    {(matchedField!.options ?? []).map((opt) => (
+                                      <option key={opt} value={opt}>{opt}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    autoFocus
+                                    defaultValue={cellVal}
+                                    className="w-full text-xs border border-blue-400 rounded px-1 py-0.5 bg-white text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                    onBlur={(e) => commitEdit(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") commitEdit((e.target as HTMLInputElement).value);
+                                      if (e.key === "Escape") setCsvEditingCell(null);
+                                    }}
+                                  />
+                                )}
+                              </td>
+                            );
+                          }
+
                           return (
                             <td
                               key={h}
-                              className={cellCls}
+                              className={`${tdCls}${isEditable ? " cursor-pointer group" : ""}`}
                               title={
                                 validity === "invalid"
-                                  ? `Invalid value for "${h}"`
+                                  ? `Click to edit — invalid value for "${h}"`
                                   : validity === "empty-required"
-                                    ? `"${h}" is required`
+                                    ? `Click to edit — "${h}" is required`
                                     : willSkip
                                       ? "Column will be skipped"
                                       : undefined
                               }
+                              onClick={isEditable ? () => setCsvEditingCell({ rowIdx: idx, header: h }) : undefined}
                             >
-                              {cellVal}
+                              <span className="truncate block max-w-[200px]">{cellVal}</span>
+                              {isEditable && (
+                                <span className="ml-1 text-[10px] opacity-60 group-hover:opacity-100">✎</span>
+                              )}
                             </td>
                           );
                         })}
@@ -2968,8 +3020,8 @@ export default function DocuFill() {
               </div>
               {csvBatchPackageId && (
                 <div className="mt-2 flex items-center gap-4 text-[10px] text-[#6B7A99]">
-                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-red-100 border border-red-200" /> Invalid value</span>
-                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-amber-100 border border-amber-200" /> Required but empty</span>
+                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-red-100 border border-red-200" /> Invalid value <span className="text-[#9AAAC0]">(click to fix)</span></span>
+                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-amber-100 border border-amber-200" /> Required but empty <span className="text-[#9AAAC0]">(click to fix)</span></span>
                   <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#F8F6F0] border border-[#DDD5C4] line-through" /><span className="line-through">Column</span> will be skipped</span>
                 </div>
               )}
@@ -3062,7 +3114,7 @@ export default function DocuFill() {
                   )}
                 </div>
               )}
-              <p className="text-[11px] text-amber-700">Row numbers count from 1, not including the header row. Fix these rows in your spreadsheet and re-upload, or proceed anyway to import all rows.</p>
+              <p className="text-[11px] text-amber-700">Row numbers count from 1, not including the header row. Click any highlighted cell in the preview above to fix it inline, or correct your spreadsheet and re-upload.</p>
             </div>
           )}
 
