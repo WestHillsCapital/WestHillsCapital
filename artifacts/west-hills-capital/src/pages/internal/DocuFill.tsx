@@ -501,6 +501,8 @@ export default function DocuFill() {
     interviewMode: FieldInterviewMode; hasDefault: boolean; defaultValue: string;
     validationType: FieldItem["validationType"]; validationPattern: string; validationMessage: string; packageOnly: boolean;
   }>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false });
+  const [dragOverDocId, setDragOverDocId] = useState<string | null>(null);
+  const [dragOverDocHalf, setDragOverDocHalf] = useState<"top" | "bottom" | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
@@ -2110,13 +2112,24 @@ export default function DocuFill() {
                             key={doc.id}
                             draggable
                             onDragStart={(e) => e.dataTransfer.setData("text/doc", doc.id)}
-                            onDragOver={(e) => e.preventDefault()}
+                            onDragEnd={() => { setDragOverDocId(null); setDragOverDocHalf(null); }}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              const rect = e.currentTarget.getBoundingClientRect();
+                              setDragOverDocId(doc.id);
+                              setDragOverDocHalf((e.clientY - rect.top) / rect.height < 0.5 ? "top" : "bottom");
+                            }}
+                            onDragLeave={() => { setDragOverDocId(null); setDragOverDocHalf(null); }}
                             onDrop={(e) => {
                               e.preventDefault();
-                              moveDocumentToIndex(e.dataTransfer.getData("text/doc"), index);
+                              const srcId = e.dataTransfer.getData("text/doc");
+                              moveDocumentToIndex(srcId, dragOverDocHalf === "bottom" ? index + 1 : index);
+                              setDragOverDocId(null); setDragOverDocHalf(null);
                             }}
-                            className={`rounded-lg border p-3 ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4] bg-white"}`}
+                            className={`relative rounded-lg border p-3 ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4] bg-white"}`}
                           >
+                            {dragOverDocId === doc.id && dragOverDocHalf === "top" && <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#C49A38] z-10 pointer-events-none rounded-t-lg" />}
+                            {dragOverDocId === doc.id && dragOverDocHalf === "bottom" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#C49A38] z-10 pointer-events-none rounded-b-lg" />}
                             <DocumentPreviewTile
                               packageId={selectedPackage.id}
                               doc={doc}
@@ -2306,13 +2319,24 @@ export default function DocuFill() {
                     key={doc.id}
                     draggable
                     onDragStart={(e) => e.dataTransfer.setData("text/doc", doc.id)}
-                    onDragOver={(e) => e.preventDefault()}
+                    onDragEnd={() => { setDragOverDocId(null); setDragOverDocHalf(null); }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      const rect = e.currentTarget.getBoundingClientRect();
+                      setDragOverDocId(doc.id);
+                      setDragOverDocHalf((e.clientY - rect.top) / rect.height < 0.5 ? "top" : "bottom");
+                    }}
+                    onDragLeave={() => { setDragOverDocId(null); setDragOverDocHalf(null); }}
                     onDrop={(e) => {
                       e.preventDefault();
-                      moveDocumentToIndex(e.dataTransfer.getData("text/doc"), index);
+                      const srcId = e.dataTransfer.getData("text/doc");
+                      moveDocumentToIndex(srcId, dragOverDocHalf === "bottom" ? index + 1 : index);
+                      setDragOverDocId(null); setDragOverDocHalf(null);
                     }}
-                    className={`border rounded p-2 ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4]"}`}
+                    className={`relative border rounded p-2 ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4]"}`}
                   >
+                    {dragOverDocId === doc.id && dragOverDocHalf === "top" && <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#C49A38] z-10 pointer-events-none rounded-t" />}
+                    {dragOverDocId === doc.id && dragOverDocHalf === "bottom" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#C49A38] z-10 pointer-events-none rounded-b" />}
                     <DocumentPreviewTile
                       packageId={selectedPackage.id}
                       doc={doc}
@@ -2442,14 +2466,6 @@ export default function DocuFill() {
                       </div>
                     );
                   })}
-                  {documentPreviewUrl && !isPdfRendering && pageMappings.length === 0 && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 3 }}>
-                      <div className="flex flex-col items-center gap-2 rounded-lg bg-white/80 border border-dashed border-[#C49A38]/50 px-6 py-4 shadow-sm">
-                        <svg className="w-6 h-6 text-[#C49A38]/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" /></svg>
-                        <p className="text-xs text-[#6B7A99] text-center leading-snug">Drag a field from the right panel<br />onto this page to place it</p>
-                      </div>
-                    </div>
-                  )}
                   {pageMappings.map((m) => {
                     const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
                     const isSelected = selectedMapping?.id === m.id;
@@ -2504,44 +2520,6 @@ export default function DocuFill() {
                       </button>
                     );
                   })}
-                  {formatMenu && (() => {
-                    const mapping = selectedPackage.mappings.find((item) => item.id === formatMenu.mappingId);
-                    const field = mapping ? selectedPackage.fields.find((item) => item.id === mapping.fieldId) : undefined;
-                    const options = mappingFormatOptionsForField(field);
-                    return mapping ? (
-                      <div
-                        className="fixed z-50 w-52 rounded-lg border border-[#D4C9B5] bg-white shadow-xl p-2"
-                        style={{ left: Math.min(formatMenu.x, window.innerWidth - 220), top: Math.min(formatMenu.y, window.innerHeight - 380) }}
-                        onClick={(event) => event.stopPropagation()}
-                      >
-                        <div className="px-2 pb-1 text-[11px] font-semibold text-[#0F1C3F]">Print this as</div>
-                        <div className="max-h-60 overflow-y-auto">
-                          {options.map((option) => (
-                            <button
-                              key={option.value}
-                              type="button"
-                              onClick={() => chooseMappingFormat(mapping.id, option.value)}
-                              className={`block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#F8F6F0] ${mapping.format === option.value ? "bg-[#F8F6F0] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
-                            >
-                              <span>{option.label}</span>
-                              <span className="ml-1 text-[10px] text-[#8A9BB8]">{option.group}</span>
-                            </button>
-                          ))}
-                        </div>
-                        <div className="border-t border-[#EFE8D8] mt-1.5 pt-1.5 space-y-0.5">
-                          <div className="px-2 pb-0.5 text-[10px] uppercase tracking-wide text-[#8A9BB8]">Field actions</div>
-                          {field && (
-                            <button type="button" onClick={() => copyField(field.id)} className="block w-full rounded px-2 py-1.5 text-left text-xs text-[#334155] hover:bg-[#F8F6F0]">
-                              Copy field — same name &amp; validation, new placement
-                            </button>
-                          )}
-                          <button type="button" onClick={() => duplicateMapping(mapping.id)} className="block w-full rounded px-2 py-1.5 text-left text-xs text-[#334155] hover:bg-[#F8F6F0]">
-                            Duplicate — identical copy with offset placement
-                          </button>
-                        </div>
-                      </div>
-                    ) : null;
-                  })()}
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap justify-end gap-2">
@@ -2572,6 +2550,12 @@ export default function DocuFill() {
                 </label>
               )}
               <div className="space-y-2 overflow-y-auto flex-1">
+                {selectedPackage.fields.length === 0 && (
+                  <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
+                    <svg className="w-6 h-6 text-[#C49A38]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                    <p className="text-xs text-[#8A9BB8] leading-snug italic">No fields yet. Click <strong className="not-italic font-semibold text-[#C49A38]">Add</strong> above to create your first field, then drag it onto the document to place it.</p>
+                  </div>
+                )}
                 {selectedPackage.fields.map((field, index) => (
                   <div
                     key={field.id}
@@ -3536,6 +3520,49 @@ export default function DocuFill() {
           )}
         </section>
       )}
+
+      {formatMenu && selectedPackage && (() => {
+        const mapping = selectedPackage.mappings.find((item) => item.id === formatMenu.mappingId);
+        const field = mapping ? selectedPackage.fields.find((item) => item.id === mapping.fieldId) : undefined;
+        const options = mappingFormatOptionsForField(field);
+        if (!mapping) return null;
+        return (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setFormatMenu(null)} />
+            <div
+              className="fixed z-50 w-52 rounded-lg border border-[#D4C9B5] bg-white shadow-xl p-2"
+              style={{ left: Math.min(formatMenu.x, window.innerWidth - 224), top: Math.min(formatMenu.y, window.innerHeight - 384) }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-2 pb-1 text-[11px] font-semibold text-[#0F1C3F]">Print this as</div>
+              <div className="max-h-60 overflow-y-auto">
+                {options.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => chooseMappingFormat(mapping.id, option.value)}
+                    className={`block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-[#F8F6F0] ${mapping.format === option.value ? "bg-[#F8F6F0] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
+                  >
+                    <span>{option.label}</span>
+                    <span className="ml-1 text-[10px] text-[#8A9BB8]">{option.group}</span>
+                  </button>
+                ))}
+              </div>
+              <div className="border-t border-[#EFE8D8] mt-1.5 pt-1.5 space-y-0.5">
+                <div className="px-2 pb-0.5 text-[10px] uppercase tracking-wide text-[#8A9BB8]">Field actions</div>
+                {field && (
+                  <button type="button" onClick={() => copyField(field.id)} className="block w-full rounded px-2 py-1.5 text-left text-xs text-[#334155] hover:bg-[#F8F6F0]">
+                    Copy field — same name &amp; validation, new placement
+                  </button>
+                )}
+                <button type="button" onClick={() => duplicateMapping(mapping.id)} className="block w-full rounded px-2 py-1.5 text-left text-xs text-[#334155] hover:bg-[#F8F6F0]">
+                  Duplicate — identical copy with offset placement
+                </button>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {fieldEditorModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setFieldEditorModal(null)}>
