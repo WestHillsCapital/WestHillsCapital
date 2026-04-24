@@ -2654,22 +2654,27 @@ export default function DocuFill() {
                 <h2 className="text-sm font-semibold">Fields</h2>
                 <button onClick={openFieldEditorForAdd} className="text-xs text-[#C49A38]">Add</button>
               </div>
-              {fieldLibrary.filter((item) => item.active).length > 0 && (
-                <label className="block mb-2">
-                  <span className="block text-[11px] text-[#6B7A99] mb-1">Add from shared library</span>
-                  <select
-                    value=""
-                    onChange={(e) => {
-                      const libraryField = fieldLibrary.find((item) => item.id === e.target.value);
-                      if (libraryField) addLibraryFieldToPackage(libraryField);
-                    }}
-                    className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
-                  >
-                    <option value="">Select reusable field</option>
-                    {fieldLibrary.filter((item) => item.active).map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
-                  </select>
-                </label>
-              )}
+              {(() => {
+                const usedLibraryIds = new Set(selectedPackage.fields.map((f) => f.libraryFieldId).filter(Boolean));
+                const availableLibraryFields = fieldLibrary.filter((item) => item.active && !usedLibraryIds.has(item.id));
+                if (availableLibraryFields.length === 0) return null;
+                return (
+                  <label className="block mb-2">
+                    <span className="block text-[11px] text-[#6B7A99] mb-1">Add from shared library</span>
+                    <select
+                      value=""
+                      onChange={(e) => {
+                        const libraryField = fieldLibrary.find((item) => item.id === e.target.value);
+                        if (libraryField) addLibraryFieldToPackage(libraryField);
+                      }}
+                      className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
+                    >
+                      <option value="">Select reusable field</option>
+                      {availableLibraryFields.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
+                    </select>
+                  </label>
+                );
+              })()}
               <div className="space-y-2 overflow-y-auto flex-1">
                 {selectedPackage.fields.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
