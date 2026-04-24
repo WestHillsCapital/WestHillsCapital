@@ -2184,7 +2184,7 @@ export default function DocuFill() {
                           <div
                             key={doc.id}
                             draggable
-                            onDragStart={(e) => e.dataTransfer.setData("text/doc", doc.id)}
+                            onDragStart={(e) => { e.dataTransfer.setData("text/doc", doc.id); e.dataTransfer.effectAllowed = "move"; }}
                             onDragEnd={() => { setDragOverDocId(null); setDragOverDocHalf(null); }}
                             onDragOver={(e) => {
                               e.preventDefault();
@@ -2202,10 +2202,18 @@ export default function DocuFill() {
                               moveDocumentToIndex(srcId, target);
                               setDragOverDocId(null); setDragOverDocHalf(null);
                             }}
-                            className={`relative rounded-lg border p-3 ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4] bg-white"}`}
+                            className={`relative rounded-lg border p-3 cursor-grab active:cursor-grabbing select-none ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4] bg-white"} ${dragOverDocId === doc.id ? "opacity-50" : ""}`}
                           >
                             {dragOverDocId === doc.id && dragOverDocHalf === "top" && <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#C49A38] z-10 pointer-events-none rounded-t-lg" />}
                             {dragOverDocId === doc.id && dragOverDocHalf === "bottom" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#C49A38] z-10 pointer-events-none rounded-b-lg" />}
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <svg className="w-3.5 h-3.5 text-[#C4B89A] flex-shrink-0" viewBox="0 0 16 16" fill="currentColor">
+                                <circle cx="5" cy="4" r="1.2"/><circle cx="11" cy="4" r="1.2"/>
+                                <circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/>
+                                <circle cx="5" cy="12" r="1.2"/><circle cx="11" cy="12" r="1.2"/>
+                              </svg>
+                              <span className="text-[10px] text-[#C4B89A] select-none">drag to reorder</span>
+                            </div>
                             <DocumentPreviewTile
                               packageId={selectedPackage.id}
                               doc={doc}
@@ -2219,8 +2227,6 @@ export default function DocuFill() {
                             <Input value={doc.title} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))} className="mt-2 h-8 text-xs" />
                             <div className="mt-1 text-[10px] text-[#8A9BB8] truncate">{doc.fileName ?? "Metadata only"} · {doc.pages} page{doc.pages === 1 ? "" : "s"}</div>
                             <div className="flex flex-wrap gap-2 mt-2">
-                              <button onClick={() => moveDocument(doc.id, -1)} disabled={index === 0} className="text-[11px] text-[#6B7A99] disabled:opacity-40">Move up</button>
-                              <button onClick={() => moveDocument(doc.id, 1)} disabled={index === selectedPackage.documents.length - 1} className="text-[11px] text-[#6B7A99] disabled:opacity-40">Move down</button>
                               <label className={`text-[11px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
                                 {isUploadingDocument ? "Uploading…" : "Replace PDF"}
                                 <input
