@@ -2675,7 +2675,7 @@ export default function DocuFill() {
                   </label>
                 );
               })()}
-              <div className="space-y-2 overflow-y-auto flex-1">
+              <div className="space-y-2 overflow-y-auto max-h-[52vh]">
                 {selectedPackage.fields.length === 0 && (
                   <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
                     <svg className="w-6 h-6 text-[#C49A38]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
@@ -2692,7 +2692,7 @@ export default function DocuFill() {
                     style={{ borderColor: field.color }}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1">
+                      <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1 min-w-0">
                         <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
                           <span>{field.name}</span>
                           {field.libraryFieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>}
@@ -2701,9 +2701,15 @@ export default function DocuFill() {
                         </div>
                         <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
                       </button>
-                      <div className="flex gap-1">
-                        <button type="button" onClick={() => moveField(field.id, -1)} disabled={index === 0} className="rounded border border-[#DDD5C4] px-1.5 py-0.5 text-[10px] disabled:opacity-40">Up</button>
-                        <button type="button" onClick={() => moveField(field.id, 1)} disabled={index === selectedPackage.fields.length - 1} className="rounded border border-[#DDD5C4] px-1.5 py-0.5 text-[10px] disabled:opacity-40">Down</button>
+                      <div className="flex gap-1 flex-shrink-0">
+                        <button type="button" onClick={() => moveField(field.id, -1)} disabled={index === 0} className="rounded border border-[#DDD5C4] px-1.5 py-0.5 text-[10px] disabled:opacity-40">↑</button>
+                        <button type="button" onClick={() => moveField(field.id, 1)} disabled={index === selectedPackage.fields.length - 1} className="rounded border border-[#DDD5C4] px-1.5 py-0.5 text-[10px] disabled:opacity-40">↓</button>
+                        <button
+                          type="button"
+                          onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
+                          className="rounded border border-red-200 px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50 hover:border-red-300"
+                          title="Remove field"
+                        >✕</button>
                       </div>
                     </div>
                   </div>
