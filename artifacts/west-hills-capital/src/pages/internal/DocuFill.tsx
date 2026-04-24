@@ -495,6 +495,12 @@ export default function DocuFill() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null);
+  const [fieldEditorModal, setFieldEditorModal] = useState<{ mode: "add" | "edit"; fieldId: string | null } | null>(null);
+  const [fieldEditorDraft, setFieldEditorDraft] = useState<{
+    name: string; color: string; type: FieldItem["type"]; options: string[];
+    interviewMode: FieldInterviewMode; hasDefault: boolean; defaultValue: string;
+    validationType: FieldItem["validationType"]; validationPattern: string; validationMessage: string; packageOnly: boolean;
+  }>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false });
   const [session, setSession] = useState<Session | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
@@ -1309,6 +1315,68 @@ export default function DocuFill() {
       setSelectedFieldId(field.id);
       return { ...pkg, fields: [...pkg.fields, field] };
     });
+  }
+
+  function openFieldEditorForAdd() {
+    if (!selectedPackage) return;
+    setFieldEditorDraft({
+      name: `Field ${selectedPackage.fields.length + 1}`,
+      color: pickFieldColor(selectedPackage.fields.map((f) => f.color), false),
+      type: "text", options: [], interviewMode: "optional",
+      hasDefault: false, defaultValue: "",
+      validationType: "none", validationPattern: "", validationMessage: "",
+      packageOnly: false,
+    });
+    setFieldEditorModal({ mode: "add", fieldId: null });
+  }
+
+  function openFieldEditorForEdit(fieldId: string) {
+    const field = selectedPackage?.fields.find((f) => f.id === fieldId);
+    if (!field) return;
+    setFieldEditorDraft({
+      name: field.name, color: field.color, type: field.type,
+      options: field.options ?? [],
+      interviewMode: field.interviewMode,
+      hasDefault: Boolean(field.defaultValue),
+      defaultValue: field.defaultValue ?? "",
+      validationType: field.validationType ?? "none",
+      validationPattern: field.validationPattern ?? "",
+      validationMessage: field.validationMessage ?? "",
+      packageOnly: false,
+    });
+    setSelectedFieldId(fieldId);
+    setFieldEditorModal({ mode: "edit", fieldId });
+  }
+
+  function saveFieldFromModal() {
+    if (!fieldEditorModal || !selectedPackage) return;
+    const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage } = fieldEditorDraft;
+    if (fieldEditorModal.mode === "add") {
+      updateSelectedPackage((pkg) => {
+        const field: FieldItem = {
+          id: newId("field"), libraryFieldId: "",
+          name: name.trim() || `Field ${pkg.fields.length + 1}`,
+          color, type, options: options.filter(Boolean), optionsMode: "override",
+          interviewMode, defaultValue: hasDefault ? defaultValue : "",
+          source: "interview", sensitive: false,
+          validationType: validationType ?? "none", validationPattern, validationMessage,
+        };
+        setSelectedFieldId(field.id);
+        return { ...pkg, fields: [...pkg.fields, field] };
+      });
+    } else if (fieldEditorModal.fieldId) {
+      const fid = fieldEditorModal.fieldId;
+      updateSelectedPackage((pkg) => ({
+        ...pkg,
+        fields: pkg.fields.map((f) => f.id === fid ? {
+          ...f, name: name.trim() || f.name, color, type,
+          options: options.filter(Boolean), optionsMode: "override" as const,
+          interviewMode, defaultValue: hasDefault ? defaultValue : "",
+          validationType: validationType ?? "none", validationPattern, validationMessage,
+        } : f),
+      }));
+    }
+    setFieldEditorModal(null);
   }
 
   function updateSelectedField(patch: Partial<FieldItem>) {
@@ -2257,9 +2325,7 @@ export default function DocuFill() {
                     />
                     <Input value={doc.title} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))} className="mt-2 h-8 text-xs" />
                     <div className="mt-1 text-[10px] text-[#8A9BB8] truncate">{doc.fileName ?? "Metadata only"}</div>
-                    <div className="flex gap-1 mt-1">
-                      <button onClick={() => moveDocument(doc.id, -1)} className="text-[11px] text-[#6B7A99]">Up</button>
-                      <button onClick={() => moveDocument(doc.id, 1)} className="text-[11px] text-[#6B7A99]">Down</button>
+                    <div className="flex gap-1 mt-1 items-center">
                       <label className={`text-[11px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
                         {isUploadingDocument ? "Uploading…" : "Replace"}
                         <input
@@ -2301,8 +2367,6 @@ export default function DocuFill() {
                       PDF Fields {showAcroLayer ? "on" : "off"}
                     </button>
                   )}
-                  <div className="h-4 w-px bg-[#DDD5C4]" />
-                  <Button onClick={placeField} disabled={!selectedField || !selectedDocument} className="bg-[#C49A38] hover:bg-[#b58c31] text-black">Add Field to Page</Button>
                 </div>
               </div>
               {isUploadingDocument && <div className="mb-2 text-xs text-[#6B7A99]">Uploading PDF…</div>}
@@ -2378,6 +2442,14 @@ export default function DocuFill() {
                       </div>
                     );
                   })}
+                  {documentPreviewUrl && !isPdfRendering && pageMappings.length === 0 && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none" style={{ zIndex: 3 }}>
+                      <div className="flex flex-col items-center gap-2 rounded-lg bg-white/80 border border-dashed border-[#C49A38]/50 px-6 py-4 shadow-sm">
+                        <svg className="w-6 h-6 text-[#C49A38]/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3 7.5L7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" /></svg>
+                        <p className="text-xs text-[#6B7A99] text-center leading-snug">Drag a field from the right panel<br />onto this page to place it</p>
+                      </div>
+                    </div>
+                  )}
                   {pageMappings.map((m) => {
                     const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
                     const isSelected = selectedMapping?.id === m.id;
@@ -2481,7 +2553,7 @@ export default function DocuFill() {
             <section className="bg-white border border-[#DDD5C4] rounded-lg p-3 flex flex-col">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-sm font-semibold">Fields</h2>
-                <button onClick={addField} className="text-xs text-[#C49A38]">Add</button>
+                <button onClick={openFieldEditorForAdd} className="text-xs text-[#C49A38]">Add</button>
               </div>
               {fieldLibrary.filter((item) => item.active).length > 0 && (
                 <label className="block mb-2">
@@ -2499,12 +2571,13 @@ export default function DocuFill() {
                   </select>
                 </label>
               )}
-              <div className="space-y-2 overflow-y-auto max-h-[220px]">
+              <div className="space-y-2 overflow-y-auto flex-1">
                 {selectedPackage.fields.map((field, index) => (
                   <div
                     key={field.id}
                     draggable
                     onDragStart={(e) => e.dataTransfer.setData("text/field", field.id)}
+                    onDoubleClick={() => openFieldEditorForEdit(field.id)}
                     className={`w-full text-left border-2 rounded px-3 py-2 bg-white cursor-grab ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
                     style={{ borderColor: field.color }}
                   >
@@ -2526,73 +2599,19 @@ export default function DocuFill() {
                   </div>
                 ))}
               </div>
-              {selectedField && (
-                <div className="border-t border-[#DDD5C4] pt-3 mt-3 space-y-2">
-                  <Input value={selectedField.name} onChange={(e) => updateSelectedField({ name: e.target.value })} disabled={selectedFieldIsShared} />
-                  {selectedField.libraryFieldId && (
-                    <div className="rounded border border-[#EFE8D8] bg-[#F8F6F0] px-2 py-1 text-[11px] text-[#6B7A99]">
-                      <div>Linked to shared field: {fieldLibrary.find((item) => item.id === selectedField.libraryFieldId)?.label ?? selectedField.libraryFieldId}</div>
-                      <button type="button" onClick={unlinkSelectedFieldFromLibrary} className="mt-1 text-[#C49A38]">Unlink for this package</button>
+              {selectedField && !selectedMapping && (
+                <div className="border-t border-[#DDD5C4] pt-3 mt-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-medium" style={{ color: selectedField.color }}>{selectedField.name}</div>
+                      <div className="text-[11px] text-[#8A9BB8]">{selectedField.type} · {selectedField.interviewMode}</div>
                     </div>
-                  )}
-                  <Input type="color" value={selectedField.color} onChange={(e) => updateSelectedField({ color: e.target.value })} />
-                  <select value={selectedField.type} onChange={(e) => updateSelectedField({ type: e.target.value as FieldItem["type"] })} disabled={selectedFieldIsShared} className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm disabled:opacity-60">
-                    <option value="text">Text box</option>
-                    <option value="date">Date</option>
-                    <option value="radio">Radio buttons</option>
-                    <option value="checkbox">Checkboxes</option>
-                    <option value="dropdown">Dropdown</option>
-                  </select>
-                  {selectedField.libraryFieldId && (
-                    <label className="flex items-center gap-2 rounded border border-[#EFE8D8] bg-[#F8F6F0] px-2 py-1 text-[11px] text-[#6B7A99]">
-                      <input
-                        type="checkbox"
-                        checked={selectedField.optionsMode === "inherit"}
-                        onChange={(e) => updateSelectedField(e.target.checked ? { optionsMode: "inherit", options: undefined } : { optionsMode: "override", options: selectedField.options ?? [] })}
-                      />
-                      Inherit options from shared library
-                    </label>
-                  )}
-                  <Textarea
-                    placeholder={selectedField.optionsMode === "inherit" ? "Using shared library options" : "Package override options, one per line"}
-                    value={(selectedField.options ?? []).join("\n")}
-                    onChange={(e) => updateSelectedField({ optionsMode: "override", options: e.target.value.split("\n").filter(Boolean) })}
-                    disabled={selectedField.optionsMode === "inherit"}
-                  />
-                  <Input type={selectedField.sensitive ? "password" : "text"} placeholder="Default/admin value" value={selectedField.defaultValue} onChange={(e) => updateSelectedField({ defaultValue: e.target.value })} />
-                  <div className="rounded border border-[#EFE8D8] bg-[#F8F6F0] p-2 space-y-2">
-                    <div className="text-xs font-semibold">Validation</div>
-                    <select value={selectedField.validationType ?? "none"} onChange={(e) => updateSelectedField({ validationType: e.target.value as FieldItem["validationType"] })} disabled={selectedFieldIsShared} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white disabled:opacity-60">
-                      <option value="none">No format rule</option>
-                      <option value="string">String (any text)</option>
-                      <option value="name">Name</option>
-                      <option value="number">Number</option>
-                      <option value="currency">Currency ($)</option>
-                      <option value="percent">Percent (0–100)</option>
-                      <option value="email">Email address</option>
-                      <option value="phone">Phone</option>
-                      <option value="date">Date</option>
-                      <option value="time">Time (HH:MM AM/PM)</option>
-                      <option value="zip">ZIP code (5 digits)</option>
-                      <option value="zip4">US ZIP+4 (12345-6789)</option>
-                      <option value="ssn">SSN (###-##-####)</option>
-                      <option value="custom">Custom pattern</option>
-                    </select>
-                    {selectedField.validationType === "custom" && <Input placeholder="Regex pattern" value={selectedField.validationPattern ?? ""} onChange={(e) => updateSelectedField({ validationPattern: e.target.value })} disabled={selectedFieldIsShared} className="h-8 text-xs bg-white" />}
-                    <Input placeholder="Custom validation message" value={selectedField.validationMessage ?? ""} onChange={(e) => updateSelectedField({ validationMessage: e.target.value })} disabled={selectedFieldIsShared} className="h-8 text-xs bg-white" />
-                    {selectedFieldIsShared && <div className="text-[11px] text-[#8A9BB8]">Shared field rules are edited in the Shared Field Library. This package can still control options, visibility, defaults, color, mappings, and document placement.</div>}
+                    <div className="flex gap-2 items-center flex-shrink-0">
+                      <button type="button" onClick={() => openFieldEditorForEdit(selectedField.id)} className="text-xs text-[#C49A38] border border-[#C49A38]/40 rounded px-2 py-1 hover:bg-[#C49A38]/10">Edit</button>
+                      <button type="button" onClick={() => removeField(selectedField.id)} className="text-xs text-red-600 border border-red-200 rounded px-2 py-1 hover:bg-red-50">Remove</button>
+                    </div>
                   </div>
-                  <label className="block">
-                    <span className="block text-[11px] text-[#6B7A99] mb-1">Interview behavior</span>
-                    <select value={selectedField.interviewMode} onChange={(e) => updateSelectedField({ interviewMode: e.target.value as FieldInterviewMode })} className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white">
-                      <option value="optional">Optional — staff fills in during interview</option>
-                      <option value="required">Required — must answer before generating packet</option>
-                      <option value="readonly">Read only — displayed but not editable (uses default/prefill)</option>
-                      <option value="omitted">Omitted — hidden from interview entirely</option>
-                    </select>
-                  </label>
-                  <label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={selectedField.sensitive} onChange={(e) => updateSelectedField({ sensitive: e.target.checked })} disabled={selectedFieldIsShared} /> Masked — hide unprotected data in interview</label>
-                  <button onClick={() => removeField(selectedField.id)} className="text-xs text-red-600">Remove field</button>
+                  <p className="text-[10px] text-[#8A9BB8] mt-2">Double-click a field card above to open the editor. Drag cards onto the PDF to place them.</p>
                 </div>
               )}
               {selectedMapping && (
@@ -3516,6 +3535,150 @@ export default function DocuFill() {
             </div>
           )}
         </section>
+      )}
+
+      {fieldEditorModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setFieldEditorModal(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#DDD5C4]">
+              <h2 className="text-sm font-semibold">{fieldEditorModal.mode === "add" ? "New Field" : "Edit Field"}</h2>
+              <button type="button" onClick={() => setFieldEditorModal(null)} className="text-[#8A9BB8] hover:text-[#0F1C3F]">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[#6B7A99] mb-1">Field Name</label>
+                <Input value={fieldEditorDraft.name} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, name: e.target.value }))} placeholder="e.g. Borrower Full Name" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#6B7A99] mb-1">Color</label>
+                <div className="flex items-center gap-3">
+                  <input type="color" value={fieldEditorDraft.color} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, color: e.target.value }))} className="h-9 w-14 rounded cursor-pointer border border-[#D4C9B5] p-0.5" />
+                  <span className="text-xs text-[#8A9BB8] font-mono">{fieldEditorDraft.color.toUpperCase()}</span>
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#6B7A99] mb-1">Field Type</label>
+                <select value={fieldEditorDraft.type} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, type: e.target.value as FieldItem["type"] }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm bg-white">
+                  <option value="text">Text box</option>
+                  <option value="date">Date</option>
+                  <option value="radio">Radio buttons</option>
+                  <option value="checkbox">Checkboxes</option>
+                  <option value="dropdown">Dropdown</option>
+                </select>
+              </div>
+              {(fieldEditorDraft.type === "radio" || fieldEditorDraft.type === "checkbox" || fieldEditorDraft.type === "dropdown") && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-medium text-[#6B7A99]">Options</label>
+                    <button type="button" onClick={() => setFieldEditorDraft((d) => ({ ...d, options: [...d.options, ""] }))} className="text-xs text-[#C49A38] hover:underline">+ Add option</button>
+                  </div>
+                  <div className="space-y-1.5">
+                    {fieldEditorDraft.options.map((opt, i) => (
+                      <div
+                        key={i}
+                        draggable
+                        onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData("text/optionIdx", String(i)); }}
+                        onDragOver={(e) => e.preventDefault()}
+                        onDrop={(e) => {
+                          e.preventDefault();
+                          const from = Number(e.dataTransfer.getData("text/optionIdx"));
+                          if (from === i) return;
+                          setFieldEditorDraft((d) => {
+                            const opts = [...d.options];
+                            const [item] = opts.splice(from, 1);
+                            opts.splice(i, 0, item);
+                            return { ...d, options: opts };
+                          });
+                        }}
+                        className="flex items-center gap-2 bg-[#F8F6F0] rounded px-2 py-1.5 border border-[#EFE8D8]"
+                      >
+                        <span className="text-[#C4B99A] cursor-grab select-none text-sm">⠿</span>
+                        <input
+                          type="text"
+                          value={opt}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setFieldEditorDraft((d) => { const opts = [...d.options]; opts[i] = v; return { ...d, options: opts }; });
+                          }}
+                          className="flex-1 bg-transparent text-sm outline-none border-b border-[#D4C9B5] py-0.5 min-w-0"
+                          placeholder={`Option ${i + 1}`}
+                        />
+                        <button type="button" onClick={() => setFieldEditorDraft((d) => ({ ...d, options: d.options.filter((_, idx) => idx !== i) }))} className="text-red-400 hover:text-red-600 text-base leading-none px-1">×</button>
+                      </div>
+                    ))}
+                    {fieldEditorDraft.options.length === 0 && <p className="text-xs text-[#8A9BB8] italic py-1">No options yet — click "+ Add option" above</p>}
+                  </div>
+                </div>
+              )}
+              <div className="space-y-2 rounded border border-[#EFE8D8] bg-[#F8F6F0] px-3 py-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="checkbox" checked={fieldEditorDraft.interviewMode === "omitted"} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, interviewMode: e.target.checked ? "omitted" : "optional" }))} className="rounded" />
+                  <span className="text-sm">Omit from interview</span>
+                </label>
+                {fieldEditorDraft.interviewMode !== "omitted" && (
+                  <div>
+                    <label className="block text-xs text-[#6B7A99] mb-1">Interview behavior</label>
+                    <select value={fieldEditorDraft.interviewMode} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, interviewMode: e.target.value as FieldInterviewMode }))} className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white">
+                      <option value="optional">Optional — staff fills in during interview</option>
+                      <option value="required">Required — must answer before generating</option>
+                      <option value="readonly">Read only — shown but not editable</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="flex items-center gap-2 cursor-pointer mb-2">
+                  <input type="checkbox" checked={fieldEditorDraft.hasDefault} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, hasDefault: e.target.checked }))} className="rounded" />
+                  <span className="text-sm">Set a default value</span>
+                </label>
+                {fieldEditorDraft.hasDefault && (
+                  <Input placeholder="Default value" value={fieldEditorDraft.defaultValue} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, defaultValue: e.target.value }))} />
+                )}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-[#6B7A99] mb-1">Validation format</label>
+                <select value={fieldEditorDraft.validationType ?? "none"} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, validationType: e.target.value as FieldItem["validationType"] }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm bg-white">
+                  <option value="none">No format rule</option>
+                  <option value="string">String (any text)</option>
+                  <option value="name">Name</option>
+                  <option value="number">Number</option>
+                  <option value="currency">Currency ($)</option>
+                  <option value="percent">Percent (0–100)</option>
+                  <option value="email">Email address</option>
+                  <option value="phone">Phone</option>
+                  <option value="date">Date</option>
+                  <option value="time">Time (HH:MM AM/PM)</option>
+                  <option value="zip">ZIP code (5 digits)</option>
+                  <option value="zip4">US ZIP+4 (12345-6789)</option>
+                  <option value="ssn">SSN (###-##-####)</option>
+                  <option value="custom">Custom pattern</option>
+                </select>
+                {fieldEditorDraft.validationType === "custom" && (
+                  <Input className="mt-2 text-sm" placeholder="Regex pattern, e.g. ^[A-Z]{2}$" value={fieldEditorDraft.validationPattern} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, validationPattern: e.target.value }))} />
+                )}
+              </div>
+              {fieldEditorModal.mode === "add" && (
+                <label className="flex items-center gap-2 rounded border border-[#DDD5C4] bg-[#F8F6F0] px-3 py-2.5 cursor-pointer">
+                  <input type="checkbox" checked={fieldEditorDraft.packageOnly} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, packageOnly: e.target.checked }))} className="rounded" />
+                  <span className="text-sm text-[#6B7A99]">Package only — don't save to shared library</span>
+                </label>
+              )}
+            </div>
+            <div className="px-5 py-4 border-t border-[#DDD5C4] flex items-center justify-between gap-2">
+              {fieldEditorModal.mode === "edit" && fieldEditorModal.fieldId && (
+                <button type="button" onClick={() => { removeField(fieldEditorModal.fieldId!); setFieldEditorModal(null); }} className="text-xs text-red-600 hover:underline">Remove field</button>
+              )}
+              <div className="flex gap-2 ml-auto">
+                <button type="button" onClick={() => setFieldEditorModal(null)} className="text-sm px-4 py-2 rounded border border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]">Cancel</button>
+                <button type="button" onClick={saveFieldFromModal} className="text-sm px-4 py-2 rounded bg-[#C49A38] hover:bg-[#b58c31] text-black font-medium">
+                  {fieldEditorModal.mode === "add" ? "Add Field" : "Save Changes"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
