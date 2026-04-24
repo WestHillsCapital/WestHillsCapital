@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS as DndCSS } from "@dnd-kit/utilities";
 import { useLocation, useParams, useSearch } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { Button } from "@/components/ui/button";
@@ -499,6 +502,39 @@ function safeInterviewDisplayValue(field: FieldItem, value: string) {
   return compact.length > 4 ? `••••${compact.slice(-4)}` : "••••";
 }
 
+type SortableItemRenderProps = {
+  handleProps: React.HTMLAttributes<HTMLElement>;
+  wrapperRef: (el: HTMLElement | null) => void;
+  wrapperStyle: React.CSSProperties;
+  isDragging: boolean;
+};
+
+function SortableItem({ id, children }: { id: string; children: (props: SortableItemRenderProps) => React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  return <>{children({
+    handleProps: { ...attributes, ...listeners } as React.HTMLAttributes<HTMLElement>,
+    wrapperRef: setNodeRef,
+    wrapperStyle: { transform: DndCSS.Transform.toString(transform), transition },
+    isDragging,
+  })}</>;
+}
+
+const GripHandle = ({ className, ...props }: React.HTMLAttributes<HTMLButtonElement>) => (
+  <button
+    type="button"
+    {...props}
+    onDragStart={(e) => e.preventDefault()}
+    className={className ?? "cursor-grab active:cursor-grabbing p-0.5 text-[#C4B89A] hover:text-[#A89878] flex-shrink-0"}
+    title="Drag to reorder"
+  >
+    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+      <circle cx="5" cy="4" r="1.2"/><circle cx="11" cy="4" r="1.2"/>
+      <circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/>
+      <circle cx="5" cy="12" r="1.2"/><circle cx="11" cy="12" r="1.2"/>
+    </svg>
+  </button>
+);
+
 export default function DocuFill() {
   const search = useSearch();
   const params = useParams<{ token?: string }>();
@@ -528,8 +564,7 @@ export default function DocuFill() {
     interviewMode: FieldInterviewMode; hasDefault: boolean; defaultValue: string;
     validationType: FieldItem["validationType"]; validationPattern: string; validationMessage: string; packageOnly: boolean;
   }>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false });
-  const [dragOverDocId, setDragOverDocId] = useState<string | null>(null);
-  const [dragOverDocHalf, setDragOverDocHalf] = useState<"top" | "bottom" | null>(null);
+  const sortSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
   const [session, setSession] = useState<Session | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
@@ -2179,73 +2214,59 @@ export default function DocuFill() {
                     {selectedPackage.documents.length === 0 ? (
                       <EmptyState message="Upload the New Direction PDFs here, then arrange them into the order West Hills wants customers to receive them." />
                     ) : (
-                      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-3">
-                        {selectedPackage.documents.map((doc, index) => (
-                          <div
-                            key={doc.id}
-                            draggable
-                            onDragStart={(e) => { e.dataTransfer.setData("text/doc", doc.id); e.dataTransfer.effectAllowed = "move"; }}
-                            onDragEnd={() => { setDragOverDocId(null); setDragOverDocHalf(null); }}
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              const rect = e.currentTarget.getBoundingClientRect();
-                              setDragOverDocId(doc.id);
-                              setDragOverDocHalf((e.clientY - rect.top) / rect.height < 0.5 ? "top" : "bottom");
-                            }}
-                            onDragLeave={() => { setDragOverDocId(null); setDragOverDocHalf(null); }}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              const srcId = e.dataTransfer.getData("text/doc");
-                              const srcIndex = selectedPackage.documents.findIndex((d) => d.id === srcId);
-                              let target = dragOverDocHalf === "bottom" ? index + 1 : index;
-                              if (srcIndex >= 0 && srcIndex < target) target -= 1;
-                              moveDocumentToIndex(srcId, target);
-                              setDragOverDocId(null); setDragOverDocHalf(null);
-                            }}
-                            className={`relative rounded-lg border p-3 cursor-grab active:cursor-grabbing select-none ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4] bg-white"} ${dragOverDocId === doc.id ? "opacity-50" : ""}`}
-                          >
-                            {dragOverDocId === doc.id && dragOverDocHalf === "top" && <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#C49A38] z-10 pointer-events-none rounded-t-lg" />}
-                            {dragOverDocId === doc.id && dragOverDocHalf === "bottom" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#C49A38] z-10 pointer-events-none rounded-b-lg" />}
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <svg className="w-3.5 h-3.5 text-[#C4B89A] flex-shrink-0" viewBox="0 0 16 16" fill="currentColor">
-                                <circle cx="5" cy="4" r="1.2"/><circle cx="11" cy="4" r="1.2"/>
-                                <circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/>
-                                <circle cx="5" cy="12" r="1.2"/><circle cx="11" cy="12" r="1.2"/>
-                              </svg>
-                              <span className="text-[10px] text-[#C4B89A] select-none">drag to reorder</span>
-                            </div>
-                            <DocumentPreviewTile
-                              packageId={selectedPackage.id}
-                              doc={doc}
-                              order={index + 1}
-                              selected={selectedDocument?.id === doc.id}
-                              getAuthHeaders={getAuthHeaders}
-                              previewCache={documentPreviewCache}
-                              previewCacheOrder={documentPreviewCacheOrder}
-                              onSelect={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }}
-                            />
-                            <Input value={doc.title} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))} className="mt-2 h-8 text-xs" />
-                            <div className="mt-1 text-[10px] text-[#8A9BB8] truncate">{doc.fileName ?? "Metadata only"} · {doc.pages} page{doc.pages === 1 ? "" : "s"}</div>
-                            <div className="flex flex-wrap gap-2 mt-2">
-                              <label className={`text-[11px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
-                                {isUploadingDocument ? "Uploading…" : "Replace PDF"}
-                                <input
-                                  type="file"
-                                  accept="application/pdf"
-                                  disabled={isUploadingDocument}
-                                  className="sr-only"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) uploadDocument(file, doc.id);
-                                    e.target.value = "";
-                                  }}
-                                />
-                              </label>
-                              <button onClick={() => removeDocument(doc.id)} className="ml-auto text-[11px] text-red-600">Remove</button>
-                            </div>
+                      <DndContext
+                        sensors={sortSensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event: DragEndEvent) => {
+                          const { active, over } = event;
+                          if (!over || active.id === over.id) return;
+                          updateSelectedPackage((pkg) => {
+                            const oldIdx = pkg.documents.findIndex((d) => d.id === active.id);
+                            const newIdx = pkg.documents.findIndex((d) => d.id === over.id);
+                            return { ...pkg, documents: arrayMove(pkg.documents, oldIdx, newIdx) };
+                          });
+                        }}
+                      >
+                        <SortableContext items={selectedPackage.documents.map((d) => d.id)} strategy={verticalListSortingStrategy}>
+                          <div className="flex flex-col gap-3">
+                            {selectedPackage.documents.map((doc, index) => (
+                              <SortableItem key={doc.id} id={doc.id}>
+                                {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
+                                  <div
+                                    ref={wrapperRef}
+                                    style={wrapperStyle}
+                                    className={`rounded-lg border p-3 bg-white transition-shadow ${isDragging ? "opacity-40 shadow-xl" : ""} ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/5" : "border-[#DDD5C4]"}`}
+                                  >
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <GripHandle {...handleProps} />
+                                      <span className="text-[10px] text-[#C4B89A] select-none">drag to reorder · {index + 1} of {selectedPackage.documents.length}</span>
+                                    </div>
+                                    <DocumentPreviewTile
+                                      packageId={selectedPackage.id}
+                                      doc={doc}
+                                      order={index + 1}
+                                      selected={selectedDocument?.id === doc.id}
+                                      getAuthHeaders={getAuthHeaders}
+                                      previewCache={documentPreviewCache}
+                                      previewCacheOrder={documentPreviewCacheOrder}
+                                      onSelect={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }}
+                                    />
+                                    <Input value={doc.title} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))} className="mt-2 h-8 text-xs" />
+                                    <div className="mt-1 text-[10px] text-[#8A9BB8] truncate">{doc.fileName ?? "Metadata only"} · {doc.pages} page{doc.pages === 1 ? "" : "s"}</div>
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                      <label className={`text-[11px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
+                                        {isUploadingDocument ? "Uploading…" : "Replace PDF"}
+                                        <input type="file" accept="application/pdf" disabled={isUploadingDocument} className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadDocument(file, doc.id); e.target.value = ""; }} />
+                                      </label>
+                                      <button onClick={() => removeDocument(doc.id)} className="ml-auto text-[11px] text-red-600">Remove</button>
+                                    </div>
+                                  </div>
+                                )}
+                              </SortableItem>
+                            ))}
                           </div>
-                        ))}
-                      </div>
+                        </SortableContext>
+                      </DndContext>
                     )}
                     <div className="flex flex-wrap gap-2">
                       <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : "Save Document Order"}</Button>
@@ -2436,65 +2457,59 @@ export default function DocuFill() {
                   </label>
                 </div>
               </div>
-              <div className="space-y-2 overflow-y-auto flex-1">
-                {selectedPackage.documents.map((doc, index) => (
-                  <div
-                    key={doc.id}
-                    draggable
-                    onDragStart={(e) => e.dataTransfer.setData("text/doc", doc.id)}
-                    onDragEnd={() => { setDragOverDocId(null); setDragOverDocHalf(null); }}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      setDragOverDocId(doc.id);
-                      setDragOverDocHalf((e.clientY - rect.top) / rect.height < 0.5 ? "top" : "bottom");
-                    }}
-                    onDragLeave={() => { setDragOverDocId(null); setDragOverDocHalf(null); }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      const srcId = e.dataTransfer.getData("text/doc");
-                      const srcIndex = selectedPackage.documents.findIndex((d) => d.id === srcId);
-                      let target = dragOverDocHalf === "bottom" ? index + 1 : index;
-                      if (srcIndex >= 0 && srcIndex < target) target -= 1;
-                      moveDocumentToIndex(srcId, target);
-                      setDragOverDocId(null); setDragOverDocHalf(null);
-                    }}
-                    className={`relative border rounded p-2 ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4]"}`}
-                  >
-                    {dragOverDocId === doc.id && dragOverDocHalf === "top" && <div className="absolute top-0 left-0 right-0 h-0.5 bg-[#C49A38] z-10 pointer-events-none rounded-t" />}
-                    {dragOverDocId === doc.id && dragOverDocHalf === "bottom" && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#C49A38] z-10 pointer-events-none rounded-b" />}
-                    <DocumentPreviewTile
-                      packageId={selectedPackage.id}
-                      doc={doc}
-                      order={index + 1}
-                      selected={selectedDocument?.id === doc.id}
-                      getAuthHeaders={getAuthHeaders}
-                      previewCache={documentPreviewCache}
-                      previewCacheOrder={documentPreviewCacheOrder}
-                      onSelect={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }}
-                    />
-                    <Input value={doc.title} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))} className="mt-2 h-8 text-xs" />
-                    <div className="mt-1 text-[10px] text-[#8A9BB8] truncate">{doc.fileName ?? "Metadata only"}</div>
-                    <div className="flex gap-1 mt-1 items-center">
-                      <label className={`text-[11px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
-                        {isUploadingDocument ? "Uploading…" : "Replace"}
-                        <input
-                          type="file"
-                          accept="application/pdf"
-                          disabled={isUploadingDocument}
-                          className="sr-only"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) uploadDocument(file, doc.id);
-                            e.target.value = "";
-                          }}
-                        />
-                      </label>
-                      <button onClick={() => removeDocument(doc.id)} className="ml-auto text-[11px] text-red-600">Remove</button>
-                    </div>
+              <DndContext
+                sensors={sortSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(event: DragEndEvent) => {
+                  const { active, over } = event;
+                  if (!over || active.id === over.id) return;
+                  updateSelectedPackage((pkg) => {
+                    const oldIdx = pkg.documents.findIndex((d) => d.id === active.id);
+                    const newIdx = pkg.documents.findIndex((d) => d.id === over.id);
+                    return { ...pkg, documents: arrayMove(pkg.documents, oldIdx, newIdx) };
+                  });
+                }}
+              >
+                <SortableContext items={selectedPackage.documents.map((d) => d.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2 overflow-y-auto flex-1">
+                    {selectedPackage.documents.map((doc, index) => (
+                      <SortableItem key={doc.id} id={doc.id}>
+                        {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
+                          <div
+                            ref={wrapperRef}
+                            style={wrapperStyle}
+                            className={`border rounded p-2 transition-shadow ${isDragging ? "opacity-40 shadow-lg" : ""} ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4]"}`}
+                          >
+                            <div className="flex items-center gap-1.5 mb-1.5">
+                              <GripHandle {...handleProps} />
+                              <span className="text-[10px] text-[#C4B89A] select-none">{index + 1} of {selectedPackage.documents.length}</span>
+                            </div>
+                            <DocumentPreviewTile
+                              packageId={selectedPackage.id}
+                              doc={doc}
+                              order={index + 1}
+                              selected={selectedDocument?.id === doc.id}
+                              getAuthHeaders={getAuthHeaders}
+                              previewCache={documentPreviewCache}
+                              previewCacheOrder={documentPreviewCacheOrder}
+                              onSelect={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }}
+                            />
+                            <Input value={doc.title} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))} className="mt-2 h-8 text-xs" />
+                            <div className="mt-1 text-[10px] text-[#8A9BB8] truncate">{doc.fileName ?? "Metadata only"}</div>
+                            <div className="flex gap-1 mt-1 items-center">
+                              <label className={`text-[11px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
+                                {isUploadingDocument ? "Uploading…" : "Replace"}
+                                <input type="file" accept="application/pdf" disabled={isUploadingDocument} className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadDocument(file, doc.id); e.target.value = ""; }} />
+                              </label>
+                              <button onClick={() => removeDocument(doc.id)} className="ml-auto text-[11px] text-red-600">Remove</button>
+                            </div>
+                          </div>
+                        )}
+                      </SortableItem>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </SortableContext>
+              </DndContext>
             </section>
 
             <section ref={setMapperContainerEl} className="bg-white border border-[#DDD5C4] rounded-lg p-4">
@@ -2681,46 +2696,65 @@ export default function DocuFill() {
                   </label>
                 );
               })()}
-              <div className="space-y-2 overflow-y-auto max-h-[52vh]">
-                {selectedPackage.fields.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
-                    <svg className="w-6 h-6 text-[#C49A38]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                    <p className="text-xs text-[#8A9BB8] leading-snug italic">No fields yet. Click <strong className="not-italic font-semibold text-[#C49A38]">Add</strong> above to create your first field, then drag it onto the document to place it.</p>
-                  </div>
-                )}
-                {selectedPackage.fields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    draggable
-                    onDragStart={(e) => e.dataTransfer.setData("text/field", field.id)}
-                    onDoubleClick={() => openFieldEditorForEdit(field.id)}
-                    className={`w-full text-left border-2 rounded px-3 py-2 bg-white cursor-grab ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
-                    style={{ borderColor: field.color }}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1 min-w-0">
-                        <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
-                          <span>{field.name}</span>
-                          {field.libraryFieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>}
-                          {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
-                          {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
-                        </div>
-                        <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
-                      </button>
-                      <div className="flex gap-1 flex-shrink-0">
-                        <button type="button" onClick={() => moveField(field.id, -1)} disabled={index === 0} className="rounded border border-[#DDD5C4] px-1.5 py-0.5 text-[10px] disabled:opacity-40">↑</button>
-                        <button type="button" onClick={() => moveField(field.id, 1)} disabled={index === selectedPackage.fields.length - 1} className="rounded border border-[#DDD5C4] px-1.5 py-0.5 text-[10px] disabled:opacity-40">↓</button>
-                        <button
-                          type="button"
-                          onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
-                          className="rounded border border-red-200 px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50 hover:border-red-300"
-                          title="Remove field"
-                        >✕</button>
+              <DndContext
+                sensors={sortSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={(event: DragEndEvent) => {
+                  const { active, over } = event;
+                  if (!over || active.id === over.id) return;
+                  updateSelectedPackage((pkg) => {
+                    const oldIdx = pkg.fields.findIndex((f) => f.id === active.id);
+                    const newIdx = pkg.fields.findIndex((f) => f.id === over.id);
+                    return { ...pkg, fields: arrayMove(pkg.fields, oldIdx, newIdx) };
+                  });
+                }}
+              >
+                <SortableContext items={selectedPackage.fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2 overflow-y-auto max-h-[52vh]">
+                    {selectedPackage.fields.length === 0 && (
+                      <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
+                        <svg className="w-6 h-6 text-[#C49A38]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                        <p className="text-xs text-[#8A9BB8] leading-snug italic">No fields yet. Click <strong className="not-italic font-semibold text-[#C49A38]">Add</strong> above to create your first field, then drag it onto the document to place it.</p>
                       </div>
-                    </div>
+                    )}
+                    {selectedPackage.fields.map((field) => (
+                      <SortableItem key={field.id} id={field.id}>
+                        {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
+                          <div
+                            ref={wrapperRef}
+                            style={{ ...wrapperStyle, borderColor: field.color }}
+                            draggable
+                            onDragStart={(e) => e.dataTransfer.setData("text/field", field.id)}
+                            onDoubleClick={() => openFieldEditorForEdit(field.id)}
+                            className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow ${isDragging ? "opacity-40 shadow-lg" : ""} ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex items-start gap-2 flex-1 min-w-0">
+                                <GripHandle {...handleProps} className="mt-0.5 cursor-grab active:cursor-grabbing p-0.5 text-[#C4B89A] hover:text-[#A89878] flex-shrink-0" />
+                                <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1 min-w-0">
+                                  <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+                                    <span>{field.name}</span>
+                                    {field.libraryFieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>}
+                                    {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
+                                    {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
+                                  </div>
+                                  <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
+                                </button>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
+                                className="rounded border border-red-200 px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50 hover:border-red-300 flex-shrink-0"
+                                title="Remove field"
+                              >✕</button>
+                            </div>
+                          </div>
+                        )}
+                      </SortableItem>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </SortableContext>
+              </DndContext>
             </section>
           </div>
         )
