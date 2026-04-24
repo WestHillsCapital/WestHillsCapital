@@ -237,9 +237,17 @@ function validateCellValue(field: FieldItem, value: string): "ok" | "empty-requi
   if (trimmed === "") {
     return field.interviewMode === "required" ? "empty-required" : "ok";
   }
-  if (field.type === "dropdown" || field.type === "radio" || field.type === "checkbox") {
+  if (field.type === "dropdown" || field.type === "radio") {
     const opts = field.options ?? [];
     if (opts.length > 0 && !opts.some((o) => o.toLowerCase() === trimmed.toLowerCase())) return "invalid";
+    return "ok";
+  }
+  if (field.type === "checkbox") {
+    const opts = field.options ?? [];
+    if (opts.length > 0) {
+      const tokens = trimmed.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
+      if (tokens.some((t) => !opts.some((o) => o.toLowerCase() === t.toLowerCase()))) return "invalid";
+    }
     return "ok";
   }
   const vt = field.validationType;
@@ -2766,7 +2774,7 @@ export default function DocuFill() {
                         onClick={() => setShowCsvFieldKey((v) => !v)}
                         className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-[#0F1C3F] hover:bg-[#EFE8D8] rounded"
                       >
-                        <span>{showCsvFieldKey ? "▲" : "▼"} Field reference ({keyFields.length} field{keyFields.length === 1 ? "" : "s"})</span>
+                        <span>{showCsvFieldKey ? "▲ Hide field reference" : "▼ Show field reference"} ({keyFields.length} field{keyFields.length === 1 ? "" : "s"})</span>
                       </button>
                       {showCsvFieldKey && (
                         <div className="border-t border-[#DDD5C4] overflow-x-auto">
