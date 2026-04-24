@@ -3677,11 +3677,11 @@ export default function DocuFill() {
           updateSelectedMapping({ multiLine: !isMultiLine });
         }
 
-        const interviewModes: { value: FieldInterviewMode; label: string; activeClass: string }[] = [
-          { value: "optional",  label: "Optional",  activeClass: "bg-[#0F1C3F] text-white" },
-          { value: "required",  label: "Required",  activeClass: "bg-red-600 text-white" },
-          { value: "readonly",  label: "Read-only", activeClass: "bg-blue-600 text-white" },
-          { value: "omitted",   label: "Omit",      activeClass: "bg-[#6B7A99] text-white" },
+        const interviewModes: { value: FieldInterviewMode; label: string; color: string; textClass: string }[] = [
+          { value: "optional",  label: "Optional",  color: "#0F1C3F", textClass: "text-[#0F1C3F]" },
+          { value: "required",  label: "Required",  color: "#dc2626", textClass: "text-red-600" },
+          { value: "readonly",  label: "Read-only", color: "#2563eb", textClass: "text-blue-600" },
+          { value: "omitted",   label: "Omit",      color: "#6B7A99", textClass: "text-[#6B7A99]" },
         ];
 
         function startModalDrag(e: React.PointerEvent<HTMLElement>) {
@@ -3771,7 +3771,8 @@ export default function DocuFill() {
                           key={m.value}
                           type="button"
                           onClick={() => setInterviewMode(m.value)}
-                          className={`flex-1 py-1.5 text-[11px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors ${fieldInterviewMode === m.value ? m.activeClass : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                          className={`flex-1 py-1.5 text-[11px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors ${fieldInterviewMode === m.value ? `${m.textClass} bg-white` : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                          style={fieldInterviewMode === m.value ? { boxShadow: `inset 0 0 0 2px ${m.color}` } : undefined}
                         >
                           {m.label}
                         </button>
