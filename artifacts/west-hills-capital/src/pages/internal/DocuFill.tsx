@@ -589,6 +589,28 @@ export default function DocuFill() {
     }
     return map;
   }, [csvBatchPackageId, packages]);
+
+  const csvBatchValidationSummary = useMemo(() => {
+    if (!csvBatchPackageId || csvBatchRows.length === 0 || csvBatchFieldMap.size === 0) return null;
+    const invalidRows: number[] = [];
+    const emptyRequiredRows: number[] = [];
+    for (let i = 0; i < csvBatchRows.length; i++) {
+      const row = csvBatchRows[i];
+      const normalizedRowKeys = new Map(Object.keys(row).map((k) => [k.toLowerCase().trim(), k]));
+      let hasInvalid = false;
+      let hasEmptyRequired = false;
+      for (const [header, field] of csvBatchFieldMap) {
+        const originalKey = normalizedRowKeys.get(header) ?? "";
+        const cellVal = originalKey ? (row[originalKey] ?? "") : "";
+        const result = validateCellValue(field, cellVal);
+        if (result === "invalid") hasInvalid = true;
+        if (result === "empty-required") hasEmptyRequired = true;
+      }
+      if (hasInvalid) invalidRows.push(i + 1);
+      if (hasEmptyRequired) emptyRequiredRows.push(i + 1);
+    }
+    return { total: csvBatchRows.length, invalidRows, emptyRequiredRows };
+  }, [csvBatchPackageId, csvBatchRows, csvBatchFieldMap]);
   const sessionHeaders = isPublicSession ? {} : { ...getAuthHeaders() };
   const activePackages = packages.filter((pkg) => pkg.status === "active");
   const packageInterviewFields = selectedPackage?.fields.filter((field) => field.interviewMode !== "omitted") ?? [];
@@ -2939,6 +2961,43 @@ export default function DocuFill() {
                   <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#F8F6F0] border border-[#DDD5C4] line-through" /><span className="line-through">Column</span> will be skipped</span>
                 </div>
               )}
+            </div>
+          )}
+
+          {csvBatchValidationSummary && (csvBatchValidationSummary.invalidRows.length > 0 || csvBatchValidationSummary.emptyRequiredRows.length > 0) && (
+            <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm space-y-2">
+              <p className="font-semibold text-amber-900">
+                Validation issues found across all {csvBatchValidationSummary.total} data row{csvBatchValidationSummary.total === 1 ? "" : "s"}
+              </p>
+              <ul className="space-y-1 text-amber-800 text-xs list-none">
+                {csvBatchValidationSummary.invalidRows.length > 0 && (
+                  <li>
+                    <span className="font-medium">{csvBatchValidationSummary.invalidRows.length} data row{csvBatchValidationSummary.invalidRows.length === 1 ? "" : "s"} with invalid values:</span>{" "}
+                    <span className="font-mono">
+                      {csvBatchValidationSummary.invalidRows.length <= 20
+                        ? csvBatchValidationSummary.invalidRows.join(", ")
+                        : csvBatchValidationSummary.invalidRows.slice(0, 20).join(", ") + ` … +${csvBatchValidationSummary.invalidRows.length - 20} more`}
+                    </span>
+                  </li>
+                )}
+                {csvBatchValidationSummary.emptyRequiredRows.length > 0 && (
+                  <li>
+                    <span className="font-medium">{csvBatchValidationSummary.emptyRequiredRows.length} data row{csvBatchValidationSummary.emptyRequiredRows.length === 1 ? "" : "s"} with empty required fields:</span>{" "}
+                    <span className="font-mono">
+                      {csvBatchValidationSummary.emptyRequiredRows.length <= 20
+                        ? csvBatchValidationSummary.emptyRequiredRows.join(", ")
+                        : csvBatchValidationSummary.emptyRequiredRows.slice(0, 20).join(", ") + ` … +${csvBatchValidationSummary.emptyRequiredRows.length - 20} more`}
+                    </span>
+                  </li>
+                )}
+              </ul>
+              <p className="text-[11px] text-amber-700">Row numbers count from 1, not including the header row. Fix these rows in your spreadsheet and re-upload, or proceed anyway to import all rows.</p>
+            </div>
+          )}
+
+          {csvBatchValidationSummary && csvBatchValidationSummary.invalidRows.length === 0 && csvBatchValidationSummary.emptyRequiredRows.length === 0 && (
+            <div className="rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+              All {csvBatchValidationSummary.total} row{csvBatchValidationSummary.total === 1 ? "" : "s"} passed validation.
             </div>
           )}
 
