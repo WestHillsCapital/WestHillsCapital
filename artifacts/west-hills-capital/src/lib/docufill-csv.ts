@@ -65,16 +65,28 @@ type BatchResult = {
   error?: string;
 };
 
-export function batchResultsToCsv(results: BatchResult[], apiBase: string): string {
-  const headers = ["Row #", "Status", "Token", "PDF URL", "Error"];
-  const rows = results.map((r) => [
-    String(r.rowIndex + 1),
-    r.status,
-    r.token ?? "",
-    r.pdfUrl ? `${apiBase}${r.pdfUrl}` : "",
-    r.error ?? "",
-  ]);
-  return [headers, ...rows].map((row) => row.map(csvQuote).join(",")).join("\n");
+export function batchResultsToCsv(
+  results: BatchResult[],
+  apiBase: string,
+  inputHeaders?: string[],
+  inputRows?: Record<string, string>[],
+): string {
+  const statusHeaders = ["Row #", "Status", "Token", "PDF URL", "Error"];
+  const extraHeaders = inputHeaders ?? [];
+  const allHeaders = [...statusHeaders, ...extraHeaders];
+  const rows = results.map((r) => {
+    const statusCols = [
+      String(r.rowIndex + 1),
+      r.status,
+      r.token ?? "",
+      r.pdfUrl ? `${apiBase}${r.pdfUrl}` : "",
+      r.error ?? "",
+    ];
+    const inputRow = inputRows?.[r.rowIndex] ?? {};
+    const extraCols = extraHeaders.map((h) => inputRow[h] ?? "");
+    return [...statusCols, ...extraCols];
+  });
+  return [allHeaders, ...rows].map((row) => row.map(csvQuote).join(",")).join("\n");
 }
 
 export function downloadCsv(csvContent: string, filename: string): void {

@@ -2833,7 +2833,7 @@ export default function DocuFill() {
                     size="sm"
                     onClick={() => {
                       const dateStr = new Date().toISOString().slice(0, 10);
-                      downloadCsv(batchResultsToCsv(csvBatchResults, API_BASE), `docufill-batch-results-${dateStr}.csv`);
+                      downloadCsv(batchResultsToCsv(csvBatchResults, API_BASE, csvBatchHeaders, csvBatchRows), `docufill-batch-results-${dateStr}.csv`);
                     }}
                     className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
                   >
