@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { useLocation, useParams, useSearch } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { Button } from "@/components/ui/button";
@@ -537,6 +537,7 @@ export default function DocuFill() {
   const [csvBatchError, setCsvBatchError] = useState<string | null>(null);
   const csvBatchFileInputRef = useRef<HTMLInputElement | null>(null);
   const [showCsvFieldKey, setShowCsvFieldKey] = useState(false);
+  const [csvBatchFieldBreakdownOpen, setCsvBatchFieldBreakdownOpen] = useState(false);
 
   const selectedPackage = packages.find((pkg) => pkg.id === selectedPackageId) ?? packages[0] ?? null;
   const selectedDocument = selectedPackage?.documents.find((doc) => doc.id === selectedDocumentId) ?? selectedPackage?.documents[0] ?? null;
@@ -594,6 +595,10 @@ export default function DocuFill() {
     if (!csvBatchPackageId || csvBatchRows.length === 0 || csvBatchFieldMap.size === 0) return null;
     const invalidRows: number[] = [];
     const emptyRequiredRows: number[] = [];
+    const fieldBreakdown = new Map<string, { label: string; invalid: number[]; emptyRequired: number[] }>();
+    for (const [, field] of csvBatchFieldMap) {
+      fieldBreakdown.set(field.name, { label: field.name, invalid: [], emptyRequired: [] });
+    }
     for (let i = 0; i < csvBatchRows.length; i++) {
       const row = csvBatchRows[i];
       const normalizedRowKeys = new Map(Object.keys(row).map((k) => [k.toLowerCase().trim(), k]));
@@ -603,13 +608,20 @@ export default function DocuFill() {
         const originalKey = normalizedRowKeys.get(header) ?? "";
         const cellVal = originalKey ? (row[originalKey] ?? "") : "";
         const result = validateCellValue(field, cellVal);
-        if (result === "invalid") hasInvalid = true;
-        if (result === "empty-required") hasEmptyRequired = true;
+        if (result === "invalid") {
+          hasInvalid = true;
+          fieldBreakdown.get(field.name)!.invalid.push(i + 1);
+        }
+        if (result === "empty-required") {
+          hasEmptyRequired = true;
+          fieldBreakdown.get(field.name)!.emptyRequired.push(i + 1);
+        }
       }
       if (hasInvalid) invalidRows.push(i + 1);
       if (hasEmptyRequired) emptyRequiredRows.push(i + 1);
     }
-    return { total: csvBatchRows.length, invalidRows, emptyRequiredRows };
+    const fieldIssues = Array.from(fieldBreakdown.values()).filter((f) => f.invalid.length > 0 || f.emptyRequired.length > 0);
+    return { total: csvBatchRows.length, invalidRows, emptyRequiredRows, fieldIssues };
   }, [csvBatchPackageId, csvBatchRows, csvBatchFieldMap]);
   const sessionHeaders = isPublicSession ? {} : { ...getAuthHeaders() };
   const activePackages = packages.filter((pkg) => pkg.status === "active");
@@ -2991,6 +3003,65 @@ export default function DocuFill() {
                   </li>
                 )}
               </ul>
+              {csvBatchValidationSummary.fieldIssues.length > 0 && (
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setCsvBatchFieldBreakdownOpen((v) => !v)}
+                    className="flex items-center gap-1 text-[11px] font-medium text-amber-800 hover:text-amber-900 focus:outline-none"
+                  >
+                    <svg className={`w-3 h-3 transition-transform ${csvBatchFieldBreakdownOpen ? "rotate-90" : ""}`} viewBox="0 0 12 12" fill="currentColor">
+                      <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                    {csvBatchFieldBreakdownOpen ? "Hide" : "Show"} field-by-field breakdown ({csvBatchValidationSummary.fieldIssues.length} field{csvBatchValidationSummary.fieldIssues.length === 1 ? "" : "s"} affected)
+                  </button>
+                  {csvBatchFieldBreakdownOpen && (
+                    <div className="mt-2 rounded border border-amber-200 bg-white overflow-hidden">
+                      <table className="w-full text-[11px]">
+                        <thead>
+                          <tr className="bg-amber-100 text-amber-900">
+                            <th className="text-left px-3 py-1.5 font-semibold">Field</th>
+                            <th className="text-left px-3 py-1.5 font-semibold">Issue</th>
+                            <th className="text-left px-3 py-1.5 font-semibold">Rows affected</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {csvBatchValidationSummary.fieldIssues.flatMap((f) => {
+                            const rows: ReactNode[] = [];
+                            if (f.invalid.length > 0) {
+                              rows.push(
+                                <tr key={`${f.label}-invalid`} className="border-t border-amber-100">
+                                  <td className="px-3 py-1.5 font-medium text-amber-900 align-top">{f.label}</td>
+                                  <td className="px-3 py-1.5 text-red-700 align-top whitespace-nowrap">Invalid value</td>
+                                  <td className="px-3 py-1.5 font-mono text-amber-800 align-top">
+                                    {f.invalid.length <= 20
+                                      ? f.invalid.join(", ")
+                                      : f.invalid.slice(0, 20).join(", ") + ` … +${f.invalid.length - 20} more`}
+                                  </td>
+                                </tr>
+                              );
+                            }
+                            if (f.emptyRequired.length > 0) {
+                              rows.push(
+                                <tr key={`${f.label}-empty`} className="border-t border-amber-100">
+                                  <td className="px-3 py-1.5 font-medium text-amber-900 align-top">{f.invalid.length > 0 ? "" : f.label}</td>
+                                  <td className="px-3 py-1.5 text-amber-700 align-top whitespace-nowrap">Required but empty</td>
+                                  <td className="px-3 py-1.5 font-mono text-amber-800 align-top">
+                                    {f.emptyRequired.length <= 20
+                                      ? f.emptyRequired.join(", ")
+                                      : f.emptyRequired.slice(0, 20).join(", ") + ` … +${f.emptyRequired.length - 20} more`}
+                                  </td>
+                                </tr>
+                              );
+                            }
+                            return rows;
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
               <p className="text-[11px] text-amber-700">Row numbers count from 1, not including the header row. Fix these rows in your spreadsheet and re-upload, or proceed anyway to import all rows.</p>
             </div>
           )}
