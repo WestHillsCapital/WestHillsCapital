@@ -3002,10 +3002,10 @@ export default function DocuFill() {
                       const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
                       const cellVal = row[h] ?? "";
                       const validity = matchedField ? validateCellValue(matchedField, cellVal) : "ok";
-                      const isEditable = !willSkip && (validity === "invalid" || validity === "empty-required");
                       const isEditing = csvEditingCell?.rowIdx === rowIdx && csvEditingCell?.header === h;
                       const originalCellVal = csvBatchOriginalRows.length > 0 ? (csvBatchOriginalRows[rowIdx]?.[h] ?? "") : cellVal;
                       const isCellModified = csvBatchOriginalRows.length > 0 && originalCellVal !== cellVal;
+                      const isEditable = !willSkip && (validity === "invalid" || validity === "empty-required" || isCellModified);
 
                       const revertCell = (e: React.MouseEvent | React.KeyboardEvent) => {
                         e.stopPropagation();
