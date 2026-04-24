@@ -519,21 +519,24 @@ function SortableItem({ id, children }: { id: string; children: (props: Sortable
   })}</>;
 }
 
-const GripHandle = ({ className, ...props }: React.HTMLAttributes<HTMLButtonElement>) => (
-  <button
-    type="button"
-    {...props}
-    onDragStart={(e) => e.preventDefault()}
-    className={className ?? "cursor-grab active:cursor-grabbing p-0.5 text-[#C4B89A] hover:text-[#A89878] flex-shrink-0"}
-    title="Drag to reorder"
-  >
-    <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
-      <circle cx="5" cy="4" r="1.2"/><circle cx="11" cy="4" r="1.2"/>
-      <circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/>
-      <circle cx="5" cy="12" r="1.2"/><circle cx="11" cy="12" r="1.2"/>
-    </svg>
-  </button>
-);
+function isInteractiveElement(el: Element | null): boolean {
+  if (!el) return false;
+  const tag = el.tagName.toLowerCase();
+  if (["button", "input", "textarea", "select", "option", "label", "a"].includes(tag)) return true;
+  return isInteractiveElement(el.parentElement);
+}
+
+class SmartPointerSensor extends PointerSensor {
+  static activators = [
+    {
+      eventName: "onPointerDown" as const,
+      handler: ({ nativeEvent }: { nativeEvent: PointerEvent }) => {
+        if (!nativeEvent.isPrimary || nativeEvent.button !== 0) return false;
+        return !isInteractiveElement(nativeEvent.target as Element);
+      },
+    },
+  ];
+}
 
 export default function DocuFill() {
   const search = useSearch();
@@ -564,7 +567,7 @@ export default function DocuFill() {
     interviewMode: FieldInterviewMode; hasDefault: boolean; defaultValue: string;
     validationType: FieldItem["validationType"]; validationPattern: string; validationMessage: string; packageOnly: boolean;
   }>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false });
-  const sortSensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  const sortSensors = useSensors(useSensor(SmartPointerSensor, { activationConstraint: { distance: 6 } }));
   const [session, setSession] = useState<Session | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
@@ -2221,7 +2224,8 @@ export default function DocuFill() {
                                   <div
                                     ref={wrapperRef}
                                     style={wrapperStyle}
-                                    className={`rounded-lg border bg-white flex flex-col transition-shadow ${isDragging ? "opacity-40 shadow-2xl scale-95" : "hover:shadow-md"} ${selectedDocument?.id === doc.id ? "border-[#C49A38] ring-2 ring-[#C49A38]/20" : "border-[#DDD5C4]"}`}
+                                    {...handleProps}
+                                    className={`rounded-lg border bg-white flex flex-col transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-2xl scale-95" : "hover:shadow-md"} ${selectedDocument?.id === doc.id ? "border-[#C49A38] ring-2 ring-[#C49A38]/20" : "border-[#DDD5C4]"}`}
                                   >
                                     <DocumentPreviewTile
                                       packageId={selectedPackage.id}
@@ -2235,10 +2239,6 @@ export default function DocuFill() {
                                       previewHeight="h-52"
                                     />
                                     <div className="p-2.5 flex flex-col gap-1.5 border-t border-[#EFE8D8]">
-                                      <div className="flex items-center gap-1.5">
-                                        <GripHandle {...handleProps} />
-                                        <span className="text-[10px] text-[#C4B89A] select-none flex-1 truncate">{index + 1} of {selectedPackage.documents.length}</span>
-                                      </div>
                                       <Input
                                         value={doc.title}
                                         onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))}
@@ -2301,9 +2301,9 @@ export default function DocuFill() {
                                     <div
                                       ref={wrapperRef}
                                       style={wrapperStyle}
-                                      className={`rounded border p-3 flex items-center gap-3 transition-shadow ${isDragging ? "opacity-40 shadow-lg border-[#C49A38] bg-[#FDF8EE]" : "border-[#EFE8D8] bg-[#F8F6F0]"}`}
+                                      {...handleProps}
+                                      className={`rounded border p-3 flex items-center gap-3 transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-lg border-[#C49A38] bg-[#FDF8EE]" : "border-[#EFE8D8] bg-[#F8F6F0]"}`}
                                     >
-                                      <GripHandle {...handleProps} />
                                       <div className="flex-1 min-w-0">
                                         <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
                                           <span>{index + 1}. {field.name}</span>
@@ -2488,12 +2488,9 @@ export default function DocuFill() {
                           <div
                             ref={wrapperRef}
                             style={wrapperStyle}
-                            className={`border rounded p-2 transition-shadow ${isDragging ? "opacity-40 shadow-lg" : ""} ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4]"}`}
+                            {...handleProps}
+                            className={`border rounded p-2 transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-lg" : ""} ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4]"}`}
                           >
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <GripHandle {...handleProps} />
-                              <span className="text-[10px] text-[#C4B89A] select-none">{index + 1} of {selectedPackage.documents.length}</span>
-                            </div>
                             <DocumentPreviewTile
                               packageId={selectedPackage.id}
                               doc={doc}
@@ -2733,14 +2730,12 @@ export default function DocuFill() {
                           <div
                             ref={wrapperRef}
                             style={{ ...wrapperStyle, borderColor: field.color }}
-                            draggable
-                            onDragStart={(e) => e.dataTransfer.setData("text/field", field.id)}
+                            {...handleProps}
                             onDoubleClick={() => openFieldEditorForEdit(field.id)}
-                            className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow ${isDragging ? "opacity-40 shadow-lg" : ""} ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
+                            className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-grab active:cursor-grabbing ${isDragging ? "opacity-40 shadow-lg" : ""} ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-start gap-2 flex-1 min-w-0">
-                                <GripHandle {...handleProps} className="mt-0.5 cursor-grab active:cursor-grabbing p-0.5 text-[#C4B89A] hover:text-[#A89878] flex-shrink-0" />
                                 <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1 min-w-0">
                                   <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
                                     <span>{field.name}</span>
@@ -2751,12 +2746,20 @@ export default function DocuFill() {
                                   <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
                                 </button>
                               </div>
-                              <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
-                                className="rounded border border-red-200 px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50 hover:border-red-300 flex-shrink-0"
-                                title="Remove field"
-                              >✕</button>
+                              <div className="flex items-center gap-1.5 flex-shrink-0">
+                                <div
+                                  draggable
+                                  onDragStart={(e) => { e.stopPropagation(); e.dataTransfer.setData("text/field", field.id); }}
+                                  title="Drag onto the PDF to place this field"
+                                  className="cursor-alias rounded border border-[#DDD5C4] px-1.5 py-0.5 text-[10px] text-[#8A9BB8] hover:border-[#C49A38] hover:text-[#C49A38] select-none"
+                                >⊕ PDF</div>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
+                                  className="rounded border border-red-200 px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50 hover:border-red-300"
+                                  title="Remove field"
+                                >✕</button>
+                              </div>
                             </div>
                           </div>
                         )}
