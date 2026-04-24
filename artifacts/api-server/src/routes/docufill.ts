@@ -1257,6 +1257,128 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
   }
 });
 
+router.post("/csv-batch", async (req, res) => {
+  try {
+    const body = req.body as { packageId?: unknown; rows?: unknown };
+    const packageId = parseId(body.packageId);
+    if (!packageId) {
+      res.status(400).json({ error: "packageId is required" });
+      return;
+    }
+    if (!Array.isArray(body.rows) || body.rows.length === 0) {
+      res.status(400).json({ error: "rows array is required and must not be empty" });
+      return;
+    }
+    const db = getDb();
+    const pkg = await getPackage(packageId, db);
+    if (!pkg) {
+      res.status(404).json({ error: "Package not found" });
+      return;
+    }
+    const fields = parseFields(pkg.fields);
+    const interviewFields = fields.filter(fieldInInterview);
+    const fieldLookup = new Map<string, string>();
+    interviewFields.forEach((field) => {
+      if (field.name) fieldLookup.set(field.name.toLowerCase().trim(), field.id);
+    });
+    const sampleRow = body.rows[0] as Record<string, string>;
+    const matchingColumns = Object.keys(sampleRow).filter((col) => {
+      const normalized = col.toLowerCase().trim();
+      return normalized !== "__package_id__" && normalized !== "__package_name__" && fieldLookup.has(normalized);
+    });
+    if (matchingColumns.length === 0) {
+      res.status(400).json({ error: "No CSV columns match any field names in this package" });
+      return;
+    }
+    const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID ?? null;
+    const packageName = String(pkg.name ?? "DocuFill");
+    const transactionScope = String(pkg.transaction_scope ?? "ira_transfer");
+    const packageVersion = Number(pkg.version ?? 1);
+    type BatchResult = { rowIndex: number; token: string | null; status: "generated" | "error"; pdfUrl?: string; error?: string };
+    const results: BatchResult[] = [];
+    for (let i = 0; i < body.rows.length; i++) {
+      const row = body.rows[i] as Record<string, string>;
+      let insertedToken: string | null = null;
+      try {
+        const answers: Record<string, string> = {};
+        for (const [col, val] of Object.entries(row)) {
+          const normalized = col.toLowerCase().trim();
+          if (normalized === "__package_id__" || normalized === "__package_name__") continue;
+          const fieldId = fieldLookup.get(normalized);
+          if (!fieldId) continue;
+          answers[fieldId] = String(val ?? "");
+        }
+        const token = createSessionToken();
+        await db.query(
+          `INSERT INTO docufill_interview_sessions
+             (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers, expires_at)
+           VALUES ($1,$2,$3,$4,NULL,'csv_batch','draft',false,'{}'::jsonb,$5::jsonb,NOW() + INTERVAL '90 days')`,
+          [token, packageId, packageVersion, transactionScope, jsonParam(answers)],
+        );
+        insertedToken = token;
+        const session: Record<string, unknown> = {
+          token,
+          package_id: packageId,
+          package_name: packageName,
+          documents: pkg.documents,
+          fields: pkg.fields,
+          mappings: pkg.mappings,
+          prefill: {},
+          answers,
+        };
+        const validation = validateSessionAnswers(session);
+        if (!validation.valid) {
+          const messages = [...validation.missingFields.map((f) => `Missing required: ${f}`), ...validation.errors];
+          results.push({ rowIndex: i, token: null, status: "error", error: messages.join("; ") });
+          await db.query(`DELETE FROM docufill_interview_sessions WHERE token=$1`, [token]);
+          insertedToken = null;
+          continue;
+        }
+        const pdfBuffer = await buildPacketPdfBuffer(session, db);
+        const generatedAt = new Date().toISOString();
+        let driveResult: { fileId: string; webViewLink: string } | null = null;
+        if (rootFolderId) {
+          try {
+            driveResult = await saveDocuFillPacketToDrive(pdfBuffer, {
+              dealId: null,
+              firstName: "",
+              lastName: "",
+              packageName,
+              generatedAt,
+            }, rootFolderId);
+          } catch (driveErr) {
+            logger.error({ driveErr, token }, "[DocuFill] Batch: Drive save failed for row");
+          }
+        }
+        const generated = buildDocuFillPacketSummary(session);
+        await db.query(
+          `UPDATE docufill_interview_sessions
+              SET status='generated',
+                  generated_packet=$1::jsonb,
+                  generated_pdf_drive_id=$2,
+                  generated_pdf_url=$3,
+                  generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
+                  updated_at=NOW()
+            WHERE token=$4`,
+          [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, token],
+        );
+        insertedToken = null;
+        results.push({ rowIndex: i, token, status: "generated", pdfUrl: `/api/internal/docufill/sessions/${token}/packet.pdf` });
+      } catch (err) {
+        logger.error({ err, rowIndex: i }, "[DocuFill] Batch row processing failed");
+        if (insertedToken) {
+          await db.query(`DELETE FROM docufill_interview_sessions WHERE token=$1`, [insertedToken]).catch(() => {});
+        }
+        results.push({ rowIndex: i, token: null, status: "error", error: err instanceof Error ? err.message : "Unknown error" });
+      }
+    }
+    res.json({ results });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to process CSV batch");
+    res.status(500).json({ error: "Failed to process CSV batch" });
+  }
+});
+
 router.get("/sessions", async (req, res) => {
   try {
     const dealId = req.query.dealId ? Number(req.query.dealId) : null;

@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { sessionToCsv, downloadCsv } from "@/lib/docufill-csv";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -23,6 +24,7 @@ interface InterviewField {
 
 interface InterviewSession {
   token: string;
+  package_id?: number | string;
   package_name: string;
   package_version: number;
   custodian_name: string | null;
@@ -377,6 +379,27 @@ export function DocuFillInterviewPanel({ token, getAuthHeaders }: Props) {
               ↓ Download Packet PDF
             </a>
           )}
+
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              if (!session) return;
+              const date = new Date().toISOString().slice(0, 10);
+              const safeName = session.package_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+              const csv = sessionToCsv({
+                package_id: session.package_id,
+                package_name: session.package_name,
+                fields: session.fields,
+                answers,
+                prefill: session.prefill,
+              });
+              downloadCsv(csv, `docufill-${safeName}-${date}.csv`);
+            }}
+            className="text-[#6B7A99] border-[#DDD5C4]"
+          >
+            Download CSV
+          </Button>
 
           {saveMessage && <span className="text-xs text-green-700">{saveMessage}</span>}
         </div>

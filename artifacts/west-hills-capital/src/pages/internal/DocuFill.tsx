@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getDocuFillPrefillDisplayValue } from "@/lib/docufill-redaction";
+import { sessionToCsv, packageTemplateToCsv, downloadCsv, parseCsvString } from "@/lib/docufill-csv";
 import * as pdfjsLib from "pdfjs-dist";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
@@ -166,6 +167,7 @@ type PackageItem = {
 
 type Session = {
   token: string;
+  package_id?: number | string;
   package_name: string;
   custodian_name: string | null;
   depository_name: string | null;
@@ -418,7 +420,7 @@ export default function DocuFill() {
   const sessionToken = publicSessionToken ?? new URLSearchParams(search).get("session");
   const isPublicSession = Boolean(publicSessionToken);
   const { getAuthHeaders } = useInternalAuth();
-  const [tab, setTab] = useState<"packages" | "mapper" | "interview">(sessionToken ? "interview" : "packages");
+  const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv">(sessionToken ? "interview" : "packages");
   const [builderStep, setBuilderStep] = useState<BuilderStep>("documents");
   const [custodians, setCustodians] = useState<Entity[]>([]);
   const [depositories, setDepositories] = useState<Entity[]>([]);
@@ -464,6 +466,16 @@ export default function DocuFill() {
   const [pdfRenderError, setPdfRenderError] = useState<string | null>(null);
   const documentPreviewCache = useRef<Record<string, string>>({});
   const documentPreviewCacheOrder = useRef<string[]>([]);
+  const [csvBatchPackageId, setCsvBatchPackageId] = useState("");
+  const [csvBatchFile, setCsvBatchFile] = useState<File | null>(null);
+  const [csvBatchHeaders, setCsvBatchHeaders] = useState<string[]>([]);
+  const [csvBatchRows, setCsvBatchRows] = useState<Record<string, string>[]>([]);
+  const [csvBatchMismatch, setCsvBatchMismatch] = useState(false);
+  const [csvBatchIsImporting, setCsvBatchIsImporting] = useState(false);
+  type BatchResult = { rowIndex: number; token: string | null; status: "generated" | "error" | "processing"; pdfUrl?: string; error?: string };
+  const [csvBatchResults, setCsvBatchResults] = useState<BatchResult[] | null>(null);
+  const [csvBatchError, setCsvBatchError] = useState<string | null>(null);
+  const csvBatchFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const selectedPackage = packages.find((pkg) => pkg.id === selectedPackageId) ?? packages[0] ?? null;
   const selectedDocument = selectedPackage?.documents.find((doc) => doc.id === selectedDocumentId) ?? selectedPackage?.documents[0] ?? null;
@@ -1556,6 +1568,72 @@ export default function DocuFill() {
     }
   }
 
+  function handleDownloadInterviewCsv() {
+    if (!session) return;
+    const date = new Date().toISOString().slice(0, 10);
+    const safeName = session.package_name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    const csv = sessionToCsv({
+      package_id: session.package_id,
+      package_name: session.package_name,
+      fields: session.fields,
+      answers,
+      prefill: session.prefill,
+    });
+    downloadCsv(csv, `docufill-${safeName}-${date}.csv`);
+  }
+
+  function handleCsvBatchFileChange(file: File | null) {
+    setCsvBatchFile(file);
+    setCsvBatchHeaders([]);
+    setCsvBatchRows([]);
+    setCsvBatchMismatch(false);
+    setCsvBatchResults(null);
+    setCsvBatchError(null);
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const text = String(e.target?.result ?? "");
+      const { headers, rows } = parseCsvString(text);
+      setCsvBatchHeaders(headers);
+      setCsvBatchRows(rows);
+      if (csvBatchPackageId) {
+        const pkg = packages.find((p) => String(p.id) === csvBatchPackageId);
+        if (pkg) {
+          const pkgFieldNames = new Set(pkg.fields.filter((f) => f.interviewMode !== "omitted").map((f) => f.name.toLowerCase().trim()));
+          const hasMatch = headers.some((h) => {
+            const n = h.toLowerCase().trim();
+            return n !== "__package_id__" && n !== "__package_name__" && pkgFieldNames.has(n);
+          });
+          setCsvBatchMismatch(!hasMatch);
+        }
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function handleCsvBatchImport() {
+    const pkgId = Number(csvBatchPackageId);
+    if (!pkgId || csvBatchRows.length === 0) return;
+    setCsvBatchIsImporting(true);
+    setCsvBatchError(null);
+    setCsvBatchResults(csvBatchRows.map((_, i) => ({ rowIndex: i, token: null, status: "processing" as const })));
+    try {
+      const res = await fetch(`${API_BASE}/api/internal/docufill/csv-batch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ packageId: pkgId, rows: csvBatchRows }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Batch import failed");
+      setCsvBatchResults(data.results);
+    } catch (err) {
+      setCsvBatchError(err instanceof Error ? err.message : "Batch import failed");
+      setCsvBatchResults(null);
+    } finally {
+      setCsvBatchIsImporting(false);
+    }
+  }
+
   return (
     <div className="max-w-screen-2xl mx-auto px-4 py-6 text-[#0F1C3F]">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
@@ -1566,6 +1644,7 @@ export default function DocuFill() {
         {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
           <button onClick={() => goBuilderStep(builderStep)} className={`px-3 py-2 text-sm ${tab === "packages" || tab === "mapper" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
           <button onClick={() => setTab("interview")} className={`px-3 py-2 text-sm ${tab === "interview" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Interviews</button>
+          <button onClick={() => setTab("csv")} className={`px-3 py-2 text-sm ${tab === "csv" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch CSV</button>
         </div>}
       </div>
       {error && <div className="mb-4 rounded border border-red-200 bg-red-50 text-red-800 px-3 py-2 text-sm">{error}</div>}
@@ -2545,6 +2624,7 @@ export default function DocuFill() {
               <div className="flex flex-wrap items-center gap-2">
                 <Button onClick={() => saveAnswers()} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save Interview"}</Button>
                 <Button onClick={generatePacket} disabled={isSaving || missingRequiredFields.length > 0} className="bg-[#0F1C3F] hover:bg-[#182B5F] disabled:opacity-60">{isSaving ? "Generating…" : "Generate Packet"}</Button>
+                <Button onClick={handleDownloadInterviewCsv} variant="outline" className="text-[#6B7A99] border-[#DDD5C4]">Download CSV</Button>
                 {generatedUrl && (
                   <button type="button" onClick={downloadGeneratedPacket} disabled={isDownloading} className="text-sm text-[#C49A38] underline disabled:opacity-60">
                     {isDownloading ? "Downloading…" : "Download packet PDF"}
@@ -2553,6 +2633,192 @@ export default function DocuFill() {
                 {driveUrl && <a href={driveUrl} target="_blank" rel="noreferrer" className="text-sm text-[#C49A38] underline">Open saved Drive packet</a>}
               </div>
               {driveWarnings.length > 0 && <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{driveWarnings.join(" ")}</div>}
+            </div>
+          )}
+        </section>
+      )}
+
+      {!isPublicSession && tab === "csv" && (
+        <section className="bg-white border border-[#DDD5C4] rounded-lg p-5 max-w-4xl mx-auto space-y-5">
+          <div>
+            <h2 className="text-lg font-semibold">Batch CSV Import</h2>
+            <p className="text-sm text-[#6B7A99] mt-1">Select a package, upload a filled CSV, and generate one packet per row.</p>
+          </div>
+
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium mb-1">Package</label>
+              <select
+                value={csvBatchPackageId}
+                onChange={(e) => {
+                  setCsvBatchPackageId(e.target.value);
+                  setCsvBatchMismatch(false);
+                  setCsvBatchResults(null);
+                  setCsvBatchError(null);
+                  if (csvBatchRows.length > 0 && e.target.value) {
+                    const pkg = packages.find((p) => String(p.id) === e.target.value);
+                    if (pkg) {
+                      const pkgFieldNames = new Set(pkg.fields.filter((f) => f.interviewMode !== "omitted").map((f) => f.name.toLowerCase().trim()));
+                      const hasMatch = csvBatchHeaders.some((h) => {
+                        const n = h.toLowerCase().trim();
+                        return n !== "__package_id__" && n !== "__package_name__" && pkgFieldNames.has(n);
+                      });
+                      setCsvBatchMismatch(!hasMatch);
+                    }
+                  }
+                }}
+                className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm bg-white"
+              >
+                <option value="">Select active package</option>
+                {activePackages.map((pkg) => (
+                  <option key={pkg.id} value={pkg.id}>{pkg.name} · {labelForTransactionScope(pkg.transaction_scope)}</option>
+                ))}
+              </select>
+            </div>
+
+            {csvBatchPackageId && (
+              <div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const pkg = packages.find((p) => String(p.id) === csvBatchPackageId);
+                    if (!pkg) return;
+                    const date = new Date().toISOString().slice(0, 10);
+                    const safeName = pkg.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+                    const csv = packageTemplateToCsv(pkg.id, pkg.name, pkg.fields);
+                    downloadCsv(csv, `docufill-template-${safeName}-${date}.csv`);
+                  }}
+                  className="text-sm text-[#C49A38] underline hover:text-[#b58c31]"
+                >
+                  Download blank template
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div
+            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${csvBatchFile ? "border-[#C49A38] bg-[#FDFAF4]" : "border-[#D4C9B5] bg-[#F8F6F0]"}`}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => {
+              e.preventDefault();
+              const file = e.dataTransfer.files[0];
+              if (file) handleCsvBatchFileChange(file);
+            }}
+          >
+            <input
+              ref={csvBatchFileInputRef}
+              type="file"
+              accept=".csv"
+              className="hidden"
+              onChange={(e) => handleCsvBatchFileChange(e.target.files?.[0] ?? null)}
+            />
+            {csvBatchFile ? (
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-[#0F1C3F]">{csvBatchFile.name}</p>
+                <p className="text-xs text-[#6B7A99]">{csvBatchRows.length} data row{csvBatchRows.length === 1 ? "" : "s"} · {csvBatchHeaders.length} column{csvBatchHeaders.length === 1 ? "" : "s"}</p>
+                <button type="button" onClick={() => { handleCsvBatchFileChange(null); if (csvBatchFileInputRef.current) csvBatchFileInputRef.current.value = ""; }} className="text-xs text-[#8A9BB8] underline hover:text-[#0F1C3F]">Remove file</button>
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm text-[#6B7A99] mb-2">Drag a CSV file here or</p>
+                <button type="button" onClick={() => csvBatchFileInputRef.current?.click()} className="text-sm text-[#C49A38] underline hover:text-[#b58c31]">Browse to upload</button>
+              </div>
+            )}
+          </div>
+
+          {csvBatchMismatch && (
+            <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              Warning: no column headers in this CSV match field names for the selected package. Please check that you selected the correct package and template.
+            </div>
+          )}
+
+          {csvBatchHeaders.length > 0 && csvBatchRows.length > 0 && (
+            <div>
+              <h3 className="text-sm font-semibold mb-2">Preview (first {Math.min(5, csvBatchRows.length)} rows)</h3>
+              <div className="overflow-x-auto rounded border border-[#DDD5C4]">
+                <table className="text-xs min-w-full">
+                  <thead className="bg-[#F8F6F0] border-b border-[#DDD5C4]">
+                    <tr>
+                      {csvBatchHeaders.slice(0, 8).map((h) => (
+                        <th key={h} className="px-3 py-2 text-left font-medium text-[#6B7A99] whitespace-nowrap">{h}</th>
+                      ))}
+                      {csvBatchHeaders.length > 8 && <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">+{csvBatchHeaders.length - 8} more</th>}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {csvBatchRows.slice(0, 5).map((row, idx) => (
+                      <tr key={idx} className="border-b border-[#EFE8D8] last:border-0">
+                        {csvBatchHeaders.slice(0, 8).map((h) => (
+                          <td key={h} className="px-3 py-2 text-[#334155] max-w-[200px] truncate">{row[h] ?? ""}</td>
+                        ))}
+                        {csvBatchHeaders.length > 8 && <td className="px-3 py-2 text-[#8A9BB8]">…</td>}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {csvBatchError && (
+            <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{csvBatchError}</div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <Button
+              onClick={handleCsvBatchImport}
+              disabled={!csvBatchPackageId || csvBatchRows.length === 0 || csvBatchIsImporting}
+              className="bg-[#0F1C3F] hover:bg-[#182B5F] disabled:opacity-60"
+            >
+              {csvBatchIsImporting ? "Importing…" : `Import & Generate ${csvBatchRows.length > 0 ? csvBatchRows.length : ""} row${csvBatchRows.length === 1 ? "" : "s"}`}
+            </Button>
+            {csvBatchIsImporting && <span className="text-xs text-[#6B7A99]">Processing rows sequentially, please wait…</span>}
+          </div>
+
+          {csvBatchResults && (
+            <div>
+              <h3 className="text-sm font-semibold mb-2">
+                {csvBatchIsImporting
+                  ? `Processing ${csvBatchResults.length} row${csvBatchResults.length === 1 ? "" : "s"}…`
+                  : `Results — ${csvBatchResults.filter((r) => r.status === "generated").length} generated · ${csvBatchResults.filter((r) => r.status === "error").length} failed`
+                }
+              </h3>
+              <div className="overflow-x-auto rounded border border-[#DDD5C4]">
+                <table className="text-xs min-w-full">
+                  <thead className="bg-[#F8F6F0] border-b border-[#DDD5C4]">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Row #</th>
+                      <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Status</th>
+                      <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Token</th>
+                      <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">PDF</th>
+                      <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Error</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {csvBatchResults.map((result) => (
+                      <tr key={result.rowIndex} className="border-b border-[#EFE8D8] last:border-0">
+                        <td className="px-3 py-2 text-[#334155]">{result.rowIndex + 1}</td>
+                        <td className="px-3 py-2">
+                          {result.status === "processing"
+                            ? <span className="flex items-center gap-1.5 text-[#6B7A99]"><span className="inline-block w-3 h-3 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />Processing</span>
+                            : result.status === "generated"
+                              ? <span className="text-green-700 font-medium">Generated</span>
+                              : <span className="text-red-700 font-medium">Error</span>
+                          }
+                        </td>
+                        <td className="px-3 py-2 text-[#6B7A99] font-mono text-[10px] max-w-[160px] truncate">{result.token ?? "—"}</td>
+                        <td className="px-3 py-2">
+                          {result.pdfUrl
+                            ? <a href={`${API_BASE}${result.pdfUrl}`} target="_blank" rel="noreferrer" className="text-[#C49A38] underline">Download PDF</a>
+                            : <span className="text-[#8A9BB8]">—</span>
+                          }
+                        </td>
+                        <td className="px-3 py-2 text-red-700 max-w-[300px] truncate">{result.error ?? ""}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </section>
