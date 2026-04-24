@@ -3646,18 +3646,13 @@ export default function DocuFill() {
         const formatOptions = mappingFormatOptionsForField(field);
         if (!mapping) return null;
         const assignedRecipient = mapping.recipientId ? (selectedPackage.recipients ?? []).find((r) => r.id === mapping.recipientId) : undefined;
-        const isRequired = field?.interviewMode === "required";
-        const isReadOnly = field?.interviewMode === "readonly";
+        const fieldInterviewMode: FieldInterviewMode = field?.interviewMode ?? "optional";
         const isMasked = field?.sensitive === true;
         const isMultiLine = mapping.multiLine === true;
 
-        function toggleRequired() {
+        function setInterviewMode(mode: FieldInterviewMode) {
           if (!field) return;
-          updateFieldInPackage(field.id, { interviewMode: isRequired ? "optional" : "required" });
-        }
-        function toggleReadOnly() {
-          if (!field) return;
-          updateFieldInPackage(field.id, { interviewMode: isReadOnly ? "optional" : "readonly" });
+          updateFieldInPackage(field.id, { interviewMode: mode });
         }
         function toggleMask() {
           if (!field) return;
@@ -3667,52 +3662,55 @@ export default function DocuFill() {
           updateSelectedMapping({ multiLine: !isMultiLine });
         }
 
+        const interviewModes: { value: FieldInterviewMode; label: string; activeClass: string }[] = [
+          { value: "optional",  label: "Optional",  activeClass: "bg-[#0F1C3F] text-white" },
+          { value: "required",  label: "Required",  activeClass: "bg-red-600 text-white" },
+          { value: "readonly",  label: "Read-only", activeClass: "bg-blue-600 text-white" },
+          { value: "omitted",   label: "Omit",      activeClass: "bg-[#6B7A99] text-white" },
+        ];
+
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setPlacementModal(null)}>
-            <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-              <div className="flex items-center justify-between px-5 py-4 border-b border-[#DDD5C4]">
-                <h2 className="text-sm font-semibold text-[#0F1C3F]">Placement Settings</h2>
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-xs max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-4 py-3 border-b border-[#DDD5C4]">
+                <h2 className="text-xs font-semibold text-[#0F1C3F] uppercase tracking-wide">Placement</h2>
                 <button type="button" onClick={() => setPlacementModal(null)} className="text-[#8A9BB8] hover:text-[#0F1C3F]">
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
                 </button>
               </div>
-              <div className="px-5 py-4 space-y-5">
+              <div className="px-4 py-3 space-y-3">
 
                 {field && (
-                  <div>
-                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-1.5">Name</div>
-                    <input
-                      type="text"
-                      value={field.name}
-                      onChange={(e) => updateFieldInPackage(field.id, { name: e.target.value })}
-                      className="w-full border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-[#C49A38] focus:border-[#C49A38]"
-                      placeholder="Field name"
-                    />
-                  </div>
+                  <input
+                    type="text"
+                    value={field.name}
+                    onChange={(e) => updateFieldInPackage(field.id, { name: e.target.value })}
+                    className="w-full border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-[#C49A38] focus:border-[#C49A38]"
+                    placeholder="Field name"
+                  />
                 )}
 
                 {(selectedPackage.recipients ?? []).length > 0 && (
                   <div>
-                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Recipient</div>
-                    <div className="space-y-1">
+                    <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1">Recipient</div>
+                    <div className="flex flex-wrap gap-1">
                       <button
                         type="button"
                         onClick={() => updateSelectedMapping({ recipientId: undefined })}
-                        className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-[#F8F6F0] ${!assignedRecipient ? "bg-[#F8F6F0] font-semibold text-[#0F1C3F]" : "text-[#334155]"}`}
+                        className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${!assignedRecipient ? "border-[#0F1C3F] bg-[#0F1C3F] text-white" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
                       >
-                        <span className="w-3 h-3 rounded-full border border-[#D4C9B5] inline-block flex-shrink-0" />
-                        <span>Unassigned</span>
+                        <span className="w-2 h-2 rounded-full border border-current inline-block" />
+                        <span>None</span>
                       </button>
                       {(selectedPackage.recipients ?? []).map((r) => (
                         <button
                           key={r.id}
                           type="button"
                           onClick={() => updateSelectedMapping({ recipientId: r.id })}
-                          className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-xs hover:bg-[#F8F6F0] ${mapping.recipientId === r.id ? "bg-[#F8F6F0] font-semibold text-[#0F1C3F]" : "text-[#334155]"}`}
+                          className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${mapping.recipientId === r.id ? "border-[#0F1C3F] bg-[#0F1C3F] text-white" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
                         >
-                          <span className="w-3 h-3 rounded-full inline-block flex-shrink-0" style={{ backgroundColor: r.color }} />
+                          <span className="w-2 h-2 rounded-full inline-block flex-shrink-0" style={{ backgroundColor: r.color }} />
                           <span>{r.label}</span>
-                          <span className="ml-auto text-[10px] text-[#8A9BB8] capitalize">{r.type}</span>
                         </button>
                       ))}
                     </div>
@@ -3721,63 +3719,48 @@ export default function DocuFill() {
 
                 {field && (
                   <div>
-                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Field options</div>
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={isRequired}
-                          onChange={toggleRequired}
-                          disabled={isReadOnly}
-                          className="w-3.5 h-3.5 accent-[#C49A38] cursor-pointer disabled:opacity-40"
-                        />
-                        <span className={`text-xs ${isReadOnly ? "text-[#B0BAD0]" : "text-[#334155]"}`}>Required</span>
-                        {isRequired && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">must answer</span>}
-                      </label>
-                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={isReadOnly}
-                          onChange={toggleReadOnly}
-                          disabled={isRequired}
-                          className="w-3.5 h-3.5 accent-[#C49A38] cursor-pointer disabled:opacity-40"
-                        />
-                        <span className={`text-xs ${isRequired ? "text-[#B0BAD0]" : "text-[#334155]"}`}>Read-only</span>
-                        {isReadOnly && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 font-medium">pre-filled only</span>}
-                      </label>
-                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={isMasked}
-                          onChange={toggleMask}
-                          className="w-3.5 h-3.5 accent-[#C49A38] cursor-pointer"
-                        />
-                        <span className="text-xs text-[#334155]">Mask field data</span>
-                        {isMasked && <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">sensitive</span>}
-                      </label>
-                      <label className="flex items-center gap-2.5 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={isMultiLine}
-                          onChange={toggleMultiLine}
-                          className="w-3.5 h-3.5 accent-[#C49A38] cursor-pointer"
-                        />
-                        <span className="text-xs text-[#334155]">Multi-line data entry</span>
-                      </label>
+                    <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1">Interview</div>
+                    <div className="flex rounded overflow-hidden border border-[#D4C9B5]">
+                      {interviewModes.map((m) => (
+                        <button
+                          key={m.value}
+                          type="button"
+                          onClick={() => setInterviewMode(m.value)}
+                          className={`flex-1 py-1.5 text-[11px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors ${fieldInterviewMode === m.value ? m.activeClass : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                        >
+                          {m.label}
+                        </button>
+                      ))}
                     </div>
+                    {fieldInterviewMode === "omitted" && (
+                      <p className="mt-1 text-[10px] text-[#6B7A99]">Field prints on the PDF but won't appear as a question — needs a default value or prefill.</p>
+                    )}
+                  </div>
+                )}
+
+                {field && (
+                  <div className="flex gap-4">
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                      <input type="checkbox" checked={isMasked} onChange={toggleMask} className="w-3 h-3 accent-[#C49A38] cursor-pointer" />
+                      <span className="text-xs text-[#334155]">Mask</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                      <input type="checkbox" checked={isMultiLine} onChange={toggleMultiLine} className="w-3 h-3 accent-[#C49A38] cursor-pointer" />
+                      <span className="text-xs text-[#334155]">Multi-line</span>
+                    </label>
                   </div>
                 )}
 
                 {formatOptions.length > 0 && (
                   <div>
-                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Orientation</div>
-                    <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                    <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1">Orientation</div>
+                    <div className="space-y-0.5 max-h-32 overflow-y-auto">
                       {formatOptions.map((option) => (
                         <button
                           key={option.value}
                           type="button"
                           onClick={() => chooseMappingFormat(mapping.id, option.value)}
-                          className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs hover:bg-[#F8F6F0] ${mapping.format === option.value ? "bg-[#F8F6F0] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
+                          className={`flex w-full items-center justify-between rounded px-2 py-1 text-left text-xs hover:bg-[#F8F6F0] ${mapping.format === option.value ? "bg-[#F8F6F0] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
                         >
                           <span>{option.label}</span>
                           <span className="text-[10px] text-[#8A9BB8]">{option.group}</span>
@@ -3787,27 +3770,21 @@ export default function DocuFill() {
                   </div>
                 )}
 
-                <div>
-                  <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Field actions</div>
-                  <div className="space-y-0.5">
-                    {field && (
-                      <button type="button" onClick={() => copyField(field.id)} className="block w-full rounded px-2 py-1.5 text-left text-xs text-[#334155] hover:bg-[#F8F6F0]">
-                        Copy field — same name &amp; validation, new placement
-                      </button>
-                    )}
-                    <button type="button" onClick={() => duplicateMapping(mapping.id)} className="block w-full rounded px-2 py-1.5 text-left text-xs text-[#334155] hover:bg-[#F8F6F0]">
-                      Duplicate — identical copy with offset placement
+                <div className="flex gap-2 border-t border-[#EFE8D8] pt-2.5">
+                  {field && (
+                    <button type="button" onClick={() => copyField(field.id)} className="flex-1 rounded border border-[#D4C9B5] px-2 py-1.5 text-[11px] text-[#334155] hover:bg-[#F8F6F0] text-center">
+                      Copy field
                     </button>
-                  </div>
-                </div>
-
-                <div className="border-t border-[#EFE8D8] pt-3">
+                  )}
+                  <button type="button" onClick={() => duplicateMapping(mapping.id)} className="flex-1 rounded border border-[#D4C9B5] px-2 py-1.5 text-[11px] text-[#334155] hover:bg-[#F8F6F0] text-center">
+                    Duplicate
+                  </button>
                   <button
                     type="button"
                     onClick={() => { removeSelectedMapping(); setPlacementModal(null); }}
-                    className="w-full rounded px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 border border-red-200 hover:border-red-300 transition-colors"
+                    className="flex-1 rounded border border-red-200 px-2 py-1.5 text-[11px] font-medium text-red-600 hover:bg-red-50 hover:border-red-300 text-center"
                   >
-                    Remove this placement
+                    Remove
                   </button>
                 </div>
               </div>
