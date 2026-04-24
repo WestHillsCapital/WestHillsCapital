@@ -1729,6 +1729,7 @@ export default function DocuFill() {
     setCsvBatchError(null);
     setCsvEditingCell(null);
     setCsvBatchHasEdits(false);
+    setCsvCorrectedDownloaded(false);
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (e) => {
