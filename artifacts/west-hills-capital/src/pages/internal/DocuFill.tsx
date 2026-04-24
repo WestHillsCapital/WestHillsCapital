@@ -535,6 +535,7 @@ export default function DocuFill() {
   const [csvBatchFile, setCsvBatchFile] = useState<File | null>(null);
   const [csvBatchHeaders, setCsvBatchHeaders] = useState<string[]>([]);
   const [csvBatchRows, setCsvBatchRows] = useState<Record<string, string>[]>([]);
+  const [csvBatchOriginalRows, setCsvBatchOriginalRows] = useState<Record<string, string>[]>([]);
   const [csvBatchMismatch, setCsvBatchMismatch] = useState(false);
   const [csvBatchIsImporting, setCsvBatchIsImporting] = useState(false);
   const [csvBatchHasEdits, setCsvBatchHasEdits] = useState(false);
@@ -1724,6 +1725,7 @@ export default function DocuFill() {
     setCsvBatchFile(file);
     setCsvBatchHeaders([]);
     setCsvBatchRows([]);
+    setCsvBatchOriginalRows([]);
     setCsvBatchMismatch(false);
     setCsvBatchResults(null);
     setCsvBatchError(null);
@@ -1741,6 +1743,7 @@ export default function DocuFill() {
       const { headers, rows } = parseCsvString(text);
       setCsvBatchHeaders(headers);
       setCsvBatchRows(rows);
+      setCsvBatchOriginalRows(rows.map((r) => ({ ...r })));
       if (csvBatchPackageId) {
         const pkg = packages.find((p) => String(p.id) === csvBatchPackageId);
         if (pkg) {
@@ -3372,6 +3375,26 @@ export default function DocuFill() {
                 ) : (
                   "Download corrected CSV"
                 )}
+              </Button>
+            )}
+            {csvBatchHasEdits && csvBatchRows.length > 0 && csvBatchOriginalRows.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  if (!window.confirm("Discard all inline edits and restore the original uploaded data?")) return;
+                  setCsvBatchRows(csvBatchOriginalRows.map((r) => ({ ...r })));
+                  setCsvBatchHasEdits(false);
+                  setCsvEditingCell(null);
+                  if (csvCorrectedDownloadedTimerRef.current) {
+                    clearTimeout(csvCorrectedDownloadedTimerRef.current);
+                    csvCorrectedDownloadedTimerRef.current = null;
+                  }
+                  setCsvCorrectedDownloaded(false);
+                }}
+                className="border-red-200 text-red-700 hover:bg-red-50"
+              >
+                Discard edits
               </Button>
             )}
             {csvBatchIsImporting && <span className="text-xs text-[#6B7A99]">Processing rows sequentially, please wait…</span>}
