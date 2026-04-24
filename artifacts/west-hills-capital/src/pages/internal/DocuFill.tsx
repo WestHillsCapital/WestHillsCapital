@@ -3754,7 +3754,7 @@ export default function DocuFill() {
                           onClick={() => updateSelectedMapping({ recipientId: r.id })}
                           className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${mapping.recipientId === r.id ? "border-[#0F1C3F] bg-[#0F1C3F] text-white" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
                         >
-                          <span className="w-2 h-2 rounded-full inline-block flex-shrink-0" style={{ backgroundColor: r.color }} />
+                          <span className="w-2 h-2 rounded-full inline-block flex-shrink-0 border-2" style={{ borderColor: r.color }} />
                           <span>{r.label}</span>
                         </button>
                       ))}
