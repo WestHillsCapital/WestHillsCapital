@@ -3888,10 +3888,34 @@ export default function DocuFill() {
                 <Input value={fieldEditorDraft.name} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, name: e.target.value }))} placeholder="e.g. Borrower Full Name" />
               </div>
               <div>
-                <label className="block text-xs font-medium text-[#6B7A99] mb-1">Color</label>
-                <div className="flex items-center gap-3">
-                  <input type="color" value={fieldEditorDraft.color} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, color: e.target.value }))} className="h-9 w-14 rounded cursor-pointer border border-[#D4C9B5] p-0.5" />
+                <label className="block text-xs font-medium text-[#6B7A99] mb-1.5">Field Color</label>
+                <div className="grid grid-cols-5 gap-1.5 mb-2">
+                  {FIELD_COLOR_PALETTE.map((color) => (
+                    <button
+                      key={color}
+                      type="button"
+                      title={color}
+                      onClick={() => setFieldEditorDraft((d) => ({ ...d, color }))}
+                      className="w-full aspect-square rounded"
+                      style={{
+                        backgroundColor: color,
+                        outline: fieldEditorDraft.color.toUpperCase() === color.toUpperCase() ? `3px solid ${color}` : "none",
+                        outlineOffset: "2px",
+                        boxShadow: fieldEditorDraft.color.toUpperCase() === color.toUpperCase() ? "0 0 0 1px white inset" : "none",
+                      }}
+                    />
+                  ))}
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={fieldEditorDraft.color}
+                    onChange={(e) => setFieldEditorDraft((d) => ({ ...d, color: e.target.value }))}
+                    className="h-7 w-9 rounded cursor-pointer border border-[#D4C9B5] p-0.5 flex-shrink-0"
+                    title="Custom color"
+                  />
                   <span className="text-xs text-[#8A9BB8] font-mono">{fieldEditorDraft.color.toUpperCase()}</span>
+                  <span className="text-[10px] text-[#B0BAD0] ml-auto">custom</span>
                 </div>
               </div>
               <div>
