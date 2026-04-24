@@ -2790,6 +2790,7 @@ export default function DocuFill() {
                       <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Row #</th>
                       <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Status</th>
                       <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Token</th>
+                      <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Session</th>
                       <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">PDF</th>
                       <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Error</th>
                     </tr>
@@ -2807,6 +2808,12 @@ export default function DocuFill() {
                           }
                         </td>
                         <td className="px-3 py-2 text-[#6B7A99] font-mono text-[10px] max-w-[160px] truncate">{result.token ?? "—"}</td>
+                        <td className="px-3 py-2">
+                          {result.status === "generated" && result.token
+                            ? <a href={`/internal/docufill?session=${result.token}`} target="_blank" rel="noreferrer" className="text-[#C49A38] underline">Open session</a>
+                            : <span className="text-[#8A9BB8]">—</span>
+                          }
+                        </td>
                         <td className="px-3 py-2">
                           {result.pdfUrl
                             ? <a href={`${API_BASE}${result.pdfUrl}`} target="_blank" rel="noreferrer" className="text-[#C49A38] underline">Download PDF</a>
