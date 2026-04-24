@@ -2802,6 +2802,11 @@ export default function DocuFill() {
                   setCsvBatchError(null);
                   setShowCsvFieldKey(false);
                   setCsvEditingCell(null);
+                  if (csvCorrectedDownloadedTimerRef.current) {
+                    clearTimeout(csvCorrectedDownloadedTimerRef.current);
+                    csvCorrectedDownloadedTimerRef.current = null;
+                  }
+                  setCsvCorrectedDownloaded(false);
                   if (csvBatchRows.length > 0 && e.target.value) {
                     const pkg = packages.find((p) => String(p.id) === e.target.value);
                     if (pkg) {
