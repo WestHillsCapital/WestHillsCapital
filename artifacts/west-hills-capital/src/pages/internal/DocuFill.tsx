@@ -538,6 +538,7 @@ export default function DocuFill() {
   const [csvBatchError, setCsvBatchError] = useState<string | null>(null);
   const csvBatchFileInputRef = useRef<HTMLInputElement | null>(null);
   const csvBatchBreakdownRef = useRef<HTMLDivElement | null>(null);
+  const csvEditNavigatingRef = useRef(false);
   const [csvBreakdownHighlightedField, setCsvBreakdownHighlightedField] = useState<string | null>(null);
   const [showCsvFieldKey, setShowCsvFieldKey] = useState(false);
   const [csvBatchFieldBreakdownOpen, setCsvBatchFieldBreakdownOpen] = useState<boolean>(() => {
@@ -2946,6 +2947,24 @@ export default function DocuFill() {
                 const visibleHeaders = csvColumnsExpanded ? csvBatchHeaders : csvBatchHeaders.slice(0, maxVisibleCols);
                 const colCount = visibleHeaders.length + 1 + (hasOverflowCols ? 1 : 0);
 
+                const allDisplayedRows = [
+                  ...csvBatchRows.slice(0, 5).map((row, idx) => ({ row, idx })),
+                  ...errorRowsAbovePreview,
+                ];
+                const allEditableCells: { rowIdx: number; header: string }[] = [];
+                for (const { row, idx } of allDisplayedRows) {
+                  for (const hh of visibleHeaders) {
+                    const isMetadata = hh === "__package_id__" || hh === "__package_name__";
+                    const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(hh.toLowerCase().trim()) : undefined;
+                    const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
+                    const cellVal = row[hh] ?? "";
+                    const validity = matchedField ? validateCellValue(matchedField, cellVal) : "ok";
+                    if (!willSkip && (validity === "invalid" || validity === "empty-required")) {
+                      allEditableCells.push({ rowIdx: idx, header: hh });
+                    }
+                  }
+                }
+
                 const renderBodyRow = (row: Record<string, string>, rowIdx: number, isErrorRow: boolean) => (
                   <tr key={rowIdx} className={`border-b border-[#EFE8D8] last:border-0${isErrorRow ? " bg-[#FAFAF8]" : ""}`}>
                     <td className="px-2 py-1 text-[#9AAAC0] font-mono text-[10px] text-right select-none border-r border-[#EFE8D8] whitespace-nowrap">
@@ -2960,14 +2979,31 @@ export default function DocuFill() {
                       const isEditable = !willSkip && (validity === "invalid" || validity === "empty-required");
                       const isEditing = csvEditingCell?.rowIdx === rowIdx && csvEditingCell?.header === h;
 
-                      const commitEdit = (newVal: string) => {
+                      const commitEdit = (newVal: string, navigateDelta = 0) => {
                         setCsvBatchRows((prev) => {
                           const updated = [...prev];
                           updated[rowIdx] = { ...updated[rowIdx], [h]: newVal };
                           return updated;
                         });
                         setCsvBatchHasEdits(true);
-                        setCsvEditingCell(null);
+                        if (navigateDelta !== 0 && allEditableCells.length > 0) {
+                          const currentIdx = allEditableCells.findIndex((c) => c.rowIdx === rowIdx && c.header === h);
+                          const fixedThisCell = matchedField
+                            ? (() => { const v = validateCellValue(matchedField, newVal); return v !== "invalid" && v !== "empty-required"; })()
+                            : false;
+                          const len = allEditableCells.length;
+                          let nextCell: { rowIdx: number; header: string } | null = null;
+                          for (let step = 1; step <= len; step++) {
+                            const checkIdx = ((currentIdx + navigateDelta * step) % len + len) % len;
+                            const candidate = allEditableCells[checkIdx];
+                            if (fixedThisCell && candidate.rowIdx === rowIdx && candidate.header === h) continue;
+                            nextCell = candidate;
+                            break;
+                          }
+                          setCsvEditingCell(nextCell);
+                        } else {
+                          setCsvEditingCell(null);
+                        }
                       };
 
                       const tdCls = willSkip
@@ -2988,6 +3024,12 @@ export default function DocuFill() {
                                 defaultValue={cellVal}
                                 className="w-full text-xs border border-blue-400 rounded px-1 py-0.5 bg-white text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-blue-400"
                                 onChange={(e) => commitEdit(e.target.value)}
+                                onBlur={() => { csvEditNavigatingRef.current = false; }}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Tab") { e.preventDefault(); csvEditNavigatingRef.current = true; commitEdit((e.target as HTMLSelectElement).value, e.shiftKey ? -1 : 1); }
+                                  if (e.key === "Enter") { e.preventDefault(); csvEditNavigatingRef.current = true; commitEdit((e.target as HTMLSelectElement).value, 1); }
+                                  if (e.key === "Escape") setCsvEditingCell(null);
+                                }}
                               >
                                 <option value="">— select —</option>
                                 {(matchedField!.options ?? []).map((opt) => (
@@ -2999,9 +3041,13 @@ export default function DocuFill() {
                                 autoFocus
                                 defaultValue={cellVal}
                                 className="w-full text-xs border border-blue-400 rounded px-1 py-0.5 bg-white text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                onBlur={(e) => commitEdit(e.target.value)}
+                                onBlur={(e) => {
+                                  if (csvEditNavigatingRef.current) { csvEditNavigatingRef.current = false; return; }
+                                  commitEdit(e.target.value);
+                                }}
                                 onKeyDown={(e) => {
-                                  if (e.key === "Enter") commitEdit((e.target as HTMLInputElement).value);
+                                  if (e.key === "Enter") { e.preventDefault(); csvEditNavigatingRef.current = true; commitEdit((e.target as HTMLInputElement).value, 1); }
+                                  if (e.key === "Tab") { e.preventDefault(); csvEditNavigatingRef.current = true; commitEdit((e.target as HTMLInputElement).value, e.shiftKey ? -1 : 1); }
                                   if (e.key === "Escape") setCsvEditingCell(null);
                                 }}
                               />
@@ -3010,20 +3056,35 @@ export default function DocuFill() {
                         );
                       }
 
+                      const cellTitle = validity === "invalid"
+                        ? `Click to edit — invalid value for "${h}"`
+                        : validity === "empty-required"
+                          ? `Click to edit — "${h}" is required`
+                          : willSkip
+                            ? "Column will be skipped"
+                            : undefined;
+
                       return (
                         <td
                           key={h}
-                          className={`${tdCls}${isEditable ? " cursor-pointer group" : ""}`}
-                          title={
-                            validity === "invalid"
-                              ? `Click to edit — invalid value for "${h}"`
-                              : validity === "empty-required"
-                                ? `Click to edit — "${h}" is required`
-                                : willSkip
-                                  ? "Column will be skipped"
-                                  : undefined
-                          }
+                          className={`${tdCls}${isEditable ? " cursor-pointer group focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400" : ""}`}
+                          title={cellTitle}
                           onClick={isEditable ? () => setCsvEditingCell({ rowIdx, header: h }) : undefined}
+                          {...(isEditable ? {
+                            tabIndex: 0,
+                            onKeyDown: (e: React.KeyboardEvent<HTMLTableCellElement>) => {
+                              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setCsvEditingCell({ rowIdx, header: h }); }
+                              if (e.key === "Tab") {
+                                e.preventDefault();
+                                if (allEditableCells.length > 0) {
+                                  const currentIdx = allEditableCells.findIndex((c) => c.rowIdx === rowIdx && c.header === h);
+                                  const delta = e.shiftKey ? -1 : 1;
+                                  const nextIdx = (currentIdx + delta + allEditableCells.length) % allEditableCells.length;
+                                  setCsvEditingCell(allEditableCells[nextIdx]);
+                                }
+                              }
+                            },
+                          } : {})}
                         >
                           <span className="truncate block max-w-[200px]">{cellVal}</span>
                           {isEditable && (
