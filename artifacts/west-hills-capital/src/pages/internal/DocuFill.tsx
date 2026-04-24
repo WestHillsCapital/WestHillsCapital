@@ -546,6 +546,12 @@ export default function DocuFill() {
   useEffect(() => {
     try { localStorage.setItem("csvBatchFieldBreakdownOpen", csvBatchFieldBreakdownOpen ? "true" : "false"); } catch { /* ignore */ }
   }, [csvBatchFieldBreakdownOpen]);
+  const [csvColumnsExpanded, setCsvColumnsExpanded] = useState<boolean>(() => {
+    try { return localStorage.getItem("csvColumnsExpanded") === "true"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("csvColumnsExpanded", csvColumnsExpanded ? "true" : "false"); } catch { /* ignore */ }
+  }, [csvColumnsExpanded]);
   const [csvEditingCell, setCsvEditingCell] = useState<{ rowIdx: number; header: string } | null>(null);
 
   useEffect(() => {
@@ -2935,14 +2941,17 @@ export default function DocuFill() {
                 const headingExtra = errorRowsAbovePreview.length > 0
                   ? ` + ${errorRowsAbovePreview.length} row${errorRowsAbovePreview.length === 1 ? "" : "s"} with errors`
                   : "";
-                const colCount = Math.min(8, csvBatchHeaders.length) + 1 + (csvBatchHeaders.length > 8 ? 1 : 0);
+                const maxVisibleCols = 8;
+                const hasOverflowCols = csvBatchHeaders.length > maxVisibleCols;
+                const visibleHeaders = csvColumnsExpanded ? csvBatchHeaders : csvBatchHeaders.slice(0, maxVisibleCols);
+                const colCount = visibleHeaders.length + 1 + (hasOverflowCols ? 1 : 0);
 
                 const renderBodyRow = (row: Record<string, string>, rowIdx: number, isErrorRow: boolean) => (
                   <tr key={rowIdx} className={`border-b border-[#EFE8D8] last:border-0${isErrorRow ? " bg-[#FAFAF8]" : ""}`}>
                     <td className="px-2 py-1 text-[#9AAAC0] font-mono text-[10px] text-right select-none border-r border-[#EFE8D8] whitespace-nowrap">
                       {rowIdx + 1}
                     </td>
-                    {csvBatchHeaders.slice(0, 8).map((h) => {
+                    {visibleHeaders.map((h) => {
                       const isMetadata = h === "__package_id__" || h === "__package_name__";
                       const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
                       const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
@@ -3023,7 +3032,11 @@ export default function DocuFill() {
                         </td>
                       );
                     })}
-                    {csvBatchHeaders.length > 8 && <td className="px-3 py-2 text-[#8A9BB8]">…</td>}
+                    {hasOverflowCols && (
+                      csvColumnsExpanded
+                        ? <td className="px-3 py-2" />
+                        : <td className="px-3 py-2 text-[#8A9BB8]">…</td>
+                    )}
                   </tr>
                 );
 
@@ -3037,7 +3050,7 @@ export default function DocuFill() {
                         <thead className="bg-[#F8F6F0] border-b border-[#DDD5C4]">
                           <tr>
                             <th className="px-2 py-2 text-left font-medium text-[#9AAAC0] border-r border-[#DDD5C4] w-8">#</th>
-                            {csvBatchHeaders.slice(0, 8).map((h) => {
+                            {visibleHeaders.map((h) => {
                         const isMetadata = h === "__package_id__" || h === "__package_name__";
                         const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
                         const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
@@ -3095,7 +3108,17 @@ export default function DocuFill() {
                           </th>
                         );
                       })}
-                      {csvBatchHeaders.length > 8 && <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">+{csvBatchHeaders.length - 8} more</th>}
+                      {hasOverflowCols && (
+                        <th className="px-3 py-2 text-left font-medium">
+                          <button
+                            type="button"
+                            className="text-[#C49A38] hover:text-[#b58c31] underline text-xs whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-[#C49A38] rounded"
+                            onClick={() => setCsvColumnsExpanded((prev) => !prev)}
+                          >
+                            {csvColumnsExpanded ? "← Show less" : `+${csvBatchHeaders.length - maxVisibleCols} more`}
+                          </button>
+                        </th>
+                      )}
                     </tr>
                   </thead>
                         <tbody>
