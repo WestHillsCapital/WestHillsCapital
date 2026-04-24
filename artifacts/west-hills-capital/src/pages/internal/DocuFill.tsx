@@ -526,7 +526,12 @@ export default function DocuFill() {
   const [pdfRenderError, setPdfRenderError] = useState<string | null>(null);
   const documentPreviewCache = useRef<Record<string, string>>({});
   const documentPreviewCacheOrder = useRef<string[]>([]);
-  const [csvBatchPackageId, setCsvBatchPackageId] = useState("");
+  const [csvBatchPackageId, setCsvBatchPackageId] = useState<string>(() => {
+    try { return localStorage.getItem("csvBatchPackageId") ?? ""; } catch { return ""; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("csvBatchPackageId", csvBatchPackageId); } catch { /* ignore */ }
+  }, [csvBatchPackageId]);
   const [csvBatchFile, setCsvBatchFile] = useState<File | null>(null);
   const [csvBatchHeaders, setCsvBatchHeaders] = useState<string[]>([]);
   const [csvBatchRows, setCsvBatchRows] = useState<Record<string, string>[]>([]);
@@ -648,6 +653,11 @@ export default function DocuFill() {
   }, [csvBatchPackageId, csvBatchRows, csvBatchFieldMap]);
   const sessionHeaders = isPublicSession ? {} : { ...getAuthHeaders() };
   const activePackages = packages.filter((pkg) => pkg.status === "active");
+  useEffect(() => {
+    if (packages.length > 0 && csvBatchPackageId && !activePackages.some((pkg) => pkg.id === csvBatchPackageId)) {
+      setCsvBatchPackageId("");
+    }
+  }, [packages]);
   const packageInterviewFields = selectedPackage?.fields.filter((field) => field.interviewMode !== "omitted") ?? [];
   const packageFixedOrHiddenFields = selectedPackage?.fields.filter((field) => field.interviewMode === "omitted") ?? [];
   const packageMappedFieldIds = new Set(selectedPackage?.mappings.map((mapping) => mapping.fieldId) ?? []);
