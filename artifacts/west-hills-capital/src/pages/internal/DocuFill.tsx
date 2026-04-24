@@ -536,9 +536,15 @@ export default function DocuFill() {
   const [csvBatchResults, setCsvBatchResults] = useState<BatchResult[] | null>(null);
   const [csvBatchError, setCsvBatchError] = useState<string | null>(null);
   const csvBatchFileInputRef = useRef<HTMLInputElement | null>(null);
+  const csvBatchBreakdownRef = useRef<HTMLDivElement | null>(null);
+  const [csvBreakdownHighlightedField, setCsvBreakdownHighlightedField] = useState<string | null>(null);
   const [showCsvFieldKey, setShowCsvFieldKey] = useState(false);
   const [csvBatchFieldBreakdownOpen, setCsvBatchFieldBreakdownOpen] = useState(false);
   const [csvEditingCell, setCsvEditingCell] = useState<{ rowIdx: number; header: string } | null>(null);
+
+  useEffect(() => {
+    setCsvBreakdownHighlightedField(null);
+  }, [csvBatchRows, csvBatchPackageId]);
 
   const selectedPackage = packages.find((pkg) => pkg.id === selectedPackageId) ?? packages[0] ?? null;
   const selectedDocument = selectedPackage?.documents.find((doc) => doc.id === selectedDocumentId) ?? selectedPackage?.documents[0] ?? null;
@@ -2913,16 +2919,57 @@ export default function DocuFill() {
                         const isMetadata = h === "__package_id__" || h === "__package_name__";
                         const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
                         const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
+                        const fieldIssue = csvBatchValidationSummary?.fieldIssues.find((fi) => fi.label.toLowerCase().trim() === h.toLowerCase().trim());
+                        const invalidCount = fieldIssue?.invalid.length ?? 0;
+                        const emptyRequiredCount = fieldIssue?.emptyRequired.length ?? 0;
+                        const hasIssues = invalidCount > 0 || emptyRequiredCount > 0;
+                        const handleHeaderClick = () => {
+                          if (!hasIssues) return;
+                          setCsvBatchFieldBreakdownOpen(true);
+                          setCsvBreakdownHighlightedField(fieldIssue!.label);
+                          setTimeout(() => {
+                            const row = csvBatchBreakdownRef.current?.querySelector<HTMLElement>(`[data-field="${CSS.escape(fieldIssue!.label)}"]`);
+                            if (row) {
+                              row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+                            }
+                          }, 80);
+                        };
                         return (
                           <th
                             key={h}
-                            className={`px-3 py-2 text-left font-medium whitespace-nowrap ${willSkip ? "text-[#9AAAC0] line-through" : "text-[#6B7A99]"}`}
-                            title={willSkip ? "This column will be skipped on import" : matchedField?.interviewMode === "required" ? "Required field" : undefined}
+                            className={`px-3 py-2 text-left font-medium whitespace-nowrap ${willSkip ? "text-[#9AAAC0] line-through" : "text-[#6B7A99]"} ${hasIssues ? "cursor-pointer hover:bg-amber-50 select-none focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset" : ""}`}
+                            title={
+                              hasIssues
+                                ? `${invalidCount > 0 ? `${invalidCount} invalid value${invalidCount === 1 ? "" : "s"}` : ""}${invalidCount > 0 && emptyRequiredCount > 0 ? ", " : ""}${emptyRequiredCount > 0 ? `${emptyRequiredCount} empty required` : ""} — click to see in breakdown`
+                                : willSkip
+                                  ? "This column will be skipped on import"
+                                  : matchedField?.interviewMode === "required"
+                                    ? "Required field"
+                                    : undefined
+                            }
+                            {...(hasIssues ? {
+                              role: "button",
+                              tabIndex: 0,
+                              onClick: handleHeaderClick,
+                              onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleHeaderClick(); } },
+                            } : {})}
                           >
-                            {h}
-                            {matchedField?.interviewMode === "required" && !willSkip && (
-                              <span className="ml-1 text-red-500 font-bold" title="Required field">*</span>
-                            )}
+                            <span className="inline-flex items-center gap-1 flex-wrap">
+                              <span>{h}</span>
+                              {matchedField?.interviewMode === "required" && !willSkip && (
+                                <span className="text-red-500 font-bold" title="Required field">*</span>
+                              )}
+                              {invalidCount > 0 && (
+                                <span className="inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold leading-none px-1.5 py-0.5 min-w-[16px]" title={`${invalidCount} invalid value${invalidCount === 1 ? "" : "s"}`}>
+                                  {invalidCount}
+                                </span>
+                              )}
+                              {emptyRequiredCount > 0 && (
+                                <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-bold leading-none px-1.5 py-0.5 min-w-[16px]" title={`${emptyRequiredCount} empty required`}>
+                                  {emptyRequiredCount}
+                                </span>
+                              )}
+                            </span>
                           </th>
                         );
                       })}
@@ -3068,7 +3115,7 @@ export default function DocuFill() {
                     {csvBatchFieldBreakdownOpen ? "Hide" : "Show"} field-by-field breakdown ({csvBatchValidationSummary.fieldIssues.length} field{csvBatchValidationSummary.fieldIssues.length === 1 ? "" : "s"} affected)
                   </button>
                   {csvBatchFieldBreakdownOpen && (
-                    <div className="mt-2 rounded border border-amber-200 bg-white overflow-hidden">
+                    <div ref={csvBatchBreakdownRef} className="mt-2 rounded border border-amber-200 bg-white overflow-hidden">
                       <table className="w-full text-[11px]">
                         <thead>
                           <tr className="bg-amber-100 text-amber-900">
@@ -3079,10 +3126,11 @@ export default function DocuFill() {
                         </thead>
                         <tbody>
                           {csvBatchValidationSummary.fieldIssues.flatMap((f) => {
+                            const isHighlighted = csvBreakdownHighlightedField === f.label;
                             const rows: ReactNode[] = [];
                             if (f.invalid.length > 0) {
                               rows.push(
-                                <tr key={`${f.label}-invalid`} className="border-t border-amber-100">
+                                <tr key={`${f.label}-invalid`} data-field={f.label} className={`border-t border-amber-100 transition-colors ${isHighlighted ? "bg-amber-100 outline outline-2 outline-amber-400" : ""}`}>
                                   <td className="px-3 py-1.5 font-medium text-amber-900 align-top">{f.label}</td>
                                   <td className="px-3 py-1.5 text-red-700 align-top whitespace-nowrap">Invalid value</td>
                                   <td className="px-3 py-1.5 font-mono text-amber-800 align-top">
@@ -3095,7 +3143,7 @@ export default function DocuFill() {
                             }
                             if (f.emptyRequired.length > 0) {
                               rows.push(
-                                <tr key={`${f.label}-empty`} className="border-t border-amber-100">
+                                <tr key={`${f.label}-empty`} data-field={f.label} className={`border-t border-amber-100 transition-colors ${isHighlighted ? "bg-amber-100 outline outline-2 outline-amber-400" : ""}`}>
                                   <td className="px-3 py-1.5 font-medium text-amber-900 align-top">{f.invalid.length > 0 ? "" : f.label}</td>
                                   <td className="px-3 py-1.5 text-amber-700 align-top whitespace-nowrap">Required but empty</td>
                                   <td className="px-3 py-1.5 font-mono text-amber-800 align-top">
