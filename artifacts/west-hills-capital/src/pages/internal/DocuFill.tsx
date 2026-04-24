@@ -3434,6 +3434,16 @@ export default function DocuFill() {
                 Discard edits
               </Button>
             )}
+            {csvBatchHasEdits && csvBatchOriginalRows.length > 0 && (() => {
+              const count = csvBatchRows.reduce((total, row, rowIdx) => {
+                const orig = csvBatchOriginalRows[rowIdx];
+                if (!orig) return total;
+                return total + csvBatchHeaders.filter((h) => (orig[h] ?? "") !== (row[h] ?? "")).length;
+              }, 0);
+              return count > 0 ? (
+                <span className="text-xs text-[#6B7A99]">{count} cell{count === 1 ? "" : "s"} edited</span>
+              ) : null;
+            })()}
             {csvBatchIsImporting && <span className="text-xs text-[#6B7A99]">Processing rows sequentially, please wait…</span>}
           </div>
 
