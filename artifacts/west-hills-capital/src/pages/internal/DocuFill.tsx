@@ -533,11 +533,14 @@ export default function DocuFill() {
   const [csvBatchMismatch, setCsvBatchMismatch] = useState(false);
   const [csvBatchIsImporting, setCsvBatchIsImporting] = useState(false);
   const [csvBatchHasEdits, setCsvBatchHasEdits] = useState(false);
+  const [csvCorrectedDownloaded, setCsvCorrectedDownloaded] = useState(false);
   type BatchResult = { rowIndex: number; token: string | null; status: "generated" | "error" | "processing"; pdfUrl?: string; error?: string };
   const [csvBatchResults, setCsvBatchResults] = useState<BatchResult[] | null>(null);
   const [csvBatchError, setCsvBatchError] = useState<string | null>(null);
   const csvBatchFileInputRef = useRef<HTMLInputElement | null>(null);
   const csvBatchBreakdownRef = useRef<HTMLDivElement | null>(null);
+  const csvCorrectedDownloadedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (csvCorrectedDownloadedTimerRef.current) clearTimeout(csvCorrectedDownloadedTimerRef.current); }, []);
   const csvEditNavigatingRef = useRef(false);
   const [csvBreakdownHighlightedField, setCsvBreakdownHighlightedField] = useState<string | null>(null);
   const [showCsvFieldKey, setShowCsvFieldKey] = useState(false);
@@ -3333,10 +3336,22 @@ export default function DocuFill() {
                   const dateStr = new Date().toISOString().slice(0, 10);
                   const baseName = csvBatchFile?.name.replace(/\.csv$/i, "") ?? "corrected";
                   downloadCsv(lines.join("\n"), `${baseName}-corrected-${dateStr}.csv`);
+                  if (csvCorrectedDownloadedTimerRef.current) clearTimeout(csvCorrectedDownloadedTimerRef.current);
+                  setCsvCorrectedDownloaded(true);
+                  csvCorrectedDownloadedTimerRef.current = setTimeout(() => setCsvCorrectedDownloaded(false), 2000);
                 }}
                 className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
               >
-                Download corrected CSV
+                {csvCorrectedDownloaded ? (
+                  <span className="flex items-center gap-1.5">
+                    <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 7l3.5 3.5L12 3" />
+                    </svg>
+                    <span className="text-green-700">Downloaded!</span>
+                  </span>
+                ) : (
+                  "Download corrected CSV"
+                )}
               </Button>
             )}
             {csvBatchIsImporting && <span className="text-xs text-[#6B7A99]">Processing rows sequentially, please wait…</span>}
