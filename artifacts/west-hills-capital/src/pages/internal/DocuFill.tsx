@@ -212,6 +212,57 @@ function pickFieldColor(usedColors: string[], sensitive: boolean): string {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
+function validationTypeHint(vt: FieldItem["validationType"], message?: string): string {
+  switch (vt) {
+    case "phone":    return "555-123-4567";
+    case "ssn":      return "XXX-XX-XXXX";
+    case "email":    return "user@example.com";
+    case "currency": return "1234.56";
+    case "number":   return "Numeric";
+    case "date":     return "MM/DD/YYYY";
+    case "time":     return "HH:MM";
+    case "zip":      return "12345";
+    case "zip4":     return "12345-6789";
+    case "percent":  return "0–100";
+    case "name":     return "Text (name format)";
+    case "string":   return "Any text";
+    case "custom":   return message && message.trim() ? message.trim() : "Custom format";
+    default:         return "Any text";
+  }
+}
+
+function validateCellValue(field: FieldItem, value: string): "ok" | "empty-required" | "invalid" {
+  if (field.interviewMode === "omitted" || field.interviewMode === "readonly") return "ok";
+  const trimmed = value.trim();
+  if (trimmed === "") {
+    return field.interviewMode === "required" ? "empty-required" : "ok";
+  }
+  if (field.type === "dropdown" || field.type === "radio" || field.type === "checkbox") {
+    const opts = field.options ?? [];
+    if (opts.length > 0 && !opts.some((o) => o.toLowerCase() === trimmed.toLowerCase())) return "invalid";
+    return "ok";
+  }
+  const vt = field.validationType;
+  if (!vt || vt === "none" || vt === "string" || vt === "name") return "ok";
+  if (vt === "email")    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? "ok" : "invalid";
+  if (vt === "phone")    return /^[\d\s\-()+.]{7,}$/.test(trimmed) ? "ok" : "invalid";
+  if (vt === "date")     return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed) ? "ok" : "invalid";
+  if (vt === "ssn")      return /^\d{3}-\d{2}-\d{4}$/.test(trimmed) ? "ok" : "invalid";
+  if (vt === "zip")      return /^\d{5}$/.test(trimmed) ? "ok" : "invalid";
+  if (vt === "zip4")     return /^\d{5}-\d{4}$/.test(trimmed) ? "ok" : "invalid";
+  if (vt === "number")   return /^\d+(\.\d+)?$/.test(trimmed) ? "ok" : "invalid";
+  if (vt === "currency") return /^\d+(\.\d{1,2})?$/.test(trimmed) ? "ok" : "invalid";
+  if (vt === "percent")  { const n = Number(trimmed); return (!isNaN(n) && n >= 0 && n <= 100) ? "ok" : "invalid"; }
+  if (vt === "time")     return /^\d{1,2}:\d{2}(:\d{2})?(\s?[APap][Mm])?$/.test(trimmed) ? "ok" : "invalid";
+  if (vt === "custom") {
+    if (field.validationPattern) {
+      try { return new RegExp(field.validationPattern).test(trimmed) ? "ok" : "invalid"; } catch { return "ok"; }
+    }
+    return "ok";
+  }
+  return "ok";
+}
+
 const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string; group: string }> = [
   { value: "first-name", label: "First", group: "Name" },
   { value: "middle-name", label: "Middle", group: "Name" },
@@ -476,6 +527,7 @@ export default function DocuFill() {
   const [csvBatchResults, setCsvBatchResults] = useState<BatchResult[] | null>(null);
   const [csvBatchError, setCsvBatchError] = useState<string | null>(null);
   const csvBatchFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [showCsvFieldKey, setShowCsvFieldKey] = useState(false);
 
   const selectedPackage = packages.find((pkg) => pkg.id === selectedPackageId) ?? packages[0] ?? null;
   const selectedDocument = selectedPackage?.documents.find((doc) => doc.id === selectedDocumentId) ?? selectedPackage?.documents[0] ?? null;
@@ -518,6 +570,16 @@ export default function DocuFill() {
   }, [session, visibleInterviewFields, answers]);
   const answeredFieldCount = visibleInterviewFields.filter((field) => field.interviewMode !== "readonly" && interviewFieldValue(field, answers, session?.prefill).trim()).length;
   const sessionBasePath = isPublicSession ? "/api/docufill/public/sessions" : "/api/internal/docufill/sessions";
+  const csvBatchFieldMap = useMemo<Map<string, FieldItem>>(() => {
+    if (!csvBatchPackageId) return new Map();
+    const pkg = packages.find((p) => String(p.id) === csvBatchPackageId);
+    if (!pkg) return new Map();
+    const map = new Map<string, FieldItem>();
+    for (const f of pkg.fields) {
+      if (f.interviewMode !== "omitted") map.set(f.name.toLowerCase().trim(), f);
+    }
+    return map;
+  }, [csvBatchPackageId, packages]);
   const sessionHeaders = isPublicSession ? {} : { ...getAuthHeaders() };
   const activePackages = packages.filter((pkg) => pkg.status === "active");
   const packageInterviewFields = selectedPackage?.fields.filter((field) => field.interviewMode !== "omitted") ?? [];
@@ -2655,6 +2717,7 @@ export default function DocuFill() {
                   setCsvBatchMismatch(false);
                   setCsvBatchResults(null);
                   setCsvBatchError(null);
+                  setShowCsvFieldKey(false);
                   if (csvBatchRows.length > 0 && e.target.value) {
                     const pkg = packages.find((p) => String(p.id) === e.target.value);
                     if (pkg) {
@@ -2677,7 +2740,7 @@ export default function DocuFill() {
             </div>
 
             {csvBatchPackageId && (
-              <div>
+              <div className="space-y-3">
                 <button
                   type="button"
                   onClick={() => {
@@ -2692,6 +2755,67 @@ export default function DocuFill() {
                 >
                   Download blank template
                 </button>
+
+                {/* Field Reference Key */}
+                {(() => {
+                  const keyFields = [...csvBatchFieldMap.values()];
+                  return (
+                    <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0]">
+                      <button
+                        type="button"
+                        onClick={() => setShowCsvFieldKey((v) => !v)}
+                        className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-[#0F1C3F] hover:bg-[#EFE8D8] rounded"
+                      >
+                        <span>{showCsvFieldKey ? "▲" : "▼"} Field reference ({keyFields.length} field{keyFields.length === 1 ? "" : "s"})</span>
+                      </button>
+                      {showCsvFieldKey && (
+                        <div className="border-t border-[#DDD5C4] overflow-x-auto">
+                          <table className="text-xs min-w-full">
+                            <thead className="bg-[#EFE8D8]">
+                              <tr>
+                                <th className="px-3 py-2 text-left font-medium text-[#6B7A99] whitespace-nowrap">Field Name (CSV column header)</th>
+                                <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Required?</th>
+                                <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Type</th>
+                                <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Accepted Values</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {keyFields.map((f) => (
+                                <tr key={f.id} className="border-t border-[#EFE8D8]">
+                                  <td className="px-3 py-2 font-mono text-[#0F1C3F] whitespace-nowrap">
+                                    {f.name}
+                                    {f.sensitive && <span className="ml-1.5 text-[10px] text-red-600" title="Sensitive field">🔒</span>}
+                                  </td>
+                                  <td className="px-3 py-2 whitespace-nowrap">
+                                    {f.interviewMode === "required"
+                                      ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700">Required</span>
+                                      : f.interviewMode === "readonly"
+                                        ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">Read only</span>
+                                        : <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-[#EFE8D8] text-[#6B7A99]">Optional</span>
+                                    }
+                                  </td>
+                                  <td className="px-3 py-2 capitalize text-[#334155]">{f.type}</td>
+                                  <td className="px-3 py-2 text-[#334155]">
+                                    {(f.type === "dropdown" || f.type === "radio" || f.type === "checkbox") && (f.options ?? []).length > 0
+                                      ? <span className="flex flex-wrap gap-1">
+                                          {(f.options ?? []).map((opt) => (
+                                            <span key={opt} className="inline-block rounded bg-white border border-[#D4C9B5] px-1.5 py-0.5 font-mono text-[10px] text-[#0F1C3F]">{opt}</span>
+                                          ))}
+                                        </span>
+                                      : f.type === "date"
+                                        ? <span className="font-mono text-[#6B7A99]">MM/DD/YYYY</span>
+                                        : <span className="text-[#6B7A99]">{validationTypeHint(f.validationType, f.validationMessage)}</span>
+                                    }
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             )}
           </div>
@@ -2739,24 +2863,73 @@ export default function DocuFill() {
                 <table className="text-xs min-w-full">
                   <thead className="bg-[#F8F6F0] border-b border-[#DDD5C4]">
                     <tr>
-                      {csvBatchHeaders.slice(0, 8).map((h) => (
-                        <th key={h} className="px-3 py-2 text-left font-medium text-[#6B7A99] whitespace-nowrap">{h}</th>
-                      ))}
+                      {csvBatchHeaders.slice(0, 8).map((h) => {
+                        const isMetadata = h === "__package_id__" || h === "__package_name__";
+                        const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
+                        const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
+                        return (
+                          <th
+                            key={h}
+                            className={`px-3 py-2 text-left font-medium whitespace-nowrap ${willSkip ? "text-[#9AAAC0] line-through" : "text-[#6B7A99]"}`}
+                            title={willSkip ? "This column will be skipped on import" : matchedField?.interviewMode === "required" ? "Required field" : undefined}
+                          >
+                            {h}
+                            {matchedField?.interviewMode === "required" && !willSkip && (
+                              <span className="ml-1 text-red-500 font-bold" title="Required field">*</span>
+                            )}
+                          </th>
+                        );
+                      })}
                       {csvBatchHeaders.length > 8 && <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">+{csvBatchHeaders.length - 8} more</th>}
                     </tr>
                   </thead>
                   <tbody>
                     {csvBatchRows.slice(0, 5).map((row, idx) => (
                       <tr key={idx} className="border-b border-[#EFE8D8] last:border-0">
-                        {csvBatchHeaders.slice(0, 8).map((h) => (
-                          <td key={h} className="px-3 py-2 text-[#334155] max-w-[200px] truncate">{row[h] ?? ""}</td>
-                        ))}
+                        {csvBatchHeaders.slice(0, 8).map((h) => {
+                          const isMetadata = h === "__package_id__" || h === "__package_name__";
+                          const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
+                          const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
+                          const cellVal = row[h] ?? "";
+                          const validity = matchedField ? validateCellValue(matchedField, cellVal) : "ok";
+                          const cellCls = willSkip
+                            ? "px-3 py-2 text-[#9AAAC0] max-w-[200px] truncate"
+                            : validity === "invalid"
+                              ? "px-3 py-2 bg-red-50 text-red-700 max-w-[200px] truncate"
+                              : validity === "empty-required"
+                                ? "px-3 py-2 bg-amber-50 text-amber-700 max-w-[200px] truncate"
+                                : "px-3 py-2 text-[#334155] max-w-[200px] truncate";
+                          return (
+                            <td
+                              key={h}
+                              className={cellCls}
+                              title={
+                                validity === "invalid"
+                                  ? `Invalid value for "${h}"`
+                                  : validity === "empty-required"
+                                    ? `"${h}" is required`
+                                    : willSkip
+                                      ? "Column will be skipped"
+                                      : undefined
+                              }
+                            >
+                              {cellVal}
+                            </td>
+                          );
+                        })}
                         {csvBatchHeaders.length > 8 && <td className="px-3 py-2 text-[#8A9BB8]">…</td>}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              {csvBatchPackageId && (
+                <div className="mt-2 flex items-center gap-4 text-[10px] text-[#6B7A99]">
+                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-red-100 border border-red-200" /> Invalid value</span>
+                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-amber-100 border border-amber-200" /> Required but empty</span>
+                  <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#F8F6F0] border border-[#DDD5C4] line-through" /><span className="line-through">Column</span> will be skipped</span>
+                </div>
+              )}
             </div>
           )}
 
