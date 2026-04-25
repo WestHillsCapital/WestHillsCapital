@@ -1067,8 +1067,9 @@ router.patch("/packages/:id", async (req, res) => {
       `UPDATE docufill_packages SET
           name=$1, custodian_id=$2, depository_id=$3, transaction_scope=$4,
           description=$5, status=$6, documents=$7::jsonb, fields=$8::jsonb,
-          mappings=$9::jsonb, recipients=$10::jsonb, version=version+1, updated_at=NOW()
-        WHERE id=$11
+          mappings=$9::jsonb, recipients=$10::jsonb, enable_interview=$11, enable_csv=$12,
+          version=version+1, updated_at=NOW()
+        WHERE id=$13
         RETURNING *`,
       [
         name,
@@ -1081,6 +1082,8 @@ router.patch("/packages/:id", async (req, res) => {
         body.fields === undefined ? JSON.stringify(existing.fields ?? []) : jsonParam(body.fields),
         body.mappings === undefined ? JSON.stringify(existing.mappings ?? []) : jsonParam(body.mappings),
         body.recipients === undefined ? JSON.stringify(existing.recipients ?? []) : jsonParam(body.recipients),
+        body.enableInterview === undefined ? (existing.enable_interview ?? true) : Boolean(body.enableInterview),
+        body.enableCsv === undefined ? (existing.enable_csv ?? true) : Boolean(body.enableCsv),
         id,
       ],
       );

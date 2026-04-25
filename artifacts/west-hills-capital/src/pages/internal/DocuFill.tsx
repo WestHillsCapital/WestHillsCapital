@@ -177,6 +177,8 @@ type PackageItem = {
   fields: FieldItem[];
   mappings: MappingItem[];
   recipients: RecipientItem[];
+  enable_interview: boolean;
+  enable_csv: boolean;
 };
 
 type Session = {
@@ -464,6 +466,8 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
       format: mapping.format ?? "as-entered",
     })) : [],
     recipients: Array.isArray(pkg.recipients) ? pkg.recipients : [],
+    enable_interview: pkg.enable_interview !== false,
+    enable_csv: pkg.enable_csv !== false,
   }));
 }
 
@@ -1051,6 +1055,8 @@ export default function DocuFill() {
           fields: pkg.fields,
           mappings: pkg.mappings,
           recipients: pkg.recipients ?? [],
+          enableInterview: pkg.enable_interview,
+          enableCsv: pkg.enable_csv,
         }),
       });
       const data = await res.json();
@@ -2558,9 +2564,10 @@ export default function DocuFill() {
                       )}
 
                       <div>
-                        <h3 className="text-sm font-semibold mb-1">Output formats</h3>
-                        <p className="text-xs text-[#8A9BB8] mb-3">How completed interviews are delivered. PDF generation is always included.</p>
-                        <div className="grid sm:grid-cols-3 gap-3">
+                        <h3 className="text-sm font-semibold mb-1">Output channels</h3>
+                        <p className="text-xs text-[#8A9BB8] mb-3">Choose how completed interviews are delivered. PDF generation is always included. Toggle channels on or off per package.</p>
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {/* PDF Packet — always on */}
                           <div className="rounded-lg border-2 border-[#C49A38] bg-white p-3">
                             <div className="flex items-center gap-2 mb-1.5">
                               <svg className="w-4 h-4 text-[#C49A38] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
@@ -2569,6 +2576,37 @@ export default function DocuFill() {
                             </div>
                             <p className="text-xs text-[#6B7A99]">Generates a completed, print-ready PDF packet when any interview on this package is submitted.</p>
                           </div>
+                          {/* Staff Interview — toggleable */}
+                          <button
+                            type="button"
+                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, enable_interview: !pkg.enable_interview }))}
+                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.enable_interview ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
+                          >
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.enable_interview ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
+                              <span className={`text-sm font-semibold ${selectedPackage.enable_interview ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Staff Interview</span>
+                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.enable_interview ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
+                                {selectedPackage.enable_interview ? "Enabled" : "Off"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-[#6B7A99]">Staff can launch guided interviews from the Interviews tab and Deal Builder. History and past sessions stay in the Interviews tab.</p>
+                          </button>
+                          {/* Batch CSV — toggleable */}
+                          <button
+                            type="button"
+                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, enable_csv: !pkg.enable_csv }))}
+                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.enable_csv ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
+                          >
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.enable_csv ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375z" /></svg>
+                              <span className={`text-sm font-semibold ${selectedPackage.enable_csv ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Batch CSV</span>
+                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.enable_csv ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
+                                {selectedPackage.enable_csv ? "Enabled" : "Off"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-[#6B7A99]">Staff can fill many packets at once by uploading a CSV. Full run history stays in the Batch CSV tab.</p>
+                          </button>
+                          {/* Google Drive — optional */}
                           <div className="rounded-lg border border-[#DDD5C4] bg-white p-3">
                             <div className="flex items-center gap-2 mb-1.5">
                               <svg className="w-4 h-4 text-[#6B7A99] shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M6.18 17.01a5.09 5.09 0 01-3.6-1.49A5.12 5.12 0 011.1 12a5.07 5.07 0 011.49-3.6A5.07 5.07 0 016.18 6.9h2.18V9H6.18a3.01 3.01 0 000 6.02h2.18v2.09H6.18zm11.64 0h-2.18v-2.09h2.18a3.01 3.01 0 000-6.02h-2.18V6.9h2.18a5.07 5.07 0 013.6 1.49A5.09 5.09 0 0122.91 12a5.12 5.12 0 01-1.49 3.52 5.07 5.07 0 01-3.6 1.49zM8.09 13.09v-2.18h7.82v2.18H8.09z" /></svg>
@@ -2577,6 +2615,7 @@ export default function DocuFill() {
                             </div>
                             <p className="text-xs text-[#6B7A99]">Automatically push the completed packet to a connected Google Drive folder after submission.</p>
                           </div>
+                          {/* Customer Link — coming soon */}
                           <div className="rounded-lg border border-dashed border-[#D4C9B5] bg-[#F8F6F0] p-3 opacity-60">
                             <div className="flex items-center gap-2 mb-1.5">
                               <svg className="w-4 h-4 text-[#8A9BB8] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>

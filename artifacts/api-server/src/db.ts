@@ -426,6 +426,14 @@ export async function initDb(): Promise<void> {
     ADD COLUMN IF NOT EXISTS recipients JSONB NOT NULL DEFAULT '[]'::jsonb
   `);
   await db.query(`
+    ALTER TABLE docufill_packages
+    ADD COLUMN IF NOT EXISTS enable_interview BOOLEAN NOT NULL DEFAULT true
+  `);
+  await db.query(`
+    ALTER TABLE docufill_packages
+    ADD COLUMN IF NOT EXISTS enable_csv BOOLEAN NOT NULL DEFAULT true
+  `);
+  await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_migration_state (
       key        TEXT PRIMARY KEY,
       applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
