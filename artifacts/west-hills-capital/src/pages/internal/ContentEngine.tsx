@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
-import { ChevronDown, ChevronRight, Sparkles, Save, Globe, FileText, Trash2, Eye, EyeOff, BarChart2, ArrowRight } from "lucide-react";
+import { ChevronDown, ChevronRight, Sparkles, Save, Globe, FileText, Trash2, Eye, EyeOff, BarChart2, ArrowRight, RefreshCw } from "lucide-react";
 import { INSIGHTS, INSIGHT_GROUPS } from "@/data/insights";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -468,39 +468,45 @@ function SavedArticlesList({ onEdit }: { onEdit: (article: SavedArticle) => void
 
 // ─── KEYWORD GAP DATA ─────────────────────────────────────────────────────────
 
-const GAP_TOPICS: Record<string, string[]> = {
+interface GapTopic {
+  topic: string;
+  volume: "High" | "Med" | "Low";
+  priority: "P1" | "P2" | "P3";
+}
+
+const GAP_TOPICS: Record<string, GapTopic[]> = {
   "understanding-pricing": [
-    "Why buy price and sell price are always different",
-    "What is a spread and how does it affect what you pay",
-    "How gold prices differ between dealers",
-    "Gold vs. silver: which moves more and why",
-    "How to read a live gold price chart",
-    "Why the futures price and the physical price diverge",
+    { topic: "Why buy price and sell price are always different",   volume: "High", priority: "P1" },
+    { topic: "What is a spread and how does it affect what you pay", volume: "High", priority: "P1" },
+    { topic: "How gold prices differ between dealers",               volume: "Med",  priority: "P2" },
+    { topic: "Gold vs. silver: which moves more and why",           volume: "High", priority: "P1" },
+    { topic: "How to read a live gold price chart",                 volume: "Med",  priority: "P2" },
+    { topic: "Why the futures price and the physical price diverge", volume: "Low",  priority: "P3" },
   ],
   "making-smart-decisions": [
-    "How to sell gold and silver back — what to expect",
-    "1099 reporting rules for gold and silver sales",
-    "Junk silver vs. bullion silver — which is better",
-    "How much gold should I own relative to my savings",
-    "Fractional gold coins — worth the premium or not",
-    "Gold vs. silver — which to buy first and why",
-    "What happens to gold in an estate or inheritance",
+    { topic: "How to sell gold and silver back — what to expect",    volume: "High", priority: "P1" },
+    { topic: "1099 reporting rules for gold and silver sales",       volume: "High", priority: "P1" },
+    { topic: "Junk silver vs. bullion silver — which is better",    volume: "Med",  priority: "P2" },
+    { topic: "How much gold should I own relative to my savings",   volume: "High", priority: "P1" },
+    { topic: "Fractional gold coins — worth the premium or not",    volume: "Med",  priority: "P2" },
+    { topic: "Gold vs. silver — which to buy first and why",        volume: "High", priority: "P2" },
+    { topic: "What happens to gold in an estate or inheritance",    volume: "Low",  priority: "P3" },
   ],
   "ownership-and-practicality": [
-    "Allocated vs. segregated storage — what the difference means",
-    "How to insure physical gold and silver",
-    "What to expect when your metals are delivered",
-    "How to verify gold and silver authenticity at home",
-    "Storing gold in a safe deposit box — pros and cons",
-    "Home safe vs. depository — how to decide",
+    { topic: "Allocated vs. segregated storage — what the difference means", volume: "Med",  priority: "P2" },
+    { topic: "How to insure physical gold and silver",              volume: "Med",  priority: "P2" },
+    { topic: "What to expect when your metals are delivered",       volume: "Low",  priority: "P3" },
+    { topic: "How to verify gold and silver authenticity at home",  volume: "High", priority: "P1" },
+    { topic: "Storing gold in a safe deposit box — pros and cons",  volume: "Med",  priority: "P2" },
+    { topic: "Home safe vs. depository — how to decide",           volume: "Med",  priority: "P2" },
   ],
   "choosing-who-to-trust": [
-    "Red flags when buying gold online",
-    "Gold dealer fees — what you should and should not be paying",
-    "How to read a gold dealer's buyback policy",
-    "Questions to ask a gold dealer before you commit",
-    "How to evaluate gold dealer reviews — what to look for",
-    "Why some dealers push numismatic coins on first-time buyers",
+    { topic: "Red flags when buying gold online",                               volume: "High", priority: "P1" },
+    { topic: "Gold dealer fees — what you should and should not be paying",     volume: "High", priority: "P1" },
+    { topic: "How to read a gold dealer's buyback policy",                      volume: "Med",  priority: "P2" },
+    { topic: "Questions to ask a gold dealer before you commit",                volume: "Med",  priority: "P2" },
+    { topic: "How to evaluate gold dealer reviews — what to look for",          volume: "Low",  priority: "P3" },
+    { topic: "Why some dealers push numismatic coins on first-time buyers",     volume: "Low",  priority: "P3" },
   ],
 };
 
@@ -509,7 +515,7 @@ const GAP_TOPICS: Record<string, string[]> = {
 function CoveragePanel({ onDraft }: { onDraft: (topic: string) => void }) {
   const { getAuthHeaders } = useInternalAuth();
 
-  const { data } = useQuery<{ articles: SavedArticle[] }>({
+  const { data, refetch, isFetching } = useQuery<{ articles: SavedArticle[] }>({
     queryKey: ["content-articles"],
     queryFn: async () => {
       const res = await fetch(`${API_BASE}/api/internal/content/articles`, {
@@ -529,8 +535,16 @@ function CoveragePanel({ onDraft }: { onDraft: (topic: string) => void }) {
 
   return (
     <div className="space-y-8">
-      <div className="bg-[#F5F0E8] border border-[#DDD5C4] rounded-xl px-5 py-4 text-sm text-[#4A5B7A] leading-relaxed">
-        Topics already in the library are listed under each group. Gap topics are buyer search queries the library does not yet address — click any to draft an article.
+      <div className="bg-[#F5F0E8] border border-[#DDD5C4] rounded-xl px-5 py-4 text-sm text-[#4A5B7A] leading-relaxed flex items-center justify-between gap-4">
+        <span>Topics already in the library are listed under each group. Gap topics are buyer search queries the library does not yet address — click any to draft an article.</span>
+        <button
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="shrink-0 flex items-center gap-1.5 text-xs font-medium text-[#4A5B7A] hover:text-[#C49A38] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${isFetching ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
       </div>
 
       {INSIGHT_GROUPS.map((group) => {
@@ -578,17 +592,29 @@ function CoveragePanel({ onDraft }: { onDraft: (topic: string) => void }) {
               <div className="px-5 py-3">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8A9BB8] mb-2">Gaps to fill</p>
                 <ul className="space-y-1.5">
-                  {gaps.map((topic) => (
+                  {gaps.map(({ topic, volume, priority }) => (
                     <li key={topic}>
                       <button
                         onClick={() => onDraft(topic)}
                         className="w-full text-left text-xs text-[#4A5B7A] flex items-center justify-between gap-2 group hover:text-[#C49A38] transition-colors"
                       >
-                        <span className="flex items-center gap-1.5">
+                        <span className="flex items-center gap-1.5 min-w-0">
                           <span className="w-1.5 h-1.5 rounded-full bg-[#DDD5C4] group-hover:bg-[#C49A38] shrink-0 transition-colors" />
-                          {topic}
+                          <span className="truncate">{topic}</span>
                         </span>
-                        <ArrowRight className="w-3 h-3 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <span className="flex items-center gap-1 shrink-0">
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                            volume === "High" ? "bg-green-100 text-green-700" :
+                            volume === "Med"  ? "bg-amber-100 text-amber-700" :
+                                               "bg-slate-100 text-slate-500"
+                          }`}>{volume}</span>
+                          <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                            priority === "P1" ? "bg-red-100 text-red-600" :
+                            priority === "P2" ? "bg-amber-100 text-amber-700" :
+                                               "bg-slate-100 text-slate-500"
+                          }`}>{priority}</span>
+                          <ArrowRight className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
+                        </span>
                       </button>
                     </li>
                   ))}
