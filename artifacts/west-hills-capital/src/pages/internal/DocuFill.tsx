@@ -580,6 +580,48 @@ export default function DocuFill() {
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null);
   const [fieldEditorModal, setFieldEditorModal] = useState<{ mode: "add" | "edit"; fieldId: string | null } | null>(null);
+  const [fieldEditorPos, setFieldEditorPos] = useState({ x: 0, y: 0 });
+  const [fieldEditorIsDragging, setFieldEditorIsDragging] = useState(false);
+  const fieldEditorDragRef = useRef<{ startX: number; startY: number; startPosX: number; startPosY: number } | null>(null);
+  const fieldEditorPanelRef = useRef<HTMLDivElement>(null);
+  const fieldEditorDragCleanupRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => { fieldEditorDragCleanupRef.current?.(); }, []);
+  const isFieldEditorOpen = !!fieldEditorModal;
+  useEffect(() => {
+    if (isFieldEditorOpen) setFieldEditorPos({ x: 0, y: 0 });
+  }, [isFieldEditorOpen]);
+  const handleFieldEditorDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    fieldEditorDragRef.current = { startX: e.clientX, startY: e.clientY, startPosX: fieldEditorPos.x, startPosY: fieldEditorPos.y };
+    setFieldEditorIsDragging(true);
+    const onMove = (ev: MouseEvent) => {
+      if (!fieldEditorDragRef.current) return;
+      const dx = ev.clientX - fieldEditorDragRef.current.startX;
+      const dy = ev.clientY - fieldEditorDragRef.current.startY;
+      const newX = fieldEditorDragRef.current.startPosX + dx;
+      const newY = fieldEditorDragRef.current.startPosY + dy;
+      const panel = fieldEditorPanelRef.current;
+      if (panel) {
+        const { width, height } = panel.getBoundingClientRect();
+        const maxX = (window.innerWidth - width) / 2;
+        const maxY = (window.innerHeight - height) / 2;
+        setFieldEditorPos({ x: Math.max(-maxX, Math.min(maxX, newX)), y: Math.max(-maxY, Math.min(maxY, newY)) });
+      } else {
+        setFieldEditorPos({ x: newX, y: newY });
+      }
+    };
+    const cleanup = () => {
+      fieldEditorDragRef.current = null;
+      setFieldEditorIsDragging(false);
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      fieldEditorDragCleanupRef.current = null;
+    };
+    const onUp = cleanup;
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+    fieldEditorDragCleanupRef.current = cleanup;
+  }, [fieldEditorPos.x, fieldEditorPos.y]);
   const [fieldEditorDraft, setFieldEditorDraft] = useState<{
     name: string; color: string; type: FieldItem["type"]; options: string[];
     interviewMode: FieldInterviewMode; hasDefault: boolean; defaultValue: string;
@@ -4349,11 +4391,20 @@ export default function DocuFill() {
       )}
 
       {fieldEditorModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setFieldEditorModal(null)}>
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[#DDD5C4]">
+        <div className="fixed inset-0 z-50 bg-black/50" onClick={() => setFieldEditorModal(null)} style={{ cursor: fieldEditorIsDragging ? "grabbing" : "default" }}>
+          <div
+            ref={fieldEditorPanelRef}
+            className="absolute bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+            style={{ left: "50%", top: "50%", transform: `translate(calc(-50% + ${fieldEditorPos.x}px), calc(-50% + ${fieldEditorPos.y}px))` }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="flex items-center justify-between px-5 py-4 border-b border-[#DDD5C4] select-none"
+              style={{ cursor: fieldEditorIsDragging ? "grabbing" : "grab" }}
+              onMouseDown={handleFieldEditorDragStart}
+            >
               <h2 className="text-sm font-semibold">{fieldEditorModal.mode === "add" ? "New Field" : "Edit Field"}</h2>
-              <button type="button" onClick={() => setFieldEditorModal(null)} className="text-[#8A9BB8] hover:text-[#0F1C3F]">
+              <button type="button" onClick={() => setFieldEditorModal(null)} onMouseDown={(e) => e.stopPropagation()} className="text-[#8A9BB8] hover:text-[#0F1C3F]">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
