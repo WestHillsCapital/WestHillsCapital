@@ -268,6 +268,66 @@ export async function initDb(): Promise<void> {
   await safeAdd("follow_up_30d_sent_at",              "TIMESTAMPTZ"); // when 30-day follow-up email was sent
   await safeAdd("wire_confirmation_email_sent_at",    "TIMESTAMPTZ"); // when wire confirmation email (Email 1) was sent
 
+  // ── Multi-tenancy: accounts + users ───────────────────────────────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS accounts (
+      id         SERIAL PRIMARY KEY,
+      name       TEXT NOT NULL,
+      slug       TEXT NOT NULL UNIQUE,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS account_users (
+      id         SERIAL PRIMARY KEY,
+      account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      email      TEXT NOT NULL,
+      role       TEXT NOT NULL DEFAULT 'member',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (account_id, email)
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS account_users_email_idx ON account_users (lower(email))
+  `);
+
+  // Seed the West Hills Capital account (account_id = 1) — idempotent
+  await db.query(`
+    INSERT INTO accounts (id, name, slug)
+    VALUES (1, 'West Hills Capital', 'west-hills-capital')
+    ON CONFLICT (id) DO NOTHING
+  `);
+  // Reset the sequence so new accounts start from 2 at minimum
+  await db.query(`SELECT setval('accounts_id_seq', GREATEST((SELECT MAX(id) FROM accounts), 1))`);
+
+  // Seed account_users from the INTERNAL_ALLOWED_EMAILS env var (idempotent)
+  const allowedEmails = (process.env.INTERNAL_ALLOWED_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+  for (const email of allowedEmails) {
+    await db.query(
+      `INSERT INTO account_users (account_id, email, role)
+       VALUES (1, $1, 'admin')
+       ON CONFLICT (account_id, email) DO NOTHING`,
+      [email],
+    ).catch(() => {});
+  }
+
+  // Server-side session store backed by Postgres (replaces in-memory Map)
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS internal_sessions (
+      token      TEXT PRIMARY KEY,
+      email      TEXT NOT NULL,
+      account_id INTEGER NOT NULL DEFAULT 1,
+      expires_at TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS internal_sessions_expires_idx ON internal_sessions (expires_at)
+  `);
+
   await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_custodians (
       id           SERIAL PRIMARY KEY,
@@ -437,6 +497,13 @@ export async function initDb(): Promise<void> {
     ALTER TABLE docufill_packages
     ADD COLUMN IF NOT EXISTS enable_customer_link BOOLEAN NOT NULL DEFAULT false
   `);
+
+  // ── Multi-tenancy: account_id columns + backfill ──────────────────────────
+  // Nullable so existing rows don't fail; backfill immediately sets them to 1.
+  for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
+    await db.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS account_id INTEGER REFERENCES accounts(id)`).catch(() => {});
+    await db.query(`UPDATE ${table} SET account_id = 1 WHERE account_id IS NULL`).catch(() => {});
+  }
   await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_migration_state (
       key        TEXT PRIMARY KEY,

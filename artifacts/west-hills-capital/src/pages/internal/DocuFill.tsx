@@ -2681,6 +2681,24 @@ export default function DocuFill() {
                             </div>
                             <p className="text-xs text-[#6B7A99]">Send a time-limited, branded link directly to the customer. They fill it out on their own device — no login needed.</p>
                           </button>
+                          {/* Webhook — coming soon */}
+                          <div className="rounded-lg border border-dashed border-[#DDD5C4] bg-[#F8F6F0] p-3 opacity-60 cursor-not-allowed">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <svg className="w-4 h-4 shrink-0 text-[#8A9BB8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 002.25-2.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v2.25A2.25 2.25 0 006 10.5zm0 9.75h2.25A2.25 2.25 0 0010.5 18v-2.25a2.25 2.25 0 00-2.25-2.25H6a2.25 2.25 0 00-2.25 2.25V18A2.25 2.25 0 006 20.25zm9.75-9.75H18a2.25 2.25 0 002.25-2.25V6A2.25 2.25 0 0018 3.75h-2.25A2.25 2.25 0 0013.5 6v2.25a2.25 2.25 0 002.25 2.25z" /></svg>
+                              <span className="text-sm font-semibold text-[#8A9BB8]">Webhook</span>
+                              <span className="ml-auto text-[10px] bg-[#EFE8D8] text-[#8A9BB8] border border-[#DDD5C4] rounded px-1.5 py-0.5 shrink-0">Coming soon</span>
+                            </div>
+                            <p className="text-xs text-[#8A9BB8]">Fire a POST request to any URL when an interview or customer form is completed. Connects to your CRM, Zapier, or any automation platform.</p>
+                          </div>
+                          {/* Embed — coming soon */}
+                          <div className="rounded-lg border border-dashed border-[#DDD5C4] bg-[#F8F6F0] p-3 opacity-60 cursor-not-allowed">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <svg className="w-4 h-4 shrink-0 text-[#8A9BB8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
+                              <span className="text-sm font-semibold text-[#8A9BB8]">Embed</span>
+                              <span className="ml-auto text-[10px] bg-[#EFE8D8] text-[#8A9BB8] border border-[#DDD5C4] rounded px-1.5 py-0.5 shrink-0">Coming soon</span>
+                            </div>
+                            <p className="text-xs text-[#8A9BB8]">Drop a JavaScript snippet onto any webpage. Customers complete the form inline without leaving your site.</p>
+                          </div>
                         </div>
                       </div>
 

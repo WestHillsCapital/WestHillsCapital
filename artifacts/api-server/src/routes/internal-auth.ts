@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { OAuth2Client, type TokenPayload } from "google-auth-library";
 import { logger } from "../lib/logger.js";
 import { createSession, revokeSession } from "../lib/session-store";
+import { getDb } from "../db";
 
 const CLIENT_ID = process.env.GOOGLE_CLIENT_ID ?? "";
 
@@ -74,13 +75,39 @@ router.post("/verify", async (req, res) => {
       .json({ error: "Your Google account is not authorized for internal access." });
   }
 
-  // ── Issue a server-side session token ───────────────────────────────────
-  // The client stores this in localStorage and sends it as Bearer on every
-  // subsequent internal API call. The server validates it via requireInternalAuth.
-  const googleExpiresAt = (payload.exp ?? 0) * 1_000; // seconds → ms
-  const sessionToken    = createSession(email, googleExpiresAt);
+  // ── Resolve account ─────────────────────────────────────────────────────
+  // Look up which account this user belongs to. If they're in ALLOWED_EMAILS
+  // but not yet in account_users, auto-provision them into the WHC account.
+  const db = getDb();
+  let accountId = 1; // default: West Hills Capital
+  try {
+    const { rows } = await db.query<{ account_id: number }>(
+      `SELECT account_id FROM account_users WHERE lower(email) = $1 LIMIT 1`,
+      [email],
+    );
+    if (rows[0]) {
+      accountId = Number(rows[0].account_id);
+    } else {
+      // Auto-provision: user is in the allowlist but not yet in account_users
+      await db.query(
+        `INSERT INTO account_users (account_id, email, role)
+         VALUES (1, $1, 'admin')
+         ON CONFLICT (account_id, email) DO NOTHING`,
+        [email],
+      );
+      accountId = 1;
+      logger.info({ email }, "[InternalAuth] Auto-provisioned user into WHC account");
+    }
+  } catch (err) {
+    logger.error({ err, email }, "[InternalAuth] Failed to resolve account — defaulting to 1");
+    accountId = 1;
+  }
 
-  logger.info({ email }, "[InternalAuth] Access granted — session created");
+  // ── Issue a server-side session token ───────────────────────────────────
+  const googleExpiresAt = (payload.exp ?? 0) * 1_000; // seconds → ms
+  const sessionToken    = await createSession(email, accountId, googleExpiresAt);
+
+  logger.info({ email, accountId }, "[InternalAuth] Access granted — session created");
 
   return void res.json({
     ok:           true,
@@ -96,11 +123,11 @@ router.post("/verify", async (req, res) => {
 // Body: (empty)
 // Header: Authorization: Bearer <sessionToken>
 // Revokes the server-side session so the token cannot be replayed.
-router.post("/signout", (req, res) => {
+router.post("/signout", async (req, res) => {
   const authHeader = req.headers["authorization"] ?? "";
   if (authHeader.startsWith("Bearer ")) {
     const token = authHeader.slice(7).trim();
-    if (token) revokeSession(token);
+    if (token) await revokeSession(token).catch(() => {});
   }
   res.json({ ok: true });
 });

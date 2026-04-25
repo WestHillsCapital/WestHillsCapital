@@ -41,6 +41,19 @@ The project is structured as a pnpm monorepo using TypeScript, with separate `ap
 -   **DocuFill Phase 2:** Packages now use normalized transaction types (`ira_transfer`, `ira_contribution`, `ira_distribution`, `cash_purchase`, `storage_change`, `beneficiary_update`) for Deal Builder selection. Completed packets are validated against required/typed interview fields before generation, rendered from stored template PDFs, saved to the customer's Google Drive folder when Drive is configured, and exposed through token-scoped public interview endpoints for external client completion without internal portal access.
 -   **DocuFill shared field library:** Global reusable field definitions live in `docufill_fields` and are exposed through internal DocuFill bootstrap/library endpoints. Package fields can reference `libraryFieldId`, keeping per-package document mappings, options, and presentation settings separate while hydrating shared label/type/source/sensitivity/required/validation rules into package editors, interviews, and packet generation. Common business concepts can stay as single reusable interview fields, such as `Name`, while individual PDF placements choose the printed variant (First, Middle, Last, First + Last, Initials, or whole answer) so one customer answer can fill many differently labeled boxes. Shared field definitions are retired by marking them inactive rather than hard-deleting them, preserving old package references. The internal DocuFill admin is organized around the Sally/Tom package-builder concept: start in Document View to add/order PDFs, use Data + Fields View to drag reusable fields onto document pages and set rules, review the generated questionnaire, then finalize/activate the package so staff or customers only answer the resulting interview. Package details such as name, custodian, depository, and transaction type support the workflow but are not the primary first step.
 
+**Multi-Tenancy Foundation (Phase 1 — DB + Auth):**
+-   `accounts` table holds tenants. `account_users` maps staff emails to accounts with roles. `internal_sessions` backs the session store in Postgres (replaced in-memory Map; survives restarts, multi-instance safe).
+-   `account_id` column added to `docufill_packages`, `docufill_custodians`, `docufill_depositories`. All existing WHC rows backfilled to `account_id = 1`. `INTERNAL_ALLOWED_EMAILS` staff auto-provisioned as WHC admins in `account_users` on startup.
+-   `requireInternalAuth` middleware now stamps `req.internalAccountId` (number) on every internal request. Dev-bypass defaults to account 1.
+-   `internal-auth.ts` resolves the account on Google sign-in: looks up `account_users`, auto-provisions missing allowed emails into WHC account.
+-   All DocuFill bootstrap/list/create/update/delete routes now scope queries with `WHERE account_id = $N`. The public customer-link routes are unaffected (they go through package → session which is implicitly scoped).
+-   `transaction_types` and `docufill_fields` remain global shared tables for now; per-tenant customization is a future phase.
+-   Next phases: sign-up flow, account creation UI, invite flow, Clerk auth, account branding (logo/name).
+
+**DocuFill Output Channels (step 3 of Package Builder):**
+-   Webhook and Embed cards added as locked "Coming soon" placeholders after Customer Link.
+-   Staff Interview dropdown now filtered to packages with `enable_interview = true`.
+
 **Deployment:**
 -   The monorepo is deployed to Railway (API server) and Vercel (frontend), both configured to watch the GitHub `main` branch.
 -   Vercel handles API rewrites to proxy requests to the Railway-hosted API.

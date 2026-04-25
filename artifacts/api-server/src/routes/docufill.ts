@@ -38,6 +38,9 @@ type PackageInput = {
   fields?: JsonValue;
   mappings?: JsonValue;
   recipients?: JsonValue;
+  enableInterview?: boolean;
+  enableCsv?: boolean;
+  enableCustomerLink?: boolean;
 };
 
 type DocItem = {
@@ -379,13 +382,14 @@ function drawWrappedText(page: PDFPage, text: string, x: number, y: number, size
   });
 }
 
-async function getPackage(packageId: number, client: QueryClient = getDb(), hydrate = true): Promise<PackageRow | undefined> {
+async function getPackage(packageId: number, client: QueryClient = getDb(), hydrate = true, accountId?: number): Promise<PackageRow | undefined> {
+  const accountFilter = accountId != null ? `AND p.account_id = ${Number(accountId)}` : "";
   const { rows } = await client.query(
     `SELECT p.*, c.name AS custodian_name, d.name AS depository_name
        FROM docufill_packages p
        LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
        LEFT JOIN docufill_depositories d ON d.id = p.depository_id
-      WHERE p.id = $1`,
+      WHERE p.id = $1 ${accountFilter}`,
     [packageId],
   );
   const pkg = rows[0] as PackageRow | undefined;
@@ -641,19 +645,21 @@ async function upsertPackageDocument(params: {
   }
 }
 
-router.get("/bootstrap", async (_req, res) => {
+router.get("/bootstrap", async (req, res) => {
   try {
+    const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     const [custodians, depositories, transactionTypes, fieldLibrary, packages] = await Promise.all([
-      db.query("SELECT * FROM docufill_custodians ORDER BY active DESC, name ASC"),
-      db.query("SELECT * FROM docufill_depositories ORDER BY active DESC, name ASC"),
+      db.query("SELECT * FROM docufill_custodians WHERE account_id = $1 ORDER BY active DESC, name ASC", [accountId]),
+      db.query("SELECT * FROM docufill_depositories WHERE account_id = $1 ORDER BY active DESC, name ASC", [accountId]),
       db.query("SELECT * FROM docufill_transaction_types ORDER BY active DESC, sort_order ASC, label ASC"),
       getFieldLibrary(db),
       db.query(`SELECT p.*, c.name AS custodian_name, d.name AS depository_name
                   FROM docufill_packages p
                   LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
                   LEFT JOIN docufill_depositories d ON d.id = p.depository_id
-                 ORDER BY p.updated_at DESC, p.name ASC`),
+                 WHERE p.account_id = $1
+                 ORDER BY p.updated_at DESC, p.name ASC`, [accountId]),
     ]);
     const hydratedPackages = await hydratePackages(packages.rows as PackageRow[], db, fieldLibrary);
     res.json({ custodians: custodians.rows, depositories: depositories.rows, transactionTypes: transactionTypes.rows, fieldLibrary, packages: hydratedPackages });
@@ -885,12 +891,13 @@ router.post("/custodians", async (req, res) => {
       res.status(400).json({ error: "Custodian name is required" });
       return;
     }
+    const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     const { rows } = await db.query(
-      `INSERT INTO docufill_custodians (name, contact_name, email, phone, notes, active)
-       VALUES ($1,$2,$3,$4,$5,$6)
+      `INSERT INTO docufill_custodians (name, contact_name, email, phone, notes, active, account_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
        RETURNING *`,
-      [name, nullableText(body.contactName), nullableText(body.email), nullableText(body.phone), nullableText(body.notes), body.active !== false],
+      [name, nullableText(body.contactName), nullableText(body.email), nullableText(body.phone), nullableText(body.notes), body.active !== false, accountId],
     );
     res.status(201).json({ custodian: rows[0] });
   } catch (err) {
@@ -912,14 +919,15 @@ router.patch("/custodians/:id", async (req, res) => {
       res.status(400).json({ error: "Custodian name is required" });
       return;
     }
+    const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     const { rows } = await db.query(
       `UPDATE docufill_custodians SET
           name=$1, contact_name=$2, email=$3, phone=$4, notes=$5,
           active=$6, updated_at=NOW()
-        WHERE id=$7
+        WHERE id=$7 AND account_id=$8
         RETURNING *`,
-      [name, nullableText(body.contactName), nullableText(body.email), nullableText(body.phone), nullableText(body.notes), body.active !== false, id],
+      [name, nullableText(body.contactName), nullableText(body.email), nullableText(body.phone), nullableText(body.notes), body.active !== false, id, accountId],
     );
     if (!rows[0]) {
       res.status(404).json({ error: "Custodian not found" });
@@ -940,12 +948,13 @@ router.post("/depositories", async (req, res) => {
       res.status(400).json({ error: "Depository name is required" });
       return;
     }
+    const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     const { rows } = await db.query(
-      `INSERT INTO docufill_depositories (name, contact_name, email, phone, notes, active)
-       VALUES ($1,$2,$3,$4,$5,$6)
+      `INSERT INTO docufill_depositories (name, contact_name, email, phone, notes, active, account_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)
        RETURNING *`,
-      [name, nullableText(body.contactName), nullableText(body.email), nullableText(body.phone), nullableText(body.notes), body.active !== false],
+      [name, nullableText(body.contactName), nullableText(body.email), nullableText(body.phone), nullableText(body.notes), body.active !== false, accountId],
     );
     res.status(201).json({ depository: rows[0] });
   } catch (err) {
@@ -967,14 +976,15 @@ router.patch("/depositories/:id", async (req, res) => {
       res.status(400).json({ error: "Depository name is required" });
       return;
     }
+    const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     const { rows } = await db.query(
       `UPDATE docufill_depositories SET
           name=$1, contact_name=$2, email=$3, phone=$4, notes=$5,
           active=$6, updated_at=NOW()
-        WHERE id=$7
+        WHERE id=$7 AND account_id=$8
         RETURNING *`,
-      [name, nullableText(body.contactName), nullableText(body.email), nullableText(body.phone), nullableText(body.notes), body.active !== false, id],
+      [name, nullableText(body.contactName), nullableText(body.email), nullableText(body.phone), nullableText(body.notes), body.active !== false, id, accountId],
     );
     if (!rows[0]) {
       res.status(404).json({ error: "Depository not found" });
@@ -995,11 +1005,12 @@ router.post("/packages", async (req, res) => {
       res.status(400).json({ error: "Package name is required" });
       return;
     }
+    const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     const { rows } = await db.query(
       `INSERT INTO docufill_packages
-         (name, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients)
-       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb)
+         (name, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11)
        RETURNING *`,
       [
         name,
@@ -1012,6 +1023,7 @@ router.post("/packages", async (req, res) => {
         jsonParam(body.fields),
         jsonParam(body.mappings),
         jsonParam(body.recipients),
+        accountId,
       ],
     );
     const hydrated = await hydratePackages(rows as PackageRow[], db);
@@ -1030,7 +1042,8 @@ router.patch("/packages/:id", async (req, res) => {
       return;
     }
     const body = req.body as PackageInput;
-    const existing = await getPackage(id, getDb(), false);
+    const accountId = req.internalAccountId ?? 1;
+    const existing = await getPackage(id, getDb(), false, accountId);
     if (!existing) {
       res.status(404).json({ error: "Package not found" });
       return;
@@ -1069,7 +1082,7 @@ router.patch("/packages/:id", async (req, res) => {
           description=$5, status=$6, documents=$7::jsonb, fields=$8::jsonb,
           mappings=$9::jsonb, recipients=$10::jsonb, enable_interview=$11, enable_csv=$12,
           enable_customer_link=$13, version=version+1, updated_at=NOW()
-        WHERE id=$14
+        WHERE id=$14 AND account_id=$15
         RETURNING *`,
       [
         name,
@@ -1086,6 +1099,7 @@ router.patch("/packages/:id", async (req, res) => {
         body.enableCsv === undefined ? (existing.enable_csv ?? true) : Boolean(body.enableCsv),
         body.enableCustomerLink === undefined ? (existing.enable_customer_link ?? false) : Boolean(body.enableCustomerLink),
         id,
+        accountId,
       ],
       );
       await client.query("COMMIT");
@@ -1110,12 +1124,13 @@ router.delete("/packages/:id", async (req, res) => {
       res.status(400).json({ error: "Invalid package id" });
       return;
     }
+    const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     const { rows } = await db.query(
       `DELETE FROM docufill_packages
-        WHERE id=$1
+        WHERE id=$1 AND account_id=$2
         RETURNING id`,
-      [id],
+      [id, accountId],
     );
     if (!rows[0]) {
       res.status(404).json({ error: "Package not found" });
@@ -1425,7 +1440,8 @@ router.post("/sessions", async (req, res) => {
       res.status(400).json({ error: "Package id is required" });
       return;
     }
-    const pkg = await getPackage(packageId);
+    const accountId = req.internalAccountId ?? 1;
+    const pkg = await getPackage(packageId, getDb(), true, accountId);
     if (!pkg) {
       res.status(404).json({ error: "Package not found" });
       return;

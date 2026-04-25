@@ -3,11 +3,12 @@ import { validateSession } from "../lib/session-store";
 import { logger } from "../lib/logger";
 
 // Augment the Express Request type so downstream route handlers can read
-// req.internalEmail without casting.
+// req.internalEmail and req.internalAccountId without casting.
 declare global {
   namespace Express {
     interface Request {
-      internalEmail?: string;
+      internalEmail?:     string;
+      internalAccountId?: number;
     }
   }
 }
@@ -26,14 +27,14 @@ declare global {
  * valid but the route further restricts access.
  */
 // When GOOGLE_CLIENT_ID is not configured (local / Replit dev environment),
-// Google sign-in cannot work, so there is no way to obtain a valid session token.
-// In that case skip auth entirely so the internal portal remains usable locally.
-// In production GOOGLE_CLIENT_ID is always set, so this path is never taken.
+// Google sign-in cannot work so there is no way to obtain a valid session token.
+// In that case skip auth entirely and default to WHC account (id=1).
 const AUTH_DISABLED = !process.env["GOOGLE_CLIENT_ID"];
 
-export const requireInternalAuth: RequestHandler = (req, res, next) => {
+export const requireInternalAuth: RequestHandler = async (req, res, next) => {
   if (AUTH_DISABLED) {
-    req.internalEmail = "dev@local";
+    req.internalEmail     = "dev@local";
+    req.internalAccountId = 1;
     return next();
   }
 
@@ -50,8 +51,15 @@ export const requireInternalAuth: RequestHandler = (req, res, next) => {
     return void res.status(401).json({ error: "Empty session token." });
   }
 
-  const email = validateSession(token);
-  if (!email) {
+  let session: { email: string; accountId: number } | null = null;
+  try {
+    session = await validateSession(token);
+  } catch (err) {
+    logger.error({ err, path: req.path }, "[InternalAuth] Session validation DB error");
+    return void res.status(503).json({ error: "Auth service unavailable. Try again." });
+  }
+
+  if (!session) {
     logger.warn(
       { path: req.path, method: req.method },
       "[InternalAuth] Invalid or expired session token",
@@ -61,6 +69,7 @@ export const requireInternalAuth: RequestHandler = (req, res, next) => {
     });
   }
 
-  req.internalEmail = email;
+  req.internalEmail     = session.email;
+  req.internalAccountId = session.accountId;
   next();
 };
