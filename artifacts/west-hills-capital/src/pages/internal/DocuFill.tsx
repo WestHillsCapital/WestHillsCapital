@@ -159,8 +159,7 @@ type BuilderStep = "documents" | "mapping" | "interview" | "finalize";
 const BUILDER_STEPS: Array<{ value: BuilderStep; label: string; helper: string }> = [
   { value: "documents", label: "1. Document View", helper: "Add and order package PDFs" },
   { value: "mapping", label: "2. Data + Fields View", helper: "Drag fields onto documents" },
-  { value: "interview", label: "3. Questionnaire", helper: "Review generated questions" },
-  { value: "finalize", label: "4. Finalize", helper: "Activate for reuse" },
+  { value: "interview", label: "3. Questionnaire & Output", helper: "Order questions and activate" },
 ];
 
 type PackageItem = {
@@ -918,8 +917,8 @@ export default function DocuFill() {
       }
     }
 
-    // 1–4: jump to builder step
-    if ((tab === "packages" || tab === "mapper") && ["1", "2", "3", "4"].includes(e.key)) {
+    // 1–3: jump to builder step
+    if ((tab === "packages" || tab === "mapper") && ["1", "2", "3"].includes(e.key)) {
       const step = BUILDER_STEPS[parseInt(e.key, 10) - 1];
       if (step) goBuilderStep(step.value);
       return;
@@ -1314,14 +1313,15 @@ export default function DocuFill() {
   }
 
   function goBuilderStep(step: BuilderStep, opts: { autoSort?: boolean; saveFirst?: boolean } = {}) {
-    if (step === "interview" && opts.autoSort && selectedPackage) {
+    const resolvedStep: BuilderStep = step === "finalize" ? "interview" : step;
+    if (resolvedStep === "interview" && opts.autoSort && selectedPackage) {
       updateSelectedPackage((pkg) => sortFieldsByPdfPosition(pkg));
     }
     if (opts.saveFirst && selectedPackage) {
       void savePackage(selectedPackage);
     }
-    setBuilderStep(step);
-    setTab(step === "mapping" ? "mapper" : "packages");
+    setBuilderStep(resolvedStep);
+    setTab(resolvedStep === "mapping" ? "mapper" : "packages");
   }
 
   function updateSelectedPackage(updater: (pkg: PackageItem) => PackageItem) {
@@ -2180,8 +2180,7 @@ export default function DocuFill() {
                   <p className="text-sm text-[#6B7A99] mt-1">
                     {builderStep === "documents" && "Start where Sally starts: add the documents that belong in this package and put them in the right order."}
                     {builderStep === "mapping" && "Use the document list on the left, the PDF page in the center, and the field list on the right to build the package questionnaire."}
-                    {builderStep === "interview" && "This is the interview the system will generate from mapped fields that still need input."}
-                    {builderStep === "finalize" && "Activate the package when documents, mappings, rules, and interview questions are ready for repeated use."}
+                    {(builderStep === "interview" || builderStep === "finalize") && "Review and reorder the questions staff will be asked, preview how the interview looks, then choose output formats and activate."}
                   </p>
                 </div>
                 {builderStep === "documents" && (
@@ -2396,130 +2395,219 @@ export default function DocuFill() {
                     </div>
                   </div>
                 )}
-                {builderStep === "interview" && (
-                  <div className="grid lg:grid-cols-[1fr_320px] gap-4">
-                    <div className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-                      <div className="flex items-center justify-between mb-1">
-                        <h2 className="text-sm font-semibold">Generated interview questions</h2>
-                        {packageInterviewFields.length > 1 && (
-                          <button type="button" onClick={() => goBuilderStep("interview", { autoSort: true })} className="text-xs text-[#6B7A99] border border-[#DDD5C4] rounded px-2 py-1 hover:border-[#C49A38] hover:text-[#C49A38] transition-colors">Sort by PDF order</button>
-                        )}
-                      </div>
-                      <p className="text-xs text-[#8A9BB8] mb-3">Questions are ordered top-to-bottom by PDF position. Drag to reorder, or click “Sort by PDF order” to reset.</p>
-                      {packageInterviewFields.length === 0 ? <EmptyState message="No interview questions yet. Go back to Mapping Rules and mark fields that require customer or sales rep input." /> : (
-                        <DndContext
-                          sensors={sortSensors}
-                          collisionDetection={closestCenter}
-                          onDragEnd={(event: DragEndEvent) => {
-                            const { active, over } = event;
-                            if (!over || active.id === over.id) return;
-                            updateSelectedPackage((pkg) => {
-                              const oldIdx = pkg.fields.findIndex((f) => f.id === active.id);
-                              const newIdx = pkg.fields.findIndex((f) => f.id === over.id);
-                              if (oldIdx < 0 || newIdx < 0) return pkg;
-                              return { ...pkg, fields: arrayMove(pkg.fields, oldIdx, newIdx) };
-                            });
-                          }}
-                        >
-                          <SortableContext items={packageInterviewFields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                            <div className="space-y-1">
-                              {packageInterviewFields.map((field, index) => (
-                                <SortableItem key={field.id} id={field.id}>
-                                  {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
-                                    <div
-                                      ref={wrapperRef}
-                                      style={wrapperStyle}
-                                      {...handleProps}
-                                      className={`rounded border p-3 flex items-center gap-3 transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-lg border-[#C49A38] bg-[#FDF8EE]" : "border-[#EFE8D8] bg-[#F8F6F0]"}`}
-                                    >
-                                      <div className="flex-1 min-w-0">
-                                        <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
-                                          <span>{index + 1}. {field.name}</span>
-                                          {!packageMappedFieldIds.has(field.id) && (
-                                            <span className="text-[10px] font-normal bg-orange-50 border border-orange-300 text-orange-700 rounded px-1.5 py-0.5 leading-none">Not on PDF — add placement in mapper</span>
-                                          )}
-                                        </div>
-                                        <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.validationType && field.validationType !== "none" ? ` · ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
-                                      </div>
-                                    </div>
-                                  )}
-                                </SortableItem>
-                              ))}
-                            </div>
-                          </SortableContext>
-                        </DndContext>
-                      )}
-                    </div>
-                    <div className="space-y-3">
-                      <div className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-                        <h3 className="text-sm font-semibold">Omitted from interview</h3>
-                        <p className="text-xs text-[#8A9BB8] mb-3">These fields are set to Omitted. They can still print on PDFs using a default value or prefill — they just won't appear as questions.</p>
-                        <div className="space-y-2 text-xs">
-                          {packageFixedOrHiddenFields.length === 0 ? <div className="text-[#8A9BB8]">None. All fields are shown in the interview.</div> : packageFixedOrHiddenFields.map((field) => (
-                            <div key={field.id} className="rounded border border-[#EFE8D8] px-2 py-1">
-                              <div className="font-medium">{field.name}</div>
-                              <div className="text-[#6B7A99]">Omitted{field.defaultValue ? " · has default value" : " · no default"}{field.sensitive ? " · masked" : ""}</div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="flex flex-wrap gap-2">
-                        <Button onClick={() => goBuilderStep("mapping")} variant="outline">Edit Mapping Rules</Button>
-                        <Button onClick={() => goBuilderStep("finalize", { saveFirst: true })} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Continue to Finalize</Button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {builderStep === "finalize" && (() => {
+                {(builderStep === "interview" || builderStep === "finalize") && (() => {
                   const unmappedInterviewFields = packageInterviewFields.filter((f) => !packageMappedFieldIds.has(f.id));
                   return (
-                  <div className="space-y-4">
-                    <div className="grid md:grid-cols-4 gap-3">
-                      <SummaryCard label="Documents" value={String(selectedPackage.documents.length)} detail="Uploaded and ordered" />
-                      <SummaryCard label="Fields" value={String(selectedPackage.fields.length)} detail={`${packageInterviewFields.length} interview questions`} />
-                      <SummaryCard label="Placements" value={String(selectedPackage.mappings.length)} detail="PDF print locations" />
-                      <SummaryCard label="Unmapped fields" value={String(unmappedPackageFields.length)} detail={unmappedPackageFields.length ? "Review before activating" : "Ready"} />
-                    </div>
-                    {unmappedInterviewFields.length > 0 && (
-                      <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-                        <div className="flex items-start gap-2">
-                          <svg className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-                          <div>
-                            <div className="text-sm font-semibold text-orange-800 mb-1">
-                              {unmappedInterviewFields.length} interview {unmappedInterviewFields.length === 1 ? "field" : "fields"} {unmappedInterviewFields.length === 1 ? "has" : "have"} no PDF placement
-                            </div>
-                            <p className="text-xs text-orange-700 mb-2">
-                              Staff will be asked these questions during the interview, but the answers <strong>will not be printed on any PDF</strong> in the packet. Go to Data + Fields View and place each field in the correct row on the form before activating.
-                            </p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {unmappedInterviewFields.map((f) => (
-                                <button key={f.id} type="button" onClick={() => { setSelectedFieldId(f.id); goBuilderStep("mapping"); }} className="text-xs bg-white border border-orange-300 text-orange-800 rounded px-2 py-0.5 hover:bg-orange-100 transition-colors">
-                                  {f.name} →
-                                </button>
+                  <div className="space-y-6">
+                    {/* ── Interview order + live preview ── */}
+                    <div className="grid lg:grid-cols-2 gap-4">
+                      {/* Left: drag-to-reorder */}
+                      <div className="rounded-lg border border-[#DDD5C4] bg-white p-4 flex flex-col gap-3">
+                        <div className="flex items-center justify-between">
+                          <h2 className="text-sm font-semibold">Interview order</h2>
+                          {packageInterviewFields.length > 1 && (
+                            <button type="button" onClick={() => goBuilderStep("interview", { autoSort: true })} className="text-xs text-[#6B7A99] border border-[#DDD5C4] rounded px-2 py-1 hover:border-[#C49A38] hover:text-[#C49A38] transition-colors">Sort by PDF order</button>
+                          )}
+                        </div>
+                        <p className="text-xs text-[#8A9BB8] -mt-1">Questions staff will be asked, top to bottom. Drag to reorder — the preview updates live.</p>
+                        {packageInterviewFields.length === 0 ? (
+                          <EmptyState message="No interview questions yet. Go to Data + Fields View and mark fields that require input." />
+                        ) : (
+                          <DndContext
+                            sensors={sortSensors}
+                            collisionDetection={closestCenter}
+                            onDragEnd={(event: DragEndEvent) => {
+                              const { active, over } = event;
+                              if (!over || active.id === over.id) return;
+                              updateSelectedPackage((pkg) => {
+                                const oldIdx = pkg.fields.findIndex((f) => f.id === active.id);
+                                const newIdx = pkg.fields.findIndex((f) => f.id === over.id);
+                                if (oldIdx < 0 || newIdx < 0) return pkg;
+                                return { ...pkg, fields: arrayMove(pkg.fields, oldIdx, newIdx) };
+                              });
+                            }}
+                          >
+                            <SortableContext items={packageInterviewFields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                              <div className="space-y-1">
+                                {packageInterviewFields.map((field, index) => (
+                                <SortableItem key={field.id} id={field.id}>
+                                {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
+                                <div
+                                  ref={wrapperRef}
+                                  style={wrapperStyle}
+                                  {...handleProps}
+                                  className={`rounded border p-3 flex items-center gap-3 transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-lg border-[#C49A38] bg-[#FDF8EE]" : "border-[#EFE8D8] bg-[#F8F6F0]"}`}
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+                                      <span>{index + 1}. {field.name}</span>
+                                      {!packageMappedFieldIds.has(field.id) && (
+                                        <span className="text-[10px] font-normal bg-orange-50 border border-orange-300 text-orange-700 rounded px-1.5 py-0.5 leading-none">Not on PDF</span>
+                                      )}
+                                    </div>
+                                    <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.validationType && field.validationType !== "none" ? ` · ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
+                                  </div>
+                                </div>
+                                )}
+                                </SortableItem>
+                                ))}
+                              </div>
+                            </SortableContext>
+                          </DndContext>
+                        )}
+                        {packageFixedOrHiddenFields.length > 0 && (
+                          <details className="border-t border-[#EFE8D8] pt-3">
+                            <summary className="text-xs font-semibold text-[#6B7A99] cursor-pointer select-none">{packageFixedOrHiddenFields.length} field{packageFixedOrHiddenFields.length !== 1 ? "s" : ""} hidden from interview</summary>
+                            <div className="space-y-1 mt-2 text-xs">
+                              {packageFixedOrHiddenFields.map((field) => (
+                                <div key={field.id} className="rounded border border-[#EFE8D8] px-2 py-1">
+                                  <div className="font-medium">{field.name}</div>
+                                  <div className="text-[#6B7A99]">Omitted{field.defaultValue ? " · has default value" : " · no default"}{field.sensitive ? " · masked" : ""}</div>
+                                </div>
                               ))}
+                            </div>
+                          </details>
+                        )}
+                        <div className="pt-1">
+                          <Button onClick={() => goBuilderStep("mapping")} variant="outline" className="text-xs">Edit Mapping Rules</Button>
+                        </div>
+                      </div>
+
+                      {/* Right: live preview */}
+                      <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4 flex flex-col gap-3">
+                        <div>
+                          <h2 className="text-sm font-semibold">Interview preview</h2>
+                          <p className="text-xs text-[#8A9BB8] mt-0.5">How this will appear to staff during an interview. Updates as you reorder.</p>
+                        </div>
+                        {packageInterviewFields.length === 0 ? (
+                          <p className="text-xs text-[#8A9BB8] italic">No questions to preview yet.</p>
+                        ) : (
+                          <div className="space-y-2 overflow-y-auto" style={{ maxHeight: 420 }}>
+                            {packageInterviewFields.map((field, index) => {
+                              const mode = field.interviewMode ?? "optional";
+                              return (
+                              <div key={field.id} className="rounded-lg border border-[#DDD5C4] bg-white p-3 shadow-sm">
+                                <div className="flex items-start justify-between gap-2 mb-2">
+                                  <span className="text-sm font-medium leading-snug">{index + 1}. {field.name}</span>
+                                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide border ${
+                                    mode === "required" ? "bg-red-50 text-red-700 border-red-100"
+                                    : mode === "readonly" ? "bg-blue-50 text-blue-700 border-blue-100"
+                                    : "bg-[#F8F6F0] text-[#6B7A99] border-[#EFE8D8]"
+                                  }`}>{mode === "required" ? "Required" : mode === "readonly" ? "Read only" : "Optional"}</span>
+                                </div>
+                                {field.type === "radio" || field.type === "checkbox" ? (
+                                  <div className="space-y-1.5">
+                                    {(field.options?.length ? field.options : ["Option A", "Option B"]).slice(0, 3).map((opt) => (
+                                      <div key={opt} className="flex items-center gap-2 text-xs text-[#6B7A99]">
+                                        <div className={`w-3 h-3 flex-shrink-0 border border-[#C4B99A] ${field.type === "checkbox" ? "rounded-sm" : "rounded-full"}`} />
+                                        {opt}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : field.type === "dropdown" ? (
+                                  <div className="flex items-center justify-between border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#8A9BB8] bg-white">
+                                    <span>Select…</span>
+                                    <svg className="w-3 h-3 text-[#8A9BB8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
+                                  </div>
+                                ) : (
+                                  <div className="border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#8A9BB8] bg-white">
+                                    {field.type === "date" ? "mm / dd / yyyy" : field.sensitive ? "••••••••" : `Enter ${field.name.toLowerCase()}…`}
+                                  </div>
+                                )}
+                              </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* ── Divider ── */}
+                    <div className="border-t border-[#DDD5C4]" />
+
+                    {/* ── Output & activation ── */}
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <SummaryCard label="Documents" value={String(selectedPackage.documents.length)} detail="Uploaded and ordered" />
+                        <SummaryCard label="Fields" value={String(selectedPackage.fields.length)} detail={`${packageInterviewFields.length} interview questions`} />
+                        <SummaryCard label="Placements" value={String(selectedPackage.mappings.length)} detail="PDF print locations" />
+                        <SummaryCard label="Unmapped" value={String(unmappedPackageFields.length)} detail={unmappedPackageFields.length ? "Review before activating" : "All placed ✓"} />
+                      </div>
+
+                      {unmappedInterviewFields.length > 0 && (
+                        <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
+                          <div className="flex items-start gap-2">
+                            <svg className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
+                            <div>
+                              <div className="text-sm font-semibold text-orange-800 mb-1">
+                                {unmappedInterviewFields.length} interview {unmappedInterviewFields.length === 1 ? "field" : "fields"} {unmappedInterviewFields.length === 1 ? "has" : "have"} no PDF placement
+                              </div>
+                              <p className="text-xs text-orange-700 mb-2">
+                                Staff will be asked these questions during the interview, but the answers <strong>will not be printed on any PDF</strong> in the packet. Go to Data + Fields View and place each field in the correct row on the form before activating.
+                              </p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {unmappedInterviewFields.map((f) => (
+                                  <button key={f.id} type="button" onClick={() => { setSelectedFieldId(f.id); goBuilderStep("mapping"); }} className="text-xs bg-white border border-orange-300 text-orange-800 rounded px-2 py-0.5 hover:bg-orange-100 transition-colors">
+                                    {f.name} →
+                                  </button>
+                                ))}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                    <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4">
-                      <h2 className="text-sm font-semibold mb-2">Package status</h2>
-                      <p className="text-xs text-[#8A9BB8] mb-3">Set the package to Active when this paperwork workflow should be available in the Interviews tab and Deal Builder.</p>
-                      <select value={selectedPackage.status} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, status: e.target.value }))} className="w-full max-w-sm border border-[#D4C9B5] rounded px-3 py-2 bg-white">
-                        <option value="draft">Draft — not ready for staff/customer interviews</option>
-                        <option value="active">Active — reusable interview can be launched</option>
-                        <option value="inactive">Inactive — hidden from new interview launchers</option>
-                      </select>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || selectedPackage.mappings.length === 0} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : "Finalize and Activate Package"}</Button>
-                      <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save Current Status"}</Button>
-                      {selectedPackage.status !== "active" && selectedPackage.id && (
-                        <Button onClick={() => launchTestInterview(selectedPackage)} disabled={isSaving || selectedPackage.documents.length === 0} variant="outline" className="text-[#6B7A99] border-dashed">
-                          Test Interview (Draft)
-                        </Button>
                       )}
-                      {selectedPackage.status === "active" && <Button onClick={() => { setStandalonePackageId(String(selectedPackage.id)); setTab("interview"); }} variant="outline">Go to Interview Launcher</Button>}
+
+                      <div>
+                        <h3 className="text-sm font-semibold mb-1">Output formats</h3>
+                        <p className="text-xs text-[#8A9BB8] mb-3">How completed interviews are delivered. PDF generation is always included.</p>
+                        <div className="grid sm:grid-cols-3 gap-3">
+                          <div className="rounded-lg border-2 border-[#C49A38] bg-white p-3">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <svg className="w-4 h-4 text-[#C49A38] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                              <span className="text-sm font-semibold">Filled PDF Packet</span>
+                              <span className="ml-auto text-[10px] bg-[#FDF8EE] text-[#8A6A20] border border-[#C49A38]/40 rounded px-1.5 py-0.5 shrink-0">Always on</span>
+                            </div>
+                            <p className="text-xs text-[#6B7A99]">Generates a completed, print-ready PDF packet when any interview on this package is submitted.</p>
+                          </div>
+                          <div className="rounded-lg border border-[#DDD5C4] bg-white p-3">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <svg className="w-4 h-4 text-[#6B7A99] shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M6.18 17.01a5.09 5.09 0 01-3.6-1.49A5.12 5.12 0 011.1 12a5.07 5.07 0 011.49-3.6A5.07 5.07 0 016.18 6.9h2.18V9H6.18a3.01 3.01 0 000 6.02h2.18v2.09H6.18zm11.64 0h-2.18v-2.09h2.18a3.01 3.01 0 000-6.02h-2.18V6.9h2.18a5.07 5.07 0 013.6 1.49A5.09 5.09 0 0122.91 12a5.12 5.12 0 01-1.49 3.52 5.07 5.07 0 01-3.6 1.49zM8.09 13.09v-2.18h7.82v2.18H8.09z" /></svg>
+                              <span className="text-sm font-semibold">Google Drive</span>
+                              <span className="ml-auto text-[10px] bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] rounded px-1.5 py-0.5 shrink-0">Optional</span>
+                            </div>
+                            <p className="text-xs text-[#6B7A99]">Automatically push the completed packet to a connected Google Drive folder after submission.</p>
+                          </div>
+                          <div className="rounded-lg border border-dashed border-[#D4C9B5] bg-[#F8F6F0] p-3 opacity-60">
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <svg className="w-4 h-4 text-[#8A9BB8] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>
+                              <span className="text-sm font-semibold text-[#6B7A99]">Customer Link</span>
+                              <span className="ml-auto text-[10px] bg-[#F8F6F0] text-[#8A9BB8] border border-[#EFE8D8] rounded px-1.5 py-0.5 shrink-0">Coming soon</span>
+                            </div>
+                            <p className="text-xs text-[#8A9BB8]">Send a shareable form link directly to the customer to fill out on their own device.</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4">
+                        <h3 className="text-sm font-semibold mb-1">Package status</h3>
+                        <p className="text-xs text-[#8A9BB8] mb-3">Set to Active when this package is ready for staff to use in the Interviews tab and Deal Builder.</p>
+                        <select value={selectedPackage.status} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, status: e.target.value }))} className="w-full max-w-sm border border-[#D4C9B5] rounded px-3 py-2 bg-white">
+                          <option value="draft">Draft — not ready for staff/customer interviews</option>
+                          <option value="active">Active — reusable interview can be launched</option>
+                          <option value="inactive">Inactive — hidden from new interview launchers</option>
+                        </select>
+                      </div>
+
+                      <div className="flex flex-wrap gap-2">
+                        <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || selectedPackage.mappings.length === 0} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : "Activate Package"}</Button>
+                        <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save"}</Button>
+                        {selectedPackage.status !== "active" && selectedPackage.id && (
+                          <Button onClick={() => launchTestInterview(selectedPackage)} disabled={isSaving || selectedPackage.documents.length === 0} variant="outline" className="text-[#6B7A99] border-dashed">
+                            Test Interview (Draft)
+                          </Button>
+                        )}
+                        {selectedPackage.status === "active" && <Button onClick={() => { setStandalonePackageId(String(selectedPackage.id)); setTab("interview"); }} variant="outline">Go to Interview Launcher</Button>}
+                      </div>
                     </div>
                   </div>
                   );
