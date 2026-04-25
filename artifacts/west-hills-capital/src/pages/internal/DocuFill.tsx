@@ -562,6 +562,10 @@ export default function DocuFill() {
   const [custodians, setCustodians] = useState<Entity[]>([]);
   const [depositories, setDepositories] = useState<Entity[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
+  const [inlineAddTypeOpen, setInlineAddTypeOpen] = useState(false);
+  const [inlineAddTypeName, setInlineAddTypeName] = useState("");
+  const [inlineAddTypeLoading, setInlineAddTypeLoading] = useState(false);
+  const [inlineAddTypeError, setInlineAddTypeError] = useState<string | null>(null);
   const [fieldLibrary, setFieldLibrary] = useState<FieldLibraryItem[]>([]);
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
@@ -863,7 +867,7 @@ export default function DocuFill() {
   const sessionHeaders = isPublicSession ? {} : { ...getAuthHeaders() };
   const activePackages = packages.filter((pkg) => pkg.status === "active");
   useEffect(() => {
-    if (packages.length > 0 && csvBatchPackageId && !activePackages.some((pkg) => pkg.id === csvBatchPackageId)) {
+    if (packages.length > 0 && csvBatchPackageId && !activePackages.some((pkg) => String(pkg.id) === csvBatchPackageId)) {
       setCsvBatchPackageId("");
     }
   }, [packages]);
@@ -1307,8 +1311,24 @@ export default function DocuFill() {
     }
   }
 
+  async function createTransactionTypeNamed(label: string): Promise<{ scope: string } | string> {
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/transaction-types`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ label: label.trim(), active: true, sortOrder: (transactionTypes.length + 1) * 10 }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return data.error ?? "Could not create type";
+      await loadBootstrap();
+      return { scope: data.transactionType?.scope ?? "" };
+    } catch {
+      return "Network error — could not create type";
+    }
+  }
+
   async function createTransactionType(): Promise<string | null> {
-    const label = `New transaction type ${transactionTypes.length + 1}`;
+    const label = `New type ${transactionTypes.length + 1}`;
     try {
       const res = await fetch(`${API_BASE}${docufillApiPath}/transaction-types`, {
         method: "POST",
@@ -2384,13 +2404,68 @@ export default function DocuFill() {
                           </select>
                         </label>
                       </div>
-                      <label className="mt-4 block text-sm">
-                        <span className="block text-xs text-[#6B7A99] mb-1">Transaction type <span className="text-[#8A9BB8] font-normal">(optional)</span></span>
+                      <div className="mt-4 text-sm">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-[#6B7A99]">Type <span className="text-[#8A9BB8] font-normal">(optional)</span></span>
+                          {!inlineAddTypeOpen && (
+                            <button type="button" onClick={() => { setInlineAddTypeOpen(true); setInlineAddTypeName(""); setInlineAddTypeError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add type</button>
+                          )}
+                        </div>
                         <select value={selectedPackage.transaction_scope ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
                           <option value="">Not specified</option>
                           {transactionTypes.filter((item) => item.active || item.scope === selectedPackage.transaction_scope).map((item) => <option key={item.scope} value={item.scope}>{item.label}</option>)}
                         </select>
-                      </label>
+                        {inlineAddTypeOpen && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <input
+                              autoFocus
+                              type="text"
+                              placeholder="Type name…"
+                              value={inlineAddTypeName}
+                              onChange={(e) => setInlineAddTypeName(e.target.value)}
+                              onKeyDown={async (e) => {
+                                if (e.key === "Enter" && inlineAddTypeName.trim()) {
+                                  e.preventDefault();
+                                  setInlineAddTypeLoading(true);
+                                  setInlineAddTypeError(null);
+                                  const result = await createTransactionTypeNamed(inlineAddTypeName.trim());
+                                  setInlineAddTypeLoading(false);
+                                  if (typeof result === "string") {
+                                    setInlineAddTypeError(result);
+                                  } else {
+                                    updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: result.scope }));
+                                    setInlineAddTypeOpen(false);
+                                    setInlineAddTypeName("");
+                                  }
+                                } else if (e.key === "Escape") {
+                                  setInlineAddTypeOpen(false);
+                                }
+                              }}
+                              className="flex-1 border border-[#D4C9B5] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#C49A38]"
+                            />
+                            <button
+                              type="button"
+                              disabled={!inlineAddTypeName.trim() || inlineAddTypeLoading}
+                              onClick={async () => {
+                                setInlineAddTypeLoading(true);
+                                setInlineAddTypeError(null);
+                                const result = await createTransactionTypeNamed(inlineAddTypeName.trim());
+                                setInlineAddTypeLoading(false);
+                                if (typeof result === "string") {
+                                  setInlineAddTypeError(result);
+                                } else {
+                                  updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: result.scope }));
+                                  setInlineAddTypeOpen(false);
+                                  setInlineAddTypeName("");
+                                }
+                              }}
+                              className="text-xs bg-[#C49A38] text-white rounded px-2 py-1.5 disabled:opacity-40"
+                            >{inlineAddTypeLoading ? "Adding…" : "Add"}</button>
+                            <button type="button" onClick={() => setInlineAddTypeOpen(false)} className="text-xs text-[#8A9BB8] hover:text-[#4A5568]">Cancel</button>
+                          </div>
+                        )}
+                        {inlineAddTypeError && <p className="mt-1 text-xs text-red-600">{inlineAddTypeError}</p>}
+                      </div>
                       <label className="mt-4 block">
                         <span className="block text-xs text-[#6B7A99] mb-1">Description / interview notes</span>
                         <Textarea value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
@@ -2398,7 +2473,7 @@ export default function DocuFill() {
                     </details>
                     <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
                       <summary className="cursor-pointer text-sm font-semibold">Advanced lists and reusable fields</summary>
-                      <p className="mt-1 text-xs text-[#8A9BB8]">Use these only when you need to manage custodians, depositories, transaction types, or the shared field library.</p>
+                      <p className="mt-1 text-xs text-[#8A9BB8]">Use these only when you need to manage custodians, depositories, types, or the shared field library.</p>
                       <div className="mt-4 grid md:grid-cols-2 gap-4">
                         <EntityPanel
                           title="Custodians"
@@ -4845,8 +4920,8 @@ function TransactionTypesPanel({
     <div className="border border-[#DDD5C4] rounded p-3">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h3 className="text-sm font-semibold">Transaction Types</h3>
-          <p className="text-[11px] text-[#8A9BB8]">Manage the active workflows available to packages and interview launchers.</p>
+          <h3 className="text-sm font-semibold">Types</h3>
+          <p className="text-[11px] text-[#8A9BB8]">Manage the types available to packages and interview launchers.</p>
         </div>
         <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
           {adding ? "Adding…" : "Add"}
