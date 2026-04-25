@@ -968,7 +968,7 @@ export default function DocuFill() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not save package");
-      setStatus("Saved package.");
+      flashStatus("Saved package.");
       await loadBootstrap();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save package");
@@ -1038,7 +1038,7 @@ export default function DocuFill() {
         setSelectedMappingId(null);
         return nextPackages;
       });
-      setStatus("Deleted package.");
+      flashStatus("Deleted package.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not delete package");
     } finally {
@@ -1046,15 +1046,27 @@ export default function DocuFill() {
     }
   }
 
-  async function createEntity(type: "custodians" | "depositories") {
+  function flashStatus(msg: string) {
+    setStatus(msg);
+    setTimeout(() => setStatus(""), 3000);
+  }
+
+  async function createEntity(type: "custodians" | "depositories"): Promise<string | null> {
     const count = type === "custodians" ? custodians.length + 1 : depositories.length + 1;
     const label = type === "custodians" ? `New Custodian ${count}` : `New Depository ${count}`;
-    const res = await fetch(`${API_BASE}/api/internal/docufill/${type}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-      body: JSON.stringify({ name: label, active: true }),
-    });
-    if (res.ok) await loadBootstrap();
+    try {
+      const res = await fetch(`${API_BASE}/api/internal/docufill/${type}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ name: label, active: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return data.error ?? "Could not create record";
+      await loadBootstrap();
+      return null;
+    } catch {
+      return "Network error — could not create record";
+    }
   }
 
   function updateEntityLocal(type: "custodians" | "depositories", id: number, patch: Partial<Entity>) {
@@ -1063,91 +1075,108 @@ export default function DocuFill() {
     if (type === "depositories") setDepositories((prev) => prev.map(updater));
   }
 
-  async function saveEntity(type: "custodians" | "depositories", item: Entity) {
-    setError(null);
-    const res = await fetch(`${API_BASE}/api/internal/docufill/${type}/${item.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-      body: JSON.stringify({
-        name: item.name,
-        contactName: item.contact_name,
-        email: item.email,
-        phone: item.phone,
-        notes: item.notes,
-        active: item.active,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "Could not save record");
-      return;
+  async function saveEntity(type: "custodians" | "depositories", item: Entity): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}/api/internal/docufill/${type}/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          name: item.name,
+          contactName: item.contact_name,
+          email: item.email,
+          phone: item.phone,
+          notes: item.notes,
+          active: item.active,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return data.error ?? "Could not save record";
+      flashStatus("Saved.");
+      await loadBootstrap();
+      return null;
+    } catch {
+      return "Network error — could not save record";
     }
-    setStatus("Saved record.");
-    await loadBootstrap();
   }
 
-  async function createTransactionType() {
+  async function createTransactionType(): Promise<string | null> {
     const label = `New transaction type ${transactionTypes.length + 1}`;
-    const res = await fetch(`${API_BASE}/api/internal/docufill/transaction-types`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-      body: JSON.stringify({ label, active: true, sortOrder: (transactionTypes.length + 1) * 10 }),
-    });
-    if (res.ok) await loadBootstrap();
+    try {
+      const res = await fetch(`${API_BASE}/api/internal/docufill/transaction-types`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ label, active: true, sortOrder: (transactionTypes.length + 1) * 10 }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return data.error ?? "Could not create transaction type";
+      await loadBootstrap();
+      return null;
+    } catch {
+      return "Network error — could not create transaction type";
+    }
   }
 
   function updateTransactionTypeLocal(scope: string, patch: Partial<TransactionType>) {
     setTransactionTypes((prev) => prev.map((item) => item.scope === scope ? { ...item, ...patch } : item));
   }
 
-  async function saveTransactionType(item: TransactionType) {
-    setError(null);
-    const res = await fetch(`${API_BASE}/api/internal/docufill/transaction-types/${item.scope}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-      body: JSON.stringify({
-        label: item.label,
-        active: item.active,
-        sortOrder: item.sort_order,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "Could not save transaction type");
-      return;
+  async function saveTransactionType(item: TransactionType): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}/api/internal/docufill/transaction-types/${item.scope}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          label: item.label,
+          active: item.active,
+          sortOrder: item.sort_order,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return data.error ?? "Could not save transaction type";
+      flashStatus("Saved.");
+      await loadBootstrap();
+      return null;
+    } catch {
+      return "Network error — could not save transaction type";
     }
-    setStatus("Saved transaction type.");
-    await loadBootstrap();
   }
 
-  async function createFieldLibraryItem() {
+  async function createFieldLibraryItem(): Promise<string | null> {
     const label = `Reusable field ${fieldLibrary.length + 1}`;
-    const res = await fetch(`${API_BASE}/api/internal/docufill/field-library`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-      body: JSON.stringify({ label, category: "General", type: "text", source: "interview", active: true, sortOrder: (fieldLibrary.length + 1) * 10 }),
-    });
-    if (res.ok) await loadBootstrap();
+    try {
+      const res = await fetch(`${API_BASE}/api/internal/docufill/field-library`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ label, category: "General", type: "text", source: "interview", active: true, sortOrder: (fieldLibrary.length + 1) * 10 }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return data.error ?? "Could not create field";
+      await loadBootstrap();
+      return null;
+    } catch {
+      return "Network error — could not create field";
+    }
   }
 
   function updateFieldLibraryLocal(id: string, patch: Partial<FieldLibraryItem>) {
     setFieldLibrary((prev) => prev.map((item) => item.id === id ? { ...item, ...patch } : item));
   }
 
-  async function saveFieldLibraryItem(item: FieldLibraryItem) {
-    setError(null);
-    const res = await fetch(`${API_BASE}/api/internal/docufill/field-library/${item.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-      body: JSON.stringify(item),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "Could not save field library item");
-      return;
+  async function saveFieldLibraryItem(item: FieldLibraryItem): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}/api/internal/docufill/field-library/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify(item),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return data.error ?? "Could not save field library item";
+      flashStatus("Saved.");
+      await loadBootstrap();
+      return null;
+    } catch {
+      return "Network error — could not save field library item";
     }
-    setStatus("Saved shared field.");
-    await loadBootstrap();
   }
 
   function addLibraryFieldToPackage(libraryField: FieldLibraryItem) {
@@ -1155,7 +1184,7 @@ export default function DocuFill() {
       const existingField = pkg.fields.find((field) => field.libraryFieldId === libraryField.id);
       if (existingField) {
         setSelectedFieldId(existingField.id);
-        setStatus("That shared field is already in this package.");
+        flashStatus("That shared field is already in this package.");
         return pkg;
       }
       const field: FieldItem = {
@@ -1291,7 +1320,7 @@ export default function DocuFill() {
     setError(null);
     try {
       await persistDocumentPdf(file, documentId);
-      setStatus(documentId ? "Replaced PDF." : "Uploaded PDF.");
+      flashStatus(documentId ? "Replaced PDF." : "Uploaded PDF.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not upload PDF");
     } finally {
@@ -1312,7 +1341,7 @@ export default function DocuFill() {
       for (const file of pdfFiles) {
         await persistDocumentPdf(file);
       }
-      setStatus(`Uploaded ${pdfFiles.length} PDF${pdfFiles.length === 1 ? "" : "s"}.`);
+      flashStatus(`Uploaded ${pdfFiles.length} PDF${pdfFiles.length === 1 ? "" : "s"}.`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not upload PDFs");
     } finally {
@@ -1339,7 +1368,7 @@ export default function DocuFill() {
           mergeServerDocumentUpdate(updatedPackage, docId);
           setSelectedDocumentId(updatedPackage.documents[0]?.id ?? null);
         }
-        setStatus("Removed document.");
+        flashStatus("Removed document.");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Could not remove document");
       } finally {
@@ -1752,7 +1781,7 @@ export default function DocuFill() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not save interview");
       setSession((prev) => prev ? { ...prev, status: data.session.status, answers } : prev);
-      setStatus("Interview saved.");
+      flashStatus("Interview saved.");
       return true;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not save interview");
@@ -1783,7 +1812,7 @@ export default function DocuFill() {
         setDriveUrl(data.drive?.url ?? null);
         setDriveWarnings(Array.isArray(data.warnings) ? data.warnings : []);
         setSession((prev) => prev ? { ...prev, status: "generated", generated_pdf_url: data.drive?.url ?? prev.generated_pdf_url } : prev);
-        setStatus(data.drive?.url ? "Packet generated and saved to Drive." : "Packet generated.");
+        flashStatus(data.drive?.url ? "Packet generated and saved to Drive." : "Packet generated.");
       } else {
         setError(data.missingFields?.length ? `Missing required fields: ${data.missingFields.join(", ")}` : data.error ?? "Could not generate packet");
       }
@@ -1838,7 +1867,7 @@ export default function DocuFill() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not launch test interview");
       navigate(`/internal/docufill?session=${data.token}`);
-      setStatus("Test interview session created.");
+      flashStatus("Test interview session created.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not launch test interview");
     } finally {
@@ -1868,7 +1897,7 @@ export default function DocuFill() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not launch interview");
       navigate(`/internal/docufill?session=${data.token}`);
-      setStatus("Interview session created.");
+      flashStatus("Interview session created.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not launch interview");
     } finally {
@@ -4211,16 +4240,46 @@ function EntityPanel({
 }: {
   title: string;
   items: Entity[];
-  onAdd: () => void;
+  onAdd: () => Promise<string | null>;
   onChange: (id: number, patch: Partial<Entity>) => void;
-  onSave: (item: Entity) => void;
+  onSave: (item: Entity) => Promise<string | null>;
 }) {
+  const [adding, setAdding] = useState(false);
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [panelError, setPanelError] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<number | null>(null);
+
+  async function handleAdd() {
+    setAdding(true);
+    setPanelError(null);
+    const err = await onAdd();
+    setAdding(false);
+    if (err) setPanelError(err);
+  }
+
+  async function handleSave(item: Entity) {
+    setSavingId(item.id);
+    setPanelError(null);
+    setSavedId(null);
+    const err = await onSave(item);
+    setSavingId(null);
+    if (err) {
+      setPanelError(err);
+    } else {
+      setSavedId(item.id);
+      setTimeout(() => setSavedId(null), 2000);
+    }
+  }
+
   return (
     <div className="border border-[#DDD5C4] rounded p-3">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold">{title}</h3>
-        <button onClick={onAdd} className="text-xs text-[#C49A38]">Add</button>
+        <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
+          {adding ? "Adding…" : "Add"}
+        </button>
       </div>
+      {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
       <div className="space-y-2 max-h-64 overflow-y-auto text-sm">
         {items.map((item) => (
           <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
@@ -4234,7 +4293,14 @@ function EntityPanel({
                 <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} />
                 Active
               </label>
-              <button onClick={() => onSave(item)} className="text-[11px] text-[#C49A38]">Save</button>
+              <button
+                type="button"
+                onClick={() => handleSave(item)}
+                disabled={savingId === item.id}
+                className="text-[11px] text-[#C49A38] disabled:opacity-50"
+              >
+                {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
+              </button>
             </div>
           </div>
         ))}
@@ -4251,10 +4317,37 @@ function TransactionTypesPanel({
   onSave,
 }: {
   items: TransactionType[];
-  onAdd: () => void;
+  onAdd: () => Promise<string | null>;
   onChange: (scope: string, patch: Partial<TransactionType>) => void;
-  onSave: (item: TransactionType) => void;
+  onSave: (item: TransactionType) => Promise<string | null>;
 }) {
+  const [adding, setAdding] = useState(false);
+  const [savingScope, setSavingScope] = useState<string | null>(null);
+  const [savedScope, setSavedScope] = useState<string | null>(null);
+  const [panelError, setPanelError] = useState<string | null>(null);
+
+  async function handleAdd() {
+    setAdding(true);
+    setPanelError(null);
+    const err = await onAdd();
+    setAdding(false);
+    if (err) setPanelError(err);
+  }
+
+  async function handleSave(item: TransactionType) {
+    setSavingScope(item.scope);
+    setPanelError(null);
+    setSavedScope(null);
+    const err = await onSave(item);
+    setSavingScope(null);
+    if (err) {
+      setPanelError(err);
+    } else {
+      setSavedScope(item.scope);
+      setTimeout(() => setSavedScope(null), 2000);
+    }
+  }
+
   return (
     <div className="border border-[#DDD5C4] rounded p-3">
       <div className="flex items-center justify-between mb-2">
@@ -4262,8 +4355,11 @@ function TransactionTypesPanel({
           <h3 className="text-sm font-semibold">Transaction Types</h3>
           <p className="text-[11px] text-[#8A9BB8]">Manage the active workflows available to packages and interview launchers.</p>
         </div>
-        <button onClick={onAdd} className="text-xs text-[#C49A38]">Add</button>
+        <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
+          {adding ? "Adding…" : "Add"}
+        </button>
       </div>
+      {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
       <div className="grid md:grid-cols-2 gap-2 text-sm">
         {items.map((item) => (
           <div key={item.scope} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
@@ -4273,7 +4369,14 @@ function TransactionTypesPanel({
                 <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.scope, { active: e.target.checked })} />
                 Active
               </label>
-              <button onClick={() => onSave(item)} className="text-[11px] text-[#C49A38]">Save</button>
+              <button
+                type="button"
+                onClick={() => handleSave(item)}
+                disabled={savingScope === item.scope}
+                className="text-[11px] text-[#C49A38] disabled:opacity-50"
+              >
+                {savingScope === item.scope ? "Saving…" : savedScope === item.scope ? "✓ Saved" : "Save"}
+              </button>
             </div>
             <div className="text-[10px] text-[#8A9BB8]">{item.scope}</div>
           </div>
@@ -4291,11 +4394,38 @@ function FieldLibraryPanel({
   onUse,
 }: {
   items: FieldLibraryItem[];
-  onAdd: () => void;
+  onAdd: () => Promise<string | null>;
   onChange: (id: string, patch: Partial<FieldLibraryItem>) => void;
-  onSave: (item: FieldLibraryItem) => void;
+  onSave: (item: FieldLibraryItem) => Promise<string | null>;
   onUse: (item: FieldLibraryItem) => void;
 }) {
+  const [adding, setAdding] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [savedId, setSavedId] = useState<string | null>(null);
+  const [panelError, setPanelError] = useState<string | null>(null);
+
+  async function handleAdd() {
+    setAdding(true);
+    setPanelError(null);
+    const err = await onAdd();
+    setAdding(false);
+    if (err) setPanelError(err);
+  }
+
+  async function handleSave(item: FieldLibraryItem) {
+    setSavingId(item.id);
+    setPanelError(null);
+    setSavedId(null);
+    const err = await onSave(item);
+    setSavingId(null);
+    if (err) {
+      setPanelError(err);
+    } else {
+      setSavedId(item.id);
+      setTimeout(() => setSavedId(null), 2000);
+    }
+  }
+
   return (
     <div className="border border-[#DDD5C4] rounded p-3">
       <div className="flex items-center justify-between mb-2">
@@ -4303,8 +4433,11 @@ function FieldLibraryPanel({
           <h3 className="text-sm font-semibold">Shared Field Library</h3>
           <p className="text-[11px] text-[#8A9BB8]">Define common customer, IRA, beneficiary, and signature fields once, then reuse them in custodian packages.</p>
         </div>
-        <button onClick={onAdd} className="text-xs text-[#C49A38]">Add</button>
+        <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
+          {adding ? "Adding…" : "Add"}
+        </button>
       </div>
+      {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
       <div className="grid md:grid-cols-2 gap-2 text-sm">
         {items.map((item) => (
           <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
@@ -4351,8 +4484,15 @@ function FieldLibraryPanel({
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-[#8A9BB8]">{item.id}</span>
               <div className="flex gap-2">
-                <button onClick={() => onUse(item)} className="text-[11px] text-[#6B7A99]">Use in package</button>
-                <button onClick={() => onSave(item)} className="text-[11px] text-[#C49A38]">Save</button>
+                <button type="button" onClick={() => onUse(item)} className="text-[11px] text-[#6B7A99]">Use in package</button>
+                <button
+                  type="button"
+                  onClick={() => handleSave(item)}
+                  disabled={savingId === item.id}
+                  className="text-[11px] text-[#C49A38] disabled:opacity-50"
+                >
+                  {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
+                </button>
               </div>
             </div>
           </div>
