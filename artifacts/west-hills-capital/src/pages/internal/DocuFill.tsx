@@ -590,6 +590,22 @@ export default function DocuFill() {
   useEffect(() => {
     if (isFieldEditorOpen) setFieldEditorPos({ x: 0, y: 0 });
   }, [isFieldEditorOpen]);
+  useEffect(() => {
+    if (!isFieldEditorOpen) return;
+    const onResize = () => {
+      const panel = fieldEditorPanelRef.current;
+      if (!panel) return;
+      const { width, height } = panel.getBoundingClientRect();
+      const maxX = (window.innerWidth - width) / 2;
+      const maxY = (window.innerHeight - height) / 2;
+      setFieldEditorPos(prev => ({
+        x: Math.max(-maxX, Math.min(maxX, prev.x)),
+        y: Math.max(-maxY, Math.min(maxY, prev.y)),
+      }));
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [isFieldEditorOpen]);
   const handleFieldEditorDragStart = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     fieldEditorDragRef.current = { startX: e.clientX, startY: e.clientY, startPosX: fieldEditorPos.x, startPosY: fieldEditorPos.y };
