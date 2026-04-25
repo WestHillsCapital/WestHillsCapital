@@ -2254,94 +2254,81 @@ export default function DocuFill() {
       {status && <div className="mb-4 rounded border border-green-200 bg-green-50 text-green-800 px-3 py-2 text-sm">{status}</div>}
 
       {!isPublicSession && (tab === "packages" || tab === "mapper") && (
-        <div className="mb-5 rounded-xl border border-[#DDD5C4] bg-white p-3">
+        <div className="mb-5 rounded-xl border border-[#DDD5C4] bg-white p-3 space-y-3">
           {/* Package switcher row */}
-          <div className="flex flex-wrap items-center gap-2 mb-3">
-            <div className="flex items-center gap-2 flex-1 min-w-0">
-              <select
-                value={selectedPackageId ?? ""}
-                onChange={(e) => { setSelectedPackageId(e.target.value ? Number(e.target.value) : null); setAddingPackage(false); }}
-                className="flex-1 min-w-0 max-w-xs border border-[#D4C9B5] rounded-lg px-3 py-1.5 text-sm bg-white font-medium text-[#0F1C3F]"
-              >
-                <option value="">{packages.length === 0 ? "No packages yet" : "Select a package…"}</option>
-                {packages.map((pkg) => (
-                  <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.status !== "active" ? ` · ${pkg.status}` : ""}</option>
-                ))}
-              </select>
-              <button
-                type="button"
-                onClick={() => { setAddingPackage((v) => !v); setSelectedPackageId(null); }}
-                className={`shrink-0 text-xs border rounded-lg px-3 py-1.5 transition-colors ${addingPackage ? "border-[#C49A38] bg-[#C49A38]/10 text-[#8A6A20]" : "border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#0F1C3F]"}`}
-              >
-                + New Package
-              </button>
-            </div>
-            {selectedPackage && <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline" className="shrink-0">{isSaving ? "Saving…" : "Save Package"}</Button>}
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={selectedPackageId ?? ""}
+              onChange={(e) => { setSelectedPackageId(e.target.value ? Number(e.target.value) : null); setAddingPackage(false); }}
+              className="flex-1 min-w-0 max-w-xs border border-[#D4C9B5] rounded-lg px-3 py-1.5 text-sm bg-white font-medium text-[#0F1C3F]"
+            >
+              <option value="">{packages.length === 0 ? "No packages yet" : "Select a package…"}</option>
+              {packages.map((pkg) => (
+                <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.status !== "active" ? ` · ${pkg.status}` : ""}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => { setAddingPackage((v) => !v); setSelectedPackageId(null); }}
+              className={`shrink-0 text-xs border rounded-lg px-3 py-1.5 transition-colors ${addingPackage ? "border-[#C49A38] bg-[#C49A38]/10 text-[#8A6A20]" : "border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#0F1C3F]"}`}
+            >
+              + New Package
+            </button>
+            {selectedPackage && (
+              <div className="flex items-center gap-3 ml-auto">
+                <span className="text-xs text-[#8A9BB8] hidden sm:block">
+                  {selectedPackage.documents.length} doc{selectedPackage.documents.length !== 1 ? "s" : ""} · {packageInterviewFields.length} question{packageInterviewFields.length !== 1 ? "s" : ""} · {selectedPackage.mappings.length} placement{selectedPackage.mappings.length !== 1 ? "s" : ""}{unmappedPackageFields.length > 0 ? ` · ${unmappedPackageFields.length} unmapped` : " · all placed"}
+                </span>
+                <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline" className="shrink-0 text-xs h-8 px-3">{isSaving ? "Saving…" : "Save"}</Button>
+              </div>
+            )}
           </div>
 
           {/* Inline add-package form */}
           {addingPackage && (
-            <div className="mb-3 rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-3 space-y-3">
+            <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-3 space-y-3">
               <div className="text-sm font-semibold text-[#0F1C3F]">New package</div>
               <label className="block text-xs text-[#6B7A99]">
                 Package name
                 <Input
                   value={newPackageName}
                   onChange={(e) => setNewPackageName(e.target.value)}
-                  placeholder="e.g. New Direction IRA Rollover"
+                  placeholder="e.g. Youth Soccer Registration"
                   className="mt-1 h-9 bg-white text-sm"
                 />
               </label>
-              <details>
-                <summary className="cursor-pointer text-xs font-semibold text-[#0F1C3F]">Optional custodian/depository</summary>
-                <div className="mt-3 space-y-3">
-                  <label className="block text-xs text-[#6B7A99]">
-                    Custodian
-                    <select value={newPackageCustodianId} onChange={(e) => setNewPackageCustodianId(e.target.value)} className="mt-1 w-full rounded border border-[#D4C9B5] bg-white px-3 py-2 text-sm">
-                      <option value="">None</option>
-                      {custodians.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    </select>
-                  </label>
-                  <label className="block text-xs text-[#6B7A99]">
-                    Depository
-                    <select value={newPackageDepositoryId} onChange={(e) => setNewPackageDepositoryId(e.target.value)} className="mt-1 w-full rounded border border-[#D4C9B5] bg-white px-3 py-2 text-sm">
-                      <option value="">None</option>
-                      {depositories.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                    </select>
-                  </label>
-                </div>
-              </details>
               <div className="flex gap-2">
-                <Button onClick={createPackage} disabled={isSaving || !newPackageName.trim()} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Add Package</Button>
+                <Button onClick={createPackage} disabled={isSaving || !newPackageName.trim()} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Create Package</Button>
                 <Button type="button" onClick={() => setAddingPackage(false)} variant="outline">Cancel</Button>
               </div>
             </div>
           )}
 
-          {/* Stats row — shown when a package is selected */}
-          {selectedPackage && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
-              <SummaryCard label="Documents" value={String(selectedPackage.documents.length)} detail="Uploaded and ordered" />
-              <SummaryCard label="Fields" value={String(selectedPackage.fields.length)} detail={`${packageInterviewFields.length} interview questions`} />
-              <SummaryCard label="Placements" value={String(selectedPackage.mappings.length)} detail="PDF print locations" />
-              <SummaryCard label="Unmapped" value={String(unmappedPackageFields.length)} detail={unmappedPackageFields.length ? "Review before activating" : "All placed ✓"} />
+          {/* Step progress indicator — only when a package is selected */}
+          {selectedPackage && !addingPackage && (
+            <div className="flex items-center gap-1">
+              {BUILDER_STEPS.map((step, idx) => {
+                const isActive = builderStep === step.value;
+                const isPast = BUILDER_STEPS.findIndex((s) => s.value === builderStep) > idx;
+                return (
+                  <button
+                    key={step.value}
+                    type="button"
+                    onClick={() => goBuilderStep(step.value)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${isActive ? "bg-[#0F1C3F] text-white" : isPast ? "bg-[#EAF0FB] text-[#0F1C3F]" : "text-[#8A9BB8] hover:text-[#0F1C3F]"}`}
+                  >
+                    <span className={`w-4 h-4 rounded-full text-[10px] flex items-center justify-center shrink-0 ${isActive ? "bg-white/20 text-white" : isPast ? "bg-[#0F1C3F] text-white" : "bg-[#DDD5C4] text-[#6B7A99]"}`}>
+                      {isPast ? "✓" : idx + 1}
+                    </span>
+                    <span className="hidden sm:inline">{["Documents", "Map Fields", "Finalize"][idx]}</span>
+                  </button>
+                );
+              })}
+              {tab === "mapper" && (
+                <span className="ml-auto text-[11px] text-[#8A9BB8]">PDF Mapper</span>
+              )}
             </div>
           )}
-
-          {/* Builder step nav */}
-          <div className="grid md:grid-cols-5 gap-2">
-            {BUILDER_STEPS.map((step) => (
-              <button
-                key={step.value}
-                type="button"
-                onClick={() => goBuilderStep(step.value)}
-                className={`rounded-lg border px-3 py-2 text-left ${builderStep === step.value ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4] bg-[#F8F6F0] hover:border-[#C49A38]/60"}`}
-              >
-                <div className="text-xs font-semibold">{step.label}</div>
-                <div className="text-[11px] text-[#6B7A99]">{step.helper}</div>
-              </button>
-            ))}
-          </div>
         </div>
       )}
 
@@ -2353,9 +2340,9 @@ export default function DocuFill() {
                 <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4">
                   <h2 className="text-lg font-semibold">{BUILDER_STEPS.find((step) => step.value === builderStep)?.label}</h2>
                   <p className="text-sm text-[#6B7A99] mt-1">
-                    {builderStep === "documents" && "Start where Sally starts: add the documents that belong in this package and put them in the right order."}
-                    {builderStep === "mapping" && "Use the document list on the left, the PDF page in the center, and the field list on the right to build the package questionnaire."}
-                    {(builderStep === "interview" || builderStep === "finalize") && "Review and reorder the questions staff will be asked, preview how the interview looks, then choose output formats and activate."}
+                    {builderStep === "documents" && "Upload the PDF forms that belong in this package and drag them into the order they should be filled out."}
+                    {builderStep === "mapping" && "Use the document list on the left and the field list on the right to drag each question onto the correct spot on the PDF."}
+                    {(builderStep === "interview" || builderStep === "finalize") && "Review the interview questions, choose your output options, then activate the package so it's ready to use."}
                   </p>
                 </div>
                 {builderStep === "documents" && (
@@ -2369,8 +2356,8 @@ export default function DocuFill() {
                       <p className="mt-2 text-xs text-[#8A9BB8]">This is the reusable package name staff will choose later when launching a customer interview.</p>
                     </div>
                     <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-                      <summary className="cursor-pointer text-sm font-semibold">Optional package routing and notes</summary>
-                      <p className="mt-1 text-xs text-[#8A9BB8]">Custodian and depository are optional. Leave them blank for paperwork that does not require either one.</p>
+                      <summary className="cursor-pointer text-sm font-semibold">Optional settings and notes</summary>
+                      <p className="mt-1 text-xs text-[#8A9BB8]">Set status, assign optional groupings, and add any notes that staff should see before starting an interview.</p>
                       <div className="mt-4 grid md:grid-cols-2 gap-4">
                         <label className="block text-sm">
                           <span className="block text-xs text-[#6B7A99] mb-1">Status</span>
@@ -2565,9 +2552,15 @@ export default function DocuFill() {
                         </SortableContext>
                       </DndContext>
                     )}
-                    <div className="flex flex-wrap gap-2">
-                      <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : "Save Document Order"}</Button>
-                      <Button onClick={() => goBuilderStep("mapping")} variant="outline" disabled={selectedPackage.documents.length === 0}>Continue to Mapping</Button>
+                    <div className="flex flex-wrap items-center gap-2 pt-1">
+                      <Button
+                        onClick={async () => { await savePackage(selectedPackage); goBuilderStep("mapping"); }}
+                        disabled={isSaving || selectedPackage.documents.length === 0}
+                        className="bg-[#0F1C3F] hover:bg-[#182B5F]"
+                      >
+                        {isSaving ? "Saving…" : "Save & Continue →"}
+                      </Button>
+                      <span className="text-xs text-[#8A9BB8]">Step 1 of 3 · add your PDFs above, then continue</span>
                     </div>
                   </div>
                 )}
@@ -2824,15 +2817,16 @@ export default function DocuFill() {
                         </select>
                       </div>
 
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2 border-t border-[#DDD5C4] pt-4">
+                        <Button onClick={() => goBuilderStep("mapping")} variant="outline" className="text-[#6B7A99]">← Back to Mapping</Button>
                         <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || selectedPackage.mappings.length === 0} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : "Activate Package"}</Button>
-                        <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save"}</Button>
+                        <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save Draft"}</Button>
                         {selectedPackage.status !== "active" && selectedPackage.id && (
                           <Button onClick={() => launchTestInterview(selectedPackage)} disabled={isSaving || selectedPackage.documents.length === 0} variant="outline" className="text-[#6B7A99] border-dashed">
-                            Test Interview (Draft)
+                            Preview Interview
                           </Button>
                         )}
-                        {selectedPackage.status === "active" && <Button onClick={() => { setStandalonePackageId(String(selectedPackage.id)); setTab("interview"); }} variant="outline">Go to Interview Launcher</Button>}
+                        {selectedPackage.status === "active" && <Button onClick={() => { setStandalonePackageId(String(selectedPackage.id)); setTab("interview"); }} variant="outline">Go to Interviews →</Button>}
                         {selectedPackage.id && (
                           <button type="button" onClick={() => deletePackage(selectedPackage)} disabled={isDeletingPackage} className="ml-auto text-xs text-red-500 hover:text-red-700 disabled:opacity-50 transition-colors">
                             {isDeletingPackage ? "Deleting…" : "Delete package"}
@@ -3238,56 +3232,33 @@ export default function DocuFill() {
         <section className="bg-white border border-[#DDD5C4] rounded-lg p-5 max-w-4xl mx-auto">
           {!session ? (
             isPublicSession ? <EmptyState message="This interview link is invalid or expired." /> : (
-              <div className="space-y-4">
-                {/* Output type selector cards */}
+              <div className="space-y-6">
                 {(() => {
                   const hasStaff = activePackages.some((p) => p.enable_interview);
                   const hasCustomerLink = activePackages.some((p) => p.enable_customer_link);
                   if (!hasStaff && !hasCustomerLink) {
-                    return <EmptyState message="No active packages have an output channel enabled. Go to Package Builder → Step 3 to enable Staff Interview or Customer Link." />;
+                    return (
+                      <div className="text-center py-8 space-y-3">
+                        <p className="text-sm text-[#6B7A99]">No packages are ready for interviews yet.</p>
+                        <Button onClick={() => { goBuilderStep("interview"); setTab("packages"); }} variant="outline">
+                          Go to Package Builder →
+                        </Button>
+                      </div>
+                    );
                   }
                   return (
-                    <>
-                      <div className="grid sm:grid-cols-2 gap-3">
-                        {hasStaff && (
-                          <button
-                            type="button"
-                            onClick={() => setInterviewOutputTab("staff")}
-                            className={`text-left rounded-lg border-2 p-4 transition-colors ${interviewOutputTab === "staff" ? "border-[#0F1C3F] bg-white shadow-sm" : "border-[#DDD5C4] bg-[#F8F6F0] hover:border-[#0F1C3F]/40"}`}
-                          >
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <svg className={`w-4 h-4 shrink-0 ${interviewOutputTab === "staff" ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
-                              <span className={`text-sm font-semibold ${interviewOutputTab === "staff" ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Staff Interview</span>
-                              {interviewOutputTab === "staff" && <svg className="w-3.5 h-3.5 ml-auto text-[#0F1C3F]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                            </div>
-                            <p className="text-xs text-[#6B7A99]">Walk a client through their paperwork step-by-step. Staff fills the interview on their behalf.</p>
-                          </button>
-                        )}
-                        {hasCustomerLink && (
-                          <button
-                            type="button"
-                            onClick={() => setInterviewOutputTab("customerLink")}
-                            className={`text-left rounded-lg border-2 p-4 transition-colors ${interviewOutputTab === "customerLink" ? "border-[#0F1C3F] bg-white shadow-sm" : "border-[#DDD5C4] bg-[#F8F6F0] hover:border-[#0F1C3F]/40"}`}
-                          >
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <svg className={`w-4 h-4 shrink-0 ${interviewOutputTab === "customerLink" ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>
-                              <span className={`text-sm font-semibold ${interviewOutputTab === "customerLink" ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Customer Link</span>
-                              {interviewOutputTab === "customerLink" && <svg className="w-3.5 h-3.5 ml-auto text-[#0F1C3F]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>}
-                            </div>
-                            <p className="text-xs text-[#6B7A99]">Send a secure link directly to the customer. They complete the form on their own device — no login needed.</p>
-                          </button>
-                        )}
-                      </div>
-
-                      {/* Staff Interview panel */}
-                      {interviewOutputTab === "staff" && hasStaff && (
-                        <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4 space-y-3">
-                          <div>
-                            <p className="text-xs text-[#8A9BB8]">Select a package, then start the interview. You can also launch directly from Deal Builder for a pre-filled session.</p>
+                    <div className="space-y-5">
+                      {/* Staff Interview — always shown if any package has it enabled */}
+                      {hasStaff && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 text-[#0F1C3F] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
+                            <h3 className="text-sm font-semibold">Staff Interview</h3>
+                            <span className="text-xs text-[#8A9BB8]">— walk a client through their paperwork</span>
                           </div>
                           <div className="flex flex-col sm:flex-row gap-2">
                             <select value={standalonePackageId} onChange={(e) => setStandalonePackageId(e.target.value)} className="flex-1 border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white">
-                              <option value="">Select package…</option>
+                              <option value="">Select a package…</option>
                               {activePackages.filter((p) => p.enable_interview).map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
                             </select>
                             <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F] shrink-0">{isSaving ? "Launching…" : "Start Interview"}</Button>
@@ -3295,13 +3266,20 @@ export default function DocuFill() {
                         </div>
                       )}
 
-                      {/* Customer Link panel */}
-                      {interviewOutputTab === "customerLink" && hasCustomerLink && (
-                        <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4 space-y-3">
-                          <p className="text-xs text-[#8A9BB8]">Select a package and optionally pre-fill the customer's name and email. The link expires after 90 days.</p>
+                      {/* Divider between the two if both are available */}
+                      {hasStaff && hasCustomerLink && <div className="border-t border-[#EFE8D8]" />}
+
+                      {/* Customer Link — always shown if any package has it enabled */}
+                      {hasCustomerLink && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <svg className="w-4 h-4 text-[#0F1C3F] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>
+                            <h3 className="text-sm font-semibold">Customer Link</h3>
+                            <span className="text-xs text-[#8A9BB8]">— customer fills the form themselves</span>
+                          </div>
                           <div className="space-y-2">
                             <select value={customerLinkPackageId} onChange={(e) => { setCustomerLinkPackageId(e.target.value); setGeneratedCustomerLink(null); }} className="w-full border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white">
-                              <option value="">Select package…</option>
+                              <option value="">Select a package…</option>
                               {activePackages.filter((p) => p.enable_customer_link).map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
                             </select>
                             <div className="grid sm:grid-cols-3 gap-2">
@@ -3309,29 +3287,25 @@ export default function DocuFill() {
                               <Input placeholder="Last name (optional)" value={customerLinkLastName} onChange={(e) => setCustomerLinkLastName(e.target.value)} className="text-sm" />
                               <Input placeholder="Email (optional)" value={customerLinkEmail} onChange={(e) => setCustomerLinkEmail(e.target.value)} className="text-sm" />
                             </div>
-                          </div>
-                          <Button onClick={generateCustomerLink} disabled={!customerLinkPackageId || isGeneratingLink} className="bg-[#0F1C3F] hover:bg-[#182B5F]">
-                            {isGeneratingLink ? "Generating…" : "Generate Link"}
-                          </Button>
-                          {generatedCustomerLink && (
-                            <div className="rounded border border-green-200 bg-green-50 p-3 space-y-2">
-                              <div className="text-xs font-semibold text-green-800">Link ready — copy and send to your customer</div>
-                              <div className="flex items-center gap-2">
-                                <code className="flex-1 text-xs bg-white border border-green-200 rounded px-2 py-1.5 text-[#0F1C3F] break-all">{generatedCustomerLink}</code>
-                                <button
-                                  type="button"
-                                  onClick={copyCustomerLink}
-                                  className="shrink-0 text-xs border border-green-300 bg-white text-green-800 rounded px-3 py-1.5 hover:bg-green-100 transition-colors"
-                                >
-                                  {linkCopied ? "Copied ✓" : "Copy"}
-                                </button>
+                            <Button onClick={generateCustomerLink} disabled={!customerLinkPackageId || isGeneratingLink} className="bg-[#0F1C3F] hover:bg-[#182B5F]">
+                              {isGeneratingLink ? "Generating…" : "Generate Link"}
+                            </Button>
+                            {generatedCustomerLink && (
+                              <div className="rounded border border-green-200 bg-green-50 p-3 space-y-2">
+                                <div className="text-xs font-semibold text-green-800">Link ready — copy and send to your customer</div>
+                                <div className="flex items-center gap-2">
+                                  <code className="flex-1 text-xs bg-white border border-green-200 rounded px-2 py-1.5 text-[#0F1C3F] break-all">{generatedCustomerLink}</code>
+                                  <button type="button" onClick={copyCustomerLink} className="shrink-0 text-xs border border-green-300 bg-white text-green-800 rounded px-3 py-1.5 hover:bg-green-100 transition-colors">
+                                    {linkCopied ? "Copied ✓" : "Copy"}
+                                  </button>
+                                </div>
+                                <p className="text-[11px] text-green-700">Expires in 90 days. When the customer submits, you'll receive the completed packet.</p>
                               </div>
-                              <p className="text-[11px] text-green-700">This link expires in 90 days. When the customer submits, you'll receive the completed packet.</p>
-                            </div>
-                          )}
+                            )}
+                          </div>
                         </div>
                       )}
-                    </>
+                    </div>
                   );
                 })()}
               </div>
