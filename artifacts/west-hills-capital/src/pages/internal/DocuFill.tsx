@@ -592,6 +592,8 @@ export default function DocuFill() {
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
   const pdfUrlRef = useRef<string | null>(null);
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
+  const mappingUndoStack = useRef<MappingItem[][]>([]);
+  const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   const mapperContainerRef = useRef<HTMLElement | null>(null);
   const [mapperContainerWidth, setMapperContainerWidth] = useState(800);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
@@ -858,6 +860,92 @@ export default function DocuFill() {
     const onResize = () => setViewportHeight(window.innerHeight);
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  // Keyboard shortcuts — ref pattern keeps the handler current without re-registering
+  keyHandlerRef.current = (e: KeyboardEvent) => {
+    const target = e.target as HTMLElement;
+    const isTyping = target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.tagName === "SELECT" || target.isContentEditable;
+
+    // Esc: close placement modal
+    if (e.key === "Escape") {
+      if (placementModal) { setPlacementModal(null); setPlacementModalPos(null); }
+      return;
+    }
+
+    // Ctrl/⌘ + S: save current package
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+      e.preventDefault();
+      if (selectedPackage && !isSaving) void savePackage(selectedPackage);
+      return;
+    }
+
+    // Ctrl/⌘ + Z: undo last field placement
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
+      e.preventDefault();
+      const prev = mappingUndoStack.current.pop();
+      if (prev !== undefined) {
+        updateSelectedPackage((pkg) => ({ ...pkg, mappings: prev }));
+        setSelectedMappingId(null);
+        setPlacementModal(null);
+        setPlacementModalPos(null);
+        flashStatus("Undo: field placement removed.");
+      }
+      return;
+    }
+
+    if (isTyping) return;
+
+    // Delete / Backspace: remove selected placed field
+    if ((e.key === "Delete" || e.key === "Backspace") && selectedMappingId && isMapperVisible) {
+      e.preventDefault();
+      removeSelectedMapping();
+      setPlacementModal(null);
+      return;
+    }
+
+    // ← / →: navigate PDF pages in mapper
+    if (isMapperVisible) {
+      if (e.key === "ArrowLeft") {
+        e.preventDefault();
+        setSelectedPage((p) => Math.max(1, p - 1));
+        return;
+      }
+      if (e.key === "ArrowRight") {
+        e.preventDefault();
+        setSelectedPage((p) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), p + 1));
+        return;
+      }
+    }
+
+    // 1–4: jump to builder step
+    if ((tab === "packages" || tab === "mapper") && ["1", "2", "3", "4"].includes(e.key)) {
+      const step = BUILDER_STEPS[parseInt(e.key, 10) - 1];
+      if (step) goBuilderStep(step.value);
+      return;
+    }
+
+    // Tab: cycle through interview answer fields
+    if (e.key === "Tab" && tab === "interview") {
+      const inputs = Array.from(document.querySelectorAll<HTMLElement>("[data-interview-input]"));
+      if (inputs.length === 0) return;
+      const focusedIdx = inputs.findIndex((el) => el === document.activeElement || el.contains(document.activeElement));
+      e.preventDefault();
+      if (focusedIdx === -1) {
+        inputs[0].focus();
+      } else {
+        const next = e.shiftKey
+          ? (focusedIdx - 1 + inputs.length) % inputs.length
+          : (focusedIdx + 1) % inputs.length;
+        inputs[next].focus();
+      }
+    }
+  };
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => keyHandlerRef.current(e);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, []);
 
   useEffect(() => {
@@ -1526,6 +1614,9 @@ export default function DocuFill() {
   function copyField(sourceFieldId: string) {
     const snapX = clampPercent((placementModal?.pdfX ?? 20) + 3, 0, 74);
     const snapY = clampPercent((placementModal?.pdfY ?? 20) + 3, 0, 94);
+    if (selectedPackage) {
+      mappingUndoStack.current = [...mappingUndoStack.current, [...selectedPackage.mappings]].slice(-20);
+    }
     updateSelectedPackage((pkg) => {
       const source = pkg.fields.find((f) => f.id === sourceFieldId);
       if (!source) return pkg;
@@ -1566,6 +1657,9 @@ export default function DocuFill() {
   function duplicateMapping(sourceMappingId: string) {
     const snapX = clampPercent((placementModal?.pdfX ?? 20) + 3, 0, 74);
     const snapY = clampPercent((placementModal?.pdfY ?? 20) + 3, 0, 94);
+    if (selectedPackage) {
+      mappingUndoStack.current = [...mappingUndoStack.current, [...selectedPackage.mappings]].slice(-20);
+    }
     updateSelectedPackage((pkg) => {
       const srcMap = pkg.mappings.find((m) => m.id === sourceMappingId);
       if (!srcMap) return pkg;
@@ -1611,6 +1705,9 @@ export default function DocuFill() {
 
   function addMappingForField(field: FieldItem, x: number, y: number) {
     if (!selectedDocument) return;
+    if (selectedPackage) {
+      mappingUndoStack.current = [...mappingUndoStack.current, [...selectedPackage.mappings]].slice(-20);
+    }
     const mappingId = newId("map");
     updateSelectedPackage((pkg) => ({
       ...pkg,
@@ -2879,7 +2976,7 @@ export default function DocuFill() {
                         {currentValue || <span className="text-[#8A9BB8] italic">—</span>}
                       </div>
                     ) : field.type === "dropdown" ? (
-                      <select value={currentValue} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
+                      <select data-interview-input value={currentValue} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
                         <option value="">{mode === "required" ? "— select —" : "Select"}</option>
                         {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
                       </select>
@@ -2888,6 +2985,7 @@ export default function DocuFill() {
                         {((field.options ?? []).length ? field.options ?? [] : []).map((option) => (
                           <label key={option} className="flex items-center gap-2 text-sm cursor-pointer">
                             <input
+                              data-interview-input
                               type="radio"
                               name={field.id}
                               value={option}
@@ -2907,6 +3005,7 @@ export default function DocuFill() {
                         return (
                           <label key={option} className="flex items-center gap-2 text-sm cursor-pointer">
                             <input
+                              data-interview-input
                               type="checkbox"
                               checked={parseChecked(currentValue).includes(option)}
                               onChange={(e) => setAnswers((prev) => {
@@ -2920,7 +3019,7 @@ export default function DocuFill() {
                         );
                       })}</div>
                     ) : (
-                      <Input type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"} value={currentValue} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} />
+                      <Input data-interview-input type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"} value={currentValue} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} />
                     )}
                   </label>
                   );
