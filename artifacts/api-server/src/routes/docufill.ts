@@ -884,6 +884,29 @@ router.patch("/transaction-types/:scope", async (req, res) => {
   }
 });
 
+router.delete("/transaction-types/:scope", async (req, res) => {
+  try {
+    const scope = cleanText(req.params.scope);
+    if (!scope) {
+      res.status(400).json({ error: "Scope is required" });
+      return;
+    }
+    const db = getDb();
+    const { rowCount } = await db.query(
+      `DELETE FROM docufill_transaction_types WHERE scope=$1`,
+      [scope],
+    );
+    if (!rowCount) {
+      res.status(404).json({ error: "Transaction type not found" });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to delete transaction type");
+    res.status(500).json({ error: "Failed to delete transaction type" });
+  }
+});
+
 router.post("/custodians", async (req, res) => {
   try {
     const body = req.body as EntityInput;
