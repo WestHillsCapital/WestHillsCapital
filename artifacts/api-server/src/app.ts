@@ -4,11 +4,13 @@ import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
+import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
 import sitemapRouter from "./routes/sitemap";
 import { logger } from "./lib/logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { dbReady, dbError } from "./db";
+import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 
 // Request timeout: abort any request that hasn't completed within 30 s.
 // Prevents slow upstream calls (Sheets, Google Calendar, Dillon Gage API)
@@ -100,9 +102,15 @@ app.use(
   }),
 );
 
+// ── Clerk proxy (must be before body parsers — streams raw bytes) ──────────────
+app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
+
 // ── Body parsing ───────────────────────────────────────────────────────────────
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
+
+// ── Clerk middleware (attaches auth state to every request) ───────────────────
+app.use(clerkMiddleware());
 
 // ── Request timeout ────────────────────────────────────────────────────────────
 app.use((_req, res, next) => {

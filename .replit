@@ -54,6 +54,7 @@ FEDEX_CLIENT_ID = "l7b9d07dbde93c4446a649934cb2898d02"
 FEDEX_CLIENT_SECRET = "3cc1d6e0832545d588a79e9ccdfefa32"
 GOOGLE_DRIVE_DEALS_FOLDER_ID = "13CrCk1OVZDiSVK6zk44d7YEaDdyGo9sp"
 FIZTRADE_BASE_URL = "https://stage-connect.fiztrade.com/FizServices"
+VITE_CLERK_PUBLISHABLE_KEY = "pk_test_bGFyZ2UtdGFoci01Mi5jbGVyay5hY2NvdW50cy5kZXYk"
 
 [userenv.development]
 VITE_API_URL = "https://workspaceapi-server-production-987b.up.railway.app"

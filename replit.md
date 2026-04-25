@@ -48,7 +48,11 @@ The project is structured as a pnpm monorepo using TypeScript, with separate `ap
 -   `internal-auth.ts` resolves the account on Google sign-in: looks up `account_users`, auto-provisions missing allowed emails into WHC account.
 -   All DocuFill bootstrap/list/create/update/delete routes now scope queries with `WHERE account_id = $N`. The public customer-link routes are unaffected (they go through package → session which is implicitly scoped).
 -   `transaction_types` and `docufill_fields` remain global shared tables for now; per-tenant customization is a future phase.
--   Next phases: sign-up flow, account creation UI, invite flow, Clerk auth, account branding (logo/name).
+-   **Phase 2 complete:** Clerk auth provisioned. External product portal lives at `/app/*` — sign-up at `/app/sign-up`, sign-in at `/app/sign-in`, DocuFill workspace at `/app`. `ClerkProvider` wraps the entire React app; WHC internal portal at `/internal/*` remains Google-auth gated and untouched.
+-   `DocuFillConfigProvider` context overrides `apiPath` and `getAuthHeaders` so the same `DocuFill.tsx` component is reused in both portals without any forking. Internal portal uses `/api/internal/docufill/` + internal session cookie; product portal uses `/api/product/docufill/` + Clerk JWT bearer token.
+-   `requireProductAuth` middleware on the API server validates Clerk JWTs and maps `clerk_user_id` → `accountId` (stored in new `account_users.clerk_user_id` column). Dev bypass defaults to account 1 when `CLERK_SECRET_KEY` is absent.
+-   Clerk app name currently reads "West Hills Capital" — update in the Auth pane once the product name is chosen.
+-   Next phases: product branding/name swap, account invitation flow, per-tenant customization.
 
 **DocuFill Output Channels (step 3 of Package Builder):**
 -   Webhook and Embed cards added as locked "Coming soon" placeholders after Customer Link.

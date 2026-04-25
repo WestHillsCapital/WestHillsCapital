@@ -279,14 +279,17 @@ export async function initDb(): Promise<void> {
   `);
   await db.query(`
     CREATE TABLE IF NOT EXISTS account_users (
-      id         SERIAL PRIMARY KEY,
-      account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
-      email      TEXT NOT NULL,
-      role       TEXT NOT NULL DEFAULT 'member',
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      id             SERIAL PRIMARY KEY,
+      account_id     INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      email          TEXT NOT NULL,
+      role           TEXT NOT NULL DEFAULT 'member',
+      clerk_user_id  TEXT,
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE (account_id, email)
     )
   `);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS clerk_user_id TEXT`);
+  await db.query(`CREATE UNIQUE INDEX IF NOT EXISTS account_users_clerk_user_id_idx ON account_users (clerk_user_id) WHERE clerk_user_id IS NOT NULL`);
   await db.query(`
     CREATE INDEX IF NOT EXISTS account_users_email_idx ON account_users (lower(email))
   `);

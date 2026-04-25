@@ -1,5 +1,9 @@
+@layer theme, base, clerk, components, utilities;
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 @import "tailwindcss";
+@import '@clerk/themes/shadcn.css';
+
+.cl-formFieldInput::placeholder { color: #9ca3af; opacity: 1; }
 
 @theme inline {
   --font-sans: 'DM Sans', sans-serif;

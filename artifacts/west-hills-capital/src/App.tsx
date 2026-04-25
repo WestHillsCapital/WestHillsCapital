@@ -4,6 +4,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect, lazy, Suspense } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import { ClerkProvider } from "@clerk/react";
 
 // Public layout
 import { Layout } from "@/components/layout/Layout";
@@ -42,8 +43,13 @@ const InternalProspectingPipeline = lazy(() => import("@/pages/internal/Leads"))
 const InternalScheduledCalls      = lazy(() => import("@/pages/internal/Appointments"));
 const DealBuilder                 = lazy(() => import("@/pages/internal/DealBuilder"));
 const ContentEngine               = lazy(() => import("@/pages/internal/ContentEngine"));
-const DocuFill                    = lazy(() => import("@/pages/internal/DocuFill"));
+const DocuFillInternal            = lazy(() => import("@/pages/internal/DocuFill"));
 const DocuFillCustomer            = lazy(() => import("@/pages/DocuFillCustomer"));
+
+// ── Product portal pages (Clerk-auth, lazy-loaded) ────────────────────────────
+const AppPortal  = lazy(() => import("@/pages/app/AppPortal"));
+const AppSignIn  = lazy(() => import("@/pages/app/AppSignIn"));
+const AppSignUp  = lazy(() => import("@/pages/app/AppSignUp"));
 
 // ── Shared fallback spinner ───────────────────────────────────────────────────
 function PageSpinner() {
@@ -87,7 +93,7 @@ function InternalRouter() {
         </Route>
         <Route path="/internal/deal-builder"         component={DealBuilder}                 />
         <Route path="/internal/content"              component={ContentEngine}               />
-        <Route path="/internal/docufill"             component={DocuFill}                    />
+        <Route path="/internal/docufill"             component={DocuFillInternal}            />
         <Route>
           <Redirect to="/internal/prospecting-pipeline" />
         </Route>
@@ -98,8 +104,9 @@ function InternalRouter() {
 
 function Router() {
   const [location] = useLocation();
-  const isInternal = location.startsWith("/internal");
+  const isInternal    = location.startsWith("/internal");
   const isCustomerForm = location.startsWith("/docufill/public/");
+  const isApp         = location.startsWith("/app");
 
   if (isInternal) {
     return (
@@ -119,6 +126,21 @@ function Router() {
         <Suspense fallback={<PageSpinner />}>
           <Switch>
             <Route path="/docufill/public/:token" component={DocuFillCustomer} />
+          </Switch>
+        </Suspense>
+      </>
+    );
+  }
+
+  if (isApp) {
+    return (
+      <>
+        <ScrollToTop />
+        <Suspense fallback={<PageSpinner />}>
+          <Switch>
+            <Route path="/app/sign-in/*?" component={AppSignIn} />
+            <Route path="/app/sign-up/*?" component={AppSignUp} />
+            <Route path="/app/*?"         component={AppPortal} />
           </Switch>
         </Suspense>
       </>
@@ -148,17 +170,44 @@ function Router() {
   );
 }
 
-const GOOGLE_CLIENT_ID = (import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined) ?? "";
+const GOOGLE_CLIENT_ID  = (import.meta.env.VITE_GOOGLE_CLIENT_ID  as string | undefined) ?? "";
+const CLERK_PUB_KEY     = (import.meta.env.VITE_CLERK_PUBLISHABLE_KEY as string | undefined) ?? "";
+const CLERK_PROXY_URL   = (import.meta.env.VITE_CLERK_PROXY_URL   as string | undefined) ?? undefined;
+const basePath          = import.meta.env.BASE_URL.replace(/\/$/, "");
+
+function stripBase(path: string): string {
+  return basePath && path.startsWith(basePath)
+    ? path.slice(basePath.length) || "/"
+    : path;
+}
+
+function ClerkProviderWithRouter({ children }: { children: React.ReactNode }) {
+  const [, setLocation] = useLocation();
+  return (
+    <ClerkProvider
+      publishableKey={CLERK_PUB_KEY}
+      proxyUrl={CLERK_PROXY_URL}
+      signInUrl={`${basePath}/app/sign-in`}
+      signUpUrl={`${basePath}/app/sign-up`}
+      routerPush={(to) => setLocation(stripBase(to))}
+      routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
+    >
+      {children}
+    </ClerkProvider>
+  );
+}
 
 function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-            <InternalAuthProvider>
-              <Router />
-            </InternalAuthProvider>
+          <WouterRouter base={basePath}>
+            <ClerkProviderWithRouter>
+              <InternalAuthProvider>
+                <Router />
+              </InternalAuthProvider>
+            </ClerkProviderWithRouter>
           </WouterRouter>
           <Toaster />
         </TooltipProvider>

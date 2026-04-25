@@ -4,6 +4,7 @@ import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, r
 import { CSS as DndCSS } from "@dnd-kit/utilities";
 import { useLocation, useParams, useSearch } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
+import { useDocuFillConfig } from "@/hooks/useDocuFillConfig";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -550,7 +551,10 @@ export default function DocuFill() {
   const publicSessionToken = params.token ?? null;
   const sessionToken = publicSessionToken ?? new URLSearchParams(search).get("session");
   const isPublicSession = Boolean(publicSessionToken);
-  const { getAuthHeaders } = useInternalAuth();
+  const { getAuthHeaders: defaultGetAuthHeaders } = useInternalAuth();
+  const docufillConfig = useDocuFillConfig();
+  const getAuthHeaders = docufillConfig?.getAuthHeaders ?? defaultGetAuthHeaders;
+  const docufillApiPath = docufillConfig?.apiPath ?? "/api/internal/docufill";
   const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv">(sessionToken ? "interview" : "packages");
   const [builderStep, setBuilderStep] = useState<BuilderStep>("documents");
   const [custodians, setCustodians] = useState<Entity[]>([]);
@@ -712,7 +716,7 @@ export default function DocuFill() {
     return visibleInterviewFields.filter((field) => fieldIsRequired(field) && !interviewFieldValue(field, answers, session.prefill).trim()).map((field) => field.name ?? field.id);
   }, [session, visibleInterviewFields, answers]);
   const answeredFieldCount = visibleInterviewFields.filter((field) => field.interviewMode !== "readonly" && interviewFieldValue(field, answers, session?.prefill).trim()).length;
-  const sessionBasePath = isPublicSession ? "/api/docufill/public/sessions" : "/api/internal/docufill/sessions";
+  const sessionBasePath = isPublicSession ? "/api/docufill/public/sessions" : `${docufillApiPath}/sessions`;
   const csvBatchFieldMap = useMemo<Map<string, FieldItem>>(() => {
     if (!csvBatchPackageId) return new Map();
     const pkg = packages.find((p) => String(p.id) === csvBatchPackageId);
@@ -771,7 +775,7 @@ export default function DocuFill() {
   async function loadBootstrap() {
     try {
       setError(null);
-      const res = await fetch(`${API_BASE}/api/internal/docufill/bootstrap`, { headers: { ...getAuthHeaders() } });
+      const res = await fetch(`${API_BASE}${docufillApiPath}/bootstrap`, { headers: { ...getAuthHeaders() } });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not load DocuFill data");
       const loadedPackages = normalizePackages(data.packages ?? []);
@@ -831,7 +835,7 @@ export default function DocuFill() {
       setDocumentPreviewUrl(cachedUrl);
       return;
     }
-    const url = `${API_BASE}/api/internal/docufill/packages/${selectedPackage.id}/documents/${selectedDocument.id}.pdf`;
+    const url = `${API_BASE}${docufillApiPath}/packages/${selectedPackage.id}/documents/${selectedDocument.id}.pdf`;
     fetch(url, { headers: { ...getAuthHeaders() } })
       .then((res) => {
         if (!res.ok) throw new Error("Could not load PDF preview");
@@ -1050,7 +1054,7 @@ export default function DocuFill() {
     setIsSaving(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/packages/${pkg.id}`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${pkg.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -1089,7 +1093,7 @@ export default function DocuFill() {
     setIsSaving(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/packages`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/packages`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -1125,7 +1129,7 @@ export default function DocuFill() {
     setIsDeletingPackage(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/packages/${pkg.id}`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${pkg.id}`, {
         method: "DELETE",
         headers: { ...getAuthHeaders() },
       });
@@ -1158,7 +1162,7 @@ export default function DocuFill() {
     const count = type === "custodians" ? custodians.length + 1 : depositories.length + 1;
     const label = type === "custodians" ? `New Custodian ${count}` : `New Depository ${count}`;
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/${type}`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/${type}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ name: label, active: true }),
@@ -1180,7 +1184,7 @@ export default function DocuFill() {
 
   async function saveEntity(type: "custodians" | "depositories", item: Entity): Promise<string | null> {
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/${type}/${item.id}`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/${type}/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -1205,7 +1209,7 @@ export default function DocuFill() {
   async function createTransactionType(): Promise<string | null> {
     const label = `New transaction type ${transactionTypes.length + 1}`;
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/transaction-types`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/transaction-types`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ label, active: true, sortOrder: (transactionTypes.length + 1) * 10 }),
@@ -1225,7 +1229,7 @@ export default function DocuFill() {
 
   async function saveTransactionType(item: TransactionType): Promise<string | null> {
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/transaction-types/${item.scope}`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/transaction-types/${item.scope}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -1247,7 +1251,7 @@ export default function DocuFill() {
   async function createFieldLibraryItem(): Promise<string | null> {
     const label = `Reusable field ${fieldLibrary.length + 1}`;
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/field-library`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ label, category: "General", type: "text", source: "interview", active: true, sortOrder: (fieldLibrary.length + 1) * 10 }),
@@ -1267,7 +1271,7 @@ export default function DocuFill() {
 
   async function saveFieldLibraryItem(item: FieldLibraryItem): Promise<string | null> {
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/field-library/${item.id}`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(item),
@@ -1389,8 +1393,8 @@ export default function DocuFill() {
   async function persistDocumentPdf(file: File, documentId?: string) {
     if (!selectedPackage) return null;
     const endpoint = documentId
-      ? `${API_BASE}/api/internal/docufill/packages/${selectedPackage.id}/documents/${documentId}/pdf`
-      : `${API_BASE}/api/internal/docufill/packages/${selectedPackage.id}/documents`;
+      ? `${API_BASE}${docufillApiPath}/packages/${selectedPackage.id}/documents/${documentId}/pdf`
+      : `${API_BASE}${docufillApiPath}/packages/${selectedPackage.id}/documents`;
     const res = await fetch(endpoint, {
       method: documentId ? "PUT" : "POST",
       headers: {
@@ -1459,7 +1463,7 @@ export default function DocuFill() {
       setIsSaving(true);
       setError(null);
       try {
-        const res = await fetch(`${API_BASE}/api/internal/docufill/packages/${selectedPackage.id}/documents/${docId}`, {
+        const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${selectedPackage.id}/documents/${docId}`, {
           method: "DELETE",
           headers: { ...getAuthHeaders() },
         });
@@ -1966,7 +1970,7 @@ export default function DocuFill() {
     setIsSaving(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/sessions`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -1997,7 +2001,7 @@ export default function DocuFill() {
     setIsSaving(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/sessions`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -2030,7 +2034,7 @@ export default function DocuFill() {
       if (customerLinkFirstName.trim()) prefill.firstName = customerLinkFirstName.trim();
       if (customerLinkLastName.trim()) prefill.lastName = customerLinkLastName.trim();
       if (customerLinkEmail.trim()) prefill.email = customerLinkEmail.trim();
-      const res = await fetch(`${API_BASE}/api/internal/docufill/sessions`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -2118,7 +2122,7 @@ export default function DocuFill() {
     setCsvBatchError(null);
     setCsvBatchResults(csvBatchRows.map((_, i) => ({ rowIndex: i, token: null, status: "processing" as const })));
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/csv-batch`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/csv-batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ packageId: pkgId, rows: csvBatchRows }),
@@ -2417,6 +2421,7 @@ export default function DocuFill() {
                                       order={index + 1}
                                       selected={selectedDocument?.id === doc.id}
                                       getAuthHeaders={getAuthHeaders}
+                                      docufillApiPath={docufillApiPath}
                                       previewCache={documentPreviewCache}
                                       previewCacheOrder={documentPreviewCacheOrder}
                                       onSelect={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }}
@@ -2827,6 +2832,7 @@ export default function DocuFill() {
                               order={index + 1}
                               selected={selectedDocument?.id === doc.id}
                               getAuthHeaders={getAuthHeaders}
+                              docufillApiPath={docufillApiPath}
                               previewCache={documentPreviewCache}
                               previewCacheOrder={documentPreviewCacheOrder}
                               onSelect={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }}
@@ -4472,6 +4478,7 @@ function DocumentPreviewTile({
   order,
   selected,
   getAuthHeaders,
+  docufillApiPath,
   previewCache,
   previewCacheOrder,
   onSelect,
@@ -4482,6 +4489,7 @@ function DocumentPreviewTile({
   order: number;
   selected: boolean;
   getAuthHeaders: () => HeadersInit;
+  docufillApiPath: string;
   previewCache: { current: Record<string, string> };
   previewCacheOrder: { current: string[] };
   onSelect: () => void;
@@ -4501,7 +4509,7 @@ function DocumentPreviewTile({
       setPreviewUrl(cachedUrl);
       return;
     }
-    fetch(`${API_BASE}/api/internal/docufill/packages/${packageId}/documents/${doc.id}.pdf`, { headers: { ...getAuthHeaders() } })
+    fetch(`${API_BASE}${docufillApiPath}/packages/${packageId}/documents/${doc.id}.pdf`, { headers: { ...getAuthHeaders() } })
       .then((res) => {
         if (!res.ok) throw new Error("Could not load document preview");
         return res.blob();

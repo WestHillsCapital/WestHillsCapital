@@ -75,7 +75,7 @@ export default defineConfig({
   base: basePath,
   plugins: [
     react(),
-    tailwindcss(),
+    tailwindcss({ optimize: false }),
     runtimeErrorOverlay(),
     sitemapPlugin(),
     ...(process.env.NODE_ENV !== "production" &&
@@ -97,7 +97,7 @@ export default defineConfig({
       "@": path.resolve(import.meta.dirname, "src"),
       "@assets": path.resolve(import.meta.dirname, "..", "..", "attached_assets"),
     },
-    dedupe: ["react", "react-dom"],
+    dedupe: ["react", "react-dom", "@clerk/react", "@clerk/shared"],
   },
   define: {
     "import.meta.env.VITE_API_URL": JSON.stringify(apiUrl),

@@ -11,7 +11,9 @@ import dealsRouter         from "./deals";
 import fedexRouter         from "./fedex";
 import docufillRouter, { publicDocufillRouter } from "./docufill";
 import contentRouter, { publicContentRouter } from "./content";
+import productAuthRouter   from "./product-auth";
 import { requireInternalAuth } from "../middleware/requireInternalAuth";
+import { requireProductAuth } from "../middleware/requireProductAuth";
 
 const router: IRouter = Router();
 
@@ -39,7 +41,14 @@ router.use("/deals", requireInternalAuth, dealsRouter);
 // ── FedEx location search (internal tool) ─────────────────────────────────────
 router.use("/fedex", requireInternalAuth, fedexRouter);
 
+// ── DocuFill: WHC internal (session token) ────────────────────────────────────
 router.use("/internal/docufill", requireInternalAuth, docufillRouter);
+
+// ── DocuFill: product/SaaS (Clerk JWT) ────────────────────────────────────────
+router.use("/product/docufill", requireProductAuth, docufillRouter);
+
+// ── Product auth (Clerk-based onboard + me) ────────────────────────────────────
+router.use("/product/auth", productAuthRouter);
 
 // ── Content engine (internal tool — also require auth) ────────────────────────
 router.use("/internal/content", requireInternalAuth, contentRouter);
