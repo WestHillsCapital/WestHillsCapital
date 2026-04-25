@@ -43,6 +43,7 @@ const InternalScheduledCalls      = lazy(() => import("@/pages/internal/Appointm
 const DealBuilder                 = lazy(() => import("@/pages/internal/DealBuilder"));
 const ContentEngine               = lazy(() => import("@/pages/internal/ContentEngine"));
 const DocuFill                    = lazy(() => import("@/pages/internal/DocuFill"));
+const DocuFillCustomer            = lazy(() => import("@/pages/DocuFillCustomer"));
 
 // ── Shared fallback spinner ───────────────────────────────────────────────────
 function PageSpinner() {
@@ -98,6 +99,7 @@ function InternalRouter() {
 function Router() {
   const [location] = useLocation();
   const isInternal = location.startsWith("/internal");
+  const isCustomerForm = location.startsWith("/docufill/public/");
 
   if (isInternal) {
     return (
@@ -105,6 +107,19 @@ function Router() {
         <ScrollToTop />
         <Suspense fallback={<PageSpinner />}>
           <InternalRouter />
+        </Suspense>
+      </>
+    );
+  }
+
+  if (isCustomerForm) {
+    return (
+      <>
+        <ScrollToTop />
+        <Suspense fallback={<PageSpinner />}>
+          <Switch>
+            <Route path="/docufill/public/:token" component={DocuFillCustomer} />
+          </Switch>
         </Suspense>
       </>
     );
@@ -126,7 +141,6 @@ function Router() {
           <Route path="/insights"        component={Insights}       />
           <Route path="/insights/:slug"  component={InsightArticle} />
           <Route path="/faq"             component={FAQ}            />
-          <Route path="/docufill/public/:token" component={DocuFill} />
           <Route component={NotFound} />
         </Switch>
       </Suspense>

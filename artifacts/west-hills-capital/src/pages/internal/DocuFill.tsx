@@ -179,6 +179,7 @@ type PackageItem = {
   recipients: RecipientItem[];
   enable_interview: boolean;
   enable_csv: boolean;
+  enable_customer_link: boolean;
 };
 
 type Session = {
@@ -468,6 +469,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     recipients: Array.isArray(pkg.recipients) ? pkg.recipients : [],
     enable_interview: pkg.enable_interview !== false,
     enable_csv: pkg.enable_csv !== false,
+    enable_customer_link: pkg.enable_customer_link === true,
   }));
 }
 
@@ -558,6 +560,13 @@ export default function DocuFill() {
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
   const [standalonePackageId, setStandalonePackageId] = useState("");
+  const [customerLinkPackageId, setCustomerLinkPackageId] = useState("");
+  const [customerLinkFirstName, setCustomerLinkFirstName] = useState("");
+  const [customerLinkLastName, setCustomerLinkLastName] = useState("");
+  const [customerLinkEmail, setCustomerLinkEmail] = useState("");
+  const [generatedCustomerLink, setGeneratedCustomerLink] = useState<string | null>(null);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const [newPackageName, setNewPackageName] = useState("");
   const [newPackageCustodianId, setNewPackageCustodianId] = useState("");
   const [newPackageDepositoryId, setNewPackageDepositoryId] = useState("");
@@ -1057,6 +1066,7 @@ export default function DocuFill() {
           recipients: pkg.recipients ?? [],
           enableInterview: pkg.enable_interview,
           enableCsv: pkg.enable_csv,
+          enableCustomerLink: pkg.enable_customer_link,
         }),
       });
       const data = await res.json();
@@ -2008,6 +2018,47 @@ export default function DocuFill() {
     }
   }
 
+  async function generateCustomerLink() {
+    const packageId = Number(customerLinkPackageId);
+    if (!packageId) { setError("Select a package first."); return; }
+    setIsGeneratingLink(true);
+    setGeneratedCustomerLink(null);
+    setLinkCopied(false);
+    setError(null);
+    try {
+      const prefill: Record<string, string> = {};
+      if (customerLinkFirstName.trim()) prefill.firstName = customerLinkFirstName.trim();
+      if (customerLinkLastName.trim()) prefill.lastName = customerLinkLastName.trim();
+      if (customerLinkEmail.trim()) prefill.email = customerLinkEmail.trim();
+      const res = await fetch(`${API_BASE}/api/internal/docufill/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          packageId,
+          transactionScope: packages.find((p) => p.id === packageId)?.transaction_scope,
+          source: "customer_link",
+          prefill,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not generate customer link");
+      const link = `${window.location.origin}/docufill/public/${data.token}`;
+      setGeneratedCustomerLink(link);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not generate customer link");
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  }
+
+  function copyCustomerLink() {
+    if (!generatedCustomerLink) return;
+    navigator.clipboard.writeText(generatedCustomerLink).then(() => {
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 2500);
+    });
+  }
+
   function handleDownloadInterviewCsv() {
     if (!session) return;
     const date = new Date().toISOString().slice(0, 10);
@@ -2615,15 +2666,21 @@ export default function DocuFill() {
                             </div>
                             <p className="text-xs text-[#6B7A99]">Automatically push the completed packet to a connected Google Drive folder after submission.</p>
                           </div>
-                          {/* Customer Link — coming soon */}
-                          <div className="rounded-lg border border-dashed border-[#D4C9B5] bg-[#F8F6F0] p-3 opacity-60">
+                          {/* Customer Link — toggleable */}
+                          <button
+                            type="button"
+                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, enable_customer_link: !pkg.enable_customer_link }))}
+                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.enable_customer_link ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
+                          >
                             <div className="flex items-center gap-2 mb-1.5">
-                              <svg className="w-4 h-4 text-[#8A9BB8] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>
-                              <span className="text-sm font-semibold text-[#6B7A99]">Customer Link</span>
-                              <span className="ml-auto text-[10px] bg-[#F8F6F0] text-[#8A9BB8] border border-[#EFE8D8] rounded px-1.5 py-0.5 shrink-0">Coming soon</span>
+                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.enable_customer_link ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>
+                              <span className={`text-sm font-semibold ${selectedPackage.enable_customer_link ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Customer Link</span>
+                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.enable_customer_link ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
+                                {selectedPackage.enable_customer_link ? "Enabled" : "Off"}
+                              </span>
                             </div>
-                            <p className="text-xs text-[#8A9BB8]">Send a shareable form link directly to the customer to fill out on their own device.</p>
-                          </div>
+                            <p className="text-xs text-[#6B7A99]">Send a time-limited, branded link directly to the customer. They fill it out on their own device — no login needed.</p>
+                          </button>
                         </div>
                       </div>
 
@@ -3053,11 +3110,49 @@ export default function DocuFill() {
                   <div className="flex flex-col sm:flex-row gap-2">
                     <select value={standalonePackageId} onChange={(e) => setStandalonePackageId(e.target.value)} className="flex-1 border border-[#D4C9B5] rounded px-3 py-2 text-sm bg-white">
                       <option value="">Select active package</option>
-                      {activePackages.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name} · {labelForTransactionScope(pkg.transaction_scope)}</option>)}
+                      {activePackages.filter((p) => p.enable_interview).map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name} · {labelForTransactionScope(pkg.transaction_scope)}</option>)}
                     </select>
                     <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Launching…" : "Start Interview"}</Button>
                   </div>
                 </div>
+
+                {/* Generate Customer Link */}
+                {activePackages.some((p) => p.enable_customer_link) && (
+                  <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] p-4 space-y-3">
+                    <div>
+                      <h2 className="text-sm font-semibold">Generate a Customer Link</h2>
+                      <p className="text-xs text-[#8A9BB8] mt-0.5">Create a secure, time-limited link to send directly to a customer. They fill out the form on their own device — no login required.</p>
+                    </div>
+                    <div className="grid sm:grid-cols-3 gap-2">
+                      <select value={customerLinkPackageId} onChange={(e) => { setCustomerLinkPackageId(e.target.value); setGeneratedCustomerLink(null); }} className="border border-[#D4C9B5] rounded px-3 py-2 text-sm bg-white sm:col-span-3">
+                        <option value="">Select package</option>
+                        {activePackages.filter((p) => p.enable_customer_link).map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name} · {labelForTransactionScope(pkg.transaction_scope)}</option>)}
+                      </select>
+                      <Input placeholder="First name (optional)" value={customerLinkFirstName} onChange={(e) => setCustomerLinkFirstName(e.target.value)} className="text-sm" />
+                      <Input placeholder="Last name (optional)" value={customerLinkLastName} onChange={(e) => setCustomerLinkLastName(e.target.value)} className="text-sm" />
+                      <Input placeholder="Email (optional)" value={customerLinkEmail} onChange={(e) => setCustomerLinkEmail(e.target.value)} className="text-sm" />
+                    </div>
+                    <Button onClick={generateCustomerLink} disabled={!customerLinkPackageId || isGeneratingLink} className="bg-[#0F1C3F] hover:bg-[#182B5F]">
+                      {isGeneratingLink ? "Generating…" : "Generate Link"}
+                    </Button>
+                    {generatedCustomerLink && (
+                      <div className="rounded border border-green-200 bg-green-50 p-3 space-y-2">
+                        <div className="text-xs font-semibold text-green-800">Link ready — copy and send to your customer</div>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 text-xs bg-white border border-green-200 rounded px-2 py-1.5 text-[#0F1C3F] break-all">{generatedCustomerLink}</code>
+                          <button
+                            type="button"
+                            onClick={copyCustomerLink}
+                            className="shrink-0 text-xs border border-green-300 bg-white text-green-800 rounded px-3 py-1.5 hover:bg-green-100 transition-colors"
+                          >
+                            {linkCopied ? "Copied ✓" : "Copy"}
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-green-700">This link expires in 90 days. When the customer submits, you'll receive the completed packet.</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )
           ) : (
