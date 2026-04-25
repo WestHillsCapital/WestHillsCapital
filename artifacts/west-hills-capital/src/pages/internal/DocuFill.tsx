@@ -2408,7 +2408,7 @@ export default function DocuFill() {
                     {/* ── Interview order + live preview ── */}
                     <div className="grid lg:grid-cols-2 gap-4">
                       {/* Left: drag-to-reorder */}
-                      <div className="rounded-lg border border-[#DDD5C4] bg-white p-4 flex flex-col gap-3">
+                      <div className="rounded-lg border border-[#DDD5C4] bg-white p-4 flex flex-col gap-3 overflow-y-auto max-h-[520px]">
                         <div className="flex items-center justify-between">
                           <h2 className="text-sm font-semibold">Interview order</h2>
                           {packageInterviewFields.length > 1 && (
@@ -2480,7 +2480,7 @@ export default function DocuFill() {
                       </div>
 
                       {/* Right: live preview */}
-                      <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4 flex flex-col gap-3">
+                      <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4 flex flex-col gap-3 overflow-y-auto max-h-[520px]">
                         <div>
                           <h2 className="text-sm font-semibold">Interview preview</h2>
                           <p className="text-xs text-[#8A9BB8] mt-0.5">How this will appear to staff during an interview. Updates as you reorder.</p>
@@ -2488,7 +2488,7 @@ export default function DocuFill() {
                         {packageInterviewFields.length === 0 ? (
                           <p className="text-xs text-[#8A9BB8] italic">No questions to preview yet.</p>
                         ) : (
-                          <div className="space-y-2 overflow-y-auto" style={{ maxHeight: 420 }}>
+                          <div className="space-y-2">
                             {packageInterviewFields.map((field, index) => {
                               const mode = field.interviewMode ?? "optional";
                               return (
