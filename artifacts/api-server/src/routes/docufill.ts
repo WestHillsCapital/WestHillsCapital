@@ -138,6 +138,7 @@ function cleanText(value: unknown): string {
 
 function normalizeTransactionScope(value: unknown): string {
   const text = cleanText(value);
+  if (!text) return "";
   if (TRANSACTION_SCOPES.has(text)) return text;
   const lower = text.toLowerCase();
   if (lower.includes("contribution")) return "ira_contribution";
@@ -150,7 +151,7 @@ function normalizeTransactionScope(value: unknown): string {
   if (lower.includes("address")) return "address_change";
   if (lower.includes("transfer") || lower.includes("rollover") || lower.includes("ira")) return "ira_transfer";
   if (/^[a-z0-9_]{2,48}$/.test(text)) return text;
-  return "ira_transfer";
+  return "";
 }
 
 function transactionScopeFromLabel(value: unknown): string {
@@ -1314,7 +1315,7 @@ router.post("/csv-batch", async (req, res) => {
     }
     const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID ?? null;
     const packageName = String(pkg.name ?? "DocuFill");
-    const transactionScope = String(pkg.transaction_scope ?? "ira_transfer");
+    const transactionScope = pkg.transaction_scope ?? "";
     const packageVersion = Number(pkg.version ?? 1);
     type BatchResult = { rowIndex: number; token: string | null; status: "generated" | "error"; pdfUrl?: string; error?: string };
     const results: BatchResult[] = [];

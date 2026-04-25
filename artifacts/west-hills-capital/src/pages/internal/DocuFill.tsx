@@ -28,19 +28,21 @@ const DOCUFILL_TRANSACTION_TYPES = [
 ] as const;
 
 function transactionScopeLabel(scope: string | null | undefined) {
-  return DOCUFILL_TRANSACTION_TYPES.find((item) => item.value === scope)?.label ?? "IRA transfer / rollover";
+  if (!scope) return "";
+  return DOCUFILL_TRANSACTION_TYPES.find((item) => item.value === scope)?.label ?? scope;
 }
 
 function normalizeTransactionScope(scope: string | null | undefined) {
+  if (!scope) return "";
   if (DOCUFILL_TRANSACTION_TYPES.some((item) => item.value === scope)) return scope as string;
-  const text = String(scope ?? "").toLowerCase();
+  const text = scope.toLowerCase();
   if (text.includes("contribution")) return "ira_contribution";
   if (text.includes("distribution")) return "ira_distribution";
   if (text.includes("cash")) return "cash_purchase";
   if (text.includes("storage")) return "storage_change";
   if (text.includes("beneficiary")) return "beneficiary_update";
-  if (/^[a-z0-9_]{2,48}$/.test(String(scope ?? ""))) return String(scope);
-  return "ira_transfer";
+  if (/^[a-z0-9_]{2,48}$/.test(scope)) return scope;
+  return "";
 }
 
 type Entity = {
@@ -1198,7 +1200,7 @@ export default function DocuFill() {
           name: trimmedName,
           custodianId: newPackageCustodianId ? Number(newPackageCustodianId) : null,
           depositoryId: newPackageDepositoryId ? Number(newPackageDepositoryId) : null,
-          transactionScope: "ira_transfer",
+          transactionScope: "",
           status: "draft",
           documents: [],
           fields: [],
@@ -2383,8 +2385,9 @@ export default function DocuFill() {
                         </label>
                       </div>
                       <label className="mt-4 block text-sm">
-                        <span className="block text-xs text-[#6B7A99] mb-1">Transaction type</span>
-                        <select value={selectedPackage.transaction_scope} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
+                        <span className="block text-xs text-[#6B7A99] mb-1">Transaction type <span className="text-[#8A9BB8] font-normal">(optional)</span></span>
+                        <select value={selectedPackage.transaction_scope ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
+                          <option value="">Not specified</option>
                           {transactionTypes.filter((item) => item.active || item.scope === selectedPackage.transaction_scope).map((item) => <option key={item.scope} value={item.scope}>{item.label}</option>)}
                         </select>
                       </label>
@@ -3314,7 +3317,9 @@ export default function DocuFill() {
             <div className="space-y-5">
               <div>
                 <h2 className="text-xl font-semibold">{session.package_name}</h2>
-                <p className="text-sm text-[#6B7A99]">{session.custodian_name ?? "No custodian"} · {session.depository_name ?? "No depository"} · {labelForTransactionScope(session.transaction_scope)}</p>
+                <p className="text-sm text-[#6B7A99]">
+                  {[session.custodian_name, session.depository_name, labelForTransactionScope(session.transaction_scope)].filter(Boolean).join(" · ") || "No additional info"}
+                </p>
                 <p className="text-xs text-[#8A9BB8] mt-1">{answeredFieldCount} of {visibleInterviewFields.length} interview fields answered. Your progress is saved when you click Save Interview.</p>
               </div>
               {missingRequiredFields.length > 0 && (
@@ -3468,7 +3473,7 @@ export default function DocuFill() {
               >
                 <option value="">Select active package</option>
                 {activePackages.map((pkg) => (
-                  <option key={pkg.id} value={pkg.id}>{pkg.name} · {labelForTransactionScope(pkg.transaction_scope)}</option>
+                  <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>
                 ))}
               </select>
             </div>
