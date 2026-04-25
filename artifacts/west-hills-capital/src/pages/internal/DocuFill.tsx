@@ -622,6 +622,44 @@ export default function DocuFill() {
     document.addEventListener("mouseup", onUp);
     fieldEditorDragCleanupRef.current = cleanup;
   }, [fieldEditorPos.x, fieldEditorPos.y]);
+
+  const handleFieldEditorTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length !== 1) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    fieldEditorDragRef.current = { startX: touch.clientX, startY: touch.clientY, startPosX: fieldEditorPos.x, startPosY: fieldEditorPos.y };
+    setFieldEditorIsDragging(true);
+    const onMove = (ev: TouchEvent) => {
+      if (!fieldEditorDragRef.current || ev.touches.length !== 1) return;
+      const t = ev.touches[0];
+      const dx = t.clientX - fieldEditorDragRef.current.startX;
+      const dy = t.clientY - fieldEditorDragRef.current.startY;
+      const newX = fieldEditorDragRef.current.startPosX + dx;
+      const newY = fieldEditorDragRef.current.startPosY + dy;
+      const panel = fieldEditorPanelRef.current;
+      if (panel) {
+        const { width, height } = panel.getBoundingClientRect();
+        const maxX = (window.innerWidth - width) / 2;
+        const maxY = (window.innerHeight - height) / 2;
+        setFieldEditorPos({ x: Math.max(-maxX, Math.min(maxX, newX)), y: Math.max(-maxY, Math.min(maxY, newY)) });
+      } else {
+        setFieldEditorPos({ x: newX, y: newY });
+      }
+    };
+    const cleanup = () => {
+      fieldEditorDragRef.current = null;
+      setFieldEditorIsDragging(false);
+      document.removeEventListener("touchmove", onMove);
+      document.removeEventListener("touchend", onEnd);
+      document.removeEventListener("touchcancel", onEnd);
+      fieldEditorDragCleanupRef.current = null;
+    };
+    const onEnd = cleanup;
+    document.addEventListener("touchmove", onMove, { passive: false });
+    document.addEventListener("touchend", onEnd);
+    document.addEventListener("touchcancel", onEnd);
+    fieldEditorDragCleanupRef.current = cleanup;
+  }, [fieldEditorPos.x, fieldEditorPos.y]);
   const [fieldEditorDraft, setFieldEditorDraft] = useState<{
     name: string; color: string; type: FieldItem["type"]; options: string[];
     interviewMode: FieldInterviewMode; hasDefault: boolean; defaultValue: string;
@@ -4402,9 +4440,10 @@ export default function DocuFill() {
               className="flex items-center justify-between px-5 py-4 border-b border-[#DDD5C4] select-none"
               style={{ cursor: fieldEditorIsDragging ? "grabbing" : "grab" }}
               onMouseDown={handleFieldEditorDragStart}
+              onTouchStart={handleFieldEditorTouchStart}
             >
               <h2 className="text-sm font-semibold">{fieldEditorModal.mode === "add" ? "New Field" : "Edit Field"}</h2>
-              <button type="button" onClick={() => setFieldEditorModal(null)} onMouseDown={(e) => e.stopPropagation()} className="text-[#8A9BB8] hover:text-[#0F1C3F]">
+              <button type="button" onClick={() => setFieldEditorModal(null)} onMouseDown={(e) => e.stopPropagation()} onTouchStart={(e) => e.stopPropagation()} className="text-[#8A9BB8] hover:text-[#0F1C3F]">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
