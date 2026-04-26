@@ -134,6 +134,10 @@ export default defineConfig({
           }
           // Google OAuth
           if (id.includes("node_modules/@react-oauth")) return "vendor-auth";
+          // PDF rendering — heavy, only needed in DocuFill
+          if (id.includes("node_modules/pdfjs-dist")) return "vendor-pdfjs";
+          // Drag-and-drop — only needed in DocuFill
+          if (id.includes("node_modules/@dnd-kit")) return "vendor-dnd";
         },
       },
     },
