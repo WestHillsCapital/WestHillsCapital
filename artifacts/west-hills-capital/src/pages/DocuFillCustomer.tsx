@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { validateFieldValue } from "@/lib/validateField";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SESSION_BASE = `${API_BASE}/api/docufill/public/sessions`;
@@ -18,6 +19,7 @@ type FieldItem = {
   sensitive?: boolean;
   defaultValue?: string;
   validationType?: string;
+  validationPattern?: string;
   validationMessage?: string;
 };
 
@@ -64,6 +66,7 @@ export default function DocuFillCustomer() {
   const [pageStatus, setPageStatus] = useState<"loading" | "ready" | "expired" | "submitting" | "generated" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [missingFields, setMissingFields] = useState<string[]>([]);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -110,18 +113,40 @@ export default function DocuFillCustomer() {
     setMissingFields((prev) => prev.filter((n) => n !== fieldId));
   }
 
+  function handleFieldBlur(field: FieldItem, value: string) {
+    const error = validateFieldValue(field, value);
+    setFieldErrors((prev) => {
+      if (!error) {
+        if (!prev[field.id]) return prev;
+        const next = { ...prev };
+        delete next[field.id];
+        return next;
+      }
+      if (prev[field.id] === error) return prev;
+      return { ...prev, [field.id]: error };
+    });
+  }
+
   const visibleFields = (session?.fields ?? []).filter(
     (f) => f.interviewMode !== "omitted",
   );
 
   function validate(): boolean {
     if (!session) return false;
-    const missing = visibleFields
-      .filter((f) => fieldIsRequired(f) && f.interviewMode !== "readonly")
-      .filter((f) => !currentValue(f, answers, session.prefill).trim())
-      .map((f) => f.id);
+    const newErrors: Record<string, string> = {};
+    const missing: string[] = [];
+    for (const f of visibleFields) {
+      if (f.interviewMode === "readonly") continue;
+      const val = currentValue(f, answers, session.prefill);
+      const error = validateFieldValue(f, val);
+      if (error) {
+        newErrors[f.id] = error;
+        if (fieldIsRequired(f) && !val.trim()) missing.push(f.id);
+      }
+    }
+    setFieldErrors(newErrors);
     setMissingFields(missing);
-    return missing.length === 0;
+    return Object.keys(newErrors).length === 0;
   }
 
   async function handleSubmit() {
@@ -168,7 +193,6 @@ export default function DocuFillCustomer() {
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      /* silent — browser will try to open directly */
       window.open(downloadUrl, "_blank");
     } finally {
       setIsDownloading(false);
@@ -229,6 +253,7 @@ export default function DocuFillCustomer() {
 
   const requiredCount = visibleFields.filter((f) => fieldIsRequired(f) && f.interviewMode !== "readonly").length;
   const answeredCount = visibleFields.filter((f) => fieldIsRequired(f) && f.interviewMode !== "readonly" && currentValue(f, answers, session!.prefill).trim()).length;
+  const hasErrors = Object.keys(fieldErrors).length > 0;
 
   return (
     <div className="min-h-screen bg-[#F8F6F0]">
@@ -303,12 +328,16 @@ export default function DocuFillCustomer() {
             const isReadonly = field.interviewMode === "readonly";
             const isRequired = fieldIsRequired(field);
             const isMissing = missingFields.includes(field.id);
+            const fieldError = fieldErrors[field.id];
+            const hasFieldError = Boolean(fieldError);
 
             return (
               <div
                 key={field.id}
                 id={`field-${field.id}`}
-                className={`bg-white rounded-lg border p-4 transition-colors ${isMissing ? "border-amber-400" : "border-[#DDD5C4]"}`}
+                className={`bg-white rounded-lg border p-4 transition-colors ${
+                  hasFieldError ? "border-red-400" : isMissing ? "border-amber-400" : "border-[#DDD5C4]"
+                }`}
               >
                 <div className="flex items-baseline justify-between gap-2 mb-2">
                   <label className="text-sm font-medium text-[#0F1C3F]" htmlFor={`input-${field.id}`}>
@@ -332,7 +361,10 @@ export default function DocuFillCustomer() {
                     id={`input-${field.id}`}
                     value={val}
                     onChange={(e) => updateAnswer(field.id, e.target.value)}
-                    className={`w-full border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#C49A38]/40 ${isMissing ? "border-amber-400" : "border-[#D4C9B5]"}`}
+                    onBlur={(e) => handleFieldBlur(field, e.target.value)}
+                    className={`w-full border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#C49A38]/40 ${
+                      hasFieldError ? "border-red-400" : isMissing ? "border-amber-400" : "border-[#D4C9B5]"
+                    }`}
                   >
                     <option value="">{isRequired ? "— select —" : "Select…"}</option>
                     {(field.options ?? []).map((opt) => <option key={opt} value={opt}>{opt}</option>)}
@@ -346,14 +378,14 @@ export default function DocuFillCustomer() {
                           name={field.id}
                           value={opt}
                           checked={val === opt}
-                          onChange={() => updateAnswer(field.id, opt)}
+                          onChange={() => { updateAnswer(field.id, opt); handleFieldBlur(field, opt); }}
                           className="w-4 h-4 accent-[#0F1C3F]"
                         />
                         <span className="text-[#0F1C3F]">{opt}</span>
                       </label>
                     ))}
                     {val && (
-                      <button type="button" onClick={() => updateAnswer(field.id, "")} className="text-[11px] text-[#8A9BB8] hover:text-[#334155] mt-1">
+                      <button type="button" onClick={() => { updateAnswer(field.id, ""); handleFieldBlur(field, ""); }} className="text-[11px] text-[#8A9BB8] hover:text-[#334155] mt-1">
                         Clear selection
                       </button>
                     )}
@@ -371,7 +403,9 @@ export default function DocuFillCustomer() {
                               const next = e.target.checked
                                 ? [...selected.filter((v) => v !== opt), opt]
                                 : selected.filter((v) => v !== opt);
-                              updateAnswer(field.id, next.join(", "));
+                              const joined = next.join(", ");
+                              updateAnswer(field.id, joined);
+                              handleFieldBlur(field, joined);
                             }}
                             className="w-4 h-4 accent-[#0F1C3F] rounded"
                           />
@@ -386,9 +420,16 @@ export default function DocuFillCustomer() {
                     type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"}
                     value={val}
                     onChange={(e) => updateAnswer(field.id, e.target.value)}
-                    className={isMissing ? "border-amber-400 focus-visible:ring-amber-300" : ""}
+                    onBlur={(e) => handleFieldBlur(field, e.target.value)}
+                    className={
+                      hasFieldError ? "border-red-400 focus-visible:ring-red-300"
+                      : isMissing ? "border-amber-400 focus-visible:ring-amber-300"
+                      : ""
+                    }
                   />
                 )}
+
+                {fieldError && <p className="mt-1.5 text-xs text-red-600">{fieldError}</p>}
               </div>
             );
           })}
@@ -401,11 +442,14 @@ export default function DocuFillCustomer() {
           </div>
           <Button
             onClick={handleSubmit}
-            disabled={pageStatus === "submitting"}
+            disabled={pageStatus === "submitting" || hasErrors}
             className="w-full bg-[#0F1C3F] hover:bg-[#182B5F] disabled:opacity-60 py-3"
           >
             {pageStatus === "submitting" ? "Submitting…" : "Submit and generate documents"}
           </Button>
+          {hasErrors && (
+            <p className="text-xs text-red-600 text-center">Please fix the errors above before submitting.</p>
+          )}
         </div>
 
         <p className="text-center text-[11px] text-[#8A9BB8] pb-4">

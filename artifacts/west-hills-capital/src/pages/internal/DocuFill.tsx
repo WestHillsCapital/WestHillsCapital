@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getDocuFillPrefillDisplayValue } from "@/lib/docufill-redaction";
 import { sessionToCsv, packageTemplateToCsv, downloadCsv, parseCsvString, batchResultsToCsv } from "@/lib/docufill-csv";
+import { validateFieldValue } from "@/lib/validateField";
 import * as pdfjsLib from "pdfjs-dist";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
@@ -883,6 +884,8 @@ export default function DocuFill() {
     return visibleInterviewFields.filter((field) => fieldIsRequired(field) && !interviewFieldValue(field, answers, session.prefill).trim()).map((field) => field.name ?? field.id);
   }, [session, visibleInterviewFields, answers]);
   const answeredFieldCount = visibleInterviewFields.filter((field) => field.interviewMode !== "readonly" && interviewFieldValue(field, answers, session?.prefill).trim()).length;
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  useEffect(() => { setFieldErrors({}); }, [session?.token]);
   const sessionBasePath = isPublicSession ? "/api/docufill/public/sessions" : `${docufillApiPath}/sessions`;
   const csvBatchFieldMap = useMemo<Map<string, FieldItem>>(() => {
     if (!csvBatchPackageId) return new Map();
@@ -2090,35 +2093,31 @@ export default function DocuFill() {
     window.addEventListener("pointerup", onUp);
   }
 
-  function validateInterviewAnswers(): string | null {
-    if (!session) return null;
-    const activeFields = session.fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly");
-    for (const field of activeFields) {
-      const value = interviewFieldValue(field, answers, session.prefill).trim();
-      const label = field.name ?? field.id;
-      if (fieldIsRequired(field) && !value) return `${label} is required.`;
-      if (!value) continue;
-      const vt = field.validationType ?? "none";
-      if (vt === "name" && !/^[a-z ,.'-]+$/i.test(value)) return field.validationMessage || `${label} must be a valid name.`;
-      if (vt === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return field.validationMessage || `${label} must be a valid email address.`;
-      if (vt === "phone" && value.replace(/\D+/g, "").length < 10) return field.validationMessage || `${label} must be a valid phone number.`;
-      if (vt === "number" && Number.isNaN(Number(value.replace(/,/g, "")))) return field.validationMessage || `${label} must be a number.`;
-      if (vt === "currency" && Number.isNaN(Number(value.replace(/[$,]/g, "")))) return field.validationMessage || `${label} must be a currency amount.`;
-      if (vt === "percent" && (Number.isNaN(Number(value.replace(/%/g, ""))) || Number(value.replace(/%/g, "")) < 0 || Number(value.replace(/%/g, "")) > 100)) return field.validationMessage || `${label} must be a percent between 0 and 100.`;
-      if (vt === "date" && Number.isNaN(new Date(value).getTime())) return field.validationMessage || `${label} must be a valid date.`;
-      if (vt === "time" && !/^([01]?\d|2[0-3]):[0-5]\d(\s?(AM|PM))?$/i.test(value)) return field.validationMessage || `${label} must be a valid time (e.g. 2:30 PM).`;
-      if (vt === "zip" && !/^\d{5}$/.test(value.replace(/\s/g, ""))) return field.validationMessage || `${label} must be a 5-digit ZIP code.`;
-      if (vt === "zip4" && !/^\d{5}-\d{4}$/.test(value.replace(/\s/g, ""))) return field.validationMessage || `${label} must be ZIP+4 format (12345-6789).`;
-      if (vt === "ssn" && !/^\d{3}-?\d{2}-?\d{4}$/.test(value)) return field.validationMessage || `${label} must be a valid SSN format.`;
-      if (vt === "custom" && field.validationPattern) {
-        try {
-          if (!new RegExp(field.validationPattern).test(value)) return field.validationMessage || `${label} is not in the expected format.`;
-        } catch {
-          return `${label} has an invalid validation pattern.`;
-        }
+  function handleInterviewFieldBlur(field: FieldItem, value: string) {
+    const error = validateFieldValue(field, value);
+    setFieldErrors((prev) => {
+      if (!error) {
+        if (!prev[field.id]) return prev;
+        const next = { ...prev };
+        delete next[field.id];
+        return next;
       }
+      if (prev[field.id] === error) return prev;
+      return { ...prev, [field.id]: error };
+    });
+  }
+
+  function validateInterviewAnswers(): boolean {
+    if (!session) return true;
+    const activeFields = session.fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly");
+    const newErrors: Record<string, string> = {};
+    for (const field of activeFields) {
+      const value = interviewFieldValue(field, answers, session.prefill);
+      const error = validateFieldValue(field, value);
+      if (error) newErrors[field.id] = error;
     }
-    return null;
+    setFieldErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   }
 
   async function saveAnswers(nextStatus = "in_progress"): Promise<boolean> {
@@ -2146,9 +2145,9 @@ export default function DocuFill() {
 
   async function generatePacket() {
     if (!session) return;
-    const validationError = validateInterviewAnswers();
-    if (validationError) {
-      setError(validationError);
+    const isValid = validateInterviewAnswers();
+    if (!isValid) {
+      setError("Please fix the highlighted errors before generating the packet.");
       return;
     }
     const saved = await saveAnswers("answered");
@@ -3659,8 +3658,9 @@ export default function DocuFill() {
                   const mode = field.interviewMode ?? (fieldIsRequired(field) ? "required" : "optional");
                   const isReadonly = mode === "readonly";
                   const currentValue = interviewFieldValue(field, answers, session.prefill);
+                  const fieldError = fieldErrors[field.id];
                   return (
-                  <label key={field.id} className={`block border rounded p-3 ${isReadonly ? "opacity-75" : ""}`} style={{ borderColor: field.color }}>
+                  <div key={field.id} className={`block border rounded p-3 ${isReadonly ? "opacity-75" : ""} ${fieldError ? "border-red-400" : ""}`} style={fieldError ? undefined : { borderColor: field.color }}>
                     <span className="flex items-center justify-between gap-2 text-sm font-medium mb-1">
                       <span>{field.name}</span>
                       <span className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${
@@ -3674,7 +3674,13 @@ export default function DocuFill() {
                         {currentValue || <span className="text-[#8A9BB8] italic">—</span>}
                       </div>
                     ) : field.type === "dropdown" ? (
-                      <select data-interview-input value={currentValue} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
+                      <select
+                        data-interview-input
+                        value={currentValue}
+                        onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                        onBlur={(e) => handleInterviewFieldBlur(field, e.target.value)}
+                        className={`w-full border rounded px-3 py-2 ${fieldError ? "border-red-400" : "border-[#D4C9B5]"}`}
+                      >
                         <option value="">{mode === "required" ? "— select —" : "Select"}</option>
                         {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
                       </select>
@@ -3688,13 +3694,13 @@ export default function DocuFill() {
                               name={field.id}
                               value={option}
                               checked={currentValue === option}
-                              onChange={() => setAnswers((prev) => ({ ...prev, [field.id]: option }))}
+                              onChange={() => { setAnswers((prev) => ({ ...prev, [field.id]: option })); handleInterviewFieldBlur(field, option); }}
                             />
                             {option}
                           </label>
                         ))}
                         {currentValue && (
-                          <button type="button" onClick={() => setAnswers((prev) => ({ ...prev, [field.id]: "" }))} className="text-[11px] text-[#8A9BB8] hover:text-[#334155]">Clear selection</button>
+                          <button type="button" onClick={() => { setAnswers((prev) => ({ ...prev, [field.id]: "" })); handleInterviewFieldBlur(field, ""); }} className="text-[11px] text-[#8A9BB8] hover:text-[#334155]">Clear selection</button>
                         )}
                       </div>
                     ) : field.type === "checkbox" ? (
@@ -3709,7 +3715,9 @@ export default function DocuFill() {
                               onChange={(e) => setAnswers((prev) => {
                                 const existing = parseChecked(interviewFieldValue(field, prev, session.prefill));
                                 const updated = e.target.checked ? [...existing.filter((v) => v !== option), option] : existing.filter((v) => v !== option);
-                                return { ...prev, [field.id]: updated.join(", ") };
+                                const next = { ...prev, [field.id]: updated.join(", ") };
+                                handleInterviewFieldBlur(field, next[field.id]);
+                                return next;
                               })}
                             />
                             {option}
@@ -3717,9 +3725,17 @@ export default function DocuFill() {
                         );
                       })}</div>
                     ) : (
-                      <Input data-interview-input type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"} value={currentValue} onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))} />
+                      <Input
+                        data-interview-input
+                        type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"}
+                        value={currentValue}
+                        onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                        onBlur={(e) => handleInterviewFieldBlur(field, e.target.value)}
+                        className={fieldError ? "border-red-400 focus-visible:ring-red-300" : ""}
+                      />
                     )}
-                  </label>
+                    {fieldError && <p className="mt-1 text-xs text-red-600">{fieldError}</p>}
+                  </div>
                   );
                 })}
               </div>
@@ -3734,7 +3750,7 @@ export default function DocuFill() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Button onClick={() => saveAnswers()} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save Interview"}</Button>
-                <Button onClick={generatePacket} disabled={isSaving || missingRequiredFields.length > 0} className="bg-[#0F1C3F] hover:bg-[#182B5F] disabled:opacity-60">{isSaving ? "Generating…" : "Generate Packet"}</Button>
+                <Button onClick={generatePacket} disabled={isSaving || missingRequiredFields.length > 0 || Object.keys(fieldErrors).length > 0} className="bg-[#0F1C3F] hover:bg-[#182B5F] disabled:opacity-60">{isSaving ? "Generating…" : "Generate Packet"}</Button>
                 <Button onClick={handleDownloadInterviewCsv} variant="outline" className="text-[#6B7A99] border-[#DDD5C4]">Download CSV</Button>
                 {generatedUrl && (
                   <button type="button" onClick={downloadGeneratedPacket} disabled={isDownloading} className="text-sm text-[#C49A38] underline disabled:opacity-60">
