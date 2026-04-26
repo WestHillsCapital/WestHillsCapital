@@ -2,15 +2,15 @@ import type { RequestHandler } from "express";
 import { getAuth } from "@clerk/express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
+import { resolveApiKeyAccountId } from "./requireApiKeyAuth";
 
 /**
  * Auth middleware for the DocuFill SaaS product routes.
  *
- * Accepts two auth methods:
- *   1. Clerk JWT — for external tenants using the /app product portal
- *   2. WHC session token — fallback so existing /internal routes can
- *      share the same DocuFill handlers (requireInternalAuth stamps
- *      req.internalAccountId before this middleware runs on shared routes)
+ * Accepts three auth methods (in order):
+ *   1. req.internalAccountId already set — pass through (e.g. requireInternalAuth ran first)
+ *   2. Clerk JWT — for tenants using the /app product portal
+ *   3. API key (Authorization: Bearer sk_live_…) — for external integration partners
  *
  * Sets req.internalAccountId on success; returns 401 otherwise.
  */
@@ -23,6 +23,18 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
   }
 
   if (req.internalAccountId !== undefined) {
+    return next();
+  }
+
+  const authHeader = req.headers["authorization"];
+  const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
+
+  if (bearerToken?.startsWith("sk_live_")) {
+    const accountId = await resolveApiKeyAccountId(bearerToken);
+    if (accountId === null) {
+      return void res.status(401).json({ error: "Invalid or revoked API key." });
+    }
+    req.internalAccountId = accountId;
     return next();
   }
 

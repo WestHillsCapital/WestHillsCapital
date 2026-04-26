@@ -33,7 +33,16 @@ const definition = {
       "|-------|--------|---------------|",
       "| Public routes | None | N/A |",
       "| Product portal (SaaS) | `Authorization: Bearer <clerk_jwt>` | Clerk front-end SDK |",
+      "| Product portal (API key) | `Authorization: Bearer sk_live_…` | `POST /api/product/auth/api-keys` |",
       "| Internal (WHC staff) | `Authorization: Bearer <session_token>` | `POST /api/internal/auth/sign-in` |",
+      "",
+      "## API Key Authentication",
+      "",
+      "External integration partners can authenticate using a long-lived API key instead of a Clerk JWT. API keys:",
+      "- Are prefixed with `sk_live_`",
+      "- Are stored hashed (SHA-256) — the plaintext is returned only once on creation",
+      "- Can be named, listed, and revoked via `/api/product/auth/api-keys`",
+      "- Are accepted wherever a Clerk JWT is accepted on product routes",
       "",
       "## Base URL",
       "All paths below are relative to `/api`.",
@@ -54,6 +63,14 @@ const definition = {
         scheme: "bearer",
         bearerFormat: "Session token",
         description: "Opaque session token issued by `POST /api/internal/auth/sign-in`. WHC staff only.",
+      },
+      apiKeyAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "API Key (sk_live_…)",
+        description:
+          "Long-lived API key issued by `POST /api/product/auth/api-keys`. For external integration partners. " +
+          "Keys are prefixed with `sk_live_` and are stored hashed — the plaintext is shown only once on creation.",
       },
     },
     schemas: {
@@ -91,6 +108,17 @@ const definition = {
           updated_at:       { type: "string", format: "date-time" },
         },
       },
+      ApiKey: {
+        type: "object",
+        properties: {
+          id:        { type: "integer", example: 1 },
+          name:      { type: "string", example: "Production integration" },
+          keyPrefix: { type: "string", example: "sk_live_a1b2c3", description: "First 16 characters of the key — shown for identification only." },
+          createdAt: { type: "string", format: "date-time" },
+          revokedAt: { type: "string", format: "date-time", nullable: true },
+          active:    { type: "boolean" },
+        },
+      },
       Error: {
         type: "object",
         properties: { error: { type: "string" } },
@@ -107,6 +135,7 @@ const spec = swaggerJsdoc({
     `${routesDir}/settings.ts`,
     `${routesDir}/docufill.ts`,
     `${routesDir}/deals.ts`,
+    `${routesDir}/product-auth.ts`,
   ],
 });
 

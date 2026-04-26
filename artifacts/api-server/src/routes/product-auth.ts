@@ -1,9 +1,15 @@
+import { randomBytes } from "crypto";
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
+import { hashApiKey } from "../middleware/requireApiKeyAuth";
+import { requireProductAuth } from "../middleware/requireProductAuth";
 
 const router = Router();
+
+const API_KEY_PREFIX = "sk_live_";
+const MAX_KEYS_PER_ACCOUNT = 25;
 
 /**
  * POST /api/product/auth/onboard
@@ -119,6 +125,292 @@ router.get("/me", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[ProductAuth] /me error");
     return void res.status(500).json({ error: "Server error." });
+  }
+});
+
+/**
+ * POST /api/product/auth/api-keys
+ *
+ * Create a new API key for the authenticated account.
+ * Returns the plaintext key ONCE — it cannot be retrieved again.
+ *
+ * Body: { name: string }
+ * Requires: Clerk JWT or existing API key
+ *
+ * @openapi
+ * /product/auth/api-keys:
+ *   post:
+ *     tags:
+ *       - Product Portal — API Keys
+ *     summary: Create an API key
+ *     description: |
+ *       Creates a new API key scoped to the authenticated account.
+ *       The full plaintext key is returned **once** and cannot be retrieved again — store it securely.
+ *       Keys are prefixed with `sk_live_` and are stored as a SHA-256 hash.
+ *     security:
+ *       - productAuth: []
+ *       - apiKeyAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Production integration
+ *                 description: Human-readable label for the key (max 100 characters).
+ *     responses:
+ *       201:
+ *         description: API key created. The `key` field contains the plaintext key — shown only once.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 id:
+ *                   type: integer
+ *                 name:
+ *                   type: string
+ *                 key:
+ *                   type: string
+ *                   example: "sk_live_a1b2c3d4e5f6…"
+ *                   description: Full plaintext API key. Store securely — not shown again.
+ *                 keyPrefix:
+ *                   type: string
+ *                   example: "sk_live_a1b2c3"
+ *                 createdAt:
+ *                   type: string
+ *                   format: date-time
+ *                 note:
+ *                   type: string
+ *       400:
+ *         description: Missing or invalid name
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       409:
+ *         description: Maximum key limit reached
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post("/api-keys", requireProductAuth, async (req, res) => {
+  const accountId = req.internalAccountId!;
+  const name = ((req.body as { name?: string }).name ?? "").trim();
+
+  if (!name) {
+    return void res.status(400).json({ error: "name is required." });
+  }
+  if (name.length > 100) {
+    return void res.status(400).json({ error: "name must be 100 characters or fewer." });
+  }
+
+  try {
+    const countResult = await getDb().query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM account_api_keys WHERE account_id = $1 AND revoked_at IS NULL`,
+      [accountId],
+    );
+    if (parseInt(countResult.rows[0].count, 10) >= MAX_KEYS_PER_ACCOUNT) {
+      return void res.status(409).json({
+        error: `You have reached the maximum of ${MAX_KEYS_PER_ACCOUNT} active API keys. Revoke an existing key before creating a new one.`,
+      });
+    }
+
+    const rawKey = `${API_KEY_PREFIX}${randomBytes(32).toString("hex")}`;
+    const keyHash = hashApiKey(rawKey);
+    const keyPrefix = rawKey.slice(0, 16);
+
+    const result = await getDb().query<{ id: number; created_at: Date }>(
+      `INSERT INTO account_api_keys (account_id, name, key_hash, key_prefix)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, created_at`,
+      [accountId, name, keyHash, keyPrefix],
+    );
+
+    const row = result.rows[0];
+    logger.info({ accountId, keyId: row.id }, "[ApiKeys] New API key created");
+
+    return void res.status(201).json({
+      id:         row.id,
+      name,
+      key:        rawKey,
+      keyPrefix,
+      createdAt:  row.created_at,
+      note: "Store this key securely. It will not be shown again.",
+    });
+  } catch (err) {
+    logger.error({ err }, "[ApiKeys] Failed to create API key");
+    return void res.status(500).json({ error: "Failed to create API key." });
+  }
+});
+
+/**
+ * GET /api/product/auth/api-keys
+ *
+ * List all active (non-revoked) API keys for the authenticated account.
+ * Plaintext keys are never returned — only prefix and metadata.
+ *
+ * Requires: Clerk JWT or existing API key
+ *
+ * @openapi
+ * /product/auth/api-keys:
+ *   get:
+ *     tags:
+ *       - Product Portal — API Keys
+ *     summary: List API keys
+ *     description: Returns all API keys (active and revoked) for the authenticated account. Plaintext keys are never returned — only the prefix and metadata.
+ *     security:
+ *       - productAuth: []
+ *       - apiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: List of API keys
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 keys:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/ApiKey'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get("/api-keys", requireProductAuth, async (req, res) => {
+  const accountId = req.internalAccountId!;
+
+  try {
+    const result = await getDb().query<{
+      id: number;
+      name: string;
+      key_prefix: string;
+      created_at: Date;
+      revoked_at: Date | null;
+    }>(
+      `SELECT id, name, key_prefix, created_at, revoked_at
+         FROM account_api_keys
+        WHERE account_id = $1
+        ORDER BY created_at DESC`,
+      [accountId],
+    );
+
+    return void res.json({
+      keys: result.rows.map((row) => ({
+        id:        row.id,
+        name:      row.name,
+        keyPrefix: row.key_prefix,
+        createdAt: row.created_at,
+        revokedAt: row.revoked_at ?? null,
+        active:    row.revoked_at === null,
+      })),
+    });
+  } catch (err) {
+    logger.error({ err }, "[ApiKeys] Failed to list API keys");
+    return void res.status(500).json({ error: "Failed to list API keys." });
+  }
+});
+
+/**
+ * DELETE /api/product/auth/api-keys/:id
+ *
+ * Revoke an API key. The key is soft-deleted (revoked_at is set).
+ * Only keys belonging to the authenticated account can be revoked.
+ *
+ * Requires: Clerk JWT or existing API key
+ *
+ * @openapi
+ * /product/auth/api-keys/{id}:
+ *   delete:
+ *     tags:
+ *       - Product Portal — API Keys
+ *     summary: Revoke an API key
+ *     description: Soft-revokes an API key. Revoked keys are rejected immediately. Only keys belonging to the authenticated account can be revoked.
+ *     security:
+ *       - productAuth: []
+ *       - apiKeyAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The numeric ID of the API key to revoke.
+ *     responses:
+ *       200:
+ *         description: Key revoked
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 id:
+ *                   type: integer
+ *       400:
+ *         description: Invalid key id
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Key not found or already revoked
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.delete("/api-keys/:id", requireProductAuth, async (req, res) => {
+  const accountId = req.internalAccountId!;
+  const keyId = parseInt(String(req.params.id ?? ""), 10);
+
+  if (isNaN(keyId)) {
+    return void res.status(400).json({ error: "Invalid key id." });
+  }
+
+  try {
+    const result = await getDb().query<{ id: number }>(
+      `UPDATE account_api_keys
+          SET revoked_at = NOW()
+        WHERE id = $1
+          AND account_id = $2
+          AND revoked_at IS NULL
+        RETURNING id`,
+      [keyId, accountId],
+    );
+
+    if (!result.rows[0]) {
+      return void res.status(404).json({ error: "API key not found or already revoked." });
+    }
+
+    logger.info({ accountId, keyId }, "[ApiKeys] API key revoked");
+    return void res.json({ success: true, id: keyId });
+  } catch (err) {
+    logger.error({ err }, "[ApiKeys] Failed to revoke API key");
+    return void res.status(500).json({ error: "Failed to revoke API key." });
   }
 });
 

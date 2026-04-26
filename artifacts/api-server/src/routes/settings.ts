@@ -92,6 +92,7 @@ async function uploadLogoBuffer(buffer: Buffer, contentType: ImageContentType): 
  *     description: Returns the authenticated organisation's name, logo URL, and brand color.
  *     security:
  *       - productAuth: []
+ *       - apiKeyAuth: []
  *     responses:
  *       200:
  *         description: Org settings
@@ -192,6 +193,7 @@ router.get("/org", async (req, res) => {
  *       Send `clearLogo: true` to remove the current logo.
  *     security:
  *       - productAuth: []
+ *       - apiKeyAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -339,6 +341,7 @@ router.patch("/org", async (req, res) => {
  *       Maximum size: **5 MB**. Accepted types: `image/png`, `image/jpeg`, `image/webp`.
  *     security:
  *       - productAuth: []
+ *       - apiKeyAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -482,6 +485,7 @@ router.post(
  *       The endpoint refuses private/internal IP ranges (SSRF protection).
  *     security:
  *       - productAuth: []
+ *       - apiKeyAuth: []
  *     requestBody:
  *       required: true
  *       content:

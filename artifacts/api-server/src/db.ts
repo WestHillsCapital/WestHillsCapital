@@ -661,6 +661,30 @@ export async function initDb(): Promise<void> {
       ON docufill_interview_sessions (token)
   `);
 
+  // ── API keys (for external developer / partner integrations) ─────────────────
+  // Raw keys are NEVER stored — only a SHA-256 hash is persisted.
+  // The plaintext key is returned exactly once on creation.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS account_api_keys (
+      id          SERIAL PRIMARY KEY,
+      account_id  INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      name        TEXT NOT NULL,
+      key_hash    TEXT NOT NULL UNIQUE,
+      key_prefix  TEXT NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      revoked_at  TIMESTAMPTZ
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS account_api_keys_account_idx
+      ON account_api_keys (account_id)
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS account_api_keys_hash_idx
+      ON account_api_keys (key_hash)
+     WHERE revoked_at IS NULL
+  `);
+
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 

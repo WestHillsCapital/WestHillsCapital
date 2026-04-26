@@ -1,0 +1,66 @@
+import { createHash } from "crypto";
+import type { RequestHandler } from "express";
+import { getDb } from "../db";
+import { logger } from "../lib/logger";
+
+const API_KEY_PREFIX = "sk_live_";
+
+/**
+ * Hash a raw API key with SHA-256.
+ * This is the value stored in the database — never the plaintext.
+ */
+export function hashApiKey(rawKey: string): string {
+  return createHash("sha256").update(rawKey).digest("hex");
+}
+
+/**
+ * Middleware for product routes that accepts an API key in lieu of a Clerk JWT.
+ *
+ * Expects:  Authorization: Bearer sk_live_<hex>
+ *
+ * On success sets req.internalAccountId and calls next().
+ * On failure returns 401 — does NOT call next(), so callers that want to
+ * try additional auth schemes must chain this differently.
+ *
+ * Use resolveApiKeyAccountId() if you need the raw lookup without an HTTP
+ * response side-effect (e.g. inside requireProductAuth as a fallback).
+ */
+export async function resolveApiKeyAccountId(bearerToken: string): Promise<number | null> {
+  if (!bearerToken.startsWith(API_KEY_PREFIX)) return null;
+
+  const hash = hashApiKey(bearerToken);
+  try {
+    const result = await getDb().query<{ account_id: number }>(
+      `SELECT account_id
+         FROM account_api_keys
+        WHERE key_hash = $1
+          AND revoked_at IS NULL
+        LIMIT 1`,
+      [hash],
+    );
+    return result.rows[0]?.account_id ?? null;
+  } catch (err) {
+    logger.error({ err }, "[ApiKeyAuth] DB error resolving API key");
+    return null;
+  }
+}
+
+export const requireApiKeyAuth: RequestHandler = async (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  if (!authHeader?.startsWith("Bearer ")) {
+    return void res.status(401).json({ error: "Authentication required. Provide an API key via Authorization: Bearer sk_live_…" });
+  }
+
+  const token = authHeader.slice(7).trim();
+  if (!token.startsWith(API_KEY_PREFIX)) {
+    return void res.status(401).json({ error: "Invalid API key format. Keys must start with sk_live_." });
+  }
+
+  const accountId = await resolveApiKeyAccountId(token);
+  if (accountId === null) {
+    return void res.status(401).json({ error: "Invalid or revoked API key." });
+  }
+
+  req.internalAccountId = accountId;
+  next();
+};

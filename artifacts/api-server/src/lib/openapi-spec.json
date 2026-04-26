@@ -3,7 +3,7 @@
   "info": {
     "title": "DocuPak / DocuFill API",
     "version": "1.0.0",
-    "description": "API for the **DocuPak** SaaS platform and its embedded **DocuFill** paperwork engine.\n\n## Authentication\n\n| Scope | Scheme | How to obtain |\n|-------|--------|---------------|\n| Public routes | None | N/A |\n| Product portal (SaaS) | `Authorization: Bearer <clerk_jwt>` | Clerk front-end SDK |\n| Internal (WHC staff) | `Authorization: Bearer <session_token>` | `POST /api/internal/auth/sign-in` |\n\n## Base URL\nAll paths below are relative to `/api`.",
+    "description": "API for the **DocuPak** SaaS platform and its embedded **DocuFill** paperwork engine.\n\n## Authentication\n\n| Scope | Scheme | How to obtain |\n|-------|--------|---------------|\n| Public routes | None | N/A |\n| Product portal (SaaS) | `Authorization: Bearer <clerk_jwt>` | Clerk front-end SDK |\n| Product portal (API key) | `Authorization: Bearer sk_live_…` | `POST /api/product/auth/api-keys` |\n| Internal (WHC staff) | `Authorization: Bearer <session_token>` | `POST /api/internal/auth/sign-in` |\n\n## API Key Authentication\n\nExternal integration partners can authenticate using a long-lived API key instead of a Clerk JWT. API keys:\n- Are prefixed with `sk_live_`\n- Are stored hashed (SHA-256) — the plaintext is returned only once on creation\n- Can be named, listed, and revoked via `/api/product/auth/api-keys`\n- Are accepted wherever a Clerk JWT is accepted on product routes\n\n## Base URL\nAll paths below are relative to `/api`.",
     "contact": {
       "name": "DocuPak Engineering"
     }
@@ -27,6 +27,12 @@
         "scheme": "bearer",
         "bearerFormat": "Session token",
         "description": "Opaque session token issued by `POST /api/internal/auth/sign-in`. WHC staff only."
+      },
+      "apiKeyAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "API Key (sk_live_…)",
+        "description": "Long-lived API key issued by `POST /api/product/auth/api-keys`. For external integration partners. Keys are prefixed with `sk_live_` and are stored hashed — the plaintext is shown only once on creation."
       }
     },
     "schemas": {
@@ -142,6 +148,36 @@
           "updated_at": {
             "type": "string",
             "format": "date-time"
+          }
+        }
+      },
+      "ApiKey": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 1
+          },
+          "name": {
+            "type": "string",
+            "example": "Production integration"
+          },
+          "keyPrefix": {
+            "type": "string",
+            "example": "sk_live_a1b2c3",
+            "description": "First 16 characters of the key — shown for identification only."
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "revokedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "active": {
+            "type": "boolean"
           }
         }
       },
@@ -353,6 +389,9 @@
         "security": [
           {
             "productAuth": []
+          },
+          {
+            "apiKeyAuth": []
           }
         ],
         "responses": {
@@ -392,6 +431,9 @@
         "security": [
           {
             "productAuth": []
+          },
+          {
+            "apiKeyAuth": []
           }
         ],
         "requestBody": {
@@ -530,6 +572,9 @@
         "security": [
           {
             "productAuth": []
+          },
+          {
+            "apiKeyAuth": []
           }
         ],
         "requestBody": {
@@ -672,6 +717,9 @@
         "security": [
           {
             "productAuth": []
+          },
+          {
+            "apiKeyAuth": []
           }
         ],
         "requestBody": {
@@ -860,6 +908,9 @@
         "security": [
           {
             "productAuth": []
+          },
+          {
+            "apiKeyAuth": []
           }
         ],
         "requestBody": {
@@ -1385,6 +1436,232 @@
           },
           "404": {
             "description": "Deal not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/product/auth/api-keys": {
+      "post": {
+        "tags": [
+          "Product Portal — API Keys"
+        ],
+        "summary": "Create an API key",
+        "description": "Creates a new API key scoped to the authenticated account.\nThe full plaintext key is returned **once** and cannot be retrieved again — store it securely.\nKeys are prefixed with `sk_live_` and are stored as a SHA-256 hash.\n",
+        "security": [
+          {
+            "productAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Production integration",
+                    "description": "Human-readable label for the key (max 100 characters)."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "API key created. The `key` field contains the plaintext key — shown only once.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "name": {
+                      "type": "string"
+                    },
+                    "key": {
+                      "type": "string",
+                      "example": "sk_live_a1b2c3d4e5f6…",
+                      "description": "Full plaintext API key. Store securely — not shown again."
+                    },
+                    "keyPrefix": {
+                      "type": "string",
+                      "example": "sk_live_a1b2c3"
+                    },
+                    "createdAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "note": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or invalid name",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Maximum key limit reached",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Product Portal — API Keys"
+        ],
+        "summary": "List API keys",
+        "description": "Returns all API keys (active and revoked) for the authenticated account. Plaintext keys are never returned — only the prefix and metadata.",
+        "security": [
+          {
+            "productAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of API keys",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ApiKey"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/product/auth/api-keys/{id}": {
+      "delete": {
+        "tags": [
+          "Product Portal — API Keys"
+        ],
+        "summary": "Revoke an API key",
+        "description": "Soft-revokes an API key. Revoked keys are rejected immediately. Only keys belonging to the authenticated account can be revoked.",
+        "security": [
+          {
+            "productAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "The numeric ID of the API key to revoke."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Key revoked",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid key id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Not authenticated",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Key not found or already revoked",
             "content": {
               "application/json": {
                 "schema": {

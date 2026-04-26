@@ -1675,6 +1675,7 @@ router.get("/sessions", async (req, res) => {
  *       the public-facing interview form. Sessions expire after **90 days**.
  *     security:
  *       - productAuth: []
+ *       - apiKeyAuth: []
  *     requestBody:
  *       required: true
  *       content:
