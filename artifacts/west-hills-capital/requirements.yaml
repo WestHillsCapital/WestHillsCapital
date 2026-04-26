@@ -1,5 +1,4 @@
 packages:
-  "framer-motion": "For elegant page transitions and scroll animations matching the premium aesthetic"
   "clsx": "Utility for constructing className strings conditionally"
   "tailwind-merge": "Utility for merging tailwind classes without style conflicts"
   "date-fns": "For formatting available appointment slots elegantly"
