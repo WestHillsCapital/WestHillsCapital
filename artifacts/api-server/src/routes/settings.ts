@@ -1,10 +1,15 @@
 import { Router, type IRouter } from "express";
+import { randomUUID } from "crypto";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
-import { ObjectStorageService } from "../lib/objectStorage";
+import { ObjectStorageService, objectStorageClient } from "../lib/objectStorage";
+import express from "express";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
+
+const ALLOWED_IMAGE_TYPES = ["image/png", "image/jpeg", "image/jpg", "image/webp"] as const;
+type ImageContentType = (typeof ALLOWED_IMAGE_TYPES)[number];
 
 function cleanText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -22,6 +27,21 @@ function isValidLogoPath(value: unknown): boolean {
 
 function buildLogoServingUrl(accountId: number): string {
   return `/api/storage/org-logo/${accountId}`;
+}
+
+async function uploadLogoBuffer(buffer: Buffer, contentType: ImageContentType): Promise<string> {
+  const privateDir = objectStorageService.getPrivateObjectDir();
+  const entityDir = privateDir.endsWith("/") ? privateDir : `${privateDir}/`;
+  const entityId = randomUUID();
+  const objectEntityPath = `${entityDir}${entityId}`;
+  const withSlash = objectEntityPath.startsWith("/") ? objectEntityPath : `/${objectEntityPath}`;
+  const parts = withSlash.slice(1).split("/");
+  const bucketName = parts[0];
+  const objectName = parts.slice(1).join("/");
+  const bucket = objectStorageClient.bucket(bucketName);
+  const file = bucket.file(objectName);
+  await file.save(buffer, { contentType, resumable: false });
+  return `/objects/${entityId}`;
 }
 
 router.get("/org", async (req, res) => {
@@ -109,23 +129,51 @@ router.patch("/org", async (req, res) => {
   }
 });
 
-router.post("/org/logo", async (req, res) => {
-  try {
-    const body = req.body as { contentType?: unknown };
-    const contentType = cleanText(body.contentType) || "image/png";
-    if (!["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(contentType)) {
-      res.status(400).json({ error: "Only PNG, JPG, and WebP images are accepted" });
-      return;
+router.post(
+  "/org/logo",
+  express.raw({ type: ALLOWED_IMAGE_TYPES as unknown as string[], limit: "5mb" }),
+  async (req, res) => {
+    try {
+      const accountId = req.internalAccountId ?? 1;
+      const contentType = (req.headers["content-type"] ?? "").split(";")[0].trim() as ImageContentType;
+      if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(contentType)) {
+        res.status(400).json({ error: "Only PNG, JPG, and WebP images are accepted" });
+        return;
+      }
+      const buffer = req.body as Buffer;
+      if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+        res.status(400).json({ error: "Empty image body" });
+        return;
+      }
+      if (buffer.length > 5 * 1024 * 1024) {
+        res.status(400).json({ error: "Logo must be under 5 MB" });
+        return;
+      }
+      const db = getDb();
+      const rawLogoPath = await uploadLogoBuffer(buffer, contentType);
+      const { rows } = await db.query(
+        `UPDATE accounts SET logo_url=$1 WHERE id=$2 RETURNING id, name, slug, logo_url, brand_color`,
+        [rawLogoPath, accountId],
+      );
+      if (!rows[0]) {
+        res.status(404).json({ error: "Account not found" });
+        return;
+      }
+      const row = rows[0] as Record<string, unknown>;
+      res.json({
+        org: {
+          id: row.id,
+          name: row.name,
+          slug: row.slug,
+          logo_url: buildLogoServingUrl(accountId),
+          brand_color: row.brand_color ?? "#C49A38",
+        },
+      });
+    } catch (err) {
+      logger.error({ err }, "[Settings] Failed to upload logo");
+      res.status(500).json({ error: "Failed to upload logo" });
     }
-
-    const uploadUrl = await objectStorageService.getObjectEntityUploadURL();
-    const rawObjectPath = objectStorageService.normalizeObjectEntityPath(uploadUrl);
-
-    res.json({ uploadUrl, rawObjectPath });
-  } catch (err) {
-    logger.error({ err }, "[Settings] Failed to generate logo upload URL");
-    res.status(500).json({ error: "Failed to generate logo upload URL" });
-  }
-});
+  },
+);
 
 export default router;

@@ -69,38 +69,17 @@ export default function Settings() {
     setErrorMsg(null);
     setIsUploadingLogo(true);
     try {
-      const urlRes = await fetch(`${SETTINGS_BASE}/org/logo`, {
+      const res = await fetch(`${SETTINGS_BASE}/org/logo`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ contentType: file.type }),
-      });
-      const urlData = await urlRes.json() as { uploadUrl?: string; rawObjectPath?: string; error?: string };
-      if (!urlRes.ok || !urlData.uploadUrl || !urlData.rawObjectPath) {
-        setErrorMsg(urlData.error ?? "Failed to get upload URL");
-        return;
-      }
-      const uploadRes = await fetch(urlData.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
+        headers: { "Content-Type": file.type, ...getAuthHeaders() },
         body: file,
       });
-      if (!uploadRes.ok) {
-        setErrorMsg("Logo upload failed. Please try again.");
+      const data = await res.json() as { org?: OrgSettings; error?: string };
+      if (!res.ok) {
+        setErrorMsg(data.error ?? "Logo upload failed. Please try again.");
         return;
       }
-      const patchRes = await fetch(`${SETTINGS_BASE}/org`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ logoPath: urlData.rawObjectPath }),
-      });
-      const patchData = await patchRes.json() as { org?: OrgSettings; error?: string };
-      if (!patchRes.ok) {
-        setErrorMsg(patchData.error ?? "Logo uploaded but could not be saved.");
-        return;
-      }
-      if (patchData.org) {
-        applyOrg(patchData.org);
-      }
+      if (data.org) applyOrg(data.org);
       flashStatus("Logo saved.");
     } catch {
       setErrorMsg("Logo upload failed. Please try again.");
