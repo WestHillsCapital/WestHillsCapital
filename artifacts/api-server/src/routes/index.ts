@@ -59,4 +59,9 @@ router.use("/internal/content", requireInternalAuth, contentRouter);
 // ── Org settings (internal tool — require auth) ───────────────────────────────
 router.use("/internal/settings", requireInternalAuth, settingsRouter);
 
+// ── Org settings (product portal — Clerk auth) ────────────────────────────────
+// Re-uses the identical settingsRouter; requireProductAuth resolves
+// req.internalAccountId from the Clerk user's account, same as internal auth.
+router.use("/product/settings", requireProductAuth, settingsRouter);
+
 export default router;

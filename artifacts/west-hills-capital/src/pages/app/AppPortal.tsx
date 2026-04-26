@@ -1,11 +1,13 @@
-import { Suspense } from "react";
-import { Redirect } from "wouter";
+import { lazy, Suspense } from "react";
+import { Redirect, Switch, Route } from "wouter";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { DocuFillConfigProvider } from "@/hooks/useDocuFillConfig";
 import { InternalAuthProvider } from "@/hooks/useInternalAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import AppOnboard from "./AppOnboard";
 import DocuFill from "@/pages/internal/DocuFill";
+
+const AppSettings = lazy(() => import("./AppSettings"));
 
 function Spinner() {
   return (
@@ -51,7 +53,12 @@ export default function AppPortal() {
 
   return (
     <AppLayout>
-      <DocuFillWrapper />
+      <Suspense fallback={<Spinner />}>
+        <Switch>
+          <Route path="/app/settings" component={AppSettings} />
+          <Route component={DocuFillWrapper} />
+        </Switch>
+      </Suspense>
     </AppLayout>
   );
 }
