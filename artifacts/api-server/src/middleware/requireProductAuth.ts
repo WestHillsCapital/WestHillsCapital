@@ -34,7 +34,7 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
   }
 
   try {
-    const result = await db.query<{ account_id: number }>(
+    const result = await getDb().query<{ account_id: number }>(
       `SELECT account_id FROM account_users WHERE clerk_user_id = $1 LIMIT 1`,
       [clerkUserId],
     );

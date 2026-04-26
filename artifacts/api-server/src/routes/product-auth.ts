@@ -31,7 +31,7 @@ router.post("/onboard", async (req, res) => {
   }
 
   try {
-    const existing = await db.query<{ account_id: number; account_name: string; slug: string }>(
+    const existing = await getDb().query<{ account_id: number; account_name: string; slug: string }>(
       `SELECT au.account_id, a.name AS account_name, a.slug
        FROM account_users au
        JOIN accounts a ON a.id = au.account_id
@@ -53,7 +53,7 @@ router.post("/onboard", async (req, res) => {
     const slugBase = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const slug = `${slugBase}-${Date.now()}`;
 
-    const acctResult = await db.query<{ id: number }>(
+    const acctResult = await getDb().query<{ id: number }>(
       `INSERT INTO accounts (name, slug) VALUES ($1, $2) RETURNING id`,
       [name, slug],
     );
@@ -95,7 +95,7 @@ router.get("/me", async (req, res) => {
   }
 
   try {
-    const result = await db.query<{ account_id: number; account_name: string; slug: string; email: string; role: string }>(
+    const result = await getDb().query<{ account_id: number; account_name: string; slug: string; email: string; role: string }>(
       `SELECT au.account_id, a.name AS account_name, a.slug, au.email, au.role
        FROM account_users au
        JOIN accounts a ON a.id = au.account_id
