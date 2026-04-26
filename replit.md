@@ -22,6 +22,11 @@ The project is structured as a pnpm monorepo using TypeScript, with separate `ap
 - **Pricing Logic:** Spreads for gold (+2%), silver (+5%), and buyback prices (gold -1%, silver -3%) are applied server-side.
 - **Deal Builder Workflow:** A server-side pipeline for "Lock & Execute" functionality, involving database saving, Dillon Gage API calls, PDF invoice generation, Google Drive upload, client recap email via Resend, and admin notification/Sheets sync.
 
+**API Documentation:**
+- OpenAPI 3.1 spec served as JSON at `GET /api/docs/openapi.json`
+- Interactive Swagger UI (CDN-loaded, no build-time dependencies) at `GET /api/docs`
+- Covers: public DocuFill session flow, product/internal settings, storage assets, DocuFill admin CRUD, deal builder
+
 **Key Features:**
 - **Live Pricing:** Integration with Dillon Gage Fiztrade API for real-time gold and silver spot prices.
 - **Appointment Scheduling:** A 2-step form for scheduling allocation calls, with deterministically generated and booked slots management. Booking confirmations include calendar events and instructions.

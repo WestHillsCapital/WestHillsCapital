@@ -14,10 +14,14 @@ import contentRouter, { publicContentRouter } from "./content";
 import productAuthRouter   from "./product-auth";
 import storageRouter       from "./storage";
 import settingsRouter      from "./settings";
+import docsRouter          from "./docs";
 import { requireInternalAuth } from "../middleware/requireInternalAuth";
 import { requireProductAuth } from "../middleware/requireProductAuth";
 
 const router: IRouter = Router();
+
+// ── API documentation (public) ────────────────────────────────────────────────
+router.use(docsRouter);
 
 // ── Public routes ─────────────────────────────────────────────────────────────
 router.use(healthRouter);
