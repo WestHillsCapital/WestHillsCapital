@@ -183,6 +183,7 @@ type PackageItem = {
   enable_interview: boolean;
   enable_csv: boolean;
   enable_customer_link: boolean;
+  tags: string[];
 };
 
 type Session = {
@@ -473,6 +474,9 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     enable_interview: pkg.enable_interview !== false,
     enable_csv: pkg.enable_csv !== false,
     enable_customer_link: pkg.enable_customer_link === true,
+    tags: Array.isArray((pkg as PackageItem & { tags?: unknown }).tags)
+      ? ((pkg as PackageItem & { tags?: unknown }).tags as unknown[]).map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
+      : [],
   }));
 }
 
@@ -568,6 +572,8 @@ export default function DocuFill() {
   const [inlineAddTypeError, setInlineAddTypeError] = useState<string | null>(null);
   const [typeManageOpen, setTypeManageOpen] = useState(false);
   const [typeDeletingScope, setTypeDeletingScope] = useState<string | null>(null);
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
   const [fieldLibrary, setFieldLibrary] = useState<FieldLibraryItem[]>([]);
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
@@ -1177,6 +1183,7 @@ export default function DocuFill() {
           enableInterview: pkg.enable_interview,
           enableCsv: pkg.enable_csv,
           enableCustomerLink: pkg.enable_customer_link,
+          tags: pkg.tags ?? [],
         }),
       });
       const data = await res.json();
@@ -2330,18 +2337,55 @@ export default function DocuFill() {
 
       {!isPublicSession && (tab === "packages" || tab === "mapper") && (
         <div className="mb-5 rounded-xl border border-[#DDD5C4] bg-white p-3 space-y-3">
+          {/* Tag filter row — only shown when packages have tags */}
+          {(() => {
+            const allTagsSet = new Set<string>();
+            packages.forEach((pkg) => pkg.tags?.forEach((t) => allTagsSet.add(t)));
+            const allTags = Array.from(allTagsSet).sort();
+            if (allTags.length === 0) return null;
+            return (
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] text-[#8A9BB8] shrink-0">Filter:</span>
+                {allTags.map((tag) => {
+                  const active = tagFilter.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      onClick={() => setTagFilter((prev) => active ? prev.filter((t) => t !== tag) : [...prev, tag])}
+                      className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${active ? "bg-[#C49A38] border-[#C49A38] text-white font-medium" : "bg-[#F8F6F0] border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
+                    >{tag}</button>
+                  );
+                })}
+                {tagFilter.length > 0 && (
+                  <button type="button" onClick={() => setTagFilter([])} className="text-[10px] text-[#8A9BB8] hover:text-[#4A5568] ml-1">Clear</button>
+                )}
+              </div>
+            );
+          })()}
+
           {/* Package switcher row */}
           <div className="flex flex-wrap items-center gap-2">
-            <select
-              value={selectedPackageId ?? ""}
-              onChange={(e) => { setSelectedPackageId(e.target.value ? Number(e.target.value) : null); setAddingPackage(false); }}
-              className="flex-1 min-w-0 max-w-xs border border-[#D4C9B5] rounded-lg px-3 py-1.5 text-sm bg-white font-medium text-[#0F1C3F]"
-            >
-              <option value="">{packages.length === 0 ? "No packages yet" : "Select a package…"}</option>
-              {packages.map((pkg) => (
-                <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.status !== "active" ? " · inactive" : ""}</option>
-              ))}
-            </select>
+            {(() => {
+              const visiblePackages = tagFilter.length === 0
+                ? packages
+                : packages.filter((pkg) => pkg.id === selectedPackageId || tagFilter.some((t) => pkg.tags?.includes(t)));
+              return (
+                <select
+                  value={selectedPackageId ?? ""}
+                  onChange={(e) => { setSelectedPackageId(e.target.value ? Number(e.target.value) : null); setAddingPackage(false); }}
+                  className="flex-1 min-w-0 max-w-xs border border-[#D4C9B5] rounded-lg px-3 py-1.5 text-sm bg-white font-medium text-[#0F1C3F]"
+                >
+                  <option value="">{packages.length === 0 ? "No packages yet" : "Select a package…"}</option>
+                  {visiblePackages.map((pkg) => {
+                    const tagSuffix = pkg.tags?.length ? ` · ${pkg.tags.join(", ")}` : "";
+                    return (
+                      <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.status !== "active" ? " · inactive" : ""}{tagSuffix}</option>
+                    );
+                  })}
+                </select>
+              );
+            })()}
             <button
               type="button"
               onClick={() => { setAddingPackage((v) => !v); setSelectedPackageId(null); }}
@@ -2576,6 +2620,49 @@ export default function DocuFill() {
                         <span className="block text-xs text-[#6B7A99] mb-1">Description / interview notes</span>
                         <Textarea value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
                       </label>
+                      <div className="mt-4">
+                        <span className="block text-xs text-[#6B7A99] mb-1">Tags</span>
+                        <p className="text-[11px] text-[#8A9BB8] mb-2">Free-form labels for organizing and filtering packages. Press Enter or comma to add.</p>
+                        <div className="flex flex-wrap gap-1.5 mb-2">
+                          {(selectedPackage.tags ?? []).map((tag) => (
+                            <span key={tag} className="inline-flex items-center gap-1 text-xs rounded-full px-2.5 py-0.5 bg-[#EFE8D8] text-[#5C4A1E] border border-[#DDD5C4]">
+                              {tag}
+                              <button
+                                type="button"
+                                onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, tags: (pkg.tags ?? []).filter((t) => t !== tag) }))}
+                                className="ml-0.5 text-[#8A7A5A] hover:text-red-500 transition-colors leading-none"
+                                aria-label={`Remove tag ${tag}`}
+                              >×</button>
+                            </span>
+                          ))}
+                        </div>
+                        <input
+                          type="text"
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === ",") {
+                              e.preventDefault();
+                              const newTag = tagInput.replace(/,/g, "").trim();
+                              if (newTag && !(selectedPackage.tags ?? []).includes(newTag)) {
+                                updateSelectedPackage((pkg) => ({ ...pkg, tags: [...(pkg.tags ?? []), newTag] }));
+                              }
+                              setTagInput("");
+                            } else if (e.key === "Backspace" && !tagInput && (selectedPackage.tags ?? []).length > 0) {
+                              updateSelectedPackage((pkg) => ({ ...pkg, tags: (pkg.tags ?? []).slice(0, -1) }));
+                            }
+                          }}
+                          onBlur={() => {
+                            const newTag = tagInput.replace(/,/g, "").trim();
+                            if (newTag && !(selectedPackage.tags ?? []).includes(newTag)) {
+                              updateSelectedPackage((pkg) => ({ ...pkg, tags: [...(pkg.tags ?? []), newTag] }));
+                            }
+                            setTagInput("");
+                          }}
+                          placeholder={selectedPackage.tags?.length ? "Add another tag…" : "e.g. sports, IRA, onboarding"}
+                          className="w-full border border-[#D4C9B5] rounded px-3 py-1.5 text-xs focus:outline-none focus:border-[#C49A38] placeholder:text-[#B0A898]"
+                        />
+                      </div>
                     </details>
                     <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
                       <summary className="cursor-pointer text-sm font-semibold">Advanced lists and reusable fields</summary>

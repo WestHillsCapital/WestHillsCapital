@@ -41,6 +41,7 @@ type PackageInput = {
   enableInterview?: boolean;
   enableCsv?: boolean;
   enableCustomerLink?: boolean;
+  tags?: unknown;
 };
 
 type DocItem = {
@@ -209,6 +210,11 @@ function parseOptions(value: unknown): string[] {
   if (Array.isArray(value)) return value.map((item) => cleanText(item)).filter(Boolean);
   if (typeof value === "string") return value.split(/\r?\n|,/).map((item) => item.trim()).filter(Boolean);
   return [];
+}
+
+function parseTags(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => cleanText(item)).filter(Boolean).slice(0, 50);
 }
 
 function normalizeFieldType(value: unknown): string {
@@ -1033,8 +1039,8 @@ router.post("/packages", async (req, res) => {
     const db = getDb();
     const { rows } = await db.query(
       `INSERT INTO docufill_packages
-         (name, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11)
+         (name, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id, tags)
+       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12::jsonb)
        RETURNING *`,
       [
         name,
@@ -1048,6 +1054,7 @@ router.post("/packages", async (req, res) => {
         jsonParam(body.mappings),
         jsonParam(body.recipients),
         accountId,
+        JSON.stringify(parseTags(body.tags)),
       ],
     );
     const hydrated = await hydratePackages(rows as PackageRow[], db);
@@ -1105,8 +1112,8 @@ router.patch("/packages/:id", async (req, res) => {
           name=$1, custodian_id=$2, depository_id=$3, transaction_scope=$4,
           description=$5, status=$6, documents=$7::jsonb, fields=$8::jsonb,
           mappings=$9::jsonb, recipients=$10::jsonb, enable_interview=$11, enable_csv=$12,
-          enable_customer_link=$13, version=version+1, updated_at=NOW()
-        WHERE id=$14 AND account_id=$15
+          enable_customer_link=$13, tags=$14::jsonb, version=version+1, updated_at=NOW()
+        WHERE id=$15 AND account_id=$16
         RETURNING *`,
       [
         name,
@@ -1122,6 +1129,7 @@ router.patch("/packages/:id", async (req, res) => {
         body.enableInterview === undefined ? (existing.enable_interview ?? true) : Boolean(body.enableInterview),
         body.enableCsv === undefined ? (existing.enable_csv ?? true) : Boolean(body.enableCsv),
         body.enableCustomerLink === undefined ? (existing.enable_customer_link ?? false) : Boolean(body.enableCustomerLink),
+        body.tags === undefined ? JSON.stringify(Array.isArray(existing.tags) ? existing.tags : []) : JSON.stringify(parseTags(body.tags)),
         id,
         accountId,
       ],
