@@ -2339,7 +2339,7 @@ export default function DocuFill() {
             >
               <option value="">{packages.length === 0 ? "No packages yet" : "Select a package…"}</option>
               {packages.map((pkg) => (
-                <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.status !== "active" ? ` · ${pkg.status}` : ""}</option>
+                <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.status !== "active" ? " · inactive" : ""}</option>
               ))}
             </select>
             <button
@@ -2354,31 +2354,18 @@ export default function DocuFill() {
                 <span className="text-xs text-[#8A9BB8] hidden sm:block">
                   {selectedPackage.documents.length} doc{selectedPackage.documents.length !== 1 ? "s" : ""} · {packageInterviewFields.length} question{packageInterviewFields.length !== 1 ? "s" : ""} · {selectedPackage.mappings.length} placement{selectedPackage.mappings.length !== 1 ? "s" : ""}{unmappedPackageFields.length > 0 ? ` · ${unmappedPackageFields.length} unmapped` : " · all placed"}
                 </span>
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, status: pkg.status === "active" ? "inactive" : "active" }))}
-                    className={`flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1 border font-medium transition-colors ${
-                      selectedPackage.status === "active"
-                        ? "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
-                        : "bg-[#F8F6F0] border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/50 hover:text-[#4A5568]"
-                    }`}
-                  >
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${selectedPackage.status === "active" ? "bg-emerald-500" : "bg-[#C4B99A]"}`} />
-                    {selectedPackage.status === "active" ? "Active" : selectedPackage.status === "draft" ? "Hidden" : "Inactive"}
-                  </button>
-                  {selectedPackage.status !== "active" && (
-                    <label className="flex items-center gap-1 text-xs text-[#6B7A99] cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={selectedPackage.status === "draft"}
-                        onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, status: e.target.checked ? "draft" : "inactive" }))}
-                        className="w-3 h-3 accent-[#C49A38] cursor-pointer"
-                      />
-                      Hidden
-                    </label>
-                  )}
-                </div>
+                <button
+                  type="button"
+                  onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, status: pkg.status === "active" ? "inactive" : "active" }))}
+                  className={`shrink-0 flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1 border font-medium transition-colors ${
+                    selectedPackage.status === "active"
+                      ? "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
+                      : "bg-[#F8F6F0] border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/50 hover:text-[#4A5568]"
+                  }`}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${selectedPackage.status === "active" ? "bg-emerald-500" : "bg-[#C4B99A]"}`} />
+                  {selectedPackage.status === "active" ? "Active" : "Inactive"}
+                </button>
                 <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline" className="shrink-0 text-xs h-8 px-3">{isSaving ? "Saving…" : "Save"}</Button>
               </div>
             )}
@@ -3004,41 +2991,11 @@ export default function DocuFill() {
                         </div>
                       </div>
 
-                      <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4 flex items-center justify-between gap-4 flex-wrap">
-                        <div>
-                          <h3 className="text-sm font-semibold mb-0.5">Package status</h3>
-                          <p className="text-xs text-[#8A9BB8]">Use the <strong className="font-medium text-[#6B7A99]">Active</strong> toggle in the header to enable or disable this package. Check <strong className="font-medium text-[#6B7A99]">Hidden</strong> to remove it from all lists entirely.</p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, status: pkg.status === "active" ? "inactive" : "active" }))}
-                            className={`flex items-center gap-1.5 text-xs rounded-full px-2.5 py-1 border font-medium transition-colors ${
-                              selectedPackage.status === "active"
-                                ? "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
-                                : "bg-white border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/50"
-                            }`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${selectedPackage.status === "active" ? "bg-emerald-500" : "bg-[#C4B99A]"}`} />
-                            {selectedPackage.status === "active" ? "Active" : selectedPackage.status === "draft" ? "Hidden" : "Inactive"}
-                          </button>
-                          {selectedPackage.status !== "active" && (
-                            <label className="flex items-center gap-1 text-xs text-[#6B7A99] cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={selectedPackage.status === "draft"}
-                                onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, status: e.target.checked ? "draft" : "inactive" }))}
-                                className="w-3 h-3 accent-[#C49A38] cursor-pointer"
-                              />
-                              Hidden
-                            </label>
-                          )}
-                        </div>
-                      </div>
-
                       <div className="flex flex-wrap items-center gap-2 border-t border-[#DDD5C4] pt-4">
                         <Button onClick={() => goBuilderStep("mapping")} variant="outline" className="text-[#6B7A99]">← Back to Mapping</Button>
-                        <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || selectedPackage.mappings.length === 0} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : "Activate Package"}</Button>
+                        {selectedPackage.status !== "active" && (
+                          <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || selectedPackage.mappings.length === 0} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : "Activate Package"}</Button>
+                        )}
                         <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save"}</Button>
                         {selectedPackage.status !== "active" && selectedPackage.id && (
                           <Button onClick={() => launchTestInterview(selectedPackage)} disabled={isSaving || selectedPackage.documents.length === 0} variant="outline" className="text-[#6B7A99] border-dashed">
