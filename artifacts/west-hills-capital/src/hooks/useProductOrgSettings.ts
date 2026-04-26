@@ -25,11 +25,12 @@ export function updateProductOrgCache(org: ProductOrgSettings): void {
 }
 
 export function useProductOrgSettings(): ProductOrgSettings | null {
-  const { getAuthHeaders, isSignedIn } = useProductAuth();
+  const { getAuthHeaders, isSignedIn, token } = useProductAuth();
   const [org, setOrg] = useState<ProductOrgSettings | null>(cachedProductOrg);
 
   useEffect(() => {
-    if (!isSignedIn) return;
+    // Wait until signed in AND token is available to avoid a no-auth fetch
+    if (!isSignedIn || !token) return;
     if (cachedProductOrg) { setOrg(cachedProductOrg); return; }
     const listener = (data: ProductOrgSettings | null) => setOrg(data);
     productOrgListeners.add(listener);
@@ -49,7 +50,11 @@ export function useProductOrgSettings(): ProductOrgSettings | null {
       cancelled = true;
       productOrgListeners.delete(listener);
     };
-  }, [isSignedIn]);
+    // Re-run when token changes — getAuthHeaders is memoized on token, so
+    // including it as a dep would cause spurious re-runs. Instead depend on
+    // token directly: the function reference is stable between runs with the
+    // same token value.
+  }, [isSignedIn, token]);
 
   return org;
 }
