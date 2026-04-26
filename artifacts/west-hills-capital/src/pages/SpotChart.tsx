@@ -49,9 +49,18 @@ export default function SpotChart() {
   const [chartAnimKey, setChartAnimKey] = useState(0);
   const { data, isLoading, isFetching, isError } = useSpotHistory(period);
 
+  const seenFetchingRef = useRef(false);
   useEffect(() => {
-    if (!isFetching) setIsPeriodSwitching(false);
-  }, [isFetching, period]);
+    if (!isPeriodSwitching) return;
+    if (isFetching) {
+      seenFetchingRef.current = true;
+    } else if (seenFetchingRef.current) {
+      seenFetchingRef.current = false;
+      setIsPeriodSwitching(false);
+    } else {
+      setIsPeriodSwitching(false);
+    }
+  }, [isFetching, isPeriodSwitching]);
 
   const showSkeleton = isLoading || isPeriodSwitching;
   const prevShowSkeletonRef = useRef(showSkeleton);
@@ -130,7 +139,7 @@ export default function SpotChart() {
             {PERIODS.map((p) => (
               <button
                 key={p}
-                onClick={() => { if (p !== period) { setIsPeriodSwitching(true); setPeriod(p); } }}
+                onClick={() => { if (p !== period) { seenFetchingRef.current = false; setIsPeriodSwitching(true); setPeriod(p); } }}
                 className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
                   period === p
                     ? "bg-foreground text-white"
