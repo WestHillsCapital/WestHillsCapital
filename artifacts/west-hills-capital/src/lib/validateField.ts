@@ -2,17 +2,24 @@ export type ValidatableField = {
   id?: string;
   name?: string;
   interviewMode?: string;
+  required?: boolean;
+  interviewVisible?: boolean;
   validationType?: string;
   validationPattern?: string;
   validationMessage?: string;
 };
+
+function isRequired(field: ValidatableField): boolean {
+  if (field.interviewMode) return field.interviewMode === "required";
+  return field.required === true && field.interviewVisible !== false;
+}
 
 export function validateFieldValue(field: ValidatableField, value: string): string | null {
   const trimmed = value.trim();
   const label = field.name ?? field.id ?? "This field";
 
   if (!trimmed) {
-    return field.interviewMode === "required" ? `${label} is required.` : null;
+    return isRequired(field) ? `${label} is required.` : null;
   }
 
   const vt = field.validationType ?? "none";
