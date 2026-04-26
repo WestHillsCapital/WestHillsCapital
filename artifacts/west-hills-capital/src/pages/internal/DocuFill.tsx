@@ -1265,18 +1265,21 @@ export default function DocuFill() {
   async function sendTestWebhook(pkgId: number) {
     setWebhookTestStatus(null);
     try {
-      const res = await fetch(`/api/internal/docufill/packages/${pkgId}/test-webhook`, {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${pkgId}/test-webhook`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       });
       const data = await res.json() as { ok?: boolean; error?: string; status?: number };
       if (!res.ok) {
-        setWebhookTestStatus({ ok: false, message: data.error ?? `HTTP ${res.status}` });
+        const msg = data.error ?? `HTTP ${res.status}`;
+        setWebhookTestStatus({ ok: false, message: msg });
       } else {
-        setWebhookTestStatus({ ok: true, message: `Success (HTTP ${data.status ?? 200})` });
+        flashStatus(`Test webhook delivered (HTTP ${data.status ?? 200}).`);
+        setWebhookTestStatus({ ok: true, message: `Delivered (HTTP ${data.status ?? 200})` });
       }
     } catch (err) {
-      setWebhookTestStatus({ ok: false, message: err instanceof Error ? err.message : "Request failed" });
+      const msg = err instanceof Error ? err.message : "Request failed";
+      setWebhookTestStatus({ ok: false, message: msg });
     }
   }
 

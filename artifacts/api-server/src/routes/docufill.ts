@@ -1092,8 +1092,8 @@ router.post("/packages", async (req, res) => {
     const db = getDb();
     const { rows } = await db.query(
       `INSERT INTO docufill_packages
-         (name, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id, tags)
-       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12::jsonb)
+         (name, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id, tags, webhook_enabled, webhook_url)
+       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12::jsonb,$13,$14)
        RETURNING *`,
       [
         name,
@@ -1108,6 +1108,8 @@ router.post("/packages", async (req, res) => {
         jsonParam(body.recipients),
         accountId,
         JSON.stringify(parseTags(body.tags)),
+        body.webhookEnabled === true,
+        parseWebhookUrl(body.webhookUrl),
       ],
     );
     const hydrated = await hydratePackages(rows as PackageRow[], db);
