@@ -448,7 +448,7 @@ export async function initDb(): Promise<void> {
       name              TEXT NOT NULL,
       custodian_id      INTEGER REFERENCES docufill_custodians(id) ON DELETE SET NULL,
       depository_id     INTEGER REFERENCES docufill_depositories(id) ON DELETE SET NULL,
-      transaction_scope TEXT NOT NULL DEFAULT 'Custodial paperwork',
+      transaction_scope TEXT NOT NULL DEFAULT '',
       description       TEXT,
       status            TEXT NOT NULL DEFAULT 'draft',
       version           INTEGER NOT NULL DEFAULT 1,
@@ -482,7 +482,7 @@ export async function initDb(): Promise<void> {
   `);
   await db.query(`
     ALTER TABLE docufill_packages
-    ADD COLUMN IF NOT EXISTS transaction_scope TEXT NOT NULL DEFAULT 'Custodial paperwork'
+    ADD COLUMN IF NOT EXISTS transaction_scope TEXT NOT NULL DEFAULT ''
   `);
   await db.query(`
     ALTER TABLE docufill_packages
@@ -572,7 +572,7 @@ export async function initDb(): Promise<void> {
 
   await db.query(`
     ALTER TABLE docufill_interview_sessions
-    ADD COLUMN IF NOT EXISTS transaction_scope TEXT NOT NULL DEFAULT 'ira_transfer'
+    ADD COLUMN IF NOT EXISTS transaction_scope TEXT NOT NULL DEFAULT ''
   `);
   await db.query(`
     ALTER TABLE docufill_interview_sessions
@@ -602,6 +602,28 @@ export async function initDb(): Promise<void> {
   await db.query(`
     ALTER TABLE docufill_interview_sessions
     ADD COLUMN IF NOT EXISTS test_mode BOOLEAN NOT NULL DEFAULT false
+  `);
+
+  // ── Fix stale transaction_scope defaults ──────────────────────────────────
+  // Older migrations used 'Custodial paperwork' / 'ira_transfer' as defaults.
+  // The UI treats empty string as "Not specified", so we align the DB to match.
+  await db.query(`
+    ALTER TABLE docufill_packages
+    ALTER COLUMN transaction_scope SET DEFAULT ''
+  `);
+  await db.query(`
+    UPDATE docufill_packages
+       SET transaction_scope = ''
+     WHERE transaction_scope IN ('ira_transfer', 'Custodial paperwork')
+  `);
+  await db.query(`
+    ALTER TABLE docufill_interview_sessions
+    ALTER COLUMN transaction_scope SET DEFAULT ''
+  `);
+  await db.query(`
+    UPDATE docufill_interview_sessions
+       SET transaction_scope = ''
+     WHERE transaction_scope IN ('ira_transfer', 'Custodial paperwork')
   `);
 
   await db.query(`
