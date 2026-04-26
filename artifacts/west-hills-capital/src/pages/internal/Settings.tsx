@@ -1,16 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
+import { updateOrgCache, type OrgSettings } from "@/hooks/useOrgSettings";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SETTINGS_BASE = `${API_BASE}/api/internal/settings`;
 
-type OrgSettings = {
-  id: number;
-  name: string;
-  slug: string;
-  logo_url: string | null;
-  brand_color: string;
-};
 
 export default function Settings() {
   const { getAuthHeaders } = useInternalAuth();
@@ -38,6 +32,7 @@ export default function Settings() {
     setName(data.name);
     setBrandColor(data.brand_color);
     setDisplayLogoUrl(data.logo_url ? `${API_BASE}${data.logo_url}` : null);
+    updateOrgCache(data);
   }
 
   useEffect(() => {

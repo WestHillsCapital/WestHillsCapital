@@ -3,7 +3,7 @@ import { useInternalAuth } from "./useInternalAuth";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
-type OrgSettings = {
+export type OrgSettings = {
   id: number;
   name: string;
   slug: string;
@@ -12,7 +12,17 @@ type OrgSettings = {
 };
 
 let cachedOrg: OrgSettings | null = null;
-const listeners = new Set<(org: OrgSettings) => void>();
+const listeners = new Set<(org: OrgSettings | null) => void>();
+
+export function invalidateOrgCache(): void {
+  cachedOrg = null;
+  listeners.forEach((l) => l(null));
+}
+
+export function updateOrgCache(org: OrgSettings): void {
+  cachedOrg = org;
+  listeners.forEach((l) => l(org));
+}
 
 export function useOrgSettings(): OrgSettings | null {
   const { getAuthHeaders } = useInternalAuth();
@@ -20,20 +30,24 @@ export function useOrgSettings(): OrgSettings | null {
 
   useEffect(() => {
     if (cachedOrg) { setOrg(cachedOrg); return; }
-    const listener = (data: OrgSettings) => setOrg(data);
+    const listener = (data: OrgSettings | null) => setOrg(data);
     listeners.add(listener);
+    let cancelled = false;
     fetch(`${API_BASE}/api/internal/settings/org`, {
       headers: { ...getAuthHeaders() },
     })
       .then((r) => r.json())
       .then((data: { org?: OrgSettings }) => {
-        if (data.org) {
+        if (!cancelled && data.org) {
           cachedOrg = data.org;
           listeners.forEach((l) => l(data.org!));
         }
       })
       .catch(() => undefined);
-    return () => { listeners.delete(listener); };
+    return () => {
+      cancelled = true;
+      listeners.delete(listener);
+    };
   }, []);
 
   return org;
