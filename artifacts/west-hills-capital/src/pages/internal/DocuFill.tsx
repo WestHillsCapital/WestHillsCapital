@@ -3291,8 +3291,8 @@ export default function DocuFill() {
               </div>
             </section>
 
-            <section className="bg-white border border-[#DDD5C4] rounded-lg p-3 flex flex-col">
-              <div className="flex items-center justify-between mb-2">
+            <section className="bg-white border border-[#DDD5C4] rounded-lg p-3 flex flex-col min-h-0">
+              <div className="flex items-center justify-between mb-2 flex-shrink-0">
                 <h2 className="text-sm font-semibold">Fields</h2>
                 <button onClick={openFieldEditorForAdd} className="text-xs text-[#C49A38]">Add</button>
               </div>
@@ -3301,7 +3301,7 @@ export default function DocuFill() {
                 const availableLibraryFields = fieldLibrary.filter((item) => item.active && !usedLibraryIds.has(item.id));
                 if (availableLibraryFields.length === 0) return null;
                 return (
-                  <label className="block mb-2">
+                  <label className="block mb-2 flex-shrink-0">
                     <span className="block text-[11px] text-[#6B7A99] mb-1">Add from shared library</span>
                     <select
                       value=""
@@ -3317,6 +3317,7 @@ export default function DocuFill() {
                   </label>
                 );
               })()}
+              <div className="flex-1 min-h-0 flex flex-col">
               <DndContext
                 sensors={sortSensors}
                 collisionDetection={closestCenter}
@@ -3331,7 +3332,7 @@ export default function DocuFill() {
                 }}
               >
                 <SortableContext items={selectedPackage.fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2 overflow-y-auto max-h-[52vh]">
+                  <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
                     {selectedPackage.fields.length === 0 && (
                       <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
                         <svg className="w-6 h-6 text-[#C49A38]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
@@ -3395,6 +3396,7 @@ export default function DocuFill() {
                   </div>
                 </SortableContext>
               </DndContext>
+              </div>
             </section>
           </div>
         )
