@@ -1273,6 +1273,7 @@ export default function DocuFill() {
       if (!res.ok) {
         const msg = data.error ?? `HTTP ${res.status}`;
         setWebhookTestStatus({ ok: false, message: msg });
+        flashStatus(`Webhook test failed: ${msg}`);
       } else {
         flashStatus(`Test webhook delivered (HTTP ${data.status ?? 200}).`);
         setWebhookTestStatus({ ok: true, message: `Delivered (HTTP ${data.status ?? 200})` });
@@ -1280,6 +1281,7 @@ export default function DocuFill() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Request failed";
       setWebhookTestStatus({ ok: false, message: msg });
+      flashStatus(`Webhook test failed: ${msg}`);
     }
   }
 
