@@ -133,7 +133,7 @@ export default function Settings() {
       const res = await fetch(`${SETTINGS_BASE}/org`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ name: name.trim() || org.name, brandColor: newColor }),
+        body: JSON.stringify({ brandColor: newColor }),
       });
       const data = await res.json() as { org?: OrgSettings; error?: string };
       if (!res.ok) { setErrorMsg(data.error ?? "Failed to save color"); return; }

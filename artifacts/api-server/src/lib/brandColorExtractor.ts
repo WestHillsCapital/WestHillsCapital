@@ -314,22 +314,40 @@ export async function extractBrandColors(rawUrl: string): Promise<string[]> {
 
   const collected: string[] = [];
 
-  try {
-    const res = await fetchWithTimeout(rawUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; DocuPak-BrandBot/1.0)",
-        Accept: "text/html,application/xhtml+xml",
-      },
-    });
+  const requestHeaders = {
+    "User-Agent": "Mozilla/5.0 (compatible; DocuPak-BrandBot/1.0)",
+    Accept: "text/html,application/xhtml+xml",
+  };
 
-    // Do not follow redirects (redirect: "manual" in fetchWithTimeout).
-    // Return empty if the site redirects (e.g. http→https handled by caller
-    // providing the canonical URL, or the site is unwilling to serve us).
-    if (!res.ok && res.status !== 0) {
+  let effectiveUrl = rawUrl;
+
+  try {
+    let res = await fetchWithTimeout(rawUrl, { headers: requestHeaders });
+
+    // Follow at most one redirect, but only to a safe destination.
+    // This handles the common http→https redirect without multiple round-trips.
+    if (res.status >= 300 && res.status < 400) {
+      const location = res.headers.get("location");
+      if (location) {
+        try {
+          const redirectTarget = new URL(location, rawUrl).href;
+          if (isSafeUrl(redirectTarget)) {
+            const redirectHost = new URL(redirectTarget).hostname;
+            if (await resolvedAddressIsSafe(redirectHost)) {
+              effectiveUrl = redirectTarget;
+              res = await fetchWithTimeout(redirectTarget, { headers: requestHeaders });
+            }
+          }
+        } catch {
+          // Bad redirect URL — fall through to empty result
+        }
+      }
       if (res.status >= 300 && res.status < 400) {
-        // Soft redirect — just return empty
         return [];
       }
+    }
+
+    if (!res.ok) {
       throw new Error(`HTTP ${res.status}`);
     }
 
@@ -355,7 +373,7 @@ export async function extractBrandColors(rawUrl: string): Promise<string[]> {
     }
 
     try {
-      const faviconUrl = extractFaviconUrl(html, rawUrl);
+      const faviconUrl = extractFaviconUrl(html, effectiveUrl);
       if (isSafeUrl(faviconUrl)) {
         const faviconHost = new URL(faviconUrl).hostname;
         if (await resolvedAddressIsSafe(faviconHost)) {
