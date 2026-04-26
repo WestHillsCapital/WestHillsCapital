@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { useOrgSettings } from "@/hooks/useOrgSettings";
@@ -10,6 +11,7 @@ interface InternalLayoutProps {
 
 export function InternalLayout({ children }: InternalLayoutProps) {
   const [location] = useLocation();
+  useEffect(() => { window.scrollTo(0, 0); }, [location]);
   const { user, signOut } = useInternalAuth();
   const org = useOrgSettings();
 

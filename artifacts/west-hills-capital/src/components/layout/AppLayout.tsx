@@ -2,6 +2,13 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useProductAuth } from "@/hooks/useProductAuth";
 
+function useScrollToTop() {
+  const [location] = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [location]);
+}
+
 const APP_NAME = "DocuPak";
 
 function UserAvatar({ imageUrl, name, email }: { imageUrl?: string | null; name?: string | null; email?: string | null }) {
@@ -30,6 +37,7 @@ function UserAvatar({ imageUrl, name, email }: { imageUrl?: string | null; name?
 }
 
 export function AppLayout({ children }: { children: ReactNode }) {
+  useScrollToTop();
   const { account, user, signOut } = useProductAuth();
   const [location, navigate] = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
