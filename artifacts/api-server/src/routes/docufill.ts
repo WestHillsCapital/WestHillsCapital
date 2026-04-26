@@ -41,6 +41,8 @@ type PackageInput = {
   enableInterview?: boolean;
   enableCsv?: boolean;
   enableCustomerLink?: boolean;
+  webhookEnabled?: boolean;
+  webhookUrl?: string | null;
   tags?: unknown;
 };
 
@@ -215,6 +217,56 @@ function parseOptions(value: unknown): string[] {
 function parseTags(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value.map((item) => cleanText(item)).filter(Boolean).slice(0, 50);
+}
+
+function parseWebhookUrl(value: unknown): string | null {
+  const text = cleanText(value);
+  if (!text) return null;
+  try {
+    const u = new URL(text);
+    if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+    return u.toString();
+  } catch {
+    return null;
+  }
+}
+
+function buildWebhookPayload(session: Record<string, unknown>): Record<string, unknown> {
+  const answers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
+  const fields = Array.isArray(session.fields) ? session.fields as Array<Record<string, unknown>> : [];
+  const sensitiveIds = new Set(fields.filter((f) => f.sensitive === true).map((f) => String(f.id ?? "")));
+  const redactedAnswers: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(answers)) {
+    redactedAnswers[k] = sensitiveIds.has(k) ? "[redacted]" : v;
+  }
+  return {
+    event: "interview.submitted",
+    package_name: session.package_name ?? null,
+    token: session.token ?? null,
+    submitted_at: new Date().toISOString(),
+    answers: redactedAnswers,
+  };
+}
+
+function fireWebhookAsync(webhookUrl: string, payload: Record<string, unknown>): void {
+  setImmediate(async () => {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      const res = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!res.ok) {
+        logger.warn({ status: res.status, webhookUrl }, "[DocuFill] Webhook returned non-2xx");
+      }
+    } catch (err) {
+      logger.error({ err, webhookUrl }, "[DocuFill] Webhook request failed");
+    }
+  });
 }
 
 function normalizeFieldType(value: unknown): string {
@@ -409,6 +461,7 @@ async function getSession(token: string, client: QueryClient = getDb()): Promise
   const { rows } = await client.query(
     `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
             p.transaction_scope, p.custodian_id, p.depository_id,
+            p.webhook_enabled, p.webhook_url,
             c.name AS custodian_name, d.name AS depository_name
        FROM docufill_interview_sessions s
        JOIN docufill_packages p ON p.id = s.package_id
@@ -1112,8 +1165,9 @@ router.patch("/packages/:id", async (req, res) => {
           name=$1, custodian_id=$2, depository_id=$3, transaction_scope=$4,
           description=$5, status=$6, documents=$7::jsonb, fields=$8::jsonb,
           mappings=$9::jsonb, recipients=$10::jsonb, enable_interview=$11, enable_csv=$12,
-          enable_customer_link=$13, tags=$14::jsonb, version=version+1, updated_at=NOW()
-        WHERE id=$15 AND account_id=$16
+          enable_customer_link=$13, tags=$14::jsonb, webhook_enabled=$15, webhook_url=$16,
+          version=version+1, updated_at=NOW()
+        WHERE id=$17 AND account_id=$18
         RETURNING *`,
       [
         name,
@@ -1130,6 +1184,8 @@ router.patch("/packages/:id", async (req, res) => {
         body.enableCsv === undefined ? (existing.enable_csv ?? true) : Boolean(body.enableCsv),
         body.enableCustomerLink === undefined ? (existing.enable_customer_link ?? false) : Boolean(body.enableCustomerLink),
         body.tags === undefined ? JSON.stringify(Array.isArray(existing.tags) ? existing.tags : []) : JSON.stringify(parseTags(body.tags)),
+        body.webhookEnabled === undefined ? (existing.webhook_enabled ?? false) : Boolean(body.webhookEnabled),
+        body.webhookUrl === undefined ? (existing.webhook_url ?? null) : parseWebhookUrl(body.webhookUrl),
         id,
         accountId,
       ],
@@ -1146,6 +1202,56 @@ router.patch("/packages/:id", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to update package");
     res.status(500).json({ error: "Failed to update package" });
+  }
+});
+
+router.post("/packages/:id/test-webhook", async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) {
+      res.status(400).json({ error: "Invalid package id" });
+      return;
+    }
+    const accountId = req.internalAccountId ?? 1;
+    const pkg = await getPackage(id, getDb(), false, accountId);
+    if (!pkg) {
+      res.status(404).json({ error: "Package not found" });
+      return;
+    }
+    const webhookUrl = parseWebhookUrl(pkg.webhook_url);
+    if (!webhookUrl) {
+      res.status(400).json({ error: "No valid webhook URL is configured for this package." });
+      return;
+    }
+    const samplePayload: Record<string, unknown> = {
+      event: "interview.submitted",
+      package_name: pkg.name ?? null,
+      token: "test-" + Date.now().toString(36),
+      submitted_at: new Date().toISOString(),
+      answers: { example_field: "example value" },
+    };
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 10000);
+      const webhookRes = await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(samplePayload),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!webhookRes.ok) {
+        res.status(502).json({ error: `Webhook returned ${webhookRes.status} ${webhookRes.statusText}` });
+        return;
+      }
+      res.json({ ok: true, status: webhookRes.status });
+    } catch (fetchErr) {
+      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
+      res.status(502).json({ error: `Webhook request failed: ${msg}` });
+    }
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to send test webhook");
+    res.status(500).json({ error: "Failed to send test webhook" });
   }
 });
 
@@ -1607,6 +1713,10 @@ router.post("/sessions/:token/generate", async (req, res) => {
       drive: driveResult ? { fileId: driveResult.fileId, url: driveResult.webViewLink } : null,
       warnings: driveWarning ? [driveWarning] : [],
     });
+    const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
+    if (session.webhook_enabled === true && webhookUrl) {
+      fireWebhookAsync(webhookUrl, buildWebhookPayload(session));
+    }
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to generate packet");
     res.status(500).json({ error: "Failed to generate packet" });
@@ -1720,6 +1830,10 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
       drive: driveResult ? { fileId: driveResult.fileId, url: driveResult.webViewLink } : null,
       warnings: driveWarning ? [driveWarning] : [],
     });
+    const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
+    if (session.webhook_enabled === true && webhookUrl) {
+      fireWebhookAsync(webhookUrl, buildWebhookPayload(session));
+    }
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to generate public packet");
     res.status(500).json({ error: "Failed to generate packet" });

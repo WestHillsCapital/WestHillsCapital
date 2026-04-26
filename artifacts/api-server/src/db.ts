@@ -504,6 +504,14 @@ export async function initDb(): Promise<void> {
     ALTER TABLE docufill_packages
     ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb
   `);
+  await db.query(`
+    ALTER TABLE docufill_packages
+    ADD COLUMN IF NOT EXISTS webhook_enabled BOOLEAN NOT NULL DEFAULT false
+  `);
+  await db.query(`
+    ALTER TABLE docufill_packages
+    ADD COLUMN IF NOT EXISTS webhook_url TEXT
+  `);
 
   // ── Multi-tenancy: account_id columns + backfill ──────────────────────────
   // Nullable so existing rows don't fail; backfill immediately sets them to 1.

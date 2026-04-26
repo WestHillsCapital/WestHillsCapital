@@ -184,6 +184,8 @@ type PackageItem = {
   enable_interview: boolean;
   enable_csv: boolean;
   enable_customer_link: boolean;
+  webhook_enabled: boolean;
+  webhook_url: string | null;
   tags: string[];
 };
 
@@ -475,6 +477,8 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     enable_interview: pkg.enable_interview !== false,
     enable_csv: pkg.enable_csv !== false,
     enable_customer_link: pkg.enable_customer_link === true,
+    webhook_enabled: (pkg as PackageItem & Record<string, unknown>).webhook_enabled === true,
+    webhook_url: typeof (pkg as PackageItem & Record<string, unknown>).webhook_url === "string" ? (pkg as PackageItem & Record<string, unknown>).webhook_url as string : null,
     tags: Array.isArray((pkg as PackageItem & { tags?: unknown }).tags)
       ? ((pkg as PackageItem & { tags?: unknown }).tags as unknown[]).map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
       : [],
@@ -757,6 +761,7 @@ export default function DocuFill() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [webhookTestStatus, setWebhookTestStatus] = useState<null | { ok: boolean; message: string }>(null);
   const [isDeletingPackage, setIsDeletingPackage] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [isDocumentDropActive, setIsDocumentDropActive] = useState(false);
@@ -1241,6 +1246,8 @@ export default function DocuFill() {
           enableInterview: pkg.enable_interview,
           enableCsv: pkg.enable_csv,
           enableCustomerLink: pkg.enable_customer_link,
+          webhookEnabled: pkg.webhook_enabled,
+          webhookUrl: pkg.webhook_url ?? null,
           tags: pkg.tags ?? [],
         }),
       });
@@ -1252,6 +1259,24 @@ export default function DocuFill() {
       setError(err instanceof Error ? err.message : "Could not save package");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function sendTestWebhook(pkgId: number) {
+    setWebhookTestStatus(null);
+    try {
+      const res = await fetch(`/api/internal/docufill/packages/${pkgId}/test-webhook`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json() as { ok?: boolean; error?: string; status?: number };
+      if (!res.ok) {
+        setWebhookTestStatus({ ok: false, message: data.error ?? `HTTP ${res.status}` });
+      } else {
+        setWebhookTestStatus({ ok: true, message: `Success (HTTP ${data.status ?? 200})` });
+      }
+    } catch (err) {
+      setWebhookTestStatus({ ok: false, message: err instanceof Error ? err.message : "Request failed" });
     }
   }
 
@@ -3110,14 +3135,49 @@ export default function DocuFill() {
                             </div>
                             <p className="text-xs text-[#6B7A99]">Send a time-limited, branded link directly to the customer. They fill it out on their own device — no login needed.</p>
                           </button>
-                          {/* Webhook — coming soon */}
-                          <div className="rounded-lg border border-dashed border-[#DDD5C4] bg-[#F8F6F0] p-3 opacity-60 cursor-not-allowed">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <svg className="w-4 h-4 shrink-0 text-[#8A9BB8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 002.25-2.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v2.25A2.25 2.25 0 006 10.5zm0 9.75h2.25A2.25 2.25 0 0010.5 18v-2.25a2.25 2.25 0 00-2.25-2.25H6a2.25 2.25 0 00-2.25 2.25V18A2.25 2.25 0 006 20.25zm9.75-9.75H18a2.25 2.25 0 002.25-2.25V6A2.25 2.25 0 0018 3.75h-2.25A2.25 2.25 0 0013.5 6v2.25a2.25 2.25 0 002.25 2.25z" /></svg>
-                              <span className="text-sm font-semibold text-[#8A9BB8]">Webhook</span>
-                              <span className="ml-auto text-[10px] bg-[#EFE8D8] text-[#8A9BB8] border border-[#DDD5C4] rounded px-1.5 py-0.5 shrink-0">Coming soon</span>
-                            </div>
-                            <p className="text-xs text-[#8A9BB8]">Fire a POST request to any URL when an interview or customer form is completed. Connects to your CRM, Zapier, or any automation platform.</p>
+                          {/* Webhook — toggleable */}
+                          <div className={`rounded-lg border-2 p-3 transition-colors ${selectedPackage.webhook_enabled ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}>
+                            <button
+                              type="button"
+                              onClick={() => { updateSelectedPackage((pkg) => ({ ...pkg, webhook_enabled: !pkg.webhook_enabled })); setWebhookTestStatus(null); }}
+                              className="w-full text-left"
+                            >
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <svg className={`w-4 h-4 shrink-0 ${selectedPackage.webhook_enabled ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 002.25-2.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v2.25A2.25 2.25 0 006 10.5zm0 9.75h2.25A2.25 2.25 0 0010.5 18v-2.25a2.25 2.25 0 00-2.25-2.25H6a2.25 2.25 0 00-2.25 2.25V18A2.25 2.25 0 006 20.25zm9.75-9.75H18a2.25 2.25 0 002.25-2.25V6A2.25 2.25 0 0018 3.75h-2.25A2.25 2.25 0 0013.5 6v2.25a2.25 2.25 0 002.25 2.25z" /></svg>
+                                <span className={`text-sm font-semibold ${selectedPackage.webhook_enabled ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Webhook</span>
+                                <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.webhook_enabled ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
+                                  {selectedPackage.webhook_enabled ? "Enabled" : "Off"}
+                                </span>
+                              </div>
+                              <p className="text-xs text-[#6B7A99]">Fire a POST request to any URL when an interview or customer form is completed. Connects to your CRM, Zapier, or any automation platform.</p>
+                            </button>
+                            {selectedPackage.webhook_enabled && (
+                              <div className="mt-3 space-y-2">
+                                <div className="flex gap-2 items-center">
+                                  <input
+                                    type="url"
+                                    placeholder="https://your-endpoint.com/webhook"
+                                    value={selectedPackage.webhook_url ?? ""}
+                                    onChange={(e) => { updateSelectedPackage((pkg) => ({ ...pkg, webhook_url: e.target.value || null })); setWebhookTestStatus(null); }}
+                                    className="flex-1 min-w-0 text-xs rounded border border-[#DDD5C4] bg-white px-2 py-1.5 text-[#0F1C3F] placeholder:text-[#B0A898] focus:outline-none focus:ring-1 focus:ring-[#0F1C3F]"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={!selectedPackage.webhook_url}
+                                    onClick={() => { void sendTestWebhook(selectedPackage.id); }}
+                                    className="shrink-0 text-xs rounded border border-[#DDD5C4] bg-white px-2.5 py-1.5 text-[#0F1C3F] hover:bg-[#EAF0FB] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                                  >
+                                    Send test
+                                  </button>
+                                </div>
+                                {webhookTestStatus && (
+                                  <p className={`text-xs ${webhookTestStatus.ok ? "text-green-700" : "text-red-600"}`}>
+                                    {webhookTestStatus.ok ? "✓" : "✗"} {webhookTestStatus.message}
+                                  </p>
+                                )}
+                                <p className="text-[11px] text-[#8A9BB8]">Payload: <code className="font-mono">{"{ event, package_name, token, submitted_at, answers }"}</code>. Sensitive fields are redacted.</p>
+                              </div>
+                            )}
                           </div>
                           {/* Embed — coming soon */}
                           <div className="rounded-lg border border-dashed border-[#DDD5C4] bg-[#F8F6F0] p-3 opacity-60 cursor-not-allowed">
