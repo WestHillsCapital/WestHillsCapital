@@ -51,7 +51,7 @@ export default function SpotChart() {
 
   useEffect(() => {
     if (!isFetching) setIsPeriodSwitching(false);
-  }, [isFetching]);
+  }, [isFetching, period]);
 
   const showSkeleton = isLoading || isPeriodSwitching;
   const prevShowSkeletonRef = useRef(showSkeleton);
