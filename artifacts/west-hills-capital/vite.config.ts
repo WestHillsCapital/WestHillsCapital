@@ -120,8 +120,6 @@ export default defineConfig({
           if (id.includes("node_modules/wouter")) return "vendor-router";
           // Data fetching
           if (id.includes("node_modules/@tanstack")) return "vendor-query";
-          // Animation — heavy, rarely needed on first paint
-          if (id.includes("node_modules/framer-motion")) return "vendor-motion";
           // Radix UI + form libs
           if (id.includes("node_modules/@radix-ui") || id.includes("node_modules/react-hook-form") || id.includes("node_modules/zod")) {
             return "vendor-ui";
