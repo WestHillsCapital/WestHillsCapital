@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { useSpotHistory, type ChartPeriod } from "@/hooks/use-pricing";
 import SpotChartSkeleton from "./SpotChartSkeleton";
 import {
@@ -46,11 +46,21 @@ function formatSilverTick(v: number): string {
 export default function SpotChart() {
   const [period, setPeriod] = useState<ChartPeriod>("1M");
   const [isPeriodSwitching, setIsPeriodSwitching] = useState(false);
+  const [chartAnimKey, setChartAnimKey] = useState(0);
   const { data, isLoading, isFetching, isError } = useSpotHistory(period);
 
   useEffect(() => {
     if (!isFetching) setIsPeriodSwitching(false);
   }, [isFetching]);
+
+  const showSkeleton = isLoading || isPeriodSwitching;
+  const prevShowSkeletonRef = useRef(showSkeleton);
+  useEffect(() => {
+    if (prevShowSkeletonRef.current && !showSkeleton) {
+      setChartAnimKey((k) => k + 1);
+    }
+    prevShowSkeletonRef.current = showSkeleton;
+  }, [showSkeleton]);
 
   const chartData = useMemo(() => {
     if (!data?.history?.length) return [];
@@ -88,7 +98,6 @@ export default function SpotChart() {
   }, [chartData]);
 
   const isSynthetic = period !== "1D" && period !== "1W" && period !== "1M";
-  const showSkeleton = isLoading || isPeriodSwitching;
 
   if (!showSkeleton && (isError || !chartData.length)) {
     return (
@@ -135,7 +144,7 @@ export default function SpotChart() {
         </div>
 
         <ResponsiveContainer width="100%" height={300}>
-          <ComposedChart data={chartData} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
+          <ComposedChart key={chartAnimKey} data={chartData} margin={{ top: 4, right: 12, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="goldGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%" stopColor="#B5934F" stopOpacity={0.18} />
@@ -196,8 +205,8 @@ export default function SpotChart() {
                 );
               }}
             />
-            <Area yAxisId="gold"   type="monotone" dataKey="goldBid"   stroke="#B5934F" strokeWidth={1.5} fill="url(#goldGrad)"   dot={false} />
-            <Area yAxisId="silver" type="monotone" dataKey="silverBid" stroke="#94A3B8" strokeWidth={1.5} fill="url(#silverGrad)" dot={false} />
+            <Area yAxisId="gold"   type="monotone" dataKey="goldBid"   stroke="#B5934F" strokeWidth={1.5} fill="url(#goldGrad)"   dot={false} isAnimationActive animationDuration={400} animationEasing="ease-out" />
+            <Area yAxisId="silver" type="monotone" dataKey="silverBid" stroke="#94A3B8" strokeWidth={1.5} fill="url(#silverGrad)" dot={false} isAnimationActive animationDuration={400} animationEasing="ease-out" />
           </ComposedChart>
         </ResponsiveContainer>
 
