@@ -6,6 +6,9 @@ type ColorScheme = "internal" | "product";
 interface BrandColorSectionProps {
   brandColor: string;
   onChange: (color: string) => void;
+  /** Called after onChange when the user clicks an extracted candidate swatch.
+   *  Implementations should persist the color immediately (auto-save). */
+  onAutoSave?: (color: string) => Promise<void>;
   extractEndpoint: string;
   getAuthHeaders: () => HeadersInit;
   colorScheme?: ColorScheme;
@@ -42,6 +45,7 @@ const SCHEMES: Record<ColorScheme, {
 export function BrandColorSection({
   brandColor,
   onChange,
+  onAutoSave,
   extractEndpoint,
   getAuthHeaders,
   colorScheme = "internal",
@@ -180,7 +184,7 @@ export function BrandColorSection({
                   key={c}
                   type="button"
                   title={c}
-                  onClick={() => { onChange(c); setCandidates([]); }}
+                  onClick={() => { onChange(c); setCandidates([]); onAutoSave?.(c); }}
                   className={`group relative w-8 h-8 rounded border-2 hover:scale-110 transition-all ${s.border}`}
                   style={{ backgroundColor: c }}
                 >

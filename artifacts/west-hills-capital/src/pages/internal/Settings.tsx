@@ -127,6 +127,23 @@ export default function Settings() {
     }
   }
 
+  async function handleAutoSaveColor(newColor: string) {
+    if (!org) return;
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/org`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ name: name.trim() || org.name, brandColor: newColor }),
+      });
+      const data = await res.json() as { org?: OrgSettings; error?: string };
+      if (!res.ok) { setErrorMsg(data.error ?? "Failed to save color"); return; }
+      if (data.org) applyOrg(data.org);
+      flashStatus("Brand color saved.");
+    } catch {
+      setErrorMsg("Failed to save brand color.");
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center">
@@ -239,6 +256,7 @@ export default function Settings() {
               <BrandColorSection
                 brandColor={brandColor}
                 onChange={setBrandColor}
+                onAutoSave={handleAutoSaveColor}
                 extractEndpoint={`${SETTINGS_BASE}/extract-brand-colors`}
                 getAuthHeaders={getAuthHeaders}
                 colorScheme="internal"
