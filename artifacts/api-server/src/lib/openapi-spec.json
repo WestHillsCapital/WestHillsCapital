@@ -174,7 +174,7 @@
             "schema": {
               "type": "string"
             },
-            "description": "Relative path of the file (e.g. `logos/sample.png`)"
+            "description": "Relative path of the file (e.g. `logos/sample.png`).\nThe path may contain forward slashes for nested directories.\nOpenAPI 3.x does not natively model wildcard path segments —\nthis parameter represents the full remainder of the URL path.\n"
           }
         ],
         "responses": {

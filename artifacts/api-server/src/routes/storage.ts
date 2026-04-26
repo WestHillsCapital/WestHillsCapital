@@ -43,7 +43,11 @@ const objectStorageService = new ObjectStorageService();
  *         required: true
  *         schema:
  *           type: string
- *         description: Relative path of the file (e.g. `logos/sample.png`)
+ *         description: |
+ *           Relative path of the file (e.g. `logos/sample.png`).
+ *           The path may contain forward slashes for nested directories.
+ *           OpenAPI 3.x does not natively model wildcard path segments —
+ *           this parameter represents the full remainder of the URL path.
  *     responses:
  *       200:
  *         description: File contents streamed with original Content-Type
