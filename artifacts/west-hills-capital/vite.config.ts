@@ -92,6 +92,9 @@ export default defineConfig({
         ]
       : []),
   ],
+  optimizeDeps: {
+    include: ["@clerk/shared"],
+  },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "src"),
