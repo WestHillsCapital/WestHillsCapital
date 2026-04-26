@@ -4,6 +4,9 @@
 // Each model/table should ideally be split into different files.
 // Each model/table should define a Drizzle table, insert schema, and types:
 //
+// Note: the example below uses drizzle-zod and zod. Add them to this package's
+// dependencies first: pnpm --filter @workspace/db add drizzle-zod zod
+//
 //   import { pgTable, text, serial } from "drizzle-orm/pg-core";
 //   import { createInsertSchema } from "drizzle-zod";
 //   import { z } from "zod/v4";
