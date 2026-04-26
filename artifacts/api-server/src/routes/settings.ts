@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import { ObjectStorageService, objectStorageClient } from "../lib/objectStorage";
+import { extractBrandColors, isSafeUrl } from "../lib/brandColorExtractor";
 import express from "express";
 
 const router: IRouter = Router();
@@ -175,5 +176,25 @@ router.post(
     }
   },
 );
+
+router.post("/extract-brand-colors", async (req, res) => {
+  try {
+    const body = req.body as Record<string, unknown>;
+    const url = typeof body.url === "string" ? body.url.trim() : "";
+    if (!url) {
+      res.status(400).json({ error: "A URL is required." });
+      return;
+    }
+    if (!isSafeUrl(url)) {
+      res.status(400).json({ error: "URL must be a public http/https address." });
+      return;
+    }
+    const colors = await extractBrandColors(url);
+    res.json({ colors });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : "Could not extract colors from that URL.";
+    res.status(422).json({ error: msg });
+  }
+});
 
 export default router;

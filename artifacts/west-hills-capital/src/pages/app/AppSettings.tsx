@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { updateProductOrgCache, type ProductOrgSettings } from "@/hooks/useProductOrgSettings";
+import { BrandColorSection } from "@/components/settings/BrandColorSection";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SETTINGS_BASE = `${API_BASE}/api/product/settings`;
@@ -218,30 +219,18 @@ export default function AppSettings() {
         </div>
 
         {/* Brand color */}
-        <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-start gap-4">
           <div className="w-44 shrink-0">
             <label className="text-sm font-medium text-gray-900" htmlFor="brand-color">Accent color</label>
             <p className="text-xs text-gray-400 mt-0.5">Used in buttons and highlights</p>
           </div>
-          <div className="flex items-center gap-3">
-            <input
-              id="brand-color"
-              type="color"
-              value={brandColor}
-              onChange={(e) => setBrandColor(e.target.value)}
-              className="w-10 h-10 rounded border border-gray-200 cursor-pointer p-0.5 bg-white"
-            />
-            <input
-              type="text"
-              value={brandColor}
-              onChange={(e) => { const v = e.target.value.trim(); if (/^#[0-9a-fA-F]{0,6}$/.test(v)) setBrandColor(v); }}
-              maxLength={7}
-              placeholder="#C49A38"
-              className="w-28 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
-            />
-            <div
-              className="w-8 h-8 rounded border border-gray-200"
-              style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38" }}
+          <div className="flex-1">
+            <BrandColorSection
+              brandColor={brandColor}
+              onChange={setBrandColor}
+              extractEndpoint={`${SETTINGS_BASE}/extract-brand-colors`}
+              getAuthHeaders={getAuthHeaders}
+              colorScheme="product"
             />
           </div>
         </div>
