@@ -3,6 +3,10 @@ import { getAuth } from "@clerk/express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import { resolveApiKeyAccountId } from "./requireApiKeyAuth";
+import { isRateLimited, isCurrentlyBlocked } from "../lib/ratelimit";
+
+const APIKEY_FAIL_MAX = 10;
+const APIKEY_FAIL_WINDOW_MS = 60 * 1000;
 
 /**
  * Auth middleware for the DocuFill SaaS product routes.
@@ -30,8 +34,18 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
   const bearerToken = authHeader?.startsWith("Bearer ") ? authHeader.slice(7).trim() : null;
 
   if (bearerToken?.startsWith("sk_live_")) {
+    const ip = req.ip ?? "unknown";
+    const rateLimitKey = `apikey_fail:${ip}`;
+
+    if (isCurrentlyBlocked(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
+      return void res.status(429).json({ error: "Too many failed authentication attempts. Please wait before trying again." });
+    }
+
     const accountId = await resolveApiKeyAccountId(bearerToken);
     if (accountId === null) {
+      if (isRateLimited(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
+        return void res.status(429).json({ error: "Too many failed authentication attempts. Please wait before trying again." });
+      }
       return void res.status(401).json({ error: "Invalid or revoked API key." });
     }
     req.internalAccountId = accountId;

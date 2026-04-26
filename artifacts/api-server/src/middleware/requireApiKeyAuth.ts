@@ -2,6 +2,10 @@ import { createHash } from "crypto";
 import type { RequestHandler } from "express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
+import { isRateLimited, isCurrentlyBlocked } from "../lib/ratelimit";
+
+const APIKEY_FAIL_MAX = 10;
+const APIKEY_FAIL_WINDOW_MS = 60 * 1000;
 
 const API_KEY_PREFIX = "sk_live_";
 
@@ -46,18 +50,34 @@ export async function resolveApiKeyAccountId(bearerToken: string): Promise<numbe
 }
 
 export const requireApiKeyAuth: RequestHandler = async (req, res, next) => {
+  const ip = req.ip ?? "unknown";
+  const rateLimitKey = `apikey_fail:${ip}`;
+
   const authHeader = req.headers["authorization"];
   if (!authHeader?.startsWith("Bearer ")) {
+    if (isRateLimited(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
+      return void res.status(429).json({ error: "Too many failed authentication attempts. Please wait before trying again." });
+    }
     return void res.status(401).json({ error: "Authentication required. Provide an API key via Authorization: Bearer sk_live_…" });
   }
 
   const token = authHeader.slice(7).trim();
   if (!token.startsWith(API_KEY_PREFIX)) {
+    if (isRateLimited(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
+      return void res.status(429).json({ error: "Too many failed authentication attempts. Please wait before trying again." });
+    }
     return void res.status(401).json({ error: "Invalid API key format. Keys must start with sk_live_." });
+  }
+
+  if (isCurrentlyBlocked(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
+    return void res.status(429).json({ error: "Too many failed authentication attempts. Please wait before trying again." });
   }
 
   const accountId = await resolveApiKeyAccountId(token);
   if (accountId === null) {
+    if (isRateLimited(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
+      return void res.status(429).json({ error: "Too many failed authentication attempts. Please wait before trying again." });
+    }
     return void res.status(401).json({ error: "Invalid or revoked API key." });
   }
 
