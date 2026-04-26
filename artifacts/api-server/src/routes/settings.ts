@@ -23,10 +23,23 @@ function buildLogoServingUrl(accountId: number): string {
   return `/api/storage/org-logo/${accountId}`;
 }
 
+// UUID v4 pattern — logo paths must always be non-guessable (/objects/<uuid>).
+// This shape is intentional: the org-logo route is unauthenticated, so the
+// backing object path must never be predictable or sequential.
+const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 async function uploadLogoBuffer(buffer: Buffer, contentType: ImageContentType): Promise<string> {
   const privateDir = objectStorageService.getPrivateObjectDir();
   const entityDir = privateDir.endsWith("/") ? privateDir : `${privateDir}/`;
   const entityId = randomUUID();
+
+  // Regression guard: catch any future refactor that might produce a
+  // guessable or non-UUID path before it reaches the database.
+  if (!UUID_V4_RE.test(entityId)) {
+    throw new Error(`Logo object ID is not a valid UUID v4: "${entityId}". ` +
+      "Logo paths must use non-guessable UUIDs because the serving route is unauthenticated.");
+  }
+
   const objectEntityPath = `${entityDir}${entityId}`;
   const withSlash = objectEntityPath.startsWith("/") ? objectEntityPath : `/${objectEntityPath}`;
   const parts = withSlash.slice(1).split("/");

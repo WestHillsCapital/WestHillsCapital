@@ -7,6 +7,26 @@ import { logger } from "../lib/logger";
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
 
+// ─── Security note: intentionally public routes ───────────────────────────────
+//
+// Both routes below are unauthenticated by design so that customer-facing forms
+// can load assets (logos, public files) without requiring auth headers.
+//
+// Enumeration risk is mitigated as follows:
+//   • /storage/public-objects/*  — files are looked up across pre-configured
+//     search paths; the caller must already know the exact filename.
+//   • /storage/org-logo/:accountId — the accountId is an integer that maps to
+//     an account's logo. The underlying GCS object is stored at a random UUID
+//     path (see uploadLogoBuffer in settings.ts), so even if someone guesses a
+//     valid accountId they can only retrieve the publicly-intended logo image,
+//     not any other private object. Direct access to GCS object paths is not
+//     possible through this endpoint.
+//
+// Do NOT expose raw /objects/* paths through an unauthenticated route; all
+// private-object access (other than logos) must go through authenticated routes
+// that check objectStorageService.canAccessObjectEntity().
+// ─────────────────────────────────────────────────────────────────────────────
+
 router.get("/storage/public-objects/*filePath", async (req: Request, res: Response) => {
   try {
     const raw = req.params.filePath;
