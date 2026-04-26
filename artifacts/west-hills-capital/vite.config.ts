@@ -125,7 +125,7 @@ export default defineConfig({
             return "vendor-ui";
           }
           // Icons
-          if (id.includes("node_modules/lucide-react") || id.includes("node_modules/react-icons")) {
+          if (id.includes("node_modules/lucide-react")) {
             return "vendor-icons";
           }
           // Google OAuth
