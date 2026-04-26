@@ -122,8 +122,6 @@ export default defineConfig({
           if (id.includes("node_modules/@tanstack")) return "vendor-query";
           // Animation — heavy, rarely needed on first paint
           if (id.includes("node_modules/framer-motion")) return "vendor-motion";
-          // Charts — only used on LivePricing page
-          if (id.includes("node_modules/recharts") || id.includes("node_modules/d3-")) return "vendor-charts";
           // Radix UI + form libs
           if (id.includes("node_modules/@radix-ui") || id.includes("node_modules/react-hook-form") || id.includes("node_modules/zod")) {
             return "vendor-ui";
