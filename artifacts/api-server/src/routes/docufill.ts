@@ -462,11 +462,13 @@ async function getSession(token: string, client: QueryClient = getDb()): Promise
     `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
             p.transaction_scope, p.custodian_id, p.depository_id,
             p.webhook_enabled, p.webhook_url,
-            c.name AS custodian_name, d.name AS depository_name
+            c.name AS custodian_name, d.name AS depository_name,
+            a.name AS org_name, a.logo_url AS org_logo_url, a.brand_color AS org_brand_color
        FROM docufill_interview_sessions s
        JOIN docufill_packages p ON p.id = s.package_id
        LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
        LEFT JOIN docufill_depositories d ON d.id = p.depository_id
+       LEFT JOIN accounts a ON a.id = p.account_id
       WHERE s.token = $1
         AND s.expires_at > NOW()`,
     [token],

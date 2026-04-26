@@ -32,6 +32,9 @@ type SessionData = {
   prefill: Record<string, string>;
   answers: Record<string, string>;
   status: string;
+  org_name?: string | null;
+  org_logo_url?: string | null;
+  org_brand_color?: string | null;
 };
 
 function fieldIsRequired(field: FieldItem): boolean {
@@ -261,13 +264,30 @@ export default function DocuFillCustomer() {
       {/* Header */}
       <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
-          <div className="w-8 h-8 rounded bg-[#0F1C3F] flex items-center justify-center shrink-0">
-            <span className="text-[#C49A38] text-xs font-bold">WHC</span>
-          </div>
-          <div>
-            <div className="text-sm font-semibold text-[#0F1C3F]">West Hills Capital</div>
-            <div className="text-[11px] text-[#6B7A99]">Secure document collection</div>
-          </div>
+          {(() => {
+            const orgName = session!.org_name ?? "West Hills Capital";
+            const logoSrc = session!.org_logo_url ? `${API_BASE}${session!.org_logo_url}` : null;
+            const brandColor = session!.org_brand_color ?? "#C49A38";
+            const initial = orgName.charAt(0).toUpperCase();
+            return (
+              <>
+                <div
+                  className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden"
+                  style={{ backgroundColor: brandColor }}
+                >
+                  {logoSrc ? (
+                    <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" />
+                  ) : (
+                    <span className="text-white text-xs font-bold">{initial}</span>
+                  )}
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-[#0F1C3F]">{orgName}</div>
+                  <div className="text-[11px] text-[#6B7A99]">Secure document collection</div>
+                </div>
+              </>
+            );
+          })()}
         </div>
       </header>
 

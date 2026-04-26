@@ -12,6 +12,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
     "@clerk/express": "^2.1.9",
+    "@google-cloud/storage": "^7.19.0",
     "@sentry/node": "^10.50.0",
     "@types/pdfkit": "^0.17.5",
     "@types/pg": "^8.18.0",

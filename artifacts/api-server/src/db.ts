@@ -317,6 +317,10 @@ export async function initDb(): Promise<void> {
     ).catch(() => {});
   }
 
+  // ── Account branding columns ─────────────────────────────────────────────────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS logo_url TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS brand_color TEXT NOT NULL DEFAULT '#C49A38'`);
+
   // Server-side session store backed by Postgres (replaces in-memory Map)
   await db.query(`
     CREATE TABLE IF NOT EXISTS internal_sessions (

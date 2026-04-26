@@ -12,6 +12,8 @@ import fedexRouter         from "./fedex";
 import docufillRouter, { publicDocufillRouter } from "./docufill";
 import contentRouter, { publicContentRouter } from "./content";
 import productAuthRouter   from "./product-auth";
+import storageRouter       from "./storage";
+import settingsRouter      from "./settings";
 import { requireInternalAuth } from "../middleware/requireInternalAuth";
 import { requireProductAuth } from "../middleware/requireProductAuth";
 
@@ -19,6 +21,7 @@ const router: IRouter = Router();
 
 // ── Public routes ─────────────────────────────────────────────────────────────
 router.use(healthRouter);
+router.use(storageRouter);
 router.use("/pricing",      pricingRouter);
 router.use("/scheduling",   schedulingRouter);
 router.use("/leads",        leadsRouter);
@@ -52,5 +55,8 @@ router.use("/product/auth", productAuthRouter);
 
 // ── Content engine (internal tool — also require auth) ────────────────────────
 router.use("/internal/content", requireInternalAuth, contentRouter);
+
+// ── Org settings (internal tool — require auth) ───────────────────────────────
+router.use("/internal/settings", requireInternalAuth, settingsRouter);
 
 export default router;
