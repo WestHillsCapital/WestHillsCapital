@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
-import { ObjectPermission } from "../lib/objectAcl";
+import { getDb } from "../db";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -31,22 +31,28 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
   }
 });
 
-router.get("/storage/objects/*path", async (req: Request, res: Response) => {
+router.get("/storage/org-logo/:accountId", async (req: Request, res: Response) => {
   try {
-    const raw = req.params.path;
-    const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
-    const objectPath = `/objects/${wildcardPath}`;
-    const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
-
-    const isAccessible = await objectStorageService.canAccessObjectEntity({
-      objectFile,
-      requestedPermission: ObjectPermission.READ,
-    });
-    if (!isAccessible) {
-      res.status(403).json({ error: "Access denied" });
+    const accountId = parseInt(req.params.accountId, 10);
+    if (isNaN(accountId) || accountId <= 0) {
+      res.status(400).json({ error: "Invalid account ID" });
       return;
     }
-
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT logo_url FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+    const logoUrl = (rows[0] as Record<string, unknown>).logo_url as string | null;
+    if (!logoUrl) {
+      res.status(404).json({ error: "No logo configured" });
+      return;
+    }
+    const objectFile = await objectStorageService.getObjectEntityFile(logoUrl);
     const response = await objectStorageService.downloadObject(objectFile);
     res.status(response.status);
     response.headers.forEach((value, key) => res.setHeader(key, value));
@@ -58,11 +64,11 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     }
   } catch (err) {
     if (err instanceof ObjectNotFoundError) {
-      res.status(404).json({ error: "Object not found" });
+      res.status(404).json({ error: "Logo not found" });
       return;
     }
-    logger.error({ err }, "Error serving object");
-    res.status(500).json({ error: "Failed to serve object" });
+    logger.error({ err }, "Error serving org logo");
+    res.status(500).json({ error: "Failed to serve logo" });
   }
 });
 

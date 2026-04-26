@@ -2408,7 +2408,7 @@ export default function DocuFill() {
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
           <h1 className="text-2xl font-semibold">DocuFill</h1>
-          <p className="text-sm text-[#6B7A99] mt-1">{isPublicSession ? "Complete your secure paperwork interview for West Hills Capital." : "Set up custodial packages once, then launch clean interviews from Deal Builder."}</p>
+          <p className="text-sm text-[#6B7A99] mt-1">{isPublicSession ? "Complete your secure paperwork interview." : "Set up custodial packages once, then launch clean interviews from Deal Builder."}</p>
         </div>
         {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
           <button onClick={() => goBuilderStep(builderStep)} className={`px-3 py-2 text-sm ${tab === "packages" || tab === "mapper" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
@@ -2844,7 +2844,7 @@ export default function DocuFill() {
                     </div>
                     {isUploadingDocument && <div className="text-xs text-[#6B7A99]">Uploading PDF documents, please wait…</div>}
                     {selectedPackage.documents.length === 0 ? (
-                      <EmptyState message="Upload the New Direction PDFs here, then arrange them into the order West Hills wants customers to receive them." />
+                      <EmptyState message="Upload PDFs here, then arrange them into the order customers should receive them." />
                     ) : (
                       <DndContext
                         sensors={sortSensors}

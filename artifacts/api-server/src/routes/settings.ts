@@ -2,7 +2,6 @@ import { Router, type IRouter } from "express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import { ObjectStorageService } from "../lib/objectStorage";
-import { ObjectPermission } from "../lib/objectAcl";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -15,9 +14,14 @@ function isValidBrandColor(value: unknown): boolean {
   return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value.trim());
 }
 
-function logoServingUrl(rawPath: string | null | undefined): string | null {
-  if (!rawPath) return null;
-  return `/api/storage${rawPath}`;
+function isValidLogoPath(value: unknown): boolean {
+  if (typeof value !== "string") return false;
+  const p = value.trim();
+  return p.startsWith("/objects/") && !p.includes("..") && p.length < 300;
+}
+
+function buildLogoServingUrl(accountId: number): string {
+  return `/api/storage/org-logo/${accountId}`;
 }
 
 router.get("/org", async (req, res) => {
@@ -38,7 +42,7 @@ router.get("/org", async (req, res) => {
         id: row.id,
         name: row.name,
         slug: row.slug,
-        logo_url: logoServingUrl(row.logo_url as string | null),
+        logo_url: row.logo_url ? buildLogoServingUrl(accountId) : null,
         brand_color: row.brand_color ?? "#C49A38",
       },
     });
@@ -73,18 +77,14 @@ router.patch("/org", async (req, res) => {
       : (current.brand_color as string);
 
     let rawLogoPath = current.logo_url as string | null;
-    if (body.logoPath !== undefined) {
-      rawLogoPath = typeof body.logoPath === "string" ? body.logoPath : null;
-    }
-
-    if (rawLogoPath !== null && rawLogoPath !== (current.logo_url as string | null)) {
-      try {
-        await objectStorageService.trySetObjectEntityAclPolicy(rawLogoPath, {
-          owner: `account:${accountId}`,
-          visibility: "public",
-        });
-      } catch (aclErr) {
-        logger.warn({ aclErr, rawLogoPath }, "[Settings] Could not set logo ACL policy; object may not yet exist");
+    if ("logoPath" in body) {
+      if (body.logoPath === null) {
+        rawLogoPath = null;
+      } else if (isValidLogoPath(body.logoPath)) {
+        rawLogoPath = (body.logoPath as string).trim();
+      } else {
+        res.status(400).json({ error: "Invalid logo path" });
+        return;
       }
     }
 
@@ -99,7 +99,7 @@ router.patch("/org", async (req, res) => {
         id: row.id,
         name: row.name,
         slug: row.slug,
-        logo_url: logoServingUrl(row.logo_url as string | null),
+        logo_url: row.logo_url ? buildLogoServingUrl(accountId) : null,
         brand_color: row.brand_color ?? "#C49A38",
       },
     });

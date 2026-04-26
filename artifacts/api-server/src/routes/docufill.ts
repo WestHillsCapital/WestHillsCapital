@@ -464,7 +464,7 @@ async function getSession(token: string, client: QueryClient = getDb()): Promise
             p.webhook_enabled, p.webhook_url,
             c.name AS custodian_name, d.name AS depository_name,
             a.name AS org_name,
-            CASE WHEN a.logo_url IS NOT NULL THEN '/api/storage' || a.logo_url ELSE NULL END AS org_logo_url,
+            CASE WHEN a.logo_url IS NOT NULL THEN '/api/storage/org-logo/' || a.id::text ELSE NULL END AS org_logo_url,
             a.brand_color AS org_brand_color
        FROM docufill_interview_sessions s
        JOIN docufill_packages p ON p.id = s.package_id
