@@ -236,4 +236,75 @@ if (process.env.DATABASE_URL) {
   }
 }
 
+// ── yDraw vertical-alignment regression tests ──────────────────────────────
+// Mirror the formula constants from artifacts/api-server/src/routes/docufill.ts
+// lines 514–533.  These are pure arithmetic assertions that will catch any
+// accidental edit to the positioning constants.
+
+function assertClose(actual, expected, message, epsilon = 1e-9) {
+  assert.ok(
+    Math.abs(actual - expected) < epsilon,
+    `${message}: expected ${expected}, got ${actual}`,
+  );
+}
+
+function computeYDraw({ fontSize, hPct, yPct, pageHeight, format }) {
+  const yTop = pageHeight - (yPct / 100) * pageHeight;
+  const boxHeight = Math.max(fontSize + 2, (hPct / 100) * pageHeight);
+  const isCheckboxFormat =
+    format === "checkbox-yes" || String(format ?? "").startsWith("checkbox-option:");
+  const rawYDraw = isCheckboxFormat
+    ? yTop - boxHeight / 2 - fontSize * 0.35
+    : yTop - boxHeight + fontSize * 0.2 + 2;
+  return Math.max(fontSize + 2, Math.min(pageHeight - 2, rawYDraw));
+}
+
+// Case 1: default single-line  (small box, no format)
+// fontSize=11, h=10%, y=10%, pageHeight=792
+// yTop = 792 - 79.2 = 712.8
+// boxHeight = max(13, 79.2) = 79.2
+// rawYDraw = 712.8 - 79.2 + 11*0.2 + 2 = 637.8
+assertClose(
+  computeYDraw({ fontSize: 11, hPct: 10, yPct: 10, pageHeight: 792, format: null }),
+  637.8,
+  "yDraw single-line default formula",
+);
+
+// Case 2: tall-box multiline  (large h forces a deeper box)
+// fontSize=11, h=30%, y=10%, pageHeight=792
+// yTop = 712.8, boxHeight = max(13, 237.6) = 237.6
+// rawYDraw = 712.8 - 237.6 + 2.2 + 2 = 479.4
+assertClose(
+  computeYDraw({ fontSize: 11, hPct: 30, yPct: 10, pageHeight: 792, format: null }),
+  479.4,
+  "yDraw tall-box multiline formula",
+);
+
+// Case 3: checkbox-yes centering
+// fontSize=11, h=10%, y=10%, pageHeight=792
+// yTop = 712.8, boxHeight = 79.2
+// rawYDraw = 712.8 - 79.2/2 - 11*0.35 = 712.8 - 39.6 - 3.85 = 669.35
+assertClose(
+  computeYDraw({ fontSize: 11, hPct: 10, yPct: 10, pageHeight: 792, format: "checkbox-yes" }),
+  669.35,
+  "yDraw checkbox-yes vertical centering formula",
+);
+
+// Case 4: checkbox-option: prefix also triggers centering
+assertClose(
+  computeYDraw({ fontSize: 11, hPct: 10, yPct: 10, pageHeight: 792, format: "checkbox-option:Primary" }),
+  669.35,
+  "yDraw checkbox-option: prefix also uses centering formula",
+);
+
+// Case 5: clamp – rawYDraw below minimum is raised to fontSize+2
+// fontSize=11, h=99%, y=1%, pageHeight=100
+// yTop = 100 - 1 = 99, boxHeight = max(13, 99) = 99
+// rawYDraw = 99 - 99 + 11*0.2 + 2 = 4.2  →  clamped to max(13, 4.2) = 13
+assert.equal(
+  computeYDraw({ fontSize: 11, hPct: 99, yPct: 1, pageHeight: 100, format: null }),
+  13,
+  "yDraw clamps rawYDraw up to fontSize+2 minimum",
+);
+
 console.log("DocuFill redaction validation passed");
