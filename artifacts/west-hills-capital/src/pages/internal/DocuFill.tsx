@@ -2447,6 +2447,9 @@ export default function DocuFill() {
                         className="w-full text-left px-3 py-2 text-xs text-[#8A9BB8] hover:bg-[#F8F6F0]"
                         onClick={() => { setSelectedPackageId(null); setAddingPackage(false); setPkgDropdownOpen(false); }}
                       >Select a package…</button>
+                      {visiblePackages.length === 0 && (
+                        <div className="px-3 py-3 text-xs text-[#8A9BB8] border-t border-[#F0EBE0] italic">No packages match the active tag filter.</div>
+                      )}
                       {visiblePackages.map((pkg) => (
                         <button
                           key={pkg.id}
