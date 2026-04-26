@@ -463,7 +463,9 @@ async function getSession(token: string, client: QueryClient = getDb()): Promise
             p.transaction_scope, p.custodian_id, p.depository_id,
             p.webhook_enabled, p.webhook_url,
             c.name AS custodian_name, d.name AS depository_name,
-            a.name AS org_name, a.logo_url AS org_logo_url, a.brand_color AS org_brand_color
+            a.name AS org_name,
+            CASE WHEN a.logo_url IS NOT NULL THEN '/api/storage' || a.logo_url ELSE NULL END AS org_logo_url,
+            a.brand_color AS org_brand_color
        FROM docufill_interview_sessions s
        JOIN docufill_packages p ON p.id = s.package_id
        LEFT JOIN docufill_custodians c ON c.id = p.custodian_id

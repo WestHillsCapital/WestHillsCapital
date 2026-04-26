@@ -2,6 +2,7 @@ import { Router, type IRouter } from "express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import { ObjectStorageService } from "../lib/objectStorage";
+import { ObjectPermission } from "../lib/objectAcl";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -12,6 +13,11 @@ function cleanText(value: unknown): string {
 
 function isValidBrandColor(value: unknown): boolean {
   return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value.trim());
+}
+
+function logoServingUrl(rawPath: string | null | undefined): string | null {
+  if (!rawPath) return null;
+  return `/api/storage${rawPath}`;
 }
 
 router.get("/org", async (req, res) => {
@@ -32,7 +38,7 @@ router.get("/org", async (req, res) => {
         id: row.id,
         name: row.name,
         slug: row.slug,
-        logo_url: row.logo_url ?? null,
+        logo_url: logoServingUrl(row.logo_url as string | null),
         brand_color: row.brand_color ?? "#C49A38",
       },
     });
@@ -58,16 +64,34 @@ router.patch("/org", async (req, res) => {
     }
     const current = existing[0] as Record<string, unknown>;
 
-    const name = body.name !== undefined ? cleanText(body.name) || (current.name as string) : (current.name as string);
-    const logoUrl = body.logoUrl !== undefined ? (typeof body.logoUrl === "string" ? body.logoUrl : null) : (current.logo_url ?? null);
+    const name = body.name !== undefined
+      ? cleanText(body.name) || (current.name as string)
+      : (current.name as string);
+
     const brandColor = body.brandColor !== undefined
       ? (isValidBrandColor(body.brandColor) ? (body.brandColor as string).trim() : (current.brand_color as string))
       : (current.brand_color as string);
 
+    let rawLogoPath = current.logo_url as string | null;
+    if (body.logoPath !== undefined) {
+      rawLogoPath = typeof body.logoPath === "string" ? body.logoPath : null;
+    }
+
+    if (rawLogoPath !== null && rawLogoPath !== (current.logo_url as string | null)) {
+      try {
+        await objectStorageService.trySetObjectEntityAclPolicy(rawLogoPath, {
+          owner: `account:${accountId}`,
+          visibility: "public",
+        });
+      } catch (aclErr) {
+        logger.warn({ aclErr, rawLogoPath }, "[Settings] Could not set logo ACL policy; object may not yet exist");
+      }
+    }
+
     const { rows } = await db.query(
       `UPDATE accounts SET name=$1, logo_url=$2, brand_color=$3
          WHERE id=$4 RETURNING id, name, slug, logo_url, brand_color`,
-      [name, logoUrl, brandColor, accountId],
+      [name, rawLogoPath, brandColor, accountId],
     );
     const row = rows[0] as Record<string, unknown>;
     res.json({
@@ -75,7 +99,7 @@ router.patch("/org", async (req, res) => {
         id: row.id,
         name: row.name,
         slug: row.slug,
-        logo_url: row.logo_url ?? null,
+        logo_url: logoServingUrl(row.logo_url as string | null),
         brand_color: row.brand_color ?? "#C49A38",
       },
     });
@@ -87,7 +111,7 @@ router.patch("/org", async (req, res) => {
 
 router.post("/org/logo", async (req, res) => {
   try {
-    const body = req.body as { name?: unknown; size?: unknown; contentType?: unknown };
+    const body = req.body as { contentType?: unknown };
     const contentType = cleanText(body.contentType) || "image/png";
     if (!["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(contentType)) {
       res.status(400).json({ error: "Only PNG, JPG, and WebP images are accepted" });
@@ -96,9 +120,8 @@ router.post("/org/logo", async (req, res) => {
 
     const uploadUrl = await objectStorageService.getObjectEntityUploadURL();
     const rawObjectPath = objectStorageService.normalizeObjectEntityPath(uploadUrl);
-    const serveObjectPath = `/api/storage${rawObjectPath}`;
 
-    res.json({ uploadUrl, objectPath: serveObjectPath });
+    res.json({ uploadUrl, rawObjectPath });
   } catch (err) {
     logger.error({ err }, "[Settings] Failed to generate logo upload URL");
     res.status(500).json({ error: "Failed to generate logo upload URL" });

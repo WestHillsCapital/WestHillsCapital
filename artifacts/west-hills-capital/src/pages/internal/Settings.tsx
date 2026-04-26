@@ -18,7 +18,7 @@ export default function Settings() {
   const [org, setOrg] = useState<OrgSettings | null>(null);
   const [name, setName] = useState("");
   const [brandColor, setBrandColor] = useState("#C49A38");
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [displayLogoUrl, setDisplayLogoUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
@@ -33,16 +33,20 @@ export default function Settings() {
     statusTimer.current = setTimeout(() => setStatusMsg(""), 3000);
   }
 
+  function applyOrg(data: OrgSettings) {
+    setOrg(data);
+    setName(data.name);
+    setBrandColor(data.brand_color);
+    setDisplayLogoUrl(data.logo_url ? `${API_BASE}${data.logo_url}` : null);
+  }
+
   useEffect(() => {
     setIsLoading(true);
     fetch(`${SETTINGS_BASE}/org`, { headers: { ...getAuthHeaders() } })
       .then((r) => r.json())
       .then((data: { org?: OrgSettings; error?: string }) => {
         if (data.org) {
-          setOrg(data.org);
-          setName(data.org.name);
-          setBrandColor(data.org.brand_color);
-          setLogoUrl(data.org.logo_url);
+          applyOrg(data.org);
         } else {
           setErrorMsg(data.error ?? "Failed to load settings");
         }
@@ -68,10 +72,10 @@ export default function Settings() {
       const urlRes = await fetch(`${SETTINGS_BASE}/org/logo`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ name: file.name, size: file.size, contentType: file.type }),
+        body: JSON.stringify({ contentType: file.type }),
       });
-      const urlData = await urlRes.json() as { uploadUrl?: string; objectPath?: string; error?: string };
-      if (!urlRes.ok || !urlData.uploadUrl) {
+      const urlData = await urlRes.json() as { uploadUrl?: string; rawObjectPath?: string; error?: string };
+      if (!urlRes.ok || !urlData.uploadUrl || !urlData.rawObjectPath) {
         setErrorMsg(urlData.error ?? "Failed to get upload URL");
         return;
       }
@@ -84,14 +88,42 @@ export default function Settings() {
         setErrorMsg("Logo upload failed. Please try again.");
         return;
       }
-      const servedPath = urlData.objectPath!;
-      setLogoUrl(servedPath);
-      flashStatus("Logo uploaded — click Save to apply.");
+      const patchRes = await fetch(`${SETTINGS_BASE}/org`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ logoPath: urlData.rawObjectPath }),
+      });
+      const patchData = await patchRes.json() as { org?: OrgSettings; error?: string };
+      if (!patchRes.ok) {
+        setErrorMsg(patchData.error ?? "Logo uploaded but could not be saved.");
+        return;
+      }
+      if (patchData.org) {
+        applyOrg(patchData.org);
+      }
+      flashStatus("Logo saved.");
     } catch {
       setErrorMsg("Logo upload failed. Please try again.");
     } finally {
       setIsUploadingLogo(false);
       if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  }
+
+  async function handleRemoveLogo() {
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/org`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ logoPath: null }),
+      });
+      const data = await res.json() as { org?: OrgSettings; error?: string };
+      if (!res.ok) { setErrorMsg(data.error ?? "Failed to remove logo"); return; }
+      if (data.org) applyOrg(data.org);
+      flashStatus("Logo removed.");
+    } catch {
+      setErrorMsg("Failed to remove logo.");
     }
   }
 
@@ -104,19 +136,14 @@ export default function Settings() {
       const res = await fetch(`${SETTINGS_BASE}/org`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ name: name.trim(), logoUrl: logoUrl ?? null, brandColor }),
+        body: JSON.stringify({ name: name.trim(), brandColor }),
       });
       const data = await res.json() as { org?: OrgSettings; error?: string };
       if (!res.ok) {
         setErrorMsg(data.error ?? "Failed to save settings");
         return;
       }
-      if (data.org) {
-        setOrg(data.org);
-        setName(data.org.name);
-        setBrandColor(data.org.brand_color);
-        setLogoUrl(data.org.logo_url);
-      }
+      if (data.org) applyOrg(data.org);
       flashStatus("Settings saved.");
     } catch {
       setErrorMsg("Failed to save settings.");
@@ -132,8 +159,6 @@ export default function Settings() {
       </div>
     );
   }
-
-  const logoSrc = logoUrl ? `${API_BASE}${logoUrl}` : null;
 
   return (
     <div className="min-h-screen bg-[#F8F6F0]">
@@ -188,12 +213,12 @@ export default function Settings() {
           <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-start gap-4">
             <div className="w-44 shrink-0">
               <label className="text-sm font-medium text-[#0F1C3F]">Logo</label>
-              <p className="text-xs text-[#8A9BB8] mt-0.5">PNG, JPG, or WebP under 5 MB</p>
+              <p className="text-xs text-[#8A9BB8] mt-0.5">PNG, JPG, or WebP under 5 MB — saved immediately on upload</p>
             </div>
             <div className="flex-1 flex items-center gap-4">
               <div className="w-16 h-16 rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] flex items-center justify-center shrink-0 overflow-hidden">
-                {logoSrc ? (
-                  <img src={logoSrc} alt="Logo" className="w-full h-full object-contain" />
+                {displayLogoUrl ? (
+                  <img src={displayLogoUrl} alt="Logo" className="w-full h-full object-contain" />
                 ) : (
                   <svg className="w-8 h-8 text-[#C4B89A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
@@ -214,12 +239,12 @@ export default function Settings() {
                   onClick={() => logoInputRef.current?.click()}
                   className="text-sm rounded-lg border border-[#DDD5C4] bg-white px-3 py-1.5 text-[#0F1C3F] hover:bg-[#F8F6F0] disabled:opacity-60 transition-colors"
                 >
-                  {isUploadingLogo ? "Uploading…" : logoSrc ? "Replace logo" : "Upload logo"}
+                  {isUploadingLogo ? "Uploading…" : displayLogoUrl ? "Replace logo" : "Upload logo"}
                 </button>
-                {logoSrc && (
+                {displayLogoUrl && (
                   <button
                     type="button"
-                    onClick={() => setLogoUrl(null)}
+                    onClick={() => { void handleRemoveLogo(); }}
                     className="text-xs text-[#8A9BB8] hover:text-red-500 transition-colors text-left"
                   >
                     Remove logo
@@ -268,8 +293,8 @@ export default function Settings() {
                 className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden"
                 style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38" }}
               >
-                {logoSrc ? (
-                  <img src={logoSrc} alt="Logo" className="w-full h-full object-contain" />
+                {displayLogoUrl ? (
+                  <img src={displayLogoUrl} alt="Logo" className="w-full h-full object-contain" />
                 ) : (
                   <span className="text-white text-xs font-bold">{(name || "?").charAt(0).toUpperCase()}</span>
                 )}

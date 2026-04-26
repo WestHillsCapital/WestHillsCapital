@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { Readable } from "stream";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+import { ObjectPermission } from "../lib/objectAcl";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
@@ -36,6 +37,16 @@ router.get("/storage/objects/*path", async (req: Request, res: Response) => {
     const wildcardPath = Array.isArray(raw) ? raw.join("/") : raw;
     const objectPath = `/objects/${wildcardPath}`;
     const objectFile = await objectStorageService.getObjectEntityFile(objectPath);
+
+    const isAccessible = await objectStorageService.canAccessObjectEntity({
+      objectFile,
+      requestedPermission: ObjectPermission.READ,
+    });
+    if (!isAccessible) {
+      res.status(403).json({ error: "Access denied" });
+      return;
+    }
+
     const response = await objectStorageService.downloadObject(objectFile);
     res.status(response.status);
     response.headers.forEach((value, key) => res.setHeader(key, value));
