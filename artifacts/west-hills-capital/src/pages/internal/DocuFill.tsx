@@ -550,6 +550,50 @@ class SmartPointerSensor extends PointerSensor {
   ];
 }
 
+function TagChipInput({ tags, onChange, placeholder }: {
+  tags: string[];
+  onChange: (tags: string[]) => void;
+  placeholder?: string;
+}) {
+  const [input, setInput] = useState("");
+  function commit(raw: string) {
+    const tag = raw.replace(/,/g, "").trim();
+    if (tag && !tags.includes(tag)) onChange([...tags, tag]);
+    setInput("");
+  }
+  return (
+    <div>
+      {tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5 mb-2">
+          {tags.map((tag) => (
+            <span key={tag} className="inline-flex items-center gap-1 text-xs rounded-full px-2.5 py-0.5 bg-[#EFE8D8] text-[#5C4A1E] border border-[#DDD5C4]">
+              {tag}
+              <button
+                type="button"
+                onClick={() => onChange(tags.filter((t) => t !== tag))}
+                className="ml-0.5 text-[#8A7A5A] hover:text-red-500 transition-colors leading-none"
+                aria-label={`Remove tag ${tag}`}
+              >×</button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input
+        type="text"
+        value={input}
+        onChange={(e) => setInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === ",") { e.preventDefault(); commit(input); }
+          else if (e.key === "Backspace" && !input && tags.length > 0) onChange(tags.slice(0, -1));
+        }}
+        onBlur={() => commit(input)}
+        placeholder={tags.length ? "Add another tag…" : (placeholder ?? "e.g. sports, IRA, onboarding")}
+        className="w-full border border-[#D4C9B5] rounded px-3 py-1.5 text-xs focus:outline-none focus:border-[#C49A38] placeholder:text-[#B0A898]"
+      />
+    </div>
+  );
+}
+
 export default function DocuFill() {
   const search = useSearch();
   const params = useParams<{ token?: string }>();
@@ -573,7 +617,8 @@ export default function DocuFill() {
   const [typeManageOpen, setTypeManageOpen] = useState(false);
   const [typeDeletingScope, setTypeDeletingScope] = useState<string | null>(null);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
-  const [tagInput, setTagInput] = useState("");
+  const [pkgDropdownOpen, setPkgDropdownOpen] = useState(false);
+  const pkgDropdownRef = useRef<HTMLDivElement>(null);
   const [fieldLibrary, setFieldLibrary] = useState<FieldLibraryItem[]>([]);
   const [packages, setPackages] = useState<PackageItem[]>([]);
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
@@ -600,6 +645,16 @@ export default function DocuFill() {
   const fieldEditorPanelRef = useRef<HTMLDivElement>(null);
   const fieldEditorDragCleanupRef = useRef<(() => void) | null>(null);
   useEffect(() => () => { fieldEditorDragCleanupRef.current?.(); }, []);
+  useEffect(() => {
+    if (!pkgDropdownOpen) return;
+    function handleOutsideClick(e: MouseEvent) {
+      if (pkgDropdownRef.current && !pkgDropdownRef.current.contains(e.target as Node)) {
+        setPkgDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [pkgDropdownOpen]);
   const isFieldEditorOpen = !!fieldEditorModal;
   useEffect(() => {
     if (isFieldEditorOpen) setFieldEditorPos({ x: 0, y: 0 });
@@ -2343,9 +2398,15 @@ export default function DocuFill() {
             packages.forEach((pkg) => pkg.tags?.forEach((t) => allTagsSet.add(t)));
             const allTags = Array.from(allTagsSet).sort();
             if (allTags.length === 0) return null;
+            const isAll = tagFilter.length === 0;
             return (
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="text-[10px] text-[#8A9BB8] shrink-0">Filter:</span>
+                <button
+                  type="button"
+                  onClick={() => setTagFilter([])}
+                  className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${isAll ? "bg-[#0F1C3F] border-[#0F1C3F] text-white font-medium" : "bg-[#F8F6F0] border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
+                >All</button>
                 {allTags.map((tag) => {
                   const active = tagFilter.includes(tag);
                   return (
@@ -2357,9 +2418,6 @@ export default function DocuFill() {
                     >{tag}</button>
                   );
                 })}
-                {tagFilter.length > 0 && (
-                  <button type="button" onClick={() => setTagFilter([])} className="text-[10px] text-[#8A9BB8] hover:text-[#4A5568] ml-1">Clear</button>
-                )}
               </div>
             );
           })()}
@@ -2370,20 +2428,48 @@ export default function DocuFill() {
               const visiblePackages = tagFilter.length === 0
                 ? packages
                 : packages.filter((pkg) => pkg.id === selectedPackageId || tagFilter.some((t) => pkg.tags?.includes(t)));
+              const selectedPkg = packages.find((p) => p.id === selectedPackageId);
               return (
-                <select
-                  value={selectedPackageId ?? ""}
-                  onChange={(e) => { setSelectedPackageId(e.target.value ? Number(e.target.value) : null); setAddingPackage(false); }}
-                  className="flex-1 min-w-0 max-w-xs border border-[#D4C9B5] rounded-lg px-3 py-1.5 text-sm bg-white font-medium text-[#0F1C3F]"
-                >
-                  <option value="">{packages.length === 0 ? "No packages yet" : "Select a package…"}</option>
-                  {visiblePackages.map((pkg) => {
-                    const tagSuffix = pkg.tags?.length ? ` · ${pkg.tags.join(", ")}` : "";
-                    return (
-                      <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.status !== "active" ? " · inactive" : ""}{tagSuffix}</option>
-                    );
-                  })}
-                </select>
+                <div ref={pkgDropdownRef} className="relative flex-1 min-w-0 max-w-xs">
+                  <button
+                    type="button"
+                    onClick={() => setPkgDropdownOpen((v) => !v)}
+                    disabled={packages.length === 0}
+                    className="w-full border border-[#D4C9B5] rounded-lg px-3 py-1.5 text-sm bg-white font-medium text-[#0F1C3F] text-left flex items-center justify-between gap-2 disabled:opacity-60"
+                  >
+                    <span className="truncate">{selectedPkg ? selectedPkg.name : (packages.length === 0 ? "No packages yet" : "Select a package…")}</span>
+                    <svg className={`w-3.5 h-3.5 shrink-0 text-[#8A9BB8] transition-transform ${pkgDropdownOpen ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {pkgDropdownOpen && (
+                    <div className="absolute top-full mt-1 left-0 w-full min-w-[260px] bg-white border border-[#DDD5C4] rounded-lg shadow-lg z-50 overflow-y-auto max-h-72">
+                      <button
+                        type="button"
+                        className="w-full text-left px-3 py-2 text-xs text-[#8A9BB8] hover:bg-[#F8F6F0]"
+                        onClick={() => { setSelectedPackageId(null); setAddingPackage(false); setPkgDropdownOpen(false); }}
+                      >Select a package…</button>
+                      {visiblePackages.map((pkg) => (
+                        <button
+                          key={pkg.id}
+                          type="button"
+                          className={`w-full text-left px-3 py-2 border-t border-[#F0EBE0] transition-colors hover:bg-[#F8F6F0] ${selectedPackageId === pkg.id ? "bg-[#FBF7EE]" : ""}`}
+                          onClick={() => { setSelectedPackageId(pkg.id); setAddingPackage(false); setPkgDropdownOpen(false); }}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-sm font-medium text-[#0F1C3F] truncate">{pkg.name}</span>
+                            {pkg.status !== "active" && <span className="text-[10px] text-[#8A9BB8] shrink-0">inactive</span>}
+                          </div>
+                          {pkg.tags?.length > 0 && (
+                            <div className="flex flex-wrap gap-1 mt-1">
+                              {pkg.tags.map((tag) => (
+                                <span key={tag} className="text-[10px] rounded-full px-1.5 py-px bg-[#EFE8D8] text-[#5C4A1E] border border-[#DDD5C4]">{tag}</span>
+                              ))}
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               );
             })()}
             <button
@@ -2623,44 +2709,9 @@ export default function DocuFill() {
                       <div className="mt-4">
                         <span className="block text-xs text-[#6B7A99] mb-1">Tags</span>
                         <p className="text-[11px] text-[#8A9BB8] mb-2">Free-form labels for organizing and filtering packages. Press Enter or comma to add.</p>
-                        <div className="flex flex-wrap gap-1.5 mb-2">
-                          {(selectedPackage.tags ?? []).map((tag) => (
-                            <span key={tag} className="inline-flex items-center gap-1 text-xs rounded-full px-2.5 py-0.5 bg-[#EFE8D8] text-[#5C4A1E] border border-[#DDD5C4]">
-                              {tag}
-                              <button
-                                type="button"
-                                onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, tags: (pkg.tags ?? []).filter((t) => t !== tag) }))}
-                                className="ml-0.5 text-[#8A7A5A] hover:text-red-500 transition-colors leading-none"
-                                aria-label={`Remove tag ${tag}`}
-                              >×</button>
-                            </span>
-                          ))}
-                        </div>
-                        <input
-                          type="text"
-                          value={tagInput}
-                          onChange={(e) => setTagInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter" || e.key === ",") {
-                              e.preventDefault();
-                              const newTag = tagInput.replace(/,/g, "").trim();
-                              if (newTag && !(selectedPackage.tags ?? []).includes(newTag)) {
-                                updateSelectedPackage((pkg) => ({ ...pkg, tags: [...(pkg.tags ?? []), newTag] }));
-                              }
-                              setTagInput("");
-                            } else if (e.key === "Backspace" && !tagInput && (selectedPackage.tags ?? []).length > 0) {
-                              updateSelectedPackage((pkg) => ({ ...pkg, tags: (pkg.tags ?? []).slice(0, -1) }));
-                            }
-                          }}
-                          onBlur={() => {
-                            const newTag = tagInput.replace(/,/g, "").trim();
-                            if (newTag && !(selectedPackage.tags ?? []).includes(newTag)) {
-                              updateSelectedPackage((pkg) => ({ ...pkg, tags: [...(pkg.tags ?? []), newTag] }));
-                            }
-                            setTagInput("");
-                          }}
-                          placeholder={selectedPackage.tags?.length ? "Add another tag…" : "e.g. sports, IRA, onboarding"}
-                          className="w-full border border-[#D4C9B5] rounded px-3 py-1.5 text-xs focus:outline-none focus:border-[#C49A38] placeholder:text-[#B0A898]"
+                        <TagChipInput
+                          tags={selectedPackage.tags ?? []}
+                          onChange={(tags) => updateSelectedPackage((pkg) => ({ ...pkg, tags }))}
                         />
                       </div>
                     </details>
