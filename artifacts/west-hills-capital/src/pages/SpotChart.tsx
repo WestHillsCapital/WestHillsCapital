@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSpotHistory, type ChartPeriod } from "@/hooks/use-pricing";
 import SpotChartSkeleton from "./SpotChartSkeleton";
 import {
@@ -45,7 +45,12 @@ function formatSilverTick(v: number): string {
 
 export default function SpotChart() {
   const [period, setPeriod] = useState<ChartPeriod>("1M");
-  const { data, isLoading, isError } = useSpotHistory(period);
+  const [isPeriodSwitching, setIsPeriodSwitching] = useState(false);
+  const { data, isLoading, isFetching, isError } = useSpotHistory(period);
+
+  useEffect(() => {
+    if (!isFetching) setIsPeriodSwitching(false);
+  }, [isFetching]);
 
   const chartData = useMemo(() => {
     if (!data?.history?.length) return [];
@@ -84,7 +89,7 @@ export default function SpotChart() {
 
   const isSynthetic = period !== "1D" && period !== "1W" && period !== "1M";
 
-  if (isLoading) {
+  if (isLoading || isPeriodSwitching) {
     return <SpotChartSkeleton />;
   }
 
@@ -114,7 +119,7 @@ export default function SpotChart() {
           {PERIODS.map((p) => (
             <button
               key={p}
-              onClick={() => setPeriod(p)}
+              onClick={() => { if (p !== period) { setIsPeriodSwitching(true); setPeriod(p); } }}
               className={`px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
                 period === p
                   ? "bg-foreground text-white"
