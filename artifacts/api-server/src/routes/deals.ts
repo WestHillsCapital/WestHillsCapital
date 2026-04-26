@@ -632,7 +632,7 @@ router.post("/preview-invoice", async (req, res) => {
 // Sets payment_received_at. New code should use /wire-received instead.
 /**
  * @openapi
- * /internal/deals/{id}/payment:
+ * /deals/{id}/payment:
  *   patch:
  *     tags:
  *       - Internal — Deals
@@ -697,7 +697,7 @@ router.patch("/:id/payment", async (req, res) => {
 
 /**
  * @openapi
- * /internal/deals/{id}/wire-received:
+ * /deals/{id}/wire-received:
  *   patch:
  *     tags:
  *       - Internal — Deals
@@ -879,7 +879,7 @@ router.patch("/:id/order-paid", async (req, res) => {
 
 /**
  * @openapi
- * /internal/deals/{id}/tracking:
+ * /deals/{id}/tracking:
  *   patch:
  *     tags:
  *       - Internal — Deals

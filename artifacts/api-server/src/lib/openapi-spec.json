@@ -1194,7 +1194,7 @@
         }
       }
     },
-    "/internal/deals/{id}/payment": {
+    "/deals/{id}/payment": {
       "patch": {
         "tags": [
           "Internal — Deals"
@@ -1249,7 +1249,7 @@
         }
       }
     },
-    "/internal/deals/{id}/wire-received": {
+    "/deals/{id}/wire-received": {
       "patch": {
         "tags": [
           "Internal — Deals"
@@ -1309,7 +1309,7 @@
         }
       }
     },
-    "/internal/deals/{id}/tracking": {
+    "/deals/{id}/tracking": {
       "patch": {
         "tags": [
           "Internal — Deals"
