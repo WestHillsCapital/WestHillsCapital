@@ -1711,33 +1711,66 @@ export default function DocuFill() {
     setFieldEditorModal({ mode: "edit", fieldId });
   }
 
+  function autoPlacementsForOptions(fieldId: string, opts: string[], existingMappings: MappingItem[]): MappingItem[] {
+    if (!selectedDocument || opts.length === 0) return [];
+    const existingFormats = new Set(
+      existingMappings
+        .filter((m) => m.fieldId === fieldId && m.documentId === selectedDocument.id && m.page === selectedPage)
+        .map((m) => m.format),
+    );
+    const newOpts = opts.filter((opt) => !existingFormats.has(`checkbox-option:${opt}`));
+    const existingCount = existingMappings.filter((m) => m.fieldId === fieldId && m.documentId === selectedDocument.id && m.page === selectedPage).length;
+    return newOpts.map((opt, i) => ({
+      id: newId("map"),
+      fieldId,
+      documentId: selectedDocument.id,
+      page: selectedPage,
+      x: clampPercent(15, 0, 74),
+      y: clampPercent(15 + (existingCount + i) * 7, 0, 94),
+      w: 4,
+      h: 4,
+      fontSize: 11,
+      align: "left" as const,
+      format: `checkbox-option:${opt}`,
+    }));
+  }
+
   function saveFieldFromModal() {
     if (!fieldEditorModal || !selectedPackage) return;
     const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage } = fieldEditorDraft;
+    const cleanOpts = options.filter(Boolean);
+    const isChoiceType = type === "radio" || type === "checkbox";
     if (fieldEditorModal.mode === "add") {
       updateSelectedPackage((pkg) => {
         const field: FieldItem = {
           id: newId("field"), libraryFieldId: "",
           name: name.trim() || `Field ${pkg.fields.length + 1}`,
-          color, type, options: options.filter(Boolean), optionsMode: "override",
+          color, type, options: cleanOpts, optionsMode: "override",
           interviewMode, defaultValue: hasDefault ? defaultValue : "",
           source: "interview", sensitive: false,
           validationType: validationType ?? "none", validationPattern, validationMessage,
         };
         setSelectedFieldId(field.id);
-        return { ...pkg, fields: [...pkg.fields, field] };
+        const autoMappings = isChoiceType ? autoPlacementsForOptions(field.id, cleanOpts, pkg.mappings) : [];
+        if (autoMappings.length > 0) mappingUndoStack.current = [...mappingUndoStack.current, [...pkg.mappings]].slice(-20);
+        return { ...pkg, fields: [...pkg.fields, field], mappings: [...pkg.mappings, ...autoMappings] };
       });
     } else if (fieldEditorModal.fieldId) {
       const fid = fieldEditorModal.fieldId;
-      updateSelectedPackage((pkg) => ({
-        ...pkg,
-        fields: pkg.fields.map((f) => f.id === fid ? {
-          ...f, name: name.trim() || f.name, color, type,
-          options: options.filter(Boolean), optionsMode: "override" as const,
-          interviewMode, defaultValue: hasDefault ? defaultValue : "",
-          validationType: validationType ?? "none", validationPattern, validationMessage,
-        } : f),
-      }));
+      updateSelectedPackage((pkg) => {
+        const autoMappings = isChoiceType ? autoPlacementsForOptions(fid, cleanOpts, pkg.mappings) : [];
+        if (autoMappings.length > 0) mappingUndoStack.current = [...mappingUndoStack.current, [...pkg.mappings]].slice(-20);
+        return {
+          ...pkg,
+          fields: pkg.fields.map((f) => f.id === fid ? {
+            ...f, name: name.trim() || f.name, color, type,
+            options: cleanOpts, optionsMode: "override" as const,
+            interviewMode, defaultValue: hasDefault ? defaultValue : "",
+            validationType: validationType ?? "none", validationPattern, validationMessage,
+          } : f),
+          mappings: [...pkg.mappings, ...autoMappings],
+        };
+      });
     }
     setFieldEditorModal(null);
   }
