@@ -27,6 +27,33 @@ const objectStorageService = new ObjectStorageService();
 // that check objectStorageService.canAccessObjectEntity().
 // ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * @openapi
+ * /storage/public-objects/{filePath}:
+ *   get:
+ *     tags:
+ *       - Storage
+ *     summary: Serve a public asset file
+ *     description: |
+ *       Streams a file from the configured public-objects GCS search paths.
+ *       The caller must know the exact filename. No authentication required.
+ *     parameters:
+ *       - name: filePath
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Relative path of the file (e.g. `logos/sample.png`)
+ *     responses:
+ *       200:
+ *         description: File contents streamed with original Content-Type
+ *       404:
+ *         description: File not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get("/storage/public-objects/*filePath", async (req: Request, res: Response) => {
   try {
     const raw = req.params.filePath;
@@ -51,6 +78,36 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
   }
 });
 
+/**
+ * @openapi
+ * /storage/org-logo/{accountId}:
+ *   get:
+ *     tags:
+ *       - Storage
+ *     summary: Serve an org logo
+ *     description: |
+ *       Returns the logo image for the given account. No authentication required.
+ *
+ *       The underlying GCS object is stored at a random UUID path so guessing a
+ *       valid `accountId` only returns the publicly-intended logo, never a private asset.
+ *     parameters:
+ *       - name: accountId
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *         description: Numeric account / organisation ID
+ *     responses:
+ *       200:
+ *         description: Image data (PNG, JPEG, or WebP)
+ *       404:
+ *         description: Account not found or no logo configured
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get("/storage/org-logo/:accountId", async (req: Request, res: Response) => {
   try {
     const accountId = parseInt(req.params.accountId, 10);

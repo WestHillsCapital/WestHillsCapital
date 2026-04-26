@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
 import { rm } from "node:fs/promises";
+import { execSync } from "node:child_process";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
 globalThis.require = createRequire(import.meta.url);
@@ -13,6 +14,9 @@ const artifactDir = path.dirname(fileURLToPath(import.meta.url));
 async function buildAll() {
   const distDir = path.resolve(artifactDir, "dist");
   await rm(distDir, { recursive: true, force: true });
+
+  // Generate OpenAPI spec from route JSDoc annotations before bundling
+  execSync(`node ${path.resolve(artifactDir, "scripts/generate-openapi.mjs")}`, { stdio: "inherit" });
 
   await esbuild({
     entryPoints: [path.resolve(artifactDir, "src/index.ts")],
@@ -29,6 +33,8 @@ async function buildAll() {
     // - use path traversal to read files (e.g. @google-cloud/secret-manager loads sibling .proto files)
     external: [
       "*.node",
+      "swagger-ui-express",
+      "swagger-jsdoc",
       "sharp",
       "better-sqlite3",
       "sqlite3",

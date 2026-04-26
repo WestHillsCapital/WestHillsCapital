@@ -1,0 +1,1401 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "DocuPak / DocuFill API",
+    "version": "1.0.0",
+    "description": "API for the **DocuPak** SaaS platform and its embedded **DocuFill** paperwork engine.\n\n## Authentication\n\n| Scope | Scheme | How to obtain |\n|-------|--------|---------------|\n| Public routes | None | N/A |\n| Product portal (SaaS) | `Authorization: Bearer <clerk_jwt>` | Clerk front-end SDK |\n| Internal (WHC staff) | `Authorization: Bearer <session_token>` | `POST /api/internal/auth/sign-in` |\n\n## Base URL\nAll paths below are relative to `/api`.",
+    "contact": {
+      "name": "DocuPak Engineering"
+    }
+  },
+  "servers": [
+    {
+      "url": "/api",
+      "description": "Current server"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "productAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Clerk JWT",
+        "description": "Short-lived Clerk JWT issued by the product portal front-end."
+      },
+      "internalAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "Session token",
+        "description": "Opaque session token issued by `POST /api/internal/auth/sign-in`. WHC staff only."
+      }
+    },
+    "schemas": {
+      "OrgSettings": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string",
+            "example": "Acme Capital"
+          },
+          "slug": {
+            "type": "string",
+            "example": "acme-capital"
+          },
+          "logo_url": {
+            "type": "string",
+            "nullable": true,
+            "example": "/api/storage/org-logo/42"
+          },
+          "brand_color": {
+            "type": "string",
+            "example": "#C49A38",
+            "description": "Six-digit hex accent color"
+          }
+        }
+      },
+      "DocuFillSession": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "token": {
+            "type": "string",
+            "example": "df_abc123"
+          },
+          "package_id": {
+            "type": "integer"
+          },
+          "package_name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "in_progress",
+              "generated"
+            ]
+          },
+          "answers": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "prefill": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "mappings": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "custodian_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "depository_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "org_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "org_logo_url": {
+            "type": "string",
+            "nullable": true
+          },
+          "org_brand_color": {
+            "type": "string",
+            "nullable": true,
+            "example": "#C49A38"
+          },
+          "transaction_scope": {
+            "type": "string",
+            "nullable": true
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "error"
+        ]
+      }
+    }
+  },
+  "paths": {
+    "/storage/public-objects/{filePath}": {
+      "get": {
+        "tags": [
+          "Storage"
+        ],
+        "summary": "Serve a public asset file",
+        "description": "Streams a file from the configured public-objects GCS search paths.\nThe caller must know the exact filename. No authentication required.\n",
+        "parameters": [
+          {
+            "name": "filePath",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Relative path of the file (e.g. `logos/sample.png`)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "File contents streamed with original Content-Type"
+          },
+          "404": {
+            "description": "File not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/storage/org-logo/{accountId}": {
+      "get": {
+        "tags": [
+          "Storage"
+        ],
+        "summary": "Serve an org logo",
+        "description": "Returns the logo image for the given account. No authentication required.\n\nThe underlying GCS object is stored at a random UUID path so guessing a\nvalid `accountId` only returns the publicly-intended logo, never a private asset.\n",
+        "parameters": [
+          {
+            "name": "accountId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Numeric account / organisation ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image data (PNG, JPEG, or WebP)"
+          },
+          "404": {
+            "description": "Account not found or no logo configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/settings/org": {
+      "get": {
+        "tags": [
+          "Internal — Settings"
+        ],
+        "summary": "Get org settings (internal)",
+        "description": "Returns the authenticated organisation's name, logo URL, and brand color.",
+        "security": [
+          {
+            "internalAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Org settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "org": {
+                      "$ref": "#/components/schemas/OrgSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid session token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Account not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Internal — Settings"
+        ],
+        "summary": "Update org settings (internal)",
+        "description": "Partially updates the org's display name and/or accent color.\nAll fields are optional — omitted fields keep their current values.\nSend `clearLogo: true` to remove the current logo.\n",
+        "security": [
+          {
+            "internalAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "West Hills Capital"
+                  },
+                  "brandColor": {
+                    "type": "string",
+                    "example": "#C49A38"
+                  },
+                  "clearLogo": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated org settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "org": {
+                      "$ref": "#/components/schemas/OrgSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/product/settings/org": {
+      "get": {
+        "tags": [
+          "Product Portal — Settings"
+        ],
+        "summary": "Get org settings",
+        "description": "Returns the authenticated organisation's name, logo URL, and brand color.",
+        "security": [
+          {
+            "productAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Org settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "org": {
+                      "$ref": "#/components/schemas/OrgSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid Clerk JWT",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Product Portal — Settings"
+        ],
+        "summary": "Update org settings",
+        "description": "Partially updates the org's display name and/or accent color.\nAll fields are optional — omitted fields keep their current values.\nSend `clearLogo: true` to remove the current logo.\n",
+        "security": [
+          {
+            "productAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "example": "Acme Capital"
+                  },
+                  "brandColor": {
+                    "type": "string",
+                    "example": "#3B6CB7"
+                  },
+                  "clearLogo": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated org settings",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "org": {
+                      "$ref": "#/components/schemas/OrgSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/settings/org/logo": {
+      "post": {
+        "tags": [
+          "Internal — Settings"
+        ],
+        "summary": "Upload org logo (internal)",
+        "description": "Replaces the organisation's logo with the uploaded image.\nUpload the raw image binary in the request body and set\n`Content-Type` to the image MIME type.\n\nMaximum size: **5 MB**. Accepted types: `image/png`, `image/jpeg`, `image/webp`.\n",
+        "security": [
+          {
+            "internalAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/webp": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated org (with new logo_url)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "org": {
+                      "$ref": "#/components/schemas/OrgSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported MIME type or empty body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/product/settings/org/logo": {
+      "post": {
+        "tags": [
+          "Product Portal — Settings"
+        ],
+        "summary": "Upload org logo",
+        "description": "Replaces the organisation's logo with the uploaded image.\nUpload the raw image binary in the request body and set\n`Content-Type` to the image MIME type.\n\nMaximum size: **5 MB**. Accepted types: `image/png`, `image/jpeg`, `image/webp`.\n",
+        "security": [
+          {
+            "productAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/png": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            },
+            "image/webp": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated org (with new logo_url)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "org": {
+                      "$ref": "#/components/schemas/OrgSettings"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unsupported MIME type or empty body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/settings/extract-brand-colors": {
+      "post": {
+        "tags": [
+          "Internal — Settings"
+        ],
+        "summary": "Extract brand colors from a website (internal)",
+        "description": "Fetches the given URL and extracts prominent brand colors from its CSS\nand inline styles. Returns an ordered list of hex color strings.\n\nThe endpoint refuses private/internal IP ranges (SSRF protection).\n",
+        "security": [
+          {
+            "internalAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "url"
+                ],
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "example": "https://example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Extracted hex colors ordered by prominence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "colors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "example": [
+                        "#1A2B3C",
+                        "#C49A38"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Could not fetch or parse the URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/product/settings/extract-brand-colors": {
+      "post": {
+        "tags": [
+          "Product Portal — Settings"
+        ],
+        "summary": "Extract brand colors from a website",
+        "description": "Fetches the given URL and extracts prominent brand colors from its CSS\nand inline styles. Returns an ordered list of hex color strings.\n\nThe endpoint refuses private/internal IP ranges (SSRF protection).\n",
+        "security": [
+          {
+            "productAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "url"
+                ],
+                "properties": {
+                  "url": {
+                    "type": "string",
+                    "format": "uri",
+                    "example": "https://example.com"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Extracted hex colors ordered by prominence",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "colors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      },
+                      "example": [
+                        "#1A2B3C",
+                        "#3B6CB7"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Could not fetch or parse the URL",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/docufill/sessions": {
+      "post": {
+        "tags": [
+          "Internal — DocuFill Sessions"
+        ],
+        "summary": "Create an interview session (internal)",
+        "description": "Creates a new DocuFill interview session for the specified package.\nReturns the session record and a bearer token used to load and submit\nthe public-facing interview form. Sessions expire after **90 days**.\n\nPass `testMode: true` to create a test session without requiring the\npackage to be active (requires an authenticated admin account).\n",
+        "security": [
+          {
+            "internalAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "packageId"
+                ],
+                "properties": {
+                  "packageId": {
+                    "type": "integer",
+                    "description": "ID of an active DocuFill package",
+                    "example": 7
+                  },
+                  "dealId": {
+                    "type": "integer",
+                    "nullable": true,
+                    "description": "Optional deal ID to associate with this session"
+                  },
+                  "custodianId": {
+                    "type": "integer",
+                    "nullable": true,
+                    "description": "Override the package's default custodian"
+                  },
+                  "depositoryId": {
+                    "type": "integer",
+                    "nullable": true,
+                    "description": "Override the package's default depository"
+                  },
+                  "transactionScope": {
+                    "type": "string",
+                    "nullable": true,
+                    "description": "Override the package's transaction scope"
+                  },
+                  "source": {
+                    "type": "string",
+                    "default": "deal_builder",
+                    "description": "Free-text label for how this session was created"
+                  },
+                  "prefill": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "description": "Initial field values to pre-populate in the interview"
+                  },
+                  "testMode": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Create a non-production test session (admin only)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "$ref": "#/components/schemas/DocuFillSession"
+                    },
+                    "token": {
+                      "type": "string",
+                      "description": "Bearer token passed to the public interview form"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid packageId, scope mismatch, or package not active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Package not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/product/docufill/sessions": {
+      "post": {
+        "tags": [
+          "Product Portal — DocuFill Sessions"
+        ],
+        "summary": "Create an interview session",
+        "description": "Creates a new DocuFill interview session for the specified package.\nReturns the session record and a bearer token used to load and submit\nthe public-facing interview form. Sessions expire after **90 days**.\n",
+        "security": [
+          {
+            "productAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "packageId"
+                ],
+                "properties": {
+                  "packageId": {
+                    "type": "integer",
+                    "description": "ID of an active DocuFill package",
+                    "example": 7
+                  },
+                  "dealId": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "custodianId": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "depositoryId": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "transactionScope": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "prefill": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "$ref": "#/components/schemas/DocuFillSession"
+                    },
+                    "token": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid packageId or package not active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Package not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/docufill/public/sessions/{token}": {
+      "get": {
+        "tags": [
+          "DocuFill — Public (no auth)"
+        ],
+        "summary": "Load an interview session",
+        "description": "Returns the full session object including package metadata, document list,\nfield definitions, prefill data, and saved answers. No authentication required.\n",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque session token returned when the session was created"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Session data",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "$ref": "#/components/schemas/DocuFillSession"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "DocuFill — Public (no auth)"
+        ],
+        "summary": "Save interview answers",
+        "description": "Persists a partial or complete answers object for the session. Optionally\nupdates the session status (e.g. `in_progress`). The session must not have expired.\n",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "answers": {
+                    "type": "object",
+                    "additionalProperties": true,
+                    "description": "Map of fieldId → value pairs"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "draft",
+                      "in_progress"
+                    ],
+                    "description": "Optional status update"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Updated session",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "$ref": "#/components/schemas/DocuFillSession"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/docufill/public/sessions/{token}/generate": {
+      "post": {
+        "tags": [
+          "DocuFill — Public (no auth)"
+        ],
+        "summary": "Generate the document packet",
+        "description": "Validates the saved answers, renders each document as a filled PDF,\nbundles them into a single packet PDF, and (when configured) uploads\nthe packet to Google Drive. Returns a download URL for the packet.\n\nThe session status is set to `generated`. The session must not have expired.\n",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Packet generated successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "packet": {
+                      "type": "object",
+                      "description": "Summary of generated documents"
+                    },
+                    "downloadUrl": {
+                      "type": "string",
+                      "example": "/api/docufill/public/sessions/df_abc123/packet.pdf"
+                    },
+                    "drive": {
+                      "type": "object",
+                      "nullable": true,
+                      "properties": {
+                        "fileId": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    "warnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed — required fields are missing or invalid",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/docufill/public/sessions/{token}/packet.pdf": {
+      "get": {
+        "tags": [
+          "DocuFill — Public (no auth)"
+        ],
+        "summary": "Download the generated packet as PDF",
+        "description": "Returns the fully-filled packet PDF for display or download.\nThe packet is rendered on demand from the latest saved answers — it\ndoes not require a prior `/generate` call, but all required fields\nmust be complete.\n",
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "PDF binary",
+            "content": {
+              "application/pdf": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Session not found or expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/deals/{id}/payment": {
+      "patch": {
+        "tags": [
+          "Internal — Deals"
+        ],
+        "summary": "Mark payment as received",
+        "description": "Records the current timestamp as `payment_received_at` for the deal.\nNo request body is needed. Idempotent — calling it again updates the timestamp.\n\nUse `/wire-received` instead when the payment method is a bank wire, as that\nendpoint also sets `wire_received_at` and triggers the wire confirmation email.\n",
+        "security": [
+          {
+            "internalAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Payment timestamp recorded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "paymentReceivedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deal not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/deals/{id}/wire-received": {
+      "patch": {
+        "tags": [
+          "Internal — Deals"
+        ],
+        "summary": "Mark wire payment received",
+        "description": "Records the current timestamp as `wire_received_at` (and also sets\n`payment_received_at` if not already set). Sends the wire confirmation\nemail to the customer — email sending is idempotent (only fires once per deal).\nNo request body is needed.\n",
+        "security": [
+          {
+            "internalAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Wire timestamp recorded and confirmation email sent",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "wireReceivedAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "wireConfirmationEmailSentAt": {
+                      "type": "string",
+                      "format": "date-time",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deal not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/internal/deals/{id}/tracking": {
+      "patch": {
+        "tags": [
+          "Internal — Deals"
+        ],
+        "summary": "Set shipment tracking number",
+        "description": "Stores the carrier tracking number and schedules a shipping notification\nemail to the customer for 24 hours from now. The `trackingNumber` field\nis required and must be non-empty.\n",
+        "security": [
+          {
+            "internalAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "trackingNumber"
+                ],
+                "properties": {
+                  "trackingNumber": {
+                    "type": "string",
+                    "example": "1Z999AA10123456784"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Tracking number saved",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "trackingNumber": {
+                      "type": "string"
+                    },
+                    "shippingNotificationScheduledAt": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing or empty trackingNumber",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Deal not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "tags": []
+}

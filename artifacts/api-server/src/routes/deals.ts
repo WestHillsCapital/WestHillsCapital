@@ -630,6 +630,47 @@ router.post("/preview-invoice", async (req, res) => {
 
 // PATCH /api/deals/:id/payment  (legacy — kept for backward compat)
 // Sets payment_received_at. New code should use /wire-received instead.
+/**
+ * @openapi
+ * /internal/deals/{id}/payment:
+ *   patch:
+ *     tags:
+ *       - Internal — Deals
+ *     summary: Mark payment as received
+ *     description: |
+ *       Records the current timestamp as `payment_received_at` for the deal.
+ *       No request body is needed. Idempotent — calling it again updates the timestamp.
+ *
+ *       Use `/wire-received` instead when the payment method is a bank wire, as that
+ *       endpoint also sets `wire_received_at` and triggers the wire confirmation email.
+ *     security:
+ *       - internalAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Payment timestamp recorded
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 paymentReceivedAt:
+ *                   type: string
+ *                   format: date-time
+ *       404:
+ *         description: Deal not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.patch("/:id/payment", async (req, res) => {
   const dealId = parseInt(req.params.id, 10);
   if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
@@ -654,6 +695,50 @@ router.patch("/:id/payment", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /internal/deals/{id}/wire-received:
+ *   patch:
+ *     tags:
+ *       - Internal — Deals
+ *     summary: Mark wire payment received
+ *     description: |
+ *       Records the current timestamp as `wire_received_at` (and also sets
+ *       `payment_received_at` if not already set). Sends the wire confirmation
+ *       email to the customer — email sending is idempotent (only fires once per deal).
+ *       No request body is needed.
+ *     security:
+ *       - internalAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Wire timestamp recorded and confirmation email sent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 wireReceivedAt:
+ *                   type: string
+ *                   format: date-time
+ *                 wireConfirmationEmailSentAt:
+ *                   type: string
+ *                   format: date-time
+ *                   nullable: true
+ *       404:
+ *         description: Deal not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // PATCH /api/deals/:id/wire-received
 // Records the date the customer's wire arrives in WHC's account.
 router.patch("/:id/wire-received", async (req, res) => {
@@ -792,6 +877,65 @@ router.patch("/:id/order-paid", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /internal/deals/{id}/tracking:
+ *   patch:
+ *     tags:
+ *       - Internal — Deals
+ *     summary: Set shipment tracking number
+ *     description: |
+ *       Stores the carrier tracking number and schedules a shipping notification
+ *       email to the customer for 24 hours from now. The `trackingNumber` field
+ *       is required and must be non-empty.
+ *     security:
+ *       - internalAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - trackingNumber
+ *             properties:
+ *               trackingNumber:
+ *                 type: string
+ *                 example: '1Z999AA10123456784'
+ *     responses:
+ *       200:
+ *         description: Tracking number saved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 trackingNumber:
+ *                   type: string
+ *                 shippingNotificationScheduledAt:
+ *                   type: string
+ *                   format: date-time
+ *       400:
+ *         description: Missing or empty trackingNumber
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Deal not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // PATCH /api/deals/:id/tracking
 // Records a tracking number and schedules the shipping notification email for 24h later.
 router.patch("/:id/tracking", async (req, res) => {

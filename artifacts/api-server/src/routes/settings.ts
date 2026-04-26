@@ -52,6 +52,63 @@ async function uploadLogoBuffer(buffer: Buffer, contentType: ImageContentType): 
   return `/objects/${entityId}`;
 }
 
+/**
+ * @openapi
+ * /internal/settings/org:
+ *   get:
+ *     tags:
+ *       - Internal — Settings
+ *     summary: Get org settings (internal)
+ *     description: Returns the authenticated organisation's name, logo URL, and brand color.
+ *     security:
+ *       - internalAuth: []
+ *     responses:
+ *       200:
+ *         description: Org settings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 org:
+ *                   $ref: '#/components/schemas/OrgSettings'
+ *       401:
+ *         description: Missing or invalid session token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Account not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ * /product/settings/org:
+ *   get:
+ *     tags:
+ *       - Product Portal — Settings
+ *     summary: Get org settings
+ *     description: Returns the authenticated organisation's name, logo URL, and brand color.
+ *     security:
+ *       - productAuth: []
+ *     responses:
+ *       200:
+ *         description: Org settings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 org:
+ *                   $ref: '#/components/schemas/OrgSettings'
+ *       401:
+ *         description: Missing or invalid Clerk JWT
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get("/org", async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
@@ -80,6 +137,93 @@ router.get("/org", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /internal/settings/org:
+ *   patch:
+ *     tags:
+ *       - Internal — Settings
+ *     summary: Update org settings (internal)
+ *     description: |
+ *       Partially updates the org's display name and/or accent color.
+ *       All fields are optional — omitted fields keep their current values.
+ *       Send `clearLogo: true` to remove the current logo.
+ *     security:
+ *       - internalAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: West Hills Capital
+ *               brandColor:
+ *                 type: string
+ *                 example: '#C49A38'
+ *               clearLogo:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Updated org settings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 org:
+ *                   $ref: '#/components/schemas/OrgSettings'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ * /product/settings/org:
+ *   patch:
+ *     tags:
+ *       - Product Portal — Settings
+ *     summary: Update org settings
+ *     description: |
+ *       Partially updates the org's display name and/or accent color.
+ *       All fields are optional — omitted fields keep their current values.
+ *       Send `clearLogo: true` to remove the current logo.
+ *     security:
+ *       - productAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Acme Capital
+ *               brandColor:
+ *                 type: string
+ *                 example: '#3B6CB7'
+ *               clearLogo:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Updated org settings
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 org:
+ *                   $ref: '#/components/schemas/OrgSettings'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.patch("/org", async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
@@ -130,6 +274,109 @@ router.patch("/org", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /internal/settings/org/logo:
+ *   post:
+ *     tags:
+ *       - Internal — Settings
+ *     summary: Upload org logo (internal)
+ *     description: |
+ *       Replaces the organisation's logo with the uploaded image.
+ *       Upload the raw image binary in the request body and set
+ *       `Content-Type` to the image MIME type.
+ *
+ *       Maximum size: **5 MB**. Accepted types: `image/png`, `image/jpeg`, `image/webp`.
+ *     security:
+ *       - internalAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         image/png:
+ *           schema:
+ *             type: string
+ *             format: binary
+ *         image/jpeg:
+ *           schema:
+ *             type: string
+ *             format: binary
+ *         image/webp:
+ *           schema:
+ *             type: string
+ *             format: binary
+ *     responses:
+ *       200:
+ *         description: Updated org (with new logo_url)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 org:
+ *                   $ref: '#/components/schemas/OrgSettings'
+ *       400:
+ *         description: Unsupported MIME type or empty body
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ * /product/settings/org/logo:
+ *   post:
+ *     tags:
+ *       - Product Portal — Settings
+ *     summary: Upload org logo
+ *     description: |
+ *       Replaces the organisation's logo with the uploaded image.
+ *       Upload the raw image binary in the request body and set
+ *       `Content-Type` to the image MIME type.
+ *
+ *       Maximum size: **5 MB**. Accepted types: `image/png`, `image/jpeg`, `image/webp`.
+ *     security:
+ *       - productAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         image/png:
+ *           schema:
+ *             type: string
+ *             format: binary
+ *         image/jpeg:
+ *           schema:
+ *             type: string
+ *             format: binary
+ *         image/webp:
+ *           schema:
+ *             type: string
+ *             format: binary
+ *     responses:
+ *       200:
+ *         description: Updated org (with new logo_url)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 org:
+ *                   $ref: '#/components/schemas/OrgSettings'
+ *       400:
+ *         description: Unsupported MIME type or empty body
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post(
   "/org/logo",
   express.raw({ type: ALLOWED_IMAGE_TYPES as unknown as string[], limit: "5mb" }),
@@ -177,6 +424,97 @@ router.post(
   },
 );
 
+/**
+ * @openapi
+ * /internal/settings/extract-brand-colors:
+ *   post:
+ *     tags:
+ *       - Internal — Settings
+ *     summary: Extract brand colors from a website (internal)
+ *     description: |
+ *       Fetches the given URL and extracts prominent brand colors from its CSS
+ *       and inline styles. Returns an ordered list of hex color strings.
+ *
+ *       The endpoint refuses private/internal IP ranges (SSRF protection).
+ *     security:
+ *       - internalAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - url
+ *             properties:
+ *               url:
+ *                 type: string
+ *                 format: uri
+ *                 example: 'https://example.com'
+ *     responses:
+ *       200:
+ *         description: Extracted hex colors ordered by prominence
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 colors:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ['#1A2B3C', '#C49A38']
+ *       422:
+ *         description: Could not fetch or parse the URL
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ * /product/settings/extract-brand-colors:
+ *   post:
+ *     tags:
+ *       - Product Portal — Settings
+ *     summary: Extract brand colors from a website
+ *     description: |
+ *       Fetches the given URL and extracts prominent brand colors from its CSS
+ *       and inline styles. Returns an ordered list of hex color strings.
+ *
+ *       The endpoint refuses private/internal IP ranges (SSRF protection).
+ *     security:
+ *       - productAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - url
+ *             properties:
+ *               url:
+ *                 type: string
+ *                 format: uri
+ *                 example: 'https://example.com'
+ *     responses:
+ *       200:
+ *         description: Extracted hex colors ordered by prominence
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 colors:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *                   example: ['#1A2B3C', '#3B6CB7']
+ *       422:
+ *         description: Could not fetch or parse the URL
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post("/extract-brand-colors", async (req, res) => {
   try {
     const body = req.body as Record<string, unknown>;

@@ -1576,6 +1576,166 @@ router.get("/sessions", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /internal/docufill/sessions:
+ *   post:
+ *     tags:
+ *       - Internal — DocuFill Sessions
+ *     summary: Create an interview session (internal)
+ *     description: |
+ *       Creates a new DocuFill interview session for the specified package.
+ *       Returns the session record and a bearer token used to load and submit
+ *       the public-facing interview form. Sessions expire after **90 days**.
+ *
+ *       Pass `testMode: true` to create a test session without requiring the
+ *       package to be active (requires an authenticated admin account).
+ *     security:
+ *       - internalAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - packageId
+ *             properties:
+ *               packageId:
+ *                 type: integer
+ *                 description: ID of an active DocuFill package
+ *                 example: 7
+ *               dealId:
+ *                 type: integer
+ *                 nullable: true
+ *                 description: Optional deal ID to associate with this session
+ *               custodianId:
+ *                 type: integer
+ *                 nullable: true
+ *                 description: Override the package's default custodian
+ *               depositoryId:
+ *                 type: integer
+ *                 nullable: true
+ *                 description: Override the package's default depository
+ *               transactionScope:
+ *                 type: string
+ *                 nullable: true
+ *                 description: Override the package's transaction scope
+ *               source:
+ *                 type: string
+ *                 default: deal_builder
+ *                 description: Free-text label for how this session was created
+ *               prefill:
+ *                 type: object
+ *                 additionalProperties: true
+ *                 description: Initial field values to pre-populate in the interview
+ *               testMode:
+ *                 type: boolean
+ *                 default: false
+ *                 description: Create a non-production test session (admin only)
+ *     responses:
+ *       201:
+ *         description: Session created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 session:
+ *                   $ref: '#/components/schemas/DocuFillSession'
+ *                 token:
+ *                   type: string
+ *                   description: Bearer token passed to the public interview form
+ *       400:
+ *         description: Invalid packageId, scope mismatch, or package not active
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Package not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ * /product/docufill/sessions:
+ *   post:
+ *     tags:
+ *       - Product Portal — DocuFill Sessions
+ *     summary: Create an interview session
+ *     description: |
+ *       Creates a new DocuFill interview session for the specified package.
+ *       Returns the session record and a bearer token used to load and submit
+ *       the public-facing interview form. Sessions expire after **90 days**.
+ *     security:
+ *       - productAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - packageId
+ *             properties:
+ *               packageId:
+ *                 type: integer
+ *                 description: ID of an active DocuFill package
+ *                 example: 7
+ *               dealId:
+ *                 type: integer
+ *                 nullable: true
+ *               custodianId:
+ *                 type: integer
+ *                 nullable: true
+ *               depositoryId:
+ *                 type: integer
+ *                 nullable: true
+ *               transactionScope:
+ *                 type: string
+ *                 nullable: true
+ *               source:
+ *                 type: string
+ *               prefill:
+ *                 type: object
+ *                 additionalProperties: true
+ *     responses:
+ *       201:
+ *         description: Session created
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 session:
+ *                   $ref: '#/components/schemas/DocuFillSession'
+ *                 token:
+ *                   type: string
+ *       400:
+ *         description: Invalid packageId or package not active
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Package not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post("/sessions", async (req, res) => {
   try {
     const body = req.body as SessionInput;
@@ -1748,6 +1908,40 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /docufill/public/sessions/{token}:
+ *   get:
+ *     tags:
+ *       - DocuFill — Public (no auth)
+ *     summary: Load an interview session
+ *     description: |
+ *       Returns the full session object including package metadata, document list,
+ *       field definitions, prefill data, and saved answers. No authentication required.
+ *     parameters:
+ *       - name: token
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Opaque session token returned when the session was created
+ *     responses:
+ *       200:
+ *         description: Session data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 session:
+ *                   $ref: '#/components/schemas/DocuFillSession'
+ *       404:
+ *         description: Session not found or expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 publicDocufillRouter.get("/sessions/:token", async (req, res) => {
   try {
     const session = await getSession(req.params.token);
@@ -1762,6 +1956,54 @@ publicDocufillRouter.get("/sessions/:token", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /docufill/public/sessions/{token}:
+ *   patch:
+ *     tags:
+ *       - DocuFill — Public (no auth)
+ *     summary: Save interview answers
+ *     description: |
+ *       Persists a partial or complete answers object for the session. Optionally
+ *       updates the session status (e.g. `in_progress`). The session must not have expired.
+ *     parameters:
+ *       - name: token
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               answers:
+ *                 type: object
+ *                 additionalProperties: true
+ *                 description: Map of fieldId → value pairs
+ *               status:
+ *                 type: string
+ *                 enum: [draft, in_progress]
+ *                 description: Optional status update
+ *     responses:
+ *       200:
+ *         description: Updated session
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 session:
+ *                   $ref: '#/components/schemas/DocuFillSession'
+ *       404:
+ *         description: Session not found or expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
   try {
     const body = req.body as AnswersInput;
@@ -1785,6 +2027,64 @@ publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /docufill/public/sessions/{token}/generate:
+ *   post:
+ *     tags:
+ *       - DocuFill — Public (no auth)
+ *     summary: Generate the document packet
+ *     description: |
+ *       Validates the saved answers, renders each document as a filled PDF,
+ *       bundles them into a single packet PDF, and (when configured) uploads
+ *       the packet to Google Drive. Returns a download URL for the packet.
+ *
+ *       The session status is set to `generated`. The session must not have expired.
+ *     parameters:
+ *       - name: token
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Packet generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 packet:
+ *                   type: object
+ *                   description: Summary of generated documents
+ *                 downloadUrl:
+ *                   type: string
+ *                   example: '/api/docufill/public/sessions/df_abc123/packet.pdf'
+ *                 drive:
+ *                   type: object
+ *                   nullable: true
+ *                   properties:
+ *                     fileId:
+ *                       type: string
+ *                     url:
+ *                       type: string
+ *                 warnings:
+ *                   type: array
+ *                   items:
+ *                     type: string
+ *       400:
+ *         description: Validation failed — required fields are missing or invalid
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Session not found or expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
   try {
     const db = getDb();
@@ -1846,6 +2146,39 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /docufill/public/sessions/{token}/packet.pdf:
+ *   get:
+ *     tags:
+ *       - DocuFill — Public (no auth)
+ *     summary: Download the generated packet as PDF
+ *     description: |
+ *       Returns the fully-filled packet PDF for display or download.
+ *       The packet is rendered on demand from the latest saved answers — it
+ *       does not require a prior `/generate` call, but all required fields
+ *       must be complete.
+ *     parameters:
+ *       - name: token
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: PDF binary
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       404:
+ *         description: Session not found or expired
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
   try {
     const db = getDb();
