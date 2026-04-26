@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { useSpotHistory, type ChartPeriod } from "@/hooks/use-pricing";
+import SpotChartSkeleton from "./SpotChartSkeleton";
 import {
   ComposedChart,
   Area,
@@ -84,7 +85,7 @@ export default function SpotChart() {
   const isSynthetic = period !== "1D" && period !== "1W" && period !== "1M";
 
   if (isLoading) {
-    return <div className="h-[300px] rounded-xl bg-muted/30 animate-pulse" />;
+    return <SpotChartSkeleton />;
   }
 
   if (isError || !chartData.length) {

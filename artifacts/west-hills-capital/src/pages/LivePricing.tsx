@@ -7,6 +7,8 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Link } from "wouter";
 import { Shield, ArrowRight, ZoomIn, RotateCcw, TrendingDown, TrendingUp, Info, X, RefreshCw } from "lucide-react";
 
+import SpotChartSkeleton from "./SpotChartSkeleton";
+
 const SpotChart = lazy(() => import("./SpotChart"));
 
 type Product = NonNullable<ReturnType<typeof useProductPrices>["data"]>["products"][number];
@@ -359,7 +361,7 @@ export default function LivePricing() {
           {/* CHART */}
           <div className="bg-white rounded-2xl border border-border/40 p-6">
             <h2 className="text-sm font-semibold text-foreground/60 uppercase tracking-widest mb-5">Spot Price History</h2>
-            <Suspense fallback={<div className="h-[300px] rounded-xl bg-muted/30 animate-pulse" />}>
+            <Suspense fallback={<SpotChartSkeleton />}>
               <SpotChart />
             </Suspense>
           </div>
