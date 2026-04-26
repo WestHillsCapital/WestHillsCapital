@@ -254,6 +254,7 @@ export default function DocuFillCustomer() {
   const requiredCount = visibleFields.filter((f) => fieldIsRequired(f) && f.interviewMode !== "readonly").length;
   const answeredCount = visibleFields.filter((f) => fieldIsRequired(f) && f.interviewMode !== "readonly" && currentValue(f, answers, session!.prefill).trim()).length;
   const hasErrors = Object.keys(fieldErrors).length > 0;
+  const missingRequiredCount = requiredCount - answeredCount;
 
   return (
     <div className="min-h-screen bg-[#F8F6F0]">
@@ -442,13 +443,17 @@ export default function DocuFillCustomer() {
           </div>
           <Button
             onClick={handleSubmit}
-            disabled={pageStatus === "submitting" || hasErrors}
+            disabled={pageStatus === "submitting" || hasErrors || missingRequiredCount > 0}
             className="w-full bg-[#0F1C3F] hover:bg-[#182B5F] disabled:opacity-60 py-3"
           >
             {pageStatus === "submitting" ? "Submitting…" : "Submit and generate documents"}
           </Button>
-          {hasErrors && (
-            <p className="text-xs text-red-600 text-center">Please fix the errors above before submitting.</p>
+          {(hasErrors || missingRequiredCount > 0) && pageStatus !== "submitting" && (
+            <p className="text-xs text-red-600 text-center">
+              {hasErrors
+                ? "Please fix the errors above before submitting."
+                : `${missingRequiredCount} required field${missingRequiredCount !== 1 ? "s" : ""} still need${missingRequiredCount === 1 ? "s" : ""} to be filled in.`}
+            </p>
           )}
         </div>
 

@@ -81,7 +81,7 @@ export function validateFieldValue(field: ValidatableField, value: string): stri
         ? null
         : field.validationMessage || `${label} is not in the expected format.`;
     } catch {
-      return null;
+      return field.validationMessage || `${label} has an invalid validation pattern.`;
     }
   }
 
