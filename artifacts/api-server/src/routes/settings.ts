@@ -19,12 +19,6 @@ function isValidBrandColor(value: unknown): boolean {
   return typeof value === "string" && /^#[0-9a-fA-F]{6}$/.test(value.trim());
 }
 
-function isValidLogoPath(value: unknown): boolean {
-  if (typeof value !== "string") return false;
-  const p = value.trim();
-  return p.startsWith("/objects/") && !p.includes("..") && p.length < 300;
-}
-
 function buildLogoServingUrl(accountId: number): string {
   return `/api/storage/org-logo/${accountId}`;
 }
@@ -97,15 +91,8 @@ router.patch("/org", async (req, res) => {
       : (current.brand_color as string);
 
     let rawLogoPath = current.logo_url as string | null;
-    if ("logoPath" in body) {
-      if (body.logoPath === null) {
-        rawLogoPath = null;
-      } else if (isValidLogoPath(body.logoPath)) {
-        rawLogoPath = (body.logoPath as string).trim();
-      } else {
-        res.status(400).json({ error: "Invalid logo path" });
-        return;
-      }
+    if ("clearLogo" in body && body.clearLogo === true) {
+      rawLogoPath = null;
     }
 
     const { rows } = await db.query(

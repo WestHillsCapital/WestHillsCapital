@@ -95,7 +95,7 @@ export default function Settings() {
       const res = await fetch(`${SETTINGS_BASE}/org`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ logoPath: null }),
+        body: JSON.stringify({ clearLogo: true }),
       });
       const data = await res.json() as { org?: OrgSettings; error?: string };
       if (!res.ok) { setErrorMsg(data.error ?? "Failed to remove logo"); return; }
