@@ -526,16 +526,35 @@ function titleFromFilename(filename: string): string {
   return filename.replace(/\.pdf$/i, "").trim() || "Document";
 }
 
+/** Count pages by scanning raw PDF bytes for Page dictionary objects.
+ *  Used as a fallback when pdf-lib cannot fully parse the document
+ *  (e.g. encrypted PDFs, non-standard XRef tables, PDF 2.0 features). */
+function countPdfPagesFromBytes(buffer: Buffer): number {
+  // /Type /Page (leaf pages only, not /Pages nodes) is the most reliable
+  // raw count that doesn't require a full parse.
+  const text = buffer.toString("latin1");
+  const matches = text.match(/\/Type\s*\/Page[^s]/g);
+  return matches ? Math.max(matches.length, 1) : 1;
+}
+
 async function getPdfMetadata(buffer: Buffer): Promise<{ pageCount: number; pageSizes: Array<{ width: number; height: number }> }> {
+  // First attempt: full parse with pdf-lib (gives accurate page sizes).
+  // throwOnInvalidObject:false makes pdf-lib tolerant of minor structural
+  // issues that would otherwise cause it to throw.
   try {
-    const pdf = await PdfLibDocument.load(buffer, { ignoreEncryption: true });
-    const pageSizes = pdf.getPages().map((page) => {
+    const pdf = await PdfLibDocument.load(buffer, { ignoreEncryption: true, throwOnInvalidObject: false });
+    const pages = pdf.getPages();
+    const pageSizes = pages.map((page) => {
       const { width, height } = page.getSize();
       return { width, height };
     });
     return { pageCount: Math.max(pdf.getPageCount(), 1), pageSizes };
   } catch {
-    throw new PdfUploadError("Uploaded PDF could not be parsed");
+    // Second attempt: raw-byte page count — works for encrypted, linearised,
+    // and non-standard PDFs that pdf-lib cannot fully load.
+    logger.warn("[DocuFill] pdf-lib could not parse uploaded PDF — falling back to raw page count");
+    const pageCount = countPdfPagesFromBytes(buffer);
+    return { pageCount, pageSizes: [] };
   }
 }
 
