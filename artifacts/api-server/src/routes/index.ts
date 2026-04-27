@@ -17,6 +17,7 @@ import settingsRouter      from "./settings";
 import docsRouter          from "./docs";
 import { requireInternalAuth } from "../middleware/requireInternalAuth";
 import { requireProductAuth } from "../middleware/requireProductAuth";
+import { requireAccountId } from "../middleware/requireAccountId";
 
 const router: IRouter = Router();
 
@@ -49,10 +50,12 @@ router.use("/deals", requireInternalAuth, dealsRouter);
 router.use("/fedex", requireInternalAuth, fedexRouter);
 
 // ── DocuFill: WHC internal (session token) ────────────────────────────────────
-router.use("/internal/docufill", requireInternalAuth, docufillRouter);
+// requireAccountId runs after requireInternalAuth as a belt-and-suspenders
+// guard: if account resolution somehow fails, reject rather than fall through.
+router.use("/internal/docufill", requireInternalAuth, requireAccountId, docufillRouter);
 
 // ── DocuFill: product/SaaS (Clerk JWT) ────────────────────────────────────────
-router.use("/product/docufill", requireProductAuth, docufillRouter);
+router.use("/product/docufill", requireProductAuth, requireAccountId, docufillRouter);
 
 // ── Product auth (Clerk-based onboard + me) ────────────────────────────────────
 router.use("/product/auth", productAuthRouter);

@@ -568,6 +568,59 @@ export async function initDb(): Promise<void> {
     logger.info({ updatedPackages: backfillResult.rowCount }, "Docuplete shared field backfill completed");
   }
 
+  // ── Multi-tenant isolation hardening (migration v1) ───────────────────────
+  // Enforces NOT NULL on account_id columns across all docufill tables,
+  // drops the per-table UNIQUE(name) constraints that block multi-tenancy,
+  // and replaces them with UNIQUE(account_id, name) so each account has its
+  // own namespace. Idempotent — guarded by docufill_migration_state.
+  const isolationV1 = await db.query(
+    "SELECT 1 FROM docufill_migration_state WHERE key = $1",
+    ["account_id_isolation_v1"],
+  );
+  if (!isolationV1.rows[0]) {
+    // Safety backfill: any row that somehow still has NULL account_id → account 1
+    for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
+      await db.query(`UPDATE ${table} SET account_id = 1 WHERE account_id IS NULL`).catch(() => {});
+    }
+    // Add NOT NULL constraints (safe: nulls just backfilled above)
+    for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
+      await db.query(`ALTER TABLE ${table} ALTER COLUMN account_id SET NOT NULL`).catch((err) => {
+        logger.warn({ err, table }, "[DB] Could not set account_id NOT NULL — may already be set");
+      });
+      // Add FK constraint if missing
+      await db.query(
+        `ALTER TABLE ${table} ADD CONSTRAINT ${table}_account_id_fk
+           FOREIGN KEY (account_id) REFERENCES accounts(id)`,
+      ).catch(() => {});
+    }
+    // Drop old global UNIQUE(name) constraints and replace with per-account ones
+    for (const table of ["docufill_custodians", "docufill_depositories"]) {
+      // Postgres auto-names UNIQUE constraints as <table>_<col>_key
+      await db.query(`ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${table}_name_key`).catch(() => {});
+      await db.query(
+        `CREATE UNIQUE INDEX IF NOT EXISTS ${table}_account_name_idx
+           ON ${table} (account_id, name)`,
+      ).catch((err) => {
+        logger.warn({ err, table }, "[DB] Could not create account+name unique index");
+      });
+    }
+    // Add account_id indexes to speed up scoped queries
+    await db.query(
+      `CREATE INDEX IF NOT EXISTS docufill_custodians_account_idx ON docufill_custodians (account_id)`,
+    ).catch(() => {});
+    await db.query(
+      `CREATE INDEX IF NOT EXISTS docufill_depositories_account_idx ON docufill_depositories (account_id)`,
+    ).catch(() => {});
+    await db.query(
+      `CREATE INDEX IF NOT EXISTS docufill_packages_account_idx ON docufill_packages (account_id)`,
+    ).catch(() => {});
+    await db.query(
+      "INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
+      ["account_id_isolation_v1"],
+    );
+    logger.info("[DB] Multi-tenant isolation hardening applied");
+  }
+
   await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_interview_sessions (
       id               SERIAL PRIMARY KEY,

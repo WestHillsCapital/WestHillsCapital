@@ -781,10 +781,10 @@
     "/internal/docufill/sessions": {
       "post": {
         "tags": [
-          "Internal — DocuFill Sessions"
+          "Internal — Docuplete Sessions"
         ],
         "summary": "Create an interview session (internal)",
-        "description": "Creates a new DocuFill interview session for the specified package.\nReturns the session record and a bearer token used to load and submit\nthe public-facing interview form. Sessions expire after **90 days**.\n\nPass `testMode: true` to create a test session without requiring the\npackage to be active (requires an authenticated admin account).\n",
+        "description": "Creates a new Docuplete interview session for the specified package.\nReturns the session record and a bearer token used to load and submit\nthe public-facing interview form. Sessions expire after **90 days**.\n\nPass `testMode: true` to create a test session without requiring the\npackage to be active (requires an authenticated admin account).\n",
         "security": [
           {
             "internalAuth": []
@@ -802,7 +802,7 @@
                 "properties": {
                   "packageId": {
                     "type": "integer",
-                    "description": "ID of an active DocuFill package",
+                    "description": "ID of an active Docuplete package",
                     "example": 7
                   },
                   "dealId": {
@@ -901,10 +901,10 @@
     "/product/docufill/sessions": {
       "post": {
         "tags": [
-          "Product Portal — DocuFill Sessions"
+          "Product Portal — Docuplete Sessions"
         ],
         "summary": "Create an interview session",
-        "description": "Creates a new DocuFill interview session for the specified package.\nReturns the session record and a bearer token used to load and submit\nthe public-facing interview form. Sessions expire after **90 days**.\n",
+        "description": "Creates a new Docuplete interview session for the specified package.\nReturns the session record and a bearer token used to load and submit\nthe public-facing interview form. Sessions expire after **90 days**.\n",
         "security": [
           {
             "productAuth": []
@@ -925,7 +925,7 @@
                 "properties": {
                   "packageId": {
                     "type": "integer",
-                    "description": "ID of an active DocuFill package",
+                    "description": "ID of an active Docuplete package",
                     "example": 7
                   },
                   "dealId": {
@@ -1011,7 +1011,7 @@
     "/docufill/public/sessions/{token}": {
       "get": {
         "tags": [
-          "DocuFill — Public (no auth)"
+          "Docuplete — Public (no auth)"
         ],
         "summary": "Load an interview session",
         "description": "Returns the full session object including package metadata, document list,\nfield definitions, prefill data, and saved answers. No authentication required.\n",
@@ -1056,7 +1056,7 @@
       },
       "patch": {
         "tags": [
-          "DocuFill — Public (no auth)"
+          "Docuplete — Public (no auth)"
         ],
         "summary": "Save interview answers",
         "description": "Persists a partial or complete answers object for the session. Optionally\nupdates the session status (e.g. `in_progress`). The session must not have expired.\n",
@@ -1127,7 +1127,7 @@
     "/docufill/public/sessions/{token}/generate": {
       "post": {
         "tags": [
-          "DocuFill — Public (no auth)"
+          "Docuplete — Public (no auth)"
         ],
         "summary": "Generate the document packet",
         "description": "Validates the saved answers, renders each document as a filled PDF,\nbundles them into a single packet PDF, and (when configured) uploads\nthe packet to Google Drive. Returns a download URL for the packet.\n\nThe session status is set to `generated`. The session must not have expired.\n",
@@ -1206,7 +1206,7 @@
     "/docufill/public/sessions/{token}/packet.pdf": {
       "get": {
         "tags": [
-          "DocuFill — Public (no auth)"
+          "Docuplete — Public (no auth)"
         ],
         "summary": "Download the generated packet as PDF",
         "description": "Returns the fully-filled packet PDF for display or download.\nThe packet is rendered on demand from the latest saved answers — it\ndoes not require a prior `/generate` call, but all required fields\nmust be complete.\n",

@@ -196,6 +196,28 @@ function createDocumentId(): string {
   return `doc_${randomBytes(12).toString("base64url")}`;
 }
 
+/**
+ * Reads req.internalAccountId assertively — requireAccountId middleware
+ * guarantees this is always set before any docufill route handler runs.
+ */
+function acctId(req: Request): number {
+  const id = req.internalAccountId;
+  if (id === undefined || id === null) {
+    throw new Error("BUG: acctId() called without resolved account");
+  }
+  return id;
+}
+
+/**
+ * Strip internal-only fields before sending a session to the public endpoint.
+ * The webhook URL and enabled flag are server-side config — clients don't need
+ * them and leaking them is unnecessary.
+ */
+function publicSessionView(session: Record<string, unknown>): Record<string, unknown> {
+  const { webhook_url: _wu, webhook_enabled: _we, ...rest } = session;
+  return rest;
+}
+
 function parseDocuments(value: unknown): DocItem[] {
   return Array.isArray(value) ? value.filter((item): item is DocItem => {
     return Boolean(item && typeof item === "object" && typeof (item as DocItem).id === "string");
@@ -457,7 +479,8 @@ async function getPackage(packageId: number, client: QueryClient = getDb(), hydr
   return (await hydratePackages([pkg], client))[0];
 }
 
-async function getSession(token: string, client: QueryClient = getDb()): Promise<Record<string, unknown> | undefined> {
+async function getSession(token: string, client: QueryClient = getDb(), accountId?: number): Promise<Record<string, unknown> | undefined> {
+  const accountFilter = accountId != null ? `AND p.account_id = ${Number(accountId)}` : "";
   const { rows } = await client.query(
     `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
             p.transaction_scope, p.custodian_id, p.depository_id,
@@ -467,7 +490,7 @@ async function getSession(token: string, client: QueryClient = getDb()): Promise
             CASE WHEN a.logo_url IS NOT NULL THEN '/api/storage/org-logo/' || a.id::text ELSE NULL END AS org_logo_url,
             a.brand_color AS org_brand_color
        FROM docufill_interview_sessions s
-       JOIN docufill_packages p ON p.id = s.package_id
+       JOIN docufill_packages p ON p.id = s.package_id ${accountFilter}
        LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
        LEFT JOIN docufill_depositories d ON d.id = p.depository_id
        LEFT JOIN accounts a ON a.id = p.account_id
@@ -632,6 +655,7 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
 
 async function upsertPackageDocument(params: {
   packageId: number;
+  accountId: number;
   documentId?: string | null;
   title?: string | null;
   filename: string;
@@ -641,7 +665,7 @@ async function upsertPackageDocument(params: {
   const client = await db.connect();
   try {
     await client.query("BEGIN");
-    const existing = await getPackage(params.packageId, client);
+    const existing = await getPackage(params.packageId, client, true, params.accountId);
     if (!existing) {
       await client.query("ROLLBACK");
       return null;
@@ -696,11 +720,11 @@ async function upsertPackageDocument(params: {
     await client.query(
       `UPDATE docufill_packages
           SET documents=$1::jsonb, version=version+1, updated_at=NOW()
-        WHERE id=$2`,
-      [JSON.stringify(nextDocuments), params.packageId],
+        WHERE id=$2 AND account_id=$3`,
+      [JSON.stringify(nextDocuments), params.packageId, params.accountId],
     );
     await client.query("COMMIT");
-    return getPackage(params.packageId);
+    return getPackage(params.packageId, getDb(), true, params.accountId);
   } catch (err) {
     await client.query("ROLLBACK").catch(() => {});
     throw err;
@@ -711,7 +735,7 @@ async function upsertPackageDocument(params: {
 
 router.get("/bootstrap", async (req, res) => {
   try {
-    const accountId = req.internalAccountId ?? 1;
+    const accountId = acctId(req);
     const db = getDb();
     const [custodians, depositories, transactionTypes, fieldLibrary, packages] = await Promise.all([
       db.query("SELECT * FROM docufill_custodians WHERE account_id = $1 ORDER BY active DESC, name ASC", [accountId]),
@@ -978,7 +1002,7 @@ router.post("/custodians", async (req, res) => {
       res.status(400).json({ error: "Custodian name is required" });
       return;
     }
-    const accountId = req.internalAccountId ?? 1;
+    const accountId = acctId(req);
     const db = getDb();
     const { rows } = await db.query(
       `INSERT INTO docufill_custodians (name, contact_name, email, phone, notes, active, account_id)
@@ -1006,7 +1030,7 @@ router.patch("/custodians/:id", async (req, res) => {
       res.status(400).json({ error: "Custodian name is required" });
       return;
     }
-    const accountId = req.internalAccountId ?? 1;
+    const accountId = acctId(req);
     const db = getDb();
     const { rows } = await db.query(
       `UPDATE docufill_custodians SET
@@ -1035,7 +1059,7 @@ router.post("/depositories", async (req, res) => {
       res.status(400).json({ error: "Depository name is required" });
       return;
     }
-    const accountId = req.internalAccountId ?? 1;
+    const accountId = acctId(req);
     const db = getDb();
     const { rows } = await db.query(
       `INSERT INTO docufill_depositories (name, contact_name, email, phone, notes, active, account_id)
@@ -1063,7 +1087,7 @@ router.patch("/depositories/:id", async (req, res) => {
       res.status(400).json({ error: "Depository name is required" });
       return;
     }
-    const accountId = req.internalAccountId ?? 1;
+    const accountId = acctId(req);
     const db = getDb();
     const { rows } = await db.query(
       `UPDATE docufill_depositories SET
@@ -1092,7 +1116,7 @@ router.post("/packages", async (req, res) => {
       res.status(400).json({ error: "Package name is required" });
       return;
     }
-    const accountId = req.internalAccountId ?? 1;
+    const accountId = acctId(req);
     const db = getDb();
     const { rows } = await db.query(
       `INSERT INTO docufill_packages
@@ -1132,7 +1156,7 @@ router.patch("/packages/:id", async (req, res) => {
       return;
     }
     const body = req.body as PackageInput;
-    const accountId = req.internalAccountId ?? 1;
+    const accountId = acctId(req);
     const existing = await getPackage(id, getDb(), false, accountId);
     if (!existing) {
       res.status(404).json({ error: "Package not found" });
@@ -1218,7 +1242,7 @@ router.post("/packages/:id/test-webhook", async (req, res) => {
       res.status(400).json({ error: "Invalid package id" });
       return;
     }
-    const accountId = req.internalAccountId ?? 1;
+    const accountId = acctId(req);
     const pkg = await getPackage(id, getDb(), false, accountId);
     if (!pkg) {
       res.status(404).json({ error: "Package not found" });
@@ -1268,7 +1292,7 @@ router.delete("/packages/:id", async (req, res) => {
       res.status(400).json({ error: "Invalid package id" });
       return;
     }
-    const accountId = req.internalAccountId ?? 1;
+    const accountId = acctId(req);
     const db = getDb();
     const { rows } = await db.query(
       `DELETE FROM docufill_packages
@@ -1297,6 +1321,7 @@ router.post("/packages/:id/documents", async (req, res) => {
     const pdf = await readPdfBody(req);
     const pkg = await upsertPackageDocument({
       packageId,
+      accountId: acctId(req),
       title: String(req.headers["x-document-title"] ?? ""),
       filename: String(req.headers["x-file-name"] ?? req.headers["x-document-title"] ?? "document.pdf"),
       pdf,
@@ -1319,8 +1344,9 @@ router.put("/packages/:id/documents/:documentId/pdf", async (req, res) => {
       res.status(400).json({ error: "Invalid package id" });
       return;
     }
+    const requestAccountId = acctId(req);
     const pdf = await readPdfBody(req);
-    const existing = await getPackage(packageId);
+    const existing = await getPackage(packageId, getDb(), true, requestAccountId);
     if (!existing) {
       res.status(404).json({ error: "Package not found" });
       return;
@@ -1332,6 +1358,7 @@ router.put("/packages/:id/documents/:documentId/pdf", async (req, res) => {
     }
     const pkg = await upsertPackageDocument({
       packageId,
+      accountId: requestAccountId,
       documentId: req.params.documentId,
       title: String(req.headers["x-document-title"] ?? existingDoc?.title ?? ""),
       filename: String(req.headers["x-file-name"] ?? existingDoc?.fileName ?? existingDoc?.title ?? "document.pdf"),
@@ -1357,10 +1384,11 @@ router.get("/packages/:id/documents/:documentId.pdf", async (req, res) => {
     }
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT filename, content_type, byte_size, pdf_data
-         FROM docufill_package_documents
-        WHERE package_id=$1 AND document_id=$2`,
-      [packageId, req.params.documentId],
+      `SELECT d.filename, d.content_type, d.byte_size, d.pdf_data
+         FROM docufill_package_documents d
+         JOIN docufill_packages p ON p.id = d.package_id
+        WHERE d.package_id=$1 AND d.document_id=$2 AND p.account_id=$3`,
+      [packageId, req.params.documentId, acctId(req)],
     );
     const row = rows[0] as { filename: string; content_type: string; byte_size: number; pdf_data: Buffer } | undefined;
     if (!row) {
@@ -1386,7 +1414,8 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
       res.status(400).json({ error: "Invalid package id" });
       return;
     }
-    const existing = await getPackage(packageId);
+    const requestAccountId = acctId(req);
+    const existing = await getPackage(packageId, getDb(), true, requestAccountId);
     if (!existing) {
       res.status(404).json({ error: "Package not found" });
       return;
@@ -1405,8 +1434,8 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
       await client.query(
         `UPDATE docufill_packages
             SET documents=$1::jsonb, mappings=$2::jsonb, version=version+1, updated_at=NOW()
-          WHERE id=$3`,
-        [JSON.stringify(documents), JSON.stringify(mappings), packageId],
+          WHERE id=$3 AND account_id=$4`,
+        [JSON.stringify(documents), JSON.stringify(mappings), packageId, requestAccountId],
       );
       await client.query("COMMIT");
     } catch (err) {
@@ -1415,7 +1444,7 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
     } finally {
       client.release();
     }
-    const pkg = await getPackage(packageId);
+    const pkg = await getPackage(packageId, getDb(), true, requestAccountId);
     res.json({ package: pkg });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to remove package document");
@@ -1436,7 +1465,7 @@ router.post("/csv-batch", async (req, res) => {
       return;
     }
     const db = getDb();
-    const pkg = await getPackage(packageId, db);
+    const pkg = await getPackage(packageId, db, true, acctId(req));
     if (!pkg) {
       res.status(404).json({ error: "Package not found" });
       return;
@@ -1554,17 +1583,20 @@ router.get("/sessions", async (req, res) => {
     }
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT token FROM docufill_interview_sessions
-       WHERE deal_id = $1
-       ORDER BY created_at DESC
-       LIMIT 1`,
-      [dealId],
+      `SELECT s.token
+         FROM docufill_interview_sessions s
+         JOIN docufill_packages p ON p.id = s.package_id
+        WHERE s.deal_id = $1
+          AND p.account_id = $2
+        ORDER BY s.created_at DESC
+        LIMIT 1`,
+      [dealId, acctId(req)],
     );
     if (!rows[0]) {
       res.status(404).json({ error: "No session found for this deal" });
       return;
     }
-    const session = await getSession(String(rows[0].token), db);
+    const session = await getSession(String(rows[0].token), db, acctId(req));
     if (!session) {
       res.status(404).json({ error: "Session record not found" });
       return;
@@ -1745,7 +1777,7 @@ router.post("/sessions", async (req, res) => {
       res.status(400).json({ error: "Package id is required" });
       return;
     }
-    const accountId = req.internalAccountId ?? 1;
+    const accountId = acctId(req);
     const pkg = await getPackage(packageId, getDb(), true, accountId);
     if (!pkg) {
       res.status(404).json({ error: "Package not found" });
@@ -1794,7 +1826,7 @@ router.post("/sessions", async (req, res) => {
 
 router.get("/sessions/:token", async (req, res) => {
   try {
-    const session = await getSession(req.params.token);
+    const session = await getSession(req.params.token, getDb(), acctId(req));
     if (!session) {
       res.status(404).json({ error: "Interview session not found" });
       return;
@@ -1815,8 +1847,9 @@ router.patch("/sessions/:token", async (req, res) => {
           answers=$1::jsonb, status=COALESCE($2, status), updated_at=NOW()
         WHERE token=$3
           AND expires_at > NOW()
+          AND package_id IN (SELECT id FROM docufill_packages WHERE account_id = $4)
         RETURNING *`,
-      [jsonParam(body.answers ?? {}), body.status ?? null, req.params.token],
+      [jsonParam(body.answers ?? {}), body.status ?? null, req.params.token, acctId(req)],
     );
     if (!rows[0]) {
       res.status(404).json({ error: "Interview session not found" });
@@ -1832,7 +1865,7 @@ router.patch("/sessions/:token", async (req, res) => {
 router.post("/sessions/:token/generate", async (req, res) => {
   try {
     const db = getDb();
-    const session = await getSession(req.params.token, db);
+    const session = await getSession(req.params.token, db, acctId(req));
     if (!session) {
       res.status(404).json({ error: "Interview session not found" });
       return;
@@ -1871,8 +1904,9 @@ router.post("/sessions/:token/generate", async (req, res) => {
               generated_pdf_url=$3,
               generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
               updated_at=NOW()
-        WHERE token=$4`,
-      [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token],
+        WHERE token=$4
+          AND package_id IN (SELECT id FROM docufill_packages WHERE account_id = $5)`,
+      [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token, acctId(req)],
     );
     res.json({
       packet: generated,
@@ -1893,7 +1927,7 @@ router.post("/sessions/:token/generate", async (req, res) => {
 router.get("/sessions/:token/packet.pdf", async (req, res) => {
   try {
     const db = getDb();
-    const session = await getSession(req.params.token, db);
+    const session = await getSession(req.params.token, db, acctId(req));
     if (!session) {
       res.status(404).json({ error: "Interview session not found" });
       return;
@@ -1950,7 +1984,7 @@ publicDocufillRouter.get("/sessions/:token", async (req, res) => {
       res.status(404).json({ error: "Interview session not found" });
       return;
     }
-    res.json({ session });
+    res.json({ session: publicSessionView(session) });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load public interview session");
     res.status(500).json({ error: "Failed to load interview session" });
