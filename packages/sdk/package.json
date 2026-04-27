@@ -16,9 +16,10 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "pnpm generate:types && tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "generate:types": "openapi-typescript ../../artifacts/api-server/src/lib/openapi-spec.json -o src/openapi.d.ts"
   },
   "engines": {
     "node": ">=18"
@@ -33,6 +34,7 @@
   "license": "MIT",
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "openapi-typescript": "^7.13.0",
     "typescript": "^5.5.0"
   }
 }

@@ -7,12 +7,14 @@ export type { DocupleteClientOptions } from "./types.js";
 export type {
   Package,
   Session,
+  SessionListItem,
   SessionStatus,
   Account,
   CreateSessionParams,
   ListSessionsParams,
 } from "./types.js";
 export { DocupleteError } from "./client.js";
+export type { CreateSessionResult } from "./resources/sessions.js";
 
 export class Docuplete {
   readonly packages: PackagesResource;

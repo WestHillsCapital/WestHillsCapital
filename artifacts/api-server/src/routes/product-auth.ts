@@ -100,60 +100,80 @@ router.post("/onboard", async (req, res) => {
  * Returns the current user's account info.
  * Used by the frontend to detect first-login and redirect accordingly.
  */
-router.get("/me", async (req, res) => {
-  const auth = getAuth(req);
-  const clerkUserId = auth?.userId;
+router.get("/me", requireProductAuth, async (req, res) => {
+  // requireProductAuth handles both Clerk JWT and API key (sk_live_...) auth.
+  // After it runs, req.internalAccountId and req.productUserRole are guaranteed set.
+  const accountId = req.internalAccountId!;
 
-  if (!clerkUserId) {
-    return void res.status(401).json({ error: "Not authenticated." });
-  }
+  // If auth came via Clerk, we may need to return user-specific fields (email/role).
+  // Check for a Clerk user to see if we can get user details.
+  const auth = getAuth(req);
+  const clerkUserId = auth?.userId ?? null;
 
   try {
-    type MeRow = { account_id: number; account_name: string; slug: string; email: string; role: string };
+    type MeRow = { account_id: number; account_name: string; slug: string; email: string | null; role: string };
 
-    // Primary lookup: active record already linked to this Clerk user
-    let result = await getDb().query<MeRow>(
-      `SELECT au.account_id, a.name AS account_name, a.slug, au.email, au.role
-         FROM account_users au
-         JOIN accounts a ON a.id = au.account_id
-        WHERE au.clerk_user_id = $1 AND au.status = 'active'
-        LIMIT 1`,
-      [clerkUserId],
-    );
+    if (clerkUserId) {
+      // Clerk path: look up user record for email and role
+      let result = await getDb().query<MeRow>(
+        `SELECT au.account_id, a.name AS account_name, a.slug, au.email, au.role
+           FROM account_users au
+           JOIN accounts a ON a.id = au.account_id
+          WHERE au.clerk_user_id = $1 AND au.status = 'active'
+          LIMIT 1`,
+        [clerkUserId],
+      );
 
-    // Secondary lookup: link a pending invitation on first sign-in.
-    // This ensures invited users join their org instead of being sent through
-    // the new-account onboarding flow when they land on /me.
-    if (!result.rows[0]) {
-      const linked = await linkPendingInvitation(clerkUserId);
-      if (linked) {
-        const acc = await getDb().query<{ name: string; slug: string }>(
-          `SELECT name, slug FROM accounts WHERE id = $1`,
-          [linked.account_id],
-        );
-        result = {
-          rows: [{
-            account_id:   linked.account_id,
-            account_name: acc.rows[0]?.name ?? "",
-            slug:         acc.rows[0]?.slug ?? "",
-            email:        linked.email,
-            role:         linked.role,
-          }],
-        } as typeof result;
+      // Link pending invitation on first sign-in (invitation flow)
+      if (!result.rows[0]) {
+        const linked = await linkPendingInvitation(clerkUserId);
+        if (linked) {
+          const acc = await getDb().query<{ name: string; slug: string }>(
+            `SELECT name, slug FROM accounts WHERE id = $1`,
+            [linked.account_id],
+          );
+          result = {
+            rows: [{
+              account_id:   linked.account_id,
+              account_name: acc.rows[0]?.name ?? "",
+              slug:         acc.rows[0]?.slug ?? "",
+              email:        linked.email,
+              role:         linked.role,
+            }],
+          } as typeof result;
+        }
       }
+
+      if (!result.rows[0]) {
+        return void res.status(404).json({ error: "Account not found.", code: "ACCOUNT_NOT_FOUND" });
+      }
+
+      const row = result.rows[0];
+      return void res.json({
+        accountId:   row.account_id,
+        accountName: row.account_name,
+        slug:        row.slug,
+        email:       row.email,
+        role:        row.role,
+      });
     }
 
-    if (!result.rows[0]) {
+    // API key path: look up account by ID; no specific user context
+    const acc = await getDb().query<{ name: string; slug: string }>(
+      `SELECT name, slug FROM accounts WHERE id = $1 LIMIT 1`,
+      [accountId],
+    );
+
+    if (!acc.rows[0]) {
       return void res.status(404).json({ error: "Account not found.", code: "ACCOUNT_NOT_FOUND" });
     }
 
-    const row = result.rows[0];
     return void res.json({
-      accountId:   row.account_id,
-      accountName: row.account_name,
-      slug:        row.slug,
-      email:       row.email,
-      role:        row.role,
+      accountId:   accountId,
+      accountName: acc.rows[0].name,
+      slug:        acc.rows[0].slug,
+      email:       null,
+      role:        req.productUserRole ?? "member",
     });
   } catch (err) {
     logger.error({ err }, "[ProductAuth] /me error");

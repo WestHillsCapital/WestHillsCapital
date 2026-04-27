@@ -1,4 +1,39 @@
+import type { components } from "./openapi.js";
+
 export type SessionStatus = "draft" | "in_progress" | "generated";
+
+export type Session = components["schemas"]["DocuFillSession"] & {
+  id: number;
+  token: string;
+  package_id: number;
+  package_name: string;
+  status: SessionStatus;
+  answers: Record<string, unknown>;
+  prefill: Record<string, unknown>;
+  fields: unknown[];
+  documents: unknown[];
+  mappings: unknown[];
+  custodian_name: string | null;
+  depository_name: string | null;
+  org_name: string | null;
+  org_logo_url: string | null;
+  org_brand_color: string | null;
+  transaction_scope: string | null;
+  expires_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export interface SessionListItem {
+  id: number;
+  token: string;
+  package_id: number;
+  package_name: string;
+  status: SessionStatus;
+  created_at: string;
+  updated_at: string;
+  expires_at: string;
+}
 
 export interface Package {
   id: number;
@@ -19,33 +54,11 @@ export interface Package {
   updated_at: string;
 }
 
-export interface Session {
-  id: number;
-  token: string;
-  package_id: number;
-  package_name: string;
-  status: SessionStatus;
-  answers: Record<string, unknown>;
-  prefill: Record<string, unknown>;
-  fields: unknown[];
-  documents: unknown[];
-  mappings: unknown[];
-  custodian_name: string | null;
-  depository_name: string | null;
-  org_name: string | null;
-  org_logo_url: string | null;
-  org_brand_color: string | null;
-  transaction_scope: string | null;
-  expires_at: string;
-  created_at: string;
-  updated_at: string;
-}
-
 export interface Account {
-  account_id: number;
-  account_name: string;
+  accountId: number;
+  accountName: string;
   slug: string;
-  email: string;
+  email: string | null;
   role: string;
 }
 
