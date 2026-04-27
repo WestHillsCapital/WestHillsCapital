@@ -569,31 +569,10 @@ export async function initDb(): Promise<void> {
   }
 
   // ── Multi-tenant isolation hardening (migration v1) ───────────────────────
-  // Enforces NOT NULL on account_id columns across all docufill tables,
-  // drops the per-table UNIQUE(name) constraints that block multi-tenancy,
-  // and replaces them with UNIQUE(account_id, name) so each account has its
-  // own namespace.
-  //
-  // Schema tenant-keying audit (current docufill tables):
-  //   DIRECTLY tenant-keyed (carry account_id column):
-  //     docufill_custodians    — account_id NOT NULL FK → accounts
-  //     docufill_depositories  — account_id NOT NULL FK → accounts
-  //     docufill_packages      — account_id NOT NULL FK → accounts
-  //   INDIRECTLY tenant-keyed (scoped via JOIN to docufill_packages.account_id):
-  //     docufill_interview_sessions — package_id FK → docufill_packages
-  //   INTENTIONALLY GLOBAL (no account_id; shared read-only library data):
-  //     docufill_fields           — field type library, write-restricted to admin
-  //     docufill_transaction_types — transaction scope library, write-restricted to admin
-  //   SYSTEM tables (no tenant data):
-  //     docufill_migration_state  — migration tracking
-  //
-  // This migration is FAIL-FAST and TRANSACTIONAL:
-  //   - All DDL runs inside a single transaction so partial failure rolls back.
-  //   - The migration-state row is inserted only AFTER all steps succeed.
-  //   - DDL uses idempotent patterns (IF NOT EXISTS / IF EXISTS / DO NOTHING)
-  //     so individual steps are safe on re-run without needing catch-swallowers.
-  //   - Post-migration verification confirms the constraints actually exist in
-  //     pg_catalog before the transaction commits.
+  // Enforces NOT NULL + FK on account_id in custodians/depositories/packages,
+  // drops global UNIQUE(name), adds per-account UNIQUE(account_id, name) and
+  // account_id indexes. Runs in a single transaction; state row written only
+  // after post-migration verification passes. Idempotent on retry.
   const isolationV1 = await db.query(
     "SELECT 1 FROM docufill_migration_state WHERE key = $1",
     ["account_id_isolation_v1"],
@@ -603,14 +582,13 @@ export async function initDb(): Promise<void> {
     try {
       await client.query("BEGIN");
 
-      // Safety backfill: any row with NULL account_id → account 1
+      // Backfill any NULLs before enforcing NOT NULL
       for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
         await client.query(`UPDATE ${table} SET account_id = 1 WHERE account_id IS NULL`);
       }
 
-      // Add NOT NULL constraints (nulls backfilled above so this will succeed)
+      // NOT NULL + FK constraints (idempotent DO blocks)
       for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
-        // Use a DO block to make this idempotent without swallowing errors
         await client.query(`
           DO $$
           BEGIN
@@ -624,8 +602,6 @@ export async function initDb(): Promise<void> {
             END IF;
           END$$
         `);
-
-        // Add FK if it does not already exist
         await client.query(`
           DO $$
           BEGIN
@@ -645,57 +621,37 @@ export async function initDb(): Promise<void> {
         `);
       }
 
-      // Drop old global UNIQUE(name) constraints; replace with per-account ones
+      // Per-account uniqueness for custodians/depositories; account_id indexes
       for (const table of ["docufill_custodians", "docufill_depositories"]) {
-        // Postgres auto-names a single-col UNIQUE as <table>_<col>_key
         await client.query(`ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${table}_name_key`);
         await client.query(`
-          CREATE UNIQUE INDEX IF NOT EXISTS ${table}_account_name_idx
-            ON ${table} (account_id, name)
+          CREATE UNIQUE INDEX IF NOT EXISTS ${table}_account_name_idx ON ${table} (account_id, name)
         `);
       }
+      await client.query(`CREATE INDEX IF NOT EXISTS docufill_custodians_account_idx ON docufill_custodians (account_id)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS docufill_depositories_account_idx ON docufill_depositories (account_id)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS docufill_packages_account_idx ON docufill_packages (account_id)`);
 
-      // Add account_id indexes to speed up per-account scoped queries
-      await client.query(`
-        CREATE INDEX IF NOT EXISTS docufill_custodians_account_idx
-          ON docufill_custodians (account_id)
-      `);
-      await client.query(`
-        CREATE INDEX IF NOT EXISTS docufill_depositories_account_idx
-          ON docufill_depositories (account_id)
-      `);
-      await client.query(`
-        CREATE INDEX IF NOT EXISTS docufill_packages_account_idx
-          ON docufill_packages (account_id)
-      `);
-
-      // ── Post-migration verification ─────────────────────────────────────────
-      // Confirm that NOT NULL is actually enforced on all three tables before
-      // recording success. If any table is still nullable the transaction rolls
-      // back and the migration will be retried on next server start.
+      // Verify NOT NULL is actually enforced before recording success
       for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
-        const check = await client.query(`
-          SELECT is_nullable FROM information_schema.columns
-           WHERE table_name = $1 AND column_name = 'account_id'
-        `, [table]);
+        const check = await client.query(
+          `SELECT is_nullable FROM information_schema.columns WHERE table_name = $1 AND column_name = 'account_id'`,
+          [table],
+        );
         if (!check.rows[0] || check.rows[0].is_nullable !== "NO") {
-          throw new Error(
-            `[DB] Migration verification failed: ${table}.account_id is still nullable after DDL`,
-          );
+          throw new Error(`[DB] Migration verification: ${table}.account_id is still nullable`);
         }
       }
 
-      // Record success only after all DDL and verification pass
       await client.query(
         "INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
         ["account_id_isolation_v1"],
       );
-
       await client.query("COMMIT");
-      logger.info("[DB] Multi-tenant isolation hardening (v1) applied and verified");
+      logger.info("[DB] account_id_isolation_v1 applied");
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});
-      logger.error({ err }, "[DB] account_id_isolation_v1 migration FAILED — rolled back; will retry on next start");
+      logger.error({ err }, "[DB] account_id_isolation_v1 failed — will retry on next start");
       throw err;
     } finally {
       client.release();

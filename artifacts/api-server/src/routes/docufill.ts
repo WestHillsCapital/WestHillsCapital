@@ -196,10 +196,7 @@ function createDocumentId(): string {
   return `doc_${randomBytes(12).toString("base64url")}`;
 }
 
-/**
- * Reads req.internalAccountId assertively — requireAccountId middleware
- * guarantees this is always set before any docufill route handler runs.
- */
+// Assertive account-id accessor — requireAccountId middleware guarantees this is set.
 function acctId(req: Request): number {
   const id = req.internalAccountId;
   if (id === undefined || id === null) {
@@ -208,19 +205,8 @@ function acctId(req: Request): number {
   return id;
 }
 
-/**
- * Strip internal-only fields before sending a session to the public endpoint.
- *
- * Fields removed:
- *   - webhook_url / webhook_enabled — server-side delivery config, not needed by clients
- *   - generated_pdf_drive_id — internal Google Drive reference, not a public URL
- *   - deal_id — internal CRM foreign key, irrelevant to the interview app
- *   - custodian_id / depository_id — internal FKs, names already included via joins
- *
- * All other session fields (token, status, answers, prefill, generated_packet,
- * package metadata, org branding) are retained as the interview UI depends on them.
- * If future columns add server-internal data, add them to this list explicitly.
- */
+// Strip server-internal fields before returning a session on the public endpoint.
+// webhook config, drive references, and internal FK ids are not needed by clients.
 function publicSessionView(session: Record<string, unknown>): Record<string, unknown> {
   const {
     webhook_url: _wu,
@@ -234,14 +220,9 @@ function publicSessionView(session: Record<string, unknown>): Record<string, unk
   return rest;
 }
 
-/**
- * Guard for routes that mutate shared/global tables (field library, transaction types).
- * These tables are intentionally global across all accounts, so writes must be
- * restricted to internal admin users only — external API/Clerk product auth is rejected.
- *
- * Returns true if the caller is allowed to proceed; writes a 403 and returns false otherwise.
- * requireInternalAuth sets req.internalEmail; requireProductAuth does not.
- */
+// Guard for routes that mutate global tables (field library, transaction types).
+// Writes are restricted to internal admin auth; product API keys receive 403.
+// requireInternalAuth sets req.internalEmail; requireProductAuth does not.
 function isInternalUser(req: Request, res: Response): boolean {
   if (!req.internalEmail) {
     res.status(403).json({ error: "This operation requires internal admin access." });
@@ -496,8 +477,6 @@ function drawWrappedText(page: PDFPage, text: string, x: number, y: number, size
 }
 
 async function getPackage(packageId: number, client: QueryClient = getDb(), hydrate = true, accountId?: number): Promise<PackageRow | undefined> {
-  // Use a bind parameter for accountId when provided to avoid dynamic SQL assembly.
-  // When omitted (public/token-auth routes) the WHERE clause has no account filter.
   const params: unknown[] = [packageId];
   const accountFilter = accountId != null
     ? (params.push(accountId), `AND p.account_id = $${params.length}`)
@@ -517,8 +496,6 @@ async function getPackage(packageId: number, client: QueryClient = getDb(), hydr
 }
 
 async function getSession(token: string, client: QueryClient = getDb(), accountId?: number): Promise<Record<string, unknown> | undefined> {
-  // Use a bind parameter for accountId when provided to avoid dynamic SQL assembly.
-  // When omitted (public/token-auth routes) the JOIN has no account filter.
   const params: unknown[] = [token];
   const accountFilter = accountId != null
     ? (params.push(accountId), `AND p.account_id = $${params.length}`)
