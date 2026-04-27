@@ -31,6 +31,8 @@
     "pg": "^8.20.0",
     "pino": "^9",
     "pino-http": "^10",
+    "stripe": "^22.1.0",
+    "stripe-replit-sync": "^1.0.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1"
   },

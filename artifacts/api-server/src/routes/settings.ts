@@ -812,7 +812,8 @@ function billingWindowStart(billingPeriodStartDate: Date | null): string {
     const prev = new Date(Date.UTC(prevYear, prevMonth, prevAnchorDay));
     return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}-${String(prev.getUTCDate()).padStart(2, "0")}`;
   }
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  // Default: first of the calendar month (UTC for consistency with anchor logic above)
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
 }
 
 /** GET /billing — returns current plan, usage, and subscription info */

@@ -123,11 +123,10 @@ app.post(
         res.status(500).json({ error: "Webhook processing error" });
         return;
       }
-      // 1. Let StripeSync verify + sync to stripe schema
+      // 1. Let StripeSync verify signature + sync to stripe schema (throws on invalid sig)
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
       // 2. Parse event (already verified) and update our accounts table.
-      // Return 500 on failure so Stripe will retry the event — do NOT swallow errors
-      // with a 200 response, as Stripe won't retry acknowledged events.
+      // Throw on failure so the outer catch returns non-2xx and Stripe retries.
       const event = JSON.parse((req.body as Buffer).toString()) as {
         type: string;
         data: { object: Record<string, unknown> };
@@ -135,8 +134,12 @@ app.post(
       await handleStripeSubscriptionEvent(event);
       res.status(200).json({ received: true });
     } catch (err) {
+      const isValidationError = err instanceof Error &&
+        (err.message.includes("signature") || err.message.includes("invalid") || err.message.includes("timestamp"));
       logger.error({ err }, "[StripeWebhook] Webhook processing failed");
-      res.status(400).json({ error: "Webhook processing error" });
+      // 400 → invalid signature / validation error (Stripe won't retry)
+      // 500 → internal processing error (Stripe will retry per its retry schedule)
+      res.status(isValidationError ? 400 : 500).json({ error: "Webhook processing error" });
     }
   },
 );

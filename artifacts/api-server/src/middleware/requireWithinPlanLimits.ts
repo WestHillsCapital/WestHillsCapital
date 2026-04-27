@@ -48,8 +48,8 @@ function billingPeriodStart(billingPeriodStartDate: Date | null): string {
     return toDateString(new Date(Date.UTC(prevYear, prevMonth, prevAnchorDay)));
   }
 
-  // Default: first of the calendar month
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+  // Default: first of the calendar month (UTC to stay consistent with anchor logic above)
+  return `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
 }
 
 /**
