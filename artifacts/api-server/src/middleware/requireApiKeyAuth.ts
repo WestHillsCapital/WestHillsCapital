@@ -3,6 +3,7 @@ import type { RequestHandler } from "express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import { isRateLimited, isCurrentlyBlocked } from "../lib/ratelimit";
+import { isIpAllowed } from "../lib/cidr";
 
 const APIKEY_FAIL_MAX = 10;
 const APIKEY_FAIL_WINDOW_MS = 60 * 1000;
@@ -79,6 +80,28 @@ export const requireApiKeyAuth: RequestHandler = async (req, res, next) => {
       return void res.status(429).json({ error: "Too many failed authentication attempts. Please wait before trying again." });
     }
     return void res.status(401).json({ error: "Invalid or revoked API key." });
+  }
+
+  // ── IP allowlist check (enterprise feature) ──────────────────────────────
+  // If the account has configured allowed_ip_ranges, the request IP must match
+  // at least one entry. Empty array = no restriction (default for all plans).
+  try {
+    const { rows } = await getDb().query<{ allowed_ip_ranges: string[] }>(
+      `SELECT allowed_ip_ranges FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    const allowedRanges = rows[0]?.allowed_ip_ranges ?? [];
+    if (!isIpAllowed(ip, allowedRanges)) {
+      logger.warn({ accountId, ip }, "[ApiKeyAuth] Request blocked — IP not in allowlist");
+      return void res.status(403).json({
+        error: "Your IP address is not permitted to use this API key. Check your account's IP allowlist.",
+        code: "IP_NOT_ALLOWED",
+      });
+    }
+  } catch (err) {
+    // DB failure checking allowlist — fail open to avoid blocking legitimate requests
+    // during a DB hiccup, but log so ops can investigate.
+    logger.error({ err, accountId }, "[ApiKeyAuth] Could not check IP allowlist — failing open");
   }
 
   req.internalAccountId = accountId;

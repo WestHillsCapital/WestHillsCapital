@@ -10,6 +10,7 @@ import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
 import { sendTeamInvitationEmail } from "../lib/email";
 import { getPlanLimits } from "../lib/plans";
 import { getUncachableStripeClient } from "../lib/stripeClient";
+import { isIpAllowed } from "../lib/cidr";
 import express from "express";
 
 const router: IRouter = Router();
@@ -1224,6 +1225,116 @@ router.get("/admin/accounts", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Admin] Failed to list accounts");
     res.status(500).json({ error: "Failed to load accounts" });
+  }
+});
+
+// ── IP allowlist management (admin only) ──────────────────────────────────────
+//
+// GET  /security/ip-allowlist  → { allowed_ip_ranges: string[] }
+// PUT  /security/ip-allowlist  → { allowed_ip_ranges: string[] }
+//
+// Empty array = no IP restriction (default). Populated = only listed CIDRs can
+// use this account's API keys. The account's own current request IP is validated
+// against the proposed list before saving to prevent self-lockout.
+
+const CIDR_PATTERN = /^(\d{1,3}\.){3}\d{1,3}(\/([0-9]|[1-2][0-9]|3[0-2]))?$/;
+
+function isValidCidr(entry: string): boolean {
+  if (!CIDR_PATTERN.test(entry.trim())) return false;
+  // Validate each octet
+  const [addr] = entry.split("/");
+  return (addr ?? "").split(".").every((p) => parseInt(p, 10) <= 255);
+}
+
+router.get("/security/ip-allowlist", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const { rows } = await getDb().query<{ allowed_ip_ranges: string[] }>(
+      `SELECT allowed_ip_ranges FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    res.json({ allowed_ip_ranges: rows[0]?.allowed_ip_ranges ?? [] });
+  } catch (err) {
+    logger.error({ err }, "[IPAllowlist] Failed to fetch");
+    res.status(500).json({ error: "Failed to load IP allowlist" });
+  }
+});
+
+router.put("/security/ip-allowlist", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as Record<string, unknown>;
+    const rawRanges = body.allowed_ip_ranges;
+
+    if (!Array.isArray(rawRanges)) {
+      return void res.status(400).json({ error: "allowed_ip_ranges must be an array of CIDR strings" });
+    }
+    if (rawRanges.length > 50) {
+      return void res.status(400).json({ error: "Maximum of 50 IP ranges allowed" });
+    }
+
+    const ranges: string[] = rawRanges.map((r) => String(r).trim()).filter(Boolean);
+    const invalid = ranges.filter((r) => !isValidCidr(r));
+    if (invalid.length) {
+      return void res.status(400).json({
+        error: `Invalid CIDR entries: ${invalid.join(", ")}. Use format 1.2.3.4 or 1.2.3.0/24`,
+        invalid_entries: invalid,
+      });
+    }
+
+    // Self-lockout guard: if the list is non-empty, the admin's own IP must be included.
+    const requestIp = req.ip ?? req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ?? "";
+    if (ranges.length > 0 && !isIpAllowed(requestIp, ranges)) {
+      return void res.status(400).json({
+        error: `Your current IP (${requestIp}) is not in the proposed allowlist. Add it before saving to avoid locking yourself out.`,
+        code: "SELF_LOCKOUT_PREVENTED",
+        your_ip: requestIp,
+      });
+    }
+
+    await getDb().query(
+      `UPDATE accounts SET allowed_ip_ranges = $1::text[] WHERE id = $2`,
+      [ranges, accountId],
+    );
+
+    logger.info({ accountId, rangeCount: ranges.length }, "[IPAllowlist] Updated");
+    res.json({ allowed_ip_ranges: ranges });
+  } catch (err) {
+    logger.error({ err }, "[IPAllowlist] Failed to update");
+    res.status(500).json({ error: "Failed to update IP allowlist" });
+  }
+});
+
+// ── PDF audit trail (admin read-only) ────────────────────────────────────────
+//
+// GET /security/pdf-audit?sessionToken=&limit=&offset=
+// Returns the event log for a session or the whole account.
+// This is the same event stream that e-sign providers will append to.
+
+router.get("/security/pdf-audit", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const { sessionToken, limit: rawLimit, offset: rawOffset } = req.query as Record<string, string | undefined>;
+
+    const limit  = Math.min(parseInt(rawLimit ?? "50", 10) || 50, 200);
+    const offset = parseInt(rawOffset ?? "0", 10) || 0;
+
+    const params: unknown[] = [accountId, limit, offset];
+    const tokenFilter = sessionToken ? `AND session_token = $${params.push(sessionToken)}` : "";
+
+    const { rows } = await getDb().query(
+      `SELECT id, session_token, event_type, actor_type, actor_email, actor_ip, actor_ua, metadata, created_at
+         FROM pdf_audit_events
+        WHERE account_id = $1 ${tokenFilter}
+        ORDER BY created_at DESC
+        LIMIT $2 OFFSET $3`,
+      params,
+    );
+
+    res.json({ events: rows });
+  } catch (err) {
+    logger.error({ err }, "[PdfAudit] Failed to fetch events");
+    res.status(500).json({ error: "Failed to load PDF audit events" });
   }
 });
 

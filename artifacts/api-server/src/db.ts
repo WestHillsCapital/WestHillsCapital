@@ -951,6 +951,38 @@ export async function initDb(): Promise<void> {
       ON webhook_deliveries (account_id)
   `);
 
+  // ── IP allowlisting — per-account CIDR ranges for API key access ─────────────
+  // Empty array = no restriction (default). Enterprise feature.
+  await db.query(`
+    ALTER TABLE accounts ADD COLUMN IF NOT EXISTS allowed_ip_ranges TEXT[] NOT NULL DEFAULT '{}'
+  `);
+
+  // ── PDF audit trail — extensible for e-sign events ─────────────────────────
+  // event_type: 'generated' | 'downloaded' | 'signature_requested' | 'signed'
+  // actor_type: 'staff' | 'client' | 'system' | 'api'
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS pdf_audit_events (
+      id            SERIAL PRIMARY KEY,
+      account_id    INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      session_token TEXT    NOT NULL,
+      event_type    TEXT    NOT NULL,
+      actor_type    TEXT    NOT NULL,
+      actor_email   TEXT,
+      actor_ip      TEXT,
+      actor_ua      TEXT,
+      metadata      JSONB   NOT NULL DEFAULT '{}',
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS pdf_audit_events_session_idx
+      ON pdf_audit_events (session_token, created_at DESC)
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS pdf_audit_events_account_idx
+      ON pdf_audit_events (account_id, created_at DESC)
+  `);
+
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 
