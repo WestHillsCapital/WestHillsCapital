@@ -1269,6 +1269,15 @@
               "format": "date-time"
             },
             "description": "ISO-8601 timestamp. When provided, only sessions updated after this\ntimestamp are returned. Useful for polling integrations (e.g. Zapier).\n"
+          },
+          {
+            "name": "cursorId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Tie-breaker for the `updatedAfter` cursor. When both `updatedAfter` and\n`cursorId` are supplied the backend filters using a PostgreSQL tuple\ncomparison `(updated_at, id) > (updatedAfter, cursorId)`, preventing\nmissed sessions when multiple rows share the same `updated_at` timestamp.\nResults are ordered `updated_at DESC, id DESC` in all cases.\n"
           }
         ],
         "responses": {

@@ -1980,6 +1980,17 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
  *         description: |
  *           ISO-8601 timestamp. When provided, only sessions updated after this
  *           timestamp are returned. Useful for polling integrations (e.g. Zapier).
+ *       - name: cursorId
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: |
+ *           Tie-breaker for the `updatedAfter` cursor. When both `updatedAfter` and
+ *           `cursorId` are supplied the backend filters using a PostgreSQL tuple
+ *           comparison `(updated_at, id) > (updatedAfter, cursorId)`, preventing
+ *           missed sessions when multiple rows share the same `updated_at` timestamp.
+ *           Results are ordered `updated_at DESC, id DESC` in all cases.
  *     responses:
  *       200:
  *         description: Paginated session list

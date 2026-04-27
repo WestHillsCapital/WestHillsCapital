@@ -731,6 +731,14 @@ export interface paths {
                      *     timestamp are returned. Useful for polling integrations (e.g. Zapier).
                      */
                     updatedAfter?: string;
+                    /**
+                     * @description Tie-breaker for the `updatedAfter` cursor. When both `updatedAfter` and
+                     *     `cursorId` are supplied the backend filters using a PostgreSQL tuple
+                     *     comparison `(updated_at, id) > (updatedAfter, cursorId)`, preventing
+                     *     missed sessions when multiple rows share the same `updated_at` timestamp.
+                     *     Results are ordered `updated_at DESC, id DESC` in all cases.
+                     */
+                    cursorId?: number;
                 };
                 header?: never;
                 path?: never;
