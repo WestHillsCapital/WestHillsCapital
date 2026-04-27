@@ -14,16 +14,18 @@ export interface ProductAccount {
 export function useProductAuth() {
   const { getToken, isSignedIn, isLoaded, signOut } = useAuth();
   const { user } = useUser();
-  const [token, setToken]     = useState<string | null>(null);
-  const [account, setAccount] = useState<ProductAccount | null>(null);
+  const [token, setToken]         = useState<string | null>(null);
+  const [account, setAccount]     = useState<ProductAccount | null>(null);
   const [accountLoading, setAccountLoading] = useState(true);
-  const [needsOnboard, setNeedsOnboard] = useState(false);
+  const [needsOnboard, setNeedsOnboard]     = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isSignedIn) {
       setToken(null);
       setAccount(null);
       setAccountLoading(false);
+      setAuthError(null);
       return;
     }
     let cancelled = false;
@@ -43,16 +45,27 @@ export function useProductAuth() {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (res) => {
-        if (res.status === 404) {
-          setNeedsOnboard(true);
-          setAccount(null);
+        // 404 or 401 with ACCOUNT_NOT_FOUND → show the onboarding form
+        if (res.status === 404 || res.status === 401) {
+          const body = await res.json().catch(() => ({})) as { code?: string };
+          if (res.status === 404 || body.code === "ACCOUNT_NOT_FOUND") {
+            setNeedsOnboard(true);
+            setAccount(null);
+          } else {
+            // True auth failure (invalid/expired session) — surface an error
+            setAuthError("Session could not be verified. Please sign out and sign back in.");
+            setAccount(null);
+          }
         } else if (res.ok) {
           const data = await res.json();
           setAccount(data as ProductAccount);
           setNeedsOnboard(false);
+          setAuthError(null);
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        setAuthError("Unable to reach the server. Please check your connection.");
+      })
       .finally(() => setAccountLoading(false));
   }, [isSignedIn, token]);
 
@@ -82,6 +95,7 @@ export function useProductAuth() {
     account,
     accountLoading,
     needsOnboard,
+    authError,
     setNeedsOnboard,
     getAuthHeaders,
     refreshAccount,

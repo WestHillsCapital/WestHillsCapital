@@ -37,18 +37,35 @@ function DocuFillWrapper() {
 }
 
 export default function AppPortal() {
-  const { isLoaded, isSignedIn, account, accountLoading, needsOnboard } = useProductAuth();
+  const { isLoaded, isSignedIn, account, accountLoading, needsOnboard, authError, signOut } = useProductAuth();
 
   // Show spinner until account state is fully resolved.
-  // The extra (!account && !needsOnboard) guard covers a race where Clerk
+  // The extra (!account && !needsOnboard && !authError) guard covers a race where Clerk
   // briefly reports isSignedIn=false then true, which resets accountLoading
   // before the /me fetch completes — causing a flash of the main app with no account.
-  if (!isLoaded || (isSignedIn && (accountLoading || (!account && !needsOnboard)))) {
+  if (!isLoaded || (isSignedIn && (accountLoading || (!account && !needsOnboard && !authError)))) {
     return <Spinner />;
   }
 
   if (!isSignedIn) {
     return <Redirect to="/app/sign-in" />;
+  }
+
+  if (authError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+        <div className="max-w-sm w-full text-center space-y-4">
+          <p className="text-sm text-gray-600">{authError}</p>
+          <button
+            type="button"
+            onClick={() => signOut({ redirectUrl: "/app/sign-in" })}
+            className="text-sm underline text-gray-500 hover:text-gray-800"
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (needsOnboard) {

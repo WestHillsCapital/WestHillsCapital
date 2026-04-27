@@ -92,7 +92,10 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
       return next();
     }
 
-    return void res.status(401).json({
+    // User is authenticated (valid Clerk session) but has no account in our DB.
+    // Return 404 so the client can display the onboarding form — 401 would
+    // incorrectly imply the Clerk session itself is invalid.
+    return void res.status(404).json({
       error: "Account not found. Please complete sign-up.",
       code: "ACCOUNT_NOT_FOUND",
     });
