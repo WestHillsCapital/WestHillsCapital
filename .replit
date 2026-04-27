@@ -60,5 +60,8 @@ VITE_CLERK_PUBLISHABLE_KEY = "pk_test_bGFyZ2UtdGFoci01Mi5jbGVyay5hY2NvdW50cy5kZX
 VITE_API_URL = "https://workspaceapi-server-production-987b.up.railway.app"
 FEDEX_BASE_URL = "https://apis-sandbox.fedex.com"
 
+[userenv.production]
+VITE_CLERK_PROXY_URL = "https://www.westhillscapital.com/api/__clerk"
+
 [nix]
 channel = "stable-25_05"
