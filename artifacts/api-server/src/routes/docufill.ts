@@ -21,7 +21,7 @@ import {
   sendDocupleteClientConfirmationEmail,
 } from "../lib/email";
 import { requireAdminRole, requireRole } from "../middleware/requireRole";
-import { requireWithinPlanLimits, recordSubmissionEvent } from "../middleware/requireWithinPlanLimits";
+import { requireWithinPlanLimits, recordSubmissionEvent, recordPdfGenerationEvent } from "../middleware/requireWithinPlanLimits";
 const requireMemberRole = requireRole("member");
 
 const router: IRouter = Router();
@@ -2345,6 +2345,11 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
       fireSubmissionEmailsAsync(session, pdfBuffer, req.params.token, db).catch((err) => {
         logger.error({ err, token: req.params.token }, "[DocuFill] Submission emails failed (non-fatal)");
       });
+    }
+    // Record PDF generation usage event (fire-and-forget)
+    const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
+    if (pkgAccountId) {
+      void recordPdfGenerationEvent(pkgAccountId);
     }
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to generate public packet");

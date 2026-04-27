@@ -156,13 +156,25 @@ export function requireWithinPlanLimits(resource: LimitedResource) {
  * Call after a session is successfully created (fire-and-forget is acceptable).
  */
 export async function recordSubmissionEvent(accountId: number): Promise<void> {
+  await recordUsageEvent(accountId, "submission");
+}
+
+/**
+ * Records a PDF generation usage event for the given account.
+ * Call after a packet is successfully generated and the response sent.
+ */
+export async function recordPdfGenerationEvent(accountId: number): Promise<void> {
+  await recordUsageEvent(accountId, "pdf_generation");
+}
+
+async function recordUsageEvent(accountId: number, eventType: string): Promise<void> {
   try {
     const db = getDb();
     await db.query(
-      `INSERT INTO usage_events (account_id, event_type) VALUES ($1, 'submission')`,
-      [accountId],
+      `INSERT INTO usage_events (account_id, event_type) VALUES ($1, $2)`,
+      [accountId, eventType],
     );
   } catch (err) {
-    logger.error({ err, accountId }, "[PlanLimits] Failed to record submission event");
+    logger.error({ err, accountId, eventType }, "[PlanLimits] Failed to record usage event");
   }
 }
