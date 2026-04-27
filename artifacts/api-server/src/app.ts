@@ -152,20 +152,7 @@ app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// ── Clerk middleware (attaches auth state to every request) ───────────────────
-app.use(clerkMiddleware());
-
-// ── Request timeout ────────────────────────────────────────────────────────────
-app.use((_req, res, next) => {
-  res.setTimeout(REQUEST_TIMEOUT_MS, () => {
-    if (!res.headersSent) {
-      res.status(503).json({ error: "Request timed out" });
-    }
-  });
-  next();
-});
-
-// ── Health check ───────────────────────────────────────────────────────────────
+// ── Health check (must be before clerkMiddleware — no auth required) ──────────
 // Always returns HTTP 200 so Railway's network probe succeeds immediately.
 // The `db` field exposes readiness state for monitoring without blocking.
 // `dryRun` is exposed so the frontend Deal Builder can display a warning banner.
@@ -177,6 +164,19 @@ app.get("/healthz", (_req, res) => {
     uptime: Math.floor(process.uptime()),
     dryRun: process.env.FIZTRADE_DRY_RUN === "true",
   });
+});
+
+// ── Clerk middleware (attaches auth state to every request) ───────────────────
+app.use(clerkMiddleware());
+
+// ── Request timeout ────────────────────────────────────────────────────────────
+app.use((_req, res, next) => {
+  res.setTimeout(REQUEST_TIMEOUT_MS, () => {
+    if (!res.headersSent) {
+      res.status(503).json({ error: "Request timed out" });
+    }
+  });
+  next();
 });
 
 // ── Root-level sitemap (must be before /api router) ───────────────────────────
