@@ -1148,4 +1148,87 @@ router.patch("/onboarding", async (req, res) => {
   }
 });
 
+// ── Super-admin accounts list (internal-auth-only) ────────────────────────────
+
+/**
+ * GET /admin/accounts — lists all accounts with key metrics.
+ * Only accessible when the request comes via the internal portal
+ * (req.internalEmail is set). Product-portal callers get 403.
+ */
+router.get("/admin/accounts", async (req, res) => {
+  if (!req.internalEmail) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  try {
+    const db = getDb();
+
+    // Derive current calendar month start so submission counts are comparable
+    const now = new Date();
+    const periodStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+
+    const { rows } = await db.query<{
+      id: number;
+      name: string;
+      slug: string;
+      plan_tier: string;
+      subscription_status: string | null;
+      billing_period_start: Date | null;
+      seat_limit: number;
+      seat_count: string;
+      submission_count: string;
+      package_count: string;
+      last_activity_at: Date | null;
+      created_at: Date;
+    }>(
+      `SELECT
+          a.id,
+          a.name,
+          a.slug,
+          a.plan_tier,
+          a.subscription_status,
+          a.billing_period_start,
+          a.seat_limit,
+          a.created_at,
+          (SELECT COUNT(*)
+             FROM account_users au
+            WHERE au.account_id = a.id AND au.status != 'pending') AS seat_count,
+          (SELECT COUNT(*)
+             FROM usage_events ue
+            WHERE ue.account_id = a.id
+              AND ue.event_type = 'submission'
+              AND ue.created_at >= $1::date) AS submission_count,
+          (SELECT COUNT(*)
+             FROM docufill_packages dp
+            WHERE dp.account_id = a.id) AS package_count,
+          (SELECT MAX(s.created_at)
+             FROM docufill_interview_sessions s
+            WHERE s.account_id = a.id) AS last_activity_at
+         FROM accounts a
+        ORDER BY a.created_at DESC`,
+      [periodStart],
+    );
+
+    res.json({
+      accounts: rows.map((r) => ({
+        id:                  r.id,
+        name:                r.name,
+        slug:                r.slug,
+        plan_tier:           r.plan_tier,
+        subscription_status: r.subscription_status ?? null,
+        seat_limit:          r.seat_limit,
+        seat_count:          parseInt(r.seat_count, 10),
+        submission_count:    parseInt(r.submission_count, 10),
+        package_count:       parseInt(r.package_count, 10),
+        last_activity_at:    r.last_activity_at?.toISOString() ?? null,
+        created_at:          r.created_at.toISOString(),
+      })),
+      period_start: periodStart,
+    });
+  } catch (err) {
+    logger.error({ err }, "[Admin] Failed to list accounts");
+    res.status(500).json({ error: "Failed to load accounts" });
+  }
+});
+
 export default router;
