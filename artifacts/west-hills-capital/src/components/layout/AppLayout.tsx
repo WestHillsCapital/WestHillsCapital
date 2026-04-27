@@ -40,7 +40,7 @@ function UserAvatar({ imageUrl, name, email }: { imageUrl?: string | null; name?
 export function AppLayout({ children }: { children: ReactNode }) {
   useScrollToTop();
   const { account, user, signOut, getAuthHeaders } = useProductAuth();
-  const [location, navigate] = useLocation();
+  const [location] = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -48,10 +48,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const displayEmail = account?.email ?? user?.primaryEmailAddress?.emailAddress ?? "";
   const imageUrl = user?.imageUrl;
 
+  const basePath = (import.meta.env.BASE_URL as string ?? "").replace(/\/$/, "");
+
   const handleSignOut = () => {
     setDropdownOpen(false);
-    signOut();
-    navigate("/app");
+    signOut({ redirectUrl: `${basePath}/app/sign-in` });
   };
 
   useEffect(() => {
@@ -70,26 +71,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <header className="bg-white border-b border-gray-200 px-6 py-0">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-14">
 
-          {/* Left: app name + org name + nav */}
-          <div className="flex items-center gap-6">
-            <span className="text-lg font-semibold text-gray-900">{APP_NAME}</span>
+          {/* Left: app name + org name */}
+          <div className="flex items-center gap-4">
+            <Link href="/app" className="text-lg font-semibold text-gray-900 hover:text-gray-700 transition-colors">
+              {APP_NAME}
+            </Link>
             {account && (
               <span className="text-sm text-gray-400 border-l border-gray-200 pl-4 hidden sm:block">
                 {account.accountName}
               </span>
             )}
-            <nav className="flex items-center gap-1 ml-2">
-              <Link
-                href="/app"
-                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                  location === "/app" || location === "/app/"
-                    ? "bg-gray-100 text-gray-900"
-                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
-                }`}
-              >
-                Docuplete
-              </Link>
-            </nav>
           </div>
 
           {/* Right: profile avatar + dropdown */}
