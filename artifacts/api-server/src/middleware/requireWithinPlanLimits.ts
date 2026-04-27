@@ -5,29 +5,47 @@ import { logger } from "../lib/logger";
 
 export type LimitedResource = "package" | "submission" | "seat";
 
+function utcDaysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+}
+
+function toDateString(d: Date): string {
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+}
+
 /**
  * Returns the billing-period start date string for an account.
  *
  * If the account has a known `billing_period_start` (set by Stripe webhook on
  * subscription creation), we use that date's day-of-month to compute the
  * most-recent period boundary so that usage windows align with the Stripe
- * billing cycle.  Falls back to the first of the calendar month for free /
- * unsubscribed accounts.
+ * billing cycle.
+ *
+ * The anchor day is clamped to the last valid day of the target month to match
+ * Stripe's behavior for anchors of 29–31 in shorter months (e.g. a March 31
+ * anchor falls on Feb 28/29 in February).
+ *
+ * Falls back to the first of the calendar month for free / unsubscribed accounts.
  */
 function billingPeriodStart(billingPeriodStartDate: Date | null): string {
   const now = new Date();
 
   if (billingPeriodStartDate) {
-    const anchorDay = billingPeriodStartDate.getUTCDate();
-    // Determine if the anchor day has passed this month
-    const thisMonthAnchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), anchorDay));
-    const periodStart = thisMonthAnchor <= now
-      ? thisMonthAnchor
-      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, anchorDay));
-    const y = periodStart.getUTCFullYear();
-    const m = String(periodStart.getUTCMonth() + 1).padStart(2, "0");
-    const d = String(periodStart.getUTCDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+    const rawAnchor = billingPeriodStartDate.getUTCDate();
+    const y = now.getUTCFullYear();
+    const m = now.getUTCMonth();
+
+    const thisAnchorDay = Math.min(rawAnchor, utcDaysInMonth(y, m));
+    const thisMonthAnchor = new Date(Date.UTC(y, m, thisAnchorDay));
+
+    if (thisMonthAnchor <= now) {
+      return toDateString(thisMonthAnchor);
+    }
+    // Anchor hasn't passed yet — use previous month
+    const prevYear  = m === 0 ? y - 1 : y;
+    const prevMonth = m === 0 ? 11 : m - 1;
+    const prevAnchorDay = Math.min(rawAnchor, utcDaysInMonth(prevYear, prevMonth));
+    return toDateString(new Date(Date.UTC(prevYear, prevMonth, prevAnchorDay)));
   }
 
   // Default: first of the calendar month
@@ -145,8 +163,11 @@ export function requireWithinPlanLimits(resource: LimitedResource) {
 
       next();
     } catch (err) {
-      logger.error({ err, accountId, resource }, "[PlanLimits] Error checking plan limits");
-      next();
+      logger.error({ err, accountId, resource }, "[PlanLimits] Error checking plan limits — failing closed");
+      res.status(503).json({
+        error: "Unable to verify plan limits. Please try again in a moment.",
+        retryable: true,
+      });
     }
   };
 }

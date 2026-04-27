@@ -776,24 +776,41 @@ router.delete("/team/:id", requireAdminRole, async (req, res) => {
 
 // ── Billing ───────────────────────────────────────────────────────────────────
 
+function utcDaysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+}
+
 /**
  * Computes the start of the current billing period for usage counting.
  * Uses the account's Stripe billing anchor day when available so that
  * submission caps align with the subscription renewal cycle rather than
  * the calendar month.
+ *
+ * Anchor day is clamped to the last valid day of the target month to handle
+ * anchors of 29–31 in shorter months, matching Stripe's own behavior.
  */
 function billingWindowStart(billingPeriodStartDate: Date | null): string {
   const now = new Date();
   if (billingPeriodStartDate) {
-    const anchorDay = billingPeriodStartDate.getUTCDate();
-    const thisMonthAnchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), anchorDay));
-    const periodStart = thisMonthAnchor <= now
-      ? thisMonthAnchor
-      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, anchorDay));
-    const y = periodStart.getUTCFullYear();
-    const m = String(periodStart.getUTCMonth() + 1).padStart(2, "0");
-    const d = String(periodStart.getUTCDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+    const rawAnchor = billingPeriodStartDate.getUTCDate();
+    const y = now.getUTCFullYear();
+    const m = now.getUTCMonth();
+
+    const thisAnchorDay = Math.min(rawAnchor, utcDaysInMonth(y, m));
+    const thisMonthAnchor = new Date(Date.UTC(y, m, thisAnchorDay));
+
+    if (thisMonthAnchor <= now) {
+      const ay = thisMonthAnchor.getUTCFullYear();
+      const am = String(thisMonthAnchor.getUTCMonth() + 1).padStart(2, "0");
+      const ad = String(thisMonthAnchor.getUTCDate()).padStart(2, "0");
+      return `${ay}-${am}-${ad}`;
+    }
+    // Anchor hasn't passed this month — use previous month
+    const prevYear  = m === 0 ? y - 1 : y;
+    const prevMonth = m === 0 ? 11 : m - 1;
+    const prevAnchorDay = Math.min(rawAnchor, utcDaysInMonth(prevYear, prevMonth));
+    const prev = new Date(Date.UTC(prevYear, prevMonth, prevAnchorDay));
+    return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, "0")}-${String(prev.getUTCDate()).padStart(2, "0")}`;
   }
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 }
