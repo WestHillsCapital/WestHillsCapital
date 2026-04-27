@@ -4,17 +4,25 @@
  * Polling trigger: Interview Submitted
  *
  * Fires whenever a Docuplete interview session reaches "generated" status
- * (i.e. the client completed the form and documents were generated).
+ * (client completed the form and documents were generated).
  *
- * Uses z.cursor to persist an ISO-8601 updatedAfter timestamp between polls so
- * only new completions are returned on each cycle, avoiding duplicate triggers
- * on high-volume accounts. Zapier still deduplicates by `id` as a safety net.
- *
- * On first run (no cursor) all generated sessions are returned so Zapier can
- * seed its deduplication log.
+ * Correctness guarantees:
+ * 1. No missed events: within each poll, the trigger paginates by offset until
+ *    it receives a partial page (< PAGE_SIZE), ensuring all sessions in the
+ *    window are captured regardless of volume.
+ * 2. No duplicate triggers: z.cursor persists a composite cursor
+ *    {updatedAt, cursorId} between polls. The backend filters using a PostgreSQL
+ *    tuple comparison `(updated_at, id) > (cursorTs, cursorId)` with ORDER BY
+ *    updated_at DESC, id DESC — deterministic even when sessions share a
+ *    timestamp. Zapier deduplication by `id` acts as a final safety net.
+ * 3. Stable ordering: ORDER BY updated_at DESC, id DESC on the backend
+ *    ensures the same session always has the same rank, making offset-based
+ *    pagination within a poll reliable.
  */
 
-/** Flatten a session row into a Zapier-friendly object (no nested objects). */
+const PAGE_SIZE = 100;
+
+/** Flatten a session row into a Zapier-friendly top-level object. */
 function flattenSession(session, baseUrl) {
   const answers =
     session.answers && typeof session.answers === "object"
@@ -47,16 +55,52 @@ function flattenSession(session, baseUrl) {
   };
 }
 
-/** Prefix each key so answers and prefill don't collide. */
 function flattenAnswers(obj, prefix) {
   const result = {};
   for (const [key, value] of Object.entries(obj)) {
-    const safeKey = `${prefix}__${key}`;
-    result[safeKey] = Array.isArray(value)
+    result[`${prefix}__${key}`] = Array.isArray(value)
       ? value.join(", ")
       : String(value ?? "");
   }
   return result;
+}
+
+/** Fetch all pages for the current poll window. Paginates until a partial page. */
+async function fetchAllPages(z, baseUrl, apiKey, packageId, cursorUpdatedAt, cursorId) {
+  const allSessions = [];
+  let offset = 0;
+
+  while (true) {
+    const params = new URLSearchParams();
+    params.set("status", "generated");
+    params.set("limit", String(PAGE_SIZE));
+    params.set("offset", String(offset));
+    if (packageId) params.set("packageId", String(packageId));
+    if (cursorUpdatedAt) {
+      params.set("updatedAfter", cursorUpdatedAt);
+      if (cursorId != null) params.set("cursorId", String(cursorId));
+    }
+
+    const response = await z.request({
+      url: `${baseUrl}/api/v1/product/docufill/sessions?${params}`,
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey}` },
+    });
+
+    const sessions = Array.isArray(response.data.sessions)
+      ? response.data.sessions
+      : [];
+
+    allSessions.push(...sessions);
+
+    if (sessions.length < PAGE_SIZE) {
+      // Partial page: we've reached the end of available results.
+      break;
+    }
+    offset += PAGE_SIZE;
+  }
+
+  return allSessions;
 }
 
 const sessionSubmittedTrigger = {
@@ -68,8 +112,7 @@ const sessionSubmittedTrigger = {
     description:
       "Triggers when a client completes a Docuplete interview and documents are generated.",
     directions:
-      "Select an optional package to limit this trigger to a single interview type. " +
-      "Leave blank to trigger for all packages.",
+      "Optionally filter by package to limit this trigger to a single interview type.",
   },
 
   operation: {
@@ -82,8 +125,7 @@ const sessionSubmittedTrigger = {
         key: "packageId",
         label: "Package (optional)",
         helpText:
-          "Only trigger for sessions belonging to this interview package. " +
-          "Leave blank to receive all submitted sessions across all packages.",
+          "Only trigger for this interview package. Leave blank for all packages.",
         type: "integer",
         dynamic: "list_packages.id.name",
         required: false,
@@ -95,37 +137,43 @@ const sessionSubmittedTrigger = {
       const { baseUrl, apiKey } = bundle.authData;
       const { packageId } = bundle.inputData;
 
-      const params = new URLSearchParams();
-      params.set("status", "generated");
-      params.set("limit", "100");
-      if (packageId) params.set("packageId", String(packageId));
+      // Load composite cursor persisted from the previous poll.
+      // Cursor shape: { updatedAt: ISO string, cursorId: number }
+      let cursorUpdatedAt = null;
+      let cursorId = null;
 
       if (!bundle.meta.isLoadingSample) {
-        // Retrieve the last-seen cursor (ISO-8601 updatedAt of the most-recent
-        // session returned in the previous poll). Only fetch sessions newer
-        // than that timestamp to avoid re-triggering on already-seen sessions.
-        const cursor = await z.cursor.get();
-        if (cursor) {
-          params.set("updatedAfter", cursor);
+        const rawCursor = await z.cursor.get();
+        if (rawCursor) {
+          try {
+            const parsed = JSON.parse(rawCursor);
+            cursorUpdatedAt = parsed.updatedAt || null;
+            cursorId = parsed.cursorId != null ? Number(parsed.cursorId) : null;
+          } catch {
+            // Malformed cursor — treat as first run.
+          }
         }
       }
 
-      const response = await z.request({
-        url: `${baseUrl}/api/v1/product/docufill/sessions?${params}`,
-        method: "GET",
-        headers: { Authorization: `Bearer ${apiKey}` },
-      });
+      const sessions = await fetchAllPages(
+        z,
+        baseUrl,
+        apiKey,
+        packageId,
+        cursorUpdatedAt,
+        cursorId,
+      );
 
-      const data = response.data;
-      const sessions = Array.isArray(data.sessions) ? data.sessions : [];
-
+      // Advance the cursor to the newest session in this batch.
+      // With ORDER BY updated_at DESC, id DESC, sessions[0] is the most recent.
       if (sessions.length > 0 && !bundle.meta.isLoadingSample) {
-        // Persist the updated_at of the most-recently-updated session.
-        // Sessions are returned newest-first so sessions[0] has the latest timestamp.
-        const latestUpdatedAt = sessions[0].updated_at;
-        if (latestUpdatedAt) {
-          await z.cursor.set(latestUpdatedAt);
-        }
+        const newest = sessions[0];
+        await z.cursor.set(
+          JSON.stringify({
+            updatedAt: newest.updated_at,
+            cursorId: newest.id,
+          }),
+        );
       }
 
       return sessions.map((s) => flattenSession(s, baseUrl));

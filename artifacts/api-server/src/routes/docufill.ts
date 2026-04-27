@@ -2058,6 +2058,7 @@ router.get("/sessions", async (req, res) => {
         return;
       }
     }
+    const cursorId = typeof req.query.cursorId === "string" ? parseId(req.query.cursorId) : null;
 
     const db = getDb();
     const params: (number | string | null | Date)[] = [acctId(req)];
@@ -2071,7 +2072,15 @@ router.get("/sessions", async (req, res) => {
       params.push(status);
       conditions.push(`s.status = $${params.length}`);
     }
-    if (updatedAfterDate) {
+    if (updatedAfterDate && cursorId) {
+      // Composite cursor: fetch sessions newer than (updatedAfter, cursorId)
+      // using lexicographic row comparison. With ORDER BY updated_at DESC, id DESC,
+      // this reliably paginates without missing sessions at timestamp boundaries.
+      params.push(updatedAfterDate, cursorId);
+      const tsIdx = params.length - 1;
+      const idIdx = params.length;
+      conditions.push(`(s.updated_at, s.id) > ($${tsIdx}, $${idIdx})`);
+    } else if (updatedAfterDate) {
       params.push(updatedAfterDate);
       conditions.push(`s.updated_at > $${params.length}`);
     }
@@ -2093,7 +2102,7 @@ router.get("/sessions", async (req, res) => {
          FROM docufill_interview_sessions s
          JOIN docufill_packages p ON p.id = s.package_id
         WHERE ${where}
-        ORDER BY s.updated_at DESC
+        ORDER BY s.updated_at DESC, s.id DESC
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
     );
