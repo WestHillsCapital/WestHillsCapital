@@ -574,6 +574,19 @@ export async function initDb(): Promise<void> {
   // and replaces them with UNIQUE(account_id, name) so each account has its
   // own namespace.
   //
+  // Schema tenant-keying audit (current docufill tables):
+  //   DIRECTLY tenant-keyed (carry account_id column):
+  //     docufill_custodians    — account_id NOT NULL FK → accounts
+  //     docufill_depositories  — account_id NOT NULL FK → accounts
+  //     docufill_packages      — account_id NOT NULL FK → accounts
+  //   INDIRECTLY tenant-keyed (scoped via JOIN to docufill_packages.account_id):
+  //     docufill_interview_sessions — package_id FK → docufill_packages
+  //   INTENTIONALLY GLOBAL (no account_id; shared read-only library data):
+  //     docufill_fields           — field type library, write-restricted to admin
+  //     docufill_transaction_types — transaction scope library, write-restricted to admin
+  //   SYSTEM tables (no tenant data):
+  //     docufill_migration_state  — migration tracking
+  //
   // This migration is FAIL-FAST and TRANSACTIONAL:
   //   - All DDL runs inside a single transaction so partial failure rolls back.
   //   - The migration-state row is inserted only AFTER all steps succeed.

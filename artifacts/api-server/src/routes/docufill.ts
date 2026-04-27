@@ -210,11 +210,27 @@ function acctId(req: Request): number {
 
 /**
  * Strip internal-only fields before sending a session to the public endpoint.
- * The webhook URL and enabled flag are server-side config — clients don't need
- * them and leaking them is unnecessary.
+ *
+ * Fields removed:
+ *   - webhook_url / webhook_enabled — server-side delivery config, not needed by clients
+ *   - generated_pdf_drive_id — internal Google Drive reference, not a public URL
+ *   - deal_id — internal CRM foreign key, irrelevant to the interview app
+ *   - custodian_id / depository_id — internal FKs, names already included via joins
+ *
+ * All other session fields (token, status, answers, prefill, generated_packet,
+ * package metadata, org branding) are retained as the interview UI depends on them.
+ * If future columns add server-internal data, add them to this list explicitly.
  */
 function publicSessionView(session: Record<string, unknown>): Record<string, unknown> {
-  const { webhook_url: _wu, webhook_enabled: _we, ...rest } = session;
+  const {
+    webhook_url: _wu,
+    webhook_enabled: _we,
+    generated_pdf_drive_id: _di,
+    deal_id: _dl,
+    custodian_id: _ci,
+    depository_id: _dp,
+    ...rest
+  } = session;
   return rest;
 }
 
