@@ -37,13 +37,23 @@ function DocuFillWrapper() {
 }
 
 export default function AppPortal() {
-  const { isLoaded, isSignedIn, account, accountLoading, needsOnboard, authError, signOut } = useProductAuth();
+  const {
+    isLoaded,
+    isSignedIn,
+    user,
+    token,
+    account,
+    accountLoading,
+    needsOnboard,
+    authError,
+    signOut,
+    refreshAccount,
+  } = useProductAuth();
 
-  // Show spinner until account state is fully resolved.
-  // The extra (!account && !needsOnboard && !authError) guard covers a race where Clerk
-  // briefly reports isSignedIn=false then true, which resets accountLoading
-  // before the /me fetch completes — causing a flash of the main app with no account.
-  if (!isLoaded || (isSignedIn && (accountLoading || (!account && !needsOnboard && !authError)))) {
+  // Wait for Clerk to load. Once loaded, if we're signed in we wait until
+  // the /me fetch completes (accountLoading) OR we know the outcome
+  // (account, needsOnboard, authError) before rendering anything.
+  if (!isLoaded || (isSignedIn && accountLoading && !account && !needsOnboard && !authError)) {
     return <Spinner />;
   }
 
@@ -69,7 +79,16 @@ export default function AppPortal() {
   }
 
   if (needsOnboard) {
-    return <AppOnboard />;
+    // Pass AppPortal's own refreshAccount so that when onboarding completes,
+    // the state update happens in this hook instance (not a separate one in
+    // AppOnboard), causing AppPortal to immediately re-render into the main app.
+    return (
+      <AppOnboard
+        user={user}
+        token={token}
+        onComplete={refreshAccount}
+      />
+    );
   }
 
   return (
