@@ -871,8 +871,7 @@ router.get("/field-library", async (_req, res) => {
   }
 });
 
-router.post("/field-library", async (req, res) => {
-  if (!isInternalUser(req, res)) return;
+router.post("/field-library", requireAdminRole, async (req, res) => {
   try {
     const body = req.body as FieldLibraryInput;
     const label = cleanText(body.label);
@@ -965,8 +964,7 @@ router.post("/field-library", async (req, res) => {
   }
 });
 
-router.patch("/field-library/:id", async (req, res) => {
-  if (!isInternalUser(req, res)) return;
+router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
   try {
     const id = cleanText(req.params.id);
     const body = req.body as FieldLibraryInput;
@@ -1027,8 +1025,7 @@ router.patch("/field-library/:id", async (req, res) => {
   }
 });
 
-router.post("/transaction-types", async (req, res) => {
-  if (!isInternalUser(req, res)) return;
+router.post("/transaction-types", requireAdminRole, async (req, res) => {
   try {
     const body = req.body as TransactionTypeInput;
     const label = cleanText(body.label);
@@ -1051,8 +1048,7 @@ router.post("/transaction-types", async (req, res) => {
   }
 });
 
-router.patch("/transaction-types/:scope", async (req, res) => {
-  if (!isInternalUser(req, res)) return;
+router.patch("/transaction-types/:scope", requireAdminRole, async (req, res) => {
   try {
     const scope = cleanText(req.params.scope);
     const body = req.body as TransactionTypeInput;
@@ -1080,8 +1076,7 @@ router.patch("/transaction-types/:scope", async (req, res) => {
   }
 });
 
-router.delete("/transaction-types/:scope", async (req, res) => {
-  if (!isInternalUser(req, res)) return;
+router.delete("/transaction-types/:scope", requireAdminRole, async (req, res) => {
   try {
     const scope = cleanText(req.params.scope);
     if (!scope) {

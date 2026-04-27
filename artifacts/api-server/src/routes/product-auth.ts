@@ -320,7 +320,7 @@ router.post("/api-keys", requireProductAuth, requireAdminRole, async (req, res) 
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get("/api-keys", requireProductAuth, async (req, res) => {
+router.get("/api-keys", requireProductAuth, requireAdminRole, async (req, res) => {
   const accountId = req.internalAccountId!;
 
   try {
