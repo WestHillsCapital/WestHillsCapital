@@ -1163,10 +1163,6 @@ router.get("/admin/accounts", async (req, res) => {
   try {
     const db = getDb();
 
-    // Derive current calendar month start so submission counts are comparable
-    const now = new Date();
-    const periodStart = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
-
     const { rows } = await db.query<{
       id: number;
       name: string;
@@ -1197,7 +1193,8 @@ router.get("/admin/accounts", async (req, res) => {
              FROM usage_events ue
             WHERE ue.account_id = a.id
               AND ue.event_type = 'submission'
-              AND ue.created_at >= $1::date) AS submission_count,
+              AND ue.created_at >= COALESCE(a.billing_period_start, DATE_TRUNC('month', NOW()))
+          ) AS submission_count,
           (SELECT COUNT(*)
              FROM docufill_packages dp
             WHERE dp.account_id = a.id) AS package_count,
@@ -1206,24 +1203,23 @@ router.get("/admin/accounts", async (req, res) => {
             WHERE s.account_id = a.id) AS last_activity_at
          FROM accounts a
         ORDER BY a.created_at DESC`,
-      [periodStart],
     );
 
     res.json({
       accounts: rows.map((r) => ({
-        id:                  r.id,
-        name:                r.name,
-        slug:                r.slug,
-        plan_tier:           r.plan_tier,
-        subscription_status: r.subscription_status ?? null,
-        seat_limit:          r.seat_limit,
-        seat_count:          parseInt(r.seat_count, 10),
-        submission_count:    parseInt(r.submission_count, 10),
-        package_count:       parseInt(r.package_count, 10),
-        last_activity_at:    r.last_activity_at?.toISOString() ?? null,
-        created_at:          r.created_at.toISOString(),
+        id:                   r.id,
+        name:                 r.name,
+        slug:                 r.slug,
+        plan_tier:            r.plan_tier,
+        subscription_status:  r.subscription_status ?? null,
+        billing_period_start: r.billing_period_start?.toISOString().slice(0, 10) ?? null,
+        seat_limit:           r.seat_limit,
+        seat_count:           parseInt(r.seat_count, 10),
+        submission_count:     parseInt(r.submission_count, 10),
+        package_count:        parseInt(r.package_count, 10),
+        last_activity_at:     r.last_activity_at?.toISOString() ?? null,
+        created_at:           r.created_at.toISOString(),
       })),
-      period_start: periodStart,
     });
   } catch (err) {
     logger.error({ err }, "[Admin] Failed to list accounts");

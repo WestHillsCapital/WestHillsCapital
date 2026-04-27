@@ -12,6 +12,7 @@ interface AccountRow {
   slug: string;
   plan_tier: string;
   subscription_status: string | null;
+  billing_period_start: string | null;
   seat_limit: number;
   seat_count: number;
   submission_count: number;
@@ -50,9 +51,13 @@ function formatRelative(iso: string | null): string {
   return `${Math.floor(days / 365)}y ago`;
 }
 
+function formatPeriodStart(iso: string | null): string {
+  if (!iso) return "month start";
+  return new Date(iso + "T00:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
-  const [periodStart, setPeriodStart] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -60,18 +65,13 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
     setIsLoading(true);
     fetch(`${SETTINGS_BASE}/admin/accounts`, { headers: { ...getAuthHeaders() } })
       .then(async (r) => {
-        const data = await r.json() as { accounts?: AccountRow[]; period_start?: string; error?: string };
+        const data = await r.json() as { accounts?: AccountRow[]; error?: string };
         if (!r.ok) { setLoadError(data.error ?? "Failed to load accounts"); return; }
         setAccounts(data.accounts ?? []);
-        setPeriodStart(data.period_start ?? null);
       })
       .catch(() => setLoadError("Failed to load accounts"))
       .finally(() => setIsLoading(false));
   }, []);
-
-  const periodLabel = periodStart
-    ? new Date(periodStart + "T00:00:00Z").toLocaleDateString(undefined, { year: "numeric", month: "short" })
-    : null;
 
   return (
     <section className="bg-white rounded-xl border border-[#DDD5C4] overflow-hidden">
@@ -79,7 +79,7 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
         <div>
           <h2 className="text-base font-semibold text-[#0F1C3F]">All accounts</h2>
           <p className="text-xs text-[#6B7A99] mt-0.5">
-            {periodLabel ? `Submissions column shows activity since ${periodLabel}.` : "Platform-wide account overview."}
+            Submission counts run from each account's billing period start.
           </p>
         </div>
         <span className="text-xs font-medium text-[#6B7A99] bg-[#F8F6F0] border border-[#DDD5C4] rounded-full px-2.5 py-1">
@@ -135,6 +135,7 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
                   </td>
                   <td className="px-4 py-3 text-center whitespace-nowrap">
                     <span className="font-medium text-[#0F1C3F]">{acct.submission_count}</span>
+                    <p className="text-[10px] text-[#8A9BB8] mt-0.5">since {formatPeriodStart(acct.billing_period_start)}</p>
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap">
                     {statusBadge(acct.subscription_status)}
