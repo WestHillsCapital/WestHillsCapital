@@ -354,30 +354,40 @@ async function doWebhookDelivery(
  * Fire a signed webhook and retry up to 3 times on failure.
  * Retries are scheduled at 5 s, 30 s, and 5 min after each failure.
  * Every attempt is recorded in webhook_deliveries.
+ *
+ * The signing secret is fetched directly from the DB here so that
+ * no caller ever needs to handle the secret material.
  */
 function fireWebhookAsync(
   db: Pool,
   packageId: number,
   accountId: number,
   webhookUrl: string,
-  webhookSecret: string | null,
   payload: Record<string, unknown>,
   eventType = "interview.submitted",
 ): void {
   const bodyStr = JSON.stringify(payload);
   const payloadHash = createHash("sha256").update(bodyStr).digest("hex").slice(0, 16);
 
-  async function tryDeliver(attempt: number): Promise<void> {
+  async function tryDeliver(attempt: number, secret: string | null): Promise<void> {
     const success = await doWebhookDelivery(
-      db, packageId, accountId, webhookUrl, webhookSecret, bodyStr, attempt, eventType, payloadHash,
+      db, packageId, accountId, webhookUrl, secret, bodyStr, attempt, eventType, payloadHash,
     );
     if (!success && attempt <= WEBHOOK_RETRY_DELAYS_MS.length) {
       const delay = WEBHOOK_RETRY_DELAYS_MS[attempt - 1];
-      setTimeout(() => void tryDeliver(attempt + 1), delay).unref();
+      setTimeout(() => void tryDeliver(attempt + 1, secret), delay).unref();
     }
   }
 
-  setImmediate(() => void tryDeliver(1));
+  setImmediate(async () => {
+    // Fetch the signing secret here — keeps secret material out of session/request context.
+    const { rows } = await db.query<{ webhook_secret: string }>(
+      `SELECT webhook_secret FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      [packageId, accountId],
+    ).catch(() => ({ rows: [] as { webhook_secret: string }[] }));
+    const secret = rows[0]?.webhook_secret ?? null;
+    void tryDeliver(1, secret);
+  });
 }
 
 // ── Task #195: fire submission notification emails ────────────────────────────
@@ -661,7 +671,7 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
   const { rows } = await client.query(
     `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
             p.transaction_scope, p.custodian_id, p.depository_id,
-            p.webhook_enabled, p.webhook_url, p.webhook_secret,
+            p.webhook_enabled, p.webhook_url,
             p.notify_staff_on_submit, p.notify_client_on_submit,
             p.account_id AS package_account_id,
             c.name AS custodian_name, d.name AS depository_name,
@@ -2188,7 +2198,6 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
         typeof session.package_id === "number" ? session.package_id : Number(session.package_id),
         typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id),
         webhookUrl,
-        typeof session.webhook_secret === "string" ? session.webhook_secret : null,
         buildWebhookPayload(session),
       );
     }
@@ -2452,7 +2461,6 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
         typeof session.package_id === "number" ? session.package_id : Number(session.package_id),
         typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id),
         webhookUrl,
-        typeof session.webhook_secret === "string" ? session.webhook_secret : null,
         buildWebhookPayload(session),
       );
     }
