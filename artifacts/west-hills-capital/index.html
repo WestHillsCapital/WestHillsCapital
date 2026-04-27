@@ -82,14 +82,8 @@
     <!-- Preload -->
     <link rel="preload" as="image" href="/images/ira-banner.jpg" />
 
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-T4W23SEQCN"></script>
-    <script>
-      window.dataLayer = window.dataLayer || [];
-      function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-T4W23SEQCN');
-    </script>
+    <!-- Google Analytics is loaded only after the visitor grants cookie consent.
+         See CookieConsentBanner.tsx for the deferred initialization logic. -->
   </head>
   <body>
     <div id="root"></div>

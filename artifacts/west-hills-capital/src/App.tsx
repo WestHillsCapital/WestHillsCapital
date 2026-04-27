@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect, lazy, Suspense } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { ClerkProvider } from "@clerk/react";
+import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 
 // Public layout
 import { Layout } from "@/components/layout/Layout";
@@ -212,6 +213,7 @@ function App() {
             </ClerkProviderWithRouter>
           </WouterRouter>
           <Toaster />
+          <CookieConsentBanner />
         </TooltipProvider>
       </QueryClientProvider>
     </GoogleOAuthProvider>
