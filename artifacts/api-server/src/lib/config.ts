@@ -1,12 +1,16 @@
 /**
  * Startup configuration validator.
  *
- * Call validateConfig() once before the server starts. It will:
- *   - Exit with a clear error message if a REQUIRED variable is missing
- *   - Log a warning for each OPTIONAL variable that is absent, describing
- *     which feature is degraded
- *   - Log the database hostname (never the password) so Railway logs can
- *     confirm the server is pointing at the right Postgres instance
+ * Call validateConfig() inside the app.listen() callback (after the port is
+ * bound) so Railway's healthcheck probe always finds a live server first.
+ *
+ * Behaviour:
+ *   - Throws an Error if a REQUIRED variable is missing — the caller is
+ *     responsible for closing the server and exiting gracefully.
+ *   - Logs a warning for each OPTIONAL variable that is absent, describing
+ *     which feature is degraded.
+ *   - Logs the database hostname (never the password) so Railway logs can
+ *     confirm the server is pointing at the right Postgres instance.
  */
 import { logger } from "./logger.js";
 
@@ -48,7 +52,7 @@ export function validateConfig(): void {
       { missing },
       `Server cannot start — required env vars are not set: ${missing.join(", ")}`
     );
-    process.exit(1);
+    throw new Error(`Missing required env vars: ${missing.join(", ")}`);
   }
 
   // ── Database host diagnostic (no credentials) ──────────────────────────────

@@ -13,12 +13,7 @@ import {
 } from "./lib/email";
 import { getShippingStatus } from "./lib/fiztrade";
 
-// ── 1. Validate configuration before anything else ────────────────────────────
-// Logs all env var statuses and exits immediately if required vars are missing.
-// Also logs the DB hostname so Railway logs confirm the correct Postgres target.
-validateConfig();
-
-// ── 2. Resolve port ───────────────────────────────────────────────────────────
+// ── 1. Resolve port ───────────────────────────────────────────────────────────
 const rawPort = process.env["PORT"];
 if (!rawPort) {
   throw new Error("PORT environment variable is required but was not provided.");
@@ -28,21 +23,53 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-// ── 3. Start listening immediately ────────────────────────────────────────────
+// ── 2. Start listening immediately ────────────────────────────────────────────
 // Railway's healthcheck probe hits /healthz within seconds of container start.
-// Starting the server before initDb() ensures the probe always finds a live
-// server rather than timing out while Postgres schema migrations run.
+// The server binds and responds to /healthz BEFORE config validation or DB init
+// runs, so Railway always receives at least one healthy probe regardless of
+// whether DATABASE_URL or other required vars are present.
 const server: Server = app.listen(port, () => {
   logger.info({ port }, "Server listening");
   logger.info(
     { logoUrl: "https://workspaceapi-server-production-987b.up.railway.app/images/logo.png" },
     "[Logo] Stable logo URL — use this in your email client signature",
   );
-});
 
-// ── 4. Initialise the database ────────────────────────────────────────────────
-// Runs concurrently with the server. If it fails, the process exits so
-// Railway restarts the container (typically because DATABASE_URL is misconfigured).
+  // ── 3. Validate configuration after port is bound ─────────────────────────
+  // Logs all env var statuses. If a required var is missing, close the server
+  // and exit gracefully — Railway will have already received a healthy probe.
+  try {
+    validateConfig();
+  } catch (err) {
+    logger.error({ err }, "Configuration invalid — shutting down");
+    server.close(() => process.exit(1));
+    setTimeout(() => process.exit(1), 5_000).unref();
+    return;
+  }
+
+  // ── 4. Initialise the database ──────────────────────────────────────────────
+  // Runs after the server is confirmed listening and config is valid.
+  // If it fails, close the server so Railway restarts the container.
+  initDb()
+    .then(async () => {
+      logger.info("Database ready — all systems operational");
+      // Initialize Stripe after DB is ready (non-fatal if it fails)
+      void initStripe();
+      // Run every 15 minutes to keep milestone states fresh
+      setInterval(() => { void runScheduler(); }, 15 * 60 * 1000).unref();
+      // Run tracking sync every 15 minutes (offset by 2 minutes to avoid collision)
+      setTimeout(() => {
+        void runTrackingSync();
+        setInterval(() => { void runTrackingSync(); }, 15 * 60 * 1000).unref();
+      }, 2 * 60 * 1000).unref();
+    })
+    .catch((err) => {
+      const detail = err instanceof Error ? err.message : String(err);
+      logger.error({ err }, `Database initialisation failed: ${detail} — exiting`);
+      server.close(() => process.exit(1));
+      setTimeout(() => process.exit(1), 5_000).unref();
+    });
+});
 
 // ── 4b. Background scheduler — runs every 30 min ─────────────────────────────
 //
@@ -390,26 +417,6 @@ async function initStripe(): Promise<void> {
     logger.warn({ err }, "[Stripe] Stripe initialization failed (non-fatal — billing may be unavailable)");
   }
 }
-
-initDb()
-  .then(async () => {
-    logger.info("Database ready — all systems operational");
-    // Initialize Stripe after DB is ready (non-fatal if it fails)
-    void initStripe();
-    // Run every 15 minutes to keep milestone states fresh
-    setInterval(() => { void runScheduler(); }, 15 * 60 * 1000).unref();
-    // Run tracking sync every 15 minutes (offset by 2 minutes to avoid collision)
-    setTimeout(() => {
-      void runTrackingSync();
-      setInterval(() => { void runTrackingSync(); }, 15 * 60 * 1000).unref();
-    }, 2 * 60 * 1000).unref();
-  })
-  .catch((err) => {
-    const detail = err instanceof Error ? err.message : String(err);
-    logger.error({ err }, `Database initialisation failed: ${detail} — exiting`);
-    server.close(() => process.exit(1));
-    setTimeout(() => process.exit(1), 5_000).unref();
-  });
 
 // ── 5. Graceful shutdown ──────────────────────────────────────────────────────
 // Railway sends SIGTERM before killing the container. Waiting for in-flight
