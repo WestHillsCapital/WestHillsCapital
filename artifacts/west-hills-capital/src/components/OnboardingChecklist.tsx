@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -39,11 +39,29 @@ const STEPS = [
   },
 ];
 
+/** PATCH the onboarding dismissed flag and swallow errors. */
+function patchDismissed(getAuthHeaders: () => HeadersInit) {
+  const h = new Headers(getAuthHeaders());
+  h.set("Content-Type", "application/json");
+  fetch(`${SETTINGS_BASE}/onboarding`, {
+    method: "PATCH",
+    headers: h,
+    body: JSON.stringify({ dismissed: true }),
+  }).catch(() => {});
+}
+
 export function OnboardingChecklist({ getAuthHeaders }: Props) {
   const [, navigate] = useLocation();
   const [state, setState] = useState<OnboardingState | null>(null);
-  const [visible, setVisible] = useState(false);
+  /**
+   * Three modes:
+   *   "hidden"  — do not render
+   *   "active"  — show the in-progress checklist
+   *   "done"    — show the "all set" success bar (auto-dismisses after 4 s)
+   */
+  const [mode, setMode] = useState<"hidden" | "active" | "done">("hidden");
   const [collapsed, setCollapsed] = useState(false);
+  const autoDismissTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const load = useCallback(() => {
     const headers = getAuthHeaders();
@@ -55,9 +73,30 @@ export function OnboardingChecklist({ getAuthHeaders }: Props) {
         const s = data.onboarding;
         setState(s);
         const allDone = s.steps.explore_demo && s.steps.create_package && s.steps.send_interview;
-        if (!s.dismissed && (!allDone || s.demo_package_exists)) {
-          setVisible(true);
+
+        if (s.dismissed) {
+          // Server says dismissed — always hide, cancel any pending auto-dismiss timer
+          if (autoDismissTimer.current) clearTimeout(autoDismissTimer.current);
+          setMode("hidden");
+          return;
         }
+
+        if (allDone) {
+          // All steps complete but not yet marked dismissed. Transition to "done" mode,
+          // persist the dismissed flag server-side, and auto-hide after 4 s.
+          setMode("done");
+          patchDismissed(getAuthHeaders);
+          if (!autoDismissTimer.current) {
+            autoDismissTimer.current = setTimeout(() => {
+              setMode("hidden");
+              autoDismissTimer.current = null;
+            }, 4000);
+          }
+          return;
+        }
+
+        // Not done and not dismissed — show the active checklist.
+        setMode("active");
       })
       .catch(() => {});
   }, [getAuthHeaders]);
@@ -65,26 +104,21 @@ export function OnboardingChecklist({ getAuthHeaders }: Props) {
   useEffect(() => {
     load();
     const interval = setInterval(load, 30_000);
-    return () => clearInterval(interval);
+    return () => {
+      clearInterval(interval);
+      if (autoDismissTimer.current) clearTimeout(autoDismissTimer.current);
+    };
   }, [load]);
 
-  const dismiss = () => {
-    setVisible(false);
-    const headers = new Headers(getAuthHeaders());
-    headers.set("Content-Type", "application/json");
-    fetch(`${SETTINGS_BASE}/onboarding`, {
-      method: "PATCH",
-      headers,
-      body: JSON.stringify({ dismissed: true }),
-    }).catch(() => {});
-  };
+  const dismiss = useCallback(() => {
+    if (autoDismissTimer.current) clearTimeout(autoDismissTimer.current);
+    setMode("hidden");
+    patchDismissed(getAuthHeaders);
+  }, [getAuthHeaders]);
 
-  if (!visible || !state) return null;
+  if (mode === "hidden" || !state) return null;
 
-  const allDone = state.steps.explore_demo && state.steps.create_package && state.steps.send_interview;
-  const completedCount = [state.steps.explore_demo, state.steps.create_package, state.steps.send_interview].filter(Boolean).length;
-
-  if (allDone) {
+  if (mode === "done") {
     return (
       <div className="bg-green-50 border-b border-green-100 px-6 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
@@ -106,6 +140,8 @@ export function OnboardingChecklist({ getAuthHeaders }: Props) {
       </div>
     );
   }
+
+  const completedCount = [state.steps.explore_demo, state.steps.create_package, state.steps.send_interview].filter(Boolean).length;
 
   return (
     <div className="bg-gray-900 border-b border-gray-800">
@@ -136,7 +172,7 @@ export function OnboardingChecklist({ getAuthHeaders }: Props) {
               className="text-xs text-gray-400 hover:text-white transition-colors"
               aria-label={collapsed ? "Expand checklist" : "Collapse checklist"}
             >
-              {collapsed ? "Show steps" : "Hide"}
+              {collapsed ? "Show steps" : "Hide steps"}
             </button>
             <button
               type="button"
