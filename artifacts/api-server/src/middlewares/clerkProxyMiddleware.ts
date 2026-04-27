@@ -136,9 +136,14 @@ export function clerkProxyMiddleware(): RequestHandler {
     const subPath = req.url;
     if (!subPath || subPath === "/") return next();
 
-    // Build FAPI auth headers
+    // Build FAPI auth headers.
+    // When behind Vercel rewrites, Host is the upstream (Railway) hostname while
+    // x-forwarded-host carries the original public domain — use that if present.
     const protocol = (req.headers["x-forwarded-proto"] as string | undefined) || "https";
-    const host = req.headers.host || "";
+    const host =
+      (req.headers["x-forwarded-host"] as string | undefined)?.split(",")[0]?.trim() ||
+      req.headers.host ||
+      "";
     const proxyUrl = `${protocol}://${host}${CLERK_PROXY_PATH}`;
 
     const extraHeaders: Record<string, string> = {
