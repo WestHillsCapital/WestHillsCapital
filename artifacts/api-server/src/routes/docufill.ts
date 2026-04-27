@@ -480,14 +480,19 @@ function drawWrappedText(page: PDFPage, text: string, x: number, y: number, size
 }
 
 async function getPackage(packageId: number, client: QueryClient = getDb(), hydrate = true, accountId?: number): Promise<PackageRow | undefined> {
-  const accountFilter = accountId != null ? `AND p.account_id = ${Number(accountId)}` : "";
+  // Use a bind parameter for accountId when provided to avoid dynamic SQL assembly.
+  // When omitted (public/token-auth routes) the WHERE clause has no account filter.
+  const params: unknown[] = [packageId];
+  const accountFilter = accountId != null
+    ? (params.push(accountId), `AND p.account_id = $${params.length}`)
+    : "";
   const { rows } = await client.query(
     `SELECT p.*, c.name AS custodian_name, d.name AS depository_name
        FROM docufill_packages p
        LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
        LEFT JOIN docufill_depositories d ON d.id = p.depository_id
       WHERE p.id = $1 ${accountFilter}`,
-    [packageId],
+    params,
   );
   const pkg = rows[0] as PackageRow | undefined;
   if (!pkg) return undefined;
@@ -496,7 +501,12 @@ async function getPackage(packageId: number, client: QueryClient = getDb(), hydr
 }
 
 async function getSession(token: string, client: QueryClient = getDb(), accountId?: number): Promise<Record<string, unknown> | undefined> {
-  const accountFilter = accountId != null ? `AND p.account_id = ${Number(accountId)}` : "";
+  // Use a bind parameter for accountId when provided to avoid dynamic SQL assembly.
+  // When omitted (public/token-auth routes) the JOIN has no account filter.
+  const params: unknown[] = [token];
+  const accountFilter = accountId != null
+    ? (params.push(accountId), `AND p.account_id = $${params.length}`)
+    : "";
   const { rows } = await client.query(
     `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
             p.transaction_scope, p.custodian_id, p.depository_id,
@@ -512,7 +522,7 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
        LEFT JOIN accounts a ON a.id = p.account_id
       WHERE s.token = $1
         AND s.expires_at > NOW()`,
-    [token],
+    params,
   );
   const session = rows[0] as Record<string, unknown> | undefined;
   if (!session) return undefined;
