@@ -899,9 +899,44 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS notify_client_on_submit BOOLEAN NOT NULL DEFAULT false`);
 
   // ── Task #196: self-serve onboarding state ──────────────────────────────────
-  // dismissed: true when the user has manually dismissed the checklist
-  // Any other step keys are reserved for future use; completion is derived from DB.
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS onboarding_completed_steps JSONB NOT NULL DEFAULT '{}'::jsonb`);
+
+  // ── Task #197: production-grade webhooks ─────────────────────────────────────
+  // webhook_secret: HMAC-SHA256 key for X-Docuplete-Signature header.
+  // Generated once on package creation; never changes; admin-only visible.
+  await db.query(`
+    ALTER TABLE docufill_packages
+    ADD COLUMN IF NOT EXISTS webhook_secret TEXT
+  `);
+  // Backfill any existing packages that pre-date the column
+  await db.query(`
+    UPDATE docufill_packages
+       SET webhook_secret = encode(gen_random_bytes(32), 'hex')
+     WHERE webhook_secret IS NULL
+  `);
+  // Delivery log: one row per HTTP attempt (initial + each retry)
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS webhook_deliveries (
+      id             SERIAL PRIMARY KEY,
+      package_id     INTEGER NOT NULL REFERENCES docufill_packages(id) ON DELETE CASCADE,
+      account_id     INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      event_type     TEXT NOT NULL DEFAULT 'interview.submitted',
+      payload_hash   TEXT NOT NULL,
+      attempt_number INTEGER NOT NULL DEFAULT 1,
+      http_status    INTEGER,
+      response_body  TEXT,
+      duration_ms    INTEGER,
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS webhook_deliveries_package_created_idx
+      ON webhook_deliveries (package_id, created_at DESC)
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS webhook_deliveries_account_idx
+      ON webhook_deliveries (account_id)
+  `);
 
   dbReady = true;
   logger.info("Database tables and indexes verified / created");

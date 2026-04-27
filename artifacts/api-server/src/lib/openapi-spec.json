@@ -191,6 +191,71 @@
         "required": [
           "error"
         ]
+      },
+      "WebhookPayload": {
+        "type": "object",
+        "description": "The JSON body delivered to your webhook endpoint when a Docuplete form is submitted. Every request is signed with HMAC-SHA256 — verify the `X-Docuplete-Signature` header before processing.",
+        "properties": {
+          "event": {
+            "type": "string",
+            "enum": ["form.submitted", "test"],
+            "description": "Event type. `form.submitted` fires on every completed submission; `test` is sent when you click 'Send test' in the dashboard."
+          },
+          "package_id": {
+            "type": "integer",
+            "description": "Internal ID of the Docuplete package."
+          },
+          "package_name": {
+            "type": "string",
+            "description": "Human-readable name of the package."
+          },
+          "token": {
+            "type": "string",
+            "description": "Unique submission token. Use this as an idempotency key — you may receive retries with the same token."
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "ISO-8601 timestamp of when the form was submitted."
+          },
+          "answers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Key-value map of field IDs to their submitted values. Fields marked as sensitive in the package configuration are redacted."
+          }
+        },
+        "required": ["event", "package_id", "package_name", "token", "submitted_at", "answers"]
+      },
+      "WebhookDelivery": {
+        "type": "object",
+        "description": "A single webhook delivery attempt recorded in the delivery log.",
+        "properties": {
+          "id": { "type": "integer" },
+          "event_type": { "type": "string" },
+          "attempt_number": {
+            "type": "integer",
+            "description": "1 for the initial attempt; increments for each automatic retry (max 4 attempts total)."
+          },
+          "http_status": {
+            "type": ["integer", "null"],
+            "description": "HTTP status returned by the endpoint, or null if the request failed to connect."
+          },
+          "response_body": {
+            "type": "string",
+            "description": "First 1 KB of the response body, for debugging."
+          },
+          "duration_ms": {
+            "type": "integer",
+            "description": "Round-trip time in milliseconds."
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": ["id", "event_type", "attempt_number", "http_status", "response_body", "duration_ms", "created_at"]
       }
     }
   },
@@ -1674,5 +1739,25 @@
       }
     }
   },
-  "tags": []
+  "tags": [],
+  "x-webhooks": {
+    "form.submitted": {
+      "post": {
+        "summary": "Form submitted",
+        "description": "Sent when a Docuplete interview or customer form is completed. Docuplete retries delivery up to 3 times (4 total attempts) with exponential backoff: 5 s → 30 s → 5 min.\n\n**Signature verification**\n\nEvery request includes:\n```\nX-Docuplete-Signature: sha256=<hex>\n```\nVerify by computing `HMAC-SHA256(webhookSecret, rawBody)` using the signing secret from your package settings and comparing with a constant-time equality check.\n\n**Node.js example**\n```js\nconst crypto = require('crypto');\nconst secret = process.env.DOCUPLETE_WEBHOOK_SECRET;\nconst sig   = req.headers['x-docuplete-signature'];\nconst expected = 'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex');\nif (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) {\n  return res.status(401).end('Invalid signature');\n}\n```",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/WebhookPayload" }
+            }
+          }
+        },
+        "responses": {
+          "2XX": {
+            "description": "Your endpoint should return any 2xx status to acknowledge receipt. Non-2xx or connection errors trigger a retry."
+          }
+        }
+      }
+    }
+  }
 }

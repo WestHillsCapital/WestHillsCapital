@@ -1,5 +1,5 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import { randomBytes } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { PDFDocument as PdfLibDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
 import PDFDocument from "pdfkit";
@@ -294,25 +294,88 @@ function buildWebhookPayload(session: Record<string, unknown>): Record<string, u
   };
 }
 
-function fireWebhookAsync(webhookUrl: string, payload: Record<string, unknown>): void {
-  setImmediate(async () => {
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 10000);
-      const res = await fetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (!res.ok) {
-        logger.warn({ status: res.status, webhookUrl }, "[DocuFill] Webhook returned non-2xx");
-      }
-    } catch (err) {
-      logger.error({ err, webhookUrl }, "[DocuFill] Webhook request failed");
+/** Compute HMAC-SHA256 signature for an outgoing webhook body. */
+function signWebhookPayload(secret: string, body: string): string {
+  return "sha256=" + createHmac("sha256", secret).update(body).digest("hex");
+}
+
+/** Delays (ms) between delivery attempts: immediate, +5s, +30s, +5min. */
+const WEBHOOK_RETRY_DELAYS_MS = [5_000, 30_000, 5 * 60_000];
+
+/**
+ * Execute one HTTP delivery attempt, log the result to webhook_deliveries,
+ * and return `true` if the server responded 2xx.
+ */
+async function doWebhookDelivery(
+  db: Pool,
+  packageId: number,
+  accountId: number,
+  webhookUrl: string,
+  webhookSecret: string | null,
+  body: string,
+  attempt: number,
+  eventType: string,
+  payloadHash: string,
+): Promise<boolean> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (webhookSecret) {
+    headers["X-Docuplete-Signature"] = signWebhookPayload(webhookSecret, body);
+  }
+  const start = Date.now();
+  let httpStatus: number | null = null;
+  let responseSnippet = "";
+  let ok = false;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    const res = await fetch(webhookUrl, { method: "POST", headers, body, signal: controller.signal });
+    clearTimeout(timer);
+    httpStatus = res.status;
+    responseSnippet = (await res.text().catch(() => "")).slice(0, 500);
+    ok = res.ok;
+    if (!ok) logger.warn({ status: res.status, webhookUrl, attempt }, "[DocuFill] Webhook non-2xx");
+  } catch (err) {
+    responseSnippet = (err instanceof Error ? err.message : String(err)).slice(0, 500);
+    logger.error({ err, webhookUrl, attempt }, "[DocuFill] Webhook request failed");
+  }
+  const durationMs = Date.now() - start;
+  db.query(
+    `INSERT INTO webhook_deliveries
+       (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+    [packageId, accountId, eventType, payloadHash, attempt, httpStatus, responseSnippet, durationMs],
+  ).catch((e) => logger.error({ e }, "[DocuFill] Failed to log webhook delivery"));
+  return ok;
+}
+
+/**
+ * Fire a signed webhook and retry up to 3 times on failure.
+ * Retries are scheduled at 5 s, 30 s, and 5 min after each failure.
+ * Every attempt is recorded in webhook_deliveries.
+ */
+function fireWebhookAsync(
+  db: Pool,
+  packageId: number,
+  accountId: number,
+  webhookUrl: string,
+  webhookSecret: string | null,
+  payload: Record<string, unknown>,
+  eventType = "interview.submitted",
+): void {
+  const bodyStr = JSON.stringify(payload);
+  const payloadHash = createHash("sha256").update(bodyStr).digest("hex").slice(0, 16);
+
+  async function tryDeliver(attempt: number): Promise<void> {
+    const success = await doWebhookDelivery(
+      db, packageId, accountId, webhookUrl, webhookSecret, bodyStr, attempt, eventType, payloadHash,
+    );
+    if (!success && attempt <= WEBHOOK_RETRY_DELAYS_MS.length) {
+      const delay = WEBHOOK_RETRY_DELAYS_MS[attempt - 1];
+      setTimeout(() => void tryDeliver(attempt + 1), delay).unref();
     }
-  });
+  }
+
+  setImmediate(() => void tryDeliver(1));
 }
 
 // ── Task #195: fire submission notification emails ────────────────────────────
@@ -588,7 +651,7 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
   const { rows } = await client.query(
     `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
             p.transaction_scope, p.custodian_id, p.depository_id,
-            p.webhook_enabled, p.webhook_url,
+            p.webhook_enabled, p.webhook_url, p.webhook_secret,
             p.notify_staff_on_submit, p.notify_client_on_submit,
             p.account_id AS package_account_id,
             c.name AS custodian_name, d.name AS depository_name,
@@ -1224,10 +1287,11 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
     }
     const accountId = acctId(req);
     const db = getDb();
+    const webhookSecret = randomBytes(32).toString("hex");
     const { rows } = await db.query(
       `INSERT INTO docufill_packages
-         (name, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id, tags, webhook_enabled, webhook_url)
-       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12::jsonb,$13,$14)
+         (name, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id, tags, webhook_enabled, webhook_url, webhook_secret)
+       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12::jsonb,$13,$14,$15)
        RETURNING *`,
       [
         name,
@@ -1244,6 +1308,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
         JSON.stringify(parseTags(body.tags)),
         body.webhookEnabled === true,
         parseWebhookUrl(body.webhookUrl),
+        webhookSecret,
       ],
     );
     const hydrated = await hydratePackages(rows as PackageRow[], db);
@@ -1347,21 +1412,17 @@ router.patch("/packages/:id", requireAdminRole, async (req, res) => {
 router.post("/packages/:id/test-webhook", requireAdminRole, async (req, res) => {
   try {
     const id = parseId(req.params.id);
-    if (!id) {
-      res.status(400).json({ error: "Invalid package id" });
-      return;
-    }
+    if (!id) { res.status(400).json({ error: "Invalid package id" }); return; }
     const accountId = acctId(req);
-    const pkg = await getPackage(id, getDb(), false, accountId);
-    if (!pkg) {
-      res.status(404).json({ error: "Package not found" });
-      return;
-    }
+    const db = getDb();
+    const pkg = await getPackage(id, db, false, accountId);
+    if (!pkg) { res.status(404).json({ error: "Package not found" }); return; }
     const webhookUrl = parseWebhookUrl(pkg.webhook_url);
     if (!webhookUrl) {
       res.status(400).json({ error: "No valid webhook URL is configured for this package." });
       return;
     }
+    const webhookSecret = typeof pkg.webhook_secret === "string" ? pkg.webhook_secret : null;
     const samplePayload: Record<string, unknown> = {
       event: "interview.submitted",
       package_name: pkg.name ?? null,
@@ -1369,28 +1430,40 @@ router.post("/packages/:id/test-webhook", requireAdminRole, async (req, res) => 
       submitted_at: new Date().toISOString(),
       answers: { example_field: "example value" },
     };
-    try {
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 10000);
-      const webhookRes = await fetch(webhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(samplePayload),
-        signal: controller.signal,
-      });
-      clearTimeout(timer);
-      if (!webhookRes.ok) {
-        res.status(502).json({ error: `Webhook returned ${webhookRes.status} ${webhookRes.statusText}` });
-        return;
-      }
-      res.json({ ok: true, status: webhookRes.status });
-    } catch (fetchErr) {
-      const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
-      res.status(502).json({ error: `Webhook request failed: ${msg}` });
+    const body = JSON.stringify(samplePayload);
+    const payloadHash = createHash("sha256").update(body).digest("hex").slice(0, 16);
+    const ok = await doWebhookDelivery(
+      db, id, accountId, webhookUrl, webhookSecret, body, 1, "interview.test", payloadHash,
+    );
+    if (!ok) {
+      res.status(502).json({ error: "Webhook did not return a 2xx status. Check the delivery log." });
+      return;
     }
+    res.json({ ok: true });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to send test webhook");
     res.status(500).json({ error: "Failed to send test webhook" });
+  }
+});
+
+router.get("/packages/:id/webhook-deliveries", requireAdminRole, async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) { res.status(400).json({ error: "Invalid package id" }); return; }
+    const accountId = acctId(req);
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT id, event_type, attempt_number, http_status, response_body, duration_ms, created_at
+         FROM webhook_deliveries
+        WHERE package_id = $1 AND account_id = $2
+        ORDER BY created_at DESC
+        LIMIT 50`,
+      [id, accountId],
+    );
+    res.json({ deliveries: rows });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to fetch webhook deliveries");
+    res.status(500).json({ error: "Failed to fetch webhook deliveries" });
   }
 });
 
@@ -2081,7 +2154,14 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
     });
     const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
     if (session.webhook_enabled === true && webhookUrl) {
-      fireWebhookAsync(webhookUrl, buildWebhookPayload(session));
+      fireWebhookAsync(
+        db,
+        typeof session.package_id === "number" ? session.package_id : Number(session.package_id),
+        typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id),
+        webhookUrl,
+        typeof session.webhook_secret === "string" ? session.webhook_secret : null,
+        buildWebhookPayload(session),
+      );
     }
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to generate packet");
@@ -2338,7 +2418,14 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
     });
     const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
     if (session.webhook_enabled === true && webhookUrl) {
-      fireWebhookAsync(webhookUrl, buildWebhookPayload(session));
+      fireWebhookAsync(
+        db,
+        typeof session.package_id === "number" ? session.package_id : Number(session.package_id),
+        typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id),
+        webhookUrl,
+        typeof session.webhook_secret === "string" ? session.webhook_secret : null,
+        buildWebhookPayload(session),
+      );
     }
     // ── Task #195: fire submission notification emails asynchronously ──────────
     if (session.notify_staff_on_submit === true || session.notify_client_on_submit === true) {

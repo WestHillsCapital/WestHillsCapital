@@ -186,6 +186,7 @@ type PackageItem = {
   enable_customer_link: boolean;
   webhook_enabled: boolean;
   webhook_url: string | null;
+  webhook_secret: string | null;
   tags: string[];
   notify_staff_on_submit: boolean;
   notify_client_on_submit: boolean;
@@ -483,6 +484,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     enable_customer_link: pkg.enable_customer_link === true,
     webhook_enabled: (pkg as PackageItem & Record<string, unknown>).webhook_enabled === true,
     webhook_url: typeof (pkg as PackageItem & Record<string, unknown>).webhook_url === "string" ? (pkg as PackageItem & Record<string, unknown>).webhook_url as string : null,
+    webhook_secret: typeof (pkg as PackageItem & Record<string, unknown>).webhook_secret === "string" ? (pkg as PackageItem & Record<string, unknown>).webhook_secret as string : null,
     notify_staff_on_submit: (pkg as PackageItem & Record<string, unknown>).notify_staff_on_submit === true,
     notify_client_on_submit: (pkg as PackageItem & Record<string, unknown>).notify_client_on_submit === true,
     tags: Array.isArray((pkg as PackageItem & { tags?: unknown }).tags)
@@ -781,6 +783,11 @@ export default function DocuFill() {
   const [planLimitError, setPlanLimitError] = useState<{ limitType: string; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [webhookTestStatus, setWebhookTestStatus] = useState<null | { ok: boolean; message: string }>(null);
+  const [webhookSecretRevealed, setWebhookSecretRevealed] = useState(false);
+  const [webhookSecretCopied, setWebhookSecretCopied] = useState(false);
+  const [webhookDeliveries, setWebhookDeliveries] = useState<Array<{ id: number; event_type: string; attempt_number: number; http_status: number | null; response_body: string; duration_ms: number; created_at: string; }>>([]);
+  const [webhookDeliveriesLoading, setWebhookDeliveriesLoading] = useState(false);
+  const [expandedDelivery, setExpandedDelivery] = useState<number | null>(null);
   const [isDeletingPackage, setIsDeletingPackage] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [isDocumentDropActive, setIsDocumentDropActive] = useState(false);
@@ -998,6 +1005,18 @@ export default function DocuFill() {
     if (isPublicSession) return;
     loadBootstrap();
   }, [isPublicSession]);
+
+  useEffect(() => {
+    setWebhookTestStatus(null);
+    setWebhookSecretRevealed(false);
+    setWebhookSecretCopied(false);
+    setWebhookDeliveries([]);
+    setExpandedDelivery(null);
+    const pkg = packages.find((p) => p.id === selectedPackageId);
+    if (pkg?.webhook_enabled && selectedPackageId) {
+      void fetchWebhookDeliveries(selectedPackageId);
+    }
+  }, [selectedPackageId]);
 
   useEffect(() => {
     if (!sessionToken) return;
@@ -1313,6 +1332,22 @@ export default function DocuFill() {
     }
   }
 
+  async function fetchWebhookDeliveries(pkgId: number) {
+    setWebhookDeliveriesLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${pkgId}/webhook-deliveries`, {
+        headers: { ...getAuthHeaders() },
+      });
+      if (!res.ok) return;
+      const data = await res.json() as { deliveries: typeof webhookDeliveries };
+      setWebhookDeliveries(data.deliveries ?? []);
+    } catch {
+      // non-fatal
+    } finally {
+      setWebhookDeliveriesLoading(false);
+    }
+  }
+
   async function sendTestWebhook(pkgId: number) {
     setWebhookTestStatus(null);
     try {
@@ -1320,20 +1355,22 @@ export default function DocuFill() {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       });
-      const data = await res.json() as { ok?: boolean; error?: string; status?: number };
+      const data = await res.json() as { ok?: boolean; error?: string };
       if (!res.ok) {
         const msg = data.error ?? `HTTP ${res.status}`;
         setWebhookTestStatus({ ok: false, message: msg });
         flashStatus(`Webhook test failed: ${msg}`);
       } else {
-        flashStatus(`Test webhook delivered (HTTP ${data.status ?? 200}).`);
-        setWebhookTestStatus({ ok: true, message: `Delivered (HTTP ${data.status ?? 200})` });
+        flashStatus("Test webhook delivered.");
+        setWebhookTestStatus({ ok: true, message: "Delivered" });
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Request failed";
       setWebhookTestStatus({ ok: false, message: msg });
       flashStatus(`Webhook test failed: ${msg}`);
     }
+    // Refresh delivery log regardless of outcome
+    void fetchWebhookDeliveries(pkgId);
   }
 
   async function createPackage() {
@@ -3284,7 +3321,14 @@ export default function DocuFill() {
                           <div className={`rounded-lg border-2 p-3 transition-colors ${selectedPackage.webhook_enabled ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}>
                             <button
                               type="button"
-                              onClick={() => { updateSelectedPackage((pkg) => ({ ...pkg, webhook_enabled: !pkg.webhook_enabled })); setWebhookTestStatus(null); }}
+                              onClick={() => {
+                                const enabling = !selectedPackage.webhook_enabled;
+                                updateSelectedPackage((pkg) => ({ ...pkg, webhook_enabled: enabling }));
+                                setWebhookTestStatus(null);
+                                if (enabling && selectedPackage.id) {
+                                  void fetchWebhookDeliveries(selectedPackage.id);
+                                }
+                              }}
                               className="w-full text-left"
                             >
                               <div className="flex items-center gap-2 mb-1.5">
@@ -3297,7 +3341,8 @@ export default function DocuFill() {
                               <p className="text-xs text-[#6B7A99]">Fire a POST request to any URL when an interview or customer form is completed. Connects to your CRM, Zapier, or any automation platform.</p>
                             </button>
                             {selectedPackage.webhook_enabled && (
-                              <div className="mt-3 space-y-2">
+                              <div className="mt-3 space-y-3">
+                                {/* Endpoint URL + send test */}
                                 <div className="flex gap-2 items-center">
                                   <input
                                     type="url"
@@ -3320,7 +3365,88 @@ export default function DocuFill() {
                                     {webhookTestStatus.ok ? "✓" : "✗"} {webhookTestStatus.message}
                                   </p>
                                 )}
-                                <p className="text-[11px] text-[#8A9BB8]">Payload: <code className="font-mono">{"{ event, package_name, token, submitted_at, answers }"}</code>. Sensitive fields are redacted.</p>
+                                <p className="text-[11px] text-[#8A9BB8]">Payload: <code className="font-mono">{"{ event, package_name, token, submitted_at, answers }"}</code>. Sensitive fields are redacted. Each request includes an <code className="font-mono">X-Docuplete-Signature</code> header for verification.</p>
+                                {/* Webhook secret */}
+                                {selectedPackage.webhook_secret && (
+                                  <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-2.5 py-2 space-y-1.5">
+                                    <p className="text-[11px] font-medium text-[#0F1C3F]">Signing secret</p>
+                                    <div className="flex items-center gap-1.5">
+                                      <code className="flex-1 min-w-0 font-mono text-[10px] break-all text-[#0F1C3F] bg-white border border-[#E8E0D0] rounded px-1.5 py-1">
+                                        {webhookSecretRevealed ? selectedPackage.webhook_secret : "•".repeat(40)}
+                                      </code>
+                                      <button
+                                        type="button"
+                                        onClick={() => setWebhookSecretRevealed((v) => !v)}
+                                        className="shrink-0 text-[10px] border border-[#DDD5C4] bg-white rounded px-2 py-1 text-[#0F1C3F] hover:bg-[#EAF0FB] transition-colors"
+                                      >
+                                        {webhookSecretRevealed ? "Hide" : "Reveal"}
+                                      </button>
+                                      {webhookSecretRevealed && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            if (!selectedPackage.webhook_secret) return;
+                                            void navigator.clipboard.writeText(selectedPackage.webhook_secret).then(() => {
+                                              setWebhookSecretCopied(true);
+                                              setTimeout(() => setWebhookSecretCopied(false), 2000);
+                                            });
+                                          }}
+                                          className="shrink-0 text-[10px] border border-[#DDD5C4] bg-white rounded px-2 py-1 text-[#0F1C3F] hover:bg-[#EAF0FB] transition-colors"
+                                        >
+                                          {webhookSecretCopied ? "Copied ✓" : "Copy"}
+                                        </button>
+                                      )}
+                                    </div>
+                                    <p className="text-[10px] text-[#8A9BB8]">Use this to verify <code className="font-mono">X-Docuplete-Signature: sha256=…</code> on incoming requests. Compute <code className="font-mono">HMAC-SHA256(secret, rawBody)</code> and compare.</p>
+                                  </div>
+                                )}
+                                {/* Recent deliveries */}
+                                <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-2.5 py-2 space-y-1.5">
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-[11px] font-medium text-[#0F1C3F]">Recent deliveries</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => { void fetchWebhookDeliveries(selectedPackage.id); }}
+                                      className="text-[10px] text-[#6B7A99] hover:text-[#0F1C3F] transition-colors"
+                                    >
+                                      Refresh
+                                    </button>
+                                  </div>
+                                  {webhookDeliveriesLoading && <p className="text-[10px] text-[#8A9BB8]">Loading…</p>}
+                                  {!webhookDeliveriesLoading && webhookDeliveries.length === 0 && (
+                                    <p className="text-[10px] text-[#8A9BB8]">No deliveries yet. Send a test to see your first entry.</p>
+                                  )}
+                                  {!webhookDeliveriesLoading && webhookDeliveries.length > 0 && (
+                                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                                      {webhookDeliveries.map((d) => {
+                                        const isOk = d.http_status !== null && d.http_status >= 200 && d.http_status < 300;
+                                        const isExpanded = expandedDelivery === d.id;
+                                        return (
+                                          <div key={d.id} className="bg-white border border-[#E8E0D0] rounded px-2 py-1.5">
+                                            <button
+                                              type="button"
+                                              onClick={() => setExpandedDelivery(isExpanded ? null : d.id)}
+                                              className="w-full text-left flex items-center gap-2"
+                                            >
+                                              <span className={`text-[10px] font-mono font-bold shrink-0 w-8 text-center rounded px-1 ${isOk ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                                {d.http_status ?? "ERR"}
+                                              </span>
+                                              <span className="text-[10px] text-[#6B7A99] flex-1 min-w-0 truncate">{d.event_type}</span>
+                                              {d.attempt_number > 1 && (
+                                                <span className="text-[9px] text-amber-600 shrink-0">retry #{d.attempt_number}</span>
+                                              )}
+                                              <span className="text-[10px] text-[#B0A898] shrink-0">{d.duration_ms}ms</span>
+                                              <span className="text-[10px] text-[#B0A898] shrink-0">{new Date(d.created_at).toLocaleTimeString()}</span>
+                                            </button>
+                                            {isExpanded && d.response_body && (
+                                              <pre className="mt-1.5 text-[9px] font-mono text-[#6B7A99] bg-[#F8F6F0] rounded p-1.5 overflow-x-auto whitespace-pre-wrap break-all max-h-20 overflow-y-auto">{d.response_body}</pre>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             )}
                           </div>
