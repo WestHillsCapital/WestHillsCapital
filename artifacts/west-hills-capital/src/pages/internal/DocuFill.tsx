@@ -643,6 +643,10 @@ export default function DocuFill() {
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null);
+  const [inspectorMode, setInspectorMode] = useState<"panel" | "modal">(() => {
+    const stored = localStorage.getItem("docufill-inspector-mode");
+    return stored === "modal" ? "modal" : "panel";
+  });
   const [fieldEditorModal, setFieldEditorModal] = useState<{ mode: "add" | "edit"; fieldId: string | null } | null>(null);
   const [fieldEditorPos, setFieldEditorPos] = useState({ x: 0, y: 0 });
   const [fieldEditorIsDragging, setFieldEditorIsDragging] = useState(false);
@@ -3362,6 +3366,30 @@ export default function DocuFill() {
                       PDF Fields {showAcroLayer ? "on" : "off"}
                     </button>
                   )}
+                  <div className="h-4 w-px bg-[#DDD5C4]" />
+                  <button
+                    type="button"
+                    title={inspectorMode === "panel" ? "Switch to floating popup" : "Switch to side panel"}
+                    onClick={() => {
+                      const next = inspectorMode === "panel" ? "modal" : "panel";
+                      setInspectorMode(next);
+                      localStorage.setItem("docufill-inspector-mode", next);
+                      setPlacementModal(null);
+                    }}
+                    className="flex items-center gap-1.5 text-xs border border-[#D4C9B5] rounded px-2 py-1 leading-none text-[#6B7A99] hover:bg-[#F8F6F0] transition-colors"
+                  >
+                    {inspectorMode === "panel" ? (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M15 3v18" /></svg>
+                        <span>Panel</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="5" y="5" width="14" height="14" rx="2" /><path strokeLinecap="round" d="M5 9h14" /></svg>
+                        <span>Popup</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
               {isUploadingDocument && <div className="mb-2 text-xs text-[#6B7A99]">Uploading PDF…</div>}
@@ -3450,8 +3478,20 @@ export default function DocuFill() {
                         key={m.id}
                         type="button"
                         onPointerDown={(e) => beginMappingPointer(e, m, "move")}
-                        onClick={() => { setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); }}
-                        onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId); setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y }); setPlacementModalPos(null); }}
+                        onClick={() => {
+                          setSelectedMappingId(m.id);
+                          setSelectedFieldId(m.fieldId);
+                          if (inspectorMode === "panel") {
+                            setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
+                            setPlacementModalPos(null);
+                          }
+                        }}
+                        onContextMenu={(e) => {
+                          e.preventDefault(); e.stopPropagation();
+                          setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId);
+                          setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
+                          setPlacementModalPos(null);
+                        }}
                         className={`absolute rounded cursor-move flex flex-col overflow-hidden ${flexJustify} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "border-2 bg-white/90 shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
                         style={{
                           left: `${m.x}%`,
@@ -3500,112 +3540,276 @@ export default function DocuFill() {
               </div>
             </section>
 
-            <section className="bg-white border border-[#DDD5C4] rounded-lg p-3 flex flex-col min-h-0">
-              <div className="flex items-center justify-between mb-2 flex-shrink-0">
-                <h2 className="text-sm font-semibold">Fields</h2>
-                <button onClick={openFieldEditorForAdd} className="text-xs text-[#C49A38]">Add</button>
-              </div>
-              {(() => {
-                const usedLibraryIds = new Set(selectedPackage.fields.map((f) => f.libraryFieldId).filter(Boolean));
-                const availableLibraryFields = fieldLibrary.filter((item) => item.active && !usedLibraryIds.has(item.id));
-                if (availableLibraryFields.length === 0) return null;
+            <section className="bg-white border border-[#DDD5C4] rounded-lg flex flex-col min-h-0 overflow-hidden">
+              {inspectorMode === "panel" && placementModal && selectedPackage ? (() => {
+                const mapping = selectedPackage.mappings.find((item) => item.id === placementModal.mappingId);
+                const field = mapping ? selectedPackage.fields.find((item) => item.id === mapping.fieldId) : undefined;
+                const formatOptions = mappingFormatOptionsForField(field);
+                if (!mapping) return null;
+                const assignedRecipient = mapping.recipientId ? (selectedPackage.recipients ?? []).find((r) => r.id === mapping.recipientId) : undefined;
+                const fieldInterviewMode: FieldInterviewMode = field?.interviewMode ?? "optional";
+                const isMasked = field?.sensitive === true;
+                const isMultiLine = mapping.multiLine === true;
+                function setPanelInterviewMode(mode: FieldInterviewMode) { if (field) updateFieldInPackage(field.id, { interviewMode: mode }); }
+                function togglePanelMask() { if (field) updateFieldInPackage(field.id, { sensitive: !isMasked }); }
+                function togglePanelMultiLine() { updateSelectedMapping({ multiLine: !isMultiLine }); }
+                const interviewModes: { value: FieldInterviewMode; label: string; color: string; textClass: string }[] = [
+                  { value: "optional",  label: "Optional",  color: "#0F1C3F", textClass: "text-[#0F1C3F]" },
+                  { value: "required",  label: "Required",  color: "#dc2626", textClass: "text-red-600" },
+                  { value: "readonly",  label: "Read-only", color: "#2563eb", textClass: "text-blue-600" },
+                  { value: "omitted",   label: "Omit",      color: "#6B7A99", textClass: "text-[#6B7A99]" },
+                ];
                 return (
-                  <label className="block mb-2 flex-shrink-0">
-                    <span className="block text-[11px] text-[#6B7A99] mb-1">Add from shared library</span>
-                    <select
-                      value=""
-                      onChange={(e) => {
-                        const libraryField = fieldLibrary.find((item) => item.id === e.target.value);
-                        if (libraryField) addLibraryFieldToPackage(libraryField);
-                      }}
-                      className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
-                    >
-                      <option value="">Select reusable field</option>
-                      {availableLibraryFields.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
-                    </select>
-                  </label>
-                );
-              })()}
-              <div className="flex-1 min-h-0 flex flex-col">
-              <DndContext
-                sensors={sortSensors}
-                collisionDetection={closestCenter}
-                onDragEnd={(event: DragEndEvent) => {
-                  const { active, over } = event;
-                  if (!over || active.id === over.id) return;
-                  updateSelectedPackage((pkg) => {
-                    const oldIdx = pkg.fields.findIndex((f) => f.id === active.id);
-                    const newIdx = pkg.fields.findIndex((f) => f.id === over.id);
-                    return { ...pkg, fields: arrayMove(pkg.fields, oldIdx, newIdx) };
-                  });
-                }}
-              >
-                <SortableContext items={selectedPackage.fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
-                    {selectedPackage.fields.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
-                        <svg className="w-6 h-6 text-[#C49A38]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                        <p className="text-xs text-[#8A9BB8] leading-snug italic">No fields yet. Click <strong className="not-italic font-semibold text-[#C49A38]">Add</strong> above to create your first field, then drag it onto the document to place it.</p>
+                  <>
+                    <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#DDD5C4] flex-shrink-0">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {field && <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: field.color }} />}
+                        <h2 className="text-xs font-semibold text-[#0F1C3F] uppercase tracking-wide truncate">
+                          {field?.name ?? "Placement"}
+                        </h2>
                       </div>
-                    )}
-                    {selectedPackage.fields.map((field) => (
-                      <SortableItem key={field.id} id={field.id}>
-                        {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
-                          <div
-                            ref={wrapperRef}
-                            style={{ ...wrapperStyle, borderColor: field.color }}
-                            draggable
-                            onDragStart={(e) => {
-                              if (fieldDragFromHandle.current) { e.preventDefault(); return; }
-                              e.dataTransfer.setData("text/field", field.id);
-                            }}
-                            onDoubleClick={() => openFieldEditorForEdit(field.id)}
-                            className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isDragging ? "opacity-40 shadow-lg" : ""} ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="flex items-start gap-2 flex-1 min-w-0">
-                                <div
-                                  {...handleProps}
-                                  onPointerDown={(e) => {
-                                    fieldDragFromHandle.current = true;
-                                    (handleProps.onPointerDown as React.PointerEventHandler<HTMLDivElement>)?.(e);
-                                  }}
-                                  onPointerUp={() => { fieldDragFromHandle.current = false; }}
-                                  onPointerCancel={() => { fieldDragFromHandle.current = false; }}
-                                  title="Drag to reorder"
-                                  className="mt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing p-0.5 text-[#C4B89A] hover:text-[#A89878]"
-                                >
-                                  <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
-                                    <circle cx="5" cy="4" r="1.2"/><circle cx="11" cy="4" r="1.2"/>
-                                    <circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/>
-                                    <circle cx="5" cy="12" r="1.2"/><circle cx="11" cy="12" r="1.2"/>
-                                  </svg>
-                                </div>
-                                <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1 min-w-0">
-                                  <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
-                                    <span>{field.name}</span>
-                                    {field.libraryFieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>}
-                                    {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
-                                    {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
-                                  </div>
-                                  <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
-                                </button>
-                              </div>
+                      <button type="button" onClick={() => setPlacementModal(null)} className="text-[#8A9BB8] hover:text-[#0F1C3F] flex-shrink-0">
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                      </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto px-3 py-3 space-y-4">
+
+                      {field && (
+                        <div>
+                          <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1">Field Name</div>
+                          <input
+                            type="text"
+                            value={field.name}
+                            onChange={(e) => updateFieldInPackage(field.id, { name: e.target.value })}
+                            className="w-full border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-[#C49A38] focus:border-[#C49A38]"
+                            placeholder="Field name"
+                          />
+                        </div>
+                      )}
+
+                      {(selectedPackage.recipients ?? []).length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1.5">Recipient</div>
+                          <div className="flex flex-wrap gap-1">
+                            <button
+                              type="button"
+                              onClick={() => updateSelectedMapping({ recipientId: undefined })}
+                              className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${!assignedRecipient ? "border-[#0F1C3F] bg-[#0F1C3F] text-white" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                            >
+                              <span className="w-2 h-2 rounded-full border border-current inline-block" />
+                              <span>None</span>
+                            </button>
+                            {(selectedPackage.recipients ?? []).map((r) => (
                               <button
+                                key={r.id}
                                 type="button"
-                                onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
-                                className="rounded border border-red-200 px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50 hover:border-red-300 flex-shrink-0"
-                                title="Remove field"
-                              >✕</button>
-                            </div>
+                                onClick={() => updateSelectedMapping({ recipientId: r.id })}
+                                className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] border transition-colors ${mapping.recipientId === r.id ? "border-[#0F1C3F] bg-[#0F1C3F] text-white" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                              >
+                                <span className="w-2 h-2 rounded-full inline-block flex-shrink-0 border-2" style={{ borderColor: r.color }} />
+                                <span>{r.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {field && (
+                        <div>
+                          <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1.5">Interview</div>
+                          <div className="flex rounded overflow-hidden border border-[#D4C9B5]">
+                            {interviewModes.map((m) => (
+                              <button
+                                key={m.value}
+                                type="button"
+                                onClick={() => setPanelInterviewMode(m.value)}
+                                className={`flex-1 py-1.5 text-[10px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors leading-tight ${fieldInterviewMode === m.value ? `${m.textClass} bg-white` : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                                style={fieldInterviewMode === m.value ? { boxShadow: `inset 0 0 0 2px ${m.color}` } : undefined}
+                              >
+                                {m.label}
+                              </button>
+                            ))}
+                          </div>
+                          {fieldInterviewMode === "omitted" && (
+                            <p className="mt-1 text-[10px] text-[#6B7A99]">Prints on PDF but won't appear as a question — needs a default value or prefill.</p>
+                          )}
+                        </div>
+                      )}
+
+                      {field && (
+                        <div className="flex gap-4">
+                          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                            <input type="checkbox" checked={isMasked} onChange={togglePanelMask} className="w-3 h-3 accent-[#C49A38] cursor-pointer" />
+                            <span className="text-xs text-[#334155]">Mask</span>
+                          </label>
+                          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+                            <input type="checkbox" checked={isMultiLine} onChange={togglePanelMultiLine} className="w-3 h-3 accent-[#C49A38] cursor-pointer" />
+                            <span className="text-xs text-[#334155]">Multi-line</span>
+                          </label>
+                        </div>
+                      )}
+
+                      {formatOptions.length > 0 && (
+                        <div>
+                          <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1.5">Orientation</div>
+                          <div className="space-y-0.5 max-h-44 overflow-y-auto">
+                            {formatOptions.map((option) => (
+                              <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => chooseMappingFormat(mapping.id, option.value)}
+                                className={`flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs hover:bg-[#F8F6F0] ${mapping.format === option.value ? "bg-[#F8F6F0] text-[#0F1C3F] font-semibold" : "text-[#334155]"}`}
+                              >
+                                <span>{option.label}</span>
+                                <span className="text-[10px] text-[#8A9BB8]">{option.group}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {field && (
+                        <div className="border-t border-[#EFE8D8] pt-3">
+                          <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1.5">Field</div>
+                          <button type="button" onClick={() => openFieldEditorForEdit(field.id)} className="w-full text-left rounded border border-[#D4C9B5] px-2.5 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] flex items-center justify-between">
+                            <span>Edit field definition</span>
+                            <svg className="w-3 h-3 text-[#8A9BB8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                          </button>
+                        </div>
+                      )}
+
+                    </div>
+                    <div className="flex gap-2 border-t border-[#EFE8D8] px-3 py-2.5 flex-shrink-0">
+                      {field && (
+                        <button type="button" onClick={() => copyField(field.id)} className="flex-1 rounded border border-[#D4C9B5] px-2 py-1.5 text-[11px] text-[#334155] hover:bg-[#F8F6F0] text-center">
+                          Copy
+                        </button>
+                      )}
+                      <button type="button" onClick={() => duplicateMapping(mapping.id)} className="flex-1 rounded border border-[#D4C9B5] px-2 py-1.5 text-[11px] text-[#334155] hover:bg-[#F8F6F0] text-center">
+                        Duplicate
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { removeSelectedMapping(); setPlacementModal(null); }}
+                        className="flex-1 rounded border border-red-200 px-2 py-1.5 text-[11px] font-medium text-red-600 hover:bg-red-50 hover:border-red-300 text-center"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </>
+                );
+              })() : (
+                <div className="p-3 flex flex-col min-h-0 flex-1">
+                  <div className="flex items-center justify-between mb-2 flex-shrink-0">
+                    <h2 className="text-sm font-semibold">Fields</h2>
+                    <button onClick={openFieldEditorForAdd} className="text-xs text-[#C49A38]">Add</button>
+                  </div>
+                  {(() => {
+                    const usedLibraryIds = new Set(selectedPackage.fields.map((f) => f.libraryFieldId).filter(Boolean));
+                    const availableLibraryFields = fieldLibrary.filter((item) => item.active && !usedLibraryIds.has(item.id));
+                    if (availableLibraryFields.length === 0) return null;
+                    return (
+                      <label className="block mb-2 flex-shrink-0">
+                        <span className="block text-[11px] text-[#6B7A99] mb-1">Add from shared library</span>
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            const libraryField = fieldLibrary.find((item) => item.id === e.target.value);
+                            if (libraryField) addLibraryFieldToPackage(libraryField);
+                          }}
+                          className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
+                        >
+                          <option value="">Select reusable field</option>
+                          {availableLibraryFields.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
+                        </select>
+                      </label>
+                    );
+                  })()}
+                  {inspectorMode === "panel" && selectedPackage.mappings.length > 0 && (
+                    <p className="mb-2 text-[10px] text-[#8A9BB8] italic flex-shrink-0">Click a placement on the document to inspect it.</p>
+                  )}
+                  <div className="flex-1 min-h-0 flex flex-col">
+                  <DndContext
+                    sensors={sortSensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={(event: DragEndEvent) => {
+                      const { active, over } = event;
+                      if (!over || active.id === over.id) return;
+                      updateSelectedPackage((pkg) => {
+                        const oldIdx = pkg.fields.findIndex((f) => f.id === active.id);
+                        const newIdx = pkg.fields.findIndex((f) => f.id === over.id);
+                        return { ...pkg, fields: arrayMove(pkg.fields, oldIdx, newIdx) };
+                      });
+                    }}
+                  >
+                    <SortableContext items={selectedPackage.fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                      <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
+                        {selectedPackage.fields.length === 0 && (
+                          <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
+                            <svg className="w-6 h-6 text-[#C49A38]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                            <p className="text-xs text-[#8A9BB8] leading-snug italic">No fields yet. Click <strong className="not-italic font-semibold text-[#C49A38]">Add</strong> above to create your first field, then drag it onto the document to place it.</p>
                           </div>
                         )}
-                      </SortableItem>
-                    ))}
+                        {selectedPackage.fields.map((field) => (
+                          <SortableItem key={field.id} id={field.id}>
+                            {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
+                              <div
+                                ref={wrapperRef}
+                                style={{ ...wrapperStyle, borderColor: field.color }}
+                                draggable
+                                onDragStart={(e) => {
+                                  if (fieldDragFromHandle.current) { e.preventDefault(); return; }
+                                  e.dataTransfer.setData("text/field", field.id);
+                                }}
+                                onDoubleClick={() => openFieldEditorForEdit(field.id)}
+                                className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isDragging ? "opacity-40 shadow-lg" : ""} ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                                    <div
+                                      {...handleProps}
+                                      onPointerDown={(e) => {
+                                        fieldDragFromHandle.current = true;
+                                        (handleProps.onPointerDown as React.PointerEventHandler<HTMLDivElement>)?.(e);
+                                      }}
+                                      onPointerUp={() => { fieldDragFromHandle.current = false; }}
+                                      onPointerCancel={() => { fieldDragFromHandle.current = false; }}
+                                      title="Drag to reorder"
+                                      className="mt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing p-0.5 text-[#C4B89A] hover:text-[#A89878]"
+                                    >
+                                      <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+                                        <circle cx="5" cy="4" r="1.2"/><circle cx="11" cy="4" r="1.2"/>
+                                        <circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/>
+                                        <circle cx="5" cy="12" r="1.2"/><circle cx="11" cy="12" r="1.2"/>
+                                      </svg>
+                                    </div>
+                                    <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1 min-w-0">
+                                      <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+                                        <span>{field.name}</span>
+                                        {field.libraryFieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>}
+                                        {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
+                                        {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
+                                      </div>
+                                      <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
+                                    </button>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
+                                    className="rounded border border-red-200 px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50 hover:border-red-300 flex-shrink-0"
+                                    title="Remove field"
+                                  >✕</button>
+                                </div>
+                              </div>
+                            )}
+                          </SortableItem>
+                        ))}
+                      </div>
+                    </SortableContext>
+                  </DndContext>
                   </div>
-                </SortableContext>
-              </DndContext>
-              </div>
+                </div>
+              )}
             </section>
           </div>
         )
@@ -4562,7 +4766,7 @@ export default function DocuFill() {
         </section>
       )}
 
-      {placementModal && selectedPackage && (() => {
+      {inspectorMode === "modal" && placementModal && selectedPackage && (() => {
         const mapping = selectedPackage.mappings.find((item) => item.id === placementModal.mappingId);
         const field = mapping ? selectedPackage.fields.find((item) => item.id === mapping.fieldId) : undefined;
         const formatOptions = mappingFormatOptionsForField(field);
