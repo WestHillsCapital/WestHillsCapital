@@ -1485,7 +1485,7 @@ router.get("/packages/:id/webhook-deliveries", requireAdminRole, async (req, res
          FROM webhook_deliveries
         WHERE package_id = $1 AND account_id = $2
         ORDER BY created_at DESC
-        LIMIT 50`,
+        LIMIT 20`,
       [id, accountId],
     );
     res.json({ deliveries: rows });

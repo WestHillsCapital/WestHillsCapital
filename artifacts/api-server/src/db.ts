@@ -922,6 +922,11 @@ export async function initDb(): Promise<void> {
       );
     }
   }
+  // Enforce NOT NULL now that all rows are backfilled.
+  await db.query(`
+    ALTER TABLE docufill_packages
+    ALTER COLUMN webhook_secret SET NOT NULL
+  `);
   // Delivery log: one row per HTTP attempt (initial + each retry)
   await db.query(`
     CREATE TABLE IF NOT EXISTS webhook_deliveries (
