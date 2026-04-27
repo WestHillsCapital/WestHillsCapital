@@ -4,6 +4,7 @@ import express, { type Express } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
+import path from "node:path";
 import { clerkMiddleware } from "@clerk/express";
 import router from "./routes";
 import sitemapRouter from "./routes/sitemap";
@@ -180,6 +181,17 @@ app.get("/healthz", (_req, res) => {
 
 // ── Root-level sitemap (must be before /api router) ───────────────────────────
 app.use(sitemapRouter);
+
+// ── Static logo — stable URL for emails and email signatures ──────────────────
+// Served at the root level (not under /api) so the URL is independent of the
+// marketing website and never breaks when the website changes.
+// URL: https://workspaceapi-server-production-987b.up.railway.app/images/logo.png
+app.get("/images/logo.png", (_req, res) => {
+  const logoPath = path.join(__dirname, "../public/images/logo.png");
+  res.setHeader("Content-Type", "image/png");
+  res.setHeader("Cache-Control", "public, max-age=604800, immutable");
+  res.sendFile(logoPath);
+});
 
 // ── API routes ─────────────────────────────────────────────────────────────────
 app.use("/api", router);

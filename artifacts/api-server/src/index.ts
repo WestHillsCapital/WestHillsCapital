@@ -34,6 +34,10 @@ if (Number.isNaN(port) || port <= 0) {
 // server rather than timing out while Postgres schema migrations run.
 const server: Server = app.listen(port, () => {
   logger.info({ port }, "Server listening");
+  logger.info(
+    { logoUrl: "https://workspaceapi-server-production-987b.up.railway.app/images/logo.png" },
+    "[Logo] Stable logo URL — use this in your email client signature",
+  );
 });
 
 // ── 4. Initialise the database ────────────────────────────────────────────────

@@ -6,7 +6,9 @@ const FROM_EMAIL =
   process.env.FROM_EMAIL ?? "West Hills Capital <noreply@westhillscapital.com>";
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL ?? "";
 const SITE_ORIGIN = "https://westhillscapital.com";
-const LOGO_URL = `${SITE_ORIGIN}/images/logo.png`;
+// Logo is served from the API server so the URL stays stable even if the
+// marketing website changes. Update email signatures to use this URL too.
+const LOGO_URL = "https://workspaceapi-server-production-987b.up.railway.app/images/logo.png";
 
 const ALLOCATION_LABELS: Record<string, string> = {
   physical_delivery: "Physical Home/Vault Delivery",
