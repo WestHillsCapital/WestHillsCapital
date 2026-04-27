@@ -2381,7 +2381,21 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
  */
 router.get("/sessions/:token", async (req, res) => {
   try {
-    const session = await getSession(req.params.token, getDb(), acctId(req));
+    const param = req.params.token;
+    let session: Record<string, unknown> | undefined;
+    const numericId = /^\d+$/.test(param) ? Number(param) : null;
+    if (numericId) {
+      // Support lookup by numeric session ID (for Zapier and other integrations)
+      const db = getDb();
+      const { rows } = await db.query<{ token: string }>(
+        `SELECT token FROM docufill_interview_sessions
+          WHERE id = $1 AND account_id = $2 AND expires_at > NOW()`,
+        [numericId, acctId(req)],
+      );
+      if (rows[0]) session = await getSession(rows[0].token, db, acctId(req));
+    } else {
+      session = await getSession(param, getDb(), acctId(req));
+    }
     if (!session) {
       res.status(404).json({ error: "Interview session not found" });
       return;

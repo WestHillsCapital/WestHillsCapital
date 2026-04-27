@@ -3,17 +3,23 @@
 /**
  * Search: Get Session
  *
- * Looks up a Docuplete interview session by its token and returns the
- * current status, answers, and PDF link.
+ * Looks up a Docuplete interview session by its numeric ID or opaque token
+ * and returns the current status, answers, and PDF link.
  *
- * This is a Zapier "Search" action — use it inside a Zap to poll a
- * session's completion status before taking a downstream action.
+ * The backend GET /sessions/:token endpoint accepts both formats:
+ *   - A numeric session ID (e.g. "42") — useful when the session ID comes
+ *     from the "Interview Submitted" trigger output
+ *   - An opaque session token (e.g. "df_abc123") — returned by Create Session
+ *
+ * This is a Zapier "Search" action — use it in a Zap to look up a session's
+ * completion status before taking a downstream action.
  */
 
 function flattenSession(session, baseUrl) {
-  const answers = session.answers && typeof session.answers === "object"
-    ? session.answers
-    : {};
+  const answers =
+    session.answers && typeof session.answers === "object"
+      ? session.answers
+      : {};
 
   const pdfUrl = session.generated_pdf_url
     ? `${baseUrl}${session.generated_pdf_url}`
@@ -38,7 +44,9 @@ function flattenSession(session, baseUrl) {
   };
 
   for (const [key, value] of Object.entries(answers)) {
-    flat[`answer__${key}`] = Array.isArray(value) ? value.join(", ") : String(value ?? "");
+    flat[`answer__${key}`] = Array.isArray(value)
+      ? value.join(", ")
+      : String(value ?? "");
   }
 
   return flat;
@@ -51,18 +59,19 @@ const getSessionSearch = {
   display: {
     label: "Get Session",
     description:
-      "Finds a Docuplete interview session by its token and returns its " +
+      "Finds a Docuplete interview session by its ID or token and returns its " +
       "current status, answers, and a link to the generated PDF.",
   },
 
   operation: {
     inputFields: [
       {
-        key: "token",
-        label: "Session Token",
+        key: "sessionId",
+        label: "Session ID or Token",
         helpText:
-          "The session token returned when the session was created (e.g. `df_abc123`). " +
-          "Use the output of the **Create Interview Session** action here.",
+          "The numeric session ID (e.g. `42`) or opaque token (e.g. `df_abc123`). " +
+          "Use the **Session ID** output from the **Interview Submitted** trigger, " +
+          "or the **Session Token** output from the **Create Interview Session** action.",
         type: "string",
         required: true,
       },
@@ -70,10 +79,10 @@ const getSessionSearch = {
 
     perform: async (z, bundle) => {
       const { baseUrl, apiKey } = bundle.authData;
-      const { token } = bundle.inputData;
+      const { sessionId } = bundle.inputData;
 
       const response = await z.request({
-        url: `${baseUrl}/api/v1/product/docufill/sessions/${encodeURIComponent(token)}`,
+        url: `${baseUrl}/api/v1/product/docufill/sessions/${encodeURIComponent(sessionId)}`,
         method: "GET",
         headers: { Authorization: `Bearer ${apiKey}` },
       });
@@ -95,8 +104,10 @@ const getSessionSearch = {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
-      pdf_url: "https://app.docuplete.com/api/internal/docufill/sessions/df_example456/packet.pdf",
-      session_url: "https://app.docuplete.com/internal/docufill?session=df_example456",
+      pdf_url:
+        "https://app.docuplete.com/api/internal/docufill/sessions/df_example456/packet.pdf",
+      session_url:
+        "https://app.docuplete.com/internal/docufill?session=df_example456",
       "answer__client_name": "Jane Smith",
       "answer__client_email": "jane@example.com",
     },

@@ -6,25 +6,26 @@
  * Fires whenever a Docuplete interview session reaches "generated" status
  * (i.e. the client completed the form and documents were generated).
  *
- * Zapier polls this every 1–15 minutes and deduplicates by `id`, so each
- * session only triggers a Zap once regardless of how often we poll.
+ * Uses z.cursor to persist an ISO-8601 updatedAfter timestamp between polls so
+ * only new completions are returned on each cycle, avoiding duplicate triggers
+ * on high-volume accounts. Zapier still deduplicates by `id` as a safety net.
  *
- * The trigger accepts an optional `packageId` input so users can limit
- * the trigger to a specific interview package.
+ * On first run (no cursor) all generated sessions are returned so Zapier can
+ * seed its deduplication log.
  */
 
 /** Flatten a session row into a Zapier-friendly object (no nested objects). */
 function flattenSession(session, baseUrl) {
-  const answers = session.answers && typeof session.answers === "object"
-    ? session.answers
-    : {};
-  const prefill = session.prefill && typeof session.prefill === "object"
-    ? session.prefill
-    : {};
+  const answers =
+    session.answers && typeof session.answers === "object"
+      ? session.answers
+      : {};
+  const prefill =
+    session.prefill && typeof session.prefill === "object"
+      ? session.prefill
+      : {};
 
-  const sessionUrl =
-    `${baseUrl}/internal/docufill?session=${session.token}`;
-
+  const sessionUrl = `${baseUrl}/internal/docufill?session=${session.token}`;
   const pdfUrl = session.generated_pdf_url
     ? `${baseUrl}${session.generated_pdf_url}`
     : null;
@@ -46,12 +47,14 @@ function flattenSession(session, baseUrl) {
   };
 }
 
-/** Prefix each key with a namespace so answers and prefill don't collide. */
+/** Prefix each key so answers and prefill don't collide. */
 function flattenAnswers(obj, prefix) {
   const result = {};
   for (const [key, value] of Object.entries(obj)) {
     const safeKey = `${prefix}__${key}`;
-    result[safeKey] = Array.isArray(value) ? value.join(", ") : String(value ?? "");
+    result[safeKey] = Array.isArray(value)
+      ? value.join(", ")
+      : String(value ?? "");
   }
   return result;
 }
@@ -71,6 +74,8 @@ const sessionSubmittedTrigger = {
 
   operation: {
     type: "polling",
+
+    canPaginate: false,
 
     inputFields: [
       {
@@ -92,14 +97,17 @@ const sessionSubmittedTrigger = {
 
       const params = new URLSearchParams();
       params.set("status", "generated");
-      params.set("limit", "25");
+      params.set("limit", "100");
       if (packageId) params.set("packageId", String(packageId));
 
-      if (bundle.meta.isLoadingSample) {
-        params.delete("updatedAfter");
-      } else if (bundle.meta.page > 0) {
-        const cursor = bundle.meta.zap?.trigger?.lastPollData?.cursor;
-        if (cursor) params.set("updatedAfter", cursor);
+      if (!bundle.meta.isLoadingSample) {
+        // Retrieve the last-seen cursor (ISO-8601 updatedAt of the most-recent
+        // session returned in the previous poll). Only fetch sessions newer
+        // than that timestamp to avoid re-triggering on already-seen sessions.
+        const cursor = await z.cursor.get();
+        if (cursor) {
+          params.set("updatedAfter", cursor);
+        }
       }
 
       const response = await z.request({
@@ -110,6 +118,16 @@ const sessionSubmittedTrigger = {
 
       const data = response.data;
       const sessions = Array.isArray(data.sessions) ? data.sessions : [];
+
+      if (sessions.length > 0 && !bundle.meta.isLoadingSample) {
+        // Persist the updated_at of the most-recently-updated session.
+        // Sessions are returned newest-first so sessions[0] has the latest timestamp.
+        const latestUpdatedAt = sessions[0].updated_at;
+        if (latestUpdatedAt) {
+          await z.cursor.set(latestUpdatedAt);
+        }
+      }
+
       return sessions.map((s) => flattenSession(s, baseUrl));
     },
 
@@ -123,8 +141,10 @@ const sessionSubmittedTrigger = {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       expires_at: new Date(Date.now() + 90 * 24 * 3600 * 1000).toISOString(),
-      session_url: "https://app.docuplete.com/internal/docufill?session=df_example123",
-      pdf_url: "https://app.docuplete.com/api/internal/docufill/sessions/df_example123/packet.pdf",
+      session_url:
+        "https://app.docuplete.com/internal/docufill?session=df_example123",
+      pdf_url:
+        "https://app.docuplete.com/api/internal/docufill/sessions/df_example123/packet.pdf",
       "answer__client_name": "Jane Smith",
       "answer__client_email": "jane@example.com",
       "prefill__firstName": "Jane",
