@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 
 const GA_ID = "G-T4W23SEQCN";
-const STORAGE_KEY = "whc_cookie_consent";
+const COOKIE_NAME = "whc_cookie_consent";
+const COOKIE_MAX_AGE = 365 * 24 * 60 * 60; // 1 year in seconds
 
 type ConsentValue = "granted" | "denied";
 
@@ -14,11 +15,19 @@ declare global {
 
 function getStoredConsent(): ConsentValue | null {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored === "granted" || stored === "denied") return stored;
+    const match = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith(`${COOKIE_NAME}=`));
+    if (!match) return null;
+    const value = match.split("=")[1];
+    if (value === "granted" || value === "denied") return value;
   } catch {
   }
   return null;
+}
+
+function setStoredConsent(value: ConsentValue): void {
+  document.cookie = `${COOKIE_NAME}=${value}; max-age=${COOKIE_MAX_AGE}; path=/; SameSite=Lax`;
 }
 
 function loadGoogleAnalytics() {
@@ -51,13 +60,13 @@ export function CookieConsentBanner() {
   }, []);
 
   function handleAccept() {
-    localStorage.setItem(STORAGE_KEY, "granted");
+    setStoredConsent("granted");
     loadGoogleAnalytics();
     setVisible(false);
   }
 
   function handleDecline() {
-    localStorage.setItem(STORAGE_KEY, "denied");
+    setStoredConsent("denied");
     setVisible(false);
   }
 
