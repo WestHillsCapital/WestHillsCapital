@@ -2211,6 +2211,7 @@ router.get("/sessions", async (req, res) => {
  *               prefill:
  *                 type: object
  *                 additionalProperties: true
+ *                 description: Initial field values to pre-populate in the interview form
  *     responses:
  *       201:
  *         description: Session created
@@ -2218,11 +2219,21 @@ router.get("/sessions", async (req, res) => {
  *           application/json:
  *             schema:
  *               type: object
+ *               required:
+ *                 - session
+ *                 - token
+ *                 - interviewUrl
  *               properties:
  *                 session:
  *                   $ref: '#/components/schemas/DocuFillSession'
  *                 token:
  *                   type: string
+ *                   description: Bearer token passed to the public interview form
+ *                 interviewUrl:
+ *                   type: string
+ *                   format: uri
+ *                   description: Full URL to the public-facing interview form for this session
+ *                   example: https://app.docuplete.com/docufill/public/df_abc123
  *       400:
  *         description: Invalid packageId or package not active
  *         content:

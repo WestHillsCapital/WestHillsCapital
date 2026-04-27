@@ -793,6 +793,7 @@ export interface paths {
                         depositoryId?: number | null;
                         transactionScope?: string | null;
                         source?: string;
+                        /** @description Initial field values to pre-populate in the interview form */
                         prefill?: {
                             [key: string]: unknown;
                         };
@@ -807,8 +808,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            session?: components["schemas"]["DocuFillSession"];
-                            token?: string;
+                            session: components["schemas"]["DocuFillSession"];
+                            /** @description Bearer token passed to the public interview form */
+                            token: string;
+                            /**
+                             * Format: uri
+                             * @description Full URL to the public-facing interview form for this session
+                             * @example https://app.docuplete.com/docufill/public/df_abc123
+                             */
+                            interviewUrl: string;
                         };
                     };
                 };

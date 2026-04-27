@@ -22,7 +22,6 @@ export class SessionsResource {
   async create(params: CreateSessionParams): Promise<CreateSessionResult> {
     const body: Record<string, unknown> = { packageId: params.packageId };
     if (params.prefill)          body.prefill = params.prefill;
-    if (params.recipientEmail)   body.recipientEmail = params.recipientEmail;
     if (params.transactionScope) body.transactionScope = params.transactionScope;
     if (params.source)           body.source = params.source;
 

@@ -29,7 +29,6 @@ export type Account = components["schemas"]["AccountInfo"];
 export interface CreateSessionParams {
   packageId: number;
   prefill?: Record<string, unknown>;
-  recipientEmail?: string;
   transactionScope?: string;
   source?: string;
 }
