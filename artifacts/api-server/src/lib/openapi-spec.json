@@ -62,6 +62,178 @@
           }
         }
       },
+      "DocuFillPackage": {
+        "type": "object",
+        "description": "A Docuplete package — a reusable interview template that defines the documents, fields, and configuration for a document workflow.",
+        "required": [
+          "id",
+          "name",
+          "active",
+          "created_at",
+          "updated_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "example": 7
+          },
+          "account_id": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string",
+            "example": "IRA Rollover Packet"
+          },
+          "active": {
+            "type": "boolean",
+            "description": "Only active packages can have sessions created against them."
+          },
+          "description": {
+            "type": "string",
+            "nullable": true
+          },
+          "transaction_scope": {
+            "type": "string",
+            "nullable": true,
+            "example": "IRA"
+          },
+          "custodian_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "custodian_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "depository_id": {
+            "type": "integer",
+            "nullable": true
+          },
+          "depository_name": {
+            "type": "string",
+            "nullable": true
+          },
+          "webhook_url": {
+            "type": "string",
+            "nullable": true,
+            "format": "uri"
+          },
+          "recipient_email": {
+            "type": "string",
+            "nullable": true,
+            "format": "email"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "documents": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DocuFillSessionListItem": {
+        "type": "object",
+        "description": "A lightweight session summary returned by the session list endpoint.",
+        "required": [
+          "id",
+          "token",
+          "package_id",
+          "package_name",
+          "status",
+          "created_at",
+          "updated_at",
+          "expires_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer"
+          },
+          "token": {
+            "type": "string",
+            "example": "df_abc123"
+          },
+          "package_id": {
+            "type": "integer"
+          },
+          "package_name": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "in_progress",
+              "generated"
+            ]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "AccountInfo": {
+        "type": "object",
+        "description": "Account and user information returned by the `/product/auth/me` endpoint.",
+        "required": [
+          "accountId",
+          "accountName",
+          "slug",
+          "role"
+        ],
+        "properties": {
+          "accountId": {
+            "type": "integer",
+            "description": "Numeric account ID."
+          },
+          "accountName": {
+            "type": "string",
+            "example": "Acme Capital",
+            "description": "Display name of the account."
+          },
+          "slug": {
+            "type": "string",
+            "example": "acme-capital",
+            "description": "URL-safe account slug."
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "nullable": true,
+            "description": "Email of the authenticated user. `null` when authenticated via API key."
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "admin",
+              "member"
+            ],
+            "description": "Role of the authenticated user within the account."
+          }
+        }
+      },
       "DocuFillSession": {
         "type": "object",
         "properties": {
@@ -895,6 +1067,343 @@
         }
       }
     },
+    "/product/docufill/packages": {
+      "get": {
+        "tags": [
+          "Product Portal — Docuplete Packages"
+        ],
+        "summary": "List packages",
+        "description": "Returns all Docuplete packages configured for the authenticated account, ordered by most-recently updated first.",
+        "security": [
+          {
+            "productAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of packages",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "packages"
+                  ],
+                  "properties": {
+                    "packages": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DocuFillPackage"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/product/docufill/packages/{id}": {
+      "get": {
+        "tags": [
+          "Product Portal — Docuplete Packages"
+        ],
+        "summary": "Get a package",
+        "description": "Returns a single Docuplete package by its numeric ID. The package must belong to the authenticated account.",
+        "security": [
+          {
+            "productAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Numeric package ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Package found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "package"
+                  ],
+                  "properties": {
+                    "package": {
+                      "$ref": "#/components/schemas/DocuFillPackage"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Package not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/product/docufill/sessions": {
+      "get": {
+        "tags": [
+          "Product Portal — Docuplete Sessions"
+        ],
+        "summary": "List sessions",
+        "description": "Returns a paginated list of interview sessions for the authenticated account.\nFilter by package, status, or both. Results are ordered newest-first.\n\nWhen `dealId` is supplied instead, returns the single most-recent session\nfor that deal (legacy behavior used by the internal portal).\n",
+        "security": [
+          {
+            "productAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "packageId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Filter sessions to a specific package ID"
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "draft",
+                "in_progress",
+                "generated"
+              ]
+            },
+            "description": "Filter sessions by status"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "maximum": 200
+            },
+            "description": "Maximum number of sessions to return"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            },
+            "description": "Number of sessions to skip (for pagination)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated session list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "sessions",
+                    "total"
+                  ],
+                  "properties": {
+                    "sessions": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/DocuFillSessionListItem"
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of sessions matching the filters (before pagination)"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status value",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Product Portal — Docuplete Sessions"
+        ],
+        "summary": "Create an interview session",
+        "description": "Creates a new Docuplete interview session for the specified package.\nReturns the session record and a bearer token used to load and submit\nthe public-facing interview form. Sessions expire after **90 days**.\n",
+        "security": [
+          {
+            "productAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "packageId"
+                ],
+                "properties": {
+                  "packageId": {
+                    "type": "integer",
+                    "description": "ID of an active Docuplete package",
+                    "example": 7
+                  },
+                  "dealId": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "custodianId": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "depositoryId": {
+                    "type": "integer",
+                    "nullable": true
+                  },
+                  "transactionScope": {
+                    "type": "string",
+                    "nullable": true
+                  },
+                  "source": {
+                    "type": "string"
+                  },
+                  "prefill": {
+                    "type": "object",
+                    "additionalProperties": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Session created",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "session": {
+                      "$ref": "#/components/schemas/DocuFillSession"
+                    },
+                    "token": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid packageId or package not active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Package not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/internal/docufill/sessions": {
       "post": {
         "tags": [
@@ -1015,13 +1524,13 @@
         }
       }
     },
-    "/product/docufill/sessions": {
-      "post": {
+    "/product/docufill/sessions/{token}": {
+      "get": {
         "tags": [
           "Product Portal — Docuplete Sessions"
         ],
-        "summary": "Create an interview session",
-        "description": "Creates a new Docuplete interview session for the specified package.\nReturns the session record and a bearer token used to load and submit\nthe public-facing interview form. Sessions expire after **90 days**.\n",
+        "summary": "Get a session",
+        "description": "Returns the full interview session by its opaque token. Includes answers, fields, documents, prefill data, and package metadata.",
         "security": [
           {
             "productAuth": []
@@ -1030,74 +1539,32 @@
             "apiKeyAuth": []
           }
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "packageId"
-                ],
-                "properties": {
-                  "packageId": {
-                    "type": "integer",
-                    "description": "ID of an active Docuplete package",
-                    "example": 7
-                  },
-                  "dealId": {
-                    "type": "integer",
-                    "nullable": true
-                  },
-                  "custodianId": {
-                    "type": "integer",
-                    "nullable": true
-                  },
-                  "depositoryId": {
-                    "type": "integer",
-                    "nullable": true
-                  },
-                  "transactionScope": {
-                    "type": "string",
-                    "nullable": true
-                  },
-                  "source": {
-                    "type": "string"
-                  },
-                  "prefill": {
-                    "type": "object",
-                    "additionalProperties": true
-                  }
-                }
-              }
-            }
+        "parameters": [
+          {
+            "name": "token",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Opaque session token (e.g. `df_abc123`) returned when the session was created"
           }
-        },
+        ],
         "responses": {
-          "201": {
-            "description": "Session created",
+          "200": {
+            "description": "Session data",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
+                  "required": [
+                    "session"
+                  ],
                   "properties": {
                     "session": {
                       "$ref": "#/components/schemas/DocuFillSession"
-                    },
-                    "token": {
-                      "type": "string"
                     }
                   }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid packageId or package not active",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
@@ -1113,7 +1580,7 @@
             }
           },
           "404": {
-            "description": "Package not found",
+            "description": "Session not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -1553,6 +2020,55 @@
           },
           "404": {
             "description": "Deal not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/product/auth/me": {
+      "get": {
+        "tags": [
+          "Product Portal — Auth"
+        ],
+        "summary": "Get current account",
+        "description": "Returns account and user information for the authenticated session.\nAccepts both Clerk JWTs and API keys (`sk_live_...`).\n\nWhen authenticated via API key, `email` is `null` (keys are account-scoped,\nnot user-scoped) and `role` is `\"member\"`.\n",
+        "security": [
+          {
+            "productAuth": []
+          },
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Account info",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountInfo"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid credentials",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Account not found",
             "content": {
               "application/json": {
                 "schema": {

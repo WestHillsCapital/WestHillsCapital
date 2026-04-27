@@ -588,6 +588,265 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/product/docufill/packages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List packages
+         * @description Returns all Docuplete packages configured for the authenticated account, ordered by most-recently updated first.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of packages */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            packages: components["schemas"]["DocuFillPackage"][];
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product/docufill/packages/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a package
+         * @description Returns a single Docuplete package by its numeric ID. The package must belong to the authenticated account.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Numeric package ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Package found */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            package: components["schemas"]["DocuFillPackage"];
+                        };
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Package not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/product/docufill/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List sessions
+         * @description Returns a paginated list of interview sessions for the authenticated account.
+         *     Filter by package, status, or both. Results are ordered newest-first.
+         *
+         *     When `dealId` is supplied instead, returns the single most-recent session
+         *     for that deal (legacy behavior used by the internal portal).
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter sessions to a specific package ID */
+                    packageId?: number;
+                    /** @description Filter sessions by status */
+                    status?: "draft" | "in_progress" | "generated";
+                    /** @description Maximum number of sessions to return */
+                    limit?: number;
+                    /** @description Number of sessions to skip (for pagination) */
+                    offset?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated session list */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            sessions: components["schemas"]["DocuFillSessionListItem"][];
+                            /** @description Total number of sessions matching the filters (before pagination) */
+                            total: number;
+                        };
+                    };
+                };
+                /** @description Invalid status value */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create an interview session
+         * @description Creates a new Docuplete interview session for the specified package.
+         *     Returns the session record and a bearer token used to load and submit
+         *     the public-facing interview form. Sessions expire after **90 days**.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * @description ID of an active Docuplete package
+                         * @example 7
+                         */
+                        packageId: number;
+                        dealId?: number | null;
+                        custodianId?: number | null;
+                        depositoryId?: number | null;
+                        transactionScope?: string | null;
+                        source?: string;
+                        prefill?: {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+            responses: {
+                /** @description Session created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            session?: components["schemas"]["DocuFillSession"];
+                            token?: string;
+                        };
+                    };
+                };
+                /** @description Invalid packageId or package not active */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Unauthorized */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Package not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/internal/docufill/sessions": {
         parameters: {
             query?: never;
@@ -695,67 +954,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/product/docufill/sessions": {
+    "/product/docufill/sessions/{token}": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
         /**
-         * Create an interview session
-         * @description Creates a new Docuplete interview session for the specified package.
-         *     Returns the session record and a bearer token used to load and submit
-         *     the public-facing interview form. Sessions expire after **90 days**.
+         * Get a session
+         * @description Returns the full interview session by its opaque token. Includes answers, fields, documents, prefill data, and package metadata.
          */
-        post: {
+        get: {
             parameters: {
                 query?: never;
                 header?: never;
-                path?: never;
+                path: {
+                    /** @description Opaque session token (e.g. `df_abc123`) returned when the session was created */
+                    token: string;
+                };
                 cookie?: never;
             };
-            requestBody: {
-                content: {
-                    "application/json": {
-                        /**
-                         * @description ID of an active Docuplete package
-                         * @example 7
-                         */
-                        packageId: number;
-                        dealId?: number | null;
-                        custodianId?: number | null;
-                        depositoryId?: number | null;
-                        transactionScope?: string | null;
-                        source?: string;
-                        prefill?: {
-                            [key: string]: unknown;
-                        };
-                    };
-                };
-            };
+            requestBody?: never;
             responses: {
-                /** @description Session created */
-                201: {
+                /** @description Session data */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
                         "application/json": {
-                            session?: components["schemas"]["DocuFillSession"];
-                            token?: string;
+                            session: components["schemas"]["DocuFillSession"];
                         };
-                    };
-                };
-                /** @description Invalid packageId or package not active */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Error"];
                     };
                 };
                 /** @description Unauthorized */
@@ -767,7 +997,7 @@ export interface paths {
                         "application/json": components["schemas"]["Error"];
                     };
                 };
-                /** @description Package not found */
+                /** @description Session not found */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -778,6 +1008,8 @@ export interface paths {
                 };
             };
         };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1205,6 +1437,67 @@ export interface paths {
         };
         trace?: never;
     };
+    "/product/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current account
+         * @description Returns account and user information for the authenticated session.
+         *     Accepts both Clerk JWTs and API keys (`sk_live_...`).
+         *
+         *     When authenticated via API key, `email` is `null` (keys are account-scoped,
+         *     not user-scoped) and `role` is `"member"`.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Account info */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AccountInfo"];
+                    };
+                };
+                /** @description Missing or invalid credentials */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+                /** @description Account not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Error"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/product/auth/api-keys": {
         parameters: {
             query?: never;
@@ -1419,6 +1712,74 @@ export interface components {
              * @example #C49A38
              */
             brand_color?: string;
+        };
+        /** @description A Docuplete package — a reusable interview template that defines the documents, fields, and configuration for a document workflow. */
+        DocuFillPackage: {
+            /** @example 7 */
+            id: number;
+            account_id?: number;
+            /** @example IRA Rollover Packet */
+            name: string;
+            /** @description Only active packages can have sessions created against them. */
+            active: boolean;
+            description?: string | null;
+            /** @example IRA */
+            transaction_scope?: string | null;
+            custodian_id?: number | null;
+            custodian_name?: string | null;
+            depository_id?: number | null;
+            depository_name?: string | null;
+            /** Format: uri */
+            webhook_url?: string | null;
+            /** Format: email */
+            recipient_email?: string | null;
+            fields?: Record<string, never>[];
+            documents?: Record<string, never>[];
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        /** @description A lightweight session summary returned by the session list endpoint. */
+        DocuFillSessionListItem: {
+            id: number;
+            /** @example df_abc123 */
+            token: string;
+            package_id: number;
+            package_name: string;
+            /** @enum {string} */
+            status: "draft" | "in_progress" | "generated";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        /** @description Account and user information returned by the `/product/auth/me` endpoint. */
+        AccountInfo: {
+            /** @description Numeric account ID. */
+            accountId: number;
+            /**
+             * @description Display name of the account.
+             * @example Acme Capital
+             */
+            accountName: string;
+            /**
+             * @description URL-safe account slug.
+             * @example acme-capital
+             */
+            slug: string;
+            /**
+             * Format: email
+             * @description Email of the authenticated user. `null` when authenticated via API key.
+             */
+            email?: string | null;
+            /**
+             * @description Role of the authenticated user within the account.
+             * @enum {string}
+             */
+            role: "admin" | "member";
         };
         DocuFillSession: {
             id?: number;

@@ -14,12 +14,13 @@ export class AccountResource {
 
   async get(): Promise<Account> {
     const res = await this.client.get<GetMeResponse>("/product/auth/me");
+    const role = (res.role === "admin" || res.role === "member") ? res.role : "member" as const;
     return {
       accountId:   res.accountId,
       accountName: res.accountName,
       slug:        res.slug,
       email:       res.email,
-      role:        res.role,
+      role,
     };
   }
 }

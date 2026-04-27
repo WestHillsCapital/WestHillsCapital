@@ -95,10 +95,40 @@ router.post("/onboard", async (req, res) => {
 });
 
 /**
- * GET /api/product/auth/me
+ * @openapi
+ * /product/auth/me:
+ *   get:
+ *     tags:
+ *       - Product Portal — Auth
+ *     summary: Get current account
+ *     description: |
+ *       Returns account and user information for the authenticated session.
+ *       Accepts both Clerk JWTs and API keys (`sk_live_...`).
  *
- * Returns the current user's account info.
- * Used by the frontend to detect first-login and redirect accordingly.
+ *       When authenticated via API key, `email` is `null` (keys are account-scoped,
+ *       not user-scoped) and `role` is `"member"`.
+ *     security:
+ *       - productAuth: []
+ *       - apiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: Account info
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AccountInfo'
+ *       401:
+ *         description: Missing or invalid credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Account not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get("/me", requireProductAuth, async (req, res) => {
   // requireProductAuth handles both Clerk JWT and API key (sk_live_...) auth.

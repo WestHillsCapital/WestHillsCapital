@@ -1313,6 +1313,37 @@ router.patch("/depositories/:id", requireAdminRole, async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /product/docufill/packages:
+ *   get:
+ *     tags:
+ *       - Product Portal — Docuplete Packages
+ *     summary: List packages
+ *     description: Returns all Docuplete packages configured for the authenticated account, ordered by most-recently updated first.
+ *     security:
+ *       - productAuth: []
+ *       - apiKeyAuth: []
+ *     responses:
+ *       200:
+ *         description: List of packages
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [packages]
+ *               properties:
+ *                 packages:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/DocuFillPackage'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // ── SDK: list packages ────────────────────────────────────────────────────────
 router.get("/packages", requireMemberRole, async (req, res) => {
   try {
@@ -1334,6 +1365,48 @@ router.get("/packages", requireMemberRole, async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /product/docufill/packages/{id}:
+ *   get:
+ *     tags:
+ *       - Product Portal — Docuplete Packages
+ *     summary: Get a package
+ *     description: Returns a single Docuplete package by its numeric ID. The package must belong to the authenticated account.
+ *     security:
+ *       - productAuth: []
+ *       - apiKeyAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Numeric package ID
+ *     responses:
+ *       200:
+ *         description: Package found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [package]
+ *               properties:
+ *                 package:
+ *                   $ref: '#/components/schemas/DocuFillPackage'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Package not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 // ── SDK: get single package ───────────────────────────────────────────────────
 router.get("/packages/:id", requireMemberRole, async (req, res) => {
   try {
@@ -1853,6 +1926,80 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /product/docufill/sessions:
+ *   get:
+ *     tags:
+ *       - Product Portal — Docuplete Sessions
+ *     summary: List sessions
+ *     description: |
+ *       Returns a paginated list of interview sessions for the authenticated account.
+ *       Filter by package, status, or both. Results are ordered newest-first.
+ *
+ *       When `dealId` is supplied instead, returns the single most-recent session
+ *       for that deal (legacy behavior used by the internal portal).
+ *     security:
+ *       - productAuth: []
+ *       - apiKeyAuth: []
+ *     parameters:
+ *       - name: packageId
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: integer
+ *         description: Filter sessions to a specific package ID
+ *       - name: status
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [draft, in_progress, generated]
+ *         description: Filter sessions by status
+ *       - name: limit
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 50
+ *           maximum: 200
+ *         description: Maximum number of sessions to return
+ *       - name: offset
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           default: 0
+ *         description: Number of sessions to skip (for pagination)
+ *     responses:
+ *       200:
+ *         description: Paginated session list
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [sessions, total]
+ *               properties:
+ *                 sessions:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/DocuFillSessionListItem'
+ *                 total:
+ *                   type: integer
+ *                   description: Total number of sessions matching the filters (before pagination)
+ *       400:
+ *         description: Invalid status value
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get("/sessions", async (req, res) => {
   try {
     const dealId = req.query.dealId ? Number(req.query.dealId) : null;
@@ -2157,6 +2304,48 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
   }
 });
 
+/**
+ * @openapi
+ * /product/docufill/sessions/{token}:
+ *   get:
+ *     tags:
+ *       - Product Portal — Docuplete Sessions
+ *     summary: Get a session
+ *     description: Returns the full interview session by its opaque token. Includes answers, fields, documents, prefill data, and package metadata.
+ *     security:
+ *       - productAuth: []
+ *       - apiKeyAuth: []
+ *     parameters:
+ *       - name: token
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Opaque session token (e.g. `df_abc123`) returned when the session was created
+ *     responses:
+ *       200:
+ *         description: Session data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [session]
+ *               properties:
+ *                 session:
+ *                   $ref: '#/components/schemas/DocuFillSession'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Session not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get("/sessions/:token", async (req, res) => {
   try {
     const session = await getSession(req.params.token, getDb(), acctId(req));

@@ -143,7 +143,7 @@ Returns the account and user associated with the API key.
 
 ```ts
 const account = await client.account.get();
-// { account_id, account_name, slug, email, role }
+// { accountId, accountName, slug, email, role }
 ```
 
 ---
