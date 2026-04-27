@@ -1099,7 +1099,7 @@ router.delete("/transaction-types/:scope", requireAdminRole, async (req, res) =>
   }
 });
 
-router.post("/custodians", async (req, res) => {
+router.post("/custodians", requireAdminRole, async (req, res) => {
   try {
     const body = req.body as EntityInput;
     const name = cleanText(body.name);
@@ -1122,7 +1122,7 @@ router.post("/custodians", async (req, res) => {
   }
 });
 
-router.patch("/custodians/:id", async (req, res) => {
+router.patch("/custodians/:id", requireAdminRole, async (req, res) => {
   try {
     const id = parseId(req.params.id);
     if (!id) {
@@ -1156,7 +1156,7 @@ router.patch("/custodians/:id", async (req, res) => {
   }
 });
 
-router.post("/depositories", async (req, res) => {
+router.post("/depositories", requireAdminRole, async (req, res) => {
   try {
     const body = req.body as EntityInput;
     const name = cleanText(body.name);
@@ -1179,7 +1179,7 @@ router.post("/depositories", async (req, res) => {
   }
 });
 
-router.patch("/depositories/:id", async (req, res) => {
+router.patch("/depositories/:id", requireAdminRole, async (req, res) => {
   try {
     const id = parseId(req.params.id);
     if (!id) {
@@ -1253,7 +1253,7 @@ router.post("/packages", requireAdminRole, async (req, res) => {
   }
 });
 
-router.patch("/packages/:id", async (req, res) => {
+router.patch("/packages/:id", requireAdminRole, async (req, res) => {
   try {
     const id = parseId(req.params.id);
     if (!id) {
@@ -1343,7 +1343,7 @@ router.patch("/packages/:id", async (req, res) => {
   }
 });
 
-router.post("/packages/:id/test-webhook", async (req, res) => {
+router.post("/packages/:id/test-webhook", requireAdminRole, async (req, res) => {
   try {
     const id = parseId(req.params.id);
     if (!id) {
@@ -1419,7 +1419,7 @@ router.delete("/packages/:id", requireAdminRole, async (req, res) => {
   }
 });
 
-router.post("/packages/:id/documents", async (req, res) => {
+router.post("/packages/:id/documents", requireAdminRole, async (req, res) => {
   try {
     const packageId = parseId(req.params.id);
     if (!packageId) {
@@ -1445,7 +1445,7 @@ router.post("/packages/:id/documents", async (req, res) => {
   }
 });
 
-router.put("/packages/:id/documents/:documentId/pdf", async (req, res) => {
+router.put("/packages/:id/documents/:documentId/pdf", requireAdminRole, async (req, res) => {
   try {
     const packageId = parseId(req.params.id);
     if (!packageId) {
@@ -1515,7 +1515,7 @@ router.get("/packages/:id/documents/:documentId.pdf", async (req, res) => {
   }
 });
 
-router.delete("/packages/:id/documents/:documentId", async (req, res) => {
+router.delete("/packages/:id/documents/:documentId", requireAdminRole, async (req, res) => {
   try {
     const packageId = parseId(req.params.id);
     if (!packageId) {
@@ -1971,7 +1971,7 @@ router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
 });
 
 // ── Task #194: Send interview link by email ───────────────────────────────────
-router.post("/sessions/:token/send-link", async (req, res) => {
+router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) => {
   try {
     const db = getDb();
     const session = await getSession(req.params.token, db, acctId(req));
