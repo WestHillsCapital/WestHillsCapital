@@ -1313,6 +1313,47 @@ router.patch("/depositories/:id", requireAdminRole, async (req, res) => {
   }
 });
 
+// ── SDK: list packages ────────────────────────────────────────────────────────
+router.get("/packages", requireMemberRole, async (req, res) => {
+  try {
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT p.*, c.name AS custodian_name, d.name AS depository_name
+         FROM docufill_packages p
+         LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
+         LEFT JOIN docufill_depositories d ON d.id = p.depository_id
+        WHERE p.account_id = $1
+        ORDER BY p.updated_at DESC, p.name ASC`,
+      [acctId(req)],
+    );
+    const hydrated = await hydratePackages(rows as PackageRow[], db);
+    res.json({ packages: hydrated.map(sanitizePackageForClient) });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to list packages");
+    res.status(500).json({ error: "Failed to list packages" });
+  }
+});
+
+// ── SDK: get single package ───────────────────────────────────────────────────
+router.get("/packages/:id", requireMemberRole, async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) {
+      res.status(400).json({ error: "Invalid package id" });
+      return;
+    }
+    const pkg = await getPackage(id, getDb(), true, acctId(req));
+    if (!pkg) {
+      res.status(404).json({ error: "Package not found" });
+      return;
+    }
+    res.json({ package: sanitizePackageForClient(pkg) });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to get package");
+    res.status(500).json({ error: "Failed to get package" });
+  }
+});
+
 router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), async (req, res) => {
   try {
     const body = req.body as PackageInput;
@@ -1815,33 +1856,81 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
 router.get("/sessions", async (req, res) => {
   try {
     const dealId = req.query.dealId ? Number(req.query.dealId) : null;
-    if (!dealId || isNaN(dealId)) {
-      res.status(400).json({ error: "dealId query param is required" });
+
+    // Legacy single-session lookup by dealId (internal/frontend use)
+    if (dealId && !isNaN(dealId)) {
+      const db = getDb();
+      const { rows } = await db.query(
+        `SELECT s.token
+           FROM docufill_interview_sessions s
+          WHERE s.deal_id = $1
+            AND s.account_id = $2
+          ORDER BY s.created_at DESC
+          LIMIT 1`,
+        [dealId, acctId(req)],
+      );
+      if (!rows[0]) {
+        res.status(404).json({ error: "No session found for this deal" });
+        return;
+      }
+      const session = await getSession(String(rows[0].token), db, acctId(req));
+      if (!session) {
+        res.status(404).json({ error: "Session record not found" });
+        return;
+      }
+      res.json({ session, token: String(rows[0].token) });
       return;
     }
+
+    // SDK: list sessions with optional packageId / status / pagination filters
+    const packageId = req.query.packageId ? Number(req.query.packageId) : null;
+    const status    = typeof req.query.status === "string" ? req.query.status : null;
+    const limit     = Math.min(Math.max(Number(req.query.limit ?? 50), 1), 200);
+    const offset    = Math.max(Number(req.query.offset ?? 0), 0);
+
+    const validStatuses = ["draft", "in_progress", "generated"];
+    if (status && !validStatuses.includes(status)) {
+      res.status(400).json({ error: `status must be one of: ${validStatuses.join(", ")}` });
+      return;
+    }
+
     const db = getDb();
-    const { rows } = await db.query(
-      `SELECT s.token
-         FROM docufill_interview_sessions s
-        WHERE s.deal_id = $1
-          AND s.account_id = $2
-        ORDER BY s.created_at DESC
-        LIMIT 1`,
-      [dealId, acctId(req)],
+    const params: (number | string | null)[] = [acctId(req)];
+    const conditions: string[] = ["s.account_id = $1"];
+
+    if (packageId) {
+      params.push(packageId);
+      conditions.push(`s.package_id = $${params.length}`);
+    }
+    if (status) {
+      params.push(status);
+      conditions.push(`s.status = $${params.length}`);
+    }
+
+    const where = conditions.join(" AND ");
+
+    const countRes = await db.query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM docufill_interview_sessions s WHERE ${where}`,
+      params,
     );
-    if (!rows[0]) {
-      res.status(404).json({ error: "No session found for this deal" });
-      return;
-    }
-    const session = await getSession(String(rows[0].token), db, acctId(req));
-    if (!session) {
-      res.status(404).json({ error: "Session record not found" });
-      return;
-    }
-    res.json({ session, token: String(rows[0].token) });
+    const total = Number(countRes.rows[0]?.count ?? 0);
+
+    params.push(limit, offset);
+    const { rows } = await db.query(
+      `SELECT s.token, s.id, s.package_id, s.status, s.created_at, s.updated_at, s.expires_at,
+              p.name AS package_name
+         FROM docufill_interview_sessions s
+         JOIN docufill_packages p ON p.id = s.package_id
+        WHERE ${where}
+        ORDER BY s.created_at DESC
+        LIMIT $${params.length - 1} OFFSET $${params.length}`,
+      params,
+    );
+
+    res.json({ sessions: rows, total });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to look up session by dealId");
-    res.status(500).json({ error: "Failed to look up session" });
+    logger.error({ err }, "[DocuFill] Failed to list sessions");
+    res.status(500).json({ error: "Failed to list sessions" });
   }
 });
 
@@ -2058,7 +2147,10 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
     if (!testMode) {
       void recordSubmissionEvent(acctId(req));
     }
-    res.status(201).json({ session: rows[0], token });
+    const appOrigin = process.env.APP_ORIGIN
+      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://docuplete.com");
+    const interviewUrl = `${appOrigin}/docufill/public/${token}`;
+    res.status(201).json({ session: rows[0], token, interviewUrl });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to create interview session");
     res.status(500).json({ error: "Failed to create interview session" });
