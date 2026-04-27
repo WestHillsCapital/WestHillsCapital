@@ -1994,6 +1994,80 @@ export default function DocuFill() {
     }));
   }
 
+  function autoMapFromPdfFields() {
+    if (!selectedDocument || !selectedPackage || !acroAnnotations.length) return;
+    let placed = 0;
+    updateSelectedPackage((pkg) => {
+      mappingUndoStack.current = [...mappingUndoStack.current, [...pkg.mappings]].slice(-20);
+      let newFields = [...pkg.fields];
+      let newMappings = [...pkg.mappings];
+      for (const ann of acroAnnotations) {
+        const [x1, y1, x2, y2] = ann.rect;
+        // Convert from PDF coords (bottom-left origin) to percentage (top-left origin)
+        const xPct  = clampPercent((x1 / nativePageW) * 100, 0, 98);
+        const yPct  = clampPercent(((nativePageH - y2) / nativePageH) * 100, 0, 98);
+        const wPct  = Math.max(((x2 - x1) / nativePageW) * 100, 1);
+        const hPct  = Math.max(((y2 - y1) / nativePageH) * 100, 0.5);
+        // Determine best field type from AcroForm field type code
+        let fieldType: FieldItem["type"] = "text";
+        if (ann.fieldType === "Btn") fieldType = "checkbox";
+        else if (ann.fieldType === "Ch") fieldType = "dropdown";
+        // Find existing field by name (case-insensitive) or create a new one
+        let field = ann.fieldName
+          ? newFields.find((f) => f.name.toLowerCase() === ann.fieldName.toLowerCase())
+          : undefined;
+        if (!field) {
+          field = {
+            id: newId("field"),
+            libraryFieldId: "",
+            name: ann.fieldName || `PDF Field ${newFields.length + 1}`,
+            color: pickFieldColor(newFields.map((f) => f.color), false),
+            type: fieldType,
+            interviewMode: "optional",
+            defaultValue: "",
+            source: "interview",
+            sensitive: false,
+          };
+          newFields = [...newFields, field];
+        }
+        // Skip if this field already has a mapping very close to this position on this page
+        const alreadyMapped = newMappings.some(
+          (m) =>
+            m.fieldId === field!.id &&
+            m.documentId === selectedDocument.id &&
+            m.page === selectedPage &&
+            Math.abs(m.x - xPct) < 3 &&
+            Math.abs(m.y - yPct) < 3,
+        );
+        if (alreadyMapped) continue;
+        newMappings = [
+          ...newMappings,
+          {
+            id: newId("map"),
+            fieldId: field.id,
+            documentId: selectedDocument.id,
+            page: selectedPage,
+            x: xPct,
+            y: yPct,
+            w: wPct,
+            h: hPct,
+            fontSize: 11,
+            align: "left",
+            format: defaultMappingFormat(field),
+          },
+        ];
+        placed++;
+      }
+      if (placed === 0) return pkg;
+      return { ...pkg, fields: newFields, mappings: newMappings };
+    });
+    if (placed > 0) {
+      flashStatus(`Auto-mapped ${placed} field${placed === 1 ? "" : "s"} from PDF.`);
+    } else {
+      flashStatus("All PDF fields are already mapped on this page.");
+    }
+  }
+
   function saveFieldFromModal() {
     if (!fieldEditorModal || !selectedPackage) return;
     const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage } = fieldEditorDraft;
@@ -3790,9 +3864,22 @@ export default function DocuFill() {
                         Snap
                       </button>
                       {documentPreviewUrl && acroAnnotations.length > 0 && (
-                        <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-xs border rounded px-2 py-1 leading-none transition-colors ${showAcroLayer ? "border-blue-300 bg-blue-50 text-blue-700" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]"}`}>
-                          PDF Fields {showAcroLayer ? "on" : "off"}
-                        </button>
+                        <>
+                          <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-xs border rounded px-2 py-1 leading-none transition-colors ${showAcroLayer ? "border-blue-300 bg-blue-50 text-blue-700" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]"}`}>
+                            PDF Fields {showAcroLayer ? "on" : "off"}
+                          </button>
+                          <button
+                            type="button"
+                            title={`Auto-create mappings from ${acroAnnotations.length} detected PDF form field${acroAnnotations.length === 1 ? "" : "s"} on this page`}
+                            onClick={autoMapFromPdfFields}
+                            className="flex items-center gap-1 text-xs border border-[#C49A38] bg-[#FDF8EE] text-[#8A6A20] rounded px-2 py-1 leading-none hover:bg-[#F7EDD0] transition-colors"
+                          >
+                            <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                              <path d="M2 8h5M10 8h4M7 5l3 3-3 3" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            Auto-map
+                          </button>
+                        </>
                       )}
                     </div>
                   </div>
