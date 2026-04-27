@@ -125,13 +125,14 @@ app.post(
       }
       // 1. Let StripeSync verify + sync to stripe schema
       await WebhookHandlers.processWebhook(req.body as Buffer, sig);
-      // 2. Parse event (already verified) and update our accounts table
-      try {
-        const event = JSON.parse((req.body as Buffer).toString()) as { type: string; data: { object: Record<string, unknown> } };
-        await handleStripeSubscriptionEvent(event);
-      } catch (syncErr) {
-        logger.error({ err: syncErr }, "[StripeWebhook] Billing sync update failed (non-fatal)");
-      }
+      // 2. Parse event (already verified) and update our accounts table.
+      // Return 500 on failure so Stripe will retry the event — do NOT swallow errors
+      // with a 200 response, as Stripe won't retry acknowledged events.
+      const event = JSON.parse((req.body as Buffer).toString()) as {
+        type: string;
+        data: { object: Record<string, unknown> };
+      };
+      await handleStripeSubscriptionEvent(event);
       res.status(200).json({ received: true });
     } catch (err) {
       logger.error({ err }, "[StripeWebhook] Webhook processing failed");
