@@ -33,8 +33,9 @@ export function requireRole(minRole: "readonly" | "member" | "admin"): RequestHa
     const required = ROLE_RANK[minRole] ?? 0;
 
     if (rank < required) {
+      const needed = minRole === "admin" ? "admin" : "member or above";
       return void res.status(403).json({
-        error: "You don't have permission to perform this action. Admin access is required.",
+        error: `You don't have permission to perform this action. ${needed === "admin" ? "Admin" : "Member"} access is required.`,
       });
     }
     next();
