@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import { randomBytes } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { PDFDocument as PdfLibDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
@@ -216,6 +216,22 @@ function acctId(req: Request): number {
 function publicSessionView(session: Record<string, unknown>): Record<string, unknown> {
   const { webhook_url: _wu, webhook_enabled: _we, ...rest } = session;
   return rest;
+}
+
+/**
+ * Guard for routes that mutate shared/global tables (field library, transaction types).
+ * These tables are intentionally global across all accounts, so writes must be
+ * restricted to internal admin users only — external API/Clerk product auth is rejected.
+ *
+ * Returns true if the caller is allowed to proceed; writes a 403 and returns false otherwise.
+ * requireInternalAuth sets req.internalEmail; requireProductAuth does not.
+ */
+function isInternalUser(req: Request, res: Response): boolean {
+  if (!req.internalEmail) {
+    res.status(403).json({ error: "This operation requires internal admin access." });
+    return false;
+  }
+  return true;
 }
 
 function parseDocuments(value: unknown): DocItem[] {
@@ -767,6 +783,7 @@ router.get("/field-library", async (_req, res) => {
 });
 
 router.post("/field-library", async (req, res) => {
+  if (!isInternalUser(req, res)) return;
   try {
     const body = req.body as FieldLibraryInput;
     const label = cleanText(body.label);
@@ -860,6 +877,7 @@ router.post("/field-library", async (req, res) => {
 });
 
 router.patch("/field-library/:id", async (req, res) => {
+  if (!isInternalUser(req, res)) return;
   try {
     const id = cleanText(req.params.id);
     const body = req.body as FieldLibraryInput;
@@ -921,6 +939,7 @@ router.patch("/field-library/:id", async (req, res) => {
 });
 
 router.post("/transaction-types", async (req, res) => {
+  if (!isInternalUser(req, res)) return;
   try {
     const body = req.body as TransactionTypeInput;
     const label = cleanText(body.label);
@@ -944,6 +963,7 @@ router.post("/transaction-types", async (req, res) => {
 });
 
 router.patch("/transaction-types/:scope", async (req, res) => {
+  if (!isInternalUser(req, res)) return;
   try {
     const scope = cleanText(req.params.scope);
     const body = req.body as TransactionTypeInput;
@@ -972,6 +992,7 @@ router.patch("/transaction-types/:scope", async (req, res) => {
 });
 
 router.delete("/transaction-types/:scope", async (req, res) => {
+  if (!isInternalUser(req, res)) return;
   try {
     const scope = cleanText(req.params.scope);
     if (!scope) {
