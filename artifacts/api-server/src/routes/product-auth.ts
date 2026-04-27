@@ -77,9 +77,10 @@ router.post("/onboard", async (req, res) => {
 
     logger.info({ accountId, email, clerkUserId }, "[ProductAuth] New tenant onboarded");
 
-    // Provision demo package asynchronously — non-fatal if it fails
-    setImmediate(() => {
-      seedDemoPackage(getDb(), accountId).catch(() => {});
+    // Provision demo package — await so it exists before the user reaches the app.
+    // Non-fatal: a failure here should not block account creation.
+    await seedDemoPackage(getDb(), accountId).catch((err) => {
+      logger.warn({ err, accountId }, "[ProductAuth] Demo package seed failed (non-fatal)");
     });
 
     return void res.status(201).json({
