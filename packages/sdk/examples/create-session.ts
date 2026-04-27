@@ -34,7 +34,7 @@ async function main(): Promise<void> {
 
   // 1. Verify account
   const account = await client.account.get();
-  console.log(`Authenticated as: ${account.email} (${account.account_name})`);
+  console.log(`Authenticated as: ${account.email} (${account.accountName})`);
   console.log(`Role: ${account.role}\n`);
 
   // 2. List packages

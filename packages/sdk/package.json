@@ -19,7 +19,7 @@
     "build": "pnpm generate:types && tsc -p tsconfig.build.json",
     "dev": "tsc -p tsconfig.build.json --watch",
     "typecheck": "tsc --noEmit",
-    "generate:types": "openapi-typescript ../../artifacts/api-server/src/lib/openapi-spec.json -o src/openapi.d.ts"
+    "generate:types": "openapi-typescript ../../artifacts/api-server/src/lib/openapi-spec.json -o src/openapi.ts"
   },
   "engines": {
     "node": ">=18"
