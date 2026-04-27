@@ -146,8 +146,9 @@ export async function seedDemoPackage(db: Pool, accountId: number): Promise<void
       `INSERT INTO docufill_packages (
         account_id, name, description, status, tags,
         fields, documents, mappings,
-        enable_interview, enable_customer_link, enable_csv
-      ) VALUES ($1, $2, $3, 'active', $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, true, true, false)
+        enable_interview, enable_customer_link, enable_csv,
+        webhook_secret
+      ) VALUES ($1, $2, $3, 'active', $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb, true, true, false, $8)
       RETURNING id`,
       [
         accountId,
@@ -176,6 +177,7 @@ export async function seedDemoPackage(db: Pool, accountId: number): Promise<void
           fontSize: 11,
           align: "left",
         }))),
+        randomBytes(32).toString("hex"), // webhook_secret ($8)
       ],
     );
 

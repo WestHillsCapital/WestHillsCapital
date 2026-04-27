@@ -1541,7 +1541,7 @@ router.post("/packages/:id/documents", requireAdminRole, async (req, res) => {
       res.status(404).json({ error: "Package not found" });
       return;
     }
-    res.status(201).json({ package: pkg });
+    res.status(201).json({ package: sanitizePackageForClient(pkg) });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to upload package PDF");
     res.status(err instanceof PdfUploadError ? 400 : 500).json({ error: err instanceof Error ? err.message : "Failed to upload package PDF" });
@@ -1579,7 +1579,7 @@ router.put("/packages/:id/documents/:documentId/pdf", requireAdminRole, async (r
       res.status(404).json({ error: "Package not found" });
       return;
     }
-    res.json({ package: pkg });
+    res.json({ package: sanitizePackageForClient(pkg) });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to replace package PDF");
     res.status(err instanceof PdfUploadError ? 400 : 500).json({ error: err instanceof Error ? err.message : "Failed to replace package PDF" });
@@ -1656,7 +1656,7 @@ router.delete("/packages/:id/documents/:documentId", requireAdminRole, async (re
       client.release();
     }
     const pkg = await getPackage(packageId, getDb(), true, requestAccountId);
-    res.json({ package: pkg });
+    res.json({ package: pkg ? sanitizePackageForClient(pkg) : null });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to remove package document");
     res.status(500).json({ error: "Failed to remove package document" });
