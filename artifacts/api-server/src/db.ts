@@ -751,6 +751,81 @@ export async function initDb(): Promise<void> {
       ON docufill_interview_sessions (token)
   `);
 
+  // ── Session account ownership (migration v1) ──────────────────────────────
+  // Adds account_id directly to docufill_interview_sessions so any query can
+  // scope by account without a JOIN to docufill_packages. Idempotent: guarded
+  // by docufill_migration_state; runs in a transaction; verifies NOT NULL
+  // before recording success.
+  const sessionAccountV1 = await db.query(
+    "SELECT 1 FROM docufill_migration_state WHERE key = $1",
+    ["session_account_id_v1"],
+  );
+  if (!sessionAccountV1.rows[0]) {
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Add nullable column (safe for existing rows)
+      await client.query(`
+        ALTER TABLE docufill_interview_sessions
+        ADD COLUMN IF NOT EXISTS account_id INTEGER REFERENCES accounts(id)
+      `);
+
+      // Backfill from the session's package's account_id
+      await client.query(`
+        UPDATE docufill_interview_sessions s
+           SET account_id = p.account_id
+          FROM docufill_packages p
+         WHERE p.id = s.package_id
+           AND s.account_id IS NULL
+      `);
+
+      // Enforce NOT NULL now that all rows are filled
+      await client.query(`
+        DO $$
+        BEGIN
+          IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+             WHERE table_name = 'docufill_interview_sessions'
+               AND column_name = 'account_id'
+               AND is_nullable = 'YES'
+          ) THEN
+            ALTER TABLE docufill_interview_sessions ALTER COLUMN account_id SET NOT NULL;
+          END IF;
+        END$$
+      `);
+
+      // Index for fast per-account lookups
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS docufill_interview_sessions_account_idx
+          ON docufill_interview_sessions (account_id)
+      `);
+
+      // Verify before recording success
+      const check = await client.query(
+        `SELECT is_nullable FROM information_schema.columns
+          WHERE table_name = 'docufill_interview_sessions'
+            AND column_name = 'account_id'`,
+      );
+      if (!check.rows[0] || check.rows[0].is_nullable !== "NO") {
+        throw new Error("[DB] Migration verification: docufill_interview_sessions.account_id is still nullable");
+      }
+
+      await client.query(
+        "INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
+        ["session_account_id_v1"],
+      );
+      await client.query("COMMIT");
+      logger.info("[DB] session_account_id_v1 applied");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      logger.error({ err }, "[DB] session_account_id_v1 failed — will retry on next start");
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   // ── API keys (for external developer / partner integrations) ─────────────────
   // Raw keys are NEVER stored — only a SHA-256 hash is persisted.
   // The plaintext key is returned exactly once on creation.

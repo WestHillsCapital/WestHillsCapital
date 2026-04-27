@@ -126,9 +126,9 @@ describe("Cross-tenant data isolation", () => {
     sessionAToken = `_test_iso_${suffix}`;
     await pool.query(
       `INSERT INTO docufill_interview_sessions
-         (token, package_id, package_version, transaction_scope, source, status, prefill, answers, expires_at)
-       VALUES ($1, $2, 1, 'ira_transfer', 'test', 'draft', '{}', '{}', NOW() + INTERVAL '90 days')`,
-      [sessionAToken, packageAId],
+         (token, package_id, package_version, transaction_scope, source, status, prefill, answers, expires_at, account_id)
+       VALUES ($1, $2, 1, 'ira_transfer', 'test', 'draft', '{}', '{}', NOW() + INTERVAL '90 days', $3)`,
+      [sessionAToken, packageAId, accountAId],
     );
   });
 

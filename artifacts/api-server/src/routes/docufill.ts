@@ -222,6 +222,7 @@ function publicSessionView(session: Record<string, unknown>): Record<string, unk
     deal_id: _dl,
     custodian_id: _ci,
     depository_id: _dp,
+    account_id: _ai,
     ...rest
   } = session;
   return rest;
@@ -579,7 +580,7 @@ async function getPackage(packageId: number, client: QueryClient = getDb(), hydr
 async function getSession(token: string, client: QueryClient = getDb(), accountId?: number): Promise<Record<string, unknown> | undefined> {
   const params: unknown[] = [token];
   const accountFilter = accountId != null
-    ? (params.push(accountId), `AND p.account_id = $${params.length}`)
+    ? (params.push(accountId), `AND s.account_id = $${params.length}`)
     : "";
   const { rows } = await client.query(
     `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
@@ -592,11 +593,11 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
             CASE WHEN a.logo_url IS NOT NULL THEN '/api/storage/org-logo/' || a.id::text ELSE NULL END AS org_logo_url,
             a.brand_color AS org_brand_color
        FROM docufill_interview_sessions s
-       JOIN docufill_packages p ON p.id = s.package_id ${accountFilter}
+       JOIN docufill_packages p ON p.id = s.package_id
        LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
        LEFT JOIN docufill_depositories d ON d.id = p.depository_id
        LEFT JOIN accounts a ON a.id = p.account_id
-      WHERE s.token = $1
+      WHERE s.token = $1 ${accountFilter}
         AND s.expires_at > NOW()`,
     params,
   );
@@ -1616,9 +1617,9 @@ router.post("/csv-batch", async (req, res) => {
         const token = createSessionToken();
         await db.query(
           `INSERT INTO docufill_interview_sessions
-             (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers, expires_at)
-           VALUES ($1,$2,$3,$4,NULL,'csv_batch','draft',false,'{}'::jsonb,$5::jsonb,NOW() + INTERVAL '90 days')`,
-          [token, packageId, packageVersion, transactionScope, jsonParam(answers)],
+             (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers, expires_at, account_id)
+           VALUES ($1,$2,$3,$4,NULL,'csv_batch','draft',false,'{}'::jsonb,$5::jsonb,NOW() + INTERVAL '90 days',$6)`,
+          [token, packageId, packageVersion, transactionScope, jsonParam(answers), acctId(req)],
         );
         insertedToken = token;
         const session: Record<string, unknown> = {
@@ -1696,9 +1697,8 @@ router.get("/sessions", async (req, res) => {
     const { rows } = await db.query(
       `SELECT s.token
          FROM docufill_interview_sessions s
-         JOIN docufill_packages p ON p.id = s.package_id
         WHERE s.deal_id = $1
-          AND p.account_id = $2
+          AND s.account_id = $2
         ORDER BY s.created_at DESC
         LIMIT 1`,
       [dealId, acctId(req)],
@@ -1923,10 +1923,10 @@ router.post("/sessions", async (req, res) => {
     const db = getDb();
     const { rows } = await db.query(
       `INSERT INTO docufill_interview_sessions
-         (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers, expires_at)
-       VALUES ($1,$2,$3,$4,$5,$6,'draft',$7,$8::jsonb,'{}'::jsonb,NOW() + INTERVAL '90 days')
+         (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers, expires_at, account_id)
+       VALUES ($1,$2,$3,$4,$5,$6,'draft',$7,$8::jsonb,'{}'::jsonb,NOW() + INTERVAL '90 days',$9)
        RETURNING *`,
-      [token, packageId, pkg.version ?? 1, requestedScope, body.dealId ?? null, cleanText(body.source) || "deal_builder", testMode, jsonParam(body.prefill ?? {})],
+      [token, packageId, pkg.version ?? 1, requestedScope, body.dealId ?? null, cleanText(body.source) || "deal_builder", testMode, jsonParam(body.prefill ?? {}), acctId(req)],
     );
     res.status(201).json({ session: rows[0], token });
   } catch (err) {
@@ -1958,7 +1958,7 @@ router.patch("/sessions/:token", async (req, res) => {
           answers=$1::jsonb, status=COALESCE($2, status), updated_at=NOW()
         WHERE token=$3
           AND expires_at > NOW()
-          AND package_id IN (SELECT id FROM docufill_packages WHERE account_id = $4)
+          AND account_id = $4
         RETURNING *`,
       [jsonParam(body.answers ?? {}), body.status ?? null, req.params.token, acctId(req)],
     );
@@ -2068,7 +2068,7 @@ router.post("/sessions/:token/generate", async (req, res) => {
               generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
               updated_at=NOW()
         WHERE token=$4
-          AND package_id IN (SELECT id FROM docufill_packages WHERE account_id = $5)`,
+          AND account_id = $5`,
       [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token, acctId(req)],
     );
     res.json({
