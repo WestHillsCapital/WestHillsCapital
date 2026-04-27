@@ -1282,6 +1282,7 @@ export default function DocuFill() {
   const isMapperVisible = tab === "mapper";
   useEffect(() => {
     if (!isMapperVisible || !documentPreviewUrl) { setAcroAnnotations([]); return; }
+    if (mapperScrollMode) return;
     let cancelled = false;
     if (renderTaskRef.current) {
       renderTaskRef.current.cancel();
@@ -1342,7 +1343,7 @@ export default function DocuFill() {
         renderTaskRef.current = null;
       }
     };
-  }, [isMapperVisible, documentPreviewUrl, selectedPage]);
+  }, [isMapperVisible, documentPreviewUrl, selectedPage, mapperScrollMode]);
 
   async function savePackage(pkg: PackageItem) {
     setIsSaving(true);
