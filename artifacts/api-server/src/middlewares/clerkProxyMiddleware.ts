@@ -9,14 +9,15 @@
  * HTTP/1.1 for backend connections while Clerk's endpoints require HTTP/2,
  * causing 502 errors on FAPI calls.
  *
- * AUTH CONFIGURATION: To manage users, enable/disable login providers
- * (Google, GitHub, etc.), change app branding, or configure OAuth credentials,
- * use the Auth pane in the workspace toolbar. There is no external Clerk
- * dashboard — all auth configuration is done through the Auth pane.
+ * Key behaviours:
+ * - CDN paths (/npm/*): no auth headers sent — Clerk would redirect them back
+ *   through the proxy URL causing an infinite redirect loop.
+ * - FAPI paths (/v1/*, etc.): Clerk-Proxy-Url + Clerk-Secret-Key forwarded.
+ * - Redirects are followed server-side, respecting cross-domain hops.
  *
  * IMPORTANT:
- * - Only active in production (Clerk proxying doesn't work for dev instances)
- * - Must be mounted BEFORE express.json() middleware
+ * - Only active when NODE_ENV=production and CLERK_SECRET_KEY is set.
+ * - Must be mounted BEFORE express.json() middleware.
  *
  * Usage in app.ts:
  *   import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
@@ -59,48 +60,48 @@ function pipeToClerk(
     if (v) outHeaders[h] = v as string;
   }
 
-  const proxyReq = https.request(
-    {
-      hostname,
-      path: subPath,
-      method,
-      headers: outHeaders,
-    },
-    (upstream) => {
-      const location = upstream.headers["location"];
-      if (
-        upstream.statusCode &&
-        upstream.statusCode >= 300 &&
-        upstream.statusCode < 400 &&
-        location
-      ) {
-        upstream.resume();
-        // Follow redirect — resolve against the *current* host so absolute
-        // redirects to other Clerk domains (e.g. npm.clerk.dev) work correctly.
-        const redirectUrl = new URL(location, `https://${hostname}`);
-        // Strip Clerk auth headers when redirected away from the FAPI host
-        // (e.g. CDN redirects to npm.clerk.dev don't accept Clerk-Secret-Key).
-        const nextHeaders = redirectUrl.hostname === CLERK_FAPI_HOST
-          ? extraHeaders
-          : {};
-        pipeToClerk(redirectUrl.hostname, method, redirectUrl.pathname + redirectUrl.search, nextHeaders, req, res, depth + 1);
-        return;
-      }
+  let proxyReq: ReturnType<typeof https.request>;
+  try {
+    proxyReq = https.request(
+      { hostname, path: subPath, method, headers: outHeaders },
+      (upstream) => {
+        const location = upstream.headers["location"];
+        if (
+          upstream.statusCode &&
+          upstream.statusCode >= 300 &&
+          upstream.statusCode < 400 &&
+          location
+        ) {
+          upstream.resume();
+          // Follow redirect — resolve against current host so absolute redirects
+          // to other Clerk domains (e.g. npm.clerk.dev) work correctly.
+          const redirectUrl = new URL(location, `https://${hostname}`);
+          // Strip auth headers when redirected away from FAPI host — CDN domains
+          // don't expect Clerk-Secret-Key.
+          const nextHeaders = redirectUrl.hostname === CLERK_FAPI_HOST ? extraHeaders : {};
+          pipeToClerk(redirectUrl.hostname, method, redirectUrl.pathname + redirectUrl.search, nextHeaders, req, res, depth + 1);
+          return;
+        }
 
-      res.status(upstream.statusCode ?? 502);
+        res.status(upstream.statusCode ?? 502);
 
-      // Forward safe response headers
-      for (const h of ["content-type", "cache-control", "etag", "last-modified", "vary"]) {
-        const v = upstream.headers[h];
-        if (v) res.setHeader(h, v);
-      }
+        // Forward safe response headers
+        for (const h of ["content-type", "cache-control", "etag", "last-modified", "vary"]) {
+          const v = upstream.headers[h];
+          if (v) res.setHeader(h, v);
+        }
 
-      upstream.on("error", () => {
-        if (!res.headersSent) res.status(502).end();
-      });
-      upstream.pipe(res);
-    },
-  );
+        upstream.on("error", () => {
+          if (!res.headersSent) res.status(502).end();
+        });
+        upstream.pipe(res);
+      },
+    );
+  } catch {
+    // https.request throws synchronously if header values contain invalid chars
+    if (!res.headersSent) res.status(502).end();
+    return;
+  }
 
   proxyReq.on("error", () => {
     if (!res.headersSent) res.status(502).end();
@@ -120,7 +121,12 @@ export function clerkProxyMiddleware(): RequestHandler {
     return (_req, _res, next) => next();
   }
 
-  const secretKey = process.env.CLERK_SECRET_KEY;
+  // Strip any non-printable/non-ASCII chars that can sneak in when pasting keys
+  // in Railway's UI (e.g. zero-width spaces, carriage returns, curly quotes).
+  // Valid HTTP header value chars are tab, space, and 0x21-0x7E.
+  const secretKey = (process.env.CLERK_SECRET_KEY ?? "")
+    .replace(/[^\t\x20-\x7E]/g, "")
+    .trim();
   if (!secretKey) {
     return (_req, _res, next) => next();
   }
@@ -130,7 +136,7 @@ export function clerkProxyMiddleware(): RequestHandler {
     const subPath = req.url;
     if (!subPath || subPath === "/") return next();
 
-    // Build extra headers for FAPI calls
+    // Build FAPI auth headers
     const protocol = (req.headers["x-forwarded-proto"] as string | undefined) || "https";
     const host = req.headers.host || "";
     const proxyUrl = `${protocol}://${host}${CLERK_PROXY_PATH}`;
@@ -147,8 +153,9 @@ export function clerkProxyMiddleware(): RequestHandler {
       "";
     if (clientIp) extraHeaders["x-forwarded-for"] = clientIp;
 
-    // CDN paths (/npm/*) don't need Clerk auth headers — sending Clerk-Proxy-Url
-    // to the CDN causes Clerk to redirect through the proxy URL, creating a loop.
+    // CDN paths (/npm/*) must NOT receive Clerk auth headers — if Clerk-Proxy-Url
+    // is present, Clerk redirects the version-resolution request back through the
+    // proxy URL, creating an infinite redirect loop that ends in 502.
     const headersToSend = subPath.startsWith("/npm/") ? {} : extraHeaders;
     pipeToClerk(CLERK_FAPI_HOST, req.method, subPath, headersToSend, req, res);
   };
