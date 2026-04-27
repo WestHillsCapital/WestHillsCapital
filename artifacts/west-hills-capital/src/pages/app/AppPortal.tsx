@@ -17,9 +17,7 @@ function Spinner() {
   );
 }
 
-function DocuFillWrapper() {
-  const { getAuthHeaders } = useProductAuth();
-
+function DocuFillWrapper({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
   return (
     <InternalAuthProvider>
       <DocuFillConfigProvider
@@ -48,6 +46,7 @@ export default function AppPortal() {
     authError,
     signOut,
     refreshAccount,
+    getAuthHeaders,
   } = useProductAuth();
 
   // Wait for Clerk to load. Once loaded, if we're signed in we wait until
@@ -96,7 +95,7 @@ export default function AppPortal() {
       <Suspense fallback={<Spinner />}>
         <Switch>
           <Route path="/app/settings" component={AppSettings} />
-          <Route component={DocuFillWrapper} />
+          <Route component={() => <DocuFillWrapper getAuthHeaders={getAuthHeaders} />} />
         </Switch>
       </Suspense>
     </AppLayout>
