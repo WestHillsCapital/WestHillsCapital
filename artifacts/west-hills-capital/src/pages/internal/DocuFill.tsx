@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
 import { CSS as DndCSS } from "@dnd-kit/utilities";
@@ -605,6 +605,49 @@ function TagChipInput({ tags, onChange, placeholder }: {
   );
 }
 
+const ScrollPageCanvas = memo(function ScrollPageCanvas({
+  pageNum,
+  documentPreviewUrl,
+  pdfDocRef,
+  nativeW,
+  nativeH,
+}: {
+  pageNum: number;
+  documentPreviewUrl: string;
+  pdfDocRef: React.MutableRefObject<pdfjsLib.PDFDocumentProxy | null>;
+  nativeW: number;
+  nativeH: number;
+}) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const doc = pdfDocRef.current;
+    if (!doc) return;
+    (async () => {
+      try {
+        const page = await doc.getPage(pageNum);
+        if (cancelled) return;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const viewport = page.getViewport({ scale: 1.0 });
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
+        const ctx = canvas.getContext("2d");
+        if (!ctx || cancelled) return;
+        await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+      } catch { /* rendering failure is non-fatal in scroll mode */ }
+    })();
+    return () => { cancelled = true; };
+  }, [pageNum, documentPreviewUrl, pdfDocRef]);
+  return (
+    <canvas
+      ref={canvasRef}
+      className="absolute inset-0 pointer-events-none"
+      style={{ width: nativeW, height: nativeH }}
+    />
+  );
+});
+
 export default function DocuFill() {
   const search = useSearch();
   const params = useParams<{ token?: string }>();
@@ -821,6 +864,12 @@ export default function DocuFill() {
   useEffect(() => {
     try { localStorage.setItem("docufill-snap-grid", snapGrid ? "true" : "false"); } catch { /* ignore */ }
   }, [snapGrid]);
+  const [mapperScrollMode, setMapperScrollMode] = useState<boolean>(() => {
+    try { return localStorage.getItem("docufill-mapper-scroll") === "true"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("docufill-mapper-scroll", mapperScrollMode ? "true" : "false"); } catch { /* ignore */ }
+  }, [mapperScrollMode]);
   const [userZoom, setUserZoom] = useState(1.0);
   const [resizeDim, setResizeDim] = useState<{ w: number; h: number } | null>(null);
   const [dragGuides, setDragGuides] = useState<{ xs: number[]; ys: number[] } | null>(null);
@@ -2103,19 +2152,20 @@ export default function DocuFill() {
     addMappingForField(selectedField, 18 + (selectedPackage?.mappings.length ?? 0) % 5 * 12, 20 + (selectedPackage?.mappings.length ?? 0) % 8 * 8);
   }
 
-  function addMappingForField(field: FieldItem, x: number, y: number) {
+  function addMappingForField(field: FieldItem, x: number, y: number, pageOverride?: number) {
     if (!selectedDocument) return;
     if (selectedPackage) {
       mappingUndoStack.current = [...mappingUndoStack.current, [...selectedPackage.mappings]].slice(-20);
     }
     const mappingId = newId("map");
+    const targetPage = pageOverride ?? selectedPage;
     updateSelectedPackage((pkg) => ({
       ...pkg,
       mappings: [...pkg.mappings, {
         id: mappingId,
         fieldId: field.id,
         documentId: selectedDocument.id,
-        page: selectedPage,
+        page: targetPage,
         x: clampPercent(x, 0, 74),
         y: clampPercent(y, 0, 94),
         w: 26,
@@ -2130,17 +2180,17 @@ export default function DocuFill() {
     setPlacementModal(null);
   }
 
-  function dropFieldOnPage(e: ReactDragEvent<HTMLDivElement>) {
+  function dropFieldOnPage(e: ReactDragEvent<HTMLDivElement>, frameEl?: HTMLElement | null, pageOverride?: number) {
     e.preventDefault();
     if (!selectedPackage || !selectedDocument) return;
     const fieldId = e.dataTransfer.getData("text/field");
     const field = selectedPackage.fields.find((item) => item.id === fieldId);
-    const frame = pageFrameRef.current;
+    const frame = frameEl ?? pageFrameRef.current;
     if (!field || !frame) return;
     const rect = frame.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
-    addMappingForField(field, x, y);
+    addMappingForField(field, x, y, pageOverride);
   }
 
   function updateSelectedMapping(patch: Partial<MappingItem>) {
@@ -3671,9 +3721,16 @@ export default function DocuFill() {
                   <p className="text-xs text-[#8A9BB8]">Place fields on PDFs, then decide which are required, fixed/defaulted, validated, or omitted from the generated interview.</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  <button type="button" onClick={() => setSelectedPage((page) => Math.max(1, page - 1))} disabled={!selectedDocument || selectedPage <= 1} className="text-xs border border-[#D4C9B5] rounded px-2 py-1 disabled:opacity-40">Prev</button>
-                  <span className="text-xs text-[#6B7A99]">Page {selectedPage} of {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
-                  <button type="button" onClick={() => setSelectedPage((page) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), page + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument.pages, 1)} className="text-xs border border-[#D4C9B5] rounded px-2 py-1 disabled:opacity-40">Next</button>
+                  {!mapperScrollMode && (
+                    <>
+                      <button type="button" onClick={() => setSelectedPage((page) => Math.max(1, page - 1))} disabled={!selectedDocument || selectedPage <= 1} className="text-xs border border-[#D4C9B5] rounded px-2 py-1 disabled:opacity-40">Prev</button>
+                      <span className="text-xs text-[#6B7A99]">Page {selectedPage} of {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
+                      <button type="button" onClick={() => setSelectedPage((page) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), page + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument.pages, 1)} className="text-xs border border-[#D4C9B5] rounded px-2 py-1 disabled:opacity-40">Next</button>
+                    </>
+                  )}
+                  {mapperScrollMode && (
+                    <span className="text-xs text-[#6B7A99]">{Math.max(selectedDocument?.pages ?? 1, 1)} pages</span>
+                  )}
                   <div className="h-4 w-px bg-[#DDD5C4]" />
                   <div className="flex rounded border border-[#D4C9B5] overflow-hidden text-xs">
                     <button type="button" onClick={() => setMapperTextMode(true)} className={`px-2 py-1 leading-none ${mapperTextMode ? "bg-[#C49A38] text-black font-medium" : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}>Text</button>
@@ -3726,10 +3783,144 @@ export default function DocuFill() {
                       </>
                     )}
                   </button>
+                  <div className="flex rounded border border-[#D4C9B5] overflow-hidden text-xs" title="Toggle between viewing one page at a time or all pages stacked">
+                    <button
+                      type="button"
+                      onClick={() => setMapperScrollMode(false)}
+                      className={`flex items-center gap-1 px-2 py-1 leading-none ${!mapperScrollMode ? "bg-[#C49A38] text-black font-medium" : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="2" width="12" height="12" rx="1" /></svg>
+                      Single
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMapperScrollMode(true)}
+                      className={`flex items-center gap-1 px-2 py-1 leading-none border-l border-[#D4C9B5] ${mapperScrollMode ? "bg-[#C49A38] text-black font-medium" : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                    >
+                      <svg className="w-3 h-3" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="1" width="12" height="5" rx="1" /><rect x="2" y="10" width="12" height="5" rx="1" /></svg>
+                      Scroll
+                    </button>
+                  </div>
                 </div>
               </div>
               {isUploadingDocument && <div className="mb-2 text-xs text-[#6B7A99]">Uploading PDF…</div>}
-              <div
+              {mapperScrollMode && selectedDocument && documentPreviewUrl && (
+                <div
+                  className="bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-y-auto"
+                  style={{ width: mapperFrameW, height: mapperFrameH }}
+                >
+                  <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "16px 0", alignItems: "flex-start" }}>
+                    {Array.from({ length: Math.max(selectedDocument.pages ?? 1, 1) }, (_, i) => i + 1).map((pageNum) => {
+                      const pageMs = (selectedPackage?.mappings ?? []).filter(
+                        (m) => m.documentId === selectedDocument.id && m.page === pageNum
+                      );
+                      return (
+                        <div key={pageNum} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          <div className="text-[10px] text-[#8A9BB8] select-none pl-1">Page {pageNum}</div>
+                          <div
+                            style={{ width: Math.round(nativePageW * effectiveScale), height: Math.round(nativePageH * effectiveScale), position: "relative", flexShrink: 0 }}
+                          >
+                            <div
+                              onDragOver={(e) => e.preventDefault()}
+                              onDrop={(e) => dropFieldOnPage(e, e.currentTarget, pageNum)}
+                              onClick={() => { setSelectedPage(pageNum); setPlacementModal(null); }}
+                              className="absolute top-0 left-0 bg-white border border-[#D4C9B5] shadow-sm overflow-hidden"
+                              style={{
+                                width: nativePageW,
+                                height: nativePageH,
+                                transform: `scale(${effectiveScale})`,
+                                transformOrigin: "top left",
+                              }}
+                            >
+                              <ScrollPageCanvas
+                                pageNum={pageNum}
+                                documentPreviewUrl={documentPreviewUrl}
+                                pdfDocRef={pdfDocRef}
+                                nativeW={nativePageW}
+                                nativeH={nativePageH}
+                              />
+                              {pageMs.map((m) => {
+                                const field = selectedPackage?.fields.find((f) => f.id === m.fieldId);
+                                const isSelected = selectedMapping?.id === m.id;
+                                const mFontSize = m.fontSize ?? 11;
+                                const recipient = m.recipientId ? (selectedPackage?.recipients ?? []).find((r) => r.id === m.recipientId) : undefined;
+                                const fieldColor = recipient?.color ?? field?.color ?? "#C49A38";
+                                const isCheckboxMark = m.format === "checkbox-yes" || String(m.format ?? "").startsWith("checkbox-option:");
+                                const flexJustify = isCheckboxMark ? "justify-center" : "justify-end";
+                                return (
+                                  <button
+                                    key={m.id}
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedPage(pageNum);
+                                      setSelectedMappingId(m.id);
+                                      setSelectedFieldId(m.fieldId);
+                                      if (inspectorMode === "panel") {
+                                        setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
+                                        setPlacementModalPos(null);
+                                      }
+                                    }}
+                                    onContextMenu={(e) => {
+                                      e.preventDefault(); e.stopPropagation();
+                                      setSelectedPage(pageNum);
+                                      setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId);
+                                      setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
+                                      setPlacementModalPos(null);
+                                    }}
+                                    className={`absolute rounded cursor-pointer flex flex-col overflow-hidden ${flexJustify} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
+                                    style={{
+                                      left: `${m.x}%`,
+                                      top: `${m.y}%`,
+                                      width: `${m.w}%`,
+                                      height: `${m.h}%`,
+                                      minHeight: "20px",
+                                      border: mapperTextMode
+                                        ? `1px ${isSelected ? "solid" : "dashed"} ${fieldColor}${isSelected ? "" : "80"}`
+                                        : `2px ${isSelected ? "solid" : "dashed"} ${fieldColor}`,
+                                      backgroundColor: mapperTextMode
+                                        ? (isSelected ? fieldColor + "18" : "transparent")
+                                        : "rgba(255,255,255,0.93)",
+                                      fontSize: `${mFontSize}px`,
+                                      textAlign: m.align ?? "left",
+                                      paddingBottom: !isCheckboxMark ? "2px" : undefined,
+                                      paddingLeft: "2px",
+                                      paddingRight: "2px",
+                                      zIndex: 2,
+                                    }}
+                                  >
+                                    {mapperTextMode ? (
+                                      <span className="block leading-none select-none pointer-events-none truncate" style={{ color: "#111", fontFamily: "Helvetica, Arial, sans-serif" }}>
+                                        {sampleValueForMapping(field, m.format) || "\u00A0"}
+                                      </span>
+                                    ) : (
+                                      <div className="pointer-events-none w-full">
+                                        <span className="block leading-tight">{field?.name ?? "Field"}</span>
+                                        <span className="block text-[9px] uppercase tracking-wide text-[#6B7A99]">{labelForMappingFormat(m.format)}</span>
+                                        <span className="block leading-tight italic truncate" style={{ color: "#9AAAC0", opacity: 0.85 }}>{sampleValueForMapping(field, m.format)}</span>
+                                        <div style={{ borderBottom: "0.4px solid #c8c8c8", marginTop: "1px" }} />
+                                      </div>
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              {mapperScrollMode && (!selectedDocument || !documentPreviewUrl) && (
+                <div
+                  className="bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner flex items-center justify-center"
+                  style={{ width: mapperFrameW, height: mapperFrameH }}
+                >
+                  <p className="text-xs text-[#8A9BB8]">{selectedDocument ? "Upload a PDF to enable scroll view." : "Select a document to get started."}</p>
+                </div>
+              )}
+              {!mapperScrollMode && <div
                 className="relative bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-auto"
                 style={{ width: mapperFrameW, height: mapperFrameH }}
               >
@@ -3900,7 +4091,7 @@ export default function DocuFill() {
                   )}
                 </div>
                 </div>
-              </div>
+              </div>}
               <div className="mt-4 flex flex-wrap justify-end gap-2">
                 <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : `Save ${selectedPackage.fields.length} Fields / ${selectedPackage.mappings.length} Placements`}</Button>
                 <Button onClick={() => goBuilderStep("interview", { autoSort: true })} variant="outline">Review Generated Interview</Button>
