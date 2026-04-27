@@ -30,6 +30,7 @@
 
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import supertest from "supertest";
 import express from "express";
 import { Pool } from "pg";
@@ -99,8 +100,8 @@ describe("Cross-tenant data isolation", () => {
     // Create package with one stored document in its documents JSON
     const { rows: [pkgRow] } = await pool.query<{ id: number }>(
       `INSERT INTO docufill_packages
-         (name, account_id, status, transaction_scope, documents)
-       VALUES ('Package A', $1, 'active', 'ira_transfer', $2::jsonb)
+         (name, account_id, status, transaction_scope, documents, webhook_secret)
+       VALUES ('Package A', $1, 'active', 'ira_transfer', $2::jsonb, $3)
        RETURNING id`,
       [
         accountAId,
@@ -111,6 +112,7 @@ describe("Cross-tenant data isolation", () => {
           fileName: "test.pdf",
           pdfStored: true,
         }]),
+        randomBytes(32).toString("hex"),
       ],
     );
     packageAId = pkgRow.id;

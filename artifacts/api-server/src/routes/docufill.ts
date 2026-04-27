@@ -333,11 +333,11 @@ async function doWebhookDelivery(
     const res = await fetch(webhookUrl, { method: "POST", headers, body, signal: controller.signal });
     clearTimeout(timer);
     httpStatus = res.status;
-    responseSnippet = (await res.text().catch(() => "")).slice(0, 500);
+    responseSnippet = (await res.text().catch(() => "")).slice(0, 1024);
     ok = res.ok;
     if (!ok) logger.warn({ status: res.status, webhookUrl, attempt }, "[DocuFill] Webhook non-2xx");
   } catch (err) {
-    responseSnippet = (err instanceof Error ? err.message : String(err)).slice(0, 500);
+    responseSnippet = (err instanceof Error ? err.message : String(err)).slice(0, 1024);
     logger.error({ err, webhookUrl, attempt }, "[DocuFill] Webhook request failed");
   }
   const durationMs = Date.now() - start;
@@ -381,11 +381,26 @@ function fireWebhookAsync(
 
   setImmediate(async () => {
     // Fetch the signing secret here — keeps secret material out of session/request context.
-    const { rows } = await db.query<{ webhook_secret: string }>(
-      `SELECT webhook_secret FROM docufill_packages WHERE id = $1 AND account_id = $2`,
-      [packageId, accountId],
-    ).catch(() => ({ rows: [] as { webhook_secret: string }[] }));
-    const secret = rows[0]?.webhook_secret ?? null;
+    // Fail-closed: if the lookup fails or the secret is missing, record a failed attempt
+    // and do not send an unsigned delivery.
+    let secret: string | null = null;
+    try {
+      const { rows } = await db.query<{ webhook_secret: string }>(
+        `SELECT webhook_secret FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+        [packageId, accountId],
+      );
+      secret = rows[0]?.webhook_secret ?? null;
+      if (!secret) throw new Error("webhook_secret is missing or null");
+    } catch (err) {
+      logger.error({ err, packageId, accountId }, "[DocuFill] Cannot fetch webhook_secret — aborting delivery");
+      db.query(
+        `INSERT INTO webhook_deliveries
+           (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms)
+         VALUES ($1, $2, $3, $4, 1, NULL, $5, 0)`,
+        [packageId, accountId, eventType, payloadHash, "Secret unavailable — delivery aborted"],
+      ).catch((e) => logger.error({ e }, "[DocuFill] Failed to log aborted delivery"));
+      return;
+    }
     void tryDeliver(1, secret);
   });
 }
