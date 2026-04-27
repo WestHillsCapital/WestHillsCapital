@@ -1,11 +1,17 @@
 import { useState } from "react";
-import { useProductAuth } from "@/hooks/useProductAuth";
+import type { UserResource } from "@clerk/types";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const APP_NAME = "Docuplete";
 
-export default function AppOnboard() {
-  const { user, token, refreshAccount } = useProductAuth();
+interface Props {
+  user: UserResource | null | undefined;
+  token: string | null;
+  /** Called after the account is created. Should update the parent's auth state. */
+  onComplete: (token?: string) => Promise<void>;
+}
+
+export default function AppOnboard({ user, token, onComplete }: Props) {
   const [companyName, setCompanyName] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +35,9 @@ export default function AppOnboard() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to create account");
-      await refreshAccount(token ?? undefined);
+      // onComplete is AppPortal's refreshAccount — updates the parent's state
+      // so AppPortal immediately transitions to the main app.
+      await onComplete(token ?? undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setSaving(false);
