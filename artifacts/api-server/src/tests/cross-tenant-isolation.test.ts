@@ -50,6 +50,7 @@ function buildTestApp(accountId: number) {
   app.use(express.json());
   app.use((req, _res, next) => {
     req.internalAccountId = accountId;
+    req.productUserRole = "admin";
     next();
   });
   app.use("/", docufillRouter);

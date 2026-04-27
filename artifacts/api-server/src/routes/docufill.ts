@@ -1506,7 +1506,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
   }
 });
 
-router.patch("/packages/:id", requireAdminRole, async (req, res) => {
+router.patch("/packages/:id", async (req, res) => {
   try {
     const id = parseId(req.params.id);
     if (!id) {
@@ -1518,6 +1518,10 @@ router.patch("/packages/:id", requireAdminRole, async (req, res) => {
     const existing = await getPackage(id, getDb(), false, accountId);
     if (!existing) {
       res.status(404).json({ error: "Package not found" });
+      return;
+    }
+    if ((req.productUserRole ?? "member") !== "admin" && req.internalEmail === undefined) {
+      res.status(403).json({ error: "You don't have permission to perform this action. Admin access is required." });
       return;
     }
     const name = cleanText(body.name) || String(existing.name ?? "");
@@ -1596,7 +1600,7 @@ router.patch("/packages/:id", requireAdminRole, async (req, res) => {
   }
 });
 
-router.post("/packages/:id/test-webhook", requireAdminRole, async (req, res) => {
+router.post("/packages/:id/test-webhook", async (req, res) => {
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid package id" }); return; }
@@ -1604,6 +1608,10 @@ router.post("/packages/:id/test-webhook", requireAdminRole, async (req, res) => 
     const db = getDb();
     const pkg = await getPackage(id, db, false, accountId);
     if (!pkg) { res.status(404).json({ error: "Package not found" }); return; }
+    if ((req.productUserRole ?? "member") !== "admin" && req.internalEmail === undefined) {
+      res.status(403).json({ error: "You don't have permission to perform this action. Admin access is required." });
+      return;
+    }
     const webhookUrl = parseWebhookUrl(pkg.webhook_url);
     if (!webhookUrl) {
       res.status(400).json({ error: "No valid webhook URL is configured for this package." });
@@ -1673,7 +1681,7 @@ router.get("/packages/:id/webhook-deliveries", requireAdminRole, async (req, res
   }
 });
 
-router.delete("/packages/:id", requireAdminRole, async (req, res) => {
+router.delete("/packages/:id", async (req, res) => {
   try {
     const id = parseId(req.params.id);
     if (!id) {
@@ -1682,17 +1690,20 @@ router.delete("/packages/:id", requireAdminRole, async (req, res) => {
     }
     const accountId = acctId(req);
     const db = getDb();
-    const { rows } = await db.query(
-      `DELETE FROM docufill_packages
-        WHERE id=$1 AND account_id=$2
-        RETURNING id`,
+    const { rows: owned } = await db.query(
+      `SELECT id FROM docufill_packages WHERE id=$1 AND account_id=$2`,
       [id, accountId],
     );
-    if (!rows[0]) {
+    if (!owned[0]) {
       res.status(404).json({ error: "Package not found" });
       return;
     }
-    res.json({ deletedPackageId: rows[0].id });
+    if ((req.productUserRole ?? "member") !== "admin" && req.internalEmail === undefined) {
+      res.status(403).json({ error: "You don't have permission to perform this action. Admin access is required." });
+      return;
+    }
+    await db.query(`DELETE FROM docufill_packages WHERE id=$1 AND account_id=$2`, [id, accountId]);
+    res.json({ deletedPackageId: id });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to delete package");
     res.status(500).json({ error: "Failed to delete package" });
@@ -1725,7 +1736,7 @@ router.post("/packages/:id/documents", requireAdminRole, async (req, res) => {
   }
 });
 
-router.put("/packages/:id/documents/:documentId/pdf", requireAdminRole, async (req, res) => {
+router.put("/packages/:id/documents/:documentId/pdf", async (req, res) => {
   try {
     const packageId = parseId(req.params.id);
     if (!packageId) {
@@ -1737,6 +1748,10 @@ router.put("/packages/:id/documents/:documentId/pdf", requireAdminRole, async (r
     const existing = await getPackage(packageId, getDb(), true, requestAccountId);
     if (!existing) {
       res.status(404).json({ error: "Package not found" });
+      return;
+    }
+    if ((req.productUserRole ?? "member") !== "admin" && req.internalEmail === undefined) {
+      res.status(403).json({ error: "You don't have permission to perform this action. Admin access is required." });
       return;
     }
     const existingDoc = parseDocuments(existing?.documents).find((doc) => doc.id === req.params.documentId);
@@ -1795,7 +1810,7 @@ router.get("/packages/:id/documents/:documentId.pdf", async (req, res) => {
   }
 });
 
-router.delete("/packages/:id/documents/:documentId", requireAdminRole, async (req, res) => {
+router.delete("/packages/:id/documents/:documentId", async (req, res) => {
   try {
     const packageId = parseId(req.params.id);
     if (!packageId) {
@@ -1806,6 +1821,10 @@ router.delete("/packages/:id/documents/:documentId", requireAdminRole, async (re
     const existing = await getPackage(packageId, getDb(), true, requestAccountId);
     if (!existing) {
       res.status(404).json({ error: "Package not found" });
+      return;
+    }
+    if ((req.productUserRole ?? "member") !== "admin" && req.internalEmail === undefined) {
+      res.status(403).json({ error: "You don't have permission to perform this action. Admin access is required." });
       return;
     }
     const documents = parseDocuments(existing.documents).filter((doc) => doc.id !== req.params.documentId);
