@@ -69,7 +69,7 @@ const definition = {
         scheme: "bearer",
         bearerFormat: "API Key (sk_live_…)",
         description:
-          "Long-lived API key issued by `POST /api/product/auth/api-keys`. For external integration partners. " +
+          "Long-lived API key issued by `POST /api/v1/product/auth/api-keys`. For external integration partners. " +
           "Keys are prefixed with `sk_live_` and are stored hashed — the plaintext is shown only once on creation.",
       },
     },

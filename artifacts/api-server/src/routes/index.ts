@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Request, type Response } from "express";
 import healthRouter        from "./health";
 import pricingRouter       from "./pricing";
 import schedulingRouter    from "./scheduling";
@@ -75,7 +75,7 @@ router.use("/v1", v1Router);
 // Preserves backward compatibility for any integrations built against the
 // unversioned paths. New code should target /api/v1/... directly.
 function legacyRedirect(prefix: string) {
-  return (req: Parameters<Parameters<typeof router.use>[0]>[0], res: Parameters<Parameters<typeof router.use>[0]>[1]) => {
+  return (req: Request, res: Response) => {
     const qs = req.originalUrl.includes("?")
       ? req.originalUrl.slice(req.originalUrl.indexOf("?"))
       : "";
