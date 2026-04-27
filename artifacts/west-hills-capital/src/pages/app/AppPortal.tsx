@@ -37,9 +37,13 @@ function DocuFillWrapper() {
 }
 
 export default function AppPortal() {
-  const { isLoaded, isSignedIn, accountLoading, needsOnboard } = useProductAuth();
+  const { isLoaded, isSignedIn, account, accountLoading, needsOnboard } = useProductAuth();
 
-  if (!isLoaded || (isSignedIn && accountLoading)) {
+  // Show spinner until account state is fully resolved.
+  // The extra (!account && !needsOnboard) guard covers a race where Clerk
+  // briefly reports isSignedIn=false then true, which resets accountLoading
+  // before the /me fetch completes — causing a flash of the main app with no account.
+  if (!isLoaded || (isSignedIn && (accountLoading || (!account && !needsOnboard)))) {
     return <Spinner />;
   }
 
