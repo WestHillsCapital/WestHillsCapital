@@ -1601,8 +1601,9 @@ router.post("/csv-batch", async (req, res) => {
                   generated_pdf_url=$3,
                   generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
                   updated_at=NOW()
-            WHERE token=$4`,
-          [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, token],
+            WHERE token=$4
+              AND package_id=$5`,
+          [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, token, packageId],
         );
         insertedToken = null;
         results.push({ rowIndex: i, token, status: "generated", pdfUrl: `/api/internal/docufill/sessions/${token}/packet.pdf` });
