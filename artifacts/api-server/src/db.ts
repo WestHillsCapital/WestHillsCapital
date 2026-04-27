@@ -572,53 +572,121 @@ export async function initDb(): Promise<void> {
   // Enforces NOT NULL on account_id columns across all docufill tables,
   // drops the per-table UNIQUE(name) constraints that block multi-tenancy,
   // and replaces them with UNIQUE(account_id, name) so each account has its
-  // own namespace. Idempotent — guarded by docufill_migration_state.
+  // own namespace.
+  //
+  // This migration is FAIL-FAST and TRANSACTIONAL:
+  //   - All DDL runs inside a single transaction so partial failure rolls back.
+  //   - The migration-state row is inserted only AFTER all steps succeed.
+  //   - DDL uses idempotent patterns (IF NOT EXISTS / IF EXISTS / DO NOTHING)
+  //     so individual steps are safe on re-run without needing catch-swallowers.
+  //   - Post-migration verification confirms the constraints actually exist in
+  //     pg_catalog before the transaction commits.
   const isolationV1 = await db.query(
     "SELECT 1 FROM docufill_migration_state WHERE key = $1",
     ["account_id_isolation_v1"],
   );
   if (!isolationV1.rows[0]) {
-    // Safety backfill: any row that somehow still has NULL account_id → account 1
-    for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
-      await db.query(`UPDATE ${table} SET account_id = 1 WHERE account_id IS NULL`).catch(() => {});
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+
+      // Safety backfill: any row with NULL account_id → account 1
+      for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
+        await client.query(`UPDATE ${table} SET account_id = 1 WHERE account_id IS NULL`);
+      }
+
+      // Add NOT NULL constraints (nulls backfilled above so this will succeed)
+      for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
+        // Use a DO block to make this idempotent without swallowing errors
+        await client.query(`
+          DO $$
+          BEGIN
+            IF EXISTS (
+              SELECT 1 FROM information_schema.columns
+               WHERE table_name = '${table}'
+                 AND column_name = 'account_id'
+                 AND is_nullable = 'YES'
+            ) THEN
+              ALTER TABLE ${table} ALTER COLUMN account_id SET NOT NULL;
+            END IF;
+          END$$
+        `);
+
+        // Add FK if it does not already exist
+        await client.query(`
+          DO $$
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM information_schema.table_constraints tc
+               JOIN information_schema.key_column_usage kcu
+                 ON tc.constraint_name = kcu.constraint_name
+              WHERE tc.constraint_type = 'FOREIGN KEY'
+                AND tc.table_name = '${table}'
+                AND kcu.column_name = 'account_id'
+            ) THEN
+              ALTER TABLE ${table}
+                ADD CONSTRAINT ${table}_account_id_fk
+                  FOREIGN KEY (account_id) REFERENCES accounts(id);
+            END IF;
+          END$$
+        `);
+      }
+
+      // Drop old global UNIQUE(name) constraints; replace with per-account ones
+      for (const table of ["docufill_custodians", "docufill_depositories"]) {
+        // Postgres auto-names a single-col UNIQUE as <table>_<col>_key
+        await client.query(`ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${table}_name_key`);
+        await client.query(`
+          CREATE UNIQUE INDEX IF NOT EXISTS ${table}_account_name_idx
+            ON ${table} (account_id, name)
+        `);
+      }
+
+      // Add account_id indexes to speed up per-account scoped queries
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS docufill_custodians_account_idx
+          ON docufill_custodians (account_id)
+      `);
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS docufill_depositories_account_idx
+          ON docufill_depositories (account_id)
+      `);
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS docufill_packages_account_idx
+          ON docufill_packages (account_id)
+      `);
+
+      // ── Post-migration verification ─────────────────────────────────────────
+      // Confirm that NOT NULL is actually enforced on all three tables before
+      // recording success. If any table is still nullable the transaction rolls
+      // back and the migration will be retried on next server start.
+      for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
+        const check = await client.query(`
+          SELECT is_nullable FROM information_schema.columns
+           WHERE table_name = $1 AND column_name = 'account_id'
+        `, [table]);
+        if (!check.rows[0] || check.rows[0].is_nullable !== "NO") {
+          throw new Error(
+            `[DB] Migration verification failed: ${table}.account_id is still nullable after DDL`,
+          );
+        }
+      }
+
+      // Record success only after all DDL and verification pass
+      await client.query(
+        "INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
+        ["account_id_isolation_v1"],
+      );
+
+      await client.query("COMMIT");
+      logger.info("[DB] Multi-tenant isolation hardening (v1) applied and verified");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      logger.error({ err }, "[DB] account_id_isolation_v1 migration FAILED — rolled back; will retry on next start");
+      throw err;
+    } finally {
+      client.release();
     }
-    // Add NOT NULL constraints (safe: nulls just backfilled above)
-    for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
-      await db.query(`ALTER TABLE ${table} ALTER COLUMN account_id SET NOT NULL`).catch((err) => {
-        logger.warn({ err, table }, "[DB] Could not set account_id NOT NULL — may already be set");
-      });
-      // Add FK constraint if missing
-      await db.query(
-        `ALTER TABLE ${table} ADD CONSTRAINT ${table}_account_id_fk
-           FOREIGN KEY (account_id) REFERENCES accounts(id)`,
-      ).catch(() => {});
-    }
-    // Drop old global UNIQUE(name) constraints and replace with per-account ones
-    for (const table of ["docufill_custodians", "docufill_depositories"]) {
-      // Postgres auto-names UNIQUE constraints as <table>_<col>_key
-      await db.query(`ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${table}_name_key`).catch(() => {});
-      await db.query(
-        `CREATE UNIQUE INDEX IF NOT EXISTS ${table}_account_name_idx
-           ON ${table} (account_id, name)`,
-      ).catch((err) => {
-        logger.warn({ err, table }, "[DB] Could not create account+name unique index");
-      });
-    }
-    // Add account_id indexes to speed up scoped queries
-    await db.query(
-      `CREATE INDEX IF NOT EXISTS docufill_custodians_account_idx ON docufill_custodians (account_id)`,
-    ).catch(() => {});
-    await db.query(
-      `CREATE INDEX IF NOT EXISTS docufill_depositories_account_idx ON docufill_depositories (account_id)`,
-    ).catch(() => {});
-    await db.query(
-      `CREATE INDEX IF NOT EXISTS docufill_packages_account_idx ON docufill_packages (account_id)`,
-    ).catch(() => {});
-    await db.query(
-      "INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
-      ["account_id_isolation_v1"],
-    );
-    logger.info("[DB] Multi-tenant isolation hardening applied");
   }
 
   await db.query(`
