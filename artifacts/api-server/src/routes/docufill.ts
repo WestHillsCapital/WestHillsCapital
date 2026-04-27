@@ -221,6 +221,7 @@ function publicSessionView(session: Record<string, unknown>): Record<string, unk
   const {
     webhook_url: _wu,
     webhook_enabled: _we,
+    webhook_secret: _ws,  // never expose signing secret to public callers
     generated_pdf_drive_id: _di,
     deal_id: _dl,
     custodian_id: _ci,
