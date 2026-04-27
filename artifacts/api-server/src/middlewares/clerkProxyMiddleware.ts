@@ -1,12 +1,13 @@
 /**
- * Clerk Frontend API + NPM CDN Proxy Middleware
+ * Clerk Frontend API Proxy Middleware
  *
- * Proxies Clerk requests through your domain, enabling Clerk authentication
+ * Proxies all Clerk requests through your domain, enabling Clerk authentication
  * on custom domains without requiring CNAME DNS configuration.
  *
- * Two different upstream targets are needed:
- *   /api/__clerk/npm/... → https://npm.clerk.dev  (clerk.browser.js + assets)
- *   /api/__clerk/...     → https://frontend-api.clerk.dev  (auth API calls)
+ * ALL requests (auth API calls AND the clerk.browser.js bundle) go to
+ * https://frontend-api.clerk.dev. That host returns a 307 for version-resolution
+ * of the npm bundle — we follow redirects server-side so the browser never sees
+ * a cross-origin redirect and the bundle always loads cleanly.
  *
  * AUTH CONFIGURATION: To manage users, enable/disable login providers
  * (Google, GitHub, etc.), change app branding, or configure OAuth credentials,
@@ -25,9 +26,7 @@
 import { createProxyMiddleware } from "http-proxy-middleware";
 import type { RequestHandler } from "express";
 
-const CLERK_FAPI    = "https://frontend-api.clerk.dev";
-const CLERK_NPM_CDN = "https://npm.clerk.dev";
-
+const CLERK_FAPI = "https://frontend-api.clerk.dev";
 export const CLERK_PROXY_PATH = "/api/__clerk";
 
 export function clerkProxyMiddleware(): RequestHandler {
@@ -41,20 +40,10 @@ export function clerkProxyMiddleware(): RequestHandler {
     return (_req, _res, next) => next();
   }
 
-  // Proxy for NPM CDN assets (clerk.browser.js, chunks, etc.)
-  const npmProxy = createProxyMiddleware({
-    target: CLERK_NPM_CDN,
-    changeOrigin: true,
-    pathRewrite: (path: string) =>
-      path.replace(new RegExp(`^${CLERK_PROXY_PATH}`), ""),
-  }) as RequestHandler;
-
-  // Proxy for Clerk Frontend API (auth calls, FAPI, etc.)
-  const fapiProxy = createProxyMiddleware({
+  return createProxyMiddleware({
     target: CLERK_FAPI,
     changeOrigin: true,
-    pathRewrite: (path: string) =>
-      path.replace(new RegExp(`^${CLERK_PROXY_PATH}`), ""),
+    followRedirects: true,
     on: {
       proxyReq: (proxyReq, req) => {
         const protocol = req.headers["x-forwarded-proto"] || "https";
@@ -75,12 +64,4 @@ export function clerkProxyMiddleware(): RequestHandler {
       },
     },
   }) as RequestHandler;
-
-  return (req, res, next) => {
-    const subPath = req.path;
-    if (subPath.startsWith("/npm/")) {
-      return npmProxy(req, res, next);
-    }
-    return fapiProxy(req, res, next);
-  };
 }
