@@ -850,6 +850,15 @@ export async function initDb(): Promise<void> {
      WHERE revoked_at IS NULL
   `);
 
+  // ── Task #192: team member management columns ─────────────────────────────
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS invited_by TEXT`);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS invited_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS display_name TEXT`);
+  // Back-fill any rows that pre-date the status column — they are all active
+  await db.query(`UPDATE account_users SET status = 'active' WHERE status IS NULL OR status = ''`);
+
   // ── Task #194: interview link email tracking ───────────────────────────────
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS link_emailed_at TIMESTAMPTZ`);
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS link_email_recipient TEXT`);

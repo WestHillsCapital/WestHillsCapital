@@ -5,6 +5,7 @@ import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import { hashApiKey } from "../middleware/requireApiKeyAuth";
 import { requireProductAuth } from "../middleware/requireProductAuth";
+import { requireAdminRole } from "../middleware/requireRole";
 
 const router = Router();
 
@@ -206,7 +207,7 @@ router.get("/me", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/api-keys", requireProductAuth, async (req, res) => {
+router.post("/api-keys", requireProductAuth, requireAdminRole, async (req, res) => {
   const accountId = req.internalAccountId!;
   const name = ((req.body as { name?: string }).name ?? "").trim();
 
@@ -383,7 +384,7 @@ router.get("/api-keys", requireProductAuth, async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.delete("/api-keys/:id", requireProductAuth, async (req, res) => {
+router.delete("/api-keys/:id", requireProductAuth, requireAdminRole, async (req, res) => {
   const accountId = req.internalAccountId!;
   const keyId = parseInt(String(req.params.id ?? ""), 10);
 

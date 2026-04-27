@@ -1868,3 +1868,88 @@ export async function sendDocupleteClientConfirmationEmail(params: {
     html,
   });
 }
+
+// ── Team invitation ───────────────────────────────────────────────────────────
+
+export async function sendTeamInvitationEmail(params: {
+  recipientEmail: string;
+  inviterName:    string;
+  orgName:        string;
+  role:           string;
+  signUpUrl:      string;
+}): Promise<void> {
+  const roleLabel = params.role === "admin" ? "Admin" : params.role === "readonly" ? "Read-only" : "Member";
+
+  await sendEmail({
+    to:      params.recipientEmail,
+    subject: `You've been invited to join ${params.orgName} on Docuplete`,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Team Invitation — Docuplete</title>
+</head>
+<body style="margin:0;padding:0;background:#F4F4F0;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr><td align="center" style="padding:40px 16px;">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0"
+           style="max-width:560px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #e5e7eb;">
+
+      <!-- Header -->
+      <tr>
+        <td style="background:#0F1C3F;padding:24px 32px;">
+          <p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">Docuplete</p>
+        </td>
+      </tr>
+
+      <!-- Body -->
+      <tr>
+        <td style="padding:32px;">
+          <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;line-height:1.3;">
+            You've been invited to join ${params.orgName}
+          </h1>
+          <p style="margin:0 0 20px;font-size:14px;color:#4b5563;line-height:1.65;">
+            <strong>${params.inviterName}</strong> has invited you to join
+            <strong>${params.orgName}</strong> on Docuplete as a <strong>${roleLabel}</strong>.
+          </p>
+          <p style="margin:0 0 28px;font-size:14px;color:#4b5563;line-height:1.65;">
+            Click the button below to create your account or sign in with
+            <strong>${params.recipientEmail}</strong>.
+            Your invitation is linked to this email address.
+          </p>
+
+          <!-- CTA -->
+          <table role="presentation" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="background:#0F1C3F;border-radius:6px;">
+                <a href="${params.signUpUrl}" target="_blank"
+                   style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;">
+                  Accept Invitation
+                </a>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:24px 0 0;font-size:12px;color:#9ca3af;line-height:1.6;">
+            Or copy this link: <a href="${params.signUpUrl}" style="color:#0F1C3F;">${params.signUpUrl}</a>
+          </p>
+        </td>
+      </tr>
+
+      <!-- Footer -->
+      <tr>
+        <td style="padding:16px 32px 24px;border-top:1px solid #f3f4f6;">
+          <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;">
+            This invitation was sent by ${params.orgName} via Docuplete.
+            If you weren't expecting this, you can safely ignore this email.
+          </p>
+        </td>
+      </tr>
+
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`,
+  });
+}

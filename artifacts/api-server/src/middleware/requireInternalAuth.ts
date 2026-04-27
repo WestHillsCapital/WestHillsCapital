@@ -9,6 +9,8 @@ declare global {
     interface Request {
       internalEmail?:     string;
       internalAccountId?: number;
+      /** Role of the authenticated product/SaaS user (admin | member | readonly). Unset for internal-portal or API-key auth. */
+      productUserRole?:   string;
     }
   }
 }

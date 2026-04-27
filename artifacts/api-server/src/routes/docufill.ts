@@ -20,6 +20,7 @@ import {
   sendDocupleteStaffSubmissionEmail,
   sendDocupleteClientConfirmationEmail,
 } from "../lib/email";
+import { requireAdminRole } from "../middleware/requireRole";
 
 const router: IRouter = Router();
 export const publicDocufillRouter: IRouter = Router();
@@ -1216,7 +1217,7 @@ router.patch("/depositories/:id", async (req, res) => {
   }
 });
 
-router.post("/packages", async (req, res) => {
+router.post("/packages", requireAdminRole, async (req, res) => {
   try {
     const body = req.body as PackageInput;
     const name = cleanText(body.name);
@@ -1396,7 +1397,7 @@ router.post("/packages/:id/test-webhook", async (req, res) => {
   }
 });
 
-router.delete("/packages/:id", async (req, res) => {
+router.delete("/packages/:id", requireAdminRole, async (req, res) => {
   try {
     const id = parseId(req.params.id);
     if (!id) {

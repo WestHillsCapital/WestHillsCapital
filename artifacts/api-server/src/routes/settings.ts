@@ -1,9 +1,12 @@
 import { Router, type IRouter } from "express";
 import { randomUUID } from "crypto";
+import { getAuth } from "@clerk/express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import { ObjectStorageService, objectStorageClient } from "../lib/objectStorage";
 import { extractBrandColors, isSafeUrl } from "../lib/brandColorExtractor";
+import { requireAdminRole } from "../middleware/requireRole";
+import { sendTeamInvitationEmail } from "../lib/email";
 import express from "express";
 
 const router: IRouter = Router();
@@ -226,7 +229,7 @@ router.get("/org", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.patch("/org", async (req, res) => {
+router.patch("/org", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
     const body = req.body as Record<string, unknown>;
@@ -382,6 +385,7 @@ router.patch("/org", async (req, res) => {
  */
 router.post(
   "/org/logo",
+  requireAdminRole,
   express.raw({ type: ALLOWED_IMAGE_TYPES as unknown as string[], limit: "5mb" }),
   async (req, res) => {
     try {
@@ -536,6 +540,216 @@ router.post("/extract-brand-colors", async (req, res) => {
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Could not extract colors from that URL.";
     res.status(422).json({ error: msg });
+  }
+});
+
+// ── Team management ──────────────────────────────────────────────────────────
+
+const VALID_ROLES = new Set(["admin", "member", "readonly"]);
+
+function roleLabel(role: string): string {
+  if (role === "admin")    return "Admin";
+  if (role === "readonly") return "Read-only";
+  return "Member";
+}
+
+/** GET /team — list all members visible to the current account */
+router.get("/team", async (req, res) => {
+  try {
+    const accountId  = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+
+    const { rows } = await getDb().query(
+      `SELECT id, email, display_name, role, status, last_seen_at, invited_at, invited_by,
+              (clerk_user_id IS NOT DISTINCT FROM $2) AS is_current_user
+         FROM account_users
+        WHERE account_id = $1
+        ORDER BY role = 'admin' DESC, created_at ASC`,
+      [accountId, clerkUserId],
+    );
+
+    const seatCount = rows.filter((r: Record<string, unknown>) => r.status !== "pending").length;
+
+    res.json({
+      members: rows.map((r: Record<string, unknown>) => ({
+        id:               r.id,
+        email:            r.email,
+        display_name:     r.display_name ?? null,
+        role:             r.role,
+        role_label:       roleLabel(r.role as string),
+        status:           r.status,
+        last_seen_at:     r.last_seen_at ?? null,
+        invited_at:       r.invited_at ?? null,
+        invited_by:       r.invited_by ?? null,
+        is_current_user:  r.is_current_user,
+      })),
+      seat_count: seatCount,
+      is_admin:   req.productUserRole === "admin",
+    });
+  } catch (err) {
+    logger.error({ err }, "[Team] Failed to list members");
+    res.status(500).json({ error: "Failed to load team." });
+  }
+});
+
+/** POST /team/invite — send an invitation to a new member (admin only) */
+router.post("/team/invite", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as Record<string, unknown>;
+    const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+    const role  = typeof body.role  === "string" ? body.role.trim().toLowerCase() : "member";
+
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return void res.status(400).json({ error: "A valid email address is required." });
+    }
+    if (!VALID_ROLES.has(role)) {
+      return void res.status(400).json({ error: "Invalid role. Must be admin, member, or readonly." });
+    }
+
+    const db = getDb();
+
+    // Resolve org name and inviter email
+    const [orgResult, inviterResult] = await Promise.all([
+      db.query<{ name: string }>(`SELECT name FROM accounts WHERE id = $1`, [accountId]),
+      db.query<{ email: string; display_name: string | null }>(
+        `SELECT email, display_name FROM account_users WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+        [accountId, getAuth(req)?.userId ?? null],
+      ),
+    ]);
+    const orgName     = orgResult.rows[0]?.name ?? "Your organization";
+    const inviterEmail = inviterResult.rows[0]?.email ?? "";
+    const inviterName  = inviterResult.rows[0]?.display_name || inviterEmail;
+
+    // Upsert pending invitation (idempotent — if re-invited, update role)
+    const { rows } = await db.query(
+      `INSERT INTO account_users (account_id, email, role, status, invited_by, invited_at)
+       VALUES ($1, $2, $3, 'pending', $4, NOW())
+       ON CONFLICT (account_id, email)
+       DO UPDATE SET role = $3, invited_by = $4, invited_at = NOW(), status = CASE
+         WHEN account_users.clerk_user_id IS NULL THEN 'pending'
+         ELSE account_users.status
+       END
+       RETURNING id, email, role, status, invited_at`,
+      [accountId, email, role, inviterEmail],
+    );
+    const member = rows[0] as Record<string, unknown>;
+
+    // Send invitation email (fire-and-forget — don't block if RESEND_API_KEY is not set)
+    const origin = process.env.APP_ORIGIN
+      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://app.docuplete.com");
+    const signUpUrl = `${origin}/app`;
+
+    sendTeamInvitationEmail({
+      recipientEmail: email,
+      inviterName,
+      orgName,
+      role,
+      signUpUrl,
+    }).catch((err) => logger.warn({ err, email }, "[Team] Invitation email failed"));
+
+    return void res.status(201).json({
+      member: {
+        id:           member.id,
+        email:        member.email,
+        role:         member.role,
+        role_label:   roleLabel(member.role as string),
+        status:       member.status,
+        invited_at:   member.invited_at,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Team] Failed to invite member");
+    res.status(500).json({ error: "Failed to send invitation." });
+  }
+});
+
+/** PATCH /team/:id/role — change a member's role (admin only) */
+router.patch("/team/:id/role", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const memberId  = parseInt(req.params.id ?? "", 10);
+    if (isNaN(memberId)) return void res.status(400).json({ error: "Invalid member id." });
+
+    const body = req.body as Record<string, unknown>;
+    const newRole = typeof body.role === "string" ? body.role.trim().toLowerCase() : "";
+    if (!VALID_ROLES.has(newRole)) {
+      return void res.status(400).json({ error: "Invalid role. Must be admin, member, or readonly." });
+    }
+
+    const db = getDb();
+
+    // Fetch target member
+    const { rows: targets } = await db.query<{ role: string }>(
+      `SELECT role FROM account_users WHERE id = $1 AND account_id = $2`,
+      [memberId, accountId],
+    );
+    if (!targets[0]) return void res.status(404).json({ error: "Team member not found." });
+
+    // Guard: cannot demote if they are the last admin
+    if (targets[0].role === "admin" && newRole !== "admin") {
+      const { rows: adminCount } = await db.query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM account_users
+          WHERE account_id = $1 AND role = 'admin' AND status = 'active'`,
+        [accountId],
+      );
+      if (parseInt(adminCount[0].count, 10) <= 1) {
+        return void res.status(409).json({ error: "Cannot demote the only admin. Promote another member to admin first." });
+      }
+    }
+
+    const { rows } = await db.query(
+      `UPDATE account_users SET role = $1 WHERE id = $2 AND account_id = $3
+       RETURNING id, email, display_name, role, status, last_seen_at`,
+      [newRole, memberId, accountId],
+    );
+
+    return void res.json({
+      member: {
+        ...(rows[0] as Record<string, unknown>),
+        role_label: roleLabel(newRole),
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Team] Failed to update role");
+    res.status(500).json({ error: "Failed to update role." });
+  }
+});
+
+/** DELETE /team/:id — remove a member (admin only) */
+router.delete("/team/:id", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const memberId  = parseInt(req.params.id ?? "", 10);
+    if (isNaN(memberId)) return void res.status(400).json({ error: "Invalid member id." });
+
+    const db = getDb();
+
+    // Fetch target
+    const { rows: targets } = await db.query<{ role: string; status: string }>(
+      `SELECT role, status FROM account_users WHERE id = $1 AND account_id = $2`,
+      [memberId, accountId],
+    );
+    if (!targets[0]) return void res.status(404).json({ error: "Team member not found." });
+
+    // Guard: cannot remove the last admin
+    if (targets[0].role === "admin") {
+      const { rows: adminCount } = await db.query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM account_users
+          WHERE account_id = $1 AND role = 'admin' AND status = 'active'`,
+        [accountId],
+      );
+      if (parseInt(adminCount[0].count, 10) <= 1) {
+        return void res.status(409).json({ error: "Cannot remove the only admin. Promote another member to admin first." });
+      }
+    }
+
+    await db.query(`DELETE FROM account_users WHERE id = $1 AND account_id = $2`, [memberId, accountId]);
+
+    return void res.json({ success: true, deletedId: memberId });
+  } catch (err) {
+    logger.error({ err }, "[Team] Failed to remove member");
+    res.status(500).json({ error: "Failed to remove member." });
   }
 });
 
