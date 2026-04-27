@@ -793,6 +793,15 @@ export default function DocuFill() {
   const [acroAnnotations, setAcroAnnotations] = useState<AcroAnnotation[]>([]);
   const [showAcroLayer, setShowAcroLayer] = useState(true);
   const [mapperTextMode, setMapperTextMode] = useState(true);
+  const [snapGrid, setSnapGrid] = useState<boolean>(() => {
+    try { return localStorage.getItem("docufill-snap-grid") === "true"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("docufill-snap-grid", snapGrid ? "true" : "false"); } catch { /* ignore */ }
+  }, [snapGrid]);
+  const [userZoom, setUserZoom] = useState(1.0);
+  const [resizeDim, setResizeDim] = useState<{ w: number; h: number } | null>(null);
+  const [dragGuides, setDragGuides] = useState<{ xs: number[]; ys: number[] } | null>(null);
   const [isPdfRendering, setIsPdfRendering] = useState(false);
   const [pdfRenderError, setPdfRenderError] = useState<string | null>(null);
   const documentPreviewCache = useRef<Record<string, string>>({});
@@ -870,6 +879,7 @@ export default function DocuFill() {
   const mapperMaxH = Math.round(viewportHeight * 0.88);
   const mapperMaxW = Math.max(320, mapperContainerWidth - 2);
   const mapperScale = Math.min(mapperMaxH / nativePageH, mapperMaxW / nativePageW);
+  const effectiveScale = mapperScale * userZoom;
   const mapperFrameW = Math.round(nativePageW * mapperScale);
   const mapperFrameH = Math.round(nativePageH * mapperScale);
   const pageMappings = useMemo(() => {
@@ -1099,7 +1109,27 @@ export default function DocuFill() {
       return;
     }
 
-    // ← / →: navigate PDF pages in mapper
+    // Arrow keys: nudge selected mapping (1pt) or Shift+Arrow (10pt); fall through to page nav
+    if (isMapperVisible && selectedMappingId && (e.key === "ArrowLeft" || e.key === "ArrowRight" || e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      e.preventDefault();
+      const step = e.shiftKey ? 10 : 1;
+      const dxPct = (step / nativePageW) * 100;
+      const dyPct = (step / nativePageH) * 100;
+      updateSelectedPackage((pkg) => ({
+        ...pkg,
+        mappings: pkg.mappings.map((m) => {
+          if (m.id !== selectedMappingId) return m;
+          if (e.key === "ArrowLeft")  return { ...m, x: clampPercent((m.x ?? 0) - dxPct, 0, 100 - (m.w ?? 26)) };
+          if (e.key === "ArrowRight") return { ...m, x: clampPercent((m.x ?? 0) + dxPct, 0, 100 - (m.w ?? 26)) };
+          if (e.key === "ArrowUp")    return { ...m, y: clampPercent((m.y ?? 0) - dyPct, 0, 100 - (m.h ?? 6)) };
+          if (e.key === "ArrowDown")  return { ...m, y: clampPercent((m.y ?? 0) + dyPct, 0, 100 - (m.h ?? 6)) };
+          return m;
+        }),
+      }));
+      return;
+    }
+
+    // ← / →: navigate PDF pages in mapper (only when no mapping is selected)
     if (isMapperVisible) {
       if (e.key === "ArrowLeft") {
         e.preventDefault();
@@ -2095,6 +2125,19 @@ export default function DocuFill() {
     const startX = e.clientX;
     const startY = e.clientY;
     const original = { ...mapping };
+    const GRID_PTS = 4;
+    const snapPctX = (pct: number) => {
+      if (!snapGrid) return pct;
+      const pts = (pct / 100) * nativePageW;
+      return (Math.round(pts / GRID_PTS) * GRID_PTS / nativePageW) * 100;
+    };
+    const snapPctY = (pct: number) => {
+      if (!snapGrid) return pct;
+      const pts = (pct / 100) * nativePageH;
+      return (Math.round(pts / GRID_PTS) * GRID_PTS / nativePageH) * 100;
+    };
+    const otherMappings = pageMappings.filter((item) => item.id !== mapping.id);
+    const GUIDE_THRESH = 0.6;
     const onMove = (event: PointerEvent) => {
       const dx = ((event.clientX - startX) / rect.width) * 100;
       const dy = ((event.clientY - startY) / rect.height) * 100;
@@ -2103,25 +2146,38 @@ export default function DocuFill() {
         mappings: pkg.mappings.map((item) => {
           if (item.id !== original.id) return item;
           if (mode === "resize") {
-            return {
-              ...item,
-              w: clampPercent((original.w ?? 26) + dx, 3, 100),
-              h: clampPercent((original.h ?? 6) + dy, 2, 100),
-            };
+            const newW = snapPctX(clampPercent((original.w ?? 26) + dx, 3, 100));
+            const newH = snapPctY(clampPercent((original.h ?? 6) + dy, 2, 100));
+            setResizeDim({ w: Math.round((newW / 100) * nativePageW), h: Math.round((newH / 100) * nativePageH) });
+            return { ...item, w: newW, h: newH };
           }
           const width = original.w ?? 26;
           const height = original.h ?? 6;
-          return {
-            ...item,
-            x: clampPercent((original.x ?? 0) + dx, 0, 100 - width),
-            y: clampPercent((original.y ?? 0) + dy, 0, 100 - height),
-          };
+          const newX = snapPctX(clampPercent((original.x ?? 0) + dx, 0, 100 - width));
+          const newY = snapPctY(clampPercent((original.y ?? 0) + dy, 0, 100 - height));
+          const L = newX, R = newX + width, CX = newX + width / 2;
+          const T = newY, B = newY + height, CY = newY + height / 2;
+          const guideXs: number[] = [], guideYs: number[] = [];
+          for (const other of otherMappings) {
+            const oL = other.x ?? 0, oW = other.w ?? 26;
+            const oR = oL + oW, oCX = oL + oW / 2;
+            const oT = other.y ?? 0, oH = other.h ?? 6;
+            const oB = oT + oH, oCY = oT + oH / 2;
+            for (const [a, b] of [[L, oL],[L, oR],[L, oCX],[R, oL],[R, oR],[R, oCX],[CX, oL],[CX, oR],[CX, oCX]] as [number,number][])
+              if (Math.abs(a - b) < GUIDE_THRESH) guideXs.push(b);
+            for (const [a, b] of [[T, oT],[T, oB],[T, oCY],[B, oT],[B, oB],[B, oCY],[CY, oT],[CY, oB],[CY, oCY]] as [number,number][])
+              if (Math.abs(a - b) < GUIDE_THRESH) guideYs.push(b);
+          }
+          setDragGuides(guideXs.length > 0 || guideYs.length > 0 ? { xs: [...new Set(guideXs)], ys: [...new Set(guideYs)] } : null);
+          return { ...item, x: newX, y: newY };
         }),
       }));
     };
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
+      setResizeDim(null);
+      setDragGuides(null);
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -3369,6 +3425,24 @@ export default function DocuFill() {
                   <div className="h-4 w-px bg-[#DDD5C4]" />
                   <button
                     type="button"
+                    title={snapGrid ? "Snap to grid on — click to turn off" : "Snap to grid off — click to turn on (4 pt grid)"}
+                    onClick={() => setSnapGrid((v) => !v)}
+                    className={`flex items-center gap-1 text-xs border rounded px-2 py-1 leading-none transition-colors ${snapGrid ? "border-[#C49A38] bg-[#FDF8EE] text-[#8A6A20]" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                  >
+                    <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                      <line x1="4" y1="0" x2="4" y2="16"/><line x1="8" y1="0" x2="8" y2="16"/><line x1="12" y1="0" x2="12" y2="16"/>
+                      <line x1="0" y1="4" x2="16" y2="4"/><line x1="0" y1="8" x2="16" y2="8"/><line x1="0" y1="12" x2="16" y2="12"/>
+                    </svg>
+                    Snap
+                  </button>
+                  <div className="flex items-center rounded border border-[#D4C9B5] overflow-hidden text-xs">
+                    <button type="button" onClick={() => setUserZoom((z) => Math.max(0.25, parseFloat((z - 0.25).toFixed(2))))} className="px-1.5 py-1 leading-none text-[#6B7A99] hover:bg-[#F8F6F0] border-r border-[#D4C9B5]" title="Zoom out">−</button>
+                    <button type="button" onClick={() => setUserZoom(1)} className="px-2 py-1 leading-none text-[#6B7A99] hover:bg-[#F8F6F0] border-r border-[#D4C9B5] tabular-nums" title="Reset zoom">{Math.round(userZoom * 100)}%</button>
+                    <button type="button" onClick={() => setUserZoom((z) => Math.min(4, parseFloat((z + 0.25).toFixed(2))))} className="px-1.5 py-1 leading-none text-[#6B7A99] hover:bg-[#F8F6F0]" title="Zoom in">+</button>
+                  </div>
+                  <div className="h-4 w-px bg-[#DDD5C4]" />
+                  <button
+                    type="button"
                     title={inspectorMode === "panel" ? "Switch to floating popup" : "Switch to side panel"}
                     onClick={() => {
                       const next = inspectorMode === "panel" ? "modal" : "panel";
@@ -3394,9 +3468,10 @@ export default function DocuFill() {
               </div>
               {isUploadingDocument && <div className="mb-2 text-xs text-[#6B7A99]">Uploading PDF…</div>}
               <div
-                className="relative bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-hidden"
+                className="relative bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-auto"
                 style={{ width: mapperFrameW, height: mapperFrameH }}
               >
+                <div style={{ width: Math.round(nativePageW * effectiveScale), height: Math.round(nativePageH * effectiveScale), position: "relative", flexShrink: 0 }}>
                 <div
                   ref={pageFrameRef}
                   onDragOver={(e) => e.preventDefault()}
@@ -3406,7 +3481,7 @@ export default function DocuFill() {
                   style={{
                     width: nativePageW,
                     height: nativePageH,
-                    transform: `scale(${mapperScale})`,
+                    transform: `scale(${effectiveScale})`,
                     transformOrigin: "top left",
                   }}
                 >
@@ -3472,6 +3547,7 @@ export default function DocuFill() {
                     const isCheckboxMark = m.format === "checkbox-yes" || String(m.format ?? "").startsWith("checkbox-option:");
                     const recipient = m.recipientId ? (selectedPackage.recipients ?? []).find((r) => r.id === m.recipientId) : undefined;
                     const fieldColor = recipient?.color ?? field?.color ?? "#C49A38";
+                    const isFullyDefined = Boolean(field?.name && !field.name.match(/^Field \d+$/i) && (field.libraryFieldId || field.interviewMode));
                     const flexJustify = isCheckboxMark ? "justify-center" : "justify-end";
                     return (
                       <button
@@ -3492,15 +3568,23 @@ export default function DocuFill() {
                           setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
                           setPlacementModalPos(null);
                         }}
-                        className={`absolute rounded cursor-move flex flex-col overflow-hidden ${flexJustify} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "border-2 bg-white/90 shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
+                        className={`absolute rounded cursor-move flex flex-col overflow-hidden ${flexJustify} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
                         style={{
                           left: `${m.x}%`,
                           top: `${m.y}%`,
                           width: `${m.w}%`,
                           height: `${m.h}%`,
                           minHeight: "20px",
-                          border: mapperTextMode ? `1px ${isSelected ? "solid" : "dashed"} ${fieldColor}${isSelected ? "" : "80"}` : `2px solid ${fieldColor}`,
-                          backgroundColor: mapperTextMode ? (isSelected ? fieldColor + "18" : "transparent") : "rgba(255,255,255,0.9)",
+                          border: mapperTextMode
+                            ? `1px ${isSelected ? "solid" : "dashed"} ${fieldColor}${isSelected ? "" : "80"}`
+                            : isFullyDefined
+                              ? `2px solid ${fieldColor}`
+                              : `2px dashed ${fieldColor}88`,
+                          backgroundColor: mapperTextMode
+                            ? (isSelected ? fieldColor + "18" : "transparent")
+                            : isFullyDefined
+                              ? "rgba(255,255,255,0.93)"
+                              : "rgba(255,255,255,0.55)",
                           fontSize: `${mFontSize}px`,
                           textAlign: m.align ?? "left",
                           paddingBottom: !isCheckboxMark ? "2px" : undefined,
@@ -3532,6 +3616,27 @@ export default function DocuFill() {
                       </button>
                     );
                   })}
+                  {dragGuides && (
+                    <>
+                      {dragGuides.xs.map((x, i) => (
+                        <div key={`gx-${i}`} className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${x}%`, width: 1, background: "#2563eb", opacity: 0.65, zIndex: 15 }} />
+                      ))}
+                      {dragGuides.ys.map((y, i) => (
+                        <div key={`gy-${i}`} className="absolute left-0 right-0 pointer-events-none" style={{ top: `${y}%`, height: 1, background: "#2563eb", opacity: 0.65, zIndex: 15 }} />
+                      ))}
+                    </>
+                  )}
+                  {resizeDim && selectedMapping && (
+                    <div
+                      className="absolute pointer-events-none"
+                      style={{ left: `${(selectedMapping.x ?? 0) + (selectedMapping.w ?? 26)}%`, top: `${(selectedMapping.y ?? 0) + (selectedMapping.h ?? 6)}%`, transform: "translate(4px, 4px)", zIndex: 20 }}
+                    >
+                      <div className="bg-[#0F1C3F] text-white rounded px-1.5 py-0.5 whitespace-nowrap" style={{ fontSize: 9 }}>
+                        {resizeDim.w} × {resizeDim.h} pt
+                      </div>
+                    </div>
+                  )}
+                </div>
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap justify-end gap-2">
