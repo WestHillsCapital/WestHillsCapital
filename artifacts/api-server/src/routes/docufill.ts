@@ -604,7 +604,7 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
     const doc = new PDFDocument({ margin: 54 });
     doc.on("data", (chunk: Buffer) => chunks.push(chunk));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.fontSize(18).text("DocuFill Packet", { align: "center" });
+    doc.fontSize(18).text("Docuplete Packet", { align: "center" });
     doc.moveDown();
     doc.fontSize(12).text(`Package: ${String(session.package_name ?? "")}`);
     doc.text(`Custodian: ${String(session.custodian_name ?? "")}`);
@@ -729,7 +729,7 @@ router.get("/bootstrap", async (req, res) => {
     res.json({ custodians: custodians.rows, depositories: depositories.rows, transactionTypes: transactionTypes.rows, fieldLibrary, packages: hydratedPackages });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load bootstrap data");
-    res.status(500).json({ error: "Failed to load DocuFill data" });
+    res.status(500).json({ error: "Failed to load Docuplete data" });
   }
 });
 
@@ -1457,7 +1457,7 @@ router.post("/csv-batch", async (req, res) => {
       return;
     }
     const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID ?? null;
-    const packageName = String(pkg.name ?? "DocuFill");
+    const packageName = String(pkg.name ?? "Docuplete");
     const transactionScope = pkg.transaction_scope ?? "";
     const packageVersion = Number(pkg.version ?? 1);
     type BatchResult = { rowIndex: number; token: string | null; status: "generated" | "error"; pdfUrl?: string; error?: string };
@@ -1581,10 +1581,10 @@ router.get("/sessions", async (req, res) => {
  * /internal/docufill/sessions:
  *   post:
  *     tags:
- *       - Internal — DocuFill Sessions
+ *       - Internal — Docuplete Sessions
  *     summary: Create an interview session (internal)
  *     description: |
- *       Creates a new DocuFill interview session for the specified package.
+ *       Creates a new Docuplete interview session for the specified package.
  *       Returns the session record and a bearer token used to load and submit
  *       the public-facing interview form. Sessions expire after **90 days**.
  *
@@ -1603,7 +1603,7 @@ router.get("/sessions", async (req, res) => {
  *             properties:
  *               packageId:
  *                 type: integer
- *                 description: ID of an active DocuFill package
+ *                 description: ID of an active Docuplete package
  *                 example: 7
  *               dealId:
  *                 type: integer
@@ -1667,10 +1667,10 @@ router.get("/sessions", async (req, res) => {
  * /product/docufill/sessions:
  *   post:
  *     tags:
- *       - Product Portal — DocuFill Sessions
+ *       - Product Portal — Docuplete Sessions
  *     summary: Create an interview session
  *     description: |
- *       Creates a new DocuFill interview session for the specified package.
+ *       Creates a new Docuplete interview session for the specified package.
  *       Returns the session record and a bearer token used to load and submit
  *       the public-facing interview form. Sessions expire after **90 days**.
  *     security:
@@ -1687,7 +1687,7 @@ router.get("/sessions", async (req, res) => {
  *             properties:
  *               packageId:
  *                 type: integer
- *                 description: ID of an active DocuFill package
+ *                 description: ID of an active Docuplete package
  *                 example: 7
  *               dealId:
  *                 type: integer
@@ -1855,7 +1855,7 @@ router.post("/sessions/:token/generate", async (req, res) => {
           dealId: Number(session.deal_id) || null,
           firstName: cleanText(prefill.firstName),
           lastName: cleanText(prefill.lastName),
-          packageName: String(session.package_name ?? "DocuFill"),
+          packageName: String(session.package_name ?? "Docuplete"),
           generatedAt,
         }, rootFolderId);
       } catch (err) {
@@ -1914,7 +1914,7 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
  * /docufill/public/sessions/{token}:
  *   get:
  *     tags:
- *       - DocuFill — Public (no auth)
+ *       - Docuplete — Public (no auth)
  *     summary: Load an interview session
  *     description: |
  *       Returns the full session object including package metadata, document list,
@@ -1962,7 +1962,7 @@ publicDocufillRouter.get("/sessions/:token", async (req, res) => {
  * /docufill/public/sessions/{token}:
  *   patch:
  *     tags:
- *       - DocuFill — Public (no auth)
+ *       - Docuplete — Public (no auth)
  *     summary: Save interview answers
  *     description: |
  *       Persists a partial or complete answers object for the session. Optionally
@@ -2033,7 +2033,7 @@ publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
  * /docufill/public/sessions/{token}/generate:
  *   post:
  *     tags:
- *       - DocuFill — Public (no auth)
+ *       - Docuplete — Public (no auth)
  *     summary: Generate the document packet
  *     description: |
  *       Validates the saved answers, renders each document as a filled PDF,
@@ -2112,7 +2112,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
           dealId: Number(session.deal_id) || null,
           firstName: cleanText(prefill.firstName),
           lastName: cleanText(prefill.lastName),
-          packageName: String(session.package_name ?? "DocuFill"),
+          packageName: String(session.package_name ?? "Docuplete"),
           generatedAt,
         }, rootFolderId);
       } catch (err) {
@@ -2152,7 +2152,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
  * /docufill/public/sessions/{token}/packet.pdf:
  *   get:
  *     tags:
- *       - DocuFill — Public (no auth)
+ *       - Docuplete — Public (no auth)
  *     summary: Download the generated packet as PDF
  *     description: |
  *       Returns the fully-filled packet PDF for display or download.

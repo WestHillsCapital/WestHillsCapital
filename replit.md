@@ -35,7 +35,7 @@ The project is structured as a pnpm monorepo using TypeScript, with separate `ap
 - **Internal Workflow Language:** Staff-facing navigation uses "Prospecting Pipeline" and "Scheduled Calls" to align with internal Google Sheets.
 - **FedEx Location Search:** Integration to find nearest FedEx locations for shipping.
 - **DocuFill:** An internal custodial paperwork engine for reusable document packages. It supports managing custodians, depositories, packages, and generating filled packets based on mapped interview fields. Phase 2 enhancements include normalized transaction types, validation, and token-scoped public interview endpoints for external client completion. A shared field library enables reusable field definitions across packages.
-- **Multi-Tenancy Foundation:** Implemented with `accounts` and `account_users` tables for tenant isolation. `account_id` scopes relevant data. Internal portal uses Google auth, while an external product portal at `/app/*` uses Clerk for authentication, reusing DocuFill components with different API paths and authentication headers.
+- **Multi-Tenancy Foundation:** Implemented with `accounts` and `account_users` tables for tenant isolation. `account_id` scopes relevant data. Internal portal uses Google auth, while an external product portal at `/app/*` uses Clerk for authentication, reusing Docuplete components with different API paths and authentication headers.
 
 **Deployment:**
 - The monorepo is deployed to Railway (API server) and Vercel (frontend), both configured for continuous deployment from the GitHub `main` branch.
@@ -44,14 +44,14 @@ The project is structured as a pnpm monorepo using TypeScript, with separate `ap
 # External Dependencies
 
 - **Dillon Gage Fiztrade API:** For live gold/silver spot prices and wholesale trade execution (`LockPrices`, `ExecuteTrade`).
-- **PostgreSQL:** For `leads` and `appointments` data, and DocuFill configuration/data.
+- **PostgreSQL:** For `leads` and `appointments` data, and Docuplete configuration/data.
 - **Resend:** For sending client recap emails.
-- **Google Drive API:** For uploading generated PDF invoices and DocuFill packets.
+- **Google Drive API:** For uploading generated PDF invoices and Docuplete packets.
 - **FedEx API:** For searching shipping locations.
 - **pnpm workspaces:** Monorepo management.
 - **TypeScript:** Language.
 - **Express:** Backend API framework.
 - **React, Vite, Tailwind CSS, shadcn/ui:** Frontend stack.
 - **Zod:** Data validation.
-- **pdfkit / pdf-lib:** PDF generation, parsing, and DocuFill overlay utilities.
+- **pdfkit / pdf-lib:** PDF generation, parsing, and Docuplete overlay utilities.
 - **Clerk:** For authentication in the external product portal.

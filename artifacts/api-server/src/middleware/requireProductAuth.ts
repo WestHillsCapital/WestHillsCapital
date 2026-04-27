@@ -9,7 +9,7 @@ const APIKEY_FAIL_MAX = 10;
 const APIKEY_FAIL_WINDOW_MS = 60 * 1000;
 
 /**
- * Auth middleware for the DocuFill SaaS product routes.
+ * Auth middleware for the Docuplete SaaS product routes.
  *
  * Accepts three auth methods (in order):
  *   1. req.internalAccountId already set — pass through (e.g. requireInternalAuth ran first)

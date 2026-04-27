@@ -952,7 +952,7 @@ export default function DocuFill() {
       setError(null);
       const res = await fetch(`${API_BASE}${docufillApiPath}/bootstrap`, { headers: { ...getAuthHeaders() } });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not load DocuFill data");
+      if (!res.ok) throw new Error(data.error ?? "Could not load Docuplete data");
       const loadedPackages = normalizePackages(data.packages ?? []);
       setCustodians(data.custodians ?? []);
       setDepositories(data.depositories ?? []);
@@ -961,7 +961,7 @@ export default function DocuFill() {
       setPackages(loadedPackages);
       setSelectedPackageId((current) => current ?? loadedPackages[0]?.id ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not load DocuFill data");
+      setError(err instanceof Error ? err.message : "Could not load Docuplete data");
     }
   }
 
@@ -2215,7 +2215,7 @@ export default function DocuFill() {
       const objectUrl = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = objectUrl;
-      link.download = `${session.package_name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "docufill"}-packet.pdf`;
+      link.download = `${session.package_name.replace(/[^a-z0-9]+/gi, "-").replace(/^-|-$/g, "").toLowerCase() || "docuplete"}-packet.pdf`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -2407,7 +2407,7 @@ export default function DocuFill() {
     <div className="max-w-screen-2xl mx-auto px-4 py-6 text-[#0F1C3F]">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-2xl font-semibold">DocuFill</h1>
+          <h1 className="text-2xl font-semibold">Docuplete</h1>
           <p className="text-sm text-[#6B7A99] mt-1">{isPublicSession ? "Complete your secure paperwork interview." : "Set up custodial packages once, then launch clean interviews from Deal Builder."}</p>
         </div>
         {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
@@ -2826,7 +2826,7 @@ export default function DocuFill() {
                       className={`rounded-xl border-2 border-dashed p-6 text-center transition ${isDocumentDropActive ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#D4C9B5] bg-[#F8F6F0]"}`}
                     >
                       <div className="text-sm font-semibold text-[#0F1C3F]">Drag and drop multiple PDFs here</div>
-                      <p className="mt-1 text-xs text-[#6B7A99]">Drop all paperwork documents at once. DocuFill will upload them in order and add each file to this package.</p>
+                      <p className="mt-1 text-xs text-[#6B7A99]">Drop all paperwork documents at once. Docuplete will upload them in order and add each file to this package.</p>
                       <label className={`mt-3 inline-flex rounded border border-[#D4C9B5] bg-white px-3 py-2 text-xs font-medium text-[#0F1C3F] ${isUploadingDocument ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer"}`}>
                         {isUploadingDocument ? "Uploading…" : "Browse PDF files"}
                         <input

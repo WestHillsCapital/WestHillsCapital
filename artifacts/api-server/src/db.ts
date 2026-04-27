@@ -565,7 +565,7 @@ export async function initDb(): Promise<void> {
       "INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
       ["shared_field_backfill_v1"],
     );
-    logger.info({ updatedPackages: backfillResult.rowCount }, "DocuFill shared field backfill completed");
+    logger.info({ updatedPackages: backfillResult.rowCount }, "Docuplete shared field backfill completed");
   }
 
   await db.query(`

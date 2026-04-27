@@ -5,14 +5,14 @@ import spec from "../lib/openapi-spec.json";
 const router: IRouter = Router();
 
 const swaggerUiOptions: swaggerUi.SwaggerUiOptions = {
-  customSiteTitle: "DocuPak API Docs",
+  customSiteTitle: "Docuplete API Docs",
   customCss: `
     .swagger-ui .topbar { background: #0F1C3F; }
     .swagger-ui .topbar .download-url-wrapper { display: none; }
     .swagger-ui .topbar-wrapper .link { pointer-events: none; }
     .swagger-ui .topbar-wrapper img { content: none; }
     .swagger-ui .topbar-wrapper::before {
-      content: "DocuPak API";
+      content: "Docuplete API";
       color: #fff;
       font-size: 1.1rem;
       font-weight: 600;

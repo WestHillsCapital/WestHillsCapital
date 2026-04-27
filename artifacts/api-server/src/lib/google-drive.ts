@@ -183,7 +183,7 @@ export async function saveDocuFillPacketToDrive(
   const lastName = packet.lastName.trim() || "Client";
   const clientLabel = `${firstInitial || "C"} ${lastName}`;
   const dateLabel = `${mm}${dd}${yy}`;
-  const packageLabel = packet.packageName.replace(/[^\w.\- ()]+/g, " ").replace(/\s+/g, " ").trim() || "DocuFill";
+  const packageLabel = packet.packageName.replace(/[^\w.\- ()]+/g, " ").replace(/\s+/g, " ").trim() || "Docuplete";
   const fileName = `${dateLabel} ${clientLabel} ${packageLabel} Packet.pdf`;
 
   const yearFolderId = await getOrCreateFolder(drive, yyyy, rootFolderId);
@@ -205,6 +205,6 @@ export async function saveDocuFillPacketToDrive(
 
   const fileId = uploaded.data.id as string;
   const webViewLink = (uploaded.data.webViewLink ?? `https://drive.google.com/file/d/${fileId}/view`) as string;
-  logger.info({ dealId: packet.dealId ?? null, fileId, clientFolder: clientLabel, fileName }, "[Drive] DocuFill packet uploaded");
+  logger.info({ dealId: packet.dealId ?? null, fileId, clientFolder: clientLabel, fileName }, "[Drive] Docuplete packet uploaded");
   return { fileId, webViewLink };
 }

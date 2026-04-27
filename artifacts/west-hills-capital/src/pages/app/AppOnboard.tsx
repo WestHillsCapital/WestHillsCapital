@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useProductAuth } from "@/hooks/useProductAuth";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-const APP_NAME = "DocuFill"; // TODO: replace with final product name
+const APP_NAME = "Docuplete";
 
 export default function AppOnboard() {
   const { user, token, refreshAccount } = useProductAuth();

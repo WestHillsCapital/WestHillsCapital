@@ -9,7 +9,7 @@ function useScrollToTop() {
   }, [location]);
 }
 
-const APP_NAME = "DocuPak";
+const APP_NAME = "Docuplete";
 
 function UserAvatar({ imageUrl, name, email }: { imageUrl?: string | null; name?: string | null; email?: string | null }) {
   const initials = name
@@ -86,7 +86,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
                     : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
                 }`}
               >
-                DocuFill
+                Docuplete
               </Link>
             </nav>
           </div>

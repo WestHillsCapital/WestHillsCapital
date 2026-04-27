@@ -315,7 +315,7 @@ export async function extractBrandColors(rawUrl: string): Promise<string[]> {
   const collected: string[] = [];
 
   const requestHeaders = {
-    "User-Agent": "Mozilla/5.0 (compatible; DocuPak-BrandBot/1.0)",
+    "User-Agent": "Mozilla/5.0 (compatible; Docuplete-BrandBot/1.0)",
     Accept: "text/html,application/xhtml+xml",
   };
 

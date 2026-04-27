@@ -2,7 +2,7 @@ import { SignIn } from "@clerk/react";
 import { shadcn } from "@clerk/themes";
 
 const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
-const APP_NAME = "DocuFill"; // TODO: replace with final product name
+const APP_NAME = "Docuplete";
 
 const appearance = {
   theme: shadcn,
