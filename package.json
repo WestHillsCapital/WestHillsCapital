@@ -103,5 +103,9 @@
       "rollup>@rollup/rollup-win32-x64-gnu": "-",
       "rollup>@rollup/rollup-win32-x64-msvc": "-"
     }
+  },
+  "dependencies": {
+    "stripe": "^22.1.0",
+    "stripe-replit-sync": "^1.0.0"
   }
 }
