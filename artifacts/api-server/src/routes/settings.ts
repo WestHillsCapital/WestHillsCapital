@@ -553,7 +553,13 @@ function roleLabel(role: string): string {
   return "Member";
 }
 
-/** GET /team — list all members visible to the current account */
+/**
+ * GET /team — list all team members for the authenticated account.
+ *
+ * Intentionally accessible to all authenticated product users (admin, member,
+ * readonly) because every member of an account should be able to see the team
+ * roster and know who the admins are to request changes.
+ */
 router.get("/team", async (req, res) => {
   try {
     const accountId   = req.internalAccountId ?? 1;
@@ -644,18 +650,20 @@ router.post("/team/invite", requireAdminRole, async (req, res) => {
     );
     const member = rows[0] as Record<string, unknown>;
 
-    // Send invitation email (fire-and-forget — don't block if RESEND_API_KEY is not set)
     const origin = process.env.APP_ORIGIN
       ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://app.docuplete.com");
     const signUpUrl = `${origin}/app`;
 
-    sendTeamInvitationEmail({
-      recipientEmail: email,
-      inviterName,
-      orgName,
-      role,
-      signUpUrl,
-    }).catch((err) => logger.warn({ err, email }, "[Team] Invitation email failed"));
+    // Attempt to send the invitation email. We track success and surface it in
+    // the API response so admins know if delivery failed (e.g. RESEND_API_KEY
+    // not configured) and can share the sign-up link another way.
+    let emailSent = false;
+    try {
+      await sendTeamInvitationEmail({ recipientEmail: email, inviterName, orgName, role, signUpUrl });
+      emailSent = true;
+    } catch (emailErr) {
+      logger.warn({ emailErr, email }, "[Team] Invitation email failed — DB record still created");
+    }
 
     return void res.status(201).json({
       member: {
@@ -666,6 +674,7 @@ router.post("/team/invite", requireAdminRole, async (req, res) => {
         status:       member.status,
         invited_at:   member.invited_at,
       },
+      emailSent,
     });
   } catch (err) {
     logger.error({ err }, "[Team] Failed to invite member");

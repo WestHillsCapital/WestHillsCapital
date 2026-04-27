@@ -114,10 +114,14 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
         headers: authHeaders("application/json"),
         body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
       });
-      const data = await res.json() as { member?: TeamMember; error?: string };
+      const data = await res.json() as { member?: TeamMember; emailSent?: boolean; error?: string };
       if (!res.ok) { setInviteError(data.error ?? "Failed to send invitation."); return; }
       setInviteEmail("");
-      setInviteSuccess(`Invitation sent to ${inviteEmail.trim()}.`);
+      setInviteSuccess(
+        data.emailSent === false
+          ? `${inviteEmail.trim()} was added as a pending member. No email was sent — ask them to sign up at the app URL.`
+          : `Invitation email sent to ${inviteEmail.trim()}.`,
+      );
       loadTeam();
     } catch { setInviteError("Failed to send invitation."); }
     finally { setIsInviting(false); }
