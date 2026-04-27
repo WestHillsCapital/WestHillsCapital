@@ -898,6 +898,11 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS notify_staff_on_submit BOOLEAN NOT NULL DEFAULT false`);
   await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS notify_client_on_submit BOOLEAN NOT NULL DEFAULT false`);
 
+  // ── Task #196: self-serve onboarding state ──────────────────────────────────
+  // dismissed: true when the user has manually dismissed the checklist
+  // Any other step keys are reserved for future use; completion is derived from DB.
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS onboarding_completed_steps JSONB NOT NULL DEFAULT '{}'::jsonb`);
+
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 

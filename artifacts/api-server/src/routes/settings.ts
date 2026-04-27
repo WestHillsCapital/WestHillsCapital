@@ -1061,4 +1061,91 @@ router.post("/billing/portal", requireAdminRole, async (req, res) => {
   }
 });
 
+/** GET /onboarding — returns onboarding checklist state derived from DB + stored dismissed flag */
+router.get("/onboarding", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+
+    const [accountRes, packagesRes, sessionsRes] = await Promise.all([
+      db.query(
+        `SELECT onboarding_completed_steps FROM accounts WHERE id = $1`,
+        [accountId],
+      ),
+      db.query(
+        `SELECT tags FROM docufill_packages
+          WHERE account_id = $1 AND status <> 'deleted'`,
+        [accountId],
+      ),
+      db.query(
+        `SELECT source FROM docufill_interview_sessions
+          WHERE account_id = $1
+          LIMIT 200`,
+        [accountId],
+      ),
+    ]);
+
+    const stored = (accountRes.rows[0]?.onboarding_completed_steps ?? {}) as Record<string, unknown>;
+
+    const packages = packagesRes.rows as Array<{ tags: unknown }>;
+    const sessions = sessionsRes.rows as Array<{ source: string }>;
+
+    const hasDemoPackage = packages.some((p) => {
+      const tags = Array.isArray(p.tags) ? p.tags : [];
+      return tags.includes("Demo");
+    });
+
+    const hasOwnPackage = packages.some((p) => {
+      const tags = Array.isArray(p.tags) ? p.tags : [];
+      return !tags.includes("Demo");
+    });
+
+    const hasAnySessions = sessions.length > 0;
+    const hasSentCustomerLink = sessions.some((s) => s.source === "customer_link");
+
+    res.json({
+      onboarding: {
+        dismissed: stored.dismissed === true,
+        demo_package_exists: hasDemoPackage,
+        steps: {
+          explore_demo: hasAnySessions,
+          create_package: hasOwnPackage,
+          send_interview: hasSentCustomerLink,
+        },
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Onboarding] Failed to get onboarding state");
+    res.status(500).json({ error: "Failed to load onboarding state" });
+  }
+});
+
+/** PATCH /onboarding — stores the dismissed flag (and any future step overrides) */
+router.patch("/onboarding", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    const body = req.body as Record<string, unknown>;
+
+    const { rows } = await db.query(
+      `SELECT onboarding_completed_steps FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    const current = (rows[0]?.onboarding_completed_steps ?? {}) as Record<string, unknown>;
+
+    const updated: Record<string, unknown> = { ...current };
+    if (typeof body.dismissed === "boolean") updated.dismissed = body.dismissed;
+
+    await db.query(
+      `UPDATE accounts SET onboarding_completed_steps = $1::jsonb WHERE id = $2`,
+      [JSON.stringify(updated), accountId],
+    );
+
+    res.json({ onboarding: { dismissed: updated.dismissed === true } });
+  } catch (err) {
+    logger.error({ err }, "[Onboarding] Failed to update onboarding state");
+    res.status(500).json({ error: "Failed to update onboarding state" });
+  }
+});
+
 export default router;

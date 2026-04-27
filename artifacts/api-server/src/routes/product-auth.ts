@@ -7,6 +7,7 @@ import { hashApiKey } from "../middleware/requireApiKeyAuth";
 import { requireProductAuth } from "../middleware/requireProductAuth";
 import { requireAdminRole } from "../middleware/requireRole";
 import { linkPendingInvitation } from "../lib/auth-utils";
+import { seedDemoPackage } from "../lib/demoPackage";
 
 const router = Router();
 
@@ -75,6 +76,11 @@ router.post("/onboard", async (req, res) => {
     );
 
     logger.info({ accountId, email, clerkUserId }, "[ProductAuth] New tenant onboarded");
+
+    // Provision demo package asynchronously — non-fatal if it fails
+    setImmediate(() => {
+      seedDemoPackage(getDb(), accountId).catch(() => {});
+    });
 
     return void res.status(201).json({
       accountId,

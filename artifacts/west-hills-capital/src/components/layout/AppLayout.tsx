@@ -1,6 +1,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useProductAuth } from "@/hooks/useProductAuth";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 
 function useScrollToTop() {
   const [location] = useLocation();
@@ -38,7 +39,7 @@ function UserAvatar({ imageUrl, name, email }: { imageUrl?: string | null; name?
 
 export function AppLayout({ children }: { children: ReactNode }) {
   useScrollToTop();
-  const { account, user, signOut } = useProductAuth();
+  const { account, user, signOut, getAuthHeaders } = useProductAuth();
   const [location, navigate] = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -156,6 +157,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </header>
+
+      <OnboardingChecklist getAuthHeaders={getAuthHeaders} />
 
       <main className="flex-1">
         {children}

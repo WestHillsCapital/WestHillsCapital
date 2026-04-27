@@ -1031,6 +1031,21 @@ export default function AppSettings() {
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMsg}</div>
       )}
 
+      {/* Org branding setup prompt — shown until logo or custom color is set */}
+      {org && !org.logo_url && org.brand_color === "#C49A38" && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 flex items-start gap-3">
+          <svg className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+          </svg>
+          <div>
+            <p className="text-sm font-medium text-amber-900">Set up your brand</p>
+            <p className="text-xs text-amber-700 mt-0.5">
+              Upload your logo and choose a brand color below so every client interview link is white-labeled with your identity.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Organization section */}
       <section className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
         <div className="px-6 py-4">
