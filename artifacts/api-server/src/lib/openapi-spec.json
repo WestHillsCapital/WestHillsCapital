@@ -147,7 +147,7 @@
       },
       "DocuFillSessionListItem": {
         "type": "object",
-        "description": "A lightweight session summary returned by the session list endpoint.",
+        "description": "A session row returned by the session list endpoint. Includes answers, prefill, and PDF URL for integration use (e.g. Zapier).",
         "required": [
           "id",
           "token",
@@ -179,6 +179,21 @@
               "in_progress",
               "generated"
             ]
+          },
+          "answers": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Client answers keyed by field ID. Sensitive fields are not redacted here (use the webhook payload for redacted answers)."
+          },
+          "prefill": {
+            "type": "object",
+            "additionalProperties": true,
+            "description": "Prefill values supplied when the session was created."
+          },
+          "generated_pdf_url": {
+            "type": "string",
+            "nullable": true,
+            "description": "Relative URL to download the generated PDF. Only present when status is `generated`."
           },
           "created_at": {
             "type": "string",

@@ -2086,12 +2086,14 @@ router.get("/sessions", async (req, res) => {
 
     params.push(limit, offset);
     const { rows } = await db.query(
-      `SELECT s.token, s.id, s.package_id, s.status, s.created_at, s.updated_at, s.expires_at,
+      `SELECT s.token, s.id, s.package_id, s.status,
+              s.created_at, s.updated_at, s.expires_at,
+              s.answers, s.prefill, s.generated_pdf_url,
               p.name AS package_name
          FROM docufill_interview_sessions s
          JOIN docufill_packages p ON p.id = s.package_id
         WHERE ${where}
-        ORDER BY s.created_at DESC
+        ORDER BY s.updated_at DESC
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
     );

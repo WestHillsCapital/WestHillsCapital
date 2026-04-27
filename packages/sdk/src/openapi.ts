@@ -726,6 +726,11 @@ export interface paths {
                     limit?: number;
                     /** @description Number of sessions to skip (for pagination) */
                     offset?: number;
+                    /**
+                     * @description ISO-8601 timestamp. When provided, only sessions updated after this
+                     *     timestamp are returned. Useful for polling integrations (e.g. Zapier).
+                     */
+                    updatedAfter?: string;
                 };
                 header?: never;
                 path?: never;
@@ -1748,7 +1753,7 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
-        /** @description A lightweight session summary returned by the session list endpoint. */
+        /** @description A session row returned by the session list endpoint. Includes answers, prefill, and PDF URL for integration use (e.g. Zapier). */
         DocuFillSessionListItem: {
             id: number;
             /** @example df_abc123 */
@@ -1757,6 +1762,16 @@ export interface components {
             package_name: string;
             /** @enum {string} */
             status: "draft" | "in_progress" | "generated";
+            /** @description Client answers keyed by field ID. Sensitive fields are not redacted here (use the webhook payload for redacted answers). */
+            answers?: {
+                [key: string]: unknown;
+            };
+            /** @description Prefill values supplied when the session was created. */
+            prefill?: {
+                [key: string]: unknown;
+            };
+            /** @description Relative URL to download the generated PDF. Only present when status is `generated`. */
+            generated_pdf_url?: string | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
