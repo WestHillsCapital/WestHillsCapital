@@ -321,6 +321,9 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS logo_url TEXT`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS brand_color TEXT NOT NULL DEFAULT '#C49A38'`);
 
+  // Seat limit — max active team members (default 10; updated when plan changes)
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS seat_limit INTEGER NOT NULL DEFAULT 10`);
+
   // Server-side session store backed by Postgres (replaces in-memory Map)
   await db.query(`
     CREATE TABLE IF NOT EXISTS internal_sessions (

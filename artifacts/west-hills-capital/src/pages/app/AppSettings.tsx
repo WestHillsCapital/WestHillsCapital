@@ -69,6 +69,7 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
 
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [seatCount, setSeatCount] = useState(0);
+  const [seatLimit, setSeatLimit] = useState(10);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -89,10 +90,11 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
     setLoadError(null);
     fetch(`${SETTINGS_BASE}/team`, { headers: authHeaders() })
       .then(async (r) => {
-        const data = await r.json() as { members?: TeamMember[]; seat_count?: number; is_admin?: boolean; error?: string };
+        const data = await r.json() as { members?: TeamMember[]; seat_count?: number; seat_limit?: number; is_admin?: boolean; error?: string };
         if (!r.ok) { setLoadError(data.error ?? "Failed to load team"); return; }
         setMembers(data.members ?? []);
         setSeatCount(data.seat_count ?? 0);
+        setSeatLimit(data.seat_limit ?? 10);
         setIsAdmin(data.is_admin ?? false);
       })
       .catch(() => setLoadError("Failed to load team"))
@@ -159,7 +161,7 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
         <div>
           <h2 className="text-base font-semibold text-gray-900">Team</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            {isLoading ? "Loading…" : `${seatCount} seat${seatCount !== 1 ? "s" : ""} active`}
+            {isLoading ? "Loading…" : `${seatCount} of ${seatLimit} seat${seatLimit !== 1 ? "s" : ""} used`}
           </p>
         </div>
       </div>

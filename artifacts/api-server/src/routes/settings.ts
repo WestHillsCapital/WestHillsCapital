@@ -556,34 +556,43 @@ function roleLabel(role: string): string {
 /** GET /team — list all members visible to the current account */
 router.get("/team", async (req, res) => {
   try {
-    const accountId  = req.internalAccountId ?? 1;
+    const accountId   = req.internalAccountId ?? 1;
     const clerkUserId = getAuth(req)?.userId ?? null;
 
-    const { rows } = await getDb().query(
-      `SELECT id, email, display_name, role, status, last_seen_at, invited_at, invited_by,
-              (clerk_user_id IS NOT DISTINCT FROM $2) AS is_current_user
-         FROM account_users
-        WHERE account_id = $1
-        ORDER BY role = 'admin' DESC, created_at ASC`,
-      [accountId, clerkUserId],
-    );
+    const [membersResult, accountResult] = await Promise.all([
+      getDb().query(
+        `SELECT id, email, display_name, role, status, last_seen_at, invited_at, invited_by,
+                (clerk_user_id IS NOT DISTINCT FROM $2) AS is_current_user
+           FROM account_users
+          WHERE account_id = $1
+          ORDER BY role = 'admin' DESC, created_at ASC`,
+        [accountId, clerkUserId],
+      ),
+      getDb().query<{ seat_limit: number }>(
+        `SELECT seat_limit FROM accounts WHERE id = $1`,
+        [accountId],
+      ),
+    ]);
 
-    const seatCount = rows.filter((r: Record<string, unknown>) => r.status !== "pending").length;
+    const rows      = membersResult.rows as Record<string, unknown>[];
+    const seatCount = rows.filter((r) => r.status !== "pending").length;
+    const seatLimit = accountResult.rows[0]?.seat_limit ?? 10;
 
     res.json({
-      members: rows.map((r: Record<string, unknown>) => ({
-        id:               r.id,
-        email:            r.email,
-        display_name:     r.display_name ?? null,
-        role:             r.role,
-        role_label:       roleLabel(r.role as string),
-        status:           r.status,
-        last_seen_at:     r.last_seen_at ?? null,
-        invited_at:       r.invited_at ?? null,
-        invited_by:       r.invited_by ?? null,
-        is_current_user:  r.is_current_user,
+      members: rows.map((r) => ({
+        id:              r.id,
+        email:           r.email,
+        display_name:    r.display_name ?? null,
+        role:            r.role,
+        role_label:      roleLabel(r.role as string),
+        status:          r.status,
+        last_seen_at:    r.last_seen_at ?? null,
+        invited_at:      r.invited_at ?? null,
+        invited_by:      r.invited_by ?? null,
+        is_current_user: r.is_current_user,
       })),
       seat_count: seatCount,
+      seat_limit: seatLimit,
       is_admin:   req.productUserRole === "admin",
     });
   } catch (err) {

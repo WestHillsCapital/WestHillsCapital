@@ -1,9 +1,10 @@
 import type { RequestHandler } from "express";
-import { getAuth, createClerkClient } from "@clerk/express";
+import { getAuth } from "@clerk/express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import { resolveApiKeyAccountId } from "./requireApiKeyAuth";
 import { isRateLimited, isCurrentlyBlocked } from "../lib/ratelimit";
+import { linkPendingInvitation } from "../lib/auth-utils";
 
 const APIKEY_FAIL_MAX = 10;
 const APIKEY_FAIL_WINDOW_MS = 60 * 1000;
@@ -83,43 +84,12 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
       return next();
     }
 
-    // No active record for this Clerk user — try to link a pending invitation
-    // by looking up their primary email address from Clerk.
-    const secretKey = process.env.CLERK_SECRET_KEY;
-    if (secretKey) {
-      try {
-        const clerk = createClerkClient({ secretKey });
-        const clerkUser = await clerk.users.getUser(clerkUserId);
-        const primaryEmail = (
-          clerkUser.emailAddresses.find((e) => e.id === clerkUser.primaryEmailAddressId)
-          ?? clerkUser.emailAddresses[0]
-        )?.emailAddress;
-        const displayName = [clerkUser.firstName, clerkUser.lastName].filter(Boolean).join(" ") || null;
-
-        if (primaryEmail) {
-          const linked = await getDb().query<{ account_id: number; role: string }>(
-            `UPDATE account_users
-               SET clerk_user_id = $1,
-                   status        = 'active',
-                   last_seen_at  = NOW(),
-                   display_name  = COALESCE(display_name, $3)
-             WHERE lower(email)  = lower($2)
-               AND status        = 'pending'
-               AND clerk_user_id IS NULL
-             RETURNING account_id, role`,
-            [clerkUserId, primaryEmail, displayName],
-          );
-
-          if (linked.rows[0]) {
-            logger.info({ clerkUserId, email: primaryEmail }, "[ProductAuth] Linked pending invitation on first sign-in");
-            req.internalAccountId = linked.rows[0].account_id;
-            req.productUserRole   = linked.rows[0].role;
-            return next();
-          }
-        }
-      } catch (clerkErr) {
-        logger.warn({ clerkErr }, "[ProductAuth] Could not look up Clerk user for invitation linking");
-      }
+    // No active record — try to link a pending invitation by Clerk email
+    const linked = await linkPendingInvitation(clerkUserId);
+    if (linked) {
+      req.internalAccountId = linked.account_id;
+      req.productUserRole   = linked.role;
+      return next();
     }
 
     return void res.status(401).json({

@@ -20,7 +20,8 @@ import {
   sendDocupleteStaffSubmissionEmail,
   sendDocupleteClientConfirmationEmail,
 } from "../lib/email";
-import { requireAdminRole } from "../middleware/requireRole";
+import { requireAdminRole, requireRole } from "../middleware/requireRole";
+const requireMemberRole = requireRole("member");
 
 const router: IRouter = Router();
 export const publicDocufillRouter: IRouter = Router();
@@ -1564,7 +1565,7 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
   }
 });
 
-router.post("/csv-batch", async (req, res) => {
+router.post("/csv-batch", requireMemberRole, async (req, res) => {
   try {
     const body = req.body as { packageId?: unknown; rows?: unknown };
     const packageId = parseId(body.packageId);
@@ -1881,7 +1882,7 @@ router.get("/sessions", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/sessions", async (req, res) => {
+router.post("/sessions", requireMemberRole, async (req, res) => {
   try {
     const body = req.body as SessionInput;
     const packageId = parseId(body.packageId);
@@ -1950,7 +1951,7 @@ router.get("/sessions/:token", async (req, res) => {
   }
 });
 
-router.patch("/sessions/:token", async (req, res) => {
+router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
   try {
     const body = req.body as AnswersInput;
     const db = getDb();
@@ -2026,7 +2027,7 @@ router.post("/sessions/:token/send-link", async (req, res) => {
   }
 });
 
-router.post("/sessions/:token/generate", async (req, res) => {
+router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => {
   try {
     const db = getDb();
     const session = await getSession(req.params.token, db, acctId(req));

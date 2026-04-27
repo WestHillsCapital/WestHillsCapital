@@ -6,6 +6,7 @@ import { logger } from "../lib/logger";
 import { hashApiKey } from "../middleware/requireApiKeyAuth";
 import { requireProductAuth } from "../middleware/requireProductAuth";
 import { requireAdminRole } from "../middleware/requireRole";
+import { linkPendingInvitation } from "../lib/auth-utils";
 
 const router = Router();
 
@@ -102,14 +103,39 @@ router.get("/me", async (req, res) => {
   }
 
   try {
-    const result = await getDb().query<{ account_id: number; account_name: string; slug: string; email: string; role: string }>(
+    type MeRow = { account_id: number; account_name: string; slug: string; email: string; role: string };
+
+    // Primary lookup: active record already linked to this Clerk user
+    let result = await getDb().query<MeRow>(
       `SELECT au.account_id, a.name AS account_name, a.slug, au.email, au.role
-       FROM account_users au
-       JOIN accounts a ON a.id = au.account_id
-       WHERE au.clerk_user_id = $1
-       LIMIT 1`,
+         FROM account_users au
+         JOIN accounts a ON a.id = au.account_id
+        WHERE au.clerk_user_id = $1 AND au.status = 'active'
+        LIMIT 1`,
       [clerkUserId],
     );
+
+    // Secondary lookup: link a pending invitation on first sign-in.
+    // This ensures invited users join their org instead of being sent through
+    // the new-account onboarding flow when they land on /me.
+    if (!result.rows[0]) {
+      const linked = await linkPendingInvitation(clerkUserId);
+      if (linked) {
+        const acc = await getDb().query<{ name: string; slug: string }>(
+          `SELECT name, slug FROM accounts WHERE id = $1`,
+          [linked.account_id],
+        );
+        result = {
+          rows: [{
+            account_id:   linked.account_id,
+            account_name: acc.rows[0]?.name ?? "",
+            slug:         acc.rows[0]?.slug ?? "",
+            email:        linked.email,
+            role:         linked.role,
+          }],
+        } as typeof result;
+      }
+    }
 
     if (!result.rows[0]) {
       return void res.status(404).json({ error: "Account not found.", code: "ACCOUNT_NOT_FOUND" });
