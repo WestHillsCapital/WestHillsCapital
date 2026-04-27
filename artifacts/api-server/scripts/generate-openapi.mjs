@@ -33,7 +33,7 @@ const definition = {
       "|-------|--------|---------------|",
       "| Public routes | None | N/A |",
       "| Product portal (SaaS) | `Authorization: Bearer <clerk_jwt>` | Clerk front-end SDK |",
-      "| Product portal (API key) | `Authorization: Bearer sk_live_…` | `POST /api/product/auth/api-keys` |",
+      "| Product portal (API key) | `Authorization: Bearer sk_live_…` | `POST /api/v1/product/auth/api-keys` |",
       "| Internal (WHC staff) | `Authorization: Bearer <session_token>` | `POST /api/internal/auth/sign-in` |",
       "",
       "## API Key Authentication",
@@ -41,15 +41,15 @@ const definition = {
       "External integration partners can authenticate using a long-lived API key instead of a Clerk JWT. API keys:",
       "- Are prefixed with `sk_live_`",
       "- Are stored hashed (SHA-256) — the plaintext is returned only once on creation",
-      "- Can be named, listed, and revoked via `/api/product/auth/api-keys`",
+      "- Can be named, listed, and revoked via `/api/v1/product/auth/api-keys`",
       "- Are accepted wherever a Clerk JWT is accepted on product routes",
       "",
       "## Base URL",
-      "All paths below are relative to `/api`.",
+      "All paths below are relative to `/api/v1`.",
     ].join("\n"),
     contact: { name: "DocuPak Engineering" },
   },
-  servers: [{ url: "/api", description: "Current server" }],
+  servers: [{ url: "/api/v1", description: "Current server (v1)" }],
   components: {
     securitySchemes: {
       productAuth: {

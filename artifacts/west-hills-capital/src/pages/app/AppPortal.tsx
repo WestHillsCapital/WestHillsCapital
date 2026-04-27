@@ -24,7 +24,7 @@ function DocuFillWrapper() {
     <InternalAuthProvider>
       <DocuFillConfigProvider
         config={{
-          apiPath: "/api/product/docufill",
+          apiPath: "/api/v1/product/docufill",
           getAuthHeaders,
         }}
       >

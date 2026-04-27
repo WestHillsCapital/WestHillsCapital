@@ -2393,7 +2393,7 @@ publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
  *                   description: Summary of generated documents
  *                 downloadUrl:
  *                   type: string
- *                   example: '/api/docufill/public/sessions/df_abc123/packet.pdf'
+ *                   example: '/api/v1/docufill/public/sessions/df_abc123/packet.pdf'
  *                 drive:
  *                   type: object
  *                   nullable: true
@@ -2466,7 +2466,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
     );
     res.json({
       packet: generated,
-      downloadUrl: `/api/docufill/public/sessions/${req.params.token}/packet.pdf`,
+      downloadUrl: `/api/v1/docufill/public/sessions/${req.params.token}/packet.pdf`,
       drive: driveResult ? { fileId: driveResult.fileId, url: driveResult.webViewLink } : null,
       warnings: driveWarning ? [driveWarning] : [],
     });

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation } from "wouter";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-const SETTINGS_BASE = `${API_BASE}/api/product/settings`;
+const SETTINGS_BASE = `${API_BASE}/api/v1/product/settings`;
 
 interface OnboardingState {
   dismissed: boolean;

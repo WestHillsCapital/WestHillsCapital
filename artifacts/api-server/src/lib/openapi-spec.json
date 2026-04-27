@@ -3,15 +3,15 @@
   "info": {
     "title": "DocuPak / DocuFill API",
     "version": "1.0.0",
-    "description": "API for the **DocuPak** SaaS platform and its embedded **DocuFill** paperwork engine.\n\n## Authentication\n\n| Scope | Scheme | How to obtain |\n|-------|--------|---------------|\n| Public routes | None | N/A |\n| Product portal (SaaS) | `Authorization: Bearer <clerk_jwt>` | Clerk front-end SDK |\n| Product portal (API key) | `Authorization: Bearer sk_live_…` | `POST /api/product/auth/api-keys` |\n| Internal (WHC staff) | `Authorization: Bearer <session_token>` | `POST /api/internal/auth/sign-in` |\n\n## API Key Authentication\n\nExternal integration partners can authenticate using a long-lived API key instead of a Clerk JWT. API keys:\n- Are prefixed with `sk_live_`\n- Are stored hashed (SHA-256) — the plaintext is returned only once on creation\n- Can be named, listed, and revoked via `/api/product/auth/api-keys`\n- Are accepted wherever a Clerk JWT is accepted on product routes\n\n## Base URL\nAll paths below are relative to `/api`.",
+    "description": "API for the **DocuPak** SaaS platform and its embedded **DocuFill** paperwork engine.\n\n## Authentication\n\n| Scope | Scheme | How to obtain |\n|-------|--------|---------------|\n| Public routes | None | N/A |\n| Product portal (SaaS) | `Authorization: Bearer <clerk_jwt>` | Clerk front-end SDK |\n| Product portal (API key) | `Authorization: Bearer sk_live_…` | `POST /api/v1/product/auth/api-keys` |\n| Internal (WHC staff) | `Authorization: Bearer <session_token>` | `POST /api/internal/auth/sign-in` |\n\n## API Key Authentication\n\nExternal integration partners can authenticate using a long-lived API key instead of a Clerk JWT. API keys:\n- Are prefixed with `sk_live_`\n- Are stored hashed (SHA-256) — the plaintext is returned only once on creation\n- Can be named, listed, and revoked via `/api/v1/product/auth/api-keys`\n- Are accepted wherever a Clerk JWT is accepted on product routes\n\n## Base URL\nAll paths below are relative to `/api/v1`.",
     "contact": {
       "name": "DocuPak Engineering"
     }
   },
   "servers": [
     {
-      "url": "/api",
-      "description": "Current server"
+      "url": "/api/v1",
+      "description": "Current server (v1)"
     }
   ],
   "components": {
@@ -1272,7 +1272,7 @@
                     },
                     "downloadUrl": {
                       "type": "string",
-                      "example": "/api/docufill/public/sessions/df_abc123/packet.pdf"
+                      "example": "/api/v1/docufill/public/sessions/df_abc123/packet.pdf"
                     },
                     "drive": {
                       "type": "object",

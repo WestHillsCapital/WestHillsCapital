@@ -39,7 +39,7 @@ export function useProductAuth() {
   useEffect(() => {
     if (!isSignedIn || !token) return;
     setAccountLoading(true);
-    fetch(`${API_BASE}/api/product/auth/me`, {
+    fetch(`${API_BASE}/api/v1/product/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (res) => {
@@ -59,7 +59,7 @@ export function useProductAuth() {
   const refreshAccount = useCallback(async (newToken?: string) => {
     const t = newToken ?? token;
     if (!t) return;
-    const res = await fetch(`${API_BASE}/api/product/auth/me`, {
+    const res = await fetch(`${API_BASE}/api/v1/product/auth/me`, {
       headers: { Authorization: `Bearer ${t}` },
     });
     if (res.ok) {

@@ -33,7 +33,6 @@ router.use("/leads",        leadsRouter);
 router.use("/calendar-setup",    calendarSetupRouter);
 router.use("/sheets-backfill",   sheetsBackfillRouter);
 router.use("/content",           publicContentRouter);
-router.use("/docufill/public",   publicDocufillRouter);
 
 // ── Internal auth (public sign-in/signout endpoints) ──────────────────────────
 router.use("/internal/auth", internalAuthRouter);
@@ -54,21 +53,39 @@ router.use("/fedex", requireInternalAuth, fedexRouter);
 // guard: if account resolution somehow fails, reject rather than fall through.
 router.use("/internal/docufill", requireInternalAuth, requireAccountId, docufillRouter);
 
-// ── DocuFill: product/SaaS (Clerk JWT) ────────────────────────────────────────
-router.use("/product/docufill", requireProductAuth, requireAccountId, docufillRouter);
-
-// ── Product auth (Clerk-based onboard + me) ────────────────────────────────────
-router.use("/product/auth", productAuthRouter);
-
 // ── Content engine (internal tool — also require auth) ────────────────────────
 router.use("/internal/content", requireInternalAuth, contentRouter);
 
 // ── Org settings (internal tool — require auth) ───────────────────────────────
 router.use("/internal/settings", requireInternalAuth, settingsRouter);
 
-// ── Org settings (product portal — Clerk auth) ────────────────────────────────
-// Re-uses the identical settingsRouter; requireProductAuth resolves
-// req.internalAccountId from the Clerk user's account, same as internal auth.
-router.use("/product/settings", requireProductAuth, settingsRouter);
+// ── v1 API: versioned product + public docufill routes ────────────────────────
+// All externally-published product API endpoints live under /api/v1/...
+// The old unversioned paths below redirect 301 → v1 for backward compatibility.
+const v1Router: IRouter = Router();
+
+v1Router.use("/docufill/public",   publicDocufillRouter);
+v1Router.use("/product/docufill",  requireProductAuth, requireAccountId, docufillRouter);
+v1Router.use("/product/auth",      productAuthRouter);
+v1Router.use("/product/settings",  requireProductAuth, settingsRouter);
+
+router.use("/v1", v1Router);
+
+// ── Legacy redirects: /api/product/... → /api/v1/product/... (301) ────────────
+// Preserves backward compatibility for any integrations built against the
+// unversioned paths. New code should target /api/v1/... directly.
+function legacyRedirect(prefix: string) {
+  return (req: Parameters<Parameters<typeof router.use>[0]>[0], res: Parameters<Parameters<typeof router.use>[0]>[1]) => {
+    const qs = req.originalUrl.includes("?")
+      ? req.originalUrl.slice(req.originalUrl.indexOf("?"))
+      : "";
+    res.redirect(301, `/api/v1${prefix}${req.path === "/" ? "" : req.path}${qs}`);
+  };
+}
+
+router.use("/docufill/public",  legacyRedirect("/docufill/public"));
+router.use("/product/docufill", legacyRedirect("/product/docufill"));
+router.use("/product/auth",     legacyRedirect("/product/auth"));
+router.use("/product/settings", legacyRedirect("/product/settings"));
 
 export default router;

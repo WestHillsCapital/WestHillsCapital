@@ -19,7 +19,7 @@ export default function AppOnboard() {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/product/auth/onboard`, {
+      const res = await fetch(`${API_BASE}/api/v1/product/auth/onboard`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

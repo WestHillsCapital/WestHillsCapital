@@ -35,7 +35,7 @@ export function useProductOrgSettings(): ProductOrgSettings | null {
     const listener = (data: ProductOrgSettings | null) => setOrg(data);
     productOrgListeners.add(listener);
     let cancelled = false;
-    fetch(`${API_BASE}/api/product/settings/org`, {
+    fetch(`${API_BASE}/api/v1/product/settings/org`, {
       headers: { ...getAuthHeaders() },
     })
       .then((r) => r.json())

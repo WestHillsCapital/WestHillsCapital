@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { validateFieldValue } from "@/lib/validateField";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-const SESSION_BASE = `${API_BASE}/api/docufill/public/sessions`;
+const SESSION_BASE = `${API_BASE}/api/v1/docufill/public/sessions`;
 
 type FieldInterviewMode = "required" | "optional" | "readonly" | "omitted";
 

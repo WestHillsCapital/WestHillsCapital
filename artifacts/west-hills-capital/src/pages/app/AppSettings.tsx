@@ -4,8 +4,8 @@ import { updateProductOrgCache, type ProductOrgSettings } from "@/hooks/useProdu
 import { BrandColorSection } from "@/components/settings/BrandColorSection";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-const SETTINGS_BASE = `${API_BASE}/api/product/settings`;
-const AUTH_BASE = `${API_BASE}/api/product/auth`;
+const SETTINGS_BASE = `${API_BASE}/api/v1/product/settings`;
+const AUTH_BASE = `${API_BASE}/api/v1/product/auth`;
 
 interface ApiKey {
   id: number;

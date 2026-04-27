@@ -927,7 +927,7 @@ export default function DocuFill() {
   const answeredFieldCount = visibleInterviewFields.filter((field) => field.interviewMode !== "readonly" && interviewFieldValue(field, answers, session?.prefill).trim()).length;
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   useEffect(() => { setFieldErrors({}); }, [session?.token]);
-  const sessionBasePath = isPublicSession ? "/api/docufill/public/sessions" : `${docufillApiPath}/sessions`;
+  const sessionBasePath = isPublicSession ? "/api/v1/docufill/public/sessions" : `${docufillApiPath}/sessions`;
   const csvBatchFieldMap = useMemo<Map<string, FieldItem>>(() => {
     if (!csvBatchPackageId) return new Map();
     const pkg = packages.find((p) => String(p.id) === csvBatchPackageId);
