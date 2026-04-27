@@ -30,10 +30,11 @@ const CLERK_FAPI_HOST = "frontend-api.clerk.dev";
 export const CLERK_PROXY_PATH = "/api/__clerk";
 
 /**
- * Pipe a request to Clerk's FAPI, following redirects and forwarding the
- * body stream. Works for both CDN asset fetches and FAPI auth calls.
+ * Pipe a request to Clerk (FAPI or CDN), following redirects across domains
+ * and forwarding the request body stream.
  */
 function pipeToClerk(
+  hostname: string,
   method: string,
   subPath: string,
   extraHeaders: Record<string, string>,
@@ -42,12 +43,12 @@ function pipeToClerk(
   depth = 0,
 ): void {
   if (depth > 5) {
-    res.status(502).end();
+    if (!res.headersSent) res.status(502).end();
     return;
   }
 
   const outHeaders: Record<string, string | string[]> = {
-    host: CLERK_FAPI_HOST,
+    host: hostname,
     "user-agent": "clerk-proxy/1.0",
     ...extraHeaders,
   };
@@ -60,7 +61,7 @@ function pipeToClerk(
 
   const proxyReq = https.request(
     {
-      hostname: CLERK_FAPI_HOST,
+      hostname,
       path: subPath,
       method,
       headers: outHeaders,
@@ -74,9 +75,15 @@ function pipeToClerk(
         location
       ) {
         upstream.resume();
-        // Follow redirect (resolve relative Location against FAPI host)
-        const resolved = new URL(location, `https://${CLERK_FAPI_HOST}`);
-        pipeToClerk(method, resolved.pathname + resolved.search, extraHeaders, req, res, depth + 1);
+        // Follow redirect — resolve against the *current* host so absolute
+        // redirects to other Clerk domains (e.g. npm.clerk.dev) work correctly.
+        const redirectUrl = new URL(location, `https://${hostname}`);
+        // Strip Clerk auth headers when redirected away from the FAPI host
+        // (e.g. CDN redirects to npm.clerk.dev don't accept Clerk-Secret-Key).
+        const nextHeaders = redirectUrl.hostname === CLERK_FAPI_HOST
+          ? extraHeaders
+          : {};
+        pipeToClerk(redirectUrl.hostname, method, redirectUrl.pathname + redirectUrl.search, nextHeaders, req, res, depth + 1);
         return;
       }
 
@@ -88,6 +95,9 @@ function pipeToClerk(
         if (v) res.setHeader(h, v);
       }
 
+      upstream.on("error", () => {
+        if (!res.headersSent) res.status(502).end();
+      });
       upstream.pipe(res);
     },
   );
@@ -96,7 +106,7 @@ function pipeToClerk(
     if (!res.headersSent) res.status(502).end();
   });
 
-  // Pipe the request body for POST/PUT/PATCH
+  // Pipe the request body for POST/PUT/PATCH — skip for GET/HEAD
   if (method !== "GET" && method !== "HEAD") {
     req.pipe(proxyReq);
   } else {
@@ -116,7 +126,7 @@ export function clerkProxyMiddleware(): RequestHandler {
   }
 
   return (req, res, next) => {
-    // req.url already has path + query string with the mount prefix stripped by Express
+    // req.url has path + query with the mount prefix already stripped by Express
     const subPath = req.url;
     if (!subPath || subPath === "/") return next();
 
@@ -137,6 +147,9 @@ export function clerkProxyMiddleware(): RequestHandler {
       "";
     if (clientIp) extraHeaders["x-forwarded-for"] = clientIp;
 
-    pipeToClerk(req.method, subPath, extraHeaders, req, res);
+    // CDN paths (/npm/*) don't need Clerk auth headers — sending Clerk-Proxy-Url
+    // to the CDN causes Clerk to redirect through the proxy URL, creating a loop.
+    const headersToSend = subPath.startsWith("/npm/") ? {} : extraHeaders;
+    pipeToClerk(CLERK_FAPI_HOST, req.method, subPath, headersToSend, req, res);
   };
 }
