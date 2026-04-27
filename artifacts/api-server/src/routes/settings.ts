@@ -6,6 +6,7 @@ import { logger } from "../lib/logger";
 import { ObjectStorageService, objectStorageClient } from "../lib/objectStorage";
 import { extractBrandColors, isSafeUrl } from "../lib/brandColorExtractor";
 import { requireAdminRole } from "../middleware/requireRole";
+import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
 import { sendTeamInvitationEmail } from "../lib/email";
 import { getPlanLimits } from "../lib/plans";
 import { getUncachableStripeClient } from "../lib/stripeClient";
@@ -610,7 +611,7 @@ router.get("/team", async (req, res) => {
 });
 
 /** POST /team/invite — send an invitation to a new member (admin only) */
-router.post("/team/invite", requireAdminRole, async (req, res) => {
+router.post("/team/invite", requireAdminRole, requireWithinPlanLimits("seat"), async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
     const body = req.body as Record<string, unknown>;
@@ -775,8 +776,25 @@ router.delete("/team/:id", requireAdminRole, async (req, res) => {
 
 // ── Billing ───────────────────────────────────────────────────────────────────
 
-function currentPeriodStart(): string {
+/**
+ * Computes the start of the current billing period for usage counting.
+ * Uses the account's Stripe billing anchor day when available so that
+ * submission caps align with the subscription renewal cycle rather than
+ * the calendar month.
+ */
+function billingWindowStart(billingPeriodStartDate: Date | null): string {
   const now = new Date();
+  if (billingPeriodStartDate) {
+    const anchorDay = billingPeriodStartDate.getUTCDate();
+    const thisMonthAnchor = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), anchorDay));
+    const periodStart = thisMonthAnchor <= now
+      ? thisMonthAnchor
+      : new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, anchorDay));
+    const y = periodStart.getUTCFullYear();
+    const m = String(periodStart.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(periodStart.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
 }
 
@@ -786,39 +804,43 @@ router.get("/billing", async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
 
-    const [acctResult, pkgResult, usageResult, seatResult] = await Promise.all([
-      db.query<{
-        plan_tier: string;
-        stripe_customer_id: string | null;
-        stripe_subscription_id: string | null;
-        subscription_status: string | null;
-        billing_period_start: Date | null;
-        seat_limit: number;
-      }>(
-        `SELECT plan_tier, stripe_customer_id, stripe_subscription_id, subscription_status, billing_period_start, seat_limit
-           FROM accounts WHERE id = $1`,
-        [accountId],
-      ),
-      db.query<{ count: string }>(
-        `SELECT COUNT(*) AS count FROM docufill_packages WHERE account_id = $1`,
-        [accountId],
-      ),
-      db.query<{ count: string }>(
-        `SELECT COUNT(*) AS count FROM usage_events
-          WHERE account_id = $1 AND event_type = 'submission' AND period_start = $2`,
-        [accountId, currentPeriodStart()],
-      ),
-      db.query<{ count: string }>(
-        `SELECT COUNT(*) AS count FROM account_users WHERE account_id = $1 AND status != 'pending'`,
-        [accountId],
-      ),
-    ]);
+    // Fetch account first so we can anchor the billing window correctly
+    const acctResult = await db.query<{
+      plan_tier: string;
+      stripe_customer_id: string | null;
+      stripe_subscription_id: string | null;
+      subscription_status: string | null;
+      billing_period_start: Date | null;
+      seat_limit: number;
+    }>(
+      `SELECT plan_tier, stripe_customer_id, stripe_subscription_id, subscription_status, billing_period_start, seat_limit
+         FROM accounts WHERE id = $1`,
+      [accountId],
+    );
 
     const acct = acctResult.rows[0];
     if (!acct) {
       res.status(404).json({ error: "Account not found" });
       return;
     }
+
+    const periodStart = billingWindowStart(acct.billing_period_start ?? null);
+
+    const [pkgResult, usageResult, seatResult] = await Promise.all([
+      db.query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM docufill_packages WHERE account_id = $1`,
+        [accountId],
+      ),
+      db.query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM usage_events
+          WHERE account_id = $1 AND event_type = 'submission' AND created_at >= $2::date`,
+        [accountId, periodStart],
+      ),
+      db.query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM account_users WHERE account_id = $1 AND status != 'pending'`,
+        [accountId],
+      ),
+    ]);
 
     const limits = getPlanLimits(acct.plan_tier);
     const pkgCount  = parseInt(pkgResult.rows[0]?.count ?? "0", 10);
