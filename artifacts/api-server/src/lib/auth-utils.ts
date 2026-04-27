@@ -29,15 +29,24 @@ export async function linkPendingInvitation(
 
     if (!primaryEmail) return null;
 
+    // Use a CTE to target exactly one pending invite row (the most recently
+    // sent one) so we avoid updating across multiple accounts if the same
+    // email address has more than one pending invitation.
     const result = await getDb().query<{ account_id: number; role: string; email: string }>(
-      `UPDATE account_users
+      `WITH target AS (
+         SELECT id FROM account_users
+          WHERE lower(email) = lower($2)
+            AND status       = 'pending'
+            AND clerk_user_id IS NULL
+          ORDER BY invited_at DESC NULLS LAST
+          LIMIT 1
+       )
+       UPDATE account_users
           SET clerk_user_id = $1,
               status        = 'active',
               last_seen_at  = NOW(),
               display_name  = COALESCE(display_name, $3)
-        WHERE lower(email)  = lower($2)
-          AND status        = 'pending'
-          AND clerk_user_id IS NULL
+        WHERE id = (SELECT id FROM target)
         RETURNING account_id, role, email`,
       [clerkUserId, primaryEmail, displayName],
     );
