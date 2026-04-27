@@ -70,8 +70,9 @@ export function CookieConsentBanner() {
       className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-between gap-4 bg-[#1A1A1A] px-5 py-4 shadow-lg sm:px-8"
     >
       <p className="text-sm text-[#D4D4D4] leading-snug max-w-prose">
-        We use cookies to understand how visitors use our site. Your data stays
-        private and is never sold.{" "}
+        We use cookies to understand how visitors use our site. If you submit
+        our contact form, your email address is stored to send you the guides
+        you requested. Your data stays private and is never sold.{" "}
         <a
           href="/privacy"
           className="underline text-[#C49A38] hover:text-[#d4aa48] transition-colors"

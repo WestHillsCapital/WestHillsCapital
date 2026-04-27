@@ -93,6 +93,13 @@ export function EmailCapture({
       {state === "error" && errorMsg && (
         <p className="mt-3 text-xs text-red-500">{errorMsg}</p>
       )}
+      <p className="mt-3 text-[11px] text-foreground/40 leading-relaxed">
+        By submitting, you agree that we store your email address to send you
+        the guides you requested. We never sell your data.{" "}
+        <a href="/privacy" className="underline hover:text-foreground/60 transition-colors">
+          Privacy Policy
+        </a>
+      </p>
     </div>
   );
 }
