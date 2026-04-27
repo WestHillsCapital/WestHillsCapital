@@ -110,6 +110,10 @@ export default defineConfig({
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
     rollupOptions: {
+      onwarn(warning, defaultHandler) {
+        if (warning.code === "SOURCEMAP_ERROR") return;
+        defaultHandler(warning);
+      },
       output: {
         manualChunks(id) {
           // Core React runtime — always loaded
