@@ -1,0 +1,54 @@
+name: Cross-tenant isolation tests
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+
+jobs:
+  cross-tenant-isolation:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: docufill_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:password@localhost:5432/docufill_test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Initialise database schema
+        run: node --import tsx/esm scripts/init-test-db.ts
+        working-directory: artifacts/api-server
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
+
+      - name: Run cross-tenant isolation tests
+        run: pnpm --filter @workspace/api-server test
+        env:
+          DATABASE_URL: ${{ env.DATABASE_URL }}
