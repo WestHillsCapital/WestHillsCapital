@@ -1,0 +1,21 @@
+{
+  "name": "@docuplete/zapier",
+  "version": "1.0.0",
+  "description": "Docuplete Zapier integration — connect interviews to 7,000+ apps",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest --testPathPattern=test",
+    "validate": "zapier validate"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "zapier-platform-core": "18.5.0"
+  },
+  "devDependencies": {
+    "zapier-platform-cli": "18.5.0",
+    "jest": "^29.7.0"
+  },
+  "private": true
+}

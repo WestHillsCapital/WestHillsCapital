@@ -1971,6 +1971,15 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
  *           type: integer
  *           default: 0
  *         description: Number of sessions to skip (for pagination)
+ *       - name: updatedAfter
+ *         in: query
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date-time
+ *         description: |
+ *           ISO-8601 timestamp. When provided, only sessions updated after this
+ *           timestamp are returned. Useful for polling integrations (e.g. Zapier).
  *     responses:
  *       200:
  *         description: Paginated session list
@@ -2030,19 +2039,28 @@ router.get("/sessions", async (req, res) => {
     }
 
     // SDK: list sessions with optional packageId / status / pagination filters
-    const packageId = req.query.packageId ? Number(req.query.packageId) : null;
-    const status    = typeof req.query.status === "string" ? req.query.status : null;
-    const limit     = Math.min(Math.max(Number(req.query.limit ?? 50), 1), 200);
-    const offset    = Math.max(Number(req.query.offset ?? 0), 0);
+    const packageId    = req.query.packageId ? Number(req.query.packageId) : null;
+    const status       = typeof req.query.status === "string" ? req.query.status : null;
+    const updatedAfter = typeof req.query.updatedAfter === "string" ? req.query.updatedAfter : null;
+    const limit        = Math.min(Math.max(Number(req.query.limit ?? 50), 1), 200);
+    const offset       = Math.max(Number(req.query.offset ?? 0), 0);
 
     const validStatuses = ["draft", "in_progress", "generated"];
     if (status && !validStatuses.includes(status)) {
       res.status(400).json({ error: `status must be one of: ${validStatuses.join(", ")}` });
       return;
     }
+    let updatedAfterDate: Date | null = null;
+    if (updatedAfter) {
+      updatedAfterDate = new Date(updatedAfter);
+      if (isNaN(updatedAfterDate.getTime())) {
+        res.status(400).json({ error: "updatedAfter must be a valid ISO-8601 timestamp" });
+        return;
+      }
+    }
 
     const db = getDb();
-    const params: (number | string | null)[] = [acctId(req)];
+    const params: (number | string | null | Date)[] = [acctId(req)];
     const conditions: string[] = ["s.account_id = $1"];
 
     if (packageId) {
@@ -2052,6 +2070,10 @@ router.get("/sessions", async (req, res) => {
     if (status) {
       params.push(status);
       conditions.push(`s.status = $${params.length}`);
+    }
+    if (updatedAfterDate) {
+      params.push(updatedAfterDate);
+      conditions.push(`s.updated_at > $${params.length}`);
     }
 
     const where = conditions.join(" AND ");
