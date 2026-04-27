@@ -11,6 +11,8 @@ import { logger } from "./lib/logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { dbReady, dbError } from "./db";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
+import { WebhookHandlers } from "./lib/stripeWebhookHandlers";
+import { handleStripeSubscriptionEvent } from "./lib/stripeBillingSync";
 
 // Request timeout: abort any request that hasn't completed within 30 s.
 // Prevents slow upstream calls (Sheets, Google Calendar, Dillon Gage API)
@@ -100,6 +102,42 @@ app.use(
     allowedHeaders:   ["Content-Type", "Authorization", "X-Requested-With", "X-File-Name", "X-Document-Title"],
     optionsSuccessStatus: 200,
   }),
+);
+
+// ── Stripe webhook (must be before body parsers — needs raw Buffer) ───────────
+// stripe-replit-sync verifies the signature and syncs data to stripe.* tables.
+// handleStripeSubscriptionEvent also updates our own accounts table.
+app.post(
+  "/api/stripe/webhook",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    const signature = req.headers["stripe-signature"];
+    if (!signature) {
+      res.status(400).json({ error: "Missing stripe-signature header" });
+      return;
+    }
+    const sig = Array.isArray(signature) ? signature[0] : signature;
+    try {
+      if (!Buffer.isBuffer(req.body)) {
+        logger.error("[StripeWebhook] Body is not a Buffer — express.json() ran first");
+        res.status(500).json({ error: "Webhook processing error" });
+        return;
+      }
+      // 1. Let StripeSync verify + sync to stripe schema
+      await WebhookHandlers.processWebhook(req.body as Buffer, sig);
+      // 2. Parse event (already verified) and update our accounts table
+      try {
+        const event = JSON.parse((req.body as Buffer).toString()) as { type: string; data: { object: Record<string, unknown> } };
+        await handleStripeSubscriptionEvent(event);
+      } catch (syncErr) {
+        logger.error({ err: syncErr }, "[StripeWebhook] Billing sync update failed (non-fatal)");
+      }
+      res.status(200).json({ received: true });
+    } catch (err) {
+      logger.error({ err }, "[StripeWebhook] Webhook processing failed");
+      res.status(400).json({ error: "Webhook processing error" });
+    }
+  },
 );
 
 // ── Clerk proxy (must be before body parsers — streams raw bytes) ──────────────

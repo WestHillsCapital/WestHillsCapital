@@ -324,6 +324,34 @@ export async function initDb(): Promise<void> {
   // Seat limit — max active team members (default 10; updated when plan changes)
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS seat_limit INTEGER NOT NULL DEFAULT 10`);
 
+  // ── Billing / subscription columns ────────────────────────────────────────────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS plan_tier TEXT NOT NULL DEFAULT 'free'`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS stripe_customer_id TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS stripe_subscription_id TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS subscription_status TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS billing_period_start TIMESTAMPTZ`);
+
+  // West Hills Capital (account 1) is the internal WHC account — give it enterprise
+  await db.query(`
+    UPDATE accounts SET plan_tier = 'enterprise', seat_limit = 999
+    WHERE id = 1 AND plan_tier = 'free'
+  `);
+
+  // ── Usage events — one row per billable action per account per period ─────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS usage_events (
+      id             SERIAL PRIMARY KEY,
+      account_id     INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      event_type     TEXT NOT NULL,
+      period_start   DATE NOT NULL DEFAULT DATE_TRUNC('month', NOW()),
+      created_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS usage_events_account_period_idx
+      ON usage_events (account_id, period_start, event_type)
+  `);
+
   // Server-side session store backed by Postgres (replaces in-memory Map)
   await db.query(`
     CREATE TABLE IF NOT EXISTS internal_sessions (

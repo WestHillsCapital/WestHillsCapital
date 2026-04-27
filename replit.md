@@ -34,7 +34,7 @@ The project is structured as a pnpm monorepo using TypeScript, with separate `ap
 - **Deal Builder:** An internal tool to manage and execute client deals, automating pricing, trade execution, invoicing, and record-keeping.
 - **Internal Workflow Language:** Staff-facing navigation uses "Prospecting Pipeline" and "Scheduled Calls" to align with internal Google Sheets.
 - **FedEx Location Search:** Integration to find nearest FedEx locations for shipping.
-- **DocuFill:** An internal custodial paperwork engine for reusable document packages. It supports managing custodians, depositories, packages, and generating filled packets based on mapped interview fields. Phase 2 enhancements include normalized transaction types, validation, and token-scoped public interview endpoints for external client completion. A shared field library enables reusable field definitions across packages.
+- **DocuFill / Docuplete:** An internal custodial paperwork engine for reusable document packages. It supports managing custodians, depositories, packages, and generating filled packets based on mapped interview fields. Phase 2 enhancements include normalized transaction types, validation, and token-scoped public interview endpoints for external client completion. A shared field library enables reusable field definitions across packages. Plan limit enforcement via `requireWithinPlanLimits` middleware on POST /packages (package count) and POST /sessions (monthly submission count + `usage_events` recording). `BillingSection` component in AppSettings.tsx shows current plan, usage, and upgrade/manage links.
 - **Multi-Tenancy Foundation:** Implemented with `accounts` and `account_users` tables for tenant isolation. `account_id` scopes relevant data. Internal portal uses Google auth, while an external product portal at `/app/*` uses Clerk for authentication, reusing Docuplete components with different API paths and authentication headers.
 
 **Deployment:**
@@ -54,4 +54,5 @@ The project is structured as a pnpm monorepo using TypeScript, with separate `ap
 - **React, Vite, Tailwind CSS, shadcn/ui:** Frontend stack.
 - **Zod:** Data validation.
 - **pdfkit / pdf-lib:** PDF generation, parsing, and Docuplete overlay utilities.
-- **Clerk:** For authentication in the external product portal.
+- **Clerk:** For authentication in the external product portal (`/app/*` routes).
+- **Stripe:** Subscription billing via `stripe` + `stripe-replit-sync` packages. Plan tiers: Free (3 packages, 50 submissions/mo, 1 seat), Pro ($99/mo — unlimited packages, 500 submissions/mo, 5 seats), Enterprise ($299/mo — unlimited). WHC account (id=1) permanently on enterprise. Products seeded with `scripts/seed-stripe-products.ts`. Checkout/portal flow in `/api/internal/settings/billing` routes.

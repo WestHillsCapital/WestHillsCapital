@@ -60,6 +60,284 @@ function formatRelative(iso: string | null): string {
   return `${Math.floor(days / 365)}y ago`;
 }
 
+interface BillingInfo {
+  plan_tier: string;
+  subscription_status: string | null;
+  billing_period_start: string | null;
+  next_renewal_at: string | null;
+  has_stripe_customer: boolean;
+  has_stripe_subscription: boolean;
+  limits: {
+    max_packages: number | null;
+    max_submissions_per_month: number | null;
+    max_seats: number;
+  };
+  usage: {
+    packages: number;
+    submissions: number;
+    seats: number;
+  };
+}
+
+const PLAN_LABELS: Record<string, string> = { free: "Free", pro: "Pro", enterprise: "Enterprise" };
+
+function planBadge(tier: string) {
+  if (tier === "enterprise") return <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Enterprise</span>;
+  if (tier === "pro")        return <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">Pro</span>;
+  return <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2.5 py-0.5 text-xs font-semibold text-gray-600">Free</span>;
+}
+
+function statusBadge(status: string | null) {
+  if (!status) return null;
+  if (status === "active" || status === "trialing")
+    return <span className="text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">Active</span>;
+  if (status === "past_due")
+    return <span className="text-[11px] font-medium text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">Past due</span>;
+  if (status === "canceled" || status === "cancelled")
+    return <span className="text-[11px] font-medium text-gray-600 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5">Cancelled</span>;
+  return <span className="text-[11px] font-medium text-gray-600 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5">{status}</span>;
+}
+
+function UsageBar({ label, used, limit, unit = "" }: { label: string; used: number; limit: number | null; unit?: string }) {
+  const pct = limit === null ? 0 : Math.min(100, Math.round((used / limit) * 100));
+  const isOver = limit !== null && used >= limit;
+  return (
+    <div className="mb-3 last:mb-0">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs text-gray-600">{label}</span>
+        <span className={`text-xs font-medium ${isOver ? "text-red-600" : "text-gray-700"}`}>
+          {limit === null ? `${used.toLocaleString()} / ∞` : `${used.toLocaleString()} / ${limit.toLocaleString()}${unit}`}
+        </span>
+      </div>
+      {limit !== null && (
+        <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${isOver ? "bg-red-500" : pct > 80 ? "bg-amber-400" : "bg-gray-900"}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+}
+
+function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
+  function authHeaders(contentType?: string): HeadersInit {
+    const h = new Headers(getAuthHeaders());
+    if (contentType) h.set("Content-Type", contentType);
+    return h;
+  }
+
+  const [billing, setBilling] = useState<BillingInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [isUpgrading, setIsUpgrading] = useState(false);
+  const [isPortaling, setIsPortaling] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [selectedPlan, setSelectedPlan] = useState<"pro" | "enterprise">("pro");
+
+  useEffect(() => {
+    setIsLoading(true);
+    fetch(`${SETTINGS_BASE}/billing`, { headers: authHeaders() })
+      .then(async (r) => {
+        const data = await r.json() as { billing?: BillingInfo; error?: string };
+        if (!r.ok) { setLoadError(data.error ?? "Failed to load billing info"); return; }
+        if (data.billing) setBilling(data.billing);
+      })
+      .catch(() => setLoadError("Failed to load billing info"))
+      .finally(() => setIsLoading(false));
+  }, []);
+
+  async function handleUpgrade() {
+    setActionError(null);
+    setIsUpgrading(true);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/billing/checkout`, {
+        method: "POST",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({ plan: selectedPlan }),
+      });
+      const data = await res.json() as { url?: string; error?: string; setup_required?: boolean };
+      if (!res.ok) {
+        setActionError(data.error ?? "Failed to start checkout.");
+        return;
+      }
+      if (data.url) window.location.href = data.url;
+    } catch { setActionError("Failed to start checkout."); }
+    finally { setIsUpgrading(false); }
+  }
+
+  async function handlePortal() {
+    setActionError(null);
+    setIsPortaling(true);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/billing/portal`, {
+        method: "POST",
+        headers: authHeaders("application/json"),
+        body: "{}",
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok) { setActionError(data.error ?? "Failed to open billing portal."); return; }
+      if (data.url) window.open(data.url, "_blank");
+    } catch { setActionError("Failed to open billing portal."); }
+    finally { setIsPortaling(false); }
+  }
+
+  return (
+    <section className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+      <div className="px-6 py-4 flex items-center justify-between gap-4">
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">Billing</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Manage your subscription and plan limits.</p>
+        </div>
+        {!isLoading && billing && (
+          <div className="flex items-center gap-2">
+            {planBadge(billing.plan_tier)}
+            {statusBadge(billing.subscription_status)}
+          </div>
+        )}
+      </div>
+
+      {loadError && (
+        <div className="px-6 py-4 bg-red-50">
+          <p className="text-xs text-red-700">{loadError}</p>
+        </div>
+      )}
+
+      {actionError && (
+        <div className="px-6 py-3 bg-red-50">
+          <p className="text-xs text-red-700">{actionError}</p>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="px-6 py-8 flex justify-center">
+          <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+        </div>
+      ) : billing ? (
+        <>
+          {/* Usage bars */}
+          <div className="px-6 py-5">
+            <p className="text-sm font-medium text-gray-900 mb-4">Usage this billing period</p>
+            <UsageBar
+              label="Packages"
+              used={billing.usage.packages}
+              limit={billing.limits.max_packages}
+            />
+            <UsageBar
+              label="Interview submissions"
+              used={billing.usage.submissions}
+              limit={billing.limits.max_submissions_per_month}
+              unit="/mo"
+            />
+            <UsageBar
+              label="Team seats"
+              used={billing.usage.seats}
+              limit={billing.limits.max_seats}
+            />
+          </div>
+
+          {/* Plan details */}
+          <div className="px-6 py-4 bg-gray-50">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-gray-800">
+                  {PLAN_LABELS[billing.plan_tier] ?? billing.plan_tier} plan
+                </p>
+                {billing.next_renewal_at && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Renews {formatDate(billing.next_renewal_at)}
+                  </p>
+                )}
+                {billing.plan_tier === "free" && (
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Upgrade to unlock more packages, submissions, and seats.
+                  </p>
+                )}
+              </div>
+
+              {/* CTA */}
+              {billing.plan_tier === "free" ? (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <select
+                    value={selectedPlan}
+                    onChange={(e) => setSelectedPlan(e.target.value as "pro" | "enterprise")}
+                    className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20"
+                  >
+                    <option value="pro">Pro — 5 seats · 500 submissions/mo</option>
+                    <option value="enterprise">Enterprise — unlimited</option>
+                  </select>
+                  <button
+                    type="button"
+                    disabled={isUpgrading}
+                    onClick={() => { void handleUpgrade(); }}
+                    className="rounded-lg bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors whitespace-nowrap"
+                  >
+                    {isUpgrading ? "Opening…" : "Upgrade"}
+                  </button>
+                </div>
+              ) : billing.has_stripe_subscription ? (
+                <button
+                  type="button"
+                  disabled={isPortaling}
+                  onClick={() => { void handlePortal(); }}
+                  className="rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
+                >
+                  {isPortaling ? "Opening…" : "Manage billing"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+
+          {/* Plan comparison table */}
+          {billing.plan_tier === "free" && (
+            <div className="px-6 py-4">
+              <p className="text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">Compare plans</p>
+              <div className="rounded-lg border border-gray-100 overflow-hidden text-xs">
+                <table className="w-full">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-4 py-2.5 text-left font-medium text-gray-700 w-1/2">Feature</th>
+                      <th className="px-4 py-2.5 text-center font-medium text-gray-700">Free</th>
+                      <th className="px-4 py-2.5 text-center font-medium text-indigo-700">Pro</th>
+                      <th className="px-4 py-2.5 text-center font-medium text-amber-700">Enterprise</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    <tr>
+                      <td className="px-4 py-2.5 text-gray-700">Packages</td>
+                      <td className="px-4 py-2.5 text-center text-gray-600">3</td>
+                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">Unlimited</td>
+                      <td className="px-4 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
+                    </tr>
+                    <tr className="bg-gray-50/50">
+                      <td className="px-4 py-2.5 text-gray-700">Submissions / month</td>
+                      <td className="px-4 py-2.5 text-center text-gray-600">50</td>
+                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">500</td>
+                      <td className="px-4 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-2.5 text-gray-700">Team seats</td>
+                      <td className="px-4 py-2.5 text-center text-gray-600">1</td>
+                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">5</td>
+                      <td className="px-4 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      ) : null}
+    </section>
+  );
+}
+
 function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
   function authHeaders(contentType?: string): HeadersInit {
     const h = new Headers(getAuthHeaders());
@@ -849,6 +1127,9 @@ export default function AppSettings() {
           <div className="h-2 w-32 rounded bg-gray-200" />
         </div>
       </section>
+
+      {/* Billing section */}
+      <BillingSection getAuthHeaders={getAuthHeaders} />
 
       {/* Team section */}
       <TeamSection getAuthHeaders={getAuthHeaders} />

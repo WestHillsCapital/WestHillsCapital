@@ -349,9 +349,49 @@ async function runTrackingSync(): Promise<void> {
   }
 }
 
+async function initStripe(): Promise<void> {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) return; // no DB — skip silently (healthcheck will catch it)
+
+  try {
+    const { runMigrations } = await import("stripe-replit-sync");
+    logger.info("[Stripe] Initializing stripe schema...");
+    await runMigrations({ databaseUrl });
+    logger.info("[Stripe] stripe schema ready");
+
+    // Managed webhook setup and backfill — non-fatal individually
+    const { getStripeSync } = await import("./lib/stripeClient");
+    const stripeSync = await getStripeSync();
+
+    const webhookBaseUrl = process.env.REPLIT_DOMAINS
+      ? `https://${process.env.REPLIT_DOMAINS.split(",")[0]}`
+      : process.env.APP_ORIGIN ?? "";
+
+    if (webhookBaseUrl) {
+      try {
+        await stripeSync.findOrCreateManagedWebhook(`${webhookBaseUrl}/api/stripe/webhook`);
+        logger.info("[Stripe] Webhook configured");
+      } catch (webhookErr) {
+        logger.warn({ err: webhookErr }, "[Stripe] Managed webhook setup failed — configure webhook manually in Stripe Dashboard if needed");
+      }
+    }
+
+    // Sync backfill in background (non-fatal)
+    stripeSync.syncBackfill()
+      .then(() => logger.info("[Stripe] Backfill complete"))
+      .catch((err: unknown) => logger.warn({ err }, "[Stripe] Backfill failed (non-fatal)"));
+
+  } catch (err) {
+    // Log but do not exit — Stripe is degraded, not fatal
+    logger.warn({ err }, "[Stripe] Stripe initialization failed (non-fatal — billing may be unavailable)");
+  }
+}
+
 initDb()
-  .then(() => {
+  .then(async () => {
     logger.info("Database ready — all systems operational");
+    // Initialize Stripe after DB is ready (non-fatal if it fails)
+    void initStripe();
     // Run every 15 minutes to keep milestone states fresh
     setInterval(() => { void runScheduler(); }, 15 * 60 * 1000).unref();
     // Run tracking sync every 15 minutes (offset by 2 minutes to avoid collision)

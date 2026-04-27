@@ -21,6 +21,7 @@ import {
   sendDocupleteClientConfirmationEmail,
 } from "../lib/email";
 import { requireAdminRole, requireRole } from "../middleware/requireRole";
+import { requireWithinPlanLimits, recordSubmissionEvent } from "../middleware/requireWithinPlanLimits";
 const requireMemberRole = requireRole("member");
 
 const router: IRouter = Router();
@@ -1213,7 +1214,7 @@ router.patch("/depositories/:id", requireAdminRole, async (req, res) => {
   }
 });
 
-router.post("/packages", requireAdminRole, async (req, res) => {
+router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), async (req, res) => {
   try {
     const body = req.body as PackageInput;
     const name = cleanText(body.name);
@@ -1877,7 +1878,7 @@ router.get("/sessions", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/sessions", requireMemberRole, async (req, res) => {
+router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"), async (req, res) => {
   try {
     const body = req.body as SessionInput;
     const packageId = parseId(body.packageId);
@@ -1925,6 +1926,10 @@ router.post("/sessions", requireMemberRole, async (req, res) => {
        RETURNING *`,
       [token, packageId, pkg.version ?? 1, requestedScope, body.dealId ?? null, cleanText(body.source) || "deal_builder", testMode, jsonParam(body.prefill ?? {}), acctId(req)],
     );
+    // Record submission usage event (fire-and-forget, non-fatal; test sessions skipped)
+    if (!testMode) {
+      void recordSubmissionEvent(acctId(req));
+    }
     res.status(201).json({ session: rows[0], token });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to create interview session");

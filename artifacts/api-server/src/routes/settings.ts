@@ -7,6 +7,8 @@ import { ObjectStorageService, objectStorageClient } from "../lib/objectStorage"
 import { extractBrandColors, isSafeUrl } from "../lib/brandColorExtractor";
 import { requireAdminRole } from "../middleware/requireRole";
 import { sendTeamInvitationEmail } from "../lib/email";
+import { getPlanLimits } from "../lib/plans";
+import { getUncachableStripeClient } from "../lib/stripeClient";
 import express from "express";
 
 const router: IRouter = Router();
@@ -768,6 +770,254 @@ router.delete("/team/:id", requireAdminRole, async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Team] Failed to remove member");
     res.status(500).json({ error: "Failed to remove member." });
+  }
+});
+
+// ── Billing ───────────────────────────────────────────────────────────────────
+
+function currentPeriodStart(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-01`;
+}
+
+/** GET /billing — returns current plan, usage, and subscription info */
+router.get("/billing", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+
+    const [acctResult, pkgResult, usageResult, seatResult] = await Promise.all([
+      db.query<{
+        plan_tier: string;
+        stripe_customer_id: string | null;
+        stripe_subscription_id: string | null;
+        subscription_status: string | null;
+        billing_period_start: Date | null;
+        seat_limit: number;
+      }>(
+        `SELECT plan_tier, stripe_customer_id, stripe_subscription_id, subscription_status, billing_period_start, seat_limit
+           FROM accounts WHERE id = $1`,
+        [accountId],
+      ),
+      db.query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM docufill_packages WHERE account_id = $1`,
+        [accountId],
+      ),
+      db.query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM usage_events
+          WHERE account_id = $1 AND event_type = 'submission' AND period_start = $2`,
+        [accountId, currentPeriodStart()],
+      ),
+      db.query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM account_users WHERE account_id = $1 AND status != 'pending'`,
+        [accountId],
+      ),
+    ]);
+
+    const acct = acctResult.rows[0];
+    if (!acct) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
+    const limits = getPlanLimits(acct.plan_tier);
+    const pkgCount  = parseInt(pkgResult.rows[0]?.count ?? "0", 10);
+    const subCount  = parseInt(usageResult.rows[0]?.count ?? "0", 10);
+    const seatCount = parseInt(seatResult.rows[0]?.count ?? "0", 10);
+
+    // Try to pull next renewal date from the stripe.subscriptions table if synced
+    let nextRenewalAt: string | null = null;
+    if (acct.stripe_subscription_id) {
+      try {
+        const { rows: subRows } = await db.query<{ current_period_end: Date | null }>(
+          `SELECT current_period_end FROM stripe.subscriptions WHERE id = $1`,
+          [acct.stripe_subscription_id],
+        );
+        if (subRows[0]?.current_period_end) {
+          nextRenewalAt = new Date(subRows[0].current_period_end).toISOString();
+        }
+      } catch {
+        // stripe schema not yet initialized — skip silently
+      }
+    }
+
+    res.json({
+      billing: {
+        plan_tier:               acct.plan_tier,
+        subscription_status:     acct.subscription_status ?? null,
+        billing_period_start:    acct.billing_period_start?.toISOString() ?? null,
+        next_renewal_at:         nextRenewalAt,
+        has_stripe_customer:     !!acct.stripe_customer_id,
+        has_stripe_subscription: !!acct.stripe_subscription_id,
+        limits: {
+          max_packages:              limits.maxPackages,
+          max_submissions_per_month: limits.maxSubmissionsPerMonth,
+          max_seats:                 limits.maxSeats,
+        },
+        usage: {
+          packages:    pkgCount,
+          submissions: subCount,
+          seats:       seatCount,
+        },
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Billing] Failed to get billing info");
+    res.status(500).json({ error: "Failed to load billing information" });
+  }
+});
+
+/** POST /billing/checkout — create a Stripe Checkout session to subscribe / upgrade */
+router.post("/billing/checkout", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as Record<string, unknown>;
+    const planTier = typeof body.plan === "string" ? body.plan : "";
+    if (planTier !== "pro" && planTier !== "enterprise") {
+      res.status(400).json({ error: "Invalid plan. Must be 'pro' or 'enterprise'." });
+      return;
+    }
+
+    const db     = getDb();
+    const stripe = await getUncachableStripeClient();
+
+    // Resolve account name + email for customer creation
+    const { rows: acctRows } = await db.query<{
+      name: string;
+      stripe_customer_id: string | null;
+    }>(
+      `SELECT name, stripe_customer_id FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    const acct = acctRows[0];
+    if (!acct) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+
+    // Find or create Stripe customer
+    let customerId = acct.stripe_customer_id;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        name:     acct.name,
+        metadata: { account_id: String(accountId) },
+      });
+      customerId = customer.id;
+      await db.query(
+        `UPDATE accounts SET stripe_customer_id = $1 WHERE id = $2`,
+        [customerId, accountId],
+      );
+    }
+
+    // Look up matching price via the Stripe API (primary) or env var (fallback)
+    let priceId: string | null = null;
+
+    // Env var shortcut (set after running seed-stripe-products)
+    priceId = planTier === "pro"
+      ? (process.env.STRIPE_PRO_PRICE_ID ?? null)
+      : (process.env.STRIPE_ENTERPRISE_PRICE_ID ?? null);
+
+    // Live Stripe API lookup by product metadata if env vars not set
+    if (!priceId) {
+      try {
+        const products = await stripe.products.list({ active: true, limit: 100 });
+        const product = products.data.find(
+          (p) => p.metadata?.plan_tier?.toLowerCase() === planTier,
+        );
+        if (product) {
+          const prices = await stripe.prices.list({
+            product: product.id,
+            active:  true,
+            type:    "recurring",
+            limit:   10,
+          });
+          // Prefer the lowest unit_amount (most accessible price)
+          const sorted = prices.data.sort((a, b) => (a.unit_amount ?? 0) - (b.unit_amount ?? 0));
+          priceId = sorted[0]?.id ?? null;
+        }
+      } catch {
+        // Stripe API unavailable — fall through
+      }
+    }
+
+    // Stripe-replit-sync DB fallback (when synced tables are available)
+    if (!priceId) {
+      try {
+        const { rows: priceRows } = await db.query<{ id: string }>(
+          `SELECT pr.id
+             FROM stripe.prices pr
+             JOIN stripe.products p ON p.id = pr.product
+            WHERE pr.active = true
+              AND p.active = true
+              AND lower(p.metadata->>'plan_tier') = $1
+              AND pr.recurring IS NOT NULL
+            ORDER BY pr.unit_amount ASC
+            LIMIT 1`,
+          [planTier],
+        );
+        priceId = priceRows[0]?.id ?? null;
+      } catch {
+        // stripe schema not yet synced
+      }
+    }
+
+    if (!priceId) {
+      res.status(503).json({
+        error: "Stripe products have not been seeded yet. Run the seed-products script first.",
+        setup_required: true,
+      });
+      return;
+    }
+
+    const origin = process.env.APP_ORIGIN
+      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://app.docuplete.com");
+
+    const session = await stripe.checkout.sessions.create({
+      customer:             customerId,
+      payment_method_types: ["card"],
+      line_items:           [{ price: priceId, quantity: 1 }],
+      mode:                 "subscription",
+      success_url:          `${origin}/app/settings?billing=success`,
+      cancel_url:           `${origin}/app/settings?billing=cancel`,
+      subscription_data:    { metadata: { account_id: String(accountId) } },
+    });
+
+    res.json({ url: session.url });
+  } catch (err) {
+    logger.error({ err }, "[Billing] Failed to create checkout session");
+    res.status(500).json({ error: "Failed to create checkout session" });
+  }
+});
+
+/** POST /billing/portal — create a Stripe Customer Portal session */
+router.post("/billing/portal", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+
+    const { rows } = await db.query<{ stripe_customer_id: string | null }>(
+      `SELECT stripe_customer_id FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    const customerId = rows[0]?.stripe_customer_id;
+    if (!customerId) {
+      res.status(409).json({ error: "No billing account found. Subscribe first to access the billing portal." });
+      return;
+    }
+
+    const stripe = await getUncachableStripeClient();
+    const origin = process.env.APP_ORIGIN
+      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://app.docuplete.com");
+
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer:   customerId,
+      return_url: `${origin}/app/settings`,
+    });
+
+    res.json({ url: portalSession.url });
+  } catch (err) {
+    logger.error({ err }, "[Billing] Failed to create portal session");
+    res.status(500).json({ error: "Failed to create billing portal session" });
   }
 });
 
