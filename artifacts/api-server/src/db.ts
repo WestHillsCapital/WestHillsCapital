@@ -1,4 +1,5 @@
 import { Pool } from "pg";
+import { randomBytes } from "crypto";
 import { logger } from "./lib/logger";
 import { appendBookingAttemptToSheet } from "./lib/google-sheets";
 
@@ -908,12 +909,19 @@ export async function initDb(): Promise<void> {
     ALTER TABLE docufill_packages
     ADD COLUMN IF NOT EXISTS webhook_secret TEXT
   `);
-  // Backfill any existing packages that pre-date the column
-  await db.query(`
-    UPDATE docufill_packages
-       SET webhook_secret = encode(gen_random_bytes(32), 'hex')
-     WHERE webhook_secret IS NULL
-  `);
+  // Backfill any existing packages that pre-date the column — generate secrets
+  // in Node.js to avoid a pgcrypto dependency.
+  {
+    const { rows: missing } = await db.query<{ id: number }>(
+      `SELECT id FROM docufill_packages WHERE webhook_secret IS NULL`,
+    );
+    for (const row of missing) {
+      await db.query(
+        `UPDATE docufill_packages SET webhook_secret = $1 WHERE id = $2`,
+        [randomBytes(32).toString("hex"), row.id],
+      );
+    }
+  }
   // Delivery log: one row per HTTP attempt (initial + each retry)
   await db.query(`
     CREATE TABLE IF NOT EXISTS webhook_deliveries (

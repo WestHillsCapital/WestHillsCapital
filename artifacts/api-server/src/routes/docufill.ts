@@ -287,6 +287,7 @@ function buildWebhookPayload(session: Record<string, unknown>): Record<string, u
   }
   return {
     event: "interview.submitted",
+    package_id: session.package_id ?? null,
     package_name: session.package_name ?? null,
     token: session.token ?? null,
     submitted_at: new Date().toISOString(),
@@ -572,6 +573,14 @@ async function hydratePackages(packages: PackageRow[], client: QueryClient = get
   const library = fieldLibrary ?? await getFieldLibrary(client);
   const withDocuments = await hydrateStoredDocumentMetadata(packages, client);
   return withDocuments.map((pkg) => ({ ...pkg, fields: hydratePackageFields(pkg.fields, library) }));
+}
+
+/** Strip the webhook signing secret before sending a package to any client endpoint.
+ *  The secret is only returned by the dedicated GET /packages/:id/webhook-secret
+ *  endpoint which is guarded with requireAdminRole. */
+function sanitizePackageForClient(pkg: PackageRow): Omit<PackageRow, "webhook_secret"> {
+  const { webhook_secret: _dropped, ...rest } = pkg as PackageRow & { webhook_secret?: string };
+  return rest;
 }
 
 async function readPdfBody(req: Request): Promise<Buffer> {
@@ -919,7 +928,7 @@ router.get("/bootstrap", async (req, res) => {
                  ORDER BY p.updated_at DESC, p.name ASC`, [accountId]),
     ]);
     const hydratedPackages = await hydratePackages(packages.rows as PackageRow[], db, fieldLibrary);
-    res.json({ custodians: custodians.rows, depositories: depositories.rows, transactionTypes: transactionTypes.rows, fieldLibrary, packages: hydratedPackages });
+    res.json({ custodians: custodians.rows, depositories: depositories.rows, transactionTypes: transactionTypes.rows, fieldLibrary, packages: hydratedPackages.map(sanitizePackageForClient) });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load bootstrap data");
     res.status(500).json({ error: "Failed to load Docuplete data" });
@@ -1312,7 +1321,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
       ],
     );
     const hydrated = await hydratePackages(rows as PackageRow[], db);
-    res.status(201).json({ package: hydrated[0] });
+    res.status(201).json({ package: sanitizePackageForClient(hydrated[0]) });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to create package");
     res.status(500).json({ error: "Failed to create package" });
@@ -1396,7 +1405,7 @@ router.patch("/packages/:id", requireAdminRole, async (req, res) => {
       );
       await client.query("COMMIT");
       const hydrated = await hydratePackages(rows as PackageRow[], client);
-      res.json({ package: hydrated[0] });
+      res.json({ package: sanitizePackageForClient(hydrated[0]) });
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});
       throw err;
@@ -1424,7 +1433,8 @@ router.post("/packages/:id/test-webhook", requireAdminRole, async (req, res) => 
     }
     const webhookSecret = typeof pkg.webhook_secret === "string" ? pkg.webhook_secret : null;
     const samplePayload: Record<string, unknown> = {
-      event: "interview.submitted",
+      event: "interview.test",
+      package_id: id,
       package_name: pkg.name ?? null,
       token: "test-" + Date.now().toString(36),
       submitted_at: new Date().toISOString(),
@@ -1443,6 +1453,24 @@ router.post("/packages/:id/test-webhook", requireAdminRole, async (req, res) => 
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to send test webhook");
     res.status(500).json({ error: "Failed to send test webhook" });
+  }
+});
+
+/** GET /packages/:id/webhook-secret — admin-only; returns the HMAC signing secret for the package. */
+router.get("/packages/:id/webhook-secret", requireAdminRole, async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) { res.status(400).json({ error: "Invalid package id" }); return; }
+    const accountId = acctId(req);
+    const { rows } = await getDb().query<{ webhook_secret: string | null }>(
+      `SELECT webhook_secret FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      [id, accountId],
+    );
+    if (!rows.length) { res.status(404).json({ error: "Package not found" }); return; }
+    res.json({ webhook_secret: rows[0].webhook_secret });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to fetch webhook secret");
+    res.status(500).json({ error: "Failed to fetch webhook secret" });
   }
 });
 

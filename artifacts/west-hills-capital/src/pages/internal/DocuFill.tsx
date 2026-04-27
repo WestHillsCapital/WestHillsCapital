@@ -186,7 +186,6 @@ type PackageItem = {
   enable_customer_link: boolean;
   webhook_enabled: boolean;
   webhook_url: string | null;
-  webhook_secret: string | null;
   tags: string[];
   notify_staff_on_submit: boolean;
   notify_client_on_submit: boolean;
@@ -484,7 +483,6 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     enable_customer_link: pkg.enable_customer_link === true,
     webhook_enabled: (pkg as PackageItem & Record<string, unknown>).webhook_enabled === true,
     webhook_url: typeof (pkg as PackageItem & Record<string, unknown>).webhook_url === "string" ? (pkg as PackageItem & Record<string, unknown>).webhook_url as string : null,
-    webhook_secret: typeof (pkg as PackageItem & Record<string, unknown>).webhook_secret === "string" ? (pkg as PackageItem & Record<string, unknown>).webhook_secret as string : null,
     notify_staff_on_submit: (pkg as PackageItem & Record<string, unknown>).notify_staff_on_submit === true,
     notify_client_on_submit: (pkg as PackageItem & Record<string, unknown>).notify_client_on_submit === true,
     tags: Array.isArray((pkg as PackageItem & { tags?: unknown }).tags)
@@ -783,6 +781,8 @@ export default function DocuFill() {
   const [planLimitError, setPlanLimitError] = useState<{ limitType: string; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [webhookTestStatus, setWebhookTestStatus] = useState<null | { ok: boolean; message: string }>(null);
+  const [webhookSecret, setWebhookSecret] = useState<string | null>(null);
+  const [webhookSecretLoading, setWebhookSecretLoading] = useState(false);
   const [webhookSecretRevealed, setWebhookSecretRevealed] = useState(false);
   const [webhookSecretCopied, setWebhookSecretCopied] = useState(false);
   const [webhookDeliveries, setWebhookDeliveries] = useState<Array<{ id: number; event_type: string; attempt_number: number; http_status: number | null; response_body: string; duration_ms: number; created_at: string; }>>([]);
@@ -1008,6 +1008,8 @@ export default function DocuFill() {
 
   useEffect(() => {
     setWebhookTestStatus(null);
+    setWebhookSecret(null);
+    setWebhookSecretLoading(false);
     setWebhookSecretRevealed(false);
     setWebhookSecretCopied(false);
     setWebhookDeliveries([]);
@@ -1329,6 +1331,22 @@ export default function DocuFill() {
       setError(err instanceof Error ? err.message : "Could not save package");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function fetchWebhookSecret(pkgId: number) {
+    setWebhookSecretLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${pkgId}/webhook-secret`, {
+        headers: { ...getAuthHeaders() },
+      });
+      if (!res.ok) return;
+      const data = await res.json() as { webhook_secret: string | null };
+      setWebhookSecret(data.webhook_secret ?? null);
+    } catch {
+      // non-fatal
+    } finally {
+      setWebhookSecretLoading(false);
     }
   }
 
@@ -3367,39 +3385,47 @@ export default function DocuFill() {
                                 )}
                                 <p className="text-[11px] text-[#8A9BB8]">Payload: <code className="font-mono">{"{ event, package_name, token, submitted_at, answers }"}</code>. Sensitive fields are redacted. Each request includes an <code className="font-mono">X-Docuplete-Signature</code> header for verification.</p>
                                 {/* Webhook secret */}
-                                {selectedPackage.webhook_secret && (
-                                  <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-2.5 py-2 space-y-1.5">
-                                    <p className="text-[11px] font-medium text-[#0F1C3F]">Signing secret</p>
-                                    <div className="flex items-center gap-1.5">
-                                      <code className="flex-1 min-w-0 font-mono text-[10px] break-all text-[#0F1C3F] bg-white border border-[#E8E0D0] rounded px-1.5 py-1">
-                                        {webhookSecretRevealed ? selectedPackage.webhook_secret : "•".repeat(40)}
-                                      </code>
+                                <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-2.5 py-2 space-y-1.5">
+                                  <p className="text-[11px] font-medium text-[#0F1C3F]">Signing secret</p>
+                                  <div className="flex items-center gap-1.5">
+                                    <code className="flex-1 min-w-0 font-mono text-[10px] break-all text-[#0F1C3F] bg-white border border-[#E8E0D0] rounded px-1.5 py-1">
+                                      {webhookSecretRevealed && webhookSecret ? webhookSecret : "•".repeat(40)}
+                                    </code>
+                                    <button
+                                      type="button"
+                                      disabled={webhookSecretLoading}
+                                      onClick={() => {
+                                        if (!webhookSecretRevealed) {
+                                          setWebhookSecretRevealed(true);
+                                          if (!webhookSecret && selectedPackage.id) {
+                                            void fetchWebhookSecret(selectedPackage.id);
+                                          }
+                                        } else {
+                                          setWebhookSecretRevealed(false);
+                                        }
+                                      }}
+                                      className="shrink-0 text-[10px] border border-[#DDD5C4] bg-white rounded px-2 py-1 text-[#0F1C3F] hover:bg-[#EAF0FB] disabled:opacity-40 transition-colors"
+                                    >
+                                      {webhookSecretLoading ? "Loading…" : webhookSecretRevealed ? "Hide" : "Reveal"}
+                                    </button>
+                                    {webhookSecretRevealed && webhookSecret && (
                                       <button
                                         type="button"
-                                        onClick={() => setWebhookSecretRevealed((v) => !v)}
+                                        onClick={() => {
+                                          if (!webhookSecret) return;
+                                          void navigator.clipboard.writeText(webhookSecret).then(() => {
+                                            setWebhookSecretCopied(true);
+                                            setTimeout(() => setWebhookSecretCopied(false), 2000);
+                                          });
+                                        }}
                                         className="shrink-0 text-[10px] border border-[#DDD5C4] bg-white rounded px-2 py-1 text-[#0F1C3F] hover:bg-[#EAF0FB] transition-colors"
                                       >
-                                        {webhookSecretRevealed ? "Hide" : "Reveal"}
+                                        {webhookSecretCopied ? "Copied ✓" : "Copy"}
                                       </button>
-                                      {webhookSecretRevealed && (
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            if (!selectedPackage.webhook_secret) return;
-                                            void navigator.clipboard.writeText(selectedPackage.webhook_secret).then(() => {
-                                              setWebhookSecretCopied(true);
-                                              setTimeout(() => setWebhookSecretCopied(false), 2000);
-                                            });
-                                          }}
-                                          className="shrink-0 text-[10px] border border-[#DDD5C4] bg-white rounded px-2 py-1 text-[#0F1C3F] hover:bg-[#EAF0FB] transition-colors"
-                                        >
-                                          {webhookSecretCopied ? "Copied ✓" : "Copy"}
-                                        </button>
-                                      )}
-                                    </div>
-                                    <p className="text-[10px] text-[#8A9BB8]">Use this to verify <code className="font-mono">X-Docuplete-Signature: sha256=…</code> on incoming requests. Compute <code className="font-mono">HMAC-SHA256(secret, rawBody)</code> and compare.</p>
+                                    )}
                                   </div>
-                                )}
+                                  <p className="text-[10px] text-[#8A9BB8]">Use this to verify <code className="font-mono">X-Docuplete-Signature: sha256=…</code> on incoming requests. Compute <code className="font-mono">HMAC-SHA256(secret, rawBody)</code> and compare.</p>
+                                </div>
                                 {/* Recent deliveries */}
                                 <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-2.5 py-2 space-y-1.5">
                                   <div className="flex items-center justify-between">
