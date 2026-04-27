@@ -357,6 +357,7 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
   const [isInviting, setIsInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
+  const [seatLimitReached, setSeatLimitReached] = useState(false);
 
   const [changingRoleId, setChangingRoleId] = useState<number | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
@@ -385,6 +386,7 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
     if (!inviteEmail.trim()) { setInviteError("Email is required."); return; }
     setInviteError(null);
     setInviteSuccess(null);
+    setSeatLimitReached(false);
     setIsInviting(true);
     try {
       const res = await fetch(`${SETTINGS_BASE}/team/invite`, {
@@ -392,7 +394,8 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
         headers: authHeaders("application/json"),
         body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
       });
-      const data = await res.json() as { member?: TeamMember; emailSent?: boolean; error?: string };
+      const data = await res.json() as { member?: TeamMember; emailSent?: boolean; error?: string; upgrade_required?: boolean };
+      if (res.status === 402 && data.upgrade_required) { setSeatLimitReached(true); return; }
       if (!res.ok) { setInviteError(data.error ?? "Failed to send invitation."); return; }
       setInviteEmail("");
       setInviteSuccess(
@@ -464,6 +467,22 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
       {isAdmin && (
         <div className="px-6 py-5">
           <p className="text-sm font-medium text-gray-900 mb-3">Invite a team member</p>
+          {seatLimitReached && (
+            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex items-start justify-between gap-2">
+              <span>
+                Your plan&apos;s seat limit has been reached.{" "}
+                <button
+                  type="button"
+                  className="underline font-semibold hover:text-amber-900"
+                  onClick={() => document.getElementById("billing-section")?.scrollIntoView({ behavior: "smooth" })}
+                >
+                  Upgrade your plan
+                </button>{" "}
+                to invite more team members.
+              </span>
+              <button type="button" onClick={() => setSeatLimitReached(false)} className="text-amber-500 hover:text-amber-800 shrink-0 leading-none">&times;</button>
+            </div>
+          )}
           {inviteError && (
             <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{inviteError}</div>
           )}
@@ -1129,7 +1148,9 @@ export default function AppSettings() {
       </section>
 
       {/* Billing section */}
-      <BillingSection getAuthHeaders={getAuthHeaders} />
+      <div id="billing-section">
+        <BillingSection getAuthHeaders={getAuthHeaders} />
+      </div>
 
       {/* Team section */}
       <TeamSection getAuthHeaders={getAuthHeaders} />
