@@ -15,6 +15,11 @@ import {
   type DocuFillFieldItem,
 } from "../lib/docufill-redaction";
 import { saveDocuFillPacketToDrive } from "../lib/google-drive";
+import {
+  sendInterviewLinkEmail,
+  sendDocupleteStaffSubmissionEmail,
+  sendDocupleteClientConfirmationEmail,
+} from "../lib/email";
 
 const router: IRouter = Router();
 export const publicDocufillRouter: IRouter = Router();
@@ -44,6 +49,8 @@ type PackageInput = {
   webhookEnabled?: boolean;
   webhookUrl?: string | null;
   tags?: unknown;
+  notifyStaffOnSubmit?: boolean;
+  notifyClientOnSubmit?: boolean;
 };
 
 type DocItem = {
@@ -304,6 +311,80 @@ function fireWebhookAsync(webhookUrl: string, payload: Record<string, unknown>):
   });
 }
 
+// ── Task #195: fire submission notification emails ────────────────────────────
+async function fireSubmissionEmailsAsync(
+  session: Record<string, unknown>,
+  pdfBuffer: Buffer,
+  token: string,
+  db: QueryClient,
+): Promise<void> {
+  const orgName       = typeof session.org_name       === "string" ? session.org_name       : "Docuplete";
+  const orgBrandColor = typeof session.org_brand_color === "string" ? session.org_brand_color : null;
+  const orgLogoUrl    = typeof session.org_logo_url    === "string" ? session.org_logo_url    : null;
+  const packageName   = typeof session.package_name   === "string" ? session.package_name   : "Document Package";
+  const accountId     = typeof session.package_account_id === "number" ? session.package_account_id : null;
+
+  const origin = process.env.APP_ORIGIN
+    ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://docuplete.com");
+
+  const prefill       = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+  const firstName     = cleanText(prefill.firstName);
+  const lastName      = cleanText(prefill.lastName);
+  const clientName    = [firstName, lastName].filter(Boolean).join(" ") || null;
+  const clientEmail   = cleanText(prefill.email) || (typeof session.link_email_recipient === "string" ? session.link_email_recipient : null);
+
+  const pdfFilename   = `${(packageName).replace(/[^a-z0-9]+/gi, "-").toLowerCase() || "docuplete"}-packet.pdf`;
+  const logoFullUrl   = orgLogoUrl ? `${origin}${orgLogoUrl}` : null;
+  const submittedAt   = new Date().toISOString();
+
+  // Staff notification
+  if (session.notify_staff_on_submit === true && accountId) {
+    try {
+      const { rows: userRows } = await db.query(
+        `SELECT email FROM account_users WHERE account_id = $1 AND email IS NOT NULL AND email <> ''`,
+        [accountId],
+      );
+      const staffEmails: string[] = userRows.map((r: Record<string, unknown>) => String(r.email)).filter(Boolean);
+      if (staffEmails.length) {
+        const appUrl = `${origin}/internal/docufill?session=${token}`;
+        await sendDocupleteStaffSubmissionEmail({
+          staffEmails,
+          sessionToken: token,
+          packageName,
+          orgName,
+          orgBrandColor,
+          clientName,
+          clientEmail,
+          submittedAt,
+          appUrl,
+          pdfBuffer:  pdfBuffer.length <= 5 * 1024 * 1024 ? pdfBuffer : null,
+          pdfFilename,
+        });
+        logger.info({ staffEmails, token }, "[DocuFill] Staff submission emails sent");
+      }
+    } catch (err) {
+      logger.error({ err, token }, "[DocuFill] Failed to send staff submission email");
+    }
+  }
+
+  // Client confirmation
+  if (session.notify_client_on_submit === true && clientEmail) {
+    try {
+      await sendDocupleteClientConfirmationEmail({
+        clientEmail,
+        clientName,
+        packageName,
+        orgName,
+        orgLogoUrl:    logoFullUrl,
+        orgBrandColor,
+      });
+      logger.info({ clientEmail, token }, "[DocuFill] Client confirmation email sent");
+    } catch (err) {
+      logger.error({ err, token }, "[DocuFill] Failed to send client confirmation email");
+    }
+  }
+}
+
 function normalizeFieldType(value: unknown): string {
   const text = cleanText(value);
   return ["text", "date", "radio", "checkbox", "dropdown"].includes(text) ? text : "text";
@@ -504,6 +585,8 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
     `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
             p.transaction_scope, p.custodian_id, p.depository_id,
             p.webhook_enabled, p.webhook_url,
+            p.notify_staff_on_submit, p.notify_client_on_submit,
+            p.account_id AS package_account_id,
             c.name AS custodian_name, d.name AS depository_name,
             a.name AS org_name,
             CASE WHEN a.logo_url IS NOT NULL THEN '/api/storage/org-logo/' || a.id::text ELSE NULL END AS org_logo_url,
@@ -1220,8 +1303,9 @@ router.patch("/packages/:id", async (req, res) => {
           description=$5, status=$6, documents=$7::jsonb, fields=$8::jsonb,
           mappings=$9::jsonb, recipients=$10::jsonb, enable_interview=$11, enable_csv=$12,
           enable_customer_link=$13, tags=$14::jsonb, webhook_enabled=$15, webhook_url=$16,
+          notify_staff_on_submit=$17, notify_client_on_submit=$18,
           version=version+1, updated_at=NOW()
-        WHERE id=$17 AND account_id=$18
+        WHERE id=$19 AND account_id=$20
         RETURNING *`,
       [
         name,
@@ -1240,6 +1324,8 @@ router.patch("/packages/:id", async (req, res) => {
         body.tags === undefined ? JSON.stringify(Array.isArray(existing.tags) ? existing.tags : []) : JSON.stringify(parseTags(body.tags)),
         body.webhookEnabled === undefined ? (existing.webhook_enabled ?? false) : Boolean(body.webhookEnabled),
         body.webhookUrl === undefined ? (existing.webhook_url ?? null) : parseWebhookUrl(body.webhookUrl),
+        body.notifyStaffOnSubmit === undefined ? (existing.notify_staff_on_submit ?? false) : Boolean(body.notifyStaffOnSubmit),
+        body.notifyClientOnSubmit === undefined ? (existing.notify_client_on_submit ?? false) : Boolean(body.notifyClientOnSubmit),
         id,
         accountId,
       ],
@@ -1887,6 +1973,58 @@ router.patch("/sessions/:token", async (req, res) => {
   }
 });
 
+// ── Task #194: Send interview link by email ───────────────────────────────────
+router.post("/sessions/:token/send-link", async (req, res) => {
+  try {
+    const db = getDb();
+    const session = await getSession(req.params.token, db, acctId(req));
+    if (!session) {
+      res.status(404).json({ error: "Interview session not found" });
+      return;
+    }
+
+    const body = req.body as { recipientEmail?: string; recipientName?: string; customMessage?: string };
+    const recipientEmail = typeof body.recipientEmail === "string" ? body.recipientEmail.trim() : "";
+    const recipientName  = typeof body.recipientName  === "string" ? body.recipientName.trim()  : "";
+
+    if (!recipientEmail) {
+      res.status(400).json({ error: "recipientEmail is required" });
+      return;
+    }
+
+    const origin = process.env.APP_ORIGIN
+      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://docuplete.com");
+    const interviewUrl = `${origin}/docufill/public/${req.params.token}`;
+
+    const orgLogoUrl    = typeof session.org_logo_url === "string" ? session.org_logo_url : null;
+    const orgBrandColor = typeof session.org_brand_color === "string" ? session.org_brand_color : null;
+    const orgName       = typeof session.org_name === "string" && session.org_name ? session.org_name : "Docuplete";
+
+    await sendInterviewLinkEmail({
+      recipientEmail,
+      recipientName,
+      interviewUrl,
+      orgName,
+      orgLogoUrl:    orgLogoUrl ? `${origin}${orgLogoUrl}` : null,
+      orgBrandColor,
+      customMessage: typeof body.customMessage === "string" ? body.customMessage.trim() || null : null,
+    });
+
+    await db.query(
+      `UPDATE docufill_interview_sessions
+          SET link_emailed_at=NOW(), link_email_recipient=$1, updated_at=NOW()
+        WHERE token=$2
+          AND package_id IN (SELECT id FROM docufill_packages WHERE account_id = $3)`,
+      [recipientEmail, req.params.token, acctId(req)],
+    );
+
+    res.json({ ok: true, sentTo: recipientEmail });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to send interview link email");
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to send email" });
+  }
+});
+
 router.post("/sessions/:token/generate", async (req, res) => {
   try {
     const db = getDb();
@@ -2199,6 +2337,12 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
     const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
     if (session.webhook_enabled === true && webhookUrl) {
       fireWebhookAsync(webhookUrl, buildWebhookPayload(session));
+    }
+    // ── Task #195: fire submission notification emails asynchronously ──────────
+    if (session.notify_staff_on_submit === true || session.notify_client_on_submit === true) {
+      fireSubmissionEmailsAsync(session, pdfBuffer, req.params.token, db).catch((err) => {
+        logger.error({ err, token: req.params.token }, "[DocuFill] Submission emails failed (non-fatal)");
+      });
     }
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to generate public packet");

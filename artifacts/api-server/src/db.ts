@@ -775,6 +775,14 @@ export async function initDb(): Promise<void> {
      WHERE revoked_at IS NULL
   `);
 
+  // ── Task #194: interview link email tracking ───────────────────────────────
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS link_emailed_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS link_email_recipient TEXT`);
+
+  // ── Task #195: per-package submission notification toggles ─────────────────
+  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS notify_staff_on_submit BOOLEAN NOT NULL DEFAULT false`);
+  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS notify_client_on_submit BOOLEAN NOT NULL DEFAULT false`);
+
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 

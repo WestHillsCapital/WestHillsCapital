@@ -187,6 +187,8 @@ type PackageItem = {
   webhook_enabled: boolean;
   webhook_url: string | null;
   tags: string[];
+  notify_staff_on_submit: boolean;
+  notify_client_on_submit: boolean;
 };
 
 type Session = {
@@ -204,6 +206,8 @@ type Session = {
   transaction_scope?: string;
   generated_pdf_url?: string | null;
   generated_pdf_saved_at?: string | null;
+  link_emailed_at?: string | null;
+  link_email_recipient?: string | null;
 };
 
 function newId(prefix: string) {
@@ -479,6 +483,8 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     enable_customer_link: pkg.enable_customer_link === true,
     webhook_enabled: (pkg as PackageItem & Record<string, unknown>).webhook_enabled === true,
     webhook_url: typeof (pkg as PackageItem & Record<string, unknown>).webhook_url === "string" ? (pkg as PackageItem & Record<string, unknown>).webhook_url as string : null,
+    notify_staff_on_submit: (pkg as PackageItem & Record<string, unknown>).notify_staff_on_submit === true,
+    notify_client_on_submit: (pkg as PackageItem & Record<string, unknown>).notify_client_on_submit === true,
     tags: Array.isArray((pkg as PackageItem & { tags?: unknown }).tags)
       ? ((pkg as PackageItem & { tags?: unknown }).tags as unknown[]).map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
       : [],
@@ -633,8 +639,16 @@ export default function DocuFill() {
   const [customerLinkLastName, setCustomerLinkLastName] = useState("");
   const [customerLinkEmail, setCustomerLinkEmail] = useState("");
   const [generatedCustomerLink, setGeneratedCustomerLink] = useState<string | null>(null);
+  const [generatedCustomerLinkToken, setGeneratedCustomerLinkToken] = useState<string | null>(null);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [showSendLinkForm, setShowSendLinkForm] = useState(false);
+  const [sendLinkEmail, setSendLinkEmail] = useState("");
+  const [sendLinkName, setSendLinkName] = useState("");
+  const [sendLinkMessage, setSendLinkMessage] = useState("");
+  const [isSendingLink, setIsSendingLink] = useState(false);
+  const [linkEmailSent, setLinkEmailSent] = useState<string | null>(null);
+  const [linkEmailError, setLinkEmailError] = useState<string | null>(null);
   const [newPackageName, setNewPackageName] = useState("");
   const [newPackageCustodianId, setNewPackageCustodianId] = useState("");
   const [newPackageDepositoryId, setNewPackageDepositoryId] = useState("");
@@ -1283,6 +1297,8 @@ export default function DocuFill() {
           webhookEnabled: pkg.webhook_enabled,
           webhookUrl: pkg.webhook_url ?? null,
           tags: pkg.tags ?? [],
+          notifyStaffOnSubmit: pkg.notify_staff_on_submit,
+          notifyClientOnSubmit: pkg.notify_client_on_submit,
         }),
       });
       const data = await res.json();
@@ -2354,6 +2370,9 @@ export default function DocuFill() {
     setGeneratedCustomerLink(null);
     setLinkCopied(false);
     setError(null);
+    setShowSendLinkForm(false);
+    setLinkEmailSent(null);
+    setLinkEmailError(null);
     try {
       const prefill: Record<string, string> = {};
       if (customerLinkFirstName.trim()) prefill.firstName = customerLinkFirstName.trim();
@@ -2373,10 +2392,39 @@ export default function DocuFill() {
       if (!res.ok) throw new Error(data.error ?? "Could not generate customer link");
       const link = `${window.location.origin}/docufill/public/${data.token}`;
       setGeneratedCustomerLink(link);
+      setGeneratedCustomerLinkToken(data.token as string);
+      setSendLinkEmail(customerLinkEmail.trim());
+      setSendLinkName([customerLinkFirstName.trim(), customerLinkLastName.trim()].filter(Boolean).join(" "));
+      setSendLinkMessage("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not generate customer link");
     } finally {
       setIsGeneratingLink(false);
+    }
+  }
+
+  async function handleSendLinkByEmail() {
+    if (!generatedCustomerLinkToken || !sendLinkEmail.trim()) return;
+    setIsSendingLink(true);
+    setLinkEmailError(null);
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/sessions/${generatedCustomerLinkToken}/send-link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          recipientEmail: sendLinkEmail.trim(),
+          recipientName:  sendLinkName.trim(),
+          customMessage:  sendLinkMessage.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not send email");
+      setLinkEmailSent(sendLinkEmail.trim());
+      setShowSendLinkForm(false);
+    } catch (err) {
+      setLinkEmailError(err instanceof Error ? err.message : "Could not send email");
+    } finally {
+      setIsSendingLink(false);
     }
   }
 
@@ -3244,6 +3292,36 @@ export default function DocuFill() {
                               </div>
                             )}
                           </div>
+                          {/* Staff email on submit — toggleable */}
+                          <button
+                            type="button"
+                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, notify_staff_on_submit: !pkg.notify_staff_on_submit }))}
+                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.notify_staff_on_submit ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
+                          >
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.notify_staff_on_submit ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
+                              <span className={`text-sm font-semibold ${selectedPackage.notify_staff_on_submit ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Staff notification</span>
+                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.notify_staff_on_submit ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
+                                {selectedPackage.notify_staff_on_submit ? "Enabled" : "Off"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-[#6B7A99]">Email all account staff when a client submits an interview. Includes a link to the session and the filled PDF attached.</p>
+                          </button>
+                          {/* Client confirmation on submit — toggleable */}
+                          <button
+                            type="button"
+                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, notify_client_on_submit: !pkg.notify_client_on_submit }))}
+                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.notify_client_on_submit ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
+                          >
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.notify_client_on_submit ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                              <span className={`text-sm font-semibold ${selectedPackage.notify_client_on_submit ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Client confirmation</span>
+                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.notify_client_on_submit ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
+                                {selectedPackage.notify_client_on_submit ? "Enabled" : "Off"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-[#6B7A99]">Send the client a branded receipt email after they submit. Requires a client email address in the session (from customer link or email field).</p>
+                          </button>
                           {/* Embed — coming soon */}
                           <div className="rounded-lg border border-dashed border-[#DDD5C4] bg-[#F8F6F0] p-3 opacity-60 cursor-not-allowed">
                             <div className="flex items-center gap-2 mb-1.5">
@@ -3970,7 +4048,7 @@ export default function DocuFill() {
                             <span className="text-xs text-[#8A9BB8]">— customer fills the form themselves</span>
                           </div>
                           <div className="space-y-2">
-                            <select value={customerLinkPackageId} onChange={(e) => { setCustomerLinkPackageId(e.target.value); setGeneratedCustomerLink(null); }} className="w-full border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white">
+                            <select value={customerLinkPackageId} onChange={(e) => { setCustomerLinkPackageId(e.target.value); setGeneratedCustomerLink(null); setGeneratedCustomerLinkToken(null); setLinkEmailSent(null); setShowSendLinkForm(false); }} className="w-full border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white">
                               <option value="">Select a package…</option>
                               {activePackages.filter((p) => p.enable_customer_link).map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
                             </select>
@@ -3984,13 +4062,60 @@ export default function DocuFill() {
                             </Button>
                             {generatedCustomerLink && (
                               <div className="rounded border border-green-200 bg-green-50 p-3 space-y-2">
-                                <div className="text-xs font-semibold text-green-800">Link ready — copy and send to your customer</div>
+                                <div className="text-xs font-semibold text-green-800">Link ready</div>
                                 <div className="flex items-center gap-2">
                                   <code className="flex-1 text-xs bg-white border border-green-200 rounded px-2 py-1.5 text-[#0F1C3F] break-all">{generatedCustomerLink}</code>
                                   <button type="button" onClick={copyCustomerLink} className="shrink-0 text-xs border border-green-300 bg-white text-green-800 rounded px-3 py-1.5 hover:bg-green-100 transition-colors">
                                     {linkCopied ? "Copied ✓" : "Copy"}
                                   </button>
                                 </div>
+                                <div className="flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => { setShowSendLinkForm((v) => !v); setLinkEmailError(null); }}
+                                    className="text-xs border border-green-300 bg-white text-green-800 rounded px-3 py-1.5 hover:bg-green-100 transition-colors flex items-center gap-1.5"
+                                  >
+                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                                    {showSendLinkForm ? "Cancel" : "Send by email"}
+                                  </button>
+                                  {linkEmailSent && !showSendLinkForm && (
+                                    <span className="text-[11px] text-green-700">✓ Sent to {linkEmailSent}</span>
+                                  )}
+                                </div>
+                                {showSendLinkForm && (
+                                  <div className="border-t border-green-200 pt-2 space-y-2">
+                                    <div className="grid sm:grid-cols-2 gap-2">
+                                      <Input
+                                        placeholder="Client email *"
+                                        type="email"
+                                        value={sendLinkEmail}
+                                        onChange={(e) => setSendLinkEmail(e.target.value)}
+                                        className="text-sm"
+                                      />
+                                      <Input
+                                        placeholder="Client name (optional)"
+                                        value={sendLinkName}
+                                        onChange={(e) => setSendLinkName(e.target.value)}
+                                        className="text-sm"
+                                      />
+                                    </div>
+                                    <textarea
+                                      placeholder="Add a personal message (optional)"
+                                      value={sendLinkMessage}
+                                      onChange={(e) => setSendLinkMessage(e.target.value)}
+                                      rows={2}
+                                      className="w-full text-sm border border-green-200 rounded px-2 py-1.5 bg-white resize-none focus:outline-none focus:ring-1 focus:ring-green-400"
+                                    />
+                                    {linkEmailError && <p className="text-[11px] text-red-600">{linkEmailError}</p>}
+                                    <Button
+                                      onClick={handleSendLinkByEmail}
+                                      disabled={!sendLinkEmail.trim() || isSendingLink}
+                                      className="bg-[#0F1C3F] hover:bg-[#182B5F] text-xs h-8 px-4"
+                                    >
+                                      {isSendingLink ? "Sending…" : "Send Email"}
+                                    </Button>
+                                  </div>
+                                )}
                                 <p className="text-[11px] text-green-700">Expires in 90 days. When the customer submits, you'll receive the completed packet.</p>
                               </div>
                             )}

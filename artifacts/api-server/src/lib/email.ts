@@ -1538,3 +1538,333 @@ export async function sendBookingConfirmation(params: {
     `,
   });
 }
+
+// ── Docuplete: interview link email (Task #194) ───────────────────────────────
+
+export async function sendInterviewLinkEmail(params: {
+  recipientEmail:   string;
+  recipientName:    string;
+  interviewUrl:     string;
+  orgName:          string;
+  orgLogoUrl?:      string | null;
+  orgBrandColor?:   string | null;
+  customMessage?:   string | null;
+}): Promise<void> {
+  const brandColor = params.orgBrandColor ?? "#0F1C3F";
+  const orgName    = params.orgName || "Docuplete";
+  const firstName  = params.recipientName.split(" ")[0] || params.recipientName;
+
+  const logoBlock = params.orgLogoUrl
+    ? `<tr>
+         <td align="center" style="padding:28px 40px 20px;background:#f8f7f5;">
+           <img src="${params.orgLogoUrl}" alt="${orgName}" height="40"
+                style="display:block;max-height:40px;height:auto;border:0;">
+         </td>
+       </tr>
+       <tr><td style="padding:0 40px;background:#f8f7f5;"><div style="height:1px;background:#e5ddd0;"></div></td></tr>`
+    : `<tr>
+         <td align="center" style="padding:28px 40px 20px;background:#f8f7f5;">
+           <p style="margin:0;font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:bold;color:#1a1a1a;">${orgName}</p>
+         </td>
+       </tr>
+       <tr><td style="padding:0 40px;background:#f8f7f5;"><div style="height:1px;background:#e5ddd0;"></div></td></tr>`;
+
+  const customBlock = params.customMessage
+    ? `<tr>
+         <td style="padding:0 40px 20px;">
+           <div style="background:#f8f7f5;border-left:3px solid ${brandColor};padding:12px 16px;border-radius:0 4px 4px 0;">
+             <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#374151;line-height:1.65;white-space:pre-line;">${params.customMessage.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</p>
+           </div>
+         </td>
+       </tr>`
+    : "";
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Your document interview is ready</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:#ece8dc;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ece8dc;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0"
+             style="max-width:560px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #ddd5c4;">
+
+        ${logoBlock}
+
+        <!-- Headline -->
+        <tr>
+          <td style="padding:32px 40px 20px;">
+            <p style="margin:0 0 8px;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:#1a1a1a;line-height:1.3;">
+              ${firstName ? `Hi ${firstName}, y` : "Y"}our document interview is ready.
+            </p>
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#6b7280;line-height:1.65;">
+              ${orgName} has sent you a secure link to complete your paperwork online. It only takes a few minutes and no login is required.
+            </p>
+          </td>
+        </tr>
+
+        ${customBlock}
+
+        <!-- CTA Button -->
+        <tr>
+          <td style="padding:4px 40px 28px;">
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="border-radius:4px;background:${brandColor};">
+                  <a href="${params.interviewUrl}" target="_blank"
+                     style="display:inline-block;padding:13px 28px;font-family:Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:4px;">
+                    Start My Interview &rarr;
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Link fallback -->
+        <tr>
+          <td style="padding:0 40px 28px;">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#9ca3af;">
+              Or copy this link into your browser:<br>
+              <span style="color:#374151;word-break:break-all;">${params.interviewUrl}</span>
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:16px 40px;background:#f8f7f5;border-top:1px solid #e5ddd0;">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#9ca3af;line-height:1.6;">
+              This link expires in 90 days. It was sent to you by ${orgName} via Docuplete.
+              If you didn&rsquo;t expect this email, you can safely ignore it.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  await sendEmail({
+    to:      params.recipientEmail,
+    subject: `${orgName} sent you documents to review`,
+    html,
+  });
+}
+
+// ── Docuplete: staff submission notification (Task #195) ──────────────────────
+
+export async function sendDocupleteStaffSubmissionEmail(params: {
+  staffEmails:    string[];
+  sessionToken:   string;
+  packageName:    string;
+  orgName:        string;
+  orgBrandColor?: string | null;
+  clientName?:    string | null;
+  clientEmail?:   string | null;
+  submittedAt:    string;
+  appUrl:         string;
+  pdfBuffer?:     Buffer | null;
+  pdfFilename?:   string | null;
+}): Promise<void> {
+  if (!params.staffEmails.length) return;
+
+  const brandColor = params.orgBrandColor ?? "#0F1C3F";
+  const orgName    = params.orgName || "Docuplete";
+  const submittedDate = new Date(params.submittedAt).toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone:  "America/Los_Angeles",
+  });
+
+  const clientRow = params.clientName
+    ? `<tr><td style="padding:5px 0;color:#6b7280;width:130px;font-size:13px;">Client</td><td style="padding:5px 0;font-weight:600;font-size:13px;">${params.clientName}${params.clientEmail ? ` &lt;${params.clientEmail}&gt;` : ""}</td></tr>`
+    : (params.clientEmail
+        ? `<tr><td style="padding:5px 0;color:#6b7280;width:130px;font-size:13px;">Client email</td><td style="padding:5px 0;font-size:13px;"><a href="mailto:${params.clientEmail}" style="color:${brandColor};">${params.clientEmail}</a></td></tr>`
+        : "");
+
+  const attachments: EmailAttachment[] = [];
+  if (params.pdfBuffer && params.pdfBuffer.length <= 5 * 1024 * 1024) {
+    attachments.push({
+      filename:    params.pdfFilename ?? "docuplete-packet.pdf",
+      content:     params.pdfBuffer.toString("base64"),
+      contentType: "application/pdf",
+    });
+  }
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Interview submission received</title></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0"
+             style="max-width:560px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #e5e7eb;">
+
+        <tr>
+          <td style="padding:8px 28px;background:${brandColor};">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;font-weight:600;color:#ffffff;letter-spacing:.08em;text-transform:uppercase;">${orgName} &middot; Docuplete</p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:28px 28px 16px;">
+            <p style="margin:0 0 6px;font-family:Arial,sans-serif;font-size:20px;font-weight:700;color:#1a1a1a;">Interview submitted</p>
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#6b7280;line-height:1.55;">A client has completed their document interview. The filled PDF packet is attached.</p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:0 28px 24px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="border:1px solid #e5e7eb;border-radius:4px;padding:16px;background:#f9fafb;">
+              <tr><td style="padding:5px 0;color:#6b7280;width:130px;font-size:13px;">Package</td><td style="padding:5px 0;font-weight:600;font-size:13px;">${params.packageName}</td></tr>
+              <tr><td style="padding:5px 0;color:#6b7280;font-size:13px;">Submitted</td><td style="padding:5px 0;font-size:13px;">${submittedDate} PT</td></tr>
+              ${clientRow}
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:0 28px 28px;">
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="border-radius:4px;background:${brandColor};">
+                  <a href="${params.appUrl}" target="_blank"
+                     style="display:inline-block;padding:11px 24px;font-family:Arial,sans-serif;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:4px;">
+                    View Submission &rarr;
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:12px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#9ca3af;">
+              Sent automatically by Docuplete when an interview is submitted.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  for (const email of params.staffEmails) {
+    await sendEmail({
+      to:          email,
+      subject:     `[${orgName}] Interview submitted — ${params.packageName}${params.clientName ? ` · ${params.clientName}` : ""}`,
+      html,
+      attachments: attachments.length ? attachments : undefined,
+    });
+  }
+}
+
+// ── Docuplete: client submission confirmation (Task #195) ─────────────────────
+
+export async function sendDocupleteClientConfirmationEmail(params: {
+  clientEmail:    string;
+  clientName?:    string | null;
+  packageName:    string;
+  orgName:        string;
+  orgLogoUrl?:    string | null;
+  orgBrandColor?: string | null;
+}): Promise<void> {
+  const brandColor = params.orgBrandColor ?? "#0F1C3F";
+  const orgName    = params.orgName || "Docuplete";
+  const firstName  = params.clientName?.split(" ")[0] || null;
+
+  const logoBlock = params.orgLogoUrl
+    ? `<tr>
+         <td align="center" style="padding:28px 40px 20px;background:#f8f7f5;">
+           <img src="${params.orgLogoUrl}" alt="${orgName}" height="40"
+                style="display:block;max-height:40px;height:auto;border:0;">
+         </td>
+       </tr>
+       <tr><td style="padding:0 40px;background:#f8f7f5;"><div style="height:1px;background:#e5ddd0;"></div></td></tr>`
+    : `<tr>
+         <td align="center" style="padding:28px 40px 20px;background:#f8f7f5;">
+           <p style="margin:0;font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:bold;color:#1a1a1a;">${orgName}</p>
+         </td>
+       </tr>
+       <tr><td style="padding:0 40px;background:#f8f7f5;"><div style="height:1px;background:#e5ddd0;"></div></td></tr>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>We received your submission</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:#ece8dc;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ece8dc;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0"
+             style="max-width:560px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #ddd5c4;">
+
+        ${logoBlock}
+
+        <tr>
+          <td style="padding:32px 40px 20px;">
+            <p style="margin:0 0 8px;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:#1a1a1a;line-height:1.3;">
+              ${firstName ? `Thank you, ${firstName}.` : "Thank you."}
+            </p>
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#374151;line-height:1.65;">
+              We&rsquo;ve received your <strong>${params.packageName}</strong> submission.
+              Our team has been notified and will be in touch if anything else is needed.
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:0 40px 32px;">
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:4px;padding:14px 18px;">
+              <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#15803d;font-weight:600;">
+                &#10003; Submission received
+              </p>
+              <p style="margin:4px 0 0;font-family:Arial,sans-serif;font-size:13px;color:#166534;line-height:1.55;">
+                Your paperwork has been securely delivered to ${orgName}.
+              </p>
+            </div>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:12px 40px;background:#f8f7f5;border-top:1px solid #e5ddd0;">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#9ca3af;line-height:1.6;">
+              This confirmation was sent automatically by ${orgName} via Docuplete.
+              If you have questions, please contact ${orgName} directly.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  await sendEmail({
+    to:      params.clientEmail,
+    subject: `We received your ${params.packageName} submission`,
+    html,
+  });
+}
