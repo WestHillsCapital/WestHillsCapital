@@ -327,11 +327,10 @@ async function doWebhookDelivery(
   let httpStatus: number | null = null;
   let responseSnippet = "";
   let ok = false;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
   try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 10_000);
     const res = await fetch(webhookUrl, { method: "POST", headers, body, signal: controller.signal });
-    clearTimeout(timer);
     httpStatus = res.status;
     responseSnippet = (await res.text().catch(() => "")).slice(0, 1024);
     ok = res.ok;
@@ -339,6 +338,8 @@ async function doWebhookDelivery(
   } catch (err) {
     responseSnippet = (err instanceof Error ? err.message : String(err)).slice(0, 1024);
     logger.error({ err, webhookUrl, attempt }, "[DocuFill] Webhook request failed");
+  } finally {
+    clearTimeout(timer);
   }
   const durationMs = Date.now() - start;
   db.query(

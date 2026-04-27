@@ -3383,7 +3383,7 @@ export default function DocuFill() {
                                     {webhookTestStatus.ok ? "✓" : "✗"} {webhookTestStatus.message}
                                   </p>
                                 )}
-                                <p className="text-[11px] text-[#8A9BB8]">Payload: <code className="font-mono">{"{ event, package_name, token, submitted_at, answers }"}</code>. Sensitive fields are redacted. Each request includes an <code className="font-mono">X-Docuplete-Signature</code> header for verification.</p>
+                                <p className="text-[11px] text-[#8A9BB8]">Payload: <code className="font-mono">{"{ event, package_id, package_name, token, submitted_at, answers }"}</code>. Sensitive fields are redacted. Each request includes an <code className="font-mono">X-Docuplete-Signature</code> header for verification.</p>
                                 {/* Webhook secret */}
                                 <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-2.5 py-2 space-y-1.5">
                                   <p className="text-[11px] font-medium text-[#0F1C3F]">Signing secret</p>
