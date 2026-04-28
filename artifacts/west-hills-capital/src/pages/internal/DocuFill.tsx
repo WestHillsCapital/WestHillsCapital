@@ -6511,6 +6511,7 @@ function FieldLibraryPanel({
   const [savedId, setSavedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
+  const [showHints, setShowHints] = useState(false);
 
   async function handleAdd() {
     setAdding(true);
@@ -6550,19 +6551,21 @@ function FieldLibraryPanel({
         <div>
           <div className="flex items-center gap-1.5">
             <h3 className="text-sm font-semibold">Shared Field Library</h3>
-            <span className="relative group">
-              <span className="flex items-center justify-center w-4 h-4 rounded-full border border-[#C4B99A] text-[#8A9BB8] text-[10px] leading-none cursor-help select-none">?</span>
-              <div className="pointer-events-none absolute left-0 top-full mt-1.5 w-72 rounded-lg border border-[#DDD5C4] bg-white shadow-lg text-[11px] text-[#4A5568] leading-relaxed px-3 py-2.5 opacity-0 group-hover:opacity-100 transition-opacity z-50 space-y-1.5">
-                <p><span className="font-semibold text-[#0F1C3F]">Label</span> — the question or prompt shown to the client during the interview.</p>
-                <p><span className="font-semibold text-[#0F1C3F]">Category</span> — groups this field with related fields (e.g. "Customer identity", "IRA details").</p>
-                <p><span className="font-semibold text-[#0F1C3F]">Prefill source</span> — the variable key used when mapping this field to a document template (e.g. "firstName").</p>
-                <p><span className="font-semibold text-[#0F1C3F]">Sort order</span> — controls where this field appears relative to others. Lower numbers appear first.</p>
-                <p><span className="font-semibold text-[#0F1C3F]">Field type</span> — the kind of input shown: text, date, radio, checkbox, or dropdown.</p>
-                <p><span className="font-semibold text-[#0F1C3F]">Validation rule</span> — applies a built-in format check (Name, Email, Phone, SSN, etc.) to the client's entry.</p>
-                <p><span className="font-semibold text-[#0F1C3F]">Options</span> — for dropdown, radio, or checkbox fields only. Each line becomes one selectable choice.</p>
-                <p><span className="font-semibold text-[#0F1C3F]">Validation message</span> — shown when the client's input fails validation. Leave blank for the default message.</p>
-                <p><span className="font-semibold text-[#0F1C3F]">Active</span> — include in interviews. <span className="font-semibold text-[#0F1C3F]">Required</span> — client must fill in. <span className="font-semibold text-[#0F1C3F]">Sensitive</span> — masked in logs and exports (SSNs, account numbers, etc.).</p>
-              </div>
+            <span className="relative">
+              <button type="button" onClick={() => setShowHints((v) => !v)} className={`flex items-center justify-center w-4 h-4 rounded-full border text-[10px] leading-none select-none transition-colors ${showHints ? "bg-[#C49A38] border-[#C49A38] text-white" : "border-[#C4B99A] text-[#8A9BB8] hover:border-[#C49A38] hover:text-[#C49A38]"}`}>?</button>
+              {showHints && (
+                <div className="absolute left-0 top-full mt-1.5 w-72 rounded-lg border border-[#DDD5C4] bg-white shadow-lg text-[11px] text-[#4A5568] leading-relaxed px-3 py-2.5 z-50 space-y-1.5">
+                  <p><span className="font-semibold text-[#0F1C3F]">Label</span> — the question or prompt shown to the client during the interview.</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Category</span> — groups this field with related fields (e.g. "Customer identity", "IRA details").</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Prefill source</span> — the variable key used when mapping this field to a document template (e.g. "firstName").</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Sort order</span> — controls where this field appears relative to others. Lower numbers appear first.</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Field type</span> — the kind of input shown: text, date, radio, checkbox, or dropdown.</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Validation rule</span> — applies a built-in format check (Name, Email, Phone, SSN, etc.) to the client's entry.</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Options</span> — for dropdown, radio, or checkbox fields only. Each line becomes one selectable choice.</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Validation message</span> — shown when the client's input fails validation. Leave blank for the default message.</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Active</span> — include in interviews. <span className="font-semibold text-[#0F1C3F]">Required</span> — client must fill in. <span className="font-semibold text-[#0F1C3F]">Sensitive</span> — masked in logs and exports (SSNs, account numbers, etc.).</p>
+                </div>
+              )}
             </span>
           </div>
           <p className="text-[11px] text-[#8A9BB8]">Define common customer, IRA, beneficiary, and signature fields once, then reuse them in custodian packages.</p>
@@ -6573,47 +6576,79 @@ function FieldLibraryPanel({
       </div>
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
       <div className="grid md:grid-cols-2 gap-2 text-sm">
-        {items.map((item) => (
+        {items.map((item, idx) => {
+          const h = showHints && idx === 1;
+          const HL = ({ children }: { children: string }) => (
+            <span className="absolute -top-2 left-1.5 z-10 text-[9px] bg-[#C49A38] text-white font-semibold rounded px-1 leading-4 pointer-events-none">{children}</span>
+          );
+          return (
           <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
-            <Input value={item.label} onChange={(e) => onChange(item.id, { label: e.target.value })} className="h-8 text-xs bg-white" />
-            <div className="grid grid-cols-2 gap-2">
-              <Input placeholder="Category" value={item.category} onChange={(e) => onChange(item.id, { category: e.target.value })} className="h-8 text-xs bg-white" />
-              <Input placeholder="Prefill source" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" />
+            <div className="relative pt-1">
+              {h && <HL>Label</HL>}
+              <Input value={item.label} onChange={(e) => onChange(item.id, { label: e.target.value })} className="h-8 text-xs bg-white" />
             </div>
-            <Input
-              type="number"
-              placeholder="Sort order"
-              value={item.sortOrder}
-              onChange={(e) => onChange(item.id, { sortOrder: Number(e.target.value || 100) })}
-              className="h-8 text-xs bg-white"
-            />
             <div className="grid grid-cols-2 gap-2">
-              <select value={item.type} onChange={(e) => onChange(item.id, { type: e.target.value as FieldItem["type"] })} className="border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
-                <option value="text">Text</option>
-                <option value="date">Date</option>
-                <option value="radio">Radio</option>
-                <option value="checkbox">Checkbox</option>
-                <option value="dropdown">Dropdown</option>
-              </select>
-              <select value={item.validationType ?? "none"} onChange={(e) => onChange(item.id, { validationType: e.target.value as FieldItem["validationType"] })} className="border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
-                <option value="none">No rule</option>
-                <option value="name">Name</option>
-                <option value="number">Number</option>
-                <option value="currency">Currency</option>
-                <option value="email">Email</option>
-                <option value="phone">Phone</option>
-                <option value="date">Date</option>
-                <option value="ssn">SSN</option>
-                <option value="custom">Custom</option>
-              </select>
+              <div className="relative pt-1">
+                {h && <HL>Category</HL>}
+                <Input placeholder="Category" value={item.category} onChange={(e) => onChange(item.id, { category: e.target.value })} className="h-8 text-xs bg-white" />
+              </div>
+              <div className="relative pt-1">
+                {h && <HL>Prefill source</HL>}
+                <Input placeholder="Prefill source" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" />
+              </div>
             </div>
-            <Textarea placeholder="Options, one per line" value={item.options.join("\n")} onChange={(e) => onChange(item.id, { options: e.target.value.split("\n").filter(Boolean) })} className="min-h-16 text-xs bg-white" />
+            <div className="relative pt-1">
+              {h && <HL>Sort order</HL>}
+              <Input
+                type="number"
+                placeholder="Sort order"
+                value={item.sortOrder}
+                onChange={(e) => onChange(item.id, { sortOrder: Number(e.target.value || 100) })}
+                className="h-8 text-xs bg-white"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="relative pt-1">
+                {h && <HL>Field type</HL>}
+                <select value={item.type} onChange={(e) => onChange(item.id, { type: e.target.value as FieldItem["type"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
+                  <option value="text">Text</option>
+                  <option value="date">Date</option>
+                  <option value="radio">Radio</option>
+                  <option value="checkbox">Checkbox</option>
+                  <option value="dropdown">Dropdown</option>
+                </select>
+              </div>
+              <div className="relative pt-1">
+                {h && <HL>Validation rule</HL>}
+                <select value={item.validationType ?? "none"} onChange={(e) => onChange(item.id, { validationType: e.target.value as FieldItem["validationType"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
+                  <option value="none">No rule</option>
+                  <option value="name">Name</option>
+                  <option value="number">Number</option>
+                  <option value="currency">Currency</option>
+                  <option value="email">Email</option>
+                  <option value="phone">Phone</option>
+                  <option value="date">Date</option>
+                  <option value="ssn">SSN</option>
+                  <option value="custom">Custom</option>
+                </select>
+              </div>
+            </div>
+            <div className="relative pt-1">
+              {h && <HL>Options</HL>}
+              <Textarea placeholder="Options, one per line" value={item.options.join("\n")} onChange={(e) => onChange(item.id, { options: e.target.value.split("\n").filter(Boolean) })} className="min-h-16 text-xs bg-white" />
+            </div>
             {item.validationType === "custom" && <Input placeholder="Regex pattern" value={item.validationPattern ?? ""} onChange={(e) => onChange(item.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" />}
-            <Input placeholder="Validation message" value={item.validationMessage ?? ""} onChange={(e) => onChange(item.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" />
-            <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
-              <label className="flex items-center gap-1"><input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} /> Active</label>
-              <label className="flex items-center gap-1"><input type="checkbox" checked={item.required} onChange={(e) => onChange(item.id, { required: e.target.checked })} /> Required</label>
-              <label className="flex items-center gap-1"><input type="checkbox" checked={item.sensitive} onChange={(e) => onChange(item.id, { sensitive: e.target.checked })} /> Sensitive</label>
+            <div className="relative pt-1">
+              {h && <HL>Validation message</HL>}
+              <Input placeholder="Validation message" value={item.validationMessage ?? ""} onChange={(e) => onChange(item.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" />
+            </div>
+            <div className="relative pt-1">
+              {h && <HL>Active · Required · Sensitive</HL>}
+              <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
+                <label className="flex items-center gap-1"><input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} /> Active</label>
+                <label className="flex items-center gap-1"><input type="checkbox" checked={item.required} onChange={(e) => onChange(item.id, { required: e.target.checked })} /> Required</label>
+                <label className="flex items-center gap-1"><input type="checkbox" checked={item.sensitive} onChange={(e) => onChange(item.id, { sensitive: e.target.checked })} /> Sensitive</label>
+              </div>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-[#8A9BB8]">{item.id}</span>
