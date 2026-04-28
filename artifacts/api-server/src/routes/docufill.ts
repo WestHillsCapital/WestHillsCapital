@@ -20,7 +20,7 @@ import {
   sendDocupleteStaffSubmissionEmail,
   sendDocupleteClientConfirmationEmail,
 } from "../lib/email";
-import { getUserEmailsToNotify } from "../lib/notificationPrefs";
+import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { requireAdminRole, requireRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits, recordSubmissionEvent, recordPdfGenerationEvent } from "../middleware/requireWithinPlanLimits";
 import { recordPdfAuditEvent, actorContextFromRequest } from "../lib/pdf-audit";
@@ -568,10 +568,18 @@ async function fireSubmissionEmailsAsync(
   const logoFullUrl   = orgLogoUrl ? `${origin}${orgLogoUrl}` : null;
   const submittedAt   = new Date().toISOString();
 
-  // Staff notification — only send to users who have submission_received email enabled
+  // Staff notification — email and in-app, gated on per-user preferences
   if (session.notify_staff_on_submit === true && accountId) {
     try {
-      const staffEmails = await getUserEmailsToNotify(accountId, "submission_received");
+      const [staffEmails] = await Promise.all([
+        getUserEmailsToNotify(accountId, "submission_received"),
+        sendInAppNotifications(
+          accountId,
+          "submission_received",
+          `New submission: ${packageName}`,
+          `${clientName ?? clientEmail ?? "A client"} submitted "${packageName}".`,
+        ),
+      ]);
       if (staffEmails.length) {
         const appUrl = `${origin}/internal/docufill?session=${token}`;
         await sendDocupleteStaffSubmissionEmail({

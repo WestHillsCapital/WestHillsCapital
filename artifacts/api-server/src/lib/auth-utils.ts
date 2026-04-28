@@ -2,7 +2,7 @@ import { createClerkClient } from "@clerk/express";
 import { getDb } from "../db";
 import { logger } from "./logger";
 import { getPlanLimits } from "./plans";
-import { getUserEmailsToNotify } from "./notificationPrefs";
+import { getUserEmailsToNotify, sendInAppNotifications } from "./notificationPrefs";
 import { sendOrgAlertEmails } from "./email";
 
 /**
@@ -100,15 +100,28 @@ export async function linkPendingInvitation(
         "[Auth] Linked pending invitation on first sign-in",
       );
 
-      // Notify org members who want team_member_joined emails
+      // Notify org members who want team_member_joined notifications
       void (async () => {
         try {
           const { rows: orgRows } = await getDb().query<{ name: string }>(
             `SELECT name FROM accounts WHERE id = $1`, [linked.account_id],
           );
           const orgName = orgRows[0]?.name ?? "Docuplete";
-          const emails = (await getUserEmailsToNotify(linked.account_id, "team_member_joined"))
-            .filter(e => e !== linked.email);
+          const notifTitle = `${linked.email} joined your team`;
+          const notifBody  = `${linked.email} accepted their invitation as a ${linked.role}.`;
+          const [emails] = await Promise.all([
+            getUserEmailsToNotify(linked.account_id, "team_member_joined").then(list =>
+              list.filter(e => e !== linked.email),
+            ),
+            // Exclude the joining user themselves (they just joined; notify only existing members)
+            sendInAppNotifications(
+              linked.account_id,
+              "team_member_joined",
+              notifTitle,
+              notifBody,
+              clerkUserId ? [clerkUserId] : [],
+            ),
+          ]);
           await sendOrgAlertEmails({
             recipientEmails: emails,
             orgName,

@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from "express";
 import { getDb } from "../db";
 import { getPlanLimits } from "../lib/plans";
 import { logger } from "../lib/logger";
-import { getUserEmailsToNotify } from "../lib/notificationPrefs";
+import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { sendOrgAlertEmails } from "../lib/email";
 
 export type LimitedResource = "package" | "submission" | "seat";
@@ -219,7 +219,12 @@ export async function recordSubmissionEvent(accountId: number): Promise<void> {
       if (!pctLabel) return;
 
       const orgName = acct.name ?? "Docuplete";
-      const emails = await getUserEmailsToNotify(accountId, "plan_limit_warning");
+      const notifTitle = `${pctLabel} of submission limit used`;
+      const notifBody  = `Your organization has used ${used} of ${maxSubs} submissions this billing period.`;
+      const [emails] = await Promise.all([
+        getUserEmailsToNotify(accountId, "plan_limit_warning"),
+        sendInAppNotifications(accountId, "plan_limit_warning", notifTitle, notifBody),
+      ]);
       await sendOrgAlertEmails({
         recipientEmails: emails,
         orgName,
