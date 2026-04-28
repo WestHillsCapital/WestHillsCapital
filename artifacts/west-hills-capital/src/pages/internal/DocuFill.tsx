@@ -178,6 +178,7 @@ type PackageItem = {
   id: number;
   name: string;
   group_id: number | null;
+  group_ids: number[];
   group_name: string | null;
   custodian_id: number | null;
   depository_id: number | null;
@@ -464,6 +465,9 @@ function mappingFormatOptionsForField(field: FieldItem | undefined): Array<{ val
 function normalizePackages(items: PackageItem[]): PackageItem[] {
   return items.map((pkg) => ({
     ...pkg,
+    group_ids: Array.isArray((pkg as PackageItem & { group_ids?: unknown }).group_ids)
+      ? ((pkg as PackageItem & { group_ids?: unknown }).group_ids as unknown[]).map(Number).filter(Boolean)
+      : pkg.group_id ? [pkg.group_id] : [],
     transaction_scope: normalizeTransactionScope(pkg.transaction_scope),
     documents: Array.isArray(pkg.documents) ? pkg.documents : [],
     fields: Array.isArray(pkg.fields) ? pkg.fields.map((field) => {
@@ -670,7 +674,7 @@ export default function DocuFill() {
   const docufillConfig = useDocuFillConfig();
   const getAuthHeaders = docufillConfig?.getAuthHeaders ?? defaultGetAuthHeaders;
   const docufillApiPath = docufillConfig?.apiPath ?? "/api/internal/docufill";
-  const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv">(sessionToken ? "interview" : "packages");
+  const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv" | "groups">(sessionToken ? "interview" : "packages");
   const [builderStep, setBuilderStep] = useState<BuilderStep>("documents");
   const [groups, setGroups] = useState<Entity[]>([]);
   const [custodians, setCustodians] = useState<Entity[]>([]);
@@ -1369,6 +1373,7 @@ export default function DocuFill() {
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           name: pkg.name,
+          groupIds: pkg.group_ids ?? [],
           groupId: pkg.group_id,
           custodianId: pkg.custodian_id,
           depositoryId: pkg.depository_id,
@@ -2794,6 +2799,7 @@ export default function DocuFill() {
         {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
           <button onClick={() => goBuilderStep(builderStep)} className={`px-3 py-2 text-sm ${tab === "packages" || tab === "mapper" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
           <button onClick={() => setTab("interview")} className={`px-3 py-2 text-sm ${tab === "interview" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Interviews</button>
+          <button onClick={() => setTab("groups")} className={`px-3 py-2 text-sm ${tab === "groups" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Groups</button>
           <button onClick={() => setTab("csv")} className={`px-3 py-2 text-sm ${tab === "csv" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch CSV</button>
         </div>}
       </div>
@@ -3013,22 +3019,41 @@ export default function DocuFill() {
                             <option value="inactive">Inactive</option>
                           </select>
                         </label>
-                        <label className="block text-sm">
-                          <span className="block text-xs text-[#6B7A99] mb-1">Group</span>
-                          <select value={selectedPackage.group_id ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, group_id: e.target.value ? Number(e.target.value) : null }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
-                            <option value="">None</option>
-                            {["custodian", "depository", "general"].map((kind) => {
-                              const subset = groups.filter((g) => (g.kind ?? "general") === kind && g.active !== false);
-                              if (!subset.length) return null;
-                              const label = kind === "custodian" ? "Custodians" : kind === "depository" ? "Depositories" : "General";
-                              return (
-                                <optgroup key={kind} label={label}>
-                                  {subset.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                                </optgroup>
-                              );
-                            })}
-                          </select>
-                        </label>
+                        {/* One dropdown per distinct group category */}
+                        {(() => {
+                          const activeGroups = groups.filter((g) => g.active !== false);
+                          const categories = [...new Set(activeGroups.map((g) => g.kind ?? "general"))].sort();
+                          if (categories.length === 0) return (
+                            <div className="block text-sm text-[#8A9BB8] col-span-1">
+                              <span className="block text-xs text-[#6B7A99] mb-1">Groups</span>
+                              <span className="text-xs italic">No groups yet — add them in the Groups tab.</span>
+                            </div>
+                          );
+                          return categories.map((cat) => {
+                            const catGroups = activeGroups.filter((g) => (g.kind ?? "general") === cat);
+                            const selectedInCat = (selectedPackage.group_ids ?? []).find((gid) => catGroups.some((g) => g.id === gid));
+                            return (
+                              <label key={cat} className="block text-sm">
+                                <span className="block text-xs text-[#6B7A99] mb-1 capitalize">{cat}</span>
+                                <select
+                                  value={selectedInCat ?? ""}
+                                  onChange={(e) => {
+                                    const chosenId = e.target.value ? Number(e.target.value) : null;
+                                    updateSelectedPackage((pkg) => {
+                                      const otherIds = (pkg.group_ids ?? []).filter((gid) => !catGroups.some((g) => g.id === gid));
+                                      const nextIds = chosenId ? [...otherIds, chosenId] : otherIds;
+                                      return { ...pkg, group_ids: nextIds, group_id: nextIds[0] ?? null };
+                                    });
+                                  }}
+                                  className="w-full border border-[#D4C9B5] rounded px-3 py-2"
+                                >
+                                  <option value="">None</option>
+                                  {catGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                </select>
+                              </label>
+                            );
+                          });
+                        })()}
                       </div>
                       <div className="mt-4 text-sm">
                         <div className="flex items-center justify-between mb-1">
@@ -3158,6 +3183,7 @@ export default function DocuFill() {
                           onSave={saveGroup}
                           onDelete={deleteGroup}
                           showKind
+                          kindSuggestions={[...new Set(groups.map((g) => g.kind ?? "general"))]}
                         />
                       </div>
                       <div className="mt-4 space-y-4">
@@ -4833,6 +4859,25 @@ export default function DocuFill() {
         </section>
       )}
 
+      {!isPublicSession && tab === "groups" && (
+        <section className="max-w-4xl mx-auto space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold text-[#0F1C3F]">Groups</h2>
+            <p className="text-sm text-[#6B7A99] mt-1">Create and manage groups used to organize packages and recipients. Give each group a category name — type anything that fits your workflow, like "Custodian", "Depository", or "Exchange".</p>
+          </div>
+          <EntityPanel
+            title="All Groups"
+            items={groups}
+            onAdd={createGroup}
+            onChange={(id, patch) => updateGroupLocal(id, patch)}
+            onSave={saveGroup}
+            onDelete={deleteGroup}
+            showKind
+            kindSuggestions={[...new Set(groups.map((g) => g.kind ?? "general"))]}
+          />
+        </section>
+      )}
+
       {!isPublicSession && tab === "csv" && (
         <section className="bg-white border border-[#DDD5C4] rounded-lg p-5 max-w-4xl mx-auto space-y-5">
           <div>
@@ -5772,18 +5817,13 @@ export default function DocuFill() {
                   {(selectedPackage.recipients ?? []).some((r) => r.type === "customer") && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
                 </button>
               </div>
-              {["custodian", "depository", "general"].map((kind) => {
+              {[...new Set(groups.filter((g) => g.active !== false).map((g) => g.kind ?? "general"))].sort().map((kind) => {
                 const subset = groups.filter((g) => (g.kind ?? "general") === kind && g.active !== false);
                 if (!subset.length) return null;
-                const sectionLabel = kind === "custodian" ? "Custodians" : kind === "depository" ? "Depositories" : "Groups";
-                const icon = kind === "custodian"
-                  ? <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 8v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                  : kind === "depository"
-                  ? <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" /></svg>
-                  : <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+                const icon = <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
                 return (
                   <div key={kind}>
-                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">{sectionLabel}</div>
+                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2 capitalize">{kind}</div>
                     <div className="space-y-1">
                       {subset.map((g) => {
                         const already = (selectedPackage.recipients ?? []).some((r) => r.type === "group" && r.refId === g.id);
@@ -6119,6 +6159,7 @@ function EntityPanel({
   onSave,
   onDelete,
   showKind,
+  kindSuggestions,
 }: {
   title: string;
   items: Entity[];
@@ -6127,6 +6168,7 @@ function EntityPanel({
   onSave: (item: Entity) => Promise<string | null>;
   onDelete?: (id: number) => Promise<string | null>;
   showKind?: boolean;
+  kindSuggestions?: string[];
 }) {
   const [adding, setAdding] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -6180,15 +6222,22 @@ function EntityPanel({
           <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
             <Input value={item.name} onChange={(e) => onChange(item.id, { name: e.target.value })} className="h-8 text-xs bg-white" />
             {showKind && (
-              <select
-                value={item.kind ?? "general"}
-                onChange={(e) => onChange(item.id, { kind: e.target.value })}
-                className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
-              >
-                <option value="custodian">Custodian</option>
-                <option value="depository">Depository</option>
-                <option value="general">General</option>
-              </select>
+              <div className="flex flex-col gap-0.5">
+                <label className="text-[10px] text-[#8A9BB8]">Category</label>
+                <input
+                  type="text"
+                  list={`kind-suggestions-${item.id}`}
+                  value={item.kind ?? "general"}
+                  onChange={(e) => onChange(item.id, { kind: e.target.value })}
+                  placeholder="e.g. Custodian, Depository…"
+                  className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
+                />
+                {kindSuggestions && kindSuggestions.length > 0 && (
+                  <datalist id={`kind-suggestions-${item.id}`}>
+                    {kindSuggestions.map((s) => <option key={s} value={s} />)}
+                  </datalist>
+                )}
+              </div>
             )}
             <div className="grid grid-cols-2 gap-2">
               <Input placeholder="Phone" value={item.phone ?? ""} onChange={(e) => onChange(item.id, { phone: e.target.value })} className="h-8 text-xs bg-white" />

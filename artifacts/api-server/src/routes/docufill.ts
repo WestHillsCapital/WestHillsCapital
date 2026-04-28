@@ -39,6 +39,7 @@ class PdfUploadError extends Error {}
 type PackageInput = {
   name?: string;
   groupId?: number | null;
+  groupIds?: (number | null)[] | null;
   custodianId?: number | null;
   depositoryId?: number | null;
   transactionScope?: string;
@@ -498,6 +499,28 @@ function normalizeValidationType(value: unknown): string {
 function normalizeSortOrder(value: unknown): number {
   const order = Number(value ?? 100);
   return Number.isFinite(order) ? Math.trunc(order) : 100;
+}
+
+/** Parse the canonical groupIds list from a request body, falling back to the legacy single groupId. */
+function parseGroupIds(groupIds: unknown, groupId: unknown): number[] {
+  if (Array.isArray(groupIds)) {
+    const ids = groupIds.map((v) => parseId(v)).filter((v): v is number => v !== null);
+    return [...new Set(ids)];
+  }
+  const single = parseId(groupId);
+  return single ? [single] : [];
+}
+
+/** Replace all junction rows for a package with the given group ids (within a transaction). */
+async function syncPackageGroups(client: QueryClient, packageId: number, groupIds: number[]): Promise<void> {
+  await client.query(`DELETE FROM docufill_package_groups WHERE package_id = $1`, [packageId]);
+  if (groupIds.length > 0) {
+    const values = groupIds.map((gid, i) => `($1, $${i + 2})`).join(", ");
+    await client.query(
+      `INSERT INTO docufill_package_groups (package_id, group_id) VALUES ${values} ON CONFLICT DO NOTHING`,
+      [packageId, ...groupIds],
+    );
+  }
 }
 
 function isUniqueViolation(err: unknown): boolean {
@@ -1003,7 +1026,7 @@ router.get("/bootstrap", async (req, res) => {
   try {
     const accountId = acctId(req);
     const db = getDb();
-    const [groups, transactionTypes, fieldLibrary, packages] = await Promise.all([
+    const [groups, transactionTypes, fieldLibrary, packages, packageGroupRows] = await Promise.all([
       db.query("SELECT * FROM docufill_groups WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, name ASC", [accountId]),
       db.query("SELECT * FROM docufill_transaction_types ORDER BY active DESC, sort_order ASC, label ASC"),
       getFieldLibrary(db),
@@ -1012,8 +1035,21 @@ router.get("/bootstrap", async (req, res) => {
                   LEFT JOIN docufill_groups g ON g.id = p.group_id
                  WHERE p.account_id = $1
                  ORDER BY p.updated_at DESC, p.name ASC`, [accountId]),
+      db.query(`SELECT pg.package_id, array_agg(pg.group_id ORDER BY pg.group_id) AS group_ids
+                  FROM docufill_package_groups pg
+                  JOIN docufill_packages p ON p.id = pg.package_id
+                 WHERE p.account_id = $1
+                 GROUP BY pg.package_id`, [accountId]),
     ]);
-    const hydratedPackages = await hydratePackages(packages.rows as PackageRow[], db, fieldLibrary);
+    const groupIdsMap = new Map<number, number[]>();
+    for (const row of packageGroupRows.rows as Array<{ package_id: number; group_ids: number[] }>) {
+      groupIdsMap.set(row.package_id, row.group_ids);
+    }
+    const packagesWithGroupIds = (packages.rows as PackageRow[]).map((pkg) => ({
+      ...pkg,
+      group_ids: groupIdsMap.get(pkg.id as number) ?? (pkg.group_id ? [pkg.group_id as number] : []),
+    }));
+    const hydratedPackages = await hydratePackages(packagesWithGroupIds as PackageRow[], db, fieldLibrary);
     res.json({ groups: groups.rows, transactionTypes: transactionTypes.rows, fieldLibrary, packages: hydratedPackages.map(sanitizePackageForClient) });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load bootstrap data");
@@ -1206,7 +1242,7 @@ router.post("/groups", requireAdminRole, async (req, res) => {
     const count = (await getDb().query("SELECT COUNT(*) FROM docufill_groups WHERE account_id=$1", [acctId(req)])).rows[0]?.count ?? 0;
     const name = cleanText(body.name) || `New Group ${Number(count) + 1}`;
     const accountId = acctId(req);
-    const kind = ["custodian", "depository"].includes(body.kind ?? "") ? body.kind : "general";
+    const kind = nullableText(body.kind) ?? "general";
     const { rows } = await getDb().query(
       `INSERT INTO docufill_groups (name, kind, phone, email, notes, active, sort_order, account_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
@@ -1233,7 +1269,7 @@ router.patch("/groups/:id", requireAdminRole, async (req, res) => {
       return;
     }
     const accountId = acctId(req);
-    const kind = ["custodian", "depository"].includes(body.kind ?? "") ? body.kind : "general";
+    const kind = nullableText(body.kind) ?? "general";
     const { rows } = await getDb().query(
       `UPDATE docufill_groups SET name=$1, kind=$2, phone=$3, email=$4, notes=$5, active=$6, updated_at=NOW()
         WHERE id=$7 AND account_id=$8 RETURNING *`,
@@ -1578,6 +1614,8 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
     const accountId = acctId(req);
     const db = getDb();
     const webhookSecret = randomBytes(32).toString("hex");
+    const incomingGroupIds = parseGroupIds(body.groupIds, body.groupId);
+    const primaryGroupId = incomingGroupIds[0] ?? null;
     const { rows } = await db.query(
       `INSERT INTO docufill_packages
          (name, group_id, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id, tags, webhook_enabled, webhook_url, webhook_secret)
@@ -1585,7 +1623,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
        RETURNING *`,
       [
         name,
-        body.groupId ?? null,
+        primaryGroupId,
         body.custodianId ?? null,
         body.depositoryId ?? null,
         normalizeTransactionScope(body.transactionScope),
@@ -1602,8 +1640,13 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
         webhookSecret,
       ],
     );
+    const newPkgId = (rows[0] as PackageRow).id as number;
+    if (incomingGroupIds.length > 0) {
+      await syncPackageGroups(db, newPkgId, incomingGroupIds);
+    }
     const hydrated = await hydratePackages(rows as PackageRow[], db);
-    res.status(201).json({ package: sanitizePackageForClient(hydrated[0]) });
+    const withGroupIds: PackageRow = { ...hydrated[0], group_ids: incomingGroupIds };
+    res.status(201).json({ package: sanitizePackageForClient(withGroupIds) });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to create package");
     res.status(500).json({ error: "Failed to create package" });
@@ -1628,6 +1671,11 @@ router.patch("/packages/:id", async (req, res) => {
       res.status(403).json({ error: "You don't have permission to perform this action. Admin access is required." });
       return;
     }
+    const groupIdsProvided = body.groupIds !== undefined || body.groupId !== undefined;
+    const incomingGroupIds = groupIdsProvided ? parseGroupIds(body.groupIds, body.groupId) : null;
+    const primaryGroupId = incomingGroupIds !== null
+      ? (incomingGroupIds[0] ?? null)
+      : (existing.group_id as number | null ?? null);
     const name = cleanText(body.name) || String(existing.name ?? "");
     const incomingDocuments = body.documents === undefined ? null : parseDocuments(body.documents);
     const removedStoredDocumentIds = incomingDocuments
@@ -1668,7 +1716,7 @@ router.patch("/packages/:id", async (req, res) => {
         RETURNING *`,
       [
         name,
-        body.groupId === undefined ? existing.group_id : body.groupId,
+        primaryGroupId,
         body.custodianId === undefined ? existing.custodian_id : body.custodianId,
         body.depositoryId === undefined ? existing.depository_id : body.depositoryId,
         body.transactionScope === undefined ? existing.transaction_scope : normalizeTransactionScope(body.transactionScope),
@@ -1690,9 +1738,18 @@ router.patch("/packages/:id", async (req, res) => {
         accountId,
       ],
       );
+      if (incomingGroupIds !== null) {
+        await syncPackageGroups(client, id, incomingGroupIds);
+      }
       await client.query("COMMIT");
       const hydrated = await hydratePackages(rows as PackageRow[], client);
-      res.json({ package: sanitizePackageForClient(hydrated[0]) });
+      // Fetch the up-to-date group_ids from the junction table to return to the client
+      const { rows: pgRows } = await client.query(
+        `SELECT array_agg(group_id ORDER BY group_id) AS group_ids FROM docufill_package_groups WHERE package_id=$1`,
+        [id],
+      );
+      const finalGroupIds: number[] = (pgRows[0] as { group_ids: number[] | null })?.group_ids ?? [];
+      res.json({ package: sanitizePackageForClient({ ...hydrated[0], group_ids: finalGroupIds }) });
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});
       throw err;
