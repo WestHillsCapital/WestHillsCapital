@@ -3147,7 +3147,8 @@ export default function DocuFill() {
                         return (<>
                           {groupsSection}
                           {categories.map((cat) => {
-                            const catGroups = activeGroups.filter((g) => (g.kind ?? "general") === cat);
+                            const catGroups = activeGroups.filter((g) => (g.kind ?? "general") === cat && g.name?.trim());
+                            if (catGroups.length === 0) return null;
                             const selectedInCat = (selectedPackage.group_ids ?? []).find((gid) => catGroups.some((g) => g.id === gid));
                             return (
                               <label key={cat} className="block text-sm mt-2">
