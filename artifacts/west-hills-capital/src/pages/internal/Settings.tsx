@@ -137,7 +137,7 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
               className="text-xs rounded-lg border border-[#DDD5C4] bg-[#FAFAF8] px-3 py-1.5 text-[#0F1C3F] placeholder:text-[#B0A898] focus:outline-none focus:ring-2 focus:ring-[#0F1C3F]/20 focus:border-[#0F1C3F] w-52"
             />
             <span className="text-xs font-medium text-[#6B7A99] bg-[#F8F6F0] border border-[#DDD5C4] rounded-full px-2.5 py-1 shrink-0">
-              {isLoading ? "…" : `${sorted.length}${sorted.length !== accounts.length ? ` / ${accounts.length}` : ""} account${accounts.length !== 1 ? "s" : ""}`}
+              {isLoading ? "…" : `${sorted.length}${sorted.length !== accounts.length ? ` / ${accounts.length}` : ""} account${sorted.length !== 1 ? "s" : ""}`}
             </span>
           </div>
         </div>
