@@ -3,6 +3,7 @@ import { createContext, useContext, type ReactNode } from "react";
 export interface DocuFillConfig {
   apiPath: string;
   getAuthHeaders: () => HeadersInit;
+  isAdmin?: boolean;
 }
 
 const DocuFillConfigContext = createContext<DocuFillConfig | null>(null);

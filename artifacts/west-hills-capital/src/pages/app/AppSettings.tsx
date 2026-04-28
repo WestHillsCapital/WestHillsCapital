@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useProductAuth } from "@/hooks/useProductAuth";
+import { useProductRole } from "@/hooks/useProductRole";
 import { updateProductOrgCache, type ProductOrgSettings } from "@/hooks/useProductOrgSettings";
 import { BrandColorSection } from "@/components/settings/BrandColorSection";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -1258,6 +1259,7 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
 
 export default function AppSettings() {
   const { getAuthHeaders } = useProductAuth();
+  const { isAdmin, role } = useProductRole(getAuthHeaders);
 
   const [org, setOrg] = useState<ProductOrgSettings | null>(null);
   const [name, setName] = useState("");
@@ -1489,6 +1491,8 @@ export default function AppSettings() {
     );
   }
 
+  const roleLabel = role === "readonly" ? "Read-only" : role === "member" ? "Member" : role ?? "Member";
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-10 space-y-8">
       {/* Page header */}
@@ -1496,6 +1500,21 @@ export default function AppSettings() {
         <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
         <p className="text-sm text-gray-500 mt-0.5">Manage your organization's branding and preferences.</p>
       </div>
+
+      {/* Read-only banner for non-admins */}
+      {!isAdmin && (
+        <div className="rounded-xl border border-sky-200 bg-sky-50 px-5 py-4 flex items-start gap-3">
+          <svg className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+          <div>
+            <p className="text-sm font-medium text-sky-900">You have {roleLabel} access</p>
+            <p className="text-xs text-sky-700 mt-0.5">
+              You can view these settings but cannot make changes. Contact your admin to update the organization's branding or configuration.
+            </p>
+          </div>
+        </div>
+      )}
 
       {errorMsg && (
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMsg}</div>
@@ -1534,9 +1553,10 @@ export default function AppSettings() {
               id="org-name"
               type="text"
               value={name}
-              onChange={(e) => { nameEdited.current = true; setName(e.target.value); }}
+              readOnly={!isAdmin}
+              onChange={(e) => { if (isAdmin) { nameEdited.current = true; setName(e.target.value); } }}
               placeholder="Your organization name"
-              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 w-full"
+              className={`rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 w-full${!isAdmin ? " opacity-60 cursor-not-allowed" : ""}`}
             />
             {nameFieldError ? (
               <span className="text-[11px] text-red-600">{nameFieldError}</span>
@@ -1562,16 +1582,17 @@ export default function AppSettings() {
             />
             {/* Drop / click zone */}
             <div
-              role="button"
-              tabIndex={0}
-              aria-label={displayLogoUrl ? "Click or drop to replace logo" : "Click or drop to upload logo"}
-              onClick={() => !isUploadingLogo && logoInputRef.current?.click()}
-              onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !isUploadingLogo) logoInputRef.current?.click(); }}
-              onDragOver={handleLogoDragOver}
-              onDragLeave={handleLogoDragLeave}
-              onDrop={(e) => { void handleLogoDrop(e); }}
+              role={isAdmin ? "button" : undefined}
+              tabIndex={isAdmin ? 0 : undefined}
+              aria-label={isAdmin ? (displayLogoUrl ? "Click or drop to replace logo" : "Click or drop to upload logo") : undefined}
+              onClick={() => isAdmin && !isUploadingLogo && logoInputRef.current?.click()}
+              onKeyDown={(e) => { if (isAdmin && (e.key === "Enter" || e.key === " ") && !isUploadingLogo) logoInputRef.current?.click(); }}
+              onDragOver={isAdmin ? handleLogoDragOver : undefined}
+              onDragLeave={isAdmin ? handleLogoDragLeave : undefined}
+              onDrop={isAdmin ? (e) => { void handleLogoDrop(e); } : undefined}
               className={[
-                "relative flex items-center justify-center rounded-xl border-2 transition-colors cursor-pointer select-none overflow-hidden",
+                "relative flex items-center justify-center rounded-xl border-2 transition-colors overflow-hidden",
+                isAdmin ? "cursor-pointer select-none" : "cursor-default opacity-60",
                 "bg-white",
                 isDraggingLogo
                   ? "border-gray-900 bg-gray-50"
@@ -1604,24 +1625,30 @@ export default function AppSettings() {
               )}
             </div>
             <div className="flex items-center gap-3">
-              {displayLogoUrl && (
+              {isAdmin ? (
                 <>
-                  <button
-                    type="button"
-                    disabled={isUploadingLogo}
-                    onClick={() => logoInputRef.current?.click()}
-                    className="text-xs rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
-                  >
-                    Replace
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => { void handleRemoveLogo(); }}
-                    className="text-xs text-gray-400 hover:text-red-500 transition-colors"
-                  >
-                    Remove
-                  </button>
+                  {displayLogoUrl && (
+                    <button
+                      type="button"
+                      disabled={isUploadingLogo}
+                      onClick={() => logoInputRef.current?.click()}
+                      className="text-xs rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
+                    >
+                      Replace
+                    </button>
+                  )}
+                  {displayLogoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => { void handleRemoveLogo(); }}
+                      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  )}
                 </>
+              ) : (
+                <p className="text-xs text-gray-400 italic">Contact your admin to change the logo.</p>
               )}
               {logoSaved && (
                 <span className="text-[11px] text-green-600 font-medium">✓ Saved</span>
@@ -1639,7 +1666,7 @@ export default function AppSettings() {
               <span className="text-[11px] text-green-600 font-medium mt-1 block">✓ Saved</span>
             )}
           </div>
-          <div className="flex-1">
+          <div className={`flex-1 ${!isAdmin ? "pointer-events-none opacity-60" : ""}`}>
             <BrandColorSection
               brandColor={brandColor}
               onChange={(c) => { colorEdited.current = true; setBrandColor(c); }}

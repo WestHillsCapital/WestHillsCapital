@@ -775,6 +775,7 @@ export default function DocuFill() {
   const docufillConfig = useDocuFillConfig();
   const getAuthHeaders = docufillConfig?.getAuthHeaders ?? defaultGetAuthHeaders;
   const docufillApiPath = docufillConfig?.apiPath ?? "/api/internal/docufill";
+  const isAdmin = docufillConfig?.isAdmin ?? true;
   const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv" | "groups">(sessionToken ? "interview" : "packages");
   const [builderStep, setBuilderStep] = useState<BuilderStep>("documents");
   const [groups, setGroups] = useState<Entity[]>([]);
@@ -3099,13 +3100,30 @@ export default function DocuFill() {
                 </div>
               );
             })()}
-            <button
-              type="button"
-              onClick={() => { setAddingPackage((v) => !v); setSelectedPackageId(null); }}
-              className={`shrink-0 text-xs border rounded-lg px-3 py-1.5 transition-colors ${addingPackage ? "border-[#C49A38] bg-[#C49A38]/10 text-[#8A6A20]" : "border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#0F1C3F]"}`}
-            >
-              + New Package
-            </button>
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={() => { setAddingPackage((v) => !v); setSelectedPackageId(null); }}
+                className={`shrink-0 text-xs border rounded-lg px-3 py-1.5 transition-colors ${addingPackage ? "border-[#C49A38] bg-[#C49A38]/10 text-[#8A6A20]" : "border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#0F1C3F]"}`}
+              >
+                + New Package
+              </button>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <button
+                      type="button"
+                      disabled
+                      className="shrink-0 text-xs border rounded-lg px-3 py-1.5 border-[#DDD5C4] text-[#6B7A99] opacity-40 cursor-not-allowed"
+                    >
+                      + New Package
+                    </button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Contact your admin to create packages.</TooltipContent>
+              </Tooltip>
+            )}
             {selectedPackage && (
               <div className="flex items-center gap-3 ml-auto flex-wrap">
                 <span className="text-xs text-[#8A9BB8] hidden sm:block">
@@ -4036,10 +4054,22 @@ export default function DocuFill() {
                           </Button>
                         )}
                         {selectedPackage.status === "active" && <Button onClick={() => { setStandalonePackageId(String(selectedPackage.id)); setTab("interview"); }} variant="outline">Go to Interviews →</Button>}
-                        {selectedPackage.id && (
+                        {selectedPackage.id && isAdmin && (
                           <button type="button" onClick={() => deletePackage(selectedPackage)} disabled={isDeletingPackage} className="ml-auto text-xs text-red-500 hover:text-red-700 disabled:opacity-50 transition-colors">
                             {isDeletingPackage ? "Deleting…" : "Delete package"}
                           </button>
+                        )}
+                        {selectedPackage.id && !isAdmin && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="ml-auto">
+                                <button type="button" disabled className="text-xs text-red-400 opacity-40 cursor-not-allowed">
+                                  Delete package
+                                </button>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>Contact your admin to delete packages.</TooltipContent>
+                          </Tooltip>
                         )}
                       </div>
                     </div>
