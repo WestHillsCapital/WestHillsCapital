@@ -6396,7 +6396,7 @@ export default function DocuFill() {
                         }))}
                         className="rounded"
                       />
-                      <span className="text-sm">Show only when…</span>
+                      <span className="text-sm">{fieldEditorDraft.condition !== null ? "Show only when…" : "Always shown"}</span>
                     </label>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -6405,7 +6405,7 @@ export default function DocuFill() {
                         </span>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-xs text-xs leading-snug">
-                        <p>When enabled, this field is hidden until the trigger field meets the condition you set. Hidden fields are skipped in validation and PDF generation.</p>
+                        <p>When enabled, this field is hidden until another field meets the condition you set. Hidden fields are skipped in validation and PDF generation.</p>
                       </TooltipContent>
                     </Tooltip>
                   </div>
@@ -6420,7 +6420,7 @@ export default function DocuFill() {
                         >
                           <option value="">— select a field —</option>
                           {(selectedPackage?.fields ?? [])
-                            .filter((f) => f.id !== fieldEditorModal?.fieldId && f.interviewMode !== "omitted")
+                            .filter((f) => f.id !== fieldEditorModal?.fieldId && f.interviewMode !== "omitted" && f.interviewMode !== "readonly")
                             .map((f) => (
                               <option key={f.id} value={f.id}>{f.name}</option>
                             ))}
