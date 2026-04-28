@@ -882,6 +882,9 @@ export async function initDb(): Promise<void> {
      WHERE revoked_at IS NULL
   `);
 
+  // ── Task #186: last_used_at on API keys ───────────────────────────────────
+  await db.query(`ALTER TABLE account_api_keys ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMPTZ`);
+
   // ── Task #192: team member management columns ─────────────────────────────
   await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`);
   await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);
@@ -1031,6 +1034,12 @@ export async function initDb(): Promise<void> {
     CREATE INDEX IF NOT EXISTS pdf_audit_events_account_idx
       ON pdf_audit_events (account_id, created_at DESC)
   `);
+
+  // ── Slack integration — per-account webhook credentials ─────────────────────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_webhook_url TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_channel_name TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_connected_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_oauth_state TEXT`);
 
   dbReady = true;
   logger.info("Database tables and indexes verified / created");

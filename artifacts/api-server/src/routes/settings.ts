@@ -1192,6 +1192,171 @@ router.patch("/onboarding", async (req, res) => {
   }
 });
 
+// ── Integrations hub ─────────────────────────────────────────────────────────
+
+/** GET /integrations — returns connection status for all supported integrations */
+router.get("/integrations", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    const [{ rows: acctRows }, { rows: keyRows }] = await Promise.all([
+      db.query<{ slack_webhook_url: string | null; slack_channel_name: string | null; slack_connected_at: Date | null }>(
+        `SELECT slack_webhook_url, slack_channel_name, slack_connected_at FROM accounts WHERE id = $1`,
+        [accountId],
+      ),
+      db.query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM account_api_keys WHERE account_id = $1 AND revoked_at IS NULL`,
+        [accountId],
+      ),
+    ]);
+    const acct = acctRows[0];
+    res.json({
+      integrations: {
+        zapier: {
+          api_key_count: parseInt(keyRows[0]?.count ?? "0", 10),
+          available: true,
+        },
+        slack: {
+          connected: !!acct?.slack_webhook_url,
+          channel_name: acct?.slack_channel_name ?? null,
+          connected_at: acct?.slack_connected_at?.toISOString() ?? null,
+          available: !!process.env.SLACK_CLIENT_ID,
+        },
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Integrations] Failed to load integration status");
+    res.status(500).json({ error: "Failed to load integrations" });
+  }
+});
+
+/**
+ * POST /integrations/slack/connect — generates a Slack OAuth URL.
+ * The client redirects the user to the returned URL. After authorizing,
+ * Slack redirects back to the `redirectUri` (the frontend settings page)
+ * with `?code=...&state=...`, which the client then exchanges via /exchange.
+ */
+router.post("/integrations/slack/connect", requireAdminRole, async (req, res) => {
+  const slackClientId = process.env.SLACK_CLIENT_ID;
+  if (!slackClientId) {
+    res.status(503).json({ error: "Slack integration is not configured on this server." });
+    return;
+  }
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as { redirectUri?: string };
+    if (!body.redirectUri || typeof body.redirectUri !== "string") {
+      res.status(400).json({ error: "redirectUri is required" });
+      return;
+    }
+    const state = randomUUID();
+    const db = getDb();
+    await db.query(`UPDATE accounts SET slack_oauth_state = $1 WHERE id = $2`, [state, accountId]);
+    const params = new URLSearchParams({
+      client_id: slackClientId,
+      scope: "incoming-webhook",
+      redirect_uri: body.redirectUri,
+      state,
+    });
+    res.json({ url: `https://slack.com/oauth/v2/authorize?${params.toString()}` });
+  } catch (err) {
+    logger.error({ err }, "[Integrations] Failed to generate Slack OAuth URL");
+    res.status(500).json({ error: "Failed to initiate Slack connection" });
+  }
+});
+
+/**
+ * POST /integrations/slack/exchange — exchanges the OAuth code for a webhook.
+ * Called by the frontend after Slack redirects back with ?code=...&state=...
+ */
+router.post("/integrations/slack/exchange", requireAdminRole, async (req, res) => {
+  const slackClientId = process.env.SLACK_CLIENT_ID;
+  const slackClientSecret = process.env.SLACK_CLIENT_SECRET;
+  if (!slackClientId || !slackClientSecret) {
+    res.status(503).json({ error: "Slack integration is not configured." });
+    return;
+  }
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as { code?: string; state?: string; redirectUri?: string };
+    if (!body.code || !body.state) {
+      res.status(400).json({ error: "code and state are required" });
+      return;
+    }
+    const db = getDb();
+    const { rows } = await db.query<{ slack_oauth_state: string | null }>(
+      `SELECT slack_oauth_state FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0] || rows[0].slack_oauth_state !== body.state) {
+      res.status(400).json({ error: "Invalid or expired OAuth state. Please try connecting again." });
+      return;
+    }
+    // Exchange code for token
+    const tokenRes = await fetch("https://slack.com/api/oauth.v2.access", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: slackClientId,
+        client_secret: slackClientSecret,
+        code: body.code,
+        redirect_uri: body.redirectUri ?? "",
+      }).toString(),
+    });
+    const tokenData = await tokenRes.json() as {
+      ok: boolean;
+      incoming_webhook?: { url: string; channel: string; channel_id: string };
+      error?: string;
+    };
+    if (!tokenData.ok || !tokenData.incoming_webhook) {
+      logger.warn({ slackError: tokenData.error }, "[Integrations] Slack token exchange failed");
+      res.status(400).json({ error: tokenData.error ?? "Slack authorization failed. Please try again." });
+      return;
+    }
+    const { url: webhookUrl, channel } = tokenData.incoming_webhook;
+    await db.query(
+      `UPDATE accounts
+          SET slack_webhook_url = $1, slack_channel_name = $2,
+              slack_connected_at = NOW(), slack_oauth_state = NULL
+        WHERE id = $3`,
+      [webhookUrl, channel, accountId],
+    );
+    // Send a test message — non-fatal
+    try {
+      await fetch(webhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: "✅ Docuplete is now connected to this channel. You'll receive submission notifications here." }),
+      });
+    } catch {
+      // Ignore — test message is best-effort
+    }
+    res.json({ success: true, channel_name: channel });
+  } catch (err) {
+    logger.error({ err }, "[Integrations] Slack exchange failed");
+    res.status(500).json({ error: "Failed to connect Slack" });
+  }
+});
+
+/** DELETE /integrations/slack — clears stored Slack credentials */
+router.delete("/integrations/slack", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    await db.query(
+      `UPDATE accounts
+          SET slack_webhook_url = NULL, slack_channel_name = NULL,
+              slack_connected_at = NULL, slack_oauth_state = NULL
+        WHERE id = $1`,
+      [accountId],
+    );
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[Integrations] Failed to disconnect Slack");
+    res.status(500).json({ error: "Failed to disconnect Slack" });
+  }
+});
+
 // ── Super-admin accounts list (internal-auth-only) ────────────────────────────
 
 /**

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { updateProductOrgCache, type ProductOrgSettings } from "@/hooks/useProductOrgSettings";
 import { BrandColorSection } from "@/components/settings/BrandColorSection";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SETTINGS_BASE = `${API_BASE}/api/v1/product/settings`;
@@ -13,6 +14,7 @@ interface ApiKey {
   keyPrefix: string;
   createdAt: string;
   revokedAt: string | null;
+  lastUsedAt: string | null;
   active: boolean;
 }
 
@@ -621,6 +623,257 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
   );
 }
 
+interface IntegrationsStatus {
+  zapier: { api_key_count: number; available: boolean };
+  slack: { connected: boolean; channel_name: string | null; connected_at: string | null; available: boolean };
+}
+
+function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
+  function authHeaders(contentType?: string): HeadersInit {
+    const h = new Headers(getAuthHeaders());
+    if (contentType) h.set("Content-Type", contentType);
+    return h;
+  }
+
+  const [status, setStatus] = useState<IntegrationsStatus | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [slackConnecting, setSlackConnecting] = useState(false);
+  const [slackDisconnecting, setSlackDisconnecting] = useState(false);
+  const [slackError, setSlackError] = useState<string | null>(null);
+  const [slackSuccess, setSlackSuccess] = useState<string | null>(null);
+
+  function loadStatus() {
+    setIsLoading(true);
+    fetch(`${SETTINGS_BASE}/integrations`, { headers: authHeaders() })
+      .then(async (r) => {
+        const data = await r.json() as { integrations?: IntegrationsStatus; error?: string };
+        if (!r.ok) { setLoadError(data.error ?? "Failed to load integrations"); return; }
+        if (data.integrations) setStatus(data.integrations);
+      })
+      .catch(() => setLoadError("Failed to load integrations"))
+      .finally(() => setIsLoading(false));
+  }
+
+  useEffect(() => {
+    loadStatus();
+
+    // Handle Slack OAuth callback — Slack redirects back to this page with ?code=&state=
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    const state = params.get("state");
+    const oauthError = params.get("error");
+
+    // Clean the URL immediately so params don't linger on refresh
+    if (code || state || oauthError) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+
+    if (oauthError === "access_denied") {
+      setSlackError("Slack connection was cancelled.");
+      return;
+    }
+
+    if (code && state) {
+      const redirectUri = window.location.origin + window.location.pathname;
+      setSlackConnecting(true);
+      const headers = new Headers(getAuthHeaders());
+      headers.set("Content-Type", "application/json");
+      fetch(`${SETTINGS_BASE}/integrations/slack/exchange`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ code, state, redirectUri }),
+      })
+        .then(async (r) => {
+          const data = await r.json() as { success?: boolean; channel_name?: string; error?: string };
+          if (!r.ok) { setSlackError(data.error ?? "Failed to connect Slack."); return; }
+          setSlackSuccess(`Connected to ${data.channel_name ?? "Slack"} successfully. You'll now receive submission notifications there.`);
+          loadStatus();
+        })
+        .catch(() => setSlackError("Failed to connect Slack."))
+        .finally(() => setSlackConnecting(false));
+    }
+  }, []);
+
+  async function handleSlackConnect() {
+    setSlackError(null);
+    setSlackConnecting(true);
+    try {
+      const redirectUri = window.location.origin + window.location.pathname;
+      const res = await fetch(`${SETTINGS_BASE}/integrations/slack/connect`, {
+        method: "POST",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({ redirectUri }),
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok) { setSlackError(data.error ?? "Failed to initiate Slack connection."); setSlackConnecting(false); return; }
+      if (data.url) window.location.href = data.url;
+    } catch {
+      setSlackError("Failed to initiate Slack connection.");
+      setSlackConnecting(false);
+    }
+  }
+
+  async function handleSlackDisconnect() {
+    setSlackDisconnecting(true);
+    setSlackError(null);
+    setSlackSuccess(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/integrations/slack`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (!res.ok) { setSlackError("Failed to disconnect Slack."); return; }
+      loadStatus();
+    } catch {
+      setSlackError("Failed to disconnect Slack.");
+    } finally {
+      setSlackDisconnecting(false);
+    }
+  }
+
+  return (
+    <section className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+      <div className="px-6 py-4">
+        <h2 className="text-base font-semibold text-gray-900">Integrations</h2>
+        <p className="text-xs text-gray-500 mt-0.5">Connect Docuplete to the tools your team already uses.</p>
+      </div>
+
+      {loadError && (
+        <div className="px-6 py-3 bg-red-50">
+          <p className="text-xs text-red-700">{loadError}</p>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="px-6 py-8 flex justify-center">
+          <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+        </div>
+      ) : (
+        <div className="px-6 py-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            {/* ── Zapier card ─────────────────────────────────────────────── */}
+            <div className="rounded-xl border border-gray-200 p-5 flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#FF4A00] flex items-center justify-center shrink-0 text-white font-bold text-sm">Z</div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Zapier</p>
+                  <p className="text-[10px] text-gray-400">Automate with 5,000+ apps</p>
+                </div>
+                <span className="ml-auto inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Ready</span>
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                {(status?.zapier.api_key_count ?? 0) === 0
+                  ? "Create an API key below to connect with Zapier. Use it as your authentication credential in any Zapier Docuplete action."
+                  : `You have ${status!.zapier.api_key_count} active API key${status!.zapier.api_key_count !== 1 ? "s" : ""}. Use any of them as your Zapier authentication credential.`}
+              </p>
+              <div className="flex items-center gap-2 mt-auto pt-1">
+                <a
+                  href="https://zapier.com/apps/docuplete/integrations"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                >
+                  View on Zapier ↗
+                </a>
+                <button
+                  type="button"
+                  onClick={() => document.getElementById("api-keys-section")?.scrollIntoView({ behavior: "smooth" })}
+                  className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
+                >
+                  {(status?.zapier.api_key_count ?? 0) === 0 ? "Create API key" : "Manage keys"}
+                </button>
+              </div>
+            </div>
+
+            {/* ── Slack card ──────────────────────────────────────────────── */}
+            <div className="rounded-xl border border-gray-200 p-5 flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#4A154B] flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Slack</p>
+                  <p className="text-[10px] text-gray-400">Submission notifications</p>
+                </div>
+                {status?.slack.connected
+                  ? <span className="ml-auto inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Connected</span>
+                  : <span className="ml-auto inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">Not connected</span>
+                }
+              </div>
+
+              {slackConnecting && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin shrink-0" />
+                  Connecting to Slack…
+                </div>
+              )}
+              {slackError && <p className="text-xs text-red-600">{slackError}</p>}
+              {slackSuccess && <p className="text-xs text-green-700">{slackSuccess}</p>}
+
+              {status?.slack.connected ? (
+                <>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Posting to <span className="font-medium text-gray-700">{status.slack.channel_name ?? "your channel"}</span>.
+                    You'll receive a notification whenever a client completes a document submission.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={slackDisconnecting}
+                    onClick={() => { void handleSlackDisconnect(); }}
+                    className="mt-auto pt-1 text-xs text-gray-400 hover:text-red-600 transition-colors text-left disabled:opacity-60"
+                  >
+                    {slackDisconnecting ? "Disconnecting…" : "Disconnect Slack"}
+                  </button>
+                </>
+              ) : !status?.slack.available ? (
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Slack integration is not enabled on this server. Contact your administrator to configure <code className="font-mono">SLACK_CLIENT_ID</code>.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Get notified in Slack whenever a client completes a document submission interview.
+                  </p>
+                  <div className="mt-auto pt-1">
+                    <button
+                      type="button"
+                      disabled={slackConnecting}
+                      onClick={() => { void handleSlackConnect(); }}
+                      className="rounded-lg bg-[#4A154B] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#611565] disabled:opacity-60 transition-colors"
+                    >
+                      Add to Slack
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* ── Coming soon placeholder ─────────────────────────────────── */}
+            <div className="rounded-xl border border-dashed border-gray-200 p-5 flex flex-col gap-3 opacity-50">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-400">More coming soon</p>
+                  <p className="text-[10px] text-gray-300">HubSpot, Salesforce, and more</p>
+                </div>
+              </div>
+              <p className="text-xs text-gray-300 leading-relaxed">CRM integrations are on the roadmap.</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
   function authHeaders(contentType?: string): HeadersInit {
     const h = new Headers(getAuthHeaders());
@@ -801,11 +1054,21 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
             {activeKeys.map((key) => (
               <div key={key.id} className="flex items-center justify-between gap-4 px-6 py-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{key.name}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-gray-900 truncate">{key.name}</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="shrink-0 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-medium text-blue-700 cursor-default">Full Access</span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">Grants full API access: read live pricing data, submit interview sessions, and manage DocuFill packages programmatically.</TooltipContent>
+                    </Tooltip>
+                  </div>
                   <p className="text-xs text-gray-400 mt-0.5">
                     <code className="font-mono">{key.keyPrefix}…</code>
                     {" · "}
                     Created {formatDate(key.createdAt)}
+                    {" · "}
+                    Last used: {key.lastUsedAt ? formatRelative(key.lastUsedAt) : "Never"}
                   </p>
                 </div>
                 {confirmRevokeId === key.id ? (
@@ -1170,8 +1433,13 @@ export default function AppSettings() {
       {/* Team section */}
       <TeamSection getAuthHeaders={getAuthHeaders} />
 
+      {/* Integrations section */}
+      <IntegrationsSection getAuthHeaders={getAuthHeaders} />
+
       {/* API Keys section */}
-      <ApiKeysSection getAuthHeaders={getAuthHeaders} />
+      <div id="api-keys-section">
+        <ApiKeysSection getAuthHeaders={getAuthHeaders} />
+      </div>
     </div>
   );
 }
