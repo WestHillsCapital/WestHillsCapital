@@ -1035,6 +1035,12 @@ export async function initDb(): Promise<void> {
       ON pdf_audit_events (account_id, created_at DESC)
   `);
 
+  // ── Slack integration — per-account webhook credentials ─────────────────────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_webhook_url TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_channel_name TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_connected_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_oauth_state TEXT`);
+
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 
