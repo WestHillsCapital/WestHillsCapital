@@ -38,6 +38,7 @@ class PdfUploadError extends Error {}
 
 type PackageInput = {
   name?: string;
+  groupId?: number | null;
   custodianId?: number | null;
   depositoryId?: number | null;
   transactionScope?: string;
@@ -132,6 +133,7 @@ type FieldLibraryInput = {
 
 type SessionInput = {
   packageId?: number;
+  groupId?: number | string | null;
   custodianId?: number | string | null;
   depositoryId?: number | string | null;
   transactionScope?: string | null;
@@ -227,6 +229,7 @@ function publicSessionView(session: Record<string, unknown>): Record<string, unk
     deal_id: _dl,
     custodian_id: _ci,
     depository_id: _dp,
+    group_id: _gi,
     account_id: _ai,
     ...rest
   } = session;
@@ -720,10 +723,11 @@ async function getPackage(packageId: number, client: QueryClient = getDb(), hydr
     ? (params.push(accountId), `AND p.account_id = $${params.length}`)
     : "";
   const { rows } = await client.query(
-    `SELECT p.*, c.name AS custodian_name, d.name AS depository_name
+    `SELECT p.*, c.name AS custodian_name, d.name AS depository_name, g.name AS group_name
        FROM docufill_packages p
        LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
        LEFT JOIN docufill_depositories d ON d.id = p.depository_id
+       LEFT JOIN docufill_groups g ON g.id = p.group_id
       WHERE p.id = $1 ${accountFilter}`,
     params,
   );
@@ -740,11 +744,11 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
     : "";
   const { rows } = await client.query(
     `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
-            p.transaction_scope, p.custodian_id, p.depository_id,
+            p.transaction_scope, p.custodian_id, p.depository_id, p.group_id,
             p.webhook_enabled, p.webhook_url,
             p.notify_staff_on_submit, p.notify_client_on_submit,
             p.account_id AS package_account_id,
-            c.name AS custodian_name, d.name AS depository_name,
+            c.name AS custodian_name, d.name AS depository_name, g.name AS group_name,
             a.name AS org_name,
             CASE WHEN a.logo_url IS NOT NULL THEN '/api/storage/org-logo/' || a.id::text ELSE NULL END AS org_logo_url,
             a.brand_color AS org_brand_color
@@ -752,6 +756,7 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
        JOIN docufill_packages p ON p.id = s.package_id
        LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
        LEFT JOIN docufill_depositories d ON d.id = p.depository_id
+       LEFT JOIN docufill_groups g ON g.id = p.group_id
        LEFT JOIN accounts a ON a.id = p.account_id
       WHERE s.token = $1 ${accountFilter}
         AND s.expires_at > NOW()`,
@@ -998,20 +1003,18 @@ router.get("/bootstrap", async (req, res) => {
   try {
     const accountId = acctId(req);
     const db = getDb();
-    const [custodians, depositories, transactionTypes, fieldLibrary, packages] = await Promise.all([
-      db.query("SELECT * FROM docufill_custodians WHERE account_id = $1 ORDER BY active DESC, name ASC", [accountId]),
-      db.query("SELECT * FROM docufill_depositories WHERE account_id = $1 ORDER BY active DESC, name ASC", [accountId]),
+    const [groups, transactionTypes, fieldLibrary, packages] = await Promise.all([
+      db.query("SELECT * FROM docufill_groups WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, name ASC", [accountId]),
       db.query("SELECT * FROM docufill_transaction_types ORDER BY active DESC, sort_order ASC, label ASC"),
       getFieldLibrary(db),
-      db.query(`SELECT p.*, c.name AS custodian_name, d.name AS depository_name
+      db.query(`SELECT p.*, g.name AS group_name
                   FROM docufill_packages p
-                  LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
-                  LEFT JOIN docufill_depositories d ON d.id = p.depository_id
+                  LEFT JOIN docufill_groups g ON g.id = p.group_id
                  WHERE p.account_id = $1
                  ORDER BY p.updated_at DESC, p.name ASC`, [accountId]),
     ]);
     const hydratedPackages = await hydratePackages(packages.rows as PackageRow[], db, fieldLibrary);
-    res.json({ custodians: custodians.rows, depositories: depositories.rows, transactionTypes: transactionTypes.rows, fieldLibrary, packages: hydratedPackages.map(sanitizePackageForClient) });
+    res.json({ groups: groups.rows, transactionTypes: transactionTypes.rows, fieldLibrary, packages: hydratedPackages.map(sanitizePackageForClient) });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load bootstrap data");
     res.status(500).json({ error: "Failed to load Docuplete data" });
@@ -1178,6 +1181,86 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
     }
     logger.error({ err }, "[DocuFill] Failed to update field library item");
     res.status(500).json({ error: "Failed to update field library item" });
+  }
+});
+
+router.delete("/field-library/:id", requireAdminRole, async (req, res) => {
+  try {
+    const id = cleanText(req.params.id);
+    if (!id) {
+      res.status(400).json({ error: "Invalid field id" });
+      return;
+    }
+    const db = getDb();
+    await db.query(`DELETE FROM docufill_fields WHERE id = $1`, [id]);
+    res.json({ deletedFieldId: id });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to delete field library item");
+    res.status(500).json({ error: "Failed to delete field library item" });
+  }
+});
+
+router.post("/groups", requireAdminRole, async (req, res) => {
+  try {
+    const body = req.body as EntityInput;
+    const count = (await getDb().query("SELECT COUNT(*) FROM docufill_groups WHERE account_id=$1", [acctId(req)])).rows[0]?.count ?? 0;
+    const name = cleanText(body.name) || `New Group ${Number(count) + 1}`;
+    const accountId = acctId(req);
+    const { rows } = await getDb().query(
+      `INSERT INTO docufill_groups (name, phone, email, notes, active, sort_order, account_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [name, nullableText(body.phone), nullableText(body.email), nullableText(body.notes), body.active !== false, 100, accountId],
+    );
+    res.status(201).json({ group: rows[0] });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to create group");
+    res.status(500).json({ error: "Failed to create group" });
+  }
+});
+
+router.patch("/groups/:id", requireAdminRole, async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) {
+      res.status(400).json({ error: "Invalid group id" });
+      return;
+    }
+    const body = req.body as EntityInput;
+    const name = cleanText(body.name);
+    if (!name) {
+      res.status(400).json({ error: "Group name is required" });
+      return;
+    }
+    const accountId = acctId(req);
+    const { rows } = await getDb().query(
+      `UPDATE docufill_groups SET name=$1, phone=$2, email=$3, notes=$4, active=$5, updated_at=NOW()
+        WHERE id=$6 AND account_id=$7 RETURNING *`,
+      [name, nullableText(body.phone), nullableText(body.email), nullableText(body.notes), body.active !== false, id, accountId],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Group not found" });
+      return;
+    }
+    res.json({ group: rows[0] });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to update group");
+    res.status(500).json({ error: "Failed to update group" });
+  }
+});
+
+router.delete("/groups/:id", requireAdminRole, async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) {
+      res.status(400).json({ error: "Invalid group id" });
+      return;
+    }
+    const accountId = acctId(req);
+    await getDb().query(`DELETE FROM docufill_groups WHERE id=$1 AND account_id=$2`, [id, accountId]);
+    res.json({ deletedGroupId: id });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to delete group");
+    res.status(500).json({ error: "Failed to delete group" });
   }
 });
 
@@ -1405,10 +1488,9 @@ router.get("/packages", requireMemberRole, async (req, res) => {
   try {
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT p.*, c.name AS custodian_name, d.name AS depository_name
+      `SELECT p.*, g.name AS group_name
          FROM docufill_packages p
-         LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
-         LEFT JOIN docufill_depositories d ON d.id = p.depository_id
+         LEFT JOIN docufill_groups g ON g.id = p.group_id
         WHERE p.account_id = $1
         ORDER BY p.updated_at DESC, p.name ASC`,
       [acctId(req)],
@@ -1496,11 +1578,12 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
     const webhookSecret = randomBytes(32).toString("hex");
     const { rows } = await db.query(
       `INSERT INTO docufill_packages
-         (name, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id, tags, webhook_enabled, webhook_url, webhook_secret)
-       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb,$8::jsonb,$9::jsonb,$10::jsonb,$11,$12::jsonb,$13,$14,$15)
+         (name, group_id, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id, tags, webhook_enabled, webhook_url, webhook_secret)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13::jsonb,$14,$15,$16)
        RETURNING *`,
       [
         name,
+        body.groupId ?? null,
         body.custodianId ?? null,
         body.depositoryId ?? null,
         normalizeTransactionScope(body.transactionScope),
@@ -1573,16 +1656,17 @@ router.patch("/packages/:id", async (req, res) => {
       }
       const { rows } = await client.query(
       `UPDATE docufill_packages SET
-          name=$1, custodian_id=$2, depository_id=$3, transaction_scope=$4,
-          description=$5, status=$6, documents=$7::jsonb, fields=$8::jsonb,
-          mappings=$9::jsonb, recipients=$10::jsonb, enable_interview=$11, enable_csv=$12,
-          enable_customer_link=$13, tags=$14::jsonb, webhook_enabled=$15, webhook_url=$16,
-          notify_staff_on_submit=$17, notify_client_on_submit=$18,
+          name=$1, group_id=$2, custodian_id=$3, depository_id=$4, transaction_scope=$5,
+          description=$6, status=$7, documents=$8::jsonb, fields=$9::jsonb,
+          mappings=$10::jsonb, recipients=$11::jsonb, enable_interview=$12, enable_csv=$13,
+          enable_customer_link=$14, tags=$15::jsonb, webhook_enabled=$16, webhook_url=$17,
+          notify_staff_on_submit=$18, notify_client_on_submit=$19,
           version=version+1, updated_at=NOW()
-        WHERE id=$19 AND account_id=$20
+        WHERE id=$20 AND account_id=$21
         RETURNING *`,
       [
         name,
+        body.groupId === undefined ? existing.group_id : body.groupId,
         body.custodianId === undefined ? existing.custodian_id : body.custodianId,
         body.depositoryId === undefined ? existing.depository_id : body.depositoryId,
         body.transactionScope === undefined ? existing.transaction_scope : normalizeTransactionScope(body.transactionScope),
@@ -2396,8 +2480,13 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
       return;
     }
     const prefill = getRecord(body.prefill);
+    const requestedGroupId = parseId(body.groupId) ?? parseId(prefill.groupId);
     const requestedCustodianId = parseId(body.custodianId) ?? parseId(prefill.custodianId);
     const requestedDepositoryId = parseId(body.depositoryId) ?? parseId(prefill.depositoryId);
+    if (requestedGroupId && pkg.group_id && requestedGroupId !== Number(pkg.group_id)) {
+      res.status(400).json({ error: "Selected package does not match the selected group" });
+      return;
+    }
     if (requestedCustodianId && pkg.custodian_id && requestedCustodianId !== Number(pkg.custodian_id)) {
       res.status(400).json({ error: "Selected package does not match the selected custodian" });
       return;

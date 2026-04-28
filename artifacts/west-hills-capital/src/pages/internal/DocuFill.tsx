@@ -160,7 +160,7 @@ type RecipientItem = {
   id: string;
   label: string;
   color: string;
-  type: "customer" | "custodian" | "depository" | "custom";
+  type: "customer" | "group" | "custodian" | "depository" | "custom";
   refId?: number;
   email?: string;
 };
@@ -176,6 +176,8 @@ const BUILDER_STEPS: Array<{ value: BuilderStep; label: string; helper: string }
 type PackageItem = {
   id: number;
   name: string;
+  group_id: number | null;
+  group_name: string | null;
   custodian_id: number | null;
   depository_id: number | null;
   custodian_name: string | null;
@@ -202,6 +204,7 @@ type Session = {
   token: string;
   package_id?: number | string;
   package_name: string;
+  group_name: string | null;
   custodian_name: string | null;
   depository_name: string | null;
   documents: DocItem[];
@@ -668,6 +671,7 @@ export default function DocuFill() {
   const docufillApiPath = docufillConfig?.apiPath ?? "/api/internal/docufill";
   const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv">(sessionToken ? "interview" : "packages");
   const [builderStep, setBuilderStep] = useState<BuilderStep>("documents");
+  const [groups, setGroups] = useState<Entity[]>([]);
   const [custodians, setCustodians] = useState<Entity[]>([]);
   const [depositories, setDepositories] = useState<Entity[]>([]);
   const [transactionTypes, setTransactionTypes] = useState<TransactionType[]>([]);
@@ -700,8 +704,7 @@ export default function DocuFill() {
   const [linkEmailSent, setLinkEmailSent] = useState<string | null>(null);
   const [linkEmailError, setLinkEmailError] = useState<string | null>(null);
   const [newPackageName, setNewPackageName] = useState("");
-  const [newPackageCustodianId, setNewPackageCustodianId] = useState("");
-  const [newPackageDepositoryId, setNewPackageDepositoryId] = useState("");
+  const [newPackageGroupId, setNewPackageGroupId] = useState("");
   const [addingPackage, setAddingPackage] = useState(false);
   const [interviewOutputTab, setInterviewOutputTab] = useState<"staff" | "customerLink">("staff");
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
@@ -1049,6 +1052,7 @@ export default function DocuFill() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not load Docuplete data");
       const loadedPackages = normalizePackages(data.packages ?? []);
+      setGroups(data.groups ?? []);
       setCustodians(data.custodians ?? []);
       setDepositories(data.depositories ?? []);
       setTransactionTypes(Array.isArray(data.transactionTypes) && data.transactionTypes.length ? data.transactionTypes : DOCUFILL_TRANSACTION_TYPES.map((item, index) => ({ scope: item.value, label: item.label, active: true, sort_order: (index + 1) * 10 })));
@@ -1364,6 +1368,7 @@ export default function DocuFill() {
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           name: pkg.name,
+          groupId: pkg.group_id,
           custodianId: pkg.custodian_id,
           depositoryId: pkg.depository_id,
           transactionScope: pkg.transaction_scope,
@@ -1466,8 +1471,7 @@ export default function DocuFill() {
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           name: trimmedName,
-          custodianId: newPackageCustodianId ? Number(newPackageCustodianId) : null,
-          depositoryId: newPackageDepositoryId ? Number(newPackageDepositoryId) : null,
+          groupId: newPackageGroupId ? Number(newPackageGroupId) : null,
           transactionScope: "",
           status: "draft",
           documents: [],
@@ -1484,8 +1488,7 @@ export default function DocuFill() {
       await loadBootstrap();
       setSelectedPackageId(data.package.id);
       setNewPackageName("");
-      setNewPackageCustodianId("");
-      setNewPackageDepositoryId("");
+      setNewPackageGroupId("");
       setAddingPackage(false);
       setBuilderStep("documents");
       setTab("packages");
@@ -1529,6 +1532,72 @@ export default function DocuFill() {
   function flashStatus(msg: string) {
     setStatus(msg);
     setTimeout(() => setStatus(""), 3000);
+  }
+
+  async function createGroup(): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/groups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ active: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return data.error ?? "Could not create group";
+      await loadBootstrap();
+      return null;
+    } catch {
+      return "Network error — could not create group";
+    }
+  }
+
+  function updateGroupLocal(id: number, patch: Partial<Entity>) {
+    setGroups((prev) => prev.map((item) => item.id === id ? { ...item, ...patch } : item));
+  }
+
+  async function saveGroup(item: Entity): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/groups/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ name: item.name, email: item.email, phone: item.phone, notes: item.notes, active: item.active }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return data.error ?? "Could not save group";
+      await loadBootstrap();
+      return null;
+    } catch {
+      return "Network error — could not save group";
+    }
+  }
+
+  async function deleteGroup(id: number): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/groups/${id}`, {
+        method: "DELETE",
+        headers: { ...getAuthHeaders() },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return data.error ?? "Could not delete group";
+      setGroups((prev) => prev.filter((g) => g.id !== id));
+      return null;
+    } catch {
+      return "Network error — could not delete group";
+    }
+  }
+
+  async function deleteFieldLibraryItem(id: string): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/${id}`, {
+        method: "DELETE",
+        headers: { ...getAuthHeaders() },
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return data.error ?? "Could not delete field";
+      setFieldLibrary((prev) => prev.filter((f) => f.id !== id));
+      return null;
+    } catch {
+      return "Network error — could not delete field";
+    }
   }
 
   async function createEntity(type: "custodians" | "depositories"): Promise<string | null> {
@@ -2944,14 +3013,21 @@ export default function DocuFill() {
                           </select>
                         </label>
                         <label className="block text-sm">
-                          <span className="block text-xs text-[#6B7A99] mb-1">Custodian</span>
+                          <span className="block text-xs text-[#6B7A99] mb-1">Group</span>
+                          <select value={selectedPackage.group_id ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, group_id: e.target.value ? Number(e.target.value) : null }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
+                            <option value="">None</option>
+                            {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                          </select>
+                        </label>
+                        <label className="block text-sm">
+                          <span className="block text-xs text-[#6B7A99] mb-1">Custodian (legacy)</span>
                           <select value={selectedPackage.custodian_id ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, custodian_id: e.target.value ? Number(e.target.value) : null }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
                             <option value="">None</option>
                             {custodians.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                           </select>
                         </label>
                         <label className="block text-sm">
-                          <span className="block text-xs text-[#6B7A99] mb-1">Depository</span>
+                          <span className="block text-xs text-[#6B7A99] mb-1">Depository (legacy)</span>
                           <select value={selectedPackage.depository_id ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, depository_id: e.target.value ? Number(e.target.value) : null }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
                             <option value="">None</option>
                             {depositories.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
@@ -3076,17 +3152,25 @@ export default function DocuFill() {
                     </details>
                     <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
                       <summary className="cursor-pointer text-sm font-semibold">Advanced lists and reusable fields</summary>
-                      <p className="mt-1 text-xs text-[#8A9BB8]">Use these only when you need to manage custodians, depositories, types, or the shared field library.</p>
+                      <p className="mt-1 text-xs text-[#8A9BB8]">Manage groups, types, and the shared field library.</p>
                       <div className="mt-4 grid md:grid-cols-2 gap-4">
                         <EntityPanel
-                          title="Custodians"
+                          title="Groups"
+                          items={groups}
+                          onAdd={createGroup}
+                          onChange={(id, patch) => updateGroupLocal(id, patch)}
+                          onSave={saveGroup}
+                          onDelete={deleteGroup}
+                        />
+                        <EntityPanel
+                          title="Custodians (legacy)"
                           items={custodians}
                           onAdd={() => createEntity("custodians")}
                           onChange={(id, patch) => updateEntityLocal("custodians", id, patch)}
                           onSave={(item) => saveEntity("custodians", item)}
                         />
                         <EntityPanel
-                          title="Depositories"
+                          title="Depositories (legacy)"
                           items={depositories}
                           onAdd={() => createEntity("depositories")}
                           onChange={(id, patch) => updateEntityLocal("depositories", id, patch)}
@@ -3099,6 +3183,7 @@ export default function DocuFill() {
                           onAdd={createTransactionType}
                           onChange={updateTransactionTypeLocal}
                           onSave={saveTransactionType}
+                          onDelete={deleteTransactionType}
                         />
                         <FieldLibraryPanel
                           items={fieldLibrary}
@@ -3106,6 +3191,7 @@ export default function DocuFill() {
                           onChange={updateFieldLibraryLocal}
                           onSave={saveFieldLibraryItem}
                           onUse={addLibraryFieldToPackage}
+                          onDelete={deleteFieldLibraryItem}
                         />
                       </div>
                     </details>
@@ -4632,7 +4718,7 @@ export default function DocuFill() {
               <div>
                 <h2 className="text-xl font-semibold">{session.package_name}</h2>
                 <p className="text-sm text-[#6B7A99]">
-                  {[session.custodian_name, session.depository_name, labelForTransactionScope(session.transaction_scope)].filter(Boolean).join(" · ") || "No additional info"}
+                  {[session.group_name, session.custodian_name, session.depository_name, labelForTransactionScope(session.transaction_scope)].filter(Boolean).join(" · ") || "No additional info"}
                 </p>
                 <p className="text-xs text-[#8A9BB8] mt-1">{answeredFieldCount} of {visibleInterviewFields.length} interview fields answered. Your progress is saved when you click Save Interview.</p>
               </div>
@@ -5703,9 +5789,32 @@ export default function DocuFill() {
                   {(selectedPackage.recipients ?? []).some((r) => r.type === "customer") && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
                 </button>
               </div>
+              {groups.filter((g) => g.active !== false).length > 0 && (
+                <div>
+                  <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Groups</div>
+                  <div className="space-y-1">
+                    {groups.filter((g) => g.active !== false).map((g) => {
+                      const already = (selectedPackage.recipients ?? []).some((r) => r.type === "group" && r.refId === g.id);
+                      return (
+                        <button
+                          key={g.id}
+                          type="button"
+                          disabled={already}
+                          onClick={() => addRecipient({ id: newRecipientId(), label: g.name, color: pickRecipientColor((selectedPackage.recipients ?? []).map((r) => r.color)), type: "group", refId: g.id })}
+                          className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] border border-[#EFE8D8] disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                          {g.name}
+                          {already && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               {custodians.filter((c) => c.active !== false).length > 0 && (
                 <div>
-                  <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Custodians</div>
+                  <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Custodians (legacy)</div>
                   <div className="space-y-1">
                     {custodians.filter((c) => c.active !== false).map((c) => {
                       const already = (selectedPackage.recipients ?? []).some((r) => r.type === "custodian" && r.refId === c.id);
@@ -6061,17 +6170,20 @@ function EntityPanel({
   onAdd,
   onChange,
   onSave,
+  onDelete,
 }: {
   title: string;
   items: Entity[];
   onAdd: () => Promise<string | null>;
   onChange: (id: number, patch: Partial<Entity>) => void;
   onSave: (item: Entity) => Promise<string | null>;
+  onDelete?: (id: number) => Promise<string | null>;
 }) {
   const [adding, setAdding] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
 
   async function handleAdd() {
     setAdding(true);
@@ -6093,6 +6205,16 @@ function EntityPanel({
       setSavedId(item.id);
       setTimeout(() => setSavedId(null), 2000);
     }
+  }
+
+  async function handleDelete(item: Entity) {
+    if (!onDelete) return;
+    if (!confirm(`Delete "${item.name}"? This cannot be undone.`)) return;
+    setDeletingId(item.id);
+    setPanelError(null);
+    const err = await onDelete(item.id);
+    setDeletingId(null);
+    if (err) setPanelError(err);
   }
 
   return (
@@ -6117,14 +6239,26 @@ function EntityPanel({
                 <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} />
                 Active
               </label>
-              <button
-                type="button"
-                onClick={() => handleSave(item)}
-                disabled={savingId === item.id}
-                className="text-[11px] text-[#C49A38] disabled:opacity-50"
-              >
-                {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
-              </button>
+              <div className="flex items-center gap-2">
+                {onDelete && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(item)}
+                    disabled={deletingId === item.id}
+                    className="text-[11px] text-red-500 disabled:opacity-50"
+                  >
+                    {deletingId === item.id ? "Deleting…" : "Delete"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleSave(item)}
+                  disabled={savingId === item.id}
+                  className="text-[11px] text-[#C49A38] disabled:opacity-50"
+                >
+                  {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -6139,15 +6273,18 @@ function TransactionTypesPanel({
   onAdd,
   onChange,
   onSave,
+  onDelete,
 }: {
   items: TransactionType[];
   onAdd: () => Promise<string | null>;
   onChange: (scope: string, patch: Partial<TransactionType>) => void;
   onSave: (item: TransactionType) => Promise<string | null>;
+  onDelete?: (scope: string) => Promise<string | null>;
 }) {
   const [adding, setAdding] = useState(false);
   const [savingScope, setSavingScope] = useState<string | null>(null);
   const [savedScope, setSavedScope] = useState<string | null>(null);
+  const [deletingScope, setDeletingScope] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
 
   async function handleAdd() {
@@ -6172,6 +6309,16 @@ function TransactionTypesPanel({
     }
   }
 
+  async function handleDelete(item: TransactionType) {
+    if (!onDelete) return;
+    if (!confirm(`Delete type "${item.label}"? This cannot be undone.`)) return;
+    setDeletingScope(item.scope);
+    setPanelError(null);
+    const err = await onDelete(item.scope);
+    setDeletingScope(null);
+    if (err) setPanelError(err);
+  }
+
   return (
     <div className="border border-[#DDD5C4] rounded p-3">
       <div className="flex items-center justify-between mb-2">
@@ -6193,14 +6340,26 @@ function TransactionTypesPanel({
                 <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.scope, { active: e.target.checked })} />
                 Active
               </label>
-              <button
-                type="button"
-                onClick={() => handleSave(item)}
-                disabled={savingScope === item.scope}
-                className="text-[11px] text-[#C49A38] disabled:opacity-50"
-              >
-                {savingScope === item.scope ? "Saving…" : savedScope === item.scope ? "✓ Saved" : "Save"}
-              </button>
+              <div className="flex items-center gap-2">
+                {onDelete && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(item)}
+                    disabled={deletingScope === item.scope}
+                    className="text-[11px] text-red-500 disabled:opacity-50"
+                  >
+                    {deletingScope === item.scope ? "Deleting…" : "Delete"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => handleSave(item)}
+                  disabled={savingScope === item.scope}
+                  className="text-[11px] text-[#C49A38] disabled:opacity-50"
+                >
+                  {savingScope === item.scope ? "Saving…" : savedScope === item.scope ? "✓ Saved" : "Save"}
+                </button>
+              </div>
             </div>
             <div className="text-[10px] text-[#8A9BB8]">{item.scope}</div>
           </div>
@@ -6216,16 +6375,19 @@ function FieldLibraryPanel({
   onChange,
   onSave,
   onUse,
+  onDelete,
 }: {
   items: FieldLibraryItem[];
   onAdd: () => Promise<string | null>;
   onChange: (id: string, patch: Partial<FieldLibraryItem>) => void;
   onSave: (item: FieldLibraryItem) => Promise<string | null>;
   onUse: (item: FieldLibraryItem) => void;
+  onDelete?: (id: string) => Promise<string | null>;
 }) {
   const [adding, setAdding] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
 
   async function handleAdd() {
@@ -6248,6 +6410,16 @@ function FieldLibraryPanel({
       setSavedId(item.id);
       setTimeout(() => setSavedId(null), 2000);
     }
+  }
+
+  async function handleDelete(item: FieldLibraryItem) {
+    if (!onDelete) return;
+    if (!confirm(`Delete field "${item.label}"? This cannot be undone.`)) return;
+    setDeletingId(item.id);
+    setPanelError(null);
+    const err = await onDelete(item.id);
+    setDeletingId(null);
+    if (err) setPanelError(err);
   }
 
   return (
@@ -6309,6 +6481,16 @@ function FieldLibraryPanel({
               <span className="text-[10px] text-[#8A9BB8]">{item.id}</span>
               <div className="flex gap-2">
                 <button type="button" onClick={() => onUse(item)} className="text-[11px] text-[#6B7A99]">Use in package</button>
+                {onDelete && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(item)}
+                    disabled={deletingId === item.id}
+                    className="text-[11px] text-red-500 disabled:opacity-50"
+                  >
+                    {deletingId === item.id ? "Deleting…" : "Delete"}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => handleSave(item)}
