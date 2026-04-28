@@ -19,7 +19,9 @@ const REQUIRED_VARS = ["PORT", "DATABASE_URL"] as const;
 
 // ── Optional — absence degrades a specific feature but server still starts ────
 const OPTIONAL_VARS: Record<string, string> = {
-  GOOGLE_SERVICE_ACCOUNT_KEY:   "Google Sheets sync disabled",
+  PRIVATE_OBJECT_DIR:           "Logo and file uploads disabled — org logo upload will return 503",
+  PUBLIC_OBJECT_SEARCH_PATHS:   "Public file serving disabled — uploaded assets will 404",
+  GOOGLE_SERVICE_ACCOUNT_KEY:   "Google Sheets sync disabled; also required for GCS object storage in production (logo uploads will fail without it or the Replit sidecar)",
   GOOGLE_SHEETS_SPREADSHEET_ID: "Master CRM sheet sync disabled",
   GOOGLE_DEAL_BUILDER_SHEET_ID: "Deal Builder sheet write disabled (falls back to master sheet if absent)",
   GOOGLE_DEALS_OPS_SHEET_ID:    "Deals ops sheet write disabled (falls back to master sheet if absent)",

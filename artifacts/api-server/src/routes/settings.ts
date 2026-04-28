@@ -409,7 +409,25 @@ router.post(
         return;
       }
       const db = getDb();
-      const rawLogoPath = await uploadLogoBuffer(buffer, contentType);
+      let rawLogoPath: string;
+      try {
+        rawLogoPath = await uploadLogoBuffer(buffer, contentType);
+      } catch (uploadErr) {
+        const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+        const isMisconfig =
+          msg.includes("PRIVATE_OBJECT_DIR") ||
+          msg.includes("not set") ||
+          msg.includes("not configured");
+        logger.error({ err: uploadErr }, "[Settings] Logo upload failed");
+        if (isMisconfig) {
+          res.status(503).json({
+            error: "Storage is not configured on this server. Set PRIVATE_OBJECT_DIR and GOOGLE_SERVICE_ACCOUNT_KEY in the deployment environment.",
+          });
+        } else {
+          res.status(500).json({ error: "Logo upload failed. Please try again." });
+        }
+        return;
+      }
       const { rows } = await db.query(
         `UPDATE accounts SET logo_url=$1 WHERE id=$2 RETURNING id, name, slug, logo_url, brand_color`,
         [rawLogoPath, accountId],
@@ -429,8 +447,8 @@ router.post(
         },
       });
     } catch (err) {
-      logger.error({ err }, "[Settings] Failed to upload logo");
-      res.status(500).json({ error: "Failed to upload logo" });
+      logger.error({ err }, "[Settings] Unexpected error during logo upload");
+      res.status(500).json({ error: "An unexpected error occurred. Please try again." });
     }
   },
 );
