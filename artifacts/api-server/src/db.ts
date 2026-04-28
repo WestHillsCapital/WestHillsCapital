@@ -891,6 +891,24 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS invited_by TEXT`);
   await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS invited_at TIMESTAMPTZ`);
   await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS display_name TEXT`);
+  // ── Task #280: user profile fields ────────────────────────────────────────
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS avatar_url TEXT`);
+  // avatar_token: a random UUID used as the public-facing URL segment for the avatar
+  // serving route so that profile photos are not enumerable by sequential user IDs.
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS avatar_token TEXT`);
+  await db.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS account_users_avatar_token_idx
+    ON account_users (avatar_token)
+    WHERE avatar_token IS NOT NULL
+  `);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS pending_email TEXT`);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS pending_email_token TEXT`);
+  await db.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS account_users_pending_email_token_idx
+    ON account_users (pending_email_token)
+    WHERE pending_email_token IS NOT NULL
+  `);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS pending_email_expires_at TIMESTAMPTZ`);
   // Back-fill any rows that pre-date the status column — they are all active
   await db.query(`UPDATE account_users SET status = 'active' WHERE status IS NULL OR status = ''`);
 

@@ -8,7 +8,7 @@ import { extractBrandColors, isSafeUrl } from "../lib/brandColorExtractor";
 import { requireAdminRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
 import { brandColorRateLimit } from "../middleware/brandColorRateLimit";
-import { sendTeamInvitationEmail, sendDataExportEmail } from "../lib/email";
+import { sendTeamInvitationEmail, sendDataExportEmail, sendEmailVerificationEmail } from "../lib/email";
 import { getPlanLimits } from "../lib/plans";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { isIpAllowed } from "../lib/cidr";
@@ -2668,5 +2668,349 @@ async function processExportRequests(): Promise<void> {
 
 setInterval(() => processExportRequests().catch(() => {}), 60 * 1000).unref();
 processExportRequests().catch(() => {});
+
+// ── User profile routes ───────────────────────────────────────────────────────
+
+function buildAvatarServingUrl(avatarToken: string): string {
+  return `/api/storage/user-avatar/${avatarToken}`;
+}
+
+/** GET /profile — returns the current user's profile data */
+router.get("/profile", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const db = getDb();
+
+    const { rows } = await db.query(
+      `SELECT id, email, display_name, avatar_url, avatar_token, pending_email
+         FROM account_users
+        WHERE account_id = $1 AND clerk_user_id = $2
+        LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+
+    if (!rows[0]) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const row = rows[0] as Record<string, unknown>;
+    res.json({
+      profile: {
+        id:            row.id,
+        email:         row.email,
+        display_name:  row.display_name ?? null,
+        avatar_url:    (row.avatar_url && row.avatar_token) ? buildAvatarServingUrl(row.avatar_token as string) : null,
+        pending_email: row.pending_email ?? null,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Profile] Failed to get profile");
+    res.status(500).json({ error: "Failed to load profile" });
+  }
+});
+
+/** PATCH /profile — update display_name, cancel pending email, and/or request an email change */
+router.patch("/profile", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const body = req.body as Record<string, unknown>;
+    const db = getDb();
+
+    const { rows: current } = await db.query(
+      `SELECT id, email, display_name, avatar_url, avatar_token, pending_email
+         FROM account_users
+        WHERE account_id = $1 AND clerk_user_id = $2
+        LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+
+    if (!current[0]) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const row = current[0] as Record<string, unknown>;
+    const userId = row.id as number;
+
+    let displayName = row.display_name as string | null;
+    if ("display_name" in body) {
+      displayName = cleanText(body.display_name) || null;
+    }
+
+    let pendingEmail = row.pending_email as string | null;
+    let emailVerificationSent = false;
+
+    // cancel_pending_email: true — clears the pending email change without
+    // committing it, so the user's email stays as-is.
+    if (body.cancel_pending_email === true) {
+      await db.query(
+        `UPDATE account_users
+            SET pending_email = NULL, pending_email_token = NULL, pending_email_expires_at = NULL
+          WHERE id = $1`,
+        [userId],
+      );
+      pendingEmail = null;
+    } else if ("email" in body && typeof body.email === "string") {
+      const newEmail = body.email.trim().toLowerCase();
+      if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+        res.status(400).json({ error: "A valid email address is required." });
+        return;
+      }
+
+      if (newEmail !== (row.email as string).toLowerCase()) {
+        // Check the new email is not already taken by another user in this account
+        const { rows: conflict } = await db.query(
+          `SELECT id FROM account_users WHERE account_id = $1 AND lower(email) = $2 AND id != $3`,
+          [accountId, newEmail, userId],
+        );
+        if (conflict.length > 0) {
+          res.status(409).json({ error: "That email address is already in use by another team member." });
+          return;
+        }
+
+        const token = randomUUID();
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+        await db.query(
+          `UPDATE account_users
+              SET pending_email = $1, pending_email_token = $2, pending_email_expires_at = $3
+            WHERE id = $4`,
+          [newEmail, token, expiresAt, userId],
+        );
+        pendingEmail = newEmail;
+
+        const origin = process.env.APP_ORIGIN
+          ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://app.docuplete.com");
+        const verifyUrl = `${origin}/app/settings?verify_email=${token}`;
+
+        try {
+          await sendEmailVerificationEmail({
+            to: newEmail,
+            displayName: displayName ?? (row.display_name as string | null),
+            verifyUrl,
+          });
+          emailVerificationSent = true;
+        } catch (emailErr) {
+          logger.warn({ emailErr, newEmail }, "[Profile] Verification email failed — pending record still saved");
+        }
+      }
+    }
+
+    const { rows: updated } = await db.query(
+      `UPDATE account_users SET display_name = $1 WHERE id = $2
+         RETURNING id, email, display_name, avatar_url, avatar_token, pending_email`,
+      [displayName, userId],
+    );
+    const u = updated[0] as Record<string, unknown>;
+
+    res.json({
+      profile: {
+        id:            u.id,
+        email:         u.email,
+        display_name:  u.display_name ?? null,
+        avatar_url:    (u.avatar_url && u.avatar_token) ? buildAvatarServingUrl(u.avatar_token as string) : null,
+        pending_email: pendingEmail,
+      },
+      email_verification_sent: emailVerificationSent,
+    });
+  } catch (err) {
+    logger.error({ err }, "[Profile] Failed to update profile");
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+/** POST /profile/avatar — upload a profile photo */
+router.post(
+  "/profile/avatar",
+  express.raw({ type: ALLOWED_IMAGE_TYPES as unknown as string[], limit: "5mb" }),
+  async (req, res) => {
+    try {
+      const accountId = req.internalAccountId ?? 1;
+      const clerkUserId = getAuth(req)?.userId ?? null;
+      const contentType = (req.headers["content-type"] ?? "").split(";")[0].trim() as ImageContentType;
+
+      if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(contentType)) {
+        res.status(400).json({ error: "Only PNG, JPG, and WebP images are accepted" });
+        return;
+      }
+      const buffer = req.body as Buffer;
+      if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+        res.status(400).json({ error: "Empty image body" });
+        return;
+      }
+      if (buffer.length > 5 * 1024 * 1024) {
+        res.status(400).json({ error: "Avatar must be under 5 MB" });
+        return;
+      }
+
+      const db = getDb();
+      const { rows: current } = await db.query(
+        `SELECT id FROM account_users WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+        [accountId, clerkUserId],
+      );
+      if (!current[0]) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      const userId = (current[0] as Record<string, unknown>).id as number;
+
+      let rawAvatarPath: string;
+      try {
+        rawAvatarPath = await uploadLogoBuffer(buffer, contentType);
+      } catch (uploadErr) {
+        logger.error({ err: uploadErr }, "[Profile] Avatar upload failed");
+        if (uploadErr instanceof StorageMisconfigError) {
+          res.status(503).json({
+            error: "Storage is not configured on this server. Avatar uploads are unavailable.",
+          });
+        } else {
+          res.status(500).json({ error: "Avatar upload failed. Please try again." });
+        }
+        return;
+      }
+
+      const newAvatarToken = randomUUID();
+      const { rows: updated } = await db.query(
+        `UPDATE account_users SET avatar_url = $1, avatar_token = $2 WHERE id = $3
+           RETURNING id, email, display_name, avatar_url, avatar_token, pending_email`,
+        [rawAvatarPath, newAvatarToken, userId],
+      );
+      if (!updated[0]) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      const u = updated[0] as Record<string, unknown>;
+      res.json({
+        profile: {
+          id:            u.id,
+          email:         u.email,
+          display_name:  u.display_name ?? null,
+          avatar_url:    buildAvatarServingUrl(newAvatarToken),
+          pending_email: u.pending_email ?? null,
+        },
+      });
+    } catch (err) {
+      logger.error({ err }, "[Profile] Unexpected error during avatar upload");
+      res.status(500).json({ error: "An unexpected error occurred. Please try again." });
+    }
+  },
+);
+
+/** DELETE /profile/avatar — remove profile photo */
+router.delete("/profile/avatar", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const db = getDb();
+
+    const { rows } = await db.query(
+      `UPDATE account_users SET avatar_url = NULL, avatar_token = NULL
+         WHERE account_id = $1 AND clerk_user_id = $2
+         RETURNING id, email, display_name, pending_email`,
+      [accountId, clerkUserId],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    const u = rows[0] as Record<string, unknown>;
+    res.json({
+      profile: {
+        id:            u.id,
+        email:         u.email,
+        display_name:  u.display_name ?? null,
+        avatar_url:    null,
+        pending_email: u.pending_email ?? null,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Profile] Failed to remove avatar");
+    res.status(500).json({ error: "Failed to remove avatar" });
+  }
+});
+
+/**
+ * GET /profile/verify-email?token=<token>
+ *
+ * Verifies a pending email change. Called by the frontend when the user
+ * clicks the verification link, which navigates to /app/settings?verify_email=<token>.
+ */
+router.get("/profile/verify-email", async (req, res) => {
+  try {
+    const token = typeof req.query.token === "string" ? req.query.token.trim() : "";
+    if (!token) {
+      res.status(400).json({ error: "Verification token is required." });
+      return;
+    }
+
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT id, account_id, email, pending_email, pending_email_expires_at, display_name, avatar_url, avatar_token
+         FROM account_users
+        WHERE pending_email_token = $1`,
+      [token],
+    );
+
+    if (!rows[0]) {
+      res.status(404).json({ error: "Invalid or expired verification link." });
+      return;
+    }
+
+    const row = rows[0] as Record<string, unknown>;
+    const expiresAt = row.pending_email_expires_at as Date | null;
+    if (!expiresAt || new Date(expiresAt) < new Date()) {
+      res.status(410).json({ error: "This verification link has expired. Please request a new email change." });
+      return;
+    }
+
+    const newEmail = row.pending_email as string;
+    const userId = row.id as number;
+    const accountId = row.account_id as number;
+
+    // Re-check that the new email is still available (case-insensitive) at commit time
+    const { rows: conflict } = await db.query(
+      `SELECT id FROM account_users WHERE account_id = $1 AND lower(email) = $2 AND id != $3`,
+      [accountId, newEmail.toLowerCase(), userId],
+    );
+    if (conflict.length > 0) {
+      // Clear the pending state so the user gets a clean start
+      await db.query(
+        `UPDATE account_users
+            SET pending_email = NULL, pending_email_token = NULL, pending_email_expires_at = NULL
+          WHERE id = $1`,
+        [userId],
+      );
+      res.status(409).json({ error: "That email address is already in use by another team member. Your pending email change has been cancelled." });
+      return;
+    }
+
+    // Apply the email change
+    const { rows: updated } = await db.query(
+      `UPDATE account_users
+          SET email = $1, pending_email = NULL, pending_email_token = NULL, pending_email_expires_at = NULL
+        WHERE id = $2
+        RETURNING id, email, display_name, avatar_url, avatar_token, pending_email`,
+      [newEmail, userId],
+    );
+
+    const u = updated[0] as Record<string, unknown>;
+    res.json({
+      success: true,
+      profile: {
+        id:            u.id,
+        email:         u.email,
+        display_name:  u.display_name ?? null,
+        avatar_url:    (u.avatar_url && u.avatar_token) ? buildAvatarServingUrl(u.avatar_token as string) : null,
+        pending_email: null,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Profile] Failed to verify email");
+    res.status(500).json({ error: "Failed to verify email change" });
+  }
+});
 
 export default router;
