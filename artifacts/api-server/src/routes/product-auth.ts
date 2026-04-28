@@ -242,14 +242,15 @@ router.post("/verify-2fa", async (req, res) => {
   const clerkUserId = auth?.userId;
   const ip = req.ip ?? req.socket?.remoteAddress ?? null;
 
-  // Rate limit by IP first (cheapest check, before any DB work)
-  const ipKey = `totp_fail:ip:${ip ?? "unknown"}`;
-  if (isCurrentlyBlocked(ipKey, TOTP_FAIL_MAX, TOTP_FAIL_WINDOW_MS)) {
-    return void res.status(429).json({ error: "Too many failed attempts. Please wait before trying again." });
-  }
-
   if (!clerkUserId) {
     return void res.status(401).json({ error: "Authentication required." });
+  }
+
+  // Rate limit by combined IP + Clerk user ID so that users on shared IPs
+  // don't block each other. This is a cheap in-memory check before any DB work.
+  const ipUserKey = `totp_fail:ip:${ip ?? "unknown"}:uid:${clerkUserId}`;
+  if (isCurrentlyBlocked(ipUserKey, TOTP_FAIL_MAX, TOTP_FAIL_WINDOW_MS)) {
+    return void res.status(429).json({ error: "Too many failed attempts. Please wait before trying again." });
   }
 
   const code = ((req.body as { code?: string }).code ?? "").trim();
@@ -308,9 +309,15 @@ router.post("/verify-2fa", async (req, res) => {
     const validBackup = backupIndex !== -1;
 
     if (!validTotp && !validBackup) {
-      // Increment rate limit counters on failed attempts (IP + user-scoped)
-      isRateLimited(ipKey, TOTP_FAIL_MAX, TOTP_FAIL_WINDOW_MS);
-      isRateLimited(userKey, TOTP_FAIL_MAX, TOTP_FAIL_WINDOW_MS);
+      // Increment rate limit counters on failed attempts (IP+user combined, and user-scoped).
+      // Both must always be incremented, so avoid short-circuit evaluation.
+      // If either counter crosses the threshold right now, return 429 immediately.
+      const ipUserLimited = isRateLimited(ipUserKey, TOTP_FAIL_MAX, TOTP_FAIL_WINDOW_MS);
+      const userLimited    = isRateLimited(userKey, TOTP_FAIL_MAX, TOTP_FAIL_WINDOW_MS);
+      const nowLimited     = ipUserLimited || userLimited;
+      if (nowLimited) {
+        return void res.status(429).json({ error: "Too many failed attempts. Please wait before trying again." });
+      }
       return void res.status(401).json({ error: "Invalid authentication code.", code: "TOTP_INVALID" });
     }
 
