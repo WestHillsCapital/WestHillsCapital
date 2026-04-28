@@ -7,6 +7,7 @@ import { ObjectStorageService, objectStorageClient, StorageMisconfigError, asser
 import { extractBrandColors, isSafeUrl } from "../lib/brandColorExtractor";
 import { requireAdminRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
+import { brandColorRateLimit } from "../middleware/brandColorRateLimit";
 import { sendTeamInvitationEmail } from "../lib/email";
 import { getPlanLimits } from "../lib/plans";
 import { getUncachableStripeClient } from "../lib/stripeClient";
@@ -501,6 +502,17 @@ router.post(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
+ *       429:
+ *         description: Rate limit exceeded (5 requests per minute per account or IP)
+ *         headers:
+ *           Retry-After:
+ *             schema:
+ *               type: integer
+ *             description: Seconds to wait before retrying
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  * /product/settings/extract-brand-colors:
  *   post:
  *     tags:
@@ -546,8 +558,19 @@ router.post(
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
+ *       429:
+ *         description: Rate limit exceeded (5 requests per minute per account or IP)
+ *         headers:
+ *           Retry-After:
+ *             schema:
+ *               type: integer
+ *             description: Seconds to wait before retrying
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
-router.post("/extract-brand-colors", async (req, res) => {
+router.post("/extract-brand-colors", brandColorRateLimit, async (req, res) => {
   try {
     const body = req.body as Record<string, unknown>;
     const url = typeof body.url === "string" ? body.url.trim() : "";
@@ -1197,6 +1220,7 @@ router.get("/admin/accounts", async (req, res) => {
       package_count: string;
       last_activity_at: Date | null;
       created_at: Date;
+      stripe_customer_id: string | null;
     }>(
       `SELECT
           a.id,
@@ -1207,6 +1231,7 @@ router.get("/admin/accounts", async (req, res) => {
           a.billing_period_start,
           a.seat_limit,
           a.created_at,
+          a.stripe_customer_id,
           (SELECT COUNT(*)
              FROM account_users au
             WHERE au.account_id = a.id AND au.status != 'pending') AS seat_count,
@@ -1240,6 +1265,7 @@ router.get("/admin/accounts", async (req, res) => {
         package_count:        parseInt(r.package_count, 10),
         last_activity_at:     r.last_activity_at?.toISOString() ?? null,
         created_at:           r.created_at.toISOString(),
+        stripe_customer_id:   r.stripe_customer_id ?? null,
       })),
     });
   } catch (err) {

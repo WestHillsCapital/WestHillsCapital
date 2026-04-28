@@ -19,9 +19,10 @@ interface AccountRow {
   package_count: number;
   last_activity_at: string | null;
   created_at: string;
+  stripe_customer_id: string | null;
 }
 
-const PLAN_LABELS: Record<string, string> = { free: "Free", pro: "Pro", enterprise: "Enterprise" };
+type SortCol = "name" | "plan_tier" | "seat_count" | "package_count" | "submission_count" | "subscription_status" | "last_activity_at" | "created_at";
 
 function planBadge(tier: string) {
   if (tier === "enterprise") return <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-800">Enterprise</span>;
@@ -51,15 +52,29 @@ function formatRelative(iso: string | null): string {
   return `${Math.floor(days / 365)}y ago`;
 }
 
+function formatDate(iso: string | null): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+}
+
 function formatPeriodStart(iso: string | null): string {
   if (!iso) return "month start";
   return new Date(iso + "T00:00:00Z").toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function SortIcon({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortCol | null; sortDir: "asc" | "desc" }) {
+  if (sortCol !== col) return <span className="ml-0.5 text-[#C4B89A] opacity-50">↕</span>;
+  return <span className="ml-0.5 text-[#0F1C3F]">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
 function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [sortCol, setSortCol] = useState<SortCol | null>("created_at");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [selected, setSelected] = useState<AccountRow | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
@@ -73,83 +88,247 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
       .finally(() => setIsLoading(false));
   }, []);
 
+  function handleSort(col: SortCol) {
+    if (sortCol === col) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortCol(col);
+      setSortDir("asc");
+    }
+  }
+
+  const filtered = accounts.filter((a) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return a.name.toLowerCase().includes(q) || a.slug.toLowerCase().includes(q);
+  });
+
+  const sorted = [...filtered].sort((a, b) => {
+    if (!sortCol) return 0;
+    let av: string | number | null = a[sortCol] as string | number | null;
+    let bv: string | number | null = b[sortCol] as string | number | null;
+    if (av === null || av === undefined) av = "";
+    if (bv === null || bv === undefined) bv = "";
+    const cmp = typeof av === "number" && typeof bv === "number"
+      ? av - bv
+      : String(av).localeCompare(String(bv));
+    return sortDir === "asc" ? cmp : -cmp;
+  });
+
+  const thClass = "px-4 py-2.5 text-left font-semibold text-[#6B7A99] whitespace-nowrap cursor-pointer select-none hover:text-[#0F1C3F] transition-colors";
+  const thCenterClass = "px-4 py-2.5 text-center font-semibold text-[#6B7A99] whitespace-nowrap cursor-pointer select-none hover:text-[#0F1C3F] transition-colors";
+
   return (
-    <section className="bg-white rounded-xl border border-[#DDD5C4] overflow-hidden">
-      <div className="px-6 py-4 border-b border-[#EFE8D8] flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-base font-semibold text-[#0F1C3F]">All accounts</h2>
-          <p className="text-xs text-[#6B7A99] mt-0.5">
-            Submission counts run from each account's billing period start.
-          </p>
+    <>
+      <section className="bg-white rounded-xl border border-[#DDD5C4] overflow-hidden">
+        <div className="px-6 py-4 border-b border-[#EFE8D8] flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-[#0F1C3F]">All accounts</h2>
+            <p className="text-xs text-[#6B7A99] mt-0.5">
+              Submission counts run from each account's billing period start. Click a row for details.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search by name or slug…"
+              className="text-xs rounded-lg border border-[#DDD5C4] bg-[#FAFAF8] px-3 py-1.5 text-[#0F1C3F] placeholder:text-[#B0A898] focus:outline-none focus:ring-2 focus:ring-[#0F1C3F]/20 focus:border-[#0F1C3F] w-52"
+            />
+            <span className="text-xs font-medium text-[#6B7A99] bg-[#F8F6F0] border border-[#DDD5C4] rounded-full px-2.5 py-1 shrink-0">
+              {isLoading ? "…" : `${sorted.length}${sorted.length !== accounts.length ? ` / ${accounts.length}` : ""} account${accounts.length !== 1 ? "s" : ""}`}
+            </span>
+          </div>
         </div>
-        <span className="text-xs font-medium text-[#6B7A99] bg-[#F8F6F0] border border-[#DDD5C4] rounded-full px-2.5 py-1">
-          {isLoading ? "…" : `${accounts.length} account${accounts.length !== 1 ? "s" : ""}`}
-        </span>
-      </div>
 
-      {loadError && (
-        <div className="px-6 py-3 bg-red-50 border-b border-red-100">
-          <p className="text-xs text-red-700">{loadError}</p>
-        </div>
-      )}
+        {loadError && (
+          <div className="px-6 py-3 bg-red-50 border-b border-red-100">
+            <p className="text-xs text-red-700">{loadError}</p>
+          </div>
+        )}
 
-      {isLoading ? (
-        <div className="px-6 py-10 flex justify-center">
-          <div className="w-5 h-5 border-2 border-[#DDD5C4] border-t-[#C49A38] rounded-full animate-spin" />
-        </div>
-      ) : accounts.length === 0 ? (
-        <div className="px-6 py-8 text-center text-sm text-[#8A9BB8]">No accounts found.</div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead className="bg-[#F8F6F0] border-b border-[#EFE8D8]">
-              <tr>
-                <th className="px-4 py-2.5 text-left font-semibold text-[#6B7A99] whitespace-nowrap">Account</th>
-                <th className="px-4 py-2.5 text-left font-semibold text-[#6B7A99] whitespace-nowrap">Plan</th>
-                <th className="px-4 py-2.5 text-center font-semibold text-[#6B7A99] whitespace-nowrap">Seats</th>
-                <th className="px-4 py-2.5 text-center font-semibold text-[#6B7A99] whitespace-nowrap">Packages</th>
-                <th className="px-4 py-2.5 text-center font-semibold text-[#6B7A99] whitespace-nowrap">Submissions</th>
-                <th className="px-4 py-2.5 text-left font-semibold text-[#6B7A99] whitespace-nowrap">Stripe</th>
-                <th className="px-4 py-2.5 text-left font-semibold text-[#6B7A99] whitespace-nowrap">Last activity</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#EFE8D8]">
-              {accounts.map((acct) => (
-                <tr key={acct.id} className="hover:bg-[#FAFAF8] transition-colors">
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <p className="font-medium text-[#0F1C3F] leading-tight">{acct.name}</p>
-                    <p className="text-[10px] text-[#8A9BB8] mt-0.5 font-mono">{acct.slug}</p>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {planBadge(acct.plan_tier)}
-                    <p className="text-[10px] text-[#8A9BB8] mt-1">{PLAN_LABELS[acct.plan_tier] ?? acct.plan_tier}</p>
-                  </td>
-                  <td className="px-4 py-3 text-center whitespace-nowrap">
-                    <span className={`font-medium ${acct.seat_count >= acct.seat_limit ? "text-red-600" : "text-[#0F1C3F]"}`}>
-                      {acct.seat_count}
-                    </span>
-                    <span className="text-[#8A9BB8]"> / {acct.seat_limit}</span>
-                  </td>
-                  <td className="px-4 py-3 text-center whitespace-nowrap">
-                    <span className="font-medium text-[#0F1C3F]">{acct.package_count}</span>
-                  </td>
-                  <td className="px-4 py-3 text-center whitespace-nowrap">
-                    <span className="font-medium text-[#0F1C3F]">{acct.submission_count}</span>
-                    <p className="text-[10px] text-[#8A9BB8] mt-0.5">since {formatPeriodStart(acct.billing_period_start)}</p>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    {statusBadge(acct.subscription_status)}
-                  </td>
-                  <td className="px-4 py-3 text-[#6B7A99] whitespace-nowrap">
-                    {formatRelative(acct.last_activity_at)}
-                  </td>
+        {isLoading ? (
+          <div className="px-6 py-10 flex justify-center">
+            <div className="w-5 h-5 border-2 border-[#DDD5C4] border-t-[#C49A38] rounded-full animate-spin" />
+          </div>
+        ) : sorted.length === 0 ? (
+          <div className="px-6 py-8 text-center text-sm text-[#8A9BB8]">
+            {search ? "No accounts match your search." : "No accounts found."}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-[#F8F6F0] border-b border-[#EFE8D8]">
+                <tr>
+                  <th className={thClass} onClick={() => handleSort("name")}>
+                    Account <SortIcon col="name" sortCol={sortCol} sortDir={sortDir} />
+                  </th>
+                  <th className={thClass} onClick={() => handleSort("plan_tier")}>
+                    Plan <SortIcon col="plan_tier" sortCol={sortCol} sortDir={sortDir} />
+                  </th>
+                  <th className={thCenterClass} onClick={() => handleSort("seat_count")}>
+                    Seats <SortIcon col="seat_count" sortCol={sortCol} sortDir={sortDir} />
+                  </th>
+                  <th className={thCenterClass} onClick={() => handleSort("package_count")}>
+                    Packages <SortIcon col="package_count" sortCol={sortCol} sortDir={sortDir} />
+                  </th>
+                  <th className={thCenterClass} onClick={() => handleSort("submission_count")}>
+                    Submissions <SortIcon col="submission_count" sortCol={sortCol} sortDir={sortDir} />
+                  </th>
+                  <th className={thClass} onClick={() => handleSort("subscription_status")}>
+                    Subscription <SortIcon col="subscription_status" sortCol={sortCol} sortDir={sortDir} />
+                  </th>
+                  <th className={thClass} onClick={() => handleSort("last_activity_at")}>
+                    Last activity <SortIcon col="last_activity_at" sortCol={sortCol} sortDir={sortDir} />
+                  </th>
+                  <th className={thClass} onClick={() => handleSort("created_at")}>
+                    Created <SortIcon col="created_at" sortCol={sortCol} sortDir={sortDir} />
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-[#EFE8D8]">
+                {sorted.map((acct) => {
+                  const seatPct = acct.seat_limit > 0 ? acct.seat_count / acct.seat_limit : 0;
+                  const seatColor = seatPct >= 1 ? "text-red-600" : seatPct >= 0.8 ? "text-amber-600" : "text-[#0F1C3F]";
+                  return (
+                    <tr
+                      key={acct.id}
+                      onClick={() => setSelected(acct)}
+                      className="hover:bg-[#FAFAF8] transition-colors cursor-pointer"
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <p className="font-medium text-[#0F1C3F] leading-tight">{acct.name}</p>
+                        <p className="text-[10px] text-[#8A9BB8] mt-0.5 font-mono">{acct.slug}</p>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {planBadge(acct.plan_tier)}
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <span className={`font-medium ${seatColor}`}>{acct.seat_count}</span>
+                        <span className="text-[#8A9BB8]"> / {acct.seat_limit}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <span className="font-medium text-[#0F1C3F]">{acct.package_count}</span>
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <span className="font-medium text-[#0F1C3F]">{acct.submission_count}</span>
+                        <p className="text-[10px] text-[#8A9BB8] mt-0.5">since {formatPeriodStart(acct.billing_period_start)}</p>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {statusBadge(acct.subscription_status)}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <p className="text-[#6B7A99]">{formatRelative(acct.last_activity_at)}</p>
+                        {acct.last_activity_at && (
+                          <p className="text-[10px] text-[#B0A898] mt-0.5">{formatDate(acct.last_activity_at)}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <p className="text-[#6B7A99]">{formatDate(acct.created_at)}</p>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Detail panel */}
+      {selected && (
+        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setSelected(null)}>
+          <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" />
+          <div
+            className="relative bg-white w-full max-w-sm shadow-2xl flex flex-col overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-4 border-b border-[#EFE8D8] flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-[#0F1C3F] leading-tight">{selected.name}</h3>
+                <p className="text-xs text-[#8A9BB8] mt-0.5 font-mono">{selected.slug}</p>
+              </div>
+              <button
+                onClick={() => setSelected(null)}
+                className="text-[#8A9BB8] hover:text-[#0F1C3F] transition-colors mt-0.5"
+                aria-label="Close"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4 flex-1">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-[#F8F6F0] rounded-lg px-4 py-3">
+                  <p className="text-[10px] text-[#8A9BB8] uppercase tracking-wide font-medium">Plan</p>
+                  <div className="mt-1">{planBadge(selected.plan_tier)}</div>
+                </div>
+                <div className="bg-[#F8F6F0] rounded-lg px-4 py-3">
+                  <p className="text-[10px] text-[#8A9BB8] uppercase tracking-wide font-medium">Subscription</p>
+                  <div className="mt-1">{statusBadge(selected.subscription_status)}</div>
+                </div>
+                <div className="bg-[#F8F6F0] rounded-lg px-4 py-3">
+                  <p className="text-[10px] text-[#8A9BB8] uppercase tracking-wide font-medium">Seats</p>
+                  <p className="mt-1 text-sm font-medium text-[#0F1C3F]">
+                    {selected.seat_count} <span className="text-[#8A9BB8] font-normal">/ {selected.seat_limit}</span>
+                  </p>
+                </div>
+                <div className="bg-[#F8F6F0] rounded-lg px-4 py-3">
+                  <p className="text-[10px] text-[#8A9BB8] uppercase tracking-wide font-medium">Packages</p>
+                  <p className="mt-1 text-sm font-medium text-[#0F1C3F]">{selected.package_count}</p>
+                </div>
+                <div className="bg-[#F8F6F0] rounded-lg px-4 py-3 col-span-2">
+                  <p className="text-[10px] text-[#8A9BB8] uppercase tracking-wide font-medium">Submissions this period</p>
+                  <p className="mt-1 text-sm font-medium text-[#0F1C3F]">
+                    {selected.submission_count}
+                    <span className="text-[10px] text-[#8A9BB8] font-normal ml-1">since {formatPeriodStart(selected.billing_period_start)}</span>
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between py-2 border-b border-[#EFE8D8]">
+                  <span className="text-[#6B7A99]">Last activity</span>
+                  <span className="text-[#0F1C3F] font-medium text-right">
+                    {selected.last_activity_at ? (
+                      <>
+                        {formatRelative(selected.last_activity_at)}
+                        <span className="block text-[10px] text-[#8A9BB8] font-normal">{formatDate(selected.last_activity_at)}</span>
+                      </>
+                    ) : "Never"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-[#EFE8D8]">
+                  <span className="text-[#6B7A99]">Account created</span>
+                  <span className="text-[#0F1C3F] font-medium">{formatDate(selected.created_at)}</span>
+                </div>
+                <div className="flex justify-between py-2 border-b border-[#EFE8D8]">
+                  <span className="text-[#6B7A99]">Account ID</span>
+                  <span className="text-[#0F1C3F] font-mono">{selected.id}</span>
+                </div>
+              </div>
+
+              {selected.stripe_customer_id && (
+                <a
+                  href={`https://dashboard.stripe.com/customers/${selected.stripe_customer_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-xs text-indigo-600 hover:text-indigo-800 transition-colors font-medium"
+                >
+                  <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                  View in Stripe Dashboard
+                </a>
+              )}
+            </div>
+          </div>
         </div>
       )}
-    </section>
+    </>
   );
 }
 
