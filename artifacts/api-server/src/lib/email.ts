@@ -2052,10 +2052,22 @@ export async function sendOrgAlertEmails(params: {
   heading:         string;
   bodyHtml:        string;
   emailSettings?:  OrgEmailSettings | null;
+  ctaUrl?:         string;
+  ctaText?:        string;
 }): Promise<void> {
   if (!params.recipientEmails.length) return;
 
   const orgName = params.orgName || "Docuplete";
+  const ctaBlock = params.ctaUrl
+    ? `<tr>
+          <td style="padding:0 32px 24px;">
+            <a href="${params.ctaUrl}"
+               style="display:inline-block;padding:10px 20px;background:#2563eb;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:4px;">
+              ${params.ctaText ?? "Upgrade Plan"}
+            </a>
+          </td>
+        </tr>`
+    : "";
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -2083,6 +2095,9 @@ export async function sendOrgAlertEmails(params: {
             </div>
           </td>
         </tr>
+
+        <!-- CTA -->
+        ${ctaBlock}
 
         <!-- Footer -->
         <tr>
@@ -2115,4 +2130,68 @@ export async function sendOrgAlertEmails(params: {
       logger.error({ err, to, subject: params.subject }, "[Email] sendOrgAlertEmails: failed to send to recipient");
     }
   }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function sendDataExportEmail(params: {
+  to:           string;
+  orgName:      string;
+  downloadLink: string;
+}): Promise<void> {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr>
+          <td style="padding:28px 28px 0;">
+            <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#111827;">Your data export is ready</p>
+            <p style="margin:0;font-size:13px;color:#6b7280;">Docuplete &middot; ${params.orgName}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 28px 28px;">
+            <p style="margin:0 0 16px;font-size:14px;color:#374151;line-height:1.6;">
+              The data export you requested for <strong>${params.orgName}</strong> is ready.
+              It includes your organization settings, team members, packages, and submission records.
+              Click the button below to download your data — the link is valid for 48 hours.
+            </p>
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="border-radius:8px;background:#111827;">
+                  <a href="${params.downloadLink}"
+                     style="display:inline-block;padding:10px 24px;font-family:Arial,sans-serif;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">
+                    Download export
+                  </a>
+                </td>
+              </tr>
+            </table>
+            <p style="margin:16px 0 0;font-size:12px;color:#9ca3af;">
+              If you didn&apos;t request this export, please contact your organization administrator immediately.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;">
+              Sent by Docuplete &middot; This export contains sensitive organization data &mdash; handle with care.
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  await sendEmail({
+    to:      params.to,
+    subject: `Your data export is ready — ${params.orgName}`,
+    html,
+  });
 }

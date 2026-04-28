@@ -8,7 +8,7 @@ import { extractBrandColors, isSafeUrl } from "../lib/brandColorExtractor";
 import { requireAdminRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
 import { brandColorRateLimit } from "../middleware/brandColorRateLimit";
-import { sendTeamInvitationEmail } from "../lib/email";
+import { sendTeamInvitationEmail, sendDataExportEmail } from "../lib/email";
 import { getPlanLimits } from "../lib/plans";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { isIpAllowed } from "../lib/cidr";
@@ -2082,5 +2082,307 @@ router.patch("/interview-defaults", requireAdminRole, async (req, res) => {
     res.status(500).json({ error: "Failed to update interview defaults" });
   }
 });
+
+// ── Data & Privacy settings ───────────────────────────────────────────────────
+
+router.get("/data-privacy", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT submission_retention_days, deletion_requested_at, deletion_requested_by
+         FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "Account not found" }); return; }
+    const row = rows[0] as Record<string, unknown>;
+    res.json({
+      submissionRetentionDays: row.submission_retention_days ?? null,
+      deletionRequestedAt:     row.deletion_requested_at ?? null,
+      deletionRequestedBy:     row.deletion_requested_by ?? null,
+    });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to get data privacy settings");
+    res.status(500).json({ error: "Failed to get data privacy settings" });
+  }
+});
+
+router.patch("/data-privacy", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as Record<string, unknown>;
+    const db = getDb();
+
+    let retentionDays: number | null = null;
+    if ("submissionRetentionDays" in body) {
+      if (body.submissionRetentionDays === null) {
+        retentionDays = null;
+      } else if (typeof body.submissionRetentionDays === "number" && body.submissionRetentionDays > 0) {
+        retentionDays = Math.floor(body.submissionRetentionDays);
+      } else {
+        res.status(400).json({ error: "submissionRetentionDays must be a positive integer or null." });
+        return;
+      }
+    }
+
+    const { rows } = await db.query(
+      `UPDATE accounts SET submission_retention_days = $1
+         WHERE id = $2 RETURNING submission_retention_days`,
+      [retentionDays, accountId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "Account not found" }); return; }
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const actorEmail  = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "data.update_retention",
+      resourceType: "org",
+      metadata: { submissionRetentionDays: retentionDays },
+    });
+
+    const row = rows[0] as Record<string, unknown>;
+    res.json({ submissionRetentionDays: row.submission_retention_days ?? null });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to update data privacy settings");
+    res.status(500).json({ error: "Failed to update data privacy settings" });
+  }
+});
+
+// ── Data export — durable job queue ──────────────────────────────────────────
+
+router.post("/data/request-export", requireAdminRole, async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const actorEmail  = await getActorEmail(accountId, clerkUserId);
+
+    if (!actorEmail) {
+      res.status(400).json({ error: "Could not determine your email address for export delivery." });
+      return;
+    }
+
+    const db    = getDb();
+    const token = randomUUID();
+    await db.query(
+      `INSERT INTO data_export_requests (account_id, requested_by, download_token, status)
+       VALUES ($1, $2, $3, 'pending')`,
+      [accountId, actorEmail, token],
+    );
+
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "data.export_requested",
+      resourceType: "org",
+    });
+
+    res.json({ success: true, message: "Export queued. You'll receive an email with a download link shortly." });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to queue data export");
+    res.status(500).json({ error: "Failed to queue data export" });
+  }
+});
+
+router.get("/data/download-export", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const token     = typeof req.query.token === "string" ? req.query.token : "";
+    if (!token) {
+      res.status(400).json({ error: "Missing export token." });
+      return;
+    }
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT id, account_id, export_json, expires_at, status FROM data_export_requests
+        WHERE download_token = $1`,
+      [token],
+    );
+    const row = rows[0] as Record<string, unknown> | undefined;
+    if (!row) {
+      res.status(404).json({ error: "Export not found or has expired." });
+      return;
+    }
+    if ((row.account_id as number) !== accountId) {
+      res.status(403).json({ error: "This export does not belong to your organization." });
+      return;
+    }
+    if (row.status !== "completed" || !row.export_json) {
+      res.status(202).json({ error: "Export is still being prepared. Please try again in a moment." });
+      return;
+    }
+    if (row.expires_at && new Date(row.expires_at as string) < new Date()) {
+      res.status(410).json({ error: "This export link has expired. Please request a new export." });
+      return;
+    }
+    const date = new Date().toISOString().slice(0, 10);
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="docuplete_export_${date}.json"`);
+    res.send(row.export_json as string);
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to serve data export download");
+    res.status(500).json({ error: "Failed to download export" });
+  }
+});
+
+// ── Account deletion ──────────────────────────────────────────────────────────
+
+router.post("/data/request-deletion", requireAdminRole, async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const body        = req.body as Record<string, unknown>;
+    const db          = getDb();
+
+    const { rows: orgRows } = await db.query(
+      `SELECT name FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!orgRows[0]) { res.status(404).json({ error: "Account not found" }); return; }
+    const orgName     = (orgRows[0] as Record<string, unknown>).name as string;
+
+    const confirmName = typeof body.confirmName === "string" ? body.confirmName.trim() : "";
+    if (confirmName !== orgName.trim()) {
+      res.status(400).json({ error: `Organization name does not match. Please type "${orgName}" exactly.` });
+      return;
+    }
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const actorEmail  = await getActorEmail(accountId, clerkUserId);
+
+    const { rows } = await db.query(
+      `UPDATE accounts
+          SET deletion_requested_at = NOW(), deletion_requested_by = $1
+        WHERE id = $2
+        RETURNING deletion_requested_at, deletion_requested_by`,
+      [actorEmail, accountId],
+    );
+    const row = rows[0] as Record<string, unknown>;
+
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "data.deletion_requested",
+      resourceType: "org",
+      metadata: { graceWindowDays: 7 },
+    });
+
+    res.json({
+      deletionRequestedAt: row.deletion_requested_at,
+      deletionRequestedBy: row.deletion_requested_by,
+      message: "Account deletion scheduled. You have 7 days to cancel before all data is permanently removed.",
+    });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to request account deletion");
+    res.status(500).json({ error: "Failed to request account deletion" });
+  }
+});
+
+router.delete("/data/cancel-deletion", requireAdminRole, async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const db          = getDb();
+
+    await db.query(
+      `UPDATE accounts
+          SET deletion_requested_at = NULL, deletion_requested_by = NULL
+        WHERE id = $1`,
+      [accountId],
+    );
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const actorEmail  = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "data.deletion_cancelled",
+      resourceType: "org",
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to cancel account deletion");
+    res.status(500).json({ error: "Failed to cancel account deletion" });
+  }
+});
+
+// ── Export request processor — polls DB every 60 s, generates JSON and emails link ──
+
+async function processExportRequests(): Promise<void> {
+  let db: ReturnType<typeof getDb>;
+  try { db = getDb(); } catch { return; }
+
+  const { rows } = await db.query<{
+    id: number;
+    account_id: number;
+    requested_by: string;
+    download_token: string;
+  }>(
+    `SELECT id, account_id, requested_by, download_token
+       FROM data_export_requests
+      WHERE status = 'pending'
+      ORDER BY requested_at ASC
+      LIMIT 5`,
+  );
+
+  for (const job of rows) {
+    try {
+      const [orgRes, teamRes, packagesRes, sessionsRes] = await Promise.all([
+        db.query(
+          `SELECT id, name, slug, plan_tier, email_sender_name, email_reply_to, email_footer,
+                  interview_link_expiry_days, interview_reminder_enabled, interview_reminder_days,
+                  interview_default_locale, submission_retention_days, created_at
+             FROM accounts WHERE id = $1`,
+          [job.account_id],
+        ),
+        db.query(
+          `SELECT email, role, status, created_at FROM account_users
+            WHERE account_id = $1 ORDER BY created_at`,
+          [job.account_id],
+        ),
+        db.query(
+          `SELECT id, name, status, created_at FROM docufill_packages
+            WHERE account_id = $1 ORDER BY created_at`,
+          [job.account_id],
+        ),
+        db.query(
+          `SELECT id, interview_token, status, respondent_email, created_at, submitted_at
+             FROM docufill_interview_sessions
+            WHERE account_id = $1 ORDER BY created_at DESC`,
+          [job.account_id],
+        ),
+      ]);
+
+      const exportJson = JSON.stringify({
+        exportedAt:  new Date().toISOString(),
+        org:         orgRes.rows[0] ?? null,
+        team:        teamRes.rows,
+        packages:    packagesRes.rows,
+        submissions: sessionsRes.rows,
+      }, null, 2);
+
+      await db.query(
+        `UPDATE data_export_requests
+            SET status = 'completed',
+                export_json = $1,
+                completed_at = NOW(),
+                expires_at = NOW() + INTERVAL '48 hours'
+          WHERE id = $2`,
+        [exportJson, job.id],
+      );
+
+      const frontendBase = process.env.FRONTEND_URL ?? "";
+      const downloadLink = `${frontendBase}/api/v1/product/settings/data/download-export?token=${job.download_token}`;
+      const orgName = (orgRes.rows[0] as Record<string, unknown>)?.name as string ?? "Your Organization";
+      await sendDataExportEmail({ to: job.requested_by, orgName, downloadLink });
+
+    } catch (err) {
+      logger.error({ err, jobId: job.id }, "[Settings] Export job processing failed");
+      await db.query(
+        `UPDATE data_export_requests SET status = 'failed' WHERE id = $1`,
+        [job.id],
+      ).catch(() => {});
+    }
+  }
+}
+
+setInterval(() => processExportRequests().catch(() => {}), 60 * 1000).unref();
+processExportRequests().catch(() => {});
 
 export default router;

@@ -1084,6 +1084,24 @@ export async function initDb(): Promise<void> {
       ON user_in_app_notifications (account_id, clerk_user_id, created_at DESC)
   `);
 
+  // ── Plan limit alert deduplication ───────────────────────────────────────────
+  // Tracks which threshold alerts have already been sent for a given account
+  // in a billing period so we never fire the same email twice.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS plan_limit_alerts (
+      id                   BIGSERIAL PRIMARY KEY,
+      account_id           INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      billing_period_start DATE    NOT NULL,
+      threshold_pct        INTEGER NOT NULL,
+      sent_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (account_id, billing_period_start, threshold_pct)
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS plan_limit_alerts_lookup_idx
+      ON plan_limit_alerts (account_id, billing_period_start)
+  `);
+
   // ── Org-level audit log ──────────────────────────────────────────────────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS org_audit_log (
@@ -1122,6 +1140,30 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS reminder_enabled BOOLEAN NOT NULL DEFAULT false`);
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS reminder_days INTEGER NOT NULL DEFAULT 2`);
 
+  // ── Data & Privacy — submission retention and scheduled account deletion ──────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS submission_retention_days INTEGER`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deletion_requested_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deletion_requested_by TEXT`);
+
+  // ── Data export requests — durable job queue for org data exports ─────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS data_export_requests (
+      id             SERIAL PRIMARY KEY,
+      account_id     INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      requested_by   TEXT NOT NULL,
+      requested_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      download_token TEXT UNIQUE NOT NULL,
+      status         TEXT NOT NULL DEFAULT 'pending',
+      export_json    TEXT,
+      completed_at   TIMESTAMPTZ,
+      expires_at     TIMESTAMPTZ
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS data_export_requests_status_idx
+      ON data_export_requests (status, requested_at)
+  `);
+
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 
@@ -1145,6 +1187,75 @@ export async function initDb(): Promise<void> {
 
   pruneAuditTables().catch(() => {});
   setInterval(() => pruneAuditTables().catch(() => {}), 24 * 60 * 60 * 1000).unref();
+
+  // ── Submission retention: delete sessions older than the account's policy ─────
+  async function pruneRetainedSubmissions(): Promise<void> {
+    try {
+      const retentionDb = getDb();
+      const { rowCount } = await retentionDb.query(`
+        DELETE FROM docufill_interview_sessions dis
+        USING accounts a
+        WHERE dis.account_id = a.id
+          AND a.submission_retention_days IS NOT NULL
+          AND dis.created_at < NOW() - (a.submission_retention_days || ' days')::INTERVAL
+      `);
+      if ((rowCount ?? 0) > 0) {
+        logger.info({ rowCount }, "[DB] Pruned old interview sessions per retention policy");
+      }
+    } catch (err) {
+      logger.error({ err }, "[DB] Submission retention prune failed (non-fatal)");
+    }
+  }
+
+  pruneRetainedSubmissions().catch(() => {});
+  setInterval(() => pruneRetainedSubmissions().catch(() => {}), 24 * 60 * 60 * 1000).unref();
+
+  // ── Account deletion: hard-delete accounts past their 7-day grace period ──────
+  // Uses explicit ordered deletes inside a transaction to avoid FK violations on
+  // tables that do NOT have ON DELETE CASCADE on their account_id foreign key
+  // (docufill_custodians, docufill_depositories, docufill_groups, docufill_packages,
+  // and docufill_interview_sessions all have account_id without CASCADE).
+  async function processScheduledDeletions(): Promise<void> {
+    try {
+      const delDb = getDb();
+      const { rows } = await delDb.query<{ id: number; name: string }>(
+        `SELECT id, name FROM accounts
+         WHERE deletion_requested_at IS NOT NULL
+           AND deletion_requested_at < NOW() - INTERVAL '7 days'`,
+      );
+      for (const account of rows) {
+        const client = await delDb.connect();
+        try {
+          await client.query("BEGIN");
+          // 1. Null-out account_id on global reference tables that lack CASCADE
+          await client.query(`UPDATE docufill_custodians  SET account_id = NULL WHERE account_id = $1`, [account.id]);
+          await client.query(`UPDATE docufill_depositories SET account_id = NULL WHERE account_id = $1`, [account.id]);
+          // 2. Delete interview sessions (account_id FK lacks CASCADE on accounts)
+          await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
+          // 3. Delete packages (cascades: sessions via package_id, webhook_deliveries, package_documents)
+          await client.query(`DELETE FROM docufill_packages WHERE account_id = $1`, [account.id]);
+          // 4. Delete groups (account_id FK lacks CASCADE)
+          await client.query(`DELETE FROM docufill_groups   WHERE account_id = $1`, [account.id]);
+          // 5. Delete the account — remaining tables (account_users, usage_events, api_keys,
+          //    audit_log, notification_prefs, plan_limit_alerts, data_export_requests, etc.)
+          //    all have ON DELETE CASCADE and will be handled automatically.
+          await client.query(`DELETE FROM accounts WHERE id = $1`, [account.id]);
+          await client.query("COMMIT");
+          logger.info({ accountId: account.id, name: account.name }, "[DB] Hard-deleted account after grace period");
+        } catch (deleteErr) {
+          await client.query("ROLLBACK");
+          logger.error({ err: deleteErr, accountId: account.id }, "[DB] Account hard-delete failed, rolled back");
+        } finally {
+          client.release();
+        }
+      }
+    } catch (err) {
+      logger.error({ err }, "[DB] Account deletion processing failed (non-fatal)");
+    }
+  }
+
+  processScheduledDeletions().catch(() => {});
+  setInterval(() => processScheduledDeletions().catch(() => {}), 6 * 60 * 60 * 1000).unref();
 }
 
 /**
