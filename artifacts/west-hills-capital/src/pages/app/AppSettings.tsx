@@ -107,9 +107,13 @@ function UsageBar({ label, used, limit, unit = "" }: { label: string; used: numb
     <div className="mb-3 last:mb-0">
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs text-gray-600">{label}</span>
-        <span className={`text-xs font-medium ${isOver ? "text-red-600" : "text-gray-700"}`}>
-          {limit === null ? `${used.toLocaleString()} / ∞` : `${used.toLocaleString()} / ${limit.toLocaleString()}${unit}`}
-        </span>
+        {limit === null ? (
+          <span className="text-xs font-medium text-gray-500 italic">Unlimited</span>
+        ) : (
+          <span className={`text-xs font-medium ${isOver ? "text-red-600" : "text-gray-700"}`}>
+            {`${used.toLocaleString()} / ${limit.toLocaleString()}${unit}`}
+          </span>
+        )}
       </div>
       {limit !== null && (
         <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
@@ -902,10 +906,15 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
   const [copied, setCopied] = useState(false);
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
+  const [renamingId, setRenamingId] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [isSavingRename, setIsSavingRename] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   function loadKeys() {
     setIsLoadingKeys(true);
     setKeysError(null);
+    setRenameError(null);
     fetch(`${AUTH_BASE}/api-keys`, { headers: authHeaders() })
       .then(async (r) => {
         const data = await r.json() as { keys?: ApiKey[]; error?: string };
@@ -976,6 +985,43 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
       setTimeout(() => setCopied(false), 2000);
     } catch {
       /* ignore */
+    }
+  }
+
+  function startRename(key: ApiKey) {
+    setRenamingId(key.id);
+    setRenameValue(key.name);
+    setRenameError(null);
+    setConfirmRevokeId(null);
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setRenameValue("");
+    setRenameError(null);
+  }
+
+  async function handleRename(id: number) {
+    const trimmed = renameValue.trim();
+    if (!trimmed) { setRenameError("Name is required."); return; }
+    if (trimmed.length > 100) { setRenameError("Name must be 100 characters or fewer."); return; }
+    setRenameError(null);
+    setIsSavingRename(true);
+    try {
+      const res = await fetch(`${AUTH_BASE}/api-keys/${id}`, {
+        method: "PATCH",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const data = await res.json() as { success?: boolean; id?: number; name?: string; error?: string };
+      if (!res.ok) { setRenameError(data.error ?? "Failed to rename key."); return; }
+      setRenamingId(null);
+      setRenameValue("");
+      loadKeys();
+    } catch {
+      setRenameError("Failed to rename key.");
+    } finally {
+      setIsSavingRename(false);
     }
   }
 
@@ -1064,52 +1110,102 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
         ) : (
           <div className="divide-y divide-gray-100 -mx-6">
             {activeKeys.map((key) => (
-              <div key={key.id} className="flex items-center justify-between gap-4 px-6 py-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-gray-900 truncate">{key.name}</p>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="shrink-0 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-medium text-blue-700 cursor-default">Full Access</span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-xs">Grants full API access: read live pricing data, submit interview sessions, and manage DocuFill packages programmatically.</TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    <code className="font-mono">{key.keyPrefix}…</code>
-                    {" · "}
-                    Created {formatDate(key.createdAt)}
-                    {" · "}
-                    Last used: {key.lastUsedAt ? formatRelative(key.lastUsedAt) : "Never"}
-                  </p>
-                </div>
-                {confirmRevokeId === key.id ? (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-gray-600">Revoke this key?</span>
-                    <button
-                      type="button"
-                      disabled={revokingId === key.id}
-                      onClick={() => { void handleRevoke(key.id); }}
-                      className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60 transition-colors"
-                    >
-                      {revokingId === key.id ? "Revoking…" : "Yes, revoke"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmRevokeId(null)}
-                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
+              <div key={key.id} className="px-6 py-3">
+                {renamingId === key.id ? (
+                  /* ── Inline rename mode ── */
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => { setRenameValue(e.target.value); setRenameError(null); }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void handleRename(key.id);
+                          if (e.key === "Escape") cancelRename();
+                        }}
+                        maxLength={100}
+                        autoFocus
+                        className="flex-1 min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                      />
+                      <button
+                        type="button"
+                        disabled={isSavingRename}
+                        onClick={() => { void handleRename(key.id); }}
+                        className="shrink-0 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                      >
+                        {isSavingRename ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelRename}
+                        className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {renameError && (
+                      <p className="text-xs text-red-600">{renameError}</p>
+                    )}
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmRevokeId(key.id)}
-                    className="shrink-0 text-xs text-gray-400 hover:text-red-600 transition-colors"
-                  >
-                    Revoke
-                  </button>
+                  /* ── Normal display mode ── */
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-gray-900 truncate">{key.name}</p>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="shrink-0 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-medium text-blue-700 cursor-default">Full Access</span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">Grants full API access: read live pricing data, submit interview sessions, and manage DocuFill packages programmatically.</TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        <code className="font-mono">{key.keyPrefix}…</code>
+                        {" · "}
+                        Created {formatDate(key.createdAt)}
+                        {" · "}
+                        Last used: {key.lastUsedAt ? formatRelative(key.lastUsedAt) : "Never"}
+                      </p>
+                    </div>
+                    {confirmRevokeId === key.id ? (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-gray-600">Revoke this key?</span>
+                        <button
+                          type="button"
+                          disabled={revokingId === key.id}
+                          onClick={() => { void handleRevoke(key.id); }}
+                          className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60 transition-colors"
+                        >
+                          {revokingId === key.id ? "Revoking…" : "Yes, revoke"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmRevokeId(null)}
+                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => startRename(key)}
+                          className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
+                        >
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmRevokeId(key.id)}
+                          className="text-xs text-gray-400 hover:text-red-600 transition-colors"
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             ))}
@@ -1153,17 +1249,33 @@ export default function AppSettings() {
   const [brandColor, setBrandColor] = useState("#C49A38");
   const [displayLogoUrl, setDisplayLogoUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSaving, setIsSaving] = useState(false);
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
-  const [statusMsg, setStatusMsg] = useState("");
+  const [isDraggingLogo, setIsDraggingLogo] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [nameSaved, setNameSaved] = useState(false);
+  const [logoSaved, setLogoSaved] = useState(false);
+  const [colorSaved, setColorSaved] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
-  const statusTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nameEdited = useRef(false);
+  const nameSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const logoSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const colorSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function flashStatus(msg: string) {
-    setStatusMsg(msg);
-    if (statusTimer.current) clearTimeout(statusTimer.current);
-    statusTimer.current = setTimeout(() => setStatusMsg(""), 3000);
+  function flashFieldSaved(field: "name" | "logo" | "color") {
+    if (field === "name") {
+      setNameSaved(true);
+      if (nameSavedTimer.current) clearTimeout(nameSavedTimer.current);
+      nameSavedTimer.current = setTimeout(() => setNameSaved(false), 3000);
+    } else if (field === "logo") {
+      setLogoSaved(true);
+      if (logoSavedTimer.current) clearTimeout(logoSavedTimer.current);
+      logoSavedTimer.current = setTimeout(() => setLogoSaved(false), 3000);
+    } else {
+      setColorSaved(true);
+      if (colorSavedTimer.current) clearTimeout(colorSavedTimer.current);
+      colorSavedTimer.current = setTimeout(() => setColorSaved(false), 3000);
+    }
   }
 
   function applyOrg(data: ProductOrgSettings) {
@@ -1186,9 +1298,27 @@ export default function AppSettings() {
       .finally(() => setIsLoading(false));
   }, []);
 
-  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Auto-save name with 700ms debounce — only fires when user has edited the field
+  useEffect(() => {
+    if (!nameEdited.current || !org) return;
+    if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
+    nameDebounceRef.current = setTimeout(async () => {
+      if (!name.trim()) return;
+      try {
+        const res = await fetch(`${SETTINGS_BASE}/org`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify({ name: name.trim() }),
+        });
+        const data = await res.json() as { org?: ProductOrgSettings; error?: string };
+        if (!res.ok) { setErrorMsg(data.error ?? "Failed to save name"); return; }
+        if (data.org) { applyOrg(data.org); setErrorMsg(null); }
+        flashFieldSaved("name");
+      } catch { setErrorMsg("Failed to save name."); }
+    }, 700);
+  }, [name]);
+
+  async function uploadLogoFile(file: File) {
     if (!["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(file.type)) {
       setErrorMsg("Please upload a PNG, JPG, or WebP image.");
       return;
@@ -1208,13 +1338,36 @@ export default function AppSettings() {
       const data = await res.json() as { org?: ProductOrgSettings; error?: string };
       if (!res.ok) { setErrorMsg(data.error ?? "Logo upload failed."); return; }
       if (data.org) applyOrg(data.org);
-      flashStatus("Logo saved.");
+      flashFieldSaved("logo");
     } catch {
       setErrorMsg("Logo upload failed. Please try again.");
     } finally {
       setIsUploadingLogo(false);
       if (logoInputRef.current) logoInputRef.current.value = "";
     }
+  }
+
+  async function handleLogoChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadLogoFile(file);
+  }
+
+  function handleLogoDragOver(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDraggingLogo(true);
+  }
+
+  function handleLogoDragLeave() {
+    setIsDraggingLogo(false);
+  }
+
+  async function handleLogoDrop(e: React.DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setIsDraggingLogo(false);
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    await uploadLogoFile(file);
   }
 
   async function handleRemoveLogo() {
@@ -1228,31 +1381,9 @@ export default function AppSettings() {
       const data = await res.json() as { org?: ProductOrgSettings; error?: string };
       if (!res.ok) { setErrorMsg(data.error ?? "Failed to remove logo"); return; }
       if (data.org) applyOrg(data.org);
-      flashStatus("Logo removed.");
+      setLogoSaved(false);
     } catch {
       setErrorMsg("Failed to remove logo.");
-    }
-  }
-
-  async function handleSave() {
-    if (!org) return;
-    if (!name.trim()) { setErrorMsg("Organization name is required."); return; }
-    setErrorMsg(null);
-    setIsSaving(true);
-    try {
-      const res = await fetch(`${SETTINGS_BASE}/org`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ name: name.trim(), brandColor }),
-      });
-      const data = await res.json() as { org?: ProductOrgSettings; error?: string };
-      if (!res.ok) { setErrorMsg(data.error ?? "Failed to save settings"); return; }
-      if (data.org) applyOrg(data.org);
-      flashStatus("Settings saved.");
-    } catch {
-      setErrorMsg("Failed to save settings.");
-    } finally {
-      setIsSaving(false);
     }
   }
 
@@ -1267,7 +1398,7 @@ export default function AppSettings() {
       const data = await res.json() as { org?: ProductOrgSettings; error?: string };
       if (!res.ok) { setErrorMsg(data.error ?? "Failed to save color"); return; }
       if (data.org) applyOrg(data.org);
-      flashStatus("Brand color saved.");
+      flashFieldSaved("color");
     } catch {
       setErrorMsg("Failed to save brand color.");
     }
@@ -1284,22 +1415,9 @@ export default function AppSettings() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-10 space-y-8">
       {/* Page header */}
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
-          <p className="text-sm text-gray-500 mt-0.5">Manage your organization's branding.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {statusMsg && <span className="text-xs text-green-700 font-medium">{statusMsg}</span>}
-          <button
-            type="button"
-            onClick={() => { void handleSave(); }}
-            disabled={isSaving}
-            className="text-sm font-medium bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-60 rounded-lg px-4 py-2 transition-colors"
-          >
-            {isSaving ? "Saving…" : "Save"}
-          </button>
-        </div>
+      <div>
+        <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Manage your organization's branding and preferences.</p>
       </div>
 
       {errorMsg && (
@@ -1329,61 +1447,105 @@ export default function AppSettings() {
         </div>
 
         {/* Name */}
-        <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="w-44 shrink-0">
-            <label className="text-sm font-medium text-gray-900" htmlFor="org-name">Company name</label>
-            <p className="text-xs text-gray-400 mt-0.5">Shown in form headers</p>
+        <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-start gap-4">
+          <div className="w-44 shrink-0 pt-0.5">
+            <label className="text-sm font-medium text-gray-900" htmlFor="org-name">Organization name</label>
+            <p className="text-xs text-gray-400 mt-0.5">Shown on customer forms and emails</p>
           </div>
-          <input
-            id="org-name"
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Your company name"
-            className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
-          />
+          <div className="flex-1 flex flex-col gap-1">
+            <input
+              id="org-name"
+              type="text"
+              value={name}
+              onChange={(e) => { nameEdited.current = true; setName(e.target.value); }}
+              placeholder="Your organization name"
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 w-full"
+            />
+            {nameSaved && (
+              <span className="text-[11px] text-green-600 font-medium">✓ Saved</span>
+            )}
+          </div>
         </div>
 
         {/* Logo */}
         <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-start gap-4">
-          <div className="w-44 shrink-0">
+          <div className="w-44 shrink-0 pt-0.5">
             <label className="text-sm font-medium text-gray-900">Logo</label>
-            <p className="text-xs text-gray-400 mt-0.5">PNG, JPG, or WebP — max 5 MB. Saved immediately on upload.</p>
+            <p className="text-xs text-gray-400 mt-0.5">PNG, JPG, or WebP — max 5 MB</p>
           </div>
-          <div className="flex-1 flex items-center gap-4">
-            <div className="w-16 h-16 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center shrink-0 overflow-hidden">
-              {displayLogoUrl ? (
-                <img src={displayLogoUrl} alt="Logo" className="w-full h-full object-contain" />
+          <div className="flex-1 flex flex-col gap-2">
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp"
+              className="hidden"
+              onChange={handleLogoChange}
+            />
+            {/* Drop / click zone */}
+            <div
+              role="button"
+              tabIndex={0}
+              aria-label={displayLogoUrl ? "Click or drop to replace logo" : "Click or drop to upload logo"}
+              onClick={() => !isUploadingLogo && logoInputRef.current?.click()}
+              onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !isUploadingLogo) logoInputRef.current?.click(); }}
+              onDragOver={handleLogoDragOver}
+              onDragLeave={handleLogoDragLeave}
+              onDrop={(e) => { void handleLogoDrop(e); }}
+              className={[
+                "relative flex items-center justify-center rounded-xl border-2 transition-colors cursor-pointer select-none overflow-hidden",
+                "bg-white",
+                isDraggingLogo
+                  ? "border-gray-900 bg-gray-50"
+                  : displayLogoUrl
+                    ? "border-gray-200 hover:border-gray-300"
+                    : "border-dashed border-gray-200 hover:border-gray-400",
+              ].join(" ")}
+              style={{ minHeight: "80px", minWidth: "160px" }}
+            >
+              {isUploadingLogo ? (
+                <div className="flex items-center gap-2 px-4 py-4">
+                  <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin shrink-0" />
+                  <span className="text-xs text-gray-500">Uploading…</span>
+                </div>
+              ) : displayLogoUrl ? (
+                <img
+                  src={displayLogoUrl}
+                  alt="Logo"
+                  className="object-contain p-3"
+                  style={{ maxHeight: "80px", maxWidth: "220px" }}
+                />
               ) : (
-                <svg className="w-8 h-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                </svg>
+                <div className="flex flex-col items-center gap-1.5 px-4 py-4 text-center pointer-events-none">
+                  <svg className="w-7 h-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <span className="text-xs font-medium text-gray-500">Click or drag to upload</span>
+                  <span className="text-[10px] text-gray-400">PNG, JPG, WebP · max 5 MB</span>
+                </div>
               )}
             </div>
-            <div className="flex flex-col gap-2">
-              <input
-                ref={logoInputRef}
-                type="file"
-                accept="image/png,image/jpeg,image/jpg,image/webp"
-                className="hidden"
-                onChange={handleLogoChange}
-              />
-              <button
-                type="button"
-                disabled={isUploadingLogo}
-                onClick={() => logoInputRef.current?.click()}
-                className="text-sm rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-900 hover:bg-gray-50 disabled:opacity-60 transition-colors"
-              >
-                {isUploadingLogo ? "Uploading…" : displayLogoUrl ? "Replace logo" : "Upload logo"}
-              </button>
+            <div className="flex items-center gap-3">
               {displayLogoUrl && (
-                <button
-                  type="button"
-                  onClick={() => { void handleRemoveLogo(); }}
-                  className="text-xs text-gray-400 hover:text-red-500 transition-colors text-left"
-                >
-                  Remove logo
-                </button>
+                <>
+                  <button
+                    type="button"
+                    disabled={isUploadingLogo}
+                    onClick={() => logoInputRef.current?.click()}
+                    className="text-xs rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
+                  >
+                    Replace
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { void handleRemoveLogo(); }}
+                    className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
+              {logoSaved && (
+                <span className="text-[11px] text-green-600 font-medium">✓ Saved</span>
               )}
             </div>
           </div>
@@ -1391,9 +1553,12 @@ export default function AppSettings() {
 
         {/* Brand color */}
         <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-start gap-4">
-          <div className="w-44 shrink-0">
-            <label className="text-sm font-medium text-gray-900" htmlFor="brand-color">Accent color</label>
+          <div className="w-44 shrink-0 pt-0.5">
+            <label className="text-sm font-medium text-gray-900" htmlFor="brand-color">Brand color</label>
             <p className="text-xs text-gray-400 mt-0.5">Used in buttons and highlights</p>
+            {colorSaved && (
+              <span className="text-[11px] text-green-600 font-medium mt-1 block">✓ Saved</span>
+            )}
           </div>
           <div className="flex-1">
             <BrandColorSection
