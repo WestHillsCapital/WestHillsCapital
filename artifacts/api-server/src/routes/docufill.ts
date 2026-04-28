@@ -306,6 +306,50 @@ function signWebhookPayload(secret: string, body: string): string {
   return "sha256=" + createHmac("sha256", secret).update(body).digest("hex");
 }
 
+/**
+ * Probe a webhook URL to verify it is reachable and returns 2xx.
+ * This is a lightweight pre-save check — no DB side effects.
+ *
+ * When a `webhookSecret` is supplied the probe payload is signed with
+ * `X-Docuplete-Signature` (same header/algorithm as live deliveries)
+ * so that webhook servers enforcing signature verification are not
+ * incorrectly treated as broken.
+ *
+ * Returns `{ ok: true }` on success or `{ ok: false, reason: string }` on failure.
+ */
+async function probeWebhookUrl(
+  url: string,
+  webhookSecret?: string | null,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const probe: Record<string, unknown> = {
+    event: "interview.probe",
+    message: "Connectivity check — this is not a real submission.",
+    timestamp: new Date().toISOString(),
+  };
+  const body = JSON.stringify(probe);
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (webhookSecret) {
+    headers["X-Docuplete-Signature"] = signWebhookPayload(webhookSecret, body);
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 10_000);
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      body,
+      signal: controller.signal,
+    });
+    if (res.ok) return { ok: true };
+    return { ok: false, reason: `Webhook URL responded with HTTP ${res.status}. Expected a 2xx response.` };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, reason: `Could not reach webhook URL: ${msg}` };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Delays (ms) between delivery attempts: immediate, +5s, +30s, +5min. */
 const WEBHOOK_RETRY_DELAYS_MS = [5_000, 30_000, 5 * 60_000];
 
@@ -1670,8 +1714,28 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
       return;
     }
     const accountId = acctId(req);
-    const db = getDb();
+
+    // Generate the webhook secret before probing so the probe can be signed.
+    // The same secret is persisted only if the probe succeeds (or no URL is given).
+    // This mirrors live delivery semantics — signed probes prevent false failures
+    // on webhook endpoints that enforce HMAC signature verification.
     const webhookSecret = randomBytes(32).toString("hex");
+
+    // Validate webhook URL reachability when one is supplied at creation time.
+    if (body.webhookUrl !== undefined && body.webhookUrl) {
+      const probeUrl = parseWebhookUrl(body.webhookUrl);
+      if (!probeUrl) {
+        res.status(422).json({ error: "Invalid webhook URL: must be a valid http or https URL." });
+        return;
+      }
+      const probe = await probeWebhookUrl(probeUrl, webhookSecret);
+      if (!probe.ok) {
+        res.status(422).json({ error: probe.reason });
+        return;
+      }
+    }
+
+    const db = getDb();
     const incomingGroupIds = parseGroupIds(body.groupIds, body.groupId);
     const groupValidationError = await validateGroupIds(db, incomingGroupIds, accountId);
     if (groupValidationError) { res.status(400).json({ error: groupValidationError }); return; }
@@ -1741,6 +1805,24 @@ router.patch("/packages/:id", async (req, res) => {
       ? (incomingGroupIds[0] ?? null)
       : (existing.group_id as number | null ?? null);
     const name = cleanText(body.name) || String(existing.name ?? "");
+
+    // Validate reachability when the caller is explicitly setting a new webhook URL.
+    // The probe is signed with the package's existing webhook_secret so that
+    // endpoints enforcing signature verification are not incorrectly rejected.
+    if (body.webhookUrl !== undefined && body.webhookUrl) {
+      const probeUrl = parseWebhookUrl(body.webhookUrl);
+      if (!probeUrl) {
+        res.status(422).json({ error: "Invalid webhook URL: must be a valid http or https URL." });
+        return;
+      }
+      const existingSecret = typeof existing.webhook_secret === "string" ? existing.webhook_secret : null;
+      const probe = await probeWebhookUrl(probeUrl, existingSecret);
+      if (!probe.ok) {
+        res.status(422).json({ error: probe.reason });
+        return;
+      }
+    }
+
     const incomingDocuments = body.documents === undefined ? null : parseDocuments(body.documents);
     const removedStoredDocumentIds = incomingDocuments
       ? parseDocuments(existing.documents)

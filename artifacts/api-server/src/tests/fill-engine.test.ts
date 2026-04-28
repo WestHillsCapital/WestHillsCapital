@@ -12,11 +12,15 @@
  * 4. End-to-end smoke test — creates an org, package, and session using only
  *    HTTP API endpoints (POST /sessions → PATCH /sessions/:token → generate),
  *    then confirms a webhook_deliveries row is recorded within 5 seconds.
+ * 5. Webhook URL pre-save validation — verifies that PATCH /packages/:id rejects
+ *    unreachable or non-2xx webhook URLs before writing, using a local stub server
+ *    to control the probe response.
  */
 
 import { describe, it, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
+import http from "node:http";
 import supertest from "supertest";
 import express from "express";
 import { Pool } from "pg";
@@ -625,6 +629,255 @@ describe("Fill engine – DB-backed tests (extreme values + E2E smoke)", () => {
     assert.ok(
       deliveryFound,
       "Expected a webhook_deliveries row to be recorded within 5 seconds of generate",
+    );
+  });
+});
+
+// ── 5. Webhook URL pre-save validation ────────────────────────────────────────
+//
+// Verifies that PATCH /packages/:id rejects unreachable or non-2xx webhook URLs
+// before writing to the database, and accepts URLs that return 2xx.
+
+describe("Fill engine – webhook URL pre-save validation", () => {
+  let pool: Pool;
+  let accountId: number;
+  let packageId: number;
+  let app: ReturnType<typeof buildTestApp>;
+  // Tiny HTTP server spun up for each test to control the probe response.
+  let stubServer: http.Server;
+  let stubPort: number;
+
+  before(async () => {
+    const url = process.env["DATABASE_URL"];
+    if (!url) {
+      throw new Error("DATABASE_URL must be set to run webhook validation tests");
+    }
+    pool = new Pool({ connectionString: url, max: 3 });
+
+    const suffix = Date.now().toString(36) + "v";
+
+    const { rows: [acctRow] } = await pool.query<{ id: number }>(
+      `INSERT INTO accounts (name, slug, plan_tier, seat_limit)
+       VALUES ($1, $2, 'enterprise', 999)
+       RETURNING id`,
+      [`_Test WebhookValidation ${suffix}`, `_test-wh-val-${suffix}`],
+    );
+    accountId = acctRow.id;
+    app = buildTestApp(accountId);
+
+    const { rows: [pkgRow] } = await pool.query<{ id: number }>(
+      `INSERT INTO docufill_packages
+         (name, account_id, status, transaction_scope, documents, fields, mappings, webhook_secret)
+       VALUES ('Webhook Validation Test', $1, 'active', 'ira_transfer',
+               '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, $2)
+       RETURNING id`,
+      [accountId, randomBytes(32).toString("hex")],
+    );
+    packageId = pkgRow.id;
+  });
+
+  after(async () => {
+    if (!pool) return;
+    if (stubServer?.listening) await new Promise<void>((resolve) => stubServer.close(() => resolve()));
+    await pool.query(`DELETE FROM docufill_packages WHERE account_id = $1`, [accountId]);
+    await pool.query(`DELETE FROM accounts WHERE id = $1`, [accountId]);
+    await pool.end();
+  });
+
+  /** Start (or restart) the stub server with the given status code handler. */
+  async function startStub(statusCode: number): Promise<string> {
+    if (stubServer?.listening) {
+      await new Promise<void>((resolve) => stubServer.close(() => resolve()));
+    }
+    stubServer = http.createServer((_req, res) => {
+      res.writeHead(statusCode, { "Content-Type": "text/plain" });
+      res.end(statusCode < 300 ? "ok" : "error");
+    });
+    await new Promise<void>((resolve, reject) => {
+      stubServer.listen(0, "127.0.0.1", () => {
+        const addr = stubServer.address();
+        if (!addr || typeof addr === "string") return reject(new Error("unexpected address"));
+        stubPort = addr.port;
+        resolve();
+      });
+    });
+    return `http://127.0.0.1:${stubPort}/hook`;
+  }
+
+  it("PATCH with unreachable webhook URL returns 422", async () => {
+    // Port 1 is reserved and not listening — guaranteed ECONNREFUSED.
+    const res = await supertest(app)
+      .patch(`/packages/${packageId}`)
+      .send({ webhookUrl: "http://127.0.0.1:1/unreachable" });
+
+    assert.equal(
+      res.status,
+      422,
+      `Expected 422 for unreachable URL, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+    assert.ok(
+      typeof res.body.error === "string" && res.body.error.length > 0,
+      "Response should include a descriptive error message",
+    );
+  });
+
+  it("PATCH with webhook URL returning non-2xx returns 422", async () => {
+    const hookUrl = await startStub(500);
+
+    const res = await supertest(app)
+      .patch(`/packages/${packageId}`)
+      .send({ webhookUrl: hookUrl });
+
+    assert.equal(
+      res.status,
+      422,
+      `Expected 422 for non-2xx URL, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+    assert.ok(
+      typeof res.body.error === "string" && res.body.error.includes("500"),
+      `Error message should mention the HTTP status code; got: ${res.body.error}`,
+    );
+  });
+
+  it("PATCH with reachable 2xx webhook URL saves successfully", async () => {
+    const hookUrl = await startStub(200);
+
+    const res = await supertest(app)
+      .patch(`/packages/${packageId}`)
+      .send({ webhookUrl: hookUrl, webhookEnabled: true });
+
+    assert.equal(
+      res.status,
+      200,
+      `Expected 200 for reachable URL, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+    assert.ok(res.body.package, "Response should include the updated package");
+
+    // Confirm the URL was actually persisted
+    const { rows: [row] } = await pool.query<{ webhook_url: string }>(
+      `SELECT webhook_url FROM docufill_packages WHERE id = $1`,
+      [packageId],
+    );
+    assert.equal(row.webhook_url, hookUrl, "Webhook URL should be persisted in DB");
+  });
+
+  it("PATCH without webhookUrl field skips validation and succeeds", async () => {
+    const res = await supertest(app)
+      .patch(`/packages/${packageId}`)
+      .send({ name: "Updated Name Only" });
+
+    assert.equal(
+      res.status,
+      200,
+      `Expected 200 when webhookUrl is not in body, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+  });
+
+  it("PATCH with null webhookUrl clears the URL without probing", async () => {
+    const res = await supertest(app)
+      .patch(`/packages/${packageId}`)
+      .send({ webhookUrl: null });
+
+    assert.equal(
+      res.status,
+      200,
+      `Expected 200 when clearing webhookUrl, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+    const { rows: [row] } = await pool.query<{ webhook_url: string | null }>(
+      `SELECT webhook_url FROM docufill_packages WHERE id = $1`,
+      [packageId],
+    );
+    assert.equal(row.webhook_url, null, "Webhook URL should be cleared to null");
+  });
+
+  it("PATCH with malformed webhook URL returns 422 without probing", async () => {
+    const res = await supertest(app)
+      .patch(`/packages/${packageId}`)
+      .send({ webhookUrl: "not-a-url-at-all" });
+
+    assert.equal(
+      res.status,
+      422,
+      `Expected 422 for malformed URL, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+    assert.ok(
+      typeof res.body.error === "string" && res.body.error.length > 0,
+      "Response should include a descriptive error message",
+    );
+  });
+
+  it("POST /packages with unreachable webhook URL returns 422 without creating the package", async () => {
+    const countBefore = (await pool.query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM docufill_packages WHERE account_id = $1`,
+      [accountId],
+    )).rows[0].count;
+
+    const res = await supertest(app)
+      .post("/packages")
+      .send({ name: "Probe Test Package", webhookUrl: "http://127.0.0.1:1/unreachable", webhookEnabled: true });
+
+    assert.equal(
+      res.status,
+      422,
+      `Expected 422 for POST with unreachable URL, got ${res.status}: ${JSON.stringify(res.body)}`,
+    );
+
+    const countAfter = (await pool.query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM docufill_packages WHERE account_id = $1`,
+      [accountId],
+    )).rows[0].count;
+    assert.equal(countAfter, countBefore, "No new package should be created when probe fails");
+  });
+
+  it("PATCH probe includes a valid HMAC signature that matches the package secret", async () => {
+    const { createHmac } = await import("node:crypto");
+
+    // Fetch the package's webhook_secret so we can recompute the expected signature.
+    const { rows: [pkgRow] } = await pool.query<{ webhook_secret: string }>(
+      `SELECT webhook_secret FROM docufill_packages WHERE id = $1`,
+      [packageId],
+    );
+    const secret = pkgRow.webhook_secret;
+
+    let receivedSig: string | undefined;
+    let receivedBody: string | undefined;
+
+    // Stub server that captures the raw body and signature header, then returns 200.
+    const hookUrl = await startStub(200);
+    stubServer.removeAllListeners("request");
+    stubServer.on("request", (req, res) => {
+      receivedSig = req.headers["x-docuplete-signature"] as string | undefined;
+      const chunks: Buffer[] = [];
+      req.on("data", (chunk: Buffer) => chunks.push(chunk));
+      req.on("end", () => {
+        receivedBody = Buffer.concat(chunks).toString("utf8");
+        res.writeHead(200, { "Content-Type": "text/plain" });
+        res.end("ok");
+      });
+    });
+
+    const patchRes = await supertest(app)
+      .patch(`/packages/${packageId}`)
+      .send({ webhookUrl: hookUrl, webhookEnabled: true });
+
+    assert.equal(
+      patchRes.status,
+      200,
+      `Expected 200 for signature-checking stub, got ${patchRes.status}: ${JSON.stringify(patchRes.body)}`,
+    );
+
+    assert.ok(
+      typeof receivedSig === "string" && receivedSig.startsWith("sha256="),
+      `Expected X-Docuplete-Signature header with 'sha256=' prefix, got: ${receivedSig}`,
+    );
+    assert.ok(typeof receivedBody === "string" && receivedBody.length > 0, "Probe body must be non-empty");
+
+    // Compute the expected signature from the captured body and the known secret.
+    const expectedSig = "sha256=" + createHmac("sha256", secret).update(receivedBody!).digest("hex");
+    assert.equal(
+      receivedSig,
+      expectedSig,
+      "X-Docuplete-Signature must exactly match HMAC-SHA256 of the probe body",
     );
   });
 });
