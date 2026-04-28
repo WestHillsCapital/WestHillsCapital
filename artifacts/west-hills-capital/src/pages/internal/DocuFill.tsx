@@ -3293,7 +3293,17 @@ export default function DocuFill() {
                         <Textarea value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
                       </label>
                       <div className="mt-4">
-                        <span className="block text-xs text-[#6B7A99] mb-1">Tags</span>
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-xs text-[#6B7A99]">Tags</span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="flex items-center justify-center w-4 h-4 rounded-full border border-[#C4B99A] text-[#8A9BB8] text-[10px] leading-none cursor-help select-none">?</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-60">
+                              Tags appear as filter chips above the package list — click any tag there to show only matching packages. Add multiple tags to a package to make it show up under any of them.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                         <p className="text-[11px] text-[#8A9BB8] mb-2">Free-form labels for organizing and filtering packages. Press Enter or comma to add.</p>
                         <TagChipInput
                           tags={selectedPackage.tags ?? []}
