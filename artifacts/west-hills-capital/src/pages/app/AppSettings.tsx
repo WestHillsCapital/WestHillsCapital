@@ -917,36 +917,41 @@ interface AuditLogEntry {
 }
 
 const ACTION_LABELS: Record<string, string> = {
-  "team.invite":           "Invited team member",
-  "team.remove":           "Removed team member",
-  "team.role_change":      "Changed member role",
-  "apikey.create":         "Created API key",
-  "apikey.revoke":         "Revoked API key",
-  "apikey.rename":         "Renamed API key",
-  "branding.update_name":  "Updated organization name",
-  "branding.update_color": "Updated brand color",
-  "branding.upload_logo":  "Uploaded logo",
-  "branding.remove_logo":  "Removed logo",
+  "team.invite":               "Invited team member",
+  "team.remove":               "Removed team member",
+  "team.role_change":          "Changed member role",
+  "apikey.create":             "Created API key",
+  "apikey.revoke":             "Revoked API key",
+  "apikey.rename":             "Renamed API key",
+  "branding.update_name":      "Updated organization name",
+  "branding.update_color":     "Updated brand color",
+  "branding.upload_logo":      "Uploaded logo",
+  "branding.remove_logo":      "Removed logo",
+  "plan.checkout_initiated":   "Initiated plan upgrade",
+  "plan.change":               "Plan changed",
 };
 
 const ACTION_FILTER_OPTIONS = [
-  { value: "",                  label: "All activity" },
-  { value: "team.invite",       label: "Team invites" },
-  { value: "team.remove",       label: "Member removals" },
-  { value: "team.role_change",  label: "Role changes" },
-  { value: "apikey.create",     label: "API key created" },
-  { value: "apikey.revoke",     label: "API key revoked" },
-  { value: "apikey.rename",     label: "API key renamed" },
+  { value: "",                      label: "All activity" },
+  { value: "team.invite",           label: "Team invites" },
+  { value: "team.remove",           label: "Member removals" },
+  { value: "team.role_change",      label: "Role changes" },
+  { value: "apikey.create",         label: "API key created" },
+  { value: "apikey.revoke",         label: "API key revoked" },
+  { value: "apikey.rename",         label: "API key renamed" },
   { value: "branding.update_name",  label: "Org name change" },
   { value: "branding.update_color", label: "Brand color change" },
   { value: "branding.upload_logo",  label: "Logo uploaded" },
   { value: "branding.remove_logo",  label: "Logo removed" },
+  { value: "plan.checkout_initiated", label: "Plan upgrade initiated" },
+  { value: "plan.change",           label: "Plan changed" },
 ];
 
 function actionBadgeColor(action: string): string {
   if (action.startsWith("team."))     return "bg-sky-50 border-sky-200 text-sky-700";
   if (action.startsWith("apikey."))   return "bg-amber-50 border-amber-200 text-amber-700";
   if (action.startsWith("branding.")) return "bg-purple-50 border-purple-200 text-purple-700";
+  if (action.startsWith("plan."))     return "bg-green-50 border-green-200 text-green-700";
   return "bg-gray-100 border-gray-200 text-gray-600";
 }
 

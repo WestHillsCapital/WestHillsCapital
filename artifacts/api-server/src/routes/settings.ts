@@ -1124,6 +1124,17 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
       subscription_data:    { metadata: { account_id: String(accountId) } },
     });
 
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    void insertAuditLog({
+      accountId,
+      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorUserId: clerkUserId,
+      action: "plan.checkout_initiated",
+      resourceType: "subscription",
+      resourceLabel: planTier,
+      metadata: { plan: planTier },
+    });
+
     res.json({ url: session.url });
   } catch (err) {
     logger.error({ err }, "[Billing] Failed to create checkout session");
