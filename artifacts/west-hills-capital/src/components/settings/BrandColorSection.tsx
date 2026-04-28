@@ -61,8 +61,13 @@ export function BrandColorSection({
   const validColor = HEX_RE.test(brandColor) ? brandColor : "#C49A38";
 
   async function handleExtract() {
-    const url = extractUrl.trim();
+    let url = extractUrl.trim();
     if (!url) return;
+    // Auto-prepend https:// if the user typed a bare domain like "example.com"
+    if (!/^https?:\/\//i.test(url)) {
+      url = `https://${url}`;
+      setExtractUrl(url);
+    }
     setIsExtracting(true);
     setExtractError(null);
     setCandidates([]);
@@ -110,10 +115,6 @@ export function BrandColorSection({
           maxLength={7}
           placeholder="#C49A38"
           className={`w-28 rounded-lg border px-3 py-2 text-sm font-mono placeholder:opacity-50 focus:outline-none ${s.border} ${s.bg} ${s.text} ${s.ring}`}
-        />
-        <div
-          className={`w-8 h-8 rounded border shrink-0 ${s.border}`}
-          style={{ backgroundColor: validColor }}
         />
       </div>
 

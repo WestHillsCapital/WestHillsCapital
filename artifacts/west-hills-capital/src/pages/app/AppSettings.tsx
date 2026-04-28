@@ -3208,33 +3208,25 @@ function ProfileSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
     };
   }, []);
 
-  // Debounced auto-save for display name
-  useEffect(() => {
+  async function handleDisplayNameSave() {
     if (!nameEdited.current || !profile) return;
-    if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
-    nameDebounceRef.current = setTimeout(async () => {
-      nameDebounceRef.current = null;
-      setNameError(null);
-      const seq = ++nameSaveSeq.current;
-      setIsSavingName(true);
-      try {
-        const res = await fetch(`${SETTINGS_BASE}/profile`, {
-          method: "PATCH",
-          headers: authHeaders("application/json"),
-          body: JSON.stringify({ display_name: displayName }),
-        });
-        const data = await res.json() as { profile?: UserProfile; error?: string };
-        if (seq !== nameSaveSeq.current) return;
-        if (!res.ok) { setNameError(data.error ?? "Failed to save name"); return; }
-        if (data.profile) { nameEdited.current = false; applyProfile(data.profile); }
-        flashSaved("name");
-      } catch { if (seq === nameSaveSeq.current) setNameError("Failed to save name."); }
-      finally { if (seq === nameSaveSeq.current) setIsSavingName(false); }
-    }, 700);
-    return () => {
-      if (nameDebounceRef.current) { clearTimeout(nameDebounceRef.current); nameDebounceRef.current = null; }
-    };
-  }, [displayName]);
+    setNameError(null);
+    const seq = ++nameSaveSeq.current;
+    setIsSavingName(true);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/profile`, {
+        method: "PATCH",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({ display_name: displayName }),
+      });
+      const data = await res.json() as { profile?: UserProfile; error?: string };
+      if (seq !== nameSaveSeq.current) return;
+      if (!res.ok) { setNameError(data.error ?? "Failed to save name"); return; }
+      if (data.profile) { nameEdited.current = false; applyProfile(data.profile); }
+      flashSaved("name");
+    } catch { if (seq === nameSaveSeq.current) setNameError("Failed to save name."); }
+    finally { if (seq === nameSaveSeq.current) setIsSavingName(false); }
+  }
 
   async function handleEmailSave() {
     if (!profile) return;
@@ -3474,18 +3466,27 @@ function ProfileSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
               <p className="text-xs text-gray-400 mt-0.5">Shown to teammates</p>
             </div>
             <div className="flex-1 flex flex-col gap-1">
-              <input
-                id="profile-display-name"
-                type="text"
-                value={displayName}
-                onChange={(e) => { nameEdited.current = true; setDisplayName(e.target.value); setNameError(null); setNameSaved(false); }}
-                placeholder="Your name"
-                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 w-full"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  id="profile-display-name"
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => { nameEdited.current = true; setDisplayName(e.target.value); setNameError(null); setNameSaved(false); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") void handleDisplayNameSave(); }}
+                  placeholder="Your name"
+                  className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                />
+                <button
+                  type="button"
+                  disabled={isSavingName || !nameEdited.current}
+                  onClick={() => { void handleDisplayNameSave(); }}
+                  className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                >
+                  {isSavingName ? "Saving…" : "Save"}
+                </button>
+              </div>
               {nameError ? (
                 <span className="text-[11px] text-red-600">{nameError}</span>
-              ) : isSavingName ? (
-                <span className="text-[11px] text-gray-400">Saving…</span>
               ) : nameSaved ? (
                 <span className="text-[11px] text-green-600 font-medium">✓ Saved</span>
               ) : null}
@@ -3686,7 +3687,9 @@ export default function AppSettings() {
     setOrg(data);
     setName(data.name);
     setBrandColor(data.brand_color);
-    setDisplayLogoUrl(data.logo_url ? `${API_BASE}${data.logo_url}` : null);
+    // Append a timestamp so the browser re-fetches the logo after every upload
+    // rather than serving the stale cached version (same URL, new content).
+    setDisplayLogoUrl(data.logo_url ? `${API_BASE}${data.logo_url}?t=${Date.now()}` : null);
     updateProductOrgCache(data);
   }
 
