@@ -6512,7 +6512,23 @@ function FieldLibraryPanel({
     <div className="border border-[#DDD5C4] rounded p-3">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h3 className="text-sm font-semibold">Shared Field Library</h3>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-sm font-semibold">Shared Field Library</h3>
+            <span className="relative group">
+              <span className="flex items-center justify-center w-4 h-4 rounded-full border border-[#C4B99A] text-[#8A9BB8] text-[10px] leading-none cursor-help select-none">?</span>
+              <div className="pointer-events-none absolute left-0 top-full mt-1.5 w-72 rounded-lg border border-[#DDD5C4] bg-white shadow-lg text-[11px] text-[#4A5568] leading-relaxed px-3 py-2.5 opacity-0 group-hover:opacity-100 transition-opacity z-50 space-y-1.5">
+                <p><span className="font-semibold text-[#0F1C3F]">Label</span> — the question or prompt shown to the client during the interview.</p>
+                <p><span className="font-semibold text-[#0F1C3F]">Category</span> — groups this field with related fields (e.g. "Customer identity", "IRA details").</p>
+                <p><span className="font-semibold text-[#0F1C3F]">Prefill source</span> — the variable key used when mapping this field to a document template (e.g. "firstName").</p>
+                <p><span className="font-semibold text-[#0F1C3F]">Sort order</span> — controls where this field appears relative to others. Lower numbers appear first.</p>
+                <p><span className="font-semibold text-[#0F1C3F]">Field type</span> — the kind of input shown: text, date, radio, checkbox, or dropdown.</p>
+                <p><span className="font-semibold text-[#0F1C3F]">Validation rule</span> — applies a built-in format check (Name, Email, Phone, SSN, etc.) to the client's entry.</p>
+                <p><span className="font-semibold text-[#0F1C3F]">Options</span> — for dropdown, radio, or checkbox fields only. Each line becomes one selectable choice.</p>
+                <p><span className="font-semibold text-[#0F1C3F]">Validation message</span> — shown when the client's input fails validation. Leave blank for the default message.</p>
+                <p><span className="font-semibold text-[#0F1C3F]">Active</span> — include in interviews. <span className="font-semibold text-[#0F1C3F]">Required</span> — client must fill in. <span className="font-semibold text-[#0F1C3F]">Sensitive</span> — masked in logs and exports (SSNs, account numbers, etc.).</p>
+              </div>
+            </span>
+          </div>
           <p className="text-[11px] text-[#8A9BB8]">Define common customer, IRA, beneficiary, and signature fields once, then reuse them in custodian packages.</p>
         </div>
         <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
