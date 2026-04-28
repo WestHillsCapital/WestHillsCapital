@@ -1243,7 +1243,11 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
     res.status(201).json({ field: rows[0] });
   } catch (err) {
     if (isUniqueViolation(err)) {
-      res.status(409).json({ error: "A shared field with that label already exists" });
+      const { rows: existingRows } = await getDb().query(
+        `SELECT id FROM docufill_fields WHERE lower(label) = lower($1) LIMIT 1`,
+        [label],
+      ).catch(() => ({ rows: [] as { id: string }[] }));
+      res.status(409).json({ error: "A shared field with that label already exists", fieldId: existingRows[0]?.id ?? null });
       return;
     }
     logger.error({ err }, "[DocuFill] Failed to create field library item");

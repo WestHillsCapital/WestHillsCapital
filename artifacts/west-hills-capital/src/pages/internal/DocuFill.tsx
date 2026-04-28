@@ -688,6 +688,7 @@ export default function DocuFill() {
   const [inlineAddGroupName, setInlineAddGroupName] = useState("");
   const [inlineAddGroupLoading, setInlineAddGroupLoading] = useState(false);
   const [inlineAddGroupError, setInlineAddGroupError] = useState<string | null>(null);
+  const [fieldModalSaving, setFieldModalSaving] = useState(false);
   const [typeManageOpen, setTypeManageOpen] = useState(false);
   const [typeDeletingScope, setTypeDeletingScope] = useState<string | null>(null);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
@@ -2167,15 +2168,50 @@ export default function DocuFill() {
     }
   }
 
-  function saveFieldFromModal() {
+  async function saveFieldFromModal() {
     if (!fieldEditorModal || !selectedPackage) return;
-    const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage } = fieldEditorDraft;
+    const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage, packageOnly } = fieldEditorDraft;
     const cleanOpts = options.filter(Boolean);
     const isChoiceType = type === "radio" || type === "checkbox";
+
+    let resolvedLibraryFieldId = "";
+
+    if (fieldEditorModal.mode === "add" && !packageOnly) {
+      setFieldModalSaving(true);
+      const fieldLabel = name.trim() || `Field ${selectedPackage.fields.length + 1}`;
+      try {
+        const res = await fetch(`${API_BASE}${docufillApiPath}/field-library`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify({
+            label: fieldLabel,
+            type,
+            options: cleanOpts,
+            validationType: validationType ?? "none",
+            validationPattern: validationPattern || null,
+            validationMessage: validationMessage || null,
+            active: true,
+            sortOrder: (fieldLibrary.length + 1) * 10,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          resolvedLibraryFieldId = data.field?.id ?? "";
+          void loadBootstrap();
+        } else if (res.status === 409 && data.fieldId) {
+          resolvedLibraryFieldId = data.fieldId;
+        }
+      } catch {
+        // Network error — add to package without library link
+      } finally {
+        setFieldModalSaving(false);
+      }
+    }
+
     if (fieldEditorModal.mode === "add") {
       updateSelectedPackage((pkg) => {
         const field: FieldItem = {
-          id: newId("field"), libraryFieldId: "",
+          id: newId("field"), libraryFieldId: resolvedLibraryFieldId,
           name: name.trim() || `Field ${pkg.fields.length + 1}`,
           color, type, options: cleanOpts, optionsMode: "override",
           interviewMode, defaultValue: hasDefault ? defaultValue : "",
@@ -6096,8 +6132,8 @@ export default function DocuFill() {
               )}
               <div className="flex gap-2 ml-auto">
                 <button type="button" onClick={() => setFieldEditorModal(null)} className="text-sm px-4 py-2 rounded border border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F8F6F0]">Cancel</button>
-                <button type="button" onClick={saveFieldFromModal} className="text-sm px-4 py-2 rounded bg-[#C49A38] hover:bg-[#b58c31] text-black font-medium">
-                  {fieldEditorModal.mode === "add" ? "Add Field" : "Save Changes"}
+                <button type="button" onClick={saveFieldFromModal} disabled={fieldModalSaving} className="text-sm px-4 py-2 rounded bg-[#C49A38] hover:bg-[#b58c31] text-black font-medium disabled:opacity-50">
+                  {fieldModalSaving ? "Saving…" : fieldEditorModal.mode === "add" ? "Add Field" : "Save Changes"}
                 </button>
               </div>
             </div>
