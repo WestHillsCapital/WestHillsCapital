@@ -1845,4 +1845,93 @@ router.get("/audit-log", requireAdminRole, async (req, res) => {
   }
 });
 
+// ── Email customization settings (Task #284) ──────────────────────────────────
+
+router.get("/email", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT email_sender_name, email_reply_to, email_footer FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+    const row = rows[0] as Record<string, unknown>;
+    res.json({
+      email: {
+        senderName: (row.email_sender_name as string | null) ?? null,
+        replyTo:    (row.email_reply_to    as string | null) ?? null,
+        footer:     (row.email_footer      as string | null) ?? null,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to get email settings");
+    res.status(500).json({ error: "Failed to get email settings" });
+  }
+});
+
+router.patch("/email", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as Record<string, unknown>;
+    const db = getDb();
+
+    const { rows: existing } = await db.query(
+      `SELECT email_sender_name, email_reply_to, email_footer FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!existing[0]) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+    const current = existing[0] as Record<string, unknown>;
+
+    const senderName = "senderName" in body
+      ? (typeof body.senderName === "string" ? body.senderName.trim().slice(0, 100) || null : null)
+      : (current.email_sender_name as string | null);
+
+    const replyTo = "replyTo" in body
+      ? (typeof body.replyTo === "string" && body.replyTo.trim()
+          ? body.replyTo.trim().slice(0, 254)
+          : null)
+      : (current.email_reply_to as string | null);
+
+    const footer = "footer" in body
+      ? (typeof body.footer === "string" ? body.footer.trim().slice(0, 500) || null : null)
+      : (current.email_footer as string | null);
+
+    // Basic email format validation for replyTo
+    if (replyTo !== null && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(replyTo)) {
+      res.status(400).json({ error: "replyTo must be a valid email address" });
+      return;
+    }
+
+    await db.query(
+      `UPDATE accounts SET email_sender_name=$1, email_reply_to=$2, email_footer=$3 WHERE id=$4`,
+      [senderName, replyTo, footer, accountId],
+    );
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const actorEmail = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId,
+      actorEmail,
+      actorUserId: clerkUserId,
+      action: "email_settings.update",
+      resourceType: "org",
+      metadata: { senderName, replyTo, footerLength: footer?.length ?? 0 },
+    });
+
+    res.json({
+      email: { senderName, replyTo, footer },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to update email settings");
+    res.status(500).json({ error: "Failed to update email settings" });
+  }
+});
+
 export default router;

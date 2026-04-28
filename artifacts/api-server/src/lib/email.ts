@@ -1,5 +1,6 @@
 import { logger }           from "./logger";
 import { nextBusinessDayFrom } from "./date-utils";
+import { getDb }             from "../db";
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM_EMAIL =
@@ -35,11 +36,67 @@ interface EmailAttachment {
   contentType?: string;
 }
 
+// ── Org email customization settings ─────────────────────────────────────────
+
+export interface OrgEmailSettings {
+  senderName: string | null;
+  replyTo:    string | null;
+  footer:     string | null;
+}
+
+/**
+ * Fetch an org's custom email settings from the database.
+ * Returns null values for any field that has not been configured.
+ * Never throws — falls back to nulls on DB error.
+ */
+export async function getOrgEmailSettings(accountId: number): Promise<OrgEmailSettings> {
+  try {
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT email_sender_name, email_reply_to, email_footer FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0]) return { senderName: null, replyTo: null, footer: null };
+    const row = rows[0] as Record<string, unknown>;
+    return {
+      senderName: (row.email_sender_name as string | null) ?? null,
+      replyTo:    (row.email_reply_to    as string | null) ?? null,
+      footer:     (row.email_footer      as string | null) ?? null,
+    };
+  } catch (err) {
+    logger.warn({ err, accountId }, "[Email] Could not fetch org email settings — using defaults");
+    return { senderName: null, replyTo: null, footer: null };
+  }
+}
+
+/**
+ * Build an HTML table row for a custom org email footer.
+ * Returns empty string when footer is null/empty.
+ */
+function buildEmailFooterRow(footer: string | null, bgColor = "#f9fafb", borderColor = "#e5e7eb"): string {
+  if (!footer?.trim()) return "";
+  const escaped = footer
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br>");
+  return `
+        <tr>
+          <td style="padding:10px 28px;background:${bgColor};border-top:1px solid ${borderColor};">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#6b7280;line-height:1.6;">${escaped}</p>
+          </td>
+        </tr>`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 interface SendEmailOptions {
   to:           string;
   subject:      string;
   html:         string;
   attachments?: EmailAttachment[];
+  fromName?:    string;
+  replyTo?:     string;
 }
 
 async function sendEmail(opts: SendEmailOptions): Promise<void> {
@@ -54,14 +111,26 @@ async function sendEmail(opts: SendEmailOptions): Promise<void> {
     throw new Error(msg);
   }
 
+  // Compose the "from" field — if a custom sender name is supplied we keep the
+  // same sending address but replace the display name.
+  let from = FROM_EMAIL;
+  if (opts.fromName?.trim()) {
+    const emailMatch = FROM_EMAIL.match(/<([^>]+)>/);
+    const senderEmail = emailMatch ? emailMatch[1] : FROM_EMAIL;
+    from = `${opts.fromName.trim()} <${senderEmail}>`;
+  }
+
   const payload: Record<string, unknown> = {
-    from:    FROM_EMAIL,
+    from,
     to:      [opts.to],
     subject: opts.subject,
     html:    opts.html,
   };
   if (opts.attachments?.length) {
     payload.attachments = opts.attachments;
+  }
+  if (opts.replyTo?.trim()) {
+    payload.reply_to = [opts.replyTo.trim()];
   }
 
   const res = await fetch("https://api.resend.com/emails", {
@@ -1551,6 +1620,7 @@ export async function sendInterviewLinkEmail(params: {
   orgLogoUrl?:      string | null;
   orgBrandColor?:   string | null;
   customMessage?:   string | null;
+  emailSettings?:   OrgEmailSettings | null;
 }): Promise<void> {
   const brandColor = params.orgBrandColor ?? "#0F1C3F";
   const orgName    = params.orgName || "Docuplete";
@@ -1647,6 +1717,7 @@ export async function sendInterviewLinkEmail(params: {
             </p>
           </td>
         </tr>
+        ${buildEmailFooterRow(params.emailSettings?.footer ?? null, "#f8f7f5", "#e5ddd0")}
 
       </table>
     </td>
@@ -1656,9 +1727,11 @@ export async function sendInterviewLinkEmail(params: {
 </html>`;
 
   await sendEmail({
-    to:      params.recipientEmail,
-    subject: `${orgName} sent you documents to review`,
+    to:       params.recipientEmail,
+    subject:  `${orgName} sent you documents to review`,
     html,
+    fromName: params.emailSettings?.senderName ?? undefined,
+    replyTo:  params.emailSettings?.replyTo    ?? undefined,
   });
 }
 
@@ -1676,6 +1749,7 @@ export async function sendDocupleteStaffSubmissionEmail(params: {
   appUrl:         string;
   pdfBuffer?:     Buffer | null;
   pdfFilename?:   string | null;
+  emailSettings?: OrgEmailSettings | null;
 }): Promise<void> {
   if (!params.staffEmails.length) return;
 
@@ -1759,6 +1833,7 @@ export async function sendDocupleteStaffSubmissionEmail(params: {
             </p>
           </td>
         </tr>
+        ${buildEmailFooterRow(params.emailSettings?.footer ?? null)}
 
       </table>
     </td>
@@ -1773,6 +1848,8 @@ export async function sendDocupleteStaffSubmissionEmail(params: {
       subject:     `[${orgName}] Interview submitted — ${params.packageName}${params.clientName ? ` · ${params.clientName}` : ""}`,
       html,
       attachments: attachments.length ? attachments : undefined,
+      fromName:    params.emailSettings?.senderName ?? undefined,
+      replyTo:     params.emailSettings?.replyTo    ?? undefined,
     });
   }
 }
@@ -1786,6 +1863,7 @@ export async function sendDocupleteClientConfirmationEmail(params: {
   orgName:        string;
   orgLogoUrl?:    string | null;
   orgBrandColor?: string | null;
+  emailSettings?: OrgEmailSettings | null;
 }): Promise<void> {
   const brandColor = params.orgBrandColor ?? "#0F1C3F";
   const orgName    = params.orgName || "Docuplete";
@@ -1856,6 +1934,7 @@ export async function sendDocupleteClientConfirmationEmail(params: {
             </p>
           </td>
         </tr>
+        ${buildEmailFooterRow(params.emailSettings?.footer ?? null, "#f8f7f5", "#e5ddd0")}
 
       </table>
     </td>
@@ -1865,9 +1944,11 @@ export async function sendDocupleteClientConfirmationEmail(params: {
 </html>`;
 
   await sendEmail({
-    to:      params.clientEmail,
-    subject: `We received your ${params.packageName} submission`,
+    to:       params.clientEmail,
+    subject:  `We received your ${params.packageName} submission`,
     html,
+    fromName: params.emailSettings?.senderName ?? undefined,
+    replyTo:  params.emailSettings?.replyTo    ?? undefined,
   });
 }
 
@@ -1970,6 +2051,7 @@ export async function sendOrgAlertEmails(params: {
   subject:         string;
   heading:         string;
   bodyHtml:        string;
+  emailSettings?:  OrgEmailSettings | null;
 }): Promise<void> {
   if (!params.recipientEmails.length) return;
 
@@ -2011,6 +2093,7 @@ export async function sendOrgAlertEmails(params: {
             </p>
           </td>
         </tr>
+        ${buildEmailFooterRow(params.emailSettings?.footer ?? null)}
 
       </table>
     </td>
@@ -2021,7 +2104,13 @@ export async function sendOrgAlertEmails(params: {
 
   for (const to of params.recipientEmails) {
     try {
-      await sendEmail({ to, subject: params.subject, html });
+      await sendEmail({
+        to,
+        subject:  params.subject,
+        html,
+        fromName: params.emailSettings?.senderName ?? undefined,
+        replyTo:  params.emailSettings?.replyTo    ?? undefined,
+      });
     } catch (err) {
       logger.error({ err, to, subject: params.subject }, "[Email] sendOrgAlertEmails: failed to send to recipient");
     }

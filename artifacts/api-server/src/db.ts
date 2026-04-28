@@ -1104,6 +1104,11 @@ export async function initDb(): Promise<void> {
       ON org_audit_log (account_id, created_at DESC)
   `);
 
+  // ── Email customization — per-org sender display name, reply-to, footer ──────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email_sender_name TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email_reply_to TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email_footer TEXT`);
+
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 
