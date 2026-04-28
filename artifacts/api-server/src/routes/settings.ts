@@ -1847,6 +1847,12 @@ router.get("/audit-log", requireAdminRole, async (req, res) => {
 
 // ── Email customization settings (Task #284) ──────────────────────────────────
 
+// Extract the bare email address from a "Display Name <email@domain>" string.
+function extractSenderEmail(fromEnv: string): string {
+  const m = fromEnv.match(/<([^>]+)>/);
+  return m ? m[1] : fromEnv;
+}
+
 router.get("/email", async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
@@ -1862,9 +1868,10 @@ router.get("/email", async (req, res) => {
     const row = rows[0] as Record<string, unknown>;
     res.json({
       email: {
-        senderName: (row.email_sender_name as string | null) ?? null,
-        replyTo:    (row.email_reply_to    as string | null) ?? null,
-        footer:     (row.email_footer      as string | null) ?? null,
+        senderName:  (row.email_sender_name as string | null) ?? null,
+        replyTo:     (row.email_reply_to    as string | null) ?? null,
+        footer:      (row.email_footer      as string | null) ?? null,
+        senderEmail: extractSenderEmail(process.env.FROM_EMAIL ?? "noreply@westhillscapital.com"),
       },
     });
   } catch (err) {
