@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { validateFieldValue } from "@/lib/validateField";
+import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SESSION_BASE = `${API_BASE}/api/v1/docufill/public/sessions`;
@@ -451,6 +451,13 @@ export default function DocuFillCustomer() {
                 )}
 
                 {fieldError && <p className="mt-1.5 text-xs text-red-600">{fieldError}</p>}
+                {(() => {
+                  const hint = fieldFormatHint(field.validationType, field.validationMessage ?? undefined);
+                  const hasValidValue = val.trim() !== "" && validateFieldValue(field, val) === null;
+                  return hint && !hasFieldError && !hasValidValue ? (
+                    <p className="mt-1.5 text-[11px] text-[#8A9BB8]">Format: {hint}</p>
+                  ) : null;
+                })()}
               </div>
             );
           })}

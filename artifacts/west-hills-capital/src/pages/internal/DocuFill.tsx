@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getDocuFillPrefillDisplayValue } from "@/lib/docufill-redaction";
 import { sessionToCsv, packageTemplateToCsv, downloadCsv, parseCsvString, batchResultsToCsv } from "@/lib/docufill-csv";
-import { validateFieldValue } from "@/lib/validateField";
+import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
 import * as pdfjsLib from "pdfjs-dist";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
@@ -269,22 +269,7 @@ function newRecipientId(): string {
 }
 
 function validationTypeHint(vt: FieldItem["validationType"], message?: string): string {
-  switch (vt) {
-    case "phone":    return "555-123-4567";
-    case "ssn":      return "XXX-XX-XXXX";
-    case "email":    return "user@example.com";
-    case "currency": return "1234.56";
-    case "number":   return "Numeric";
-    case "date":     return "MM/DD/YYYY";
-    case "time":     return "HH:MM";
-    case "zip":      return "12345";
-    case "zip4":     return "12345-6789";
-    case "percent":  return "0–100";
-    case "name":     return "Text (name format)";
-    case "string":   return "Any text";
-    case "custom":   return message && message.trim() ? message.trim() : "Custom format";
-    default:         return "Any text";
-  }
+  return fieldFormatHint(vt, message) ?? "Any text";
 }
 
 function validateCellValue(field: FieldItem, value: string): "ok" | "empty-required" | "invalid" {
@@ -5090,6 +5075,13 @@ export default function DocuFill() {
                       />
                     )}
                     {fieldError && <p className="mt-1 text-xs text-red-600">{fieldError}</p>}
+                    {(() => {
+                      const hint = fieldFormatHint(field.validationType, field.validationMessage ?? undefined);
+                      const hasValidValue = currentValue.trim() !== "" && validateFieldValue(field, currentValue) === null;
+                      return hint && !fieldError && !hasValidValue ? (
+                        <p className="mt-1 text-[11px] text-[#8A9BB8]">Format: {hint}</p>
+                      ) : null;
+                    })()}
                   </div>
                   );
                 })}
