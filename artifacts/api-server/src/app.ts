@@ -12,7 +12,7 @@ import { logger } from "./lib/logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { dbReady, dbError } from "./db";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
-import { WebhookHandlers } from "./lib/stripeWebhookHandlers";
+import { WebhookHandlers, verifyAndParseWebhook } from "./lib/stripeWebhookHandlers";
 import { handleStripeSubscriptionEvent } from "./lib/stripeBillingSync";
 
 // Request timeout: abort any request that hasn't completed within 30 s.
@@ -106,8 +106,10 @@ app.use(
 );
 
 // ── Stripe webhook (must be before body parsers — needs raw Buffer) ───────────
-// stripe-replit-sync verifies the signature and syncs data to stripe.* tables.
-// handleStripeSubscriptionEvent also updates our own accounts table.
+// Primary path: verifyAndParseWebhook uses STRIPE_WEBHOOK_SECRET for direct
+// Stripe SDK signature verification, then updates accounts via handleStripeSubscriptionEvent.
+// Secondary (non-fatal): WebhookHandlers.processWebhook syncs data to stripe.* tables
+// via stripe-replit-sync (may fail if managed webhook is not configured).
 app.post(
   "/api/stripe/webhook",
   express.raw({ type: "application/json" }),
@@ -124,15 +126,23 @@ app.post(
         res.status(500).json({ error: "Webhook processing error" });
         return;
       }
-      // 1. Let StripeSync verify signature + sync to stripe schema (throws on invalid sig)
-      await WebhookHandlers.processWebhook(req.body as Buffer, sig);
-      // 2. Parse event (already verified) and update our accounts table.
-      // Throw on failure so the outer catch returns non-2xx and Stripe retries.
-      const event = JSON.parse((req.body as Buffer).toString()) as {
-        type: string;
-        data: { object: Record<string, unknown> };
-      };
+
+      // 1. Primary: verify signature with STRIPE_WEBHOOK_SECRET + parse the event.
+      //    This is the reliable path that does not depend on stripe-replit-sync's
+      //    managed webhook infrastructure (which requires a stripe.accounts table).
+      const event = await verifyAndParseWebhook(req.body as Buffer, sig);
+
+      // 2. Update our accounts table based on the verified event.
+      //    Throw on failure so the outer catch returns non-2xx and Stripe retries.
       await handleStripeSubscriptionEvent(event);
+
+      // 3. Secondary (non-fatal): also run stripe-replit-sync to populate the
+      //    stripe.* schema tables (customers, subscriptions, products, etc.).
+      //    Failure here does not abort the webhook response.
+      WebhookHandlers.processWebhook(req.body as Buffer, sig).catch((syncErr: unknown) => {
+        logger.warn({ err: syncErr }, "[StripeWebhook] stripe-replit-sync schema sync failed (non-fatal)");
+      });
+
       res.status(200).json({ received: true });
     } catch (err) {
       const isValidationError = err instanceof Error &&
