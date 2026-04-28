@@ -58,17 +58,29 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [profileData, setProfileData] = useState<UserProfileData | null>(null);
+  const getAuthHeadersRef = useRef(getAuthHeaders);
+  getAuthHeadersRef.current = getAuthHeaders;
 
-  useEffect(() => {
-    if (!token) return;
-    fetch(`${SETTINGS_BASE}/profile`, { headers: getAuthHeaders() })
+  const fetchProfile = useRef(() => {
+    fetch(`${SETTINGS_BASE}/profile`, { headers: getAuthHeadersRef.current() })
       .then(async (r) => {
         if (!r.ok) return;
         const data = await r.json() as { profile?: UserProfileData };
         if (data.profile) setProfileData(data.profile);
       })
       .catch(() => {});
-  }, [token, getAuthHeaders]);
+  });
+
+  useEffect(() => {
+    if (!token) return;
+    fetchProfile.current();
+  }, [token]);
+
+  useEffect(() => {
+    const handler = () => { fetchProfile.current(); };
+    window.addEventListener("docuplete:profile-updated", handler);
+    return () => window.removeEventListener("docuplete:profile-updated", handler);
+  }, []);
 
   // Prefer app profile data over Clerk; fall back gracefully.
   const displayName = profileData?.display_name || user?.fullName || "";
