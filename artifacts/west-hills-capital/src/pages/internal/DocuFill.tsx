@@ -670,7 +670,7 @@ export default function DocuFill() {
   const docufillConfig = useDocuFillConfig();
   const getAuthHeaders = docufillConfig?.getAuthHeaders ?? defaultGetAuthHeaders;
   const docufillApiPath = docufillConfig?.apiPath ?? "/api/internal/docufill";
-  const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv">(sessionToken ? "interview" : "packages");
+  const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv" | "groups">(sessionToken ? "interview" : "packages");
   const [builderStep, setBuilderStep] = useState<BuilderStep>("documents");
   const [groups, setGroups] = useState<Entity[]>([]);
   const [custodians, setCustodians] = useState<Entity[]>([]);
@@ -2794,6 +2794,7 @@ export default function DocuFill() {
         {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
           <button onClick={() => goBuilderStep(builderStep)} className={`px-3 py-2 text-sm ${tab === "packages" || tab === "mapper" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
           <button onClick={() => setTab("interview")} className={`px-3 py-2 text-sm ${tab === "interview" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Interviews</button>
+          <button onClick={() => setTab("groups")} className={`px-3 py-2 text-sm ${tab === "groups" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Groups</button>
           <button onClick={() => setTab("csv")} className={`px-3 py-2 text-sm ${tab === "csv" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch CSV</button>
         </div>}
       </div>
@@ -4830,6 +4831,24 @@ export default function DocuFill() {
               {driveWarnings.length > 0 && <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{driveWarnings.join(" ")}</div>}
             </div>
           )}
+        </section>
+      )}
+
+      {!isPublicSession && tab === "groups" && (
+        <section className="max-w-4xl mx-auto space-y-6">
+          <div>
+            <h2 className="text-lg font-semibold text-[#0F1C3F]">Groups</h2>
+            <p className="text-sm text-[#6B7A99] mt-1">Create and manage groups used to organize packages and recipients. Assign each group a kind — Custodian, Depository, or General — to keep them categorized.</p>
+          </div>
+          <EntityPanel
+            title="All Groups"
+            items={groups}
+            onAdd={createGroup}
+            onChange={(id, patch) => updateGroupLocal(id, patch)}
+            onSave={saveGroup}
+            onDelete={deleteGroup}
+            showKind
+          />
         </section>
       )}
 
