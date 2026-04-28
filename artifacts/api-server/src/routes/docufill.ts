@@ -745,19 +745,28 @@ async function getPackage(packageId: number, client: QueryClient = getDb(), hydr
   const accountFilter = accountId != null
     ? (params.push(accountId), `AND p.account_id = $${params.length}`)
     : "";
-  const { rows } = await client.query(
-    `SELECT p.*, c.name AS custodian_name, d.name AS depository_name, g.name AS group_name
-       FROM docufill_packages p
-       LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
-       LEFT JOIN docufill_depositories d ON d.id = p.depository_id
-       LEFT JOIN docufill_groups g ON g.id = p.group_id
-      WHERE p.id = $1 ${accountFilter}`,
-    params,
-  );
+  const [{ rows }, junctionRows] = await Promise.all([
+    client.query(
+      `SELECT p.*, c.name AS custodian_name, d.name AS depository_name, g.name AS group_name
+         FROM docufill_packages p
+         LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
+         LEFT JOIN docufill_depositories d ON d.id = p.depository_id
+         LEFT JOIN docufill_groups g ON g.id = p.group_id
+        WHERE p.id = $1 ${accountFilter}`,
+      params,
+    ),
+    client.query(
+      `SELECT array_agg(group_id ORDER BY group_id) AS group_ids FROM docufill_package_groups WHERE package_id=$1`,
+      [packageId],
+    ),
+  ]);
   const pkg = rows[0] as PackageRow | undefined;
   if (!pkg) return undefined;
-  if (!hydrate) return pkg;
-  return (await hydratePackages([pkg], client))[0];
+  const junctionGroupIds: number[] = (junctionRows.rows[0] as { group_ids: number[] | null })?.group_ids ?? [];
+  const group_ids = junctionGroupIds.length > 0 ? junctionGroupIds : (pkg.group_id ? [Number(pkg.group_id)] : []);
+  const withGroupIds = { ...pkg, group_ids };
+  if (!hydrate) return withGroupIds;
+  return (await hydratePackages([withGroupIds], client))[0];
 }
 
 async function getSession(token: string, client: QueryClient = getDb(), accountId?: number): Promise<Record<string, unknown> | undefined> {
@@ -1525,15 +1534,34 @@ router.patch("/depositories/:id", requireAdminRole, async (req, res) => {
 router.get("/packages", requireMemberRole, async (req, res) => {
   try {
     const db = getDb();
-    const { rows } = await db.query(
-      `SELECT p.*, g.name AS group_name
-         FROM docufill_packages p
-         LEFT JOIN docufill_groups g ON g.id = p.group_id
-        WHERE p.account_id = $1
-        ORDER BY p.updated_at DESC, p.name ASC`,
-      [acctId(req)],
-    );
-    const hydrated = await hydratePackages(rows as PackageRow[], db);
+    const accountId = acctId(req);
+    const [{ rows }, junctionResult] = await Promise.all([
+      db.query(
+        `SELECT p.*, g.name AS group_name
+           FROM docufill_packages p
+           LEFT JOIN docufill_groups g ON g.id = p.group_id
+          WHERE p.account_id = $1
+          ORDER BY p.updated_at DESC, p.name ASC`,
+        [accountId],
+      ),
+      db.query(
+        `SELECT pg.package_id, array_agg(pg.group_id ORDER BY pg.group_id) AS group_ids
+           FROM docufill_package_groups pg
+           JOIN docufill_packages p ON p.id = pg.package_id
+          WHERE p.account_id = $1
+          GROUP BY pg.package_id`,
+        [accountId],
+      ),
+    ]);
+    const junctionMap = new Map<number, number[]>();
+    for (const row of junctionResult.rows as Array<{ package_id: number; group_ids: number[] }>) {
+      junctionMap.set(row.package_id, row.group_ids);
+    }
+    const rowsWithGroupIds = (rows as PackageRow[]).map((pkg) => {
+      const junctionIds = junctionMap.get(pkg.id as number) ?? [];
+      return { ...pkg, group_ids: junctionIds.length > 0 ? junctionIds : (pkg.group_id ? [Number(pkg.group_id)] : []) };
+    });
+    const hydrated = await hydratePackages(rowsWithGroupIds, db);
     res.json({ packages: hydrated.map(sanitizePackageForClient) });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to list packages");
@@ -1748,8 +1776,10 @@ router.patch("/packages/:id", async (req, res) => {
         `SELECT array_agg(group_id ORDER BY group_id) AS group_ids FROM docufill_package_groups WHERE package_id=$1`,
         [id],
       );
-      const finalGroupIds: number[] = (pgRows[0] as { group_ids: number[] | null })?.group_ids ?? [];
-      res.json({ package: sanitizePackageForClient({ ...hydrated[0], group_ids: finalGroupIds }) });
+      const junctionGroupIds: number[] = (pgRows[0] as { group_ids: number[] | null })?.group_ids ?? [];
+      const patchedRow = hydrated[0] as PackageRow;
+      const finalGroupIds = junctionGroupIds.length > 0 ? junctionGroupIds : (patchedRow.group_id ? [Number(patchedRow.group_id)] : []);
+      res.json({ package: sanitizePackageForClient({ ...patchedRow, group_ids: finalGroupIds }) });
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});
       throw err;
@@ -2542,7 +2572,8 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
     const requestedGroupId = parseId(body.groupId) ?? parseId(prefill.groupId);
     const requestedCustodianId = parseId(body.custodianId) ?? parseId(prefill.custodianId);
     const requestedDepositoryId = parseId(body.depositoryId) ?? parseId(prefill.depositoryId);
-    if (requestedGroupId && pkg.group_id && requestedGroupId !== Number(pkg.group_id)) {
+    const pkgGroupIds = Array.isArray(pkg.group_ids) ? (pkg.group_ids as number[]) : (pkg.group_id ? [Number(pkg.group_id)] : []);
+    if (requestedGroupId && pkgGroupIds.length > 0 && !pkgGroupIds.includes(requestedGroupId)) {
       res.status(400).json({ error: "Selected package does not match the selected group" });
       return;
     }
