@@ -307,4 +307,48 @@ assert.equal(
   "yDraw clamps rawYDraw up to fontSize+2 minimum",
 );
 
+// ── Boundary / clamp-edge cases ────────────────────────────────────────────
+// These mirror the clampNumber(mapping.fontSize, 11, 5, 24) and
+// clampNumber(mapping.h, 10, 1, 100) calls in docufill.ts lines 979–980.
+
+// Case 6: minimum fontSize (5)
+// fontSize=5, h=10%, y=10%, pageHeight=792
+// yTop = 712.8, boxHeight = max(7, 79.2) = 79.2
+// rawYDraw = 712.8 - 79.2 + 5*0.2 + 2 = 636.6
+assertClose(
+  computeYDraw({ fontSize: 5, hPct: 10, yPct: 10, pageHeight: 792, format: null }),
+  636.6,
+  "yDraw at minimum clamped fontSize (5)",
+);
+
+// Case 7: maximum fontSize (24)
+// fontSize=24, h=10%, y=10%, pageHeight=792
+// yTop = 712.8, boxHeight = max(26, 79.2) = 79.2
+// rawYDraw = 712.8 - 79.2 + 24*0.2 + 2 = 640.4
+assertClose(
+  computeYDraw({ fontSize: 24, hPct: 10, yPct: 10, pageHeight: 792, format: null }),
+  640.4,
+  "yDraw at maximum clamped fontSize (24)",
+);
+
+// Case 8: minimum h (1%)
+// fontSize=11, h=1%, y=10%, pageHeight=792
+// yTop = 712.8, boxHeight = max(13, 7.92) = 13
+// rawYDraw = 712.8 - 13 + 11*0.2 + 2 = 704.0
+assertClose(
+  computeYDraw({ fontSize: 11, hPct: 1, yPct: 10, pageHeight: 792, format: null }),
+  704.0,
+  "yDraw at minimum clamped h (1%)",
+);
+
+// Case 9: maximum h (100%) causes rawYDraw to go below fontSize+2 minimum
+// fontSize=11, h=100%, y=10%, pageHeight=792
+// yTop = 712.8, boxHeight = max(13, 792) = 792
+// rawYDraw = 712.8 - 792 + 2.2 + 2 = -75.0  →  clamped to max(13, -75.0) = 13
+assert.equal(
+  computeYDraw({ fontSize: 11, hPct: 100, yPct: 10, pageHeight: 792, format: null }),
+  13,
+  "yDraw at maximum clamped h (100%) is raised to fontSize+2 minimum",
+);
+
 console.log("DocuFill redaction validation passed");
