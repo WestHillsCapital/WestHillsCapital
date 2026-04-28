@@ -2403,7 +2403,7 @@ function DataPrivacySection({
               <p className="text-sm font-medium text-gray-900 mb-1">Data export</p>
               <p className="text-xs text-gray-500 mb-3">
                 Export all your organization&apos;s data — packages, submissions, team members, and settings — as a
-                JSON file. You&apos;ll receive the download link by email within a few minutes.
+                ZIP archive. You&apos;ll receive the download link by email within a few minutes.
               </p>
               {exportError   && <p className="mb-2 text-xs text-red-700">{exportError}</p>}
               {exportSuccess && (

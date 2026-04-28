@@ -16,6 +16,8 @@ import express from "express";
 import { insertAuditLog, getActorEmail } from "../lib/auditLog";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { sendOrgAlertEmails } from "../lib/email";
+import archiver from "archiver";
+import { PassThrough } from "node:stream";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -2193,7 +2195,7 @@ router.get("/data/download-export", async (req, res) => {
     }
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT id, account_id, export_json, expires_at, status FROM data_export_requests
+      `SELECT id, account_id, export_json, export_format, expires_at, status FROM data_export_requests
         WHERE download_token = $1`,
       [token],
     );
@@ -2215,9 +2217,16 @@ router.get("/data/download-export", async (req, res) => {
       return;
     }
     const date = new Date().toISOString().slice(0, 10);
-    res.setHeader("Content-Type", "application/json");
-    res.setHeader("Content-Disposition", `attachment; filename="docuplete_export_${date}.json"`);
-    res.send(row.export_json as string);
+    if (row.export_format === "zip") {
+      const zipBuffer = Buffer.from(row.export_json as string, "base64");
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", `attachment; filename="docuplete_export_${date}.zip"`);
+      res.send(zipBuffer);
+    } else {
+      res.setHeader("Content-Type", "application/json");
+      res.setHeader("Content-Disposition", `attachment; filename="docuplete_export_${date}.json"`);
+      res.send(row.export_json as string);
+    }
   } catch (err) {
     logger.error({ err }, "[Settings] Failed to serve data export download");
     res.status(500).json({ error: "Failed to download export" });
@@ -2302,7 +2311,27 @@ router.delete("/data/cancel-deletion", requireAdminRole, async (req, res) => {
   }
 });
 
-// ── Export request processor — polls DB every 60 s, generates JSON and emails link ──
+// ── ZIP archive helper ────────────────────────────────────────────────────────
+
+function buildZipBuffer(files: Array<{ name: string; content: string }>): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    const passthrough = new PassThrough();
+    passthrough.on("data", (chunk: Buffer) => chunks.push(chunk));
+    passthrough.on("end", () => resolve(Buffer.concat(chunks)));
+    passthrough.on("error", reject);
+
+    const archive = archiver("zip", { zlib: { level: 9 } });
+    archive.on("error", reject);
+    archive.pipe(passthrough);
+    for (const file of files) {
+      archive.append(file.content, { name: file.name });
+    }
+    archive.finalize().catch(reject);
+  });
+}
+
+// ── Export request processor — polls DB every 60 s, generates ZIP and emails link ──
 
 async function processExportRequests(): Promise<void> {
   let db: ReturnType<typeof getDb>;
@@ -2349,7 +2378,8 @@ async function processExportRequests(): Promise<void> {
         ),
       ]);
 
-      const exportJson = JSON.stringify({
+      const date = new Date().toISOString().slice(0, 10);
+      const exportPayload = JSON.stringify({
         exportedAt:  new Date().toISOString(),
         org:         orgRes.rows[0] ?? null,
         team:        teamRes.rows,
@@ -2357,14 +2387,20 @@ async function processExportRequests(): Promise<void> {
         submissions: sessionsRes.rows,
       }, null, 2);
 
+      const zipBuffer = await buildZipBuffer([
+        { name: `docuplete_export_${date}.json`, content: exportPayload },
+      ]);
+      const exportData = zipBuffer.toString("base64");
+
       await db.query(
         `UPDATE data_export_requests
             SET status = 'completed',
                 export_json = $1,
+                export_format = 'zip',
                 completed_at = NOW(),
                 expires_at = NOW() + INTERVAL '48 hours'
           WHERE id = $2`,
-        [exportJson, job.id],
+        [exportData, job.id],
       );
 
       const frontendBase = process.env.FRONTEND_URL ?? "";

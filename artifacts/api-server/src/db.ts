@@ -1163,6 +1163,7 @@ export async function initDb(): Promise<void> {
     CREATE INDEX IF NOT EXISTS data_export_requests_status_idx
       ON data_export_requests (status, requested_at)
   `);
+  await db.query(`ALTER TABLE data_export_requests ADD COLUMN IF NOT EXISTS export_format TEXT NOT NULL DEFAULT 'zip'`);
 
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
