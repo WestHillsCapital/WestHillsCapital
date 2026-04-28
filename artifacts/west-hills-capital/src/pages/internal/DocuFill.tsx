@@ -668,9 +668,7 @@ export default function DocuFill() {
   const params = useParams<{ token?: string }>();
   const [, navigate] = useLocation();
   const publicSessionToken = params.token ?? null;
-  const searchParams = new URLSearchParams(search);
-  const sessionToken = publicSessionToken ?? searchParams.get("session");
-  const urlGroupId = searchParams.get("groupId") ? Number(searchParams.get("groupId")) : null;
+  const sessionToken = publicSessionToken ?? new URLSearchParams(search).get("session");
   const isPublicSession = Boolean(publicSessionToken);
   const { getAuthHeaders: defaultGetAuthHeaders } = useInternalAuth();
   const docufillConfig = useDocuFillConfig();
@@ -686,6 +684,10 @@ export default function DocuFill() {
   const [inlineAddTypeName, setInlineAddTypeName] = useState("");
   const [inlineAddTypeLoading, setInlineAddTypeLoading] = useState(false);
   const [inlineAddTypeError, setInlineAddTypeError] = useState<string | null>(null);
+  const [inlineAddGroupOpen, setInlineAddGroupOpen] = useState(false);
+  const [inlineAddGroupName, setInlineAddGroupName] = useState("");
+  const [inlineAddGroupLoading, setInlineAddGroupLoading] = useState(false);
+  const [inlineAddGroupError, setInlineAddGroupError] = useState<string | null>(null);
   const [typeManageOpen, setTypeManageOpen] = useState(false);
   const [typeDeletingScope, setTypeDeletingScope] = useState<string | null>(null);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
@@ -696,8 +698,6 @@ export default function DocuFill() {
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
   const [standalonePackageId, setStandalonePackageId] = useState("");
   const [customerLinkPackageId, setCustomerLinkPackageId] = useState("");
-  const [interviewGroupFilters, setInterviewGroupFilters] = useState<Record<string, string>>({});
-  const [customerLinkGroupFilters, setCustomerLinkGroupFilters] = useState<Record<string, string>>({});
   const [customerLinkFirstName, setCustomerLinkFirstName] = useState("");
   const [customerLinkLastName, setCustomerLinkLastName] = useState("");
   const [customerLinkEmail, setCustomerLinkEmail] = useState("");
@@ -1077,17 +1077,6 @@ export default function DocuFill() {
     if (isPublicSession) return;
     loadBootstrap();
   }, [isPublicSession]);
-
-  // Pre-seed interview group filters from URL ?groupId=N param
-  useEffect(() => {
-    if (!urlGroupId || groups.length === 0) return;
-    const grp = groups.find((g) => g.id === urlGroupId);
-    if (!grp) return;
-    const kind = (grp as Entity & { kind?: string }).kind ?? "general";
-    setInterviewGroupFilters((prev) => ({ ...prev, [kind]: String(urlGroupId) }));
-    setCustomerLinkGroupFilters((prev) => ({ ...prev, [kind]: String(urlGroupId) }));
-    setTab("interview");
-  }, [urlGroupId, groups.length]);
 
   useEffect(() => {
     setWebhookTestStatus(null);
@@ -1700,6 +1689,22 @@ export default function DocuFill() {
       return { scope: data.transactionType?.scope ?? "" };
     } catch {
       return "Network error — could not create type";
+    }
+  }
+
+  async function createGroupNamed(name: string): Promise<{ id: number } | string> {
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/groups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ name: name.trim(), active: true }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return data.error ?? "Could not create group";
+      await loadBootstrap();
+      return { id: data.id ?? data.group?.id };
+    } catch {
+      return "Network error — could not create group";
     }
   }
 
@@ -2814,7 +2819,6 @@ export default function DocuFill() {
         {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
           <button onClick={() => goBuilderStep(builderStep)} className={`px-3 py-2 text-sm ${tab === "packages" || tab === "mapper" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
           <button onClick={() => setTab("interview")} className={`px-3 py-2 text-sm ${tab === "interview" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Interviews</button>
-          <button onClick={() => setTab("groups")} className={`px-3 py-2 text-sm ${tab === "groups" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Groups</button>
           <button onClick={() => setTab("csv")} className={`px-3 py-2 text-sm ${tab === "csv" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch CSV</button>
         </div>}
       </div>
@@ -3038,13 +3042,70 @@ export default function DocuFill() {
                         {(() => {
                           const activeGroups = groups.filter((g) => g.active !== false);
                           const categories = [...new Set(activeGroups.map((g) => g.kind ?? "general"))].sort();
-                          if (categories.length === 0) return (
-                            <div className="block text-sm text-[#8A9BB8] col-span-1">
-                              <span className="block text-xs text-[#6B7A99] mb-1">Groups</span>
-                              <span className="text-xs italic">No groups yet — add them in the Groups tab.</span>
+                          const groupsSection = (
+                            <div className="col-span-full mt-2">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs text-[#6B7A99]">Groups</span>
+                                {!inlineAddGroupOpen && (
+                                  <button type="button" onClick={() => { setInlineAddGroupOpen(true); setInlineAddGroupName(""); setInlineAddGroupError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add group</button>
+                                )}
+                              </div>
+                              {inlineAddGroupOpen && (
+                                <div className="mb-2 flex items-center gap-2">
+                                  <input
+                                    autoFocus
+                                    type="text"
+                                    placeholder="Group name…"
+                                    value={inlineAddGroupName}
+                                    onChange={(e) => setInlineAddGroupName(e.target.value)}
+                                    onKeyDown={async (e) => {
+                                      if (e.key === "Enter" && inlineAddGroupName.trim()) {
+                                        e.preventDefault();
+                                        setInlineAddGroupLoading(true);
+                                        setInlineAddGroupError(null);
+                                        const result = await createGroupNamed(inlineAddGroupName.trim());
+                                        setInlineAddGroupLoading(false);
+                                        if (typeof result === "string") {
+                                          setInlineAddGroupError(result);
+                                        } else {
+                                          if (result.id) updateSelectedPackage((pkg) => ({ ...pkg, group_ids: [...(pkg.group_ids ?? []), result.id], group_id: pkg.group_id ?? result.id }));
+                                          setInlineAddGroupOpen(false);
+                                          setInlineAddGroupName("");
+                                        }
+                                      } else if (e.key === "Escape") {
+                                        setInlineAddGroupOpen(false);
+                                      }
+                                    }}
+                                    className="flex-1 border border-[#D4C9B5] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#C49A38]"
+                                  />
+                                  <button
+                                    type="button"
+                                    disabled={!inlineAddGroupName.trim() || inlineAddGroupLoading}
+                                    onClick={async () => {
+                                      setInlineAddGroupLoading(true);
+                                      setInlineAddGroupError(null);
+                                      const result = await createGroupNamed(inlineAddGroupName.trim());
+                                      setInlineAddGroupLoading(false);
+                                      if (typeof result === "string") {
+                                        setInlineAddGroupError(result);
+                                      } else {
+                                        if (result.id) updateSelectedPackage((pkg) => ({ ...pkg, group_ids: [...(pkg.group_ids ?? []), result.id], group_id: pkg.group_id ?? result.id }));
+                                        setInlineAddGroupOpen(false);
+                                        setInlineAddGroupName("");
+                                      }
+                                    }}
+                                    className="text-xs bg-[#C49A38] text-white rounded px-2 py-1.5 disabled:opacity-40"
+                                  >{inlineAddGroupLoading ? "Adding…" : "Add"}</button>
+                                  <button type="button" onClick={() => setInlineAddGroupOpen(false)} className="text-xs text-[#8A9BB8] hover:text-[#4A5568]">Cancel</button>
+                                </div>
+                              )}
+                              {inlineAddGroupError && <p className="mb-1 text-xs text-red-600">{inlineAddGroupError}</p>}
                             </div>
                           );
-                          return categories.map((cat) => {
+                          if (categories.length === 0) return groupsSection;
+                          return (<>
+                            {groupsSection}
+                            {categories.map((cat) => {
                             const catGroups = activeGroups.filter((g) => (g.kind ?? "general") === cat);
                             const selectedInCat = (selectedPackage.group_ids ?? []).find((gid) => catGroups.some((g) => g.id === gid));
                             return (
@@ -3067,7 +3128,8 @@ export default function DocuFill() {
                                 </select>
                               </label>
                             );
-                          });
+                          })}
+                          </>);
                         })()}
                       </div>
                       <div className="mt-4 text-sm">
@@ -4606,34 +4668,8 @@ export default function DocuFill() {
             isPublicSession ? <EmptyState message="This interview link is invalid or expired." /> : (
               <div className="space-y-6">
                 {(() => {
-                  const activeGroups = groups.filter((g) => g.active !== false);
-                  const groupKinds = [...new Set(activeGroups.map((g) => (g as Entity & { kind?: string }).kind ?? "general"))].sort();
-                  // Returns packages filtered by all selected group-filters except the one for `excludeKind`
-                  function pkgsForFilter(basePkgs: PackageItem[], filters: Record<string, string>, excludeKind?: string): PackageItem[] {
-                    return basePkgs.filter((pkg) => {
-                      for (const [kind, gidStr] of Object.entries(filters)) {
-                        if (kind === excludeKind) continue;
-                        const gid = Number(gidStr);
-                        if (gid && !pkg.group_ids.includes(gid)) return false;
-                      }
-                      return true;
-                    });
-                  }
-                  // Available groups for a given kind, cross-filtered by all OTHER selected filters
-                  function availGroupsForKind(basePkgs: PackageItem[], kind: string, filters: Record<string, string>): Entity[] {
-                    const eligible = pkgsForFilter(basePkgs, filters, kind);
-                    const eligibleIds = new Set(eligible.flatMap((p) => p.group_ids));
-                    return activeGroups.filter((g) => ((g as Entity & { kind?: string }).kind ?? "general") === kind && eligibleIds.has(g.id));
-                  }
-
-                  const staffBase = activePackages.filter((p) => p.enable_interview);
-                  const staffFiltered = pkgsForFilter(staffBase, interviewGroupFilters);
-                  const hasStaff = staffBase.length > 0;
-
-                  const clBase = activePackages.filter((p) => p.enable_customer_link);
-                  const clFiltered = pkgsForFilter(clBase, customerLinkGroupFilters);
-                  const hasCustomerLink = clBase.length > 0;
-
+                  const hasStaff = activePackages.some((p) => p.enable_interview);
+                  const hasCustomerLink = activePackages.some((p) => p.enable_customer_link);
                   if (!hasStaff && !hasCustomerLink) {
                     return (
                       <div className="text-center py-8 space-y-3">
@@ -4654,24 +4690,10 @@ export default function DocuFill() {
                             <h3 className="text-sm font-semibold">Staff Interview</h3>
                             <span className="text-xs text-[#8A9BB8]">— walk a client through their paperwork</span>
                           </div>
-                          {groupKinds.length > 0 && (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                              {groupKinds.map((kind) => {
-                                const opts = availGroupsForKind(staffBase, kind, interviewGroupFilters);
-                                if (opts.length === 0) return null;
-                                return (
-                                  <select key={kind} value={interviewGroupFilters[kind] ?? ""} onChange={(e) => { setInterviewGroupFilters((prev) => { const next = { ...prev }; if (e.target.value) next[kind] = e.target.value; else delete next[kind]; return next; }); setStandalonePackageId(""); }} className="border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white capitalize">
-                                    <option value="">All {kind}s</option>
-                                    {opts.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                                  </select>
-                                );
-                              })}
-                            </div>
-                          )}
                           <div className="flex flex-col sm:flex-row gap-2">
                             <select value={standalonePackageId} onChange={(e) => setStandalonePackageId(e.target.value)} className="flex-1 border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white">
                               <option value="">Select a package…</option>
-                              {staffFiltered.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
+                              {activePackages.filter((p) => p.enable_interview).map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
                             </select>
                             <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F] shrink-0">{isSaving ? "Launching…" : "Start Interview"}</Button>
                           </div>
@@ -4690,23 +4712,9 @@ export default function DocuFill() {
                             <span className="text-xs text-[#8A9BB8]">— customer fills the form themselves</span>
                           </div>
                           <div className="space-y-2">
-                            {groupKinds.length > 0 && (
-                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                                {groupKinds.map((kind) => {
-                                  const opts = availGroupsForKind(clBase, kind, customerLinkGroupFilters);
-                                  if (opts.length === 0) return null;
-                                  return (
-                                    <select key={kind} value={customerLinkGroupFilters[kind] ?? ""} onChange={(e) => { setCustomerLinkGroupFilters((prev) => { const next = { ...prev }; if (e.target.value) next[kind] = e.target.value; else delete next[kind]; return next; }); setCustomerLinkPackageId(""); setGeneratedCustomerLink(null); setGeneratedCustomerLinkToken(null); }} className="border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white capitalize">
-                                      <option value="">All {kind}s</option>
-                                      {opts.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                                    </select>
-                                  );
-                                })}
-                              </div>
-                            )}
                             <select value={customerLinkPackageId} onChange={(e) => { setCustomerLinkPackageId(e.target.value); setGeneratedCustomerLink(null); setGeneratedCustomerLinkToken(null); setLinkEmailSent(null); setShowSendLinkForm(false); }} className="w-full border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white">
                               <option value="">Select a package…</option>
-                              {clFiltered.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
+                              {activePackages.filter((p) => p.enable_customer_link).map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
                             </select>
                             {customerLinkPackageId && activePackages.find((p) => String(p.id) === customerLinkPackageId)?.tags.includes("Demo") && (
                               <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
