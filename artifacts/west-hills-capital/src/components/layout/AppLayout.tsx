@@ -44,7 +44,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const displayName = user?.fullName ?? account?.email ?? "";
+  // Use the Clerk full name if available; do NOT fall back to email so the
+  // two lines in the dropdown don't both show the same email address.
+  const displayName = user?.fullName ?? "";
   const displayEmail = account?.email ?? user?.primaryEmailAddress?.emailAddress ?? "";
   const imageUrl = user?.imageUrl;
 
