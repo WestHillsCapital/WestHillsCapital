@@ -1,0 +1,53 @@
+{
+  "type": "basic",
+
+  "parameters": [
+    {
+      "name": "apiKey",
+      "label": "API Key",
+      "type": "password",
+      "required": true,
+      "help": "Your Docuplete API key (starts with `sk_live_`). Find it in your Docuplete dashboard under **Settings → API Keys**."
+    },
+    {
+      "name": "baseUrl",
+      "label": "API Base URL",
+      "type": "url",
+      "required": true,
+      "default": "https://app.docuplete.com",
+      "help": "Leave as-is unless your organization uses a custom domain. Must not include a trailing slash."
+    }
+  ],
+
+  "communication": {
+    "url": "{{connection.baseUrl}}/api/v1/product/auth/me",
+    "method": "GET",
+    "headers": {
+      "Authorization": "Bearer {{connection.apiKey}}",
+      "Content-Type": "application/json"
+    },
+    "response": {
+      "error": {
+        "filter": [
+          {
+            "name": "Unauthorized",
+            "type": "StatusCodeError",
+            "statusCode": 401,
+            "message": "Invalid API key. Please double-check your key in Docuplete → Settings → API Keys."
+          }
+        ]
+      },
+      "data": [
+        {
+          "name": "accountName",
+          "value": "{{body.accountName}}"
+        }
+      ]
+    },
+    "log": {
+      "sanitize": ["request.headers.Authorization"]
+    }
+  },
+
+  "label": "{{connection.accountName}}"
+}

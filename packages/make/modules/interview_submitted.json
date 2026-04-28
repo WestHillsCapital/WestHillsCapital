@@ -1,0 +1,109 @@
+{
+  "name": "interview_submitted",
+  "label": "Interview Submitted",
+  "description": "Triggers when a client completes a Docuplete interview and documents are generated.",
+  "type": "trigger",
+  "connection": "docuplete",
+
+  "parameters": [
+    {
+      "name": "packageId",
+      "label": "Package",
+      "type": "select",
+      "required": false,
+      "help": "Only trigger for this interview package. Leave blank to trigger for all packages.",
+      "options": {
+        "store": "{{rpc('list_packages')}}"
+      }
+    }
+  ],
+
+  "url": "/api/v1/product/docufill/sessions",
+  "method": "GET",
+  "qs": {
+    "status": "generated",
+    "limit": 100,
+    "offset": "{{ifempty(parameters.__IMTOFFSET__, 0)}}",
+    "updatedAfter": "{{epoch}}",
+    "packageId": "{{if(parameters.packageId, parameters.packageId, '')}}"
+  },
+
+  "pagination": {
+    "mergeWithParent": true,
+    "condition": "{{length(body.sessions) >= 100}}",
+    "parameters": [
+      {
+        "name": "__IMTOFFSET__",
+        "type": "number",
+        "label": "Offset",
+        "value": "{{ifempty(parameters.__IMTOFFSET__, 0) + length(body.sessions)}}"
+      }
+    ]
+  },
+
+  "response": {
+    "iterate": "{{body.sessions}}",
+    "trigger": {
+      "id": "{{item.id}}",
+      "date": "{{item.updated_at}}"
+    },
+    "output": {
+      "id": "{{item.id}}",
+      "token": "{{item.token}}",
+      "package_id": "{{item.package_id}}",
+      "package_name": "{{item.package_name}}",
+      "status": "{{item.status}}",
+      "transaction_scope": "{{item.transaction_scope}}",
+      "created_at": "{{item.created_at}}",
+      "updated_at": "{{item.updated_at}}",
+      "expires_at": "{{item.expires_at}}",
+      "session_url": "{{connection.baseUrl}}/internal/docufill?session={{item.token}}",
+      "pdf_url": "{{if(item.generated_pdf_url, join(array(connection.baseUrl, item.generated_pdf_url), ''), null)}}",
+      "answers": "{{item.answers}}",
+      "prefill": "{{item.prefill}}"
+    }
+  },
+
+  "epoch": {
+    "date": "{{now}}",
+    "type": "date"
+  },
+
+  "interface": [
+    { "name": "id", "label": "Session ID", "type": "uinteger" },
+    { "name": "token", "label": "Session Token", "type": "text" },
+    { "name": "package_id", "label": "Package ID", "type": "uinteger" },
+    { "name": "package_name", "label": "Package Name", "type": "text" },
+    { "name": "status", "label": "Status", "type": "text" },
+    { "name": "transaction_scope", "label": "Transaction Scope", "type": "text" },
+    { "name": "session_url", "label": "Session URL", "type": "url" },
+    { "name": "pdf_url", "label": "PDF Download URL", "type": "url" },
+    { "name": "created_at", "label": "Created At", "type": "date" },
+    { "name": "updated_at", "label": "Updated At", "type": "date" },
+    { "name": "expires_at", "label": "Expires At", "type": "date" },
+    { "name": "answers", "label": "Answers", "type": "collection" },
+    { "name": "prefill", "label": "Prefill Data", "type": "collection" }
+  ],
+
+  "sample": {
+    "id": 1,
+    "token": "df_example123",
+    "package_id": 7,
+    "package_name": "IRA Transfer Package",
+    "status": "generated",
+    "transaction_scope": "ira_transfer",
+    "created_at": "2026-01-15T10:30:00.000Z",
+    "updated_at": "2026-01-15T11:00:00.000Z",
+    "expires_at": "2026-04-15T11:00:00.000Z",
+    "session_url": "https://app.docuplete.com/internal/docufill?session=df_example123",
+    "pdf_url": "https://app.docuplete.com/api/internal/docufill/sessions/df_example123/packet.pdf",
+    "answers": {
+      "client_name": "Jane Smith",
+      "client_email": "jane@example.com"
+    },
+    "prefill": {
+      "firstName": "Jane",
+      "lastName": "Smith"
+    }
+  }
+}

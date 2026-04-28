@@ -1,0 +1,77 @@
+{
+  "name": "get_session",
+  "label": "Get Session",
+  "description": "Finds a Docuplete interview session by its ID or token and returns its current status, answers, and a link to the generated PDF.",
+  "type": "search",
+  "connection": "docuplete",
+
+  "parameters": [
+    {
+      "name": "sessionId",
+      "label": "Session ID or Token",
+      "type": "text",
+      "required": true,
+      "help": "The numeric session ID (e.g. 42) or opaque token (e.g. df_abc123). Use the Session ID from the Interview Submitted trigger, or the Session Token from the Create Interview Session module."
+    }
+  ],
+
+  "url": "/api/v1/product/docufill/sessions/{{parameters.sessionId}}",
+  "method": "GET",
+
+  "response": {
+    "iterate": "{{if(body.session, array(body.session), array())}}",
+    "output": {
+      "id": "{{item.id}}",
+      "token": "{{item.token}}",
+      "package_id": "{{item.package_id}}",
+      "package_name": "{{item.package_name}}",
+      "status": "{{item.status}}",
+      "transaction_scope": "{{item.transaction_scope}}",
+      "custodian_name": "{{item.custodian_name}}",
+      "depository_name": "{{item.depository_name}}",
+      "created_at": "{{item.created_at}}",
+      "updated_at": "{{item.updated_at}}",
+      "expires_at": "{{item.expires_at}}",
+      "session_url": "{{connection.baseUrl}}/internal/docufill?session={{item.token}}",
+      "pdf_url": "{{if(item.generated_pdf_url, join(array(connection.baseUrl, item.generated_pdf_url), ''), null)}}",
+      "answers": "{{item.answers}}"
+    }
+  },
+
+  "interface": [
+    { "name": "id", "label": "Session ID", "type": "uinteger" },
+    { "name": "token", "label": "Session Token", "type": "text" },
+    { "name": "package_id", "label": "Package ID", "type": "uinteger" },
+    { "name": "package_name", "label": "Package Name", "type": "text" },
+    { "name": "status", "label": "Status", "type": "text" },
+    { "name": "transaction_scope", "label": "Transaction Scope", "type": "text" },
+    { "name": "custodian_name", "label": "Custodian", "type": "text" },
+    { "name": "depository_name", "label": "Depository", "type": "text" },
+    { "name": "session_url", "label": "Internal Session URL", "type": "url" },
+    { "name": "pdf_url", "label": "PDF Download URL", "type": "url" },
+    { "name": "created_at", "label": "Created At", "type": "date" },
+    { "name": "updated_at", "label": "Updated At", "type": "date" },
+    { "name": "expires_at", "label": "Expires At", "type": "date" },
+    { "name": "answers", "label": "Answers", "type": "collection" }
+  ],
+
+  "sample": {
+    "id": 42,
+    "token": "df_example456",
+    "package_id": 7,
+    "package_name": "IRA Transfer Package",
+    "status": "generated",
+    "transaction_scope": "ira_transfer",
+    "custodian_name": "Example Custodian",
+    "depository_name": null,
+    "created_at": "2026-01-15T10:30:00.000Z",
+    "updated_at": "2026-01-15T11:00:00.000Z",
+    "expires_at": "2026-04-15T11:00:00.000Z",
+    "session_url": "https://app.docuplete.com/internal/docufill?session=df_example456",
+    "pdf_url": "https://app.docuplete.com/api/internal/docufill/sessions/df_example456/packet.pdf",
+    "answers": {
+      "client_name": "Jane Smith",
+      "client_email": "jane@example.com"
+    }
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "list_packages",
+  "label": "List Packages",
+  "connection": "docuplete",
+
+  "url": "/api/v1/product/docufill/packages",
+  "method": "GET",
+
+  "response": {
+    "iterate": "{{body.packages}}",
+    "output": {
+      "label": "{{item.name}}",
+      "value": "{{item.id}}"
+    }
+  }
+}
