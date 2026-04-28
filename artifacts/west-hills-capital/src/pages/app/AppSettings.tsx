@@ -1064,7 +1064,7 @@ function NotificationsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
         <div>
           <h2 className="text-base font-semibold text-gray-900">Notifications</h2>
           <p className="text-xs text-gray-500 mt-0.5">
-            Choose which events send you email alerts or appear as in-app notifications. These preferences are personal — each team member controls their own.
+            Choose which events send you an email. These preferences are personal — each team member controls their own.
           </p>
         </div>
         {saved && (
@@ -1084,7 +1084,6 @@ function NotificationsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
           <div className="flex items-center px-6 py-2 border-b border-gray-100 bg-gray-50/80">
             <div className="flex-1 text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Event</div>
             <div className="w-20 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Email</div>
-            <div className="w-20 text-center text-[11px] font-semibold text-gray-400 uppercase tracking-wide">In-app</div>
           </div>
 
           {NOTIFICATION_CATEGORIES.map((category) => (
@@ -1116,25 +1115,6 @@ function NotificationsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
                             className={[
                               "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow ring-0 transition-transform duration-200",
                               pref.email_enabled ? "translate-x-4" : "translate-x-0",
-                            ].join(" ")}
-                          />
-                        </button>
-                      </div>
-                      <div className="w-20 flex justify-center">
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={pref.in_app_enabled}
-                          onClick={() => handleToggle(event.key, "in_app_enabled", !pref.in_app_enabled)}
-                          className={[
-                            "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2",
-                            pref.in_app_enabled ? "bg-gray-900" : "bg-gray-200",
-                          ].join(" ")}
-                        >
-                          <span
-                            className={[
-                              "pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow ring-0 transition-transform duration-200",
-                              pref.in_app_enabled ? "translate-x-4" : "translate-x-0",
                             ].join(" ")}
                           />
                         </button>
