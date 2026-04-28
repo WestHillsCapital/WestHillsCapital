@@ -1,4 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { Info } from "lucide-react";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
 import { CSS as DndCSS } from "@dnd-kit/utilities";
@@ -2857,8 +2859,18 @@ export default function DocuFill() {
           <p className="text-sm text-[#6B7A99] mt-1">{isPublicSession ? "Complete your secure paperwork interview." : "Set up custodial packages once, then launch clean interviews from Deal Builder."}</p>
         </div>
         {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
-          <button onClick={() => goBuilderStep(builderStep)} className={`px-3 py-2 text-sm ${tab === "packages" || tab === "mapper" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
-          <button onClick={() => setTab("interview")} className={`px-3 py-2 text-sm ${tab === "interview" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Interviews</button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button onClick={() => goBuilderStep(builderStep)} className={`px-3 py-2 text-sm ${tab === "packages" || tab === "mapper" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">A Package bundles multiple PDF forms into one guided interview session. Configure documents, fields, and automation here.</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button onClick={() => setTab("interview")} className={`px-3 py-2 text-sm ${tab === "interview" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Interviews</button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Launch a single interview session for one package at a time — staff-guided or via a customer self-service link.</TooltipContent>
+          </Tooltip>
           <button onClick={() => setTab("csv")} className={`px-3 py-2 text-sm ${tab === "csv" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch CSV</button>
         </div>}
       </div>
@@ -3281,7 +3293,17 @@ export default function DocuFill() {
                         <Textarea value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
                       </label>
                       <div className="mt-4">
-                        <span className="block text-xs text-[#6B7A99] mb-1">Tags</span>
+                        <div className="flex items-center gap-1 mb-1">
+                          <span className="text-xs text-[#6B7A99]">Tags</span>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="flex items-center justify-center w-4 h-4 rounded-full border border-[#C4B99A] text-[#8A9BB8] text-[10px] leading-none cursor-help select-none">?</span>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-60">
+                              Tags appear as filter chips above the package list — click any tag there to show only matching packages. Add multiple tags to a package to make it show up under any of them.
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
                         <p className="text-[11px] text-[#8A9BB8] mb-2">Free-form labels for organizing and filtering packages. Press Enter or comma to add.</p>
                         <TagChipInput
                           tags={selectedPackage.tags ?? []}
@@ -3705,13 +3727,18 @@ export default function DocuFill() {
                               <div className="mt-3 space-y-3">
                                 {/* Endpoint URL + send test */}
                                 <div className="flex gap-2 items-center">
-                                  <input
-                                    type="url"
-                                    placeholder="https://your-endpoint.com/webhook"
-                                    value={selectedPackage.webhook_url ?? ""}
-                                    onChange={(e) => { updateSelectedPackage((pkg) => ({ ...pkg, webhook_url: e.target.value || null })); setWebhookTestStatus(null); }}
-                                    className="flex-1 min-w-0 text-xs rounded border border-[#DDD5C4] bg-white px-2 py-1.5 text-[#0F1C3F] placeholder:text-[#B0A898] focus:outline-none focus:ring-1 focus:ring-[#0F1C3F]"
-                                  />
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <input
+                                        type="url"
+                                        placeholder="https://your-endpoint.com/webhook"
+                                        value={selectedPackage.webhook_url ?? ""}
+                                        onChange={(e) => { updateSelectedPackage((pkg) => ({ ...pkg, webhook_url: e.target.value || null })); setWebhookTestStatus(null); }}
+                                        className="flex-1 min-w-0 text-xs rounded border border-[#DDD5C4] bg-white px-2 py-1.5 text-[#0F1C3F] placeholder:text-[#B0A898] focus:outline-none focus:ring-1 focus:ring-[#0F1C3F]"
+                                      />
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top">URL must be HTTPS. A POST request is sent each time an interview or customer form is submitted.</TooltipContent>
+                                  </Tooltip>
                                   <button
                                     type="button"
                                     disabled={!selectedPackage.webhook_url}
@@ -5403,15 +5430,6 @@ export default function DocuFill() {
                           <th
                             key={h}
                             className={`px-3 py-2 text-left font-medium whitespace-nowrap ${willSkip ? "text-[#9AAAC0] line-through" : "text-[#6B7A99]"} ${hasIssues ? "cursor-pointer hover:bg-amber-50 select-none focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset" : ""}`}
-                            title={
-                              hasIssues
-                                ? `${invalidCount > 0 ? `${invalidCount} invalid value${invalidCount === 1 ? "" : "s"}` : ""}${invalidCount > 0 && emptyRequiredCount > 0 ? ", " : ""}${emptyRequiredCount > 0 ? `${emptyRequiredCount} empty required` : ""} — click to see in breakdown`
-                                : willSkip
-                                  ? "This column will be skipped on import"
-                                  : matchedField?.interviewMode === "required"
-                                    ? "Required field"
-                                    : undefined
-                            }
                             {...(hasIssues ? {
                               role: "button",
                               tabIndex: 0,
@@ -5420,19 +5438,57 @@ export default function DocuFill() {
                             } : {})}
                           >
                             <span className="inline-flex items-center gap-1 flex-wrap">
-                              <span>{h}</span>
+                              {matchedField ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-default">{h}</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    {matchedField.type === "date" ? "Format: MM/DD/YYYY" : matchedField.validationType && matchedField.validationType !== "none" ? `Format: ${validationTypeHint(matchedField.validationType, matchedField.validationMessage ?? undefined)}` : matchedField.type === "checkbox" || matchedField.type === "radio" || matchedField.type === "dropdown" ? `Type: ${matchedField.type}${matchedField.options?.length ? ` — options: ${matchedField.options.slice(0, 3).join(", ")}${matchedField.options.length > 3 ? "…" : ""}` : ""}` : "Type: text"}
+                                  </TooltipContent>
+                                </Tooltip>
+                              ) : willSkip ? (
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="cursor-default">{h}</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">This column does not match any field in the selected package and will be skipped on import.</TooltipContent>
+                                </Tooltip>
+                              ) : (
+                                <span>{h}</span>
+                              )}
                               {matchedField?.interviewMode === "required" && !willSkip && (
-                                <span className="text-red-500 font-bold" title="Required field">*</span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="text-red-500 font-bold cursor-default">*</span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top">Required field — must have a value for every row</TooltipContent>
+                                </Tooltip>
                               )}
                               {invalidCount > 0 && (
-                                <span className="inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold leading-none px-1.5 py-0.5 min-w-[16px]" title={`${invalidCount} invalid value${invalidCount === 1 ? "" : "s"}`}>
-                                  {invalidCount}
-                                </span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold leading-none px-1.5 py-0.5 min-w-[16px] cursor-default">
+                                      {invalidCount}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    {`Invalid value${invalidCount === 1 ? "" : "s"} in row${fieldIssue!.invalid.length === 1 ? "" : "s"}: ${fieldIssue!.invalid.slice(0, 10).join(", ")}${fieldIssue!.invalid.length > 10 ? ` … +${fieldIssue!.invalid.length - 10} more` : ""}`}
+                                    {matchedField && matchedField.validationType && matchedField.validationType !== "none" ? ` — expected format: ${validationTypeHint(matchedField.validationType, matchedField.validationMessage ?? undefined)}` : ""}
+                                  </TooltipContent>
+                                </Tooltip>
                               )}
                               {emptyRequiredCount > 0 && (
-                                <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-bold leading-none px-1.5 py-0.5 min-w-[16px]" title={`${emptyRequiredCount} empty required`}>
-                                  {emptyRequiredCount}
-                                </span>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-bold leading-none px-1.5 py-0.5 min-w-[16px] cursor-default">
+                                      {emptyRequiredCount}
+                                    </span>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-xs">
+                                    {`Required field is empty in row${fieldIssue!.emptyRequired.length === 1 ? "" : "s"}: ${fieldIssue!.emptyRequired.slice(0, 10).join(", ")}${fieldIssue!.emptyRequired.length > 10 ? ` … +${fieldIssue!.emptyRequired.length - 10} more` : ""}`}
+                                  </TooltipContent>
+                                </Tooltip>
                               )}
                             </span>
                           </th>
@@ -6021,13 +6077,28 @@ export default function DocuFill() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-[#6B7A99] mb-1">Field Type</label>
-                <select value={fieldEditorDraft.type} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, type: e.target.value as FieldItem["type"] }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm bg-white">
-                  <option value="text">Text box</option>
-                  <option value="date">Date</option>
-                  <option value="radio">Radio buttons</option>
-                  <option value="checkbox">Checkboxes</option>
-                  <option value="dropdown">Dropdown</option>
-                </select>
+                <div className="flex flex-wrap gap-1.5">
+                  {([
+                    { value: "text",     label: "Text box",   tip: "A freeform typed response — any text the user types" },
+                    { value: "date",     label: "Date",       tip: "A formatted date entry — renders as a date field on the filled PDF" },
+                    { value: "radio",    label: "Radio",      tip: "One selection from a group — only one option can be chosen" },
+                    { value: "checkbox", label: "Checkbox",   tip: "A checked or unchecked box — supports multiple selections when options are defined" },
+                    { value: "dropdown", label: "Dropdown",   tip: "A choice from a predefined list — single selection from a dropdown menu" },
+                  ] as const).map(({ value, label, tip }) => (
+                    <Tooltip key={value}>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => setFieldEditorDraft((d) => ({ ...d, type: value }))}
+                          className={`px-2.5 py-1 text-xs rounded border transition-colors ${fieldEditorDraft.type === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}
+                        >
+                          {label}
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top">{tip}</TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
               </div>
               {(fieldEditorDraft.type === "radio" || fieldEditorDraft.type === "checkbox" || fieldEditorDraft.type === "dropdown") && (
                 <div>
@@ -6080,7 +6151,21 @@ export default function DocuFill() {
                 </label>
                 {fieldEditorDraft.interviewMode !== "omitted" && (
                   <div>
-                    <label className="block text-xs text-[#6B7A99] mb-1">Interview behavior</label>
+                    <div className="flex items-center gap-1 mb-1">
+                      <label className="text-xs text-[#6B7A99]">Interview behavior</label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center text-[#8A9BB8] cursor-default">
+                            <Info className="w-3 h-3" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-xs leading-snug space-y-1">
+                          <p><strong>Optional</strong> — staff may fill this in during the interview but it is not required.</p>
+                          <p><strong>Required</strong> — staff must answer this field before the document can be generated.</p>
+                          <p><strong>Read-only</strong> — the value is shown during the interview but cannot be edited.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <select value={fieldEditorDraft.interviewMode} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, interviewMode: e.target.value as FieldInterviewMode }))} className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white">
                       <option value="optional">Optional — staff fills in during interview</option>
                       <option value="required">Required — must answer before generating</option>
@@ -6611,13 +6696,20 @@ function FieldLibraryPanel({
             <div className="grid grid-cols-2 gap-2">
               <div className="relative pt-1">
                 {h && <HL>Field type</HL>}
-                <select value={item.type} onChange={(e) => onChange(item.id, { type: e.target.value as FieldItem["type"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
-                  <option value="text">Text</option>
-                  <option value="date">Date</option>
-                  <option value="radio">Radio</option>
-                  <option value="checkbox">Checkbox</option>
-                  <option value="dropdown">Dropdown</option>
-                </select>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <select value={item.type} onChange={(e) => onChange(item.id, { type: e.target.value as FieldItem["type"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
+                      <option value="text">Text</option>
+                      <option value="date">Date</option>
+                      <option value="radio">Radio</option>
+                      <option value="checkbox">Checkbox</option>
+                      <option value="dropdown">Dropdown</option>
+                    </select>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    {item.type === "text" ? "Text: a freeform typed response" : item.type === "date" ? "Date: a formatted date entry (MM/DD/YYYY)" : item.type === "radio" ? "Radio: one selection from a group" : item.type === "checkbox" ? "Checkbox: a checked/unchecked box; multiple selections when options are defined" : "Dropdown: a single choice from a predefined list"}
+                  </TooltipContent>
+                </Tooltip>
               </div>
               <div className="relative pt-1">
                 {h && <HL>Validation rule</HL>}
@@ -6646,9 +6738,36 @@ function FieldLibraryPanel({
             <div className="relative pt-1">
               {h && <HL>Active · Required · Sensitive</HL>}
               <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
-                <label className="flex items-center gap-1"><input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} /> Active</label>
-                <label className="flex items-center gap-1"><input type="checkbox" checked={item.required} onChange={(e) => onChange(item.id, { required: e.target.checked })} /> Required</label>
-                <label className="flex items-center gap-1"><input type="checkbox" checked={item.sensitive} onChange={(e) => onChange(item.id, { sensitive: e.target.checked })} /> Sensitive</label>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} />
+                  Active
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[180px] text-xs">Field appears in the interview form when active.</TooltipContent>
+                  </Tooltip>
+                </label>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={item.required} onChange={(e) => onChange(item.id, { required: e.target.checked })} />
+                  Required
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[180px] text-xs">Staff must fill this field before the document can be generated.</TooltipContent>
+                  </Tooltip>
+                </label>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={item.sensitive} onChange={(e) => onChange(item.id, { sensitive: e.target.checked })} />
+                  Sensitive
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[180px] text-xs">Value is masked in logs and exports to protect private data.</TooltipContent>
+                  </Tooltip>
+                </label>
               </div>
             </div>
             <div className="flex items-center justify-between">
