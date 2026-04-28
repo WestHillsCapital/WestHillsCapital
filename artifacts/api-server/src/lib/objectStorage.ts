@@ -12,28 +12,41 @@ import {
 const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
 
 function buildStorageClient(): Storage {
+  // On Replit (dev or deployed via Replit), use the managed sidecar regardless
+  // of whether GOOGLE_SERVICE_ACCOUNT_KEY is also set. The sidecar has the
+  // correct credentials for Replit Object Storage; the service account key is
+  // only meant for external deployments (e.g. Railway) where the sidecar is
+  // not available.
+  if (!!(process.env.REPL_ID || process.env.REPLIT_DOMAINS)) {
+    return new Storage({
+      credentials: {
+        audience: "replit",
+        subject_token_type: "access_token",
+        token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
+        type: "external_account",
+        credential_source: {
+          url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
+          format: {
+            type: "json",
+            subject_token_field_name: "access_token",
+          },
+        },
+        universe_domain: "googleapis.com",
+      },
+      projectId: "",
+    });
+  }
+
+  // Outside Replit (Railway, etc.) — require an explicit service account key.
   const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
   if (serviceAccountKey) {
     const credentials = JSON.parse(serviceAccountKey) as Record<string, unknown>;
     return new Storage({ credentials, projectId: credentials.project_id as string });
   }
-  return new Storage({
-    credentials: {
-      audience: "replit",
-      subject_token_type: "access_token",
-      token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
-      type: "external_account",
-      credential_source: {
-        url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
-        format: {
-          type: "json",
-          subject_token_field_name: "access_token",
-        },
-      },
-      universe_domain: "googleapis.com",
-    },
-    projectId: "",
-  });
+
+  // No credentials available at all — return an unconfigured client so that
+  // assertStorageCredentials() can throw the proper human-readable error.
+  return new Storage();
 }
 
 export const objectStorageClient = buildStorageClient();
