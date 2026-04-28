@@ -396,7 +396,13 @@ async function doWebhookDelivery(
        (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [packageId, accountId, eventType, payloadHash, attempt, httpStatus, responseSnippet, durationMs],
-  ).catch((e) => logger.error({ e }, "[DocuFill] Failed to log webhook delivery"));
+  ).catch((e) => {
+    // Postgres FK violation (23503) on the package_id column means the package
+    // was deleted before the retry row could be inserted — this happens in tests
+    // when cleanup runs while a scheduled retry is still pending. Suppress it.
+    if (e?.code === "23503" && e?.constraint === "webhook_deliveries_package_id_fkey") return;
+    logger.error({ e }, "[DocuFill] Failed to log webhook delivery");
+  });
   return ok;
 }
 
@@ -448,7 +454,10 @@ function fireWebhookAsync(
            (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms)
          VALUES ($1, $2, $3, $4, 1, NULL, $5, 0)`,
         [packageId, accountId, eventType, payloadHash, "Secret unavailable — delivery aborted"],
-      ).catch((e) => logger.error({ e }, "[DocuFill] Failed to log aborted delivery"));
+      ).catch((e) => {
+        if (e?.code === "23503" && e?.constraint === "webhook_deliveries_package_id_fkey") return;
+        logger.error({ e }, "[DocuFill] Failed to log aborted delivery");
+      });
       return;
     }
     void tryDeliver(1, secret);
