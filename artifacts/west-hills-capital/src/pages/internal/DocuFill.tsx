@@ -668,7 +668,9 @@ export default function DocuFill() {
   const params = useParams<{ token?: string }>();
   const [, navigate] = useLocation();
   const publicSessionToken = params.token ?? null;
-  const sessionToken = publicSessionToken ?? new URLSearchParams(search).get("session");
+  const searchParams = new URLSearchParams(search);
+  const sessionToken = publicSessionToken ?? searchParams.get("session");
+  const urlGroupId = searchParams.get("groupId") ? Number(searchParams.get("groupId")) : null;
   const isPublicSession = Boolean(publicSessionToken);
   const { getAuthHeaders: defaultGetAuthHeaders } = useInternalAuth();
   const docufillConfig = useDocuFillConfig();
@@ -694,6 +696,8 @@ export default function DocuFill() {
   const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
   const [standalonePackageId, setStandalonePackageId] = useState("");
   const [customerLinkPackageId, setCustomerLinkPackageId] = useState("");
+  const [interviewGroupFilters, setInterviewGroupFilters] = useState<Record<string, string>>({});
+  const [customerLinkGroupFilters, setCustomerLinkGroupFilters] = useState<Record<string, string>>({});
   const [customerLinkFirstName, setCustomerLinkFirstName] = useState("");
   const [customerLinkLastName, setCustomerLinkLastName] = useState("");
   const [customerLinkEmail, setCustomerLinkEmail] = useState("");
@@ -1073,6 +1077,17 @@ export default function DocuFill() {
     if (isPublicSession) return;
     loadBootstrap();
   }, [isPublicSession]);
+
+  // Pre-seed interview group filters from URL ?groupId=N param
+  useEffect(() => {
+    if (!urlGroupId || groups.length === 0) return;
+    const grp = groups.find((g) => g.id === urlGroupId);
+    if (!grp) return;
+    const kind = (grp as Entity & { kind?: string }).kind ?? "general";
+    setInterviewGroupFilters((prev) => ({ ...prev, [kind]: String(urlGroupId) }));
+    setCustomerLinkGroupFilters((prev) => ({ ...prev, [kind]: String(urlGroupId) }));
+    setTab("interview");
+  }, [urlGroupId, groups.length]);
 
   useEffect(() => {
     setWebhookTestStatus(null);
@@ -4591,8 +4606,34 @@ export default function DocuFill() {
             isPublicSession ? <EmptyState message="This interview link is invalid or expired." /> : (
               <div className="space-y-6">
                 {(() => {
-                  const hasStaff = activePackages.some((p) => p.enable_interview);
-                  const hasCustomerLink = activePackages.some((p) => p.enable_customer_link);
+                  const activeGroups = groups.filter((g) => g.active !== false);
+                  const groupKinds = [...new Set(activeGroups.map((g) => (g as Entity & { kind?: string }).kind ?? "general"))].sort();
+                  // Returns packages filtered by all selected group-filters except the one for `excludeKind`
+                  function pkgsForFilter(basePkgs: PackageItem[], filters: Record<string, string>, excludeKind?: string): PackageItem[] {
+                    return basePkgs.filter((pkg) => {
+                      for (const [kind, gidStr] of Object.entries(filters)) {
+                        if (kind === excludeKind) continue;
+                        const gid = Number(gidStr);
+                        if (gid && !pkg.group_ids.includes(gid)) return false;
+                      }
+                      return true;
+                    });
+                  }
+                  // Available groups for a given kind, cross-filtered by all OTHER selected filters
+                  function availGroupsForKind(basePkgs: PackageItem[], kind: string, filters: Record<string, string>): Entity[] {
+                    const eligible = pkgsForFilter(basePkgs, filters, kind);
+                    const eligibleIds = new Set(eligible.flatMap((p) => p.group_ids));
+                    return activeGroups.filter((g) => ((g as Entity & { kind?: string }).kind ?? "general") === kind && eligibleIds.has(g.id));
+                  }
+
+                  const staffBase = activePackages.filter((p) => p.enable_interview);
+                  const staffFiltered = pkgsForFilter(staffBase, interviewGroupFilters);
+                  const hasStaff = staffBase.length > 0;
+
+                  const clBase = activePackages.filter((p) => p.enable_customer_link);
+                  const clFiltered = pkgsForFilter(clBase, customerLinkGroupFilters);
+                  const hasCustomerLink = clBase.length > 0;
+
                   if (!hasStaff && !hasCustomerLink) {
                     return (
                       <div className="text-center py-8 space-y-3">
@@ -4613,10 +4654,24 @@ export default function DocuFill() {
                             <h3 className="text-sm font-semibold">Staff Interview</h3>
                             <span className="text-xs text-[#8A9BB8]">— walk a client through their paperwork</span>
                           </div>
+                          {groupKinds.length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                              {groupKinds.map((kind) => {
+                                const opts = availGroupsForKind(staffBase, kind, interviewGroupFilters);
+                                if (opts.length === 0) return null;
+                                return (
+                                  <select key={kind} value={interviewGroupFilters[kind] ?? ""} onChange={(e) => { setInterviewGroupFilters((prev) => { const next = { ...prev }; if (e.target.value) next[kind] = e.target.value; else delete next[kind]; return next; }); setStandalonePackageId(""); }} className="border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white capitalize">
+                                    <option value="">All {kind}s</option>
+                                    {opts.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                  </select>
+                                );
+                              })}
+                            </div>
+                          )}
                           <div className="flex flex-col sm:flex-row gap-2">
                             <select value={standalonePackageId} onChange={(e) => setStandalonePackageId(e.target.value)} className="flex-1 border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white">
                               <option value="">Select a package…</option>
-                              {activePackages.filter((p) => p.enable_interview).map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
+                              {staffFiltered.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
                             </select>
                             <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F] shrink-0">{isSaving ? "Launching…" : "Start Interview"}</Button>
                           </div>
@@ -4635,9 +4690,23 @@ export default function DocuFill() {
                             <span className="text-xs text-[#8A9BB8]">— customer fills the form themselves</span>
                           </div>
                           <div className="space-y-2">
+                            {groupKinds.length > 0 && (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                                {groupKinds.map((kind) => {
+                                  const opts = availGroupsForKind(clBase, kind, customerLinkGroupFilters);
+                                  if (opts.length === 0) return null;
+                                  return (
+                                    <select key={kind} value={customerLinkGroupFilters[kind] ?? ""} onChange={(e) => { setCustomerLinkGroupFilters((prev) => { const next = { ...prev }; if (e.target.value) next[kind] = e.target.value; else delete next[kind]; return next; }); setCustomerLinkPackageId(""); setGeneratedCustomerLink(null); setGeneratedCustomerLinkToken(null); }} className="border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white capitalize">
+                                      <option value="">All {kind}s</option>
+                                      {opts.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                    </select>
+                                  );
+                                })}
+                              </div>
+                            )}
                             <select value={customerLinkPackageId} onChange={(e) => { setCustomerLinkPackageId(e.target.value); setGeneratedCustomerLink(null); setGeneratedCustomerLinkToken(null); setLinkEmailSent(null); setShowSendLinkForm(false); }} className="w-full border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white">
                               <option value="">Select a package…</option>
-                              {activePackages.filter((p) => p.enable_customer_link).map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
+                              {clFiltered.map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
                             </select>
                             {customerLinkPackageId && activePackages.find((p) => String(p.id) === customerLinkPackageId)?.tags.includes("Demo") && (
                               <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
