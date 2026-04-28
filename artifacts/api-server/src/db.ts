@@ -957,6 +957,55 @@ export async function initDb(): Promise<void> {
     ALTER TABLE accounts ADD COLUMN IF NOT EXISTS allowed_ip_ranges TEXT[] NOT NULL DEFAULT '{}'
   `);
 
+  // ── Task #247: groups table, kind column, multi-group junction ───────────────
+  // docufill_groups may have been created by an earlier manual migration on some
+  // environments; CREATE TABLE IF NOT EXISTS makes this idempotent everywhere.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_groups (
+      id         SERIAL PRIMARY KEY,
+      name       TEXT NOT NULL,
+      kind       TEXT NOT NULL DEFAULT 'general',
+      phone      TEXT,
+      email      TEXT,
+      notes      TEXT,
+      active     BOOLEAN NOT NULL DEFAULT TRUE,
+      sort_order INTEGER NOT NULL DEFAULT 100,
+      account_id INTEGER REFERENCES accounts(id),
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`ALTER TABLE docufill_groups ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'general'`);
+  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES docufill_groups(id) ON DELETE SET NULL`);
+  await db.query(`ALTER TABLE docufill_groups ADD COLUMN IF NOT EXISTS account_id INTEGER REFERENCES accounts(id)`);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_package_groups (
+      package_id INTEGER NOT NULL REFERENCES docufill_packages(id) ON DELETE CASCADE,
+      group_id   INTEGER NOT NULL REFERENCES docufill_groups(id)   ON DELETE CASCADE,
+      PRIMARY KEY (package_id, group_id)
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS docufill_package_groups_package_idx
+      ON docufill_package_groups (package_id)
+  `);
+  // Backfill legacy single group_id into junction table (idempotent via ON CONFLICT)
+  {
+    const migKey = "package_groups_backfill_v1";
+    const { rows: mig } = await db.query("SELECT 1 FROM docufill_migration_state WHERE key = $1", [migKey]);
+    if (!mig[0]) {
+      await db.query(`
+        INSERT INTO docufill_package_groups (package_id, group_id)
+          SELECT id, group_id
+            FROM docufill_packages
+           WHERE group_id IS NOT NULL
+        ON CONFLICT DO NOTHING
+      `);
+      await db.query("INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING", [migKey]);
+      logger.info("[DB] package_groups_backfill_v1 applied");
+    }
+  }
+
   // ── PDF audit trail — extensible for e-sign events ─────────────────────────
   // event_type: 'generated' | 'downloaded' | 'signature_requested' | 'signed'
   // actor_type: 'staff' | 'client' | 'system' | 'api'
