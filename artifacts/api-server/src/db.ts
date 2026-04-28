@@ -1048,6 +1048,24 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_connected_at TIMESTAMPTZ`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_oauth_state TEXT`);
 
+  // ── Per-user notification preferences ────────────────────────────────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS user_notification_prefs (
+      id             SERIAL PRIMARY KEY,
+      account_id     INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      clerk_user_id  TEXT    NOT NULL,
+      event_key      TEXT    NOT NULL,
+      email_enabled  BOOLEAN NOT NULL DEFAULT TRUE,
+      in_app_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+      updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (account_id, clerk_user_id, event_key)
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS user_notification_prefs_user_idx
+      ON user_notification_prefs (account_id, clerk_user_id)
+  `);
+
   // ── Org-level audit log ──────────────────────────────────────────────────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS org_audit_log (
