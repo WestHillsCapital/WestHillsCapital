@@ -1677,9 +1677,10 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
 }
 
 interface EmailSettings {
-  senderName: string | null;
-  replyTo:    string | null;
-  footer:     string | null;
+  senderName:  string | null;
+  replyTo:     string | null;
+  footer:      string | null;
+  senderEmail: string | null;
 }
 
 function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () => HeadersInit; isAdmin: boolean }) {
@@ -1692,6 +1693,7 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
   const [senderName, setSenderName] = useState("");
   const [replyTo, setReplyTo] = useState("");
   const [footer, setFooter] = useState("");
+  const [senderEmail, setSenderEmail] = useState("noreply@westhillscapital.com");
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -1709,6 +1711,7 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
           setSenderName(data.email.senderName ?? "");
           setReplyTo(data.email.replyTo ?? "");
           setFooter(data.email.footer ?? "");
+          if (data.email.senderEmail) setSenderEmail(data.email.senderEmail);
         }
       })
       .catch(() => setLoadError("Failed to load email settings"))
@@ -1833,7 +1836,7 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
               <div className="bg-gray-50 px-4 py-3 space-y-1.5 border-b border-gray-200 font-sans">
                 <div className="flex gap-2">
                   <span className="text-gray-400 w-16 shrink-0 text-right">From</span>
-                  <span className="text-gray-900">{previewFrom} &lt;noreply@docuplete.com&gt;</span>
+                  <span className="text-gray-900">{previewFrom} &lt;{senderEmail}&gt;</span>
                 </div>
                 {previewReplyTo && (
                   <div className="flex gap-2">
