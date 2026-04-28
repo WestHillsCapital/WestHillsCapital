@@ -447,10 +447,11 @@ router.post(
         logger.error({ err: uploadErr }, "[Settings] Logo upload failed");
         if (uploadErr instanceof StorageMisconfigError) {
           res.status(503).json({
-            error: "Storage is not configured on this server. Set PRIVATE_OBJECT_DIR and GOOGLE_SERVICE_ACCOUNT_KEY in the deployment environment.",
+            error: uploadErr.message,
           });
         } else {
-          res.status(500).json({ error: "Logo upload failed. Please try again." });
+          const detail = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+          res.status(500).json({ error: `Logo upload failed: ${detail}` });
         }
         return;
       }
