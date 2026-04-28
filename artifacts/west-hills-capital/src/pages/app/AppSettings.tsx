@@ -1713,6 +1713,9 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
       })
       .catch(() => setLoadError("Failed to load email settings"))
       .finally(() => setIsLoading(false));
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
   }, []);
 
   async function handleSave() {
