@@ -1,5 +1,6 @@
 import { getDb } from "../db";
 import { logger } from "./logger";
+import { insertAuditLog } from "./auditLog";
 import { PLAN_LIMITS } from "./plans";
 
 type StripeSubscriptionObject = {
@@ -85,6 +86,13 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
       ? new Date(sub.current_period_start * 1000)
       : null;
 
+    // Fetch account id + current plan tier before the update so we can write a meaningful audit entry
+    const { rows: preRows } = await db.query<{ id: number; plan_tier: string }>(
+      `SELECT id, plan_tier FROM accounts WHERE stripe_customer_id = $1`,
+      [customerId],
+    );
+    const preAccount = preRows[0] ?? null;
+
     await db.query(
       `UPDATE accounts
           SET plan_tier              = $1,
@@ -100,6 +108,25 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
       { customerId, planTier, subscriptionStatus: sub.status, subscriptionId: sub.id },
       "[BillingSync] Account plan updated from subscription event",
     );
+
+    if (preAccount && preAccount.plan_tier !== planTier) {
+      void insertAuditLog({
+        accountId:     preAccount.id,
+        actorEmail:    null,
+        actorUserId:   null,
+        action:        "plan.change",
+        resourceType:  "subscription",
+        resourceId:    sub.id,
+        resourceLabel: planTier,
+        metadata: {
+          from_plan:  preAccount.plan_tier,
+          to_plan:    planTier,
+          status:     sub.status,
+          event_type: event.type,
+        },
+      });
+    }
+
     return;
   }
 
