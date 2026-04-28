@@ -2911,7 +2911,7 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
     // Fetch org-level interview defaults and apply them (non-fatal).
     // Per-session overrides from request body take precedence.
     const NEVER_EXPIRES = new Date("9999-12-31T23:59:59Z");
-    let orgExpiryDays: number | null = null;
+    let orgExpiryDays: number | null = 90; // safe finite default until org row is read
     let orgReminderEnabled = false;
     let orgReminderDays = 2;
     let orgLocale = "en";

@@ -1779,6 +1779,17 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
 
   async function handleSave() {
     setSaveError(null);
+
+    // Validate custom expiry before sending — an invalid/empty value would
+    // silently become null (= "never expires") which is not the user's intent.
+    if (expiryPreset === "custom") {
+      const n = parseInt(customExpiry, 10);
+      if (!Number.isInteger(n) || n < 1 || n > 3650) {
+        setSaveError("Please enter a valid expiry between 1 and 3650 days.");
+        return;
+      }
+    }
+
     setIsSaving(true);
     const payload: Record<string, unknown> = {
       linkExpiryDays: effectiveLinkExpiryDays(),
