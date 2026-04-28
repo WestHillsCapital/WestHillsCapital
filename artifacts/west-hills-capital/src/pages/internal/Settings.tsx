@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
-import { updateOrgCache, type OrgSettings } from "@/hooks/useOrgSettings";
+import { updateOrgCache, getCachedOrg, type OrgSettings } from "@/hooks/useOrgSettings";
+import { formatOrgDate } from "@/lib/orgDateFormat";
 import { BrandColorSection } from "@/components/settings/BrandColorSection";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SETTINGS_BASE = `${API_BASE}/api/internal/settings`;
@@ -20,6 +22,36 @@ interface AccountRow {
   last_activity_at: string | null;
   created_at: string;
   stripe_customer_id: string | null;
+}
+
+interface MonthlyUsage {
+  month: string;
+  count: number;
+}
+
+interface TeamMember {
+  id: number;
+  email: string;
+  role: string;
+  status: string;
+  display_name: string | null;
+  last_seen_at: string | null;
+  invited_at: string | null;
+}
+
+interface StripeSubscription {
+  plan_name: string;
+  amount: number | null;
+  currency: string | null;
+  interval: string | null;
+  current_period_end: string | null;
+  status: string | null;
+}
+
+interface AccountDetail {
+  monthly_usage: MonthlyUsage[];
+  team_members: TeamMember[];
+  stripe_subscription: StripeSubscription | null;
 }
 
 type SortCol = "name" | "plan_tier" | "seat_count" | "package_count" | "submission_count" | "subscription_status" | "last_activity_at" | "created_at";
@@ -53,8 +85,7 @@ function formatRelative(iso: string | null): string {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return formatOrgDate(iso, getCachedOrg());
 }
 
 function formatPeriodStart(iso: string | null): string {
@@ -67,6 +98,21 @@ function SortIcon({ col, sortCol, sortDir }: { col: SortCol; sortCol: SortCol | 
   return <span className="ml-0.5 text-[#0F1C3F]">{sortDir === "asc" ? "↑" : "↓"}</span>;
 }
 
+function formatMonthLabel(yyyyMm: string): string {
+  const [year, mon] = yyyyMm.split("-");
+  const date = new Date(parseInt(year ?? "0", 10), parseInt(mon ?? "1", 10) - 1, 1);
+  return date.toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+}
+
+function formatCurrency(amount: number | null, currency: string | null): string {
+  if (amount === null || !currency) return "—";
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: currency.toUpperCase(),
+    minimumFractionDigits: 0,
+  }).format(amount / 100);
+}
+
 function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
   const [accounts, setAccounts] = useState<AccountRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -75,6 +121,9 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
   const [sortCol, setSortCol] = useState<SortCol | null>("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selected, setSelected] = useState<AccountRow | null>(null);
+  const [detail, setDetail] = useState<AccountDetail | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const detailAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
@@ -87,6 +136,30 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
       .catch(() => setLoadError("Failed to load accounts"))
       .finally(() => setIsLoading(false));
   }, []);
+
+  function openDetail(acct: AccountRow) {
+    // Cancel any in-flight detail request before starting a new one
+    detailAbortRef.current?.abort();
+    const controller = new AbortController();
+    detailAbortRef.current = controller;
+
+    setSelected(acct);
+    setDetail(null);
+    setDetailLoading(true);
+    fetch(`${SETTINGS_BASE}/admin/accounts/${acct.id}`, {
+      headers: { ...getAuthHeaders() },
+      signal: controller.signal,
+    })
+      .then(async (r) => {
+        const data = await r.json() as AccountDetail & { error?: string };
+        if (!r.ok) { setDetailLoading(false); return; }
+        setDetail(data);
+      })
+      .catch((err: unknown) => {
+        if (err instanceof Error && err.name === "AbortError") return;
+      })
+      .finally(() => setDetailLoading(false));
+  }
 
   function handleSort(col: SortCol) {
     if (sortCol === col) {
@@ -194,7 +267,7 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
                   return (
                     <tr
                       key={acct.id}
-                      onClick={() => setSelected(acct)}
+                      onClick={() => openDetail(acct)}
                       className="hover:bg-[#FAFAF8] transition-colors cursor-pointer"
                     >
                       <td className="px-4 py-3 whitespace-nowrap">
@@ -238,19 +311,20 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
 
       {/* Detail panel */}
       {selected && (
-        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => setSelected(null)}>
+        <div className="fixed inset-0 z-50 flex justify-end" onClick={() => { setSelected(null); setDetail(null); }}>
           <div className="absolute inset-0 bg-black/20 backdrop-blur-[1px]" />
           <div
-            className="relative bg-white w-full max-w-sm shadow-2xl flex flex-col overflow-y-auto"
+            className="relative bg-white w-full max-w-lg shadow-2xl flex flex-col overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-4 border-b border-[#EFE8D8] flex items-start justify-between gap-3">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-[#EFE8D8] flex items-start justify-between gap-3 sticky top-0 bg-white z-10">
               <div>
                 <h3 className="text-base font-semibold text-[#0F1C3F] leading-tight">{selected.name}</h3>
                 <p className="text-xs text-[#8A9BB8] mt-0.5 font-mono">{selected.slug}</p>
               </div>
               <button
-                onClick={() => setSelected(null)}
+                onClick={() => { setSelected(null); setDetail(null); }}
                 className="text-[#8A9BB8] hover:text-[#0F1C3F] transition-colors mt-0.5"
                 aria-label="Close"
               >
@@ -260,7 +334,8 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
               </button>
             </div>
 
-            <div className="px-6 py-5 space-y-4 flex-1">
+            <div className="px-6 py-5 space-y-6 flex-1">
+              {/* Summary metrics */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-[#F8F6F0] rounded-lg px-4 py-3">
                   <p className="text-[10px] text-[#8A9BB8] uppercase tracking-wide font-medium">Plan</p>
@@ -289,27 +364,106 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
                 </div>
               </div>
 
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between py-2 border-b border-[#EFE8D8]">
+              {/* Usage history chart */}
+              <div>
+                <p className="text-xs font-semibold text-[#0F1C3F] mb-3">Submissions — last 6 months</p>
+                {detailLoading ? (
+                  <div className="h-32 flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-[#DDD5C4] border-t-[#C49A38] rounded-full animate-spin" />
+                  </div>
+                ) : detail ? (
+                  <div className="h-36">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={detail.monthly_usage} margin={{ top: 4, right: 4, left: -24, bottom: 0 }} barSize={20}>
+                        <XAxis
+                          dataKey="month"
+                          tickFormatter={formatMonthLabel}
+                          tick={{ fontSize: 10, fill: "#8A9BB8" }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <YAxis
+                          allowDecimals={false}
+                          tick={{ fontSize: 10, fill: "#8A9BB8" }}
+                          axisLine={false}
+                          tickLine={false}
+                        />
+                        <Tooltip
+                          formatter={(v) => [v, "Submissions"]}
+                          labelFormatter={formatMonthLabel}
+                          contentStyle={{ fontSize: 11, borderColor: "#DDD5C4", borderRadius: 6 }}
+                        />
+                        <Bar dataKey="count" radius={[3, 3, 0, 0]}>
+                          {detail.monthly_usage.map((entry, idx) => (
+                            <Cell
+                              key={entry.month}
+                              fill={idx === detail.monthly_usage.length - 1 ? "#C49A38" : "#0F1C3F"}
+                              opacity={idx === detail.monthly_usage.length - 1 ? 1 : 0.55}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <p className="text-xs text-[#8A9BB8] text-center py-6">Could not load usage history.</p>
+                )}
+              </div>
+
+              {/* Timeline */}
+              <div className="space-y-0 text-xs border border-[#EFE8D8] rounded-lg overflow-hidden">
+                <div className="flex justify-between px-4 py-2.5 border-b border-[#EFE8D8]">
+                  <span className="text-[#6B7A99]">Account created</span>
+                  <span className="text-[#0F1C3F] font-medium">{formatDate(selected.created_at)}</span>
+                </div>
+                <div className="flex justify-between px-4 py-2.5 border-b border-[#EFE8D8]">
                   <span className="text-[#6B7A99]">Last activity</span>
                   <span className="text-[#0F1C3F] font-medium text-right">
                     {selected.last_activity_at ? (
                       <>
                         {formatRelative(selected.last_activity_at)}
-                        <span className="block text-[10px] text-[#8A9BB8] font-normal">{formatDate(selected.last_activity_at)}</span>
+                        <span className="block text-[10px] text-[#B0A898] font-normal">{formatDate(selected.last_activity_at)}</span>
                       </>
                     ) : "Never"}
                   </span>
                 </div>
-                <div className="flex justify-between py-2 border-b border-[#EFE8D8]">
-                  <span className="text-[#6B7A99]">Account created</span>
-                  <span className="text-[#0F1C3F] font-medium">{formatDate(selected.created_at)}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-[#EFE8D8]">
+                <div className="flex justify-between px-4 py-2.5">
                   <span className="text-[#6B7A99]">Account ID</span>
                   <span className="text-[#0F1C3F] font-mono">{selected.id}</span>
                 </div>
               </div>
+
+              {/* Stripe subscription details */}
+              {detail?.stripe_subscription && (
+                <div>
+                  <p className="text-xs font-semibold text-[#0F1C3F] mb-2">Stripe plan</p>
+                  <div className="border border-[#EFE8D8] rounded-lg overflow-hidden text-xs">
+                    <div className="flex justify-between px-4 py-2.5 border-b border-[#EFE8D8]">
+                      <span className="text-[#6B7A99]">Plan</span>
+                      <span className="text-[#0F1C3F] font-medium">{detail.stripe_subscription.plan_name}</span>
+                    </div>
+                    <div className="flex justify-between px-4 py-2.5 border-b border-[#EFE8D8]">
+                      <span className="text-[#6B7A99]">Price</span>
+                      <span className="text-[#0F1C3F] font-medium">
+                        {formatCurrency(detail.stripe_subscription.amount, detail.stripe_subscription.currency)}
+                        {detail.stripe_subscription.interval && (
+                          <span className="text-[#8A9BB8] font-normal"> / {detail.stripe_subscription.interval}</span>
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex justify-between px-4 py-2.5 border-b border-[#EFE8D8]">
+                      <span className="text-[#6B7A99]">Status</span>
+                      <span className="text-[#0F1C3F] font-medium capitalize">{detail.stripe_subscription.status ?? "—"}</span>
+                    </div>
+                    {detail.stripe_subscription.current_period_end && (
+                      <div className="flex justify-between px-4 py-2.5">
+                        <span className="text-[#6B7A99]">Renews / ends</span>
+                        <span className="text-[#0F1C3F] font-medium">{formatDate(detail.stripe_subscription.current_period_end)}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {selected.stripe_customer_id && (
                 <a
@@ -324,6 +478,49 @@ function AdminAccountsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
                   View in Stripe Dashboard
                 </a>
               )}
+
+              {/* Team members */}
+              <div>
+                <p className="text-xs font-semibold text-[#0F1C3F] mb-2">
+                  Team members
+                  {detail && (
+                    <span className="ml-1.5 text-[10px] font-normal text-[#8A9BB8]">({detail.team_members.length})</span>
+                  )}
+                </p>
+                {detailLoading ? (
+                  <div className="h-10 flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-[#DDD5C4] border-t-[#C49A38] rounded-full animate-spin" />
+                  </div>
+                ) : detail?.team_members && detail.team_members.length > 0 ? (
+                  <div className="border border-[#EFE8D8] rounded-lg overflow-hidden divide-y divide-[#EFE8D8]">
+                    {detail.team_members.map((m) => (
+                      <div key={m.id} className="flex items-center justify-between px-4 py-2.5 text-xs">
+                        <div className="min-w-0">
+                          {m.display_name && (
+                            <p className="font-medium text-[#0F1C3F] truncate leading-tight">{m.display_name}</p>
+                          )}
+                          <p className={`truncate ${m.display_name ? "text-[10px] text-[#8A9BB8]" : "font-medium text-[#0F1C3F]"}`}>
+                            {m.email}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          {m.status === "pending" ? (
+                            <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-700">Pending</span>
+                          ) : m.role === "admin" ? (
+                            <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">Admin</span>
+                          ) : m.role === "readonly" ? (
+                            <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">Read-only</span>
+                          ) : (
+                            <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-600">Member</span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : detail ? (
+                  <p className="text-xs text-[#8A9BB8] text-center py-4">No team members.</p>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>

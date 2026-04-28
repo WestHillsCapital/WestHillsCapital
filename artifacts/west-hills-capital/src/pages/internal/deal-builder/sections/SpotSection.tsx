@@ -1,5 +1,8 @@
 import type { SpotData } from "../types";
 import { fmtMoney } from "../utils";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { getCachedOrg } from "@/hooks/useOrgSettings";
+import { formatOrgTime } from "@/lib/orgDateFormat";
 
 interface Props {
   spotData:      SpotData;
@@ -30,13 +33,13 @@ export function SpotSection({ spotData, isFetchingSpot, spotError, locked, onGet
       )}
 
       <div className="grid grid-cols-3 gap-4">
-        <SpotBox label="Gold Spot (Ask)"   value={spotData.goldSpotAsk} />
-        <SpotBox label="Silver Spot (Ask)" value={spotData.silverSpotAsk} />
+        <SpotBox label="Gold Spot (Ask)"   value={spotData.goldSpotAsk}   tip="Ask — the price you pay to purchase gold. This is the raw market rate before dealer premium." />
+        <SpotBox label="Silver Spot (Ask)" value={spotData.silverSpotAsk} tip="Ask — the price you pay to purchase silver. This is the raw market rate before dealer premium." />
         <div>
           <div className="text-xs text-[#8A9BB8] mb-1">Spot Timestamp</div>
           <div className="text-sm text-[#374560] font-mono">
             {spotData.spotTimestamp
-              ? new Date(spotData.spotTimestamp).toLocaleTimeString()
+              ? formatOrgTime(spotData.spotTimestamp, getCachedOrg())
               : "—"}
           </div>
         </div>
@@ -45,10 +48,19 @@ export function SpotSection({ spotData, isFetchingSpot, spotError, locked, onGet
   );
 }
 
-function SpotBox({ label, value }: { label: string; value: number | null }) {
+function SpotBox({ label, value, tip }: { label: string; value: number | null; tip?: string }) {
   return (
     <div>
-      <div className="text-xs text-[#8A9BB8] mb-1">{label}</div>
+      {tip ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="text-xs text-[#8A9BB8] mb-1 cursor-default w-fit">{label}</div>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-xs">{tip}</TooltipContent>
+        </Tooltip>
+      ) : (
+        <div className="text-xs text-[#8A9BB8] mb-1">{label}</div>
+      )}
       <div className="text-lg font-semibold text-[#C49A38] font-mono">
         {value != null ? fmtMoney(value) : "—"}
       </div>

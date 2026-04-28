@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { useInternalAuth } from "../../hooks/useInternalAuth";
+import { getCachedOrg } from "../../hooks/useOrgSettings";
+import { formatOrgDate } from "../../lib/orgDateFormat";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -218,7 +220,7 @@ export default function InternalLeads() {
                   </td>
                   <td className="px-3 py-2.5">{statusBadge(prospect.status)}</td>
                   <td className="px-3 py-2.5 text-[#8A9BB8] text-xs whitespace-nowrap">
-                    {new Date(prospect.createdAt).toLocaleDateString()}
+                    {formatOrgDate(prospect.createdAt, getCachedOrg())}
                   </td>
                   <td className="px-3 py-2.5">
                     <button

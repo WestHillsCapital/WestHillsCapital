@@ -1,6 +1,8 @@
 import { useSearch, useLocation } from "wouter";
 import { useState, useEffect, useCallback } from "react";
 import { useInternalAuth } from "../../hooks/useInternalAuth";
+import { getCachedOrg } from "../../hooks/useOrgSettings";
+import { formatOrgDate } from "../../lib/orgDateFormat";
 
 import { useDealState }      from "./deal-builder/hooks/useDealState";
 import { useSpotPricing }    from "./deal-builder/hooks/useSpotPricing";
@@ -179,7 +181,7 @@ export default function DealBuilder() {
           </div>
           {s.isLocked && s.lockedAt && (
             <p className="text-sm text-[#8A9BB8] mt-1">
-              {s.executionResult ? "Executed" : "Locked"} {new Date(s.lockedAt).toLocaleString()}
+              {s.executionResult ? "Executed" : "Locked"} {formatOrgDate(s.lockedAt, getCachedOrg(), true)}
               {s.executionResult && !s.executionResult.warnings?.length && " · Deals ledger updated"}
               {s.executionResult?.warnings?.length ? ` · ${s.executionResult.warnings.length} warning${s.executionResult.warnings.length > 1 ? "s" : ""} — see below` : ""}
             </p>

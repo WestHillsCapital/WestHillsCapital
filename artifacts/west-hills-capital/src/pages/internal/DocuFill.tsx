@@ -7,12 +7,14 @@ import { CSS as DndCSS } from "@dnd-kit/utilities";
 import { useLocation, useParams, useSearch } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { useDocuFillConfig } from "@/hooks/useDocuFillConfig";
+import { getCachedOrg } from "@/hooks/useOrgSettings";
+import { formatOrgTime } from "@/lib/orgDateFormat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getDocuFillPrefillDisplayValue } from "@/lib/docufill-redaction";
 import { sessionToCsv, packageTemplateToCsv, downloadCsv, parseCsvString, batchResultsToCsv } from "@/lib/docufill-csv";
-import { validateFieldValue } from "@/lib/validateField";
+import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
 import * as pdfjsLib from "pdfjs-dist";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
@@ -269,22 +271,7 @@ function newRecipientId(): string {
 }
 
 function validationTypeHint(vt: FieldItem["validationType"], message?: string): string {
-  switch (vt) {
-    case "phone":    return "555-123-4567";
-    case "ssn":      return "XXX-XX-XXXX";
-    case "email":    return "user@example.com";
-    case "currency": return "1234.56";
-    case "number":   return "Numeric";
-    case "date":     return "MM/DD/YYYY";
-    case "time":     return "HH:MM";
-    case "zip":      return "12345";
-    case "zip4":     return "12345-6789";
-    case "percent":  return "0–100";
-    case "name":     return "Text (name format)";
-    case "string":   return "Any text";
-    case "custom":   return message && message.trim() ? message.trim() : "Custom format";
-    default:         return "Any text";
-  }
+  return fieldFormatHint(vt, message) ?? "Any text";
 }
 
 function validateCellValue(field: FieldItem, value: string): "ok" | "empty-required" | "invalid" {
@@ -622,6 +609,120 @@ function TagChipInput({ tags, onChange, placeholder }: {
   );
 }
 
+function PackagePickerWithTags({
+  packages,
+  value,
+  onChange,
+  placeholder = "Select a package…",
+  transactionLabel,
+}: {
+  packages: PackageItem[];
+  value: string;
+  onChange: (id: string) => void;
+  placeholder?: string;
+  transactionLabel?: (scope: string | null | undefined) => string;
+}) {
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    packages.forEach((pkg) => pkg.tags?.forEach((t) => set.add(t)));
+    return Array.from(set).sort();
+  }, [packages]);
+
+  const visiblePackages = tagFilter.length === 0
+    ? packages
+    : packages.filter((pkg) => String(pkg.id) === value || tagFilter.some((t) => pkg.tags?.includes(t)));
+
+  const selectedPkg = packages.find((p) => String(p.id) === value);
+
+  return (
+    <div className="space-y-2">
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] text-[#8A9BB8] shrink-0">Filter:</span>
+          <button
+            type="button"
+            onClick={() => setTagFilter([])}
+            className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${tagFilter.length === 0 ? "bg-[#0F1C3F] border-[#0F1C3F] text-white font-medium" : "bg-[#F8F6F0] border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
+          >All</button>
+          {allTags.map((tag) => {
+            const active = tagFilter.includes(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => setTagFilter((prev) => active ? prev.filter((t) => t !== tag) : [...prev, tag])}
+                className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${active ? "bg-[#C49A38] border-[#C49A38] text-white font-medium" : "bg-[#F8F6F0] border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
+              >{tag}</button>
+            );
+          })}
+        </div>
+      )}
+      <div ref={ref} className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          disabled={packages.length === 0}
+          className="w-full border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white text-[#0F1C3F] text-left flex items-center justify-between gap-2 disabled:opacity-60"
+        >
+          <span className="truncate">
+            {selectedPkg
+              ? `${selectedPkg.name}${selectedPkg.transaction_scope && transactionLabel ? ` · ${transactionLabel(selectedPkg.transaction_scope)}` : ""}`
+              : placeholder}
+          </span>
+          <svg className={`w-3.5 h-3.5 shrink-0 text-[#8A9BB8] transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        </button>
+        {open && (
+          <div className="absolute top-full mt-1 left-0 w-full min-w-[260px] bg-white border border-[#DDD5C4] rounded-lg shadow-lg z-50 overflow-y-auto max-h-72">
+            <button
+              type="button"
+              className="w-full text-left px-3 py-2 text-xs text-[#8A9BB8] hover:bg-[#F8F6F0]"
+              onClick={() => { onChange(""); setOpen(false); }}
+            >{placeholder}</button>
+            {visiblePackages.length === 0 && (
+              <div className="px-3 py-3 text-xs text-[#8A9BB8] border-t border-[#F0EBE0] italic">No packages match the active tag filter.</div>
+            )}
+            {visiblePackages.map((pkg) => (
+              <button
+                key={pkg.id}
+                type="button"
+                className={`w-full text-left px-3 py-2 border-t border-[#F0EBE0] transition-colors hover:bg-[#F8F6F0] ${String(pkg.id) === value ? "bg-[#FBF7EE]" : ""}`}
+                onClick={() => { onChange(String(pkg.id)); setOpen(false); }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-[#0F1C3F] truncate">
+                    {pkg.name}{pkg.transaction_scope && transactionLabel ? ` · ${transactionLabel(pkg.transaction_scope)}` : ""}
+                  </span>
+                  {pkg.status !== "active" && <span className="text-[10px] text-[#8A9BB8] shrink-0">inactive</span>}
+                </div>
+                {pkg.tags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {pkg.tags.map((tag) => (
+                      <span key={tag} className="text-[10px] rounded-full px-1.5 py-px bg-[#EFE8D8] text-[#5C4A1E] border border-[#DDD5C4]">{tag}</span>
+                    ))}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const ScrollPageCanvas = memo(function ScrollPageCanvas({
   pageNum,
   documentPreviewUrl,
@@ -676,6 +777,7 @@ export default function DocuFill() {
   const docufillConfig = useDocuFillConfig();
   const getAuthHeaders = docufillConfig?.getAuthHeaders ?? defaultGetAuthHeaders;
   const docufillApiPath = docufillConfig?.apiPath ?? "/api/internal/docufill";
+  const isAdmin = docufillConfig?.isAdmin ?? true;
   const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv" | "groups">(sessionToken ? "interview" : "packages");
   const [builderStep, setBuilderStep] = useState<BuilderStep>("documents");
   const [groups, setGroups] = useState<Entity[]>([]);
@@ -850,9 +952,10 @@ export default function DocuFill() {
   const [webhookSecretLoading, setWebhookSecretLoading] = useState(false);
   const [webhookSecretRevealed, setWebhookSecretRevealed] = useState(false);
   const [webhookSecretCopied, setWebhookSecretCopied] = useState(false);
-  const [webhookDeliveries, setWebhookDeliveries] = useState<Array<{ id: number; event_type: string; attempt_number: number; http_status: number | null; response_body: string; duration_ms: number; created_at: string; }>>([]);
+  const [webhookDeliveries, setWebhookDeliveries] = useState<Array<{ id: number; event_type: string; attempt_number: number; http_status: number | null; response_body: string; duration_ms: number; created_at: string; has_payload: boolean; }>>([]);
   const [webhookDeliveriesLoading, setWebhookDeliveriesLoading] = useState(false);
   const [expandedDelivery, setExpandedDelivery] = useState<number | null>(null);
+  const [retryingDelivery, setRetryingDelivery] = useState<number | null>(null);
   const [isDeletingPackage, setIsDeletingPackage] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [isDocumentDropActive, setIsDocumentDropActive] = useState(false);
@@ -1441,6 +1544,27 @@ export default function DocuFill() {
       // non-fatal
     } finally {
       setWebhookDeliveriesLoading(false);
+    }
+  }
+
+  async function retryDelivery(pkgId: number, deliveryId: number) {
+    setRetryingDelivery(deliveryId);
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${pkgId}/webhook-deliveries/${deliveryId}/retry`, {
+        method: "POST",
+        headers: { ...getAuthHeaders() },
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok) {
+        flashStatus(`Retry failed: ${data.error ?? `HTTP ${res.status}`}`);
+      } else {
+        flashStatus("Delivery retried.");
+        void fetchWebhookDeliveries(pkgId);
+      }
+    } catch {
+      flashStatus("Retry request failed.");
+    } finally {
+      setRetryingDelivery(null);
     }
   }
 
@@ -2978,13 +3102,30 @@ export default function DocuFill() {
                 </div>
               );
             })()}
-            <button
-              type="button"
-              onClick={() => { setAddingPackage((v) => !v); setSelectedPackageId(null); }}
-              className={`shrink-0 text-xs border rounded-lg px-3 py-1.5 transition-colors ${addingPackage ? "border-[#C49A38] bg-[#C49A38]/10 text-[#8A6A20]" : "border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#0F1C3F]"}`}
-            >
-              + New Package
-            </button>
+            {isAdmin ? (
+              <button
+                type="button"
+                onClick={() => { setAddingPackage((v) => !v); setSelectedPackageId(null); }}
+                className={`shrink-0 text-xs border rounded-lg px-3 py-1.5 transition-colors ${addingPackage ? "border-[#C49A38] bg-[#C49A38]/10 text-[#8A6A20]" : "border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#0F1C3F]"}`}
+              >
+                + New Package
+              </button>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span>
+                    <button
+                      type="button"
+                      disabled
+                      className="shrink-0 text-xs border rounded-lg px-3 py-1.5 border-[#DDD5C4] text-[#6B7A99] opacity-40 cursor-not-allowed"
+                    >
+                      + New Package
+                    </button>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent>Contact your admin to create packages.</TooltipContent>
+              </Tooltip>
+            )}
             {selectedPackage && (
               <div className="flex items-center gap-3 ml-auto flex-wrap">
                 <span className="text-xs text-[#8A9BB8] hidden sm:block">
@@ -3816,24 +3957,39 @@ export default function DocuFill() {
                                     <div className="space-y-1 max-h-48 overflow-y-auto">
                                       {webhookDeliveries.map((d) => {
                                         const isOk = d.http_status !== null && d.http_status >= 200 && d.http_status < 300;
+                                        const isFailed = !isOk;
                                         const isExpanded = expandedDelivery === d.id;
+                                        const isRetrying = retryingDelivery === d.id;
+                                        const canRetry = isFailed && d.has_payload;
                                         return (
                                           <div key={d.id} className="bg-white border border-[#E8E0D0] rounded px-2 py-1.5">
-                                            <button
-                                              type="button"
-                                              onClick={() => setExpandedDelivery(isExpanded ? null : d.id)}
-                                              className="w-full text-left flex items-center gap-2"
-                                            >
-                                              <span className={`text-[10px] font-mono font-bold shrink-0 w-8 text-center rounded px-1 ${isOk ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                                                {d.http_status ?? "ERR"}
-                                              </span>
-                                              <span className="text-[10px] text-[#6B7A99] flex-1 min-w-0 truncate">{d.event_type}</span>
-                                              {d.attempt_number > 1 && (
-                                                <span className="text-[9px] text-amber-600 shrink-0">retry #{d.attempt_number}</span>
+                                            <div className="flex items-center gap-2">
+                                              <button
+                                                type="button"
+                                                onClick={() => setExpandedDelivery(isExpanded ? null : d.id)}
+                                                className="flex-1 min-w-0 text-left flex items-center gap-2"
+                                              >
+                                                <span className={`text-[10px] font-mono font-bold shrink-0 w-8 text-center rounded px-1 ${isOk ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                                  {d.http_status ?? "ERR"}
+                                                </span>
+                                                <span className="text-[10px] text-[#6B7A99] flex-1 min-w-0 truncate">{d.event_type}</span>
+                                                {d.attempt_number > 1 && (
+                                                  <span className="text-[9px] text-amber-600 shrink-0">retry #{d.attempt_number}</span>
+                                                )}
+                                                <span className="text-[10px] text-[#B0A898] shrink-0">{d.duration_ms}ms</span>
+                                                <span className="text-[10px] text-[#B0A898] shrink-0">{formatOrgTime(d.created_at, getCachedOrg())}</span>
+                                              </button>
+                                              {canRetry && (
+                                                <button
+                                                  type="button"
+                                                  disabled={isRetrying}
+                                                  onClick={() => { void retryDelivery(selectedPackage.id, d.id); }}
+                                                  className="shrink-0 text-[10px] border border-red-200 bg-red-50 text-red-700 rounded px-1.5 py-0.5 hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                  {isRetrying ? "Retrying…" : "Retry"}
+                                                </button>
                                               )}
-                                              <span className="text-[10px] text-[#B0A898] shrink-0">{d.duration_ms}ms</span>
-                                              <span className="text-[10px] text-[#B0A898] shrink-0">{new Date(d.created_at).toLocaleTimeString()}</span>
-                                            </button>
+                                            </div>
                                             {isExpanded && d.response_body && (
                                               <pre className="mt-1.5 text-[9px] font-mono text-[#6B7A99] bg-[#F8F6F0] rounded p-1.5 overflow-x-auto whitespace-pre-wrap break-all max-h-20 overflow-y-auto">{d.response_body}</pre>
                                             )}
@@ -3900,10 +4056,22 @@ export default function DocuFill() {
                           </Button>
                         )}
                         {selectedPackage.status === "active" && <Button onClick={() => { setStandalonePackageId(String(selectedPackage.id)); setTab("interview"); }} variant="outline">Go to Interviews →</Button>}
-                        {selectedPackage.id && (
+                        {selectedPackage.id && isAdmin && (
                           <button type="button" onClick={() => deletePackage(selectedPackage)} disabled={isDeletingPackage} className="ml-auto text-xs text-red-500 hover:text-red-700 disabled:opacity-50 transition-colors">
                             {isDeletingPackage ? "Deleting…" : "Delete package"}
                           </button>
+                        )}
+                        {selectedPackage.id && !isAdmin && (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span className="ml-auto">
+                                <button type="button" disabled className="text-xs text-red-400 opacity-40 cursor-not-allowed">
+                                  Delete package
+                                </button>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>Contact your admin to delete packages.</TooltipContent>
+                          </Tooltip>
                         )}
                       </div>
                     </div>
@@ -4756,12 +4924,14 @@ export default function DocuFill() {
                             <h3 className="text-sm font-semibold">Staff Interview</h3>
                             <span className="text-xs text-[#8A9BB8]">— walk a client through their paperwork</span>
                           </div>
-                          <div className="flex flex-col sm:flex-row gap-2">
-                            <select value={standalonePackageId} onChange={(e) => setStandalonePackageId(e.target.value)} className="flex-1 border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white">
-                              <option value="">Select a package…</option>
-                              {activePackages.filter((p) => p.enable_interview).map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
-                            </select>
-                            <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F] shrink-0">{isSaving ? "Launching…" : "Start Interview"}</Button>
+                          <div className="space-y-2">
+                            <PackagePickerWithTags
+                              packages={activePackages.filter((p) => p.enable_interview)}
+                              value={standalonePackageId}
+                              onChange={setStandalonePackageId}
+                              transactionLabel={labelForTransactionScope}
+                            />
+                            <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Launching…" : "Start Interview"}</Button>
                           </div>
                         </div>
                       )}
@@ -4778,10 +4948,12 @@ export default function DocuFill() {
                             <span className="text-xs text-[#8A9BB8]">— customer fills the form themselves</span>
                           </div>
                           <div className="space-y-2">
-                            <select value={customerLinkPackageId} onChange={(e) => { setCustomerLinkPackageId(e.target.value); setGeneratedCustomerLink(null); setGeneratedCustomerLinkToken(null); setLinkEmailSent(null); setShowSendLinkForm(false); }} className="w-full border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white">
-                              <option value="">Select a package…</option>
-                              {activePackages.filter((p) => p.enable_customer_link).map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
-                            </select>
+                            <PackagePickerWithTags
+                              packages={activePackages.filter((p) => p.enable_customer_link)}
+                              value={customerLinkPackageId}
+                              onChange={(id) => { setCustomerLinkPackageId(id); setGeneratedCustomerLink(null); setGeneratedCustomerLinkToken(null); setLinkEmailSent(null); setShowSendLinkForm(false); }}
+                              transactionLabel={labelForTransactionScope}
+                            />
                             {customerLinkPackageId && activePackages.find((p) => String(p.id) === customerLinkPackageId)?.tags.includes("Demo") && (
                               <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
                                 <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
@@ -4972,6 +5144,13 @@ export default function DocuFill() {
                       />
                     )}
                     {fieldError && <p className="mt-1 text-xs text-red-600">{fieldError}</p>}
+                    {(() => {
+                      const hint = fieldFormatHint(field.validationType, field.validationMessage ?? undefined);
+                      const hasValidValue = currentValue.trim() !== "" && validateFieldValue(field, currentValue) === null;
+                      return hint && !fieldError && !hasValidValue ? (
+                        <p className="mt-1 text-[11px] text-[#8A9BB8]">Format: {hint}</p>
+                      ) : null;
+                    })()}
                   </div>
                   );
                 })}

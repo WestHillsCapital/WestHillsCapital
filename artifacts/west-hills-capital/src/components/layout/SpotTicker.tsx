@@ -1,4 +1,6 @@
 import { useSpotPrices } from "@/hooks/use-pricing";
+import { getCachedProductOrg } from "@/hooks/useProductOrgSettings";
+import { formatOrgTime } from "@/lib/orgDateFormat";
 
 export function SpotTicker() {
   const { data: spot, isLoading } = useSpotPrices();
@@ -42,7 +44,7 @@ export function SpotTicker() {
         </div>
 
         <div className="hidden sm:flex items-center text-white/30 text-[10px] tracking-wide">
-          Updated {spot.lastUpdated ? new Date(spot.lastUpdated).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+          Updated {spot.lastUpdated ? formatOrgTime(spot.lastUpdated, getCachedProductOrg()) : "—"}
         </div>
 
       </div>
