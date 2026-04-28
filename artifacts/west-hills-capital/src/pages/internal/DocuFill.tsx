@@ -622,6 +622,120 @@ function TagChipInput({ tags, onChange, placeholder }: {
   );
 }
 
+function PackagePickerWithTags({
+  packages,
+  value,
+  onChange,
+  placeholder = "Select a package…",
+  transactionLabel,
+}: {
+  packages: PackageItem[];
+  value: string;
+  onChange: (id: string) => void;
+  placeholder?: string;
+  transactionLabel?: (scope: string | null | undefined) => string;
+}) {
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    packages.forEach((pkg) => pkg.tags?.forEach((t) => set.add(t)));
+    return Array.from(set).sort();
+  }, [packages]);
+
+  const visiblePackages = tagFilter.length === 0
+    ? packages
+    : packages.filter((pkg) => String(pkg.id) === value || tagFilter.some((t) => pkg.tags?.includes(t)));
+
+  const selectedPkg = packages.find((p) => String(p.id) === value);
+
+  return (
+    <div className="space-y-2">
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[10px] text-[#8A9BB8] shrink-0">Filter:</span>
+          <button
+            type="button"
+            onClick={() => setTagFilter([])}
+            className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${tagFilter.length === 0 ? "bg-[#0F1C3F] border-[#0F1C3F] text-white font-medium" : "bg-[#F8F6F0] border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
+          >All</button>
+          {allTags.map((tag) => {
+            const active = tagFilter.includes(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => setTagFilter((prev) => active ? prev.filter((t) => t !== tag) : [...prev, tag])}
+                className={`text-[11px] rounded-full px-2 py-0.5 border transition-colors ${active ? "bg-[#C49A38] border-[#C49A38] text-white font-medium" : "bg-[#F8F6F0] border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38]/60 hover:text-[#4A5568]"}`}
+              >{tag}</button>
+            );
+          })}
+        </div>
+      )}
+      <div ref={ref} className="relative">
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          disabled={packages.length === 0}
+          className="w-full border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white text-[#0F1C3F] text-left flex items-center justify-between gap-2 disabled:opacity-60"
+        >
+          <span className="truncate">
+            {selectedPkg
+              ? `${selectedPkg.name}${selectedPkg.transaction_scope && transactionLabel ? ` · ${transactionLabel(selectedPkg.transaction_scope)}` : ""}`
+              : placeholder}
+          </span>
+          <svg className={`w-3.5 h-3.5 shrink-0 text-[#8A9BB8] transition-transform ${open ? "rotate-180" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        </button>
+        {open && (
+          <div className="absolute top-full mt-1 left-0 w-full min-w-[260px] bg-white border border-[#DDD5C4] rounded-lg shadow-lg z-50 overflow-y-auto max-h-72">
+            <button
+              type="button"
+              className="w-full text-left px-3 py-2 text-xs text-[#8A9BB8] hover:bg-[#F8F6F0]"
+              onClick={() => { onChange(""); setOpen(false); }}
+            >{placeholder}</button>
+            {visiblePackages.length === 0 && (
+              <div className="px-3 py-3 text-xs text-[#8A9BB8] border-t border-[#F0EBE0] italic">No packages match the active tag filter.</div>
+            )}
+            {visiblePackages.map((pkg) => (
+              <button
+                key={pkg.id}
+                type="button"
+                className={`w-full text-left px-3 py-2 border-t border-[#F0EBE0] transition-colors hover:bg-[#F8F6F0] ${String(pkg.id) === value ? "bg-[#FBF7EE]" : ""}`}
+                onClick={() => { onChange(String(pkg.id)); setOpen(false); }}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm text-[#0F1C3F] truncate">
+                    {pkg.name}{pkg.transaction_scope && transactionLabel ? ` · ${transactionLabel(pkg.transaction_scope)}` : ""}
+                  </span>
+                  {pkg.status !== "active" && <span className="text-[10px] text-[#8A9BB8] shrink-0">inactive</span>}
+                </div>
+                {pkg.tags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {pkg.tags.map((tag) => (
+                      <span key={tag} className="text-[10px] rounded-full px-1.5 py-px bg-[#EFE8D8] text-[#5C4A1E] border border-[#DDD5C4]">{tag}</span>
+                    ))}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const ScrollPageCanvas = memo(function ScrollPageCanvas({
   pageNum,
   documentPreviewUrl,
@@ -4756,12 +4870,14 @@ export default function DocuFill() {
                             <h3 className="text-sm font-semibold">Staff Interview</h3>
                             <span className="text-xs text-[#8A9BB8]">— walk a client through their paperwork</span>
                           </div>
-                          <div className="flex flex-col sm:flex-row gap-2">
-                            <select value={standalonePackageId} onChange={(e) => setStandalonePackageId(e.target.value)} className="flex-1 border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white">
-                              <option value="">Select a package…</option>
-                              {activePackages.filter((p) => p.enable_interview).map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
-                            </select>
-                            <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F] shrink-0">{isSaving ? "Launching…" : "Start Interview"}</Button>
+                          <div className="space-y-2">
+                            <PackagePickerWithTags
+                              packages={activePackages.filter((p) => p.enable_interview)}
+                              value={standalonePackageId}
+                              onChange={setStandalonePackageId}
+                              transactionLabel={labelForTransactionScope}
+                            />
+                            <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Launching…" : "Start Interview"}</Button>
                           </div>
                         </div>
                       )}
@@ -4778,10 +4894,12 @@ export default function DocuFill() {
                             <span className="text-xs text-[#8A9BB8]">— customer fills the form themselves</span>
                           </div>
                           <div className="space-y-2">
-                            <select value={customerLinkPackageId} onChange={(e) => { setCustomerLinkPackageId(e.target.value); setGeneratedCustomerLink(null); setGeneratedCustomerLinkToken(null); setLinkEmailSent(null); setShowSendLinkForm(false); }} className="w-full border border-[#D4C9B5] rounded-lg px-3 py-2 text-sm bg-white">
-                              <option value="">Select a package…</option>
-                              {activePackages.filter((p) => p.enable_customer_link).map((pkg) => <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>)}
-                            </select>
+                            <PackagePickerWithTags
+                              packages={activePackages.filter((p) => p.enable_customer_link)}
+                              value={customerLinkPackageId}
+                              onChange={(id) => { setCustomerLinkPackageId(id); setGeneratedCustomerLink(null); setGeneratedCustomerLinkToken(null); setLinkEmailSent(null); setShowSendLinkForm(false); }}
+                              transactionLabel={labelForTransactionScope}
+                            />
                             {customerLinkPackageId && activePackages.find((p) => String(p.id) === customerLinkPackageId)?.tags.includes("Demo") && (
                               <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
                                 <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
