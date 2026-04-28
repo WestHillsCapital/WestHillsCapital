@@ -1110,7 +1110,9 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email_footer TEXT`);
 
   // ── Interview defaults — org-level defaults for new interview sessions ────────
-  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS interview_link_expiry_days INTEGER`);
+  // interview_link_expiry_days: NULL = never expires; a number = that many days.
+  // Defaults to 90 for existing and new accounts — admin must explicitly set NULL for "never".
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS interview_link_expiry_days INTEGER DEFAULT 90`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS interview_reminder_enabled BOOLEAN NOT NULL DEFAULT false`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS interview_reminder_days INTEGER NOT NULL DEFAULT 2`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS interview_default_locale TEXT NOT NULL DEFAULT 'en'`);

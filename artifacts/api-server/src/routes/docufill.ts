@@ -198,6 +198,11 @@ type SessionInput = {
   source?: string;
   prefill?: JsonValue;
   testMode?: boolean;
+  // Per-session overrides for org interview defaults (Task #285)
+  linkExpiryDays?: number | null;
+  locale?: string;
+  reminderEnabled?: boolean;
+  reminderDays?: number;
 };
 
 type AnswersInput = {
@@ -2904,6 +2909,8 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
     const db = getDb();
 
     // Fetch org-level interview defaults and apply them (non-fatal).
+    // Per-session overrides from request body take precedence.
+    const NEVER_EXPIRES = new Date("9999-12-31T23:59:59Z");
     let orgExpiryDays: number | null = null;
     let orgReminderEnabled = false;
     let orgReminderDays = 2;
@@ -2926,19 +2933,34 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
       logger.warn({ defErr }, "[DocuFill] Could not fetch interview defaults; using built-in defaults");
     }
 
+    // Apply per-session overrides: request body takes precedence over org defaults.
+    // orgExpiryDays = null means "never expires" (admin explicitly chose this);
+    // a number means that many days; 90 is the column default for new orgs.
+    const effectiveExpiryDays: number | null = "linkExpiryDays" in body
+      ? (body.linkExpiryDays === null ? null : (Number.isInteger(Number(body.linkExpiryDays)) && Number(body.linkExpiryDays) >= 1 ? Number(body.linkExpiryDays) : orgExpiryDays))
+      : orgExpiryDays;
+    const effectiveLocale: string = (typeof body.locale === "string" && body.locale) ? body.locale : orgLocale;
+    const effectiveReminderEnabled: boolean = typeof body.reminderEnabled === "boolean" ? body.reminderEnabled : orgReminderEnabled;
+    const effectiveReminderDays: number = (typeof body.reminderDays === "number" && body.reminderDays >= 1) ? body.reminderDays : orgReminderDays;
+
+    // null = "never expires" → use far-future sentinel so existing NOT NULL constraint is satisfied
+    const finalExpiresAt: Date = effectiveExpiryDays === null
+      ? NEVER_EXPIRES
+      : new Date(Date.now() + effectiveExpiryDays * 86400000);
+
     const { rows } = await db.query(
       `INSERT INTO docufill_interview_sessions
          (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers,
           expires_at, account_id, locale, reminder_enabled, reminder_days)
        VALUES ($1,$2,$3,$4,$5,$6,'draft',$7,$8::jsonb,'{}'::jsonb,
-               NOW() + ($10 || ' days')::INTERVAL,$9,$11,$12,$13)
+               $10,$9,$11,$12,$13)
        RETURNING *`,
       [
         token, packageId, pkg.version ?? 1, requestedScope,
         body.dealId ?? null, cleanText(body.source) || "deal_builder", testMode,
         jsonParam(body.prefill ?? {}), accountId,
-        orgExpiryDays ?? 90,
-        orgLocale, orgReminderEnabled, orgReminderDays,
+        finalExpiresAt,
+        effectiveLocale, effectiveReminderEnabled, effectiveReminderDays,
       ],
     );
     // Record submission usage event (fire-and-forget, non-fatal; test sessions skipped)
