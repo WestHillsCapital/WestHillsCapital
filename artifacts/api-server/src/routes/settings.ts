@@ -3309,6 +3309,194 @@ router.delete("/security/sessions/:sessionId", async (req, res) => {
   }
 });
 
+// ─── Custom Domain ────────────────────────────────────────────────────────────
+
+const CNAME_TARGET = "interview.docuplete.com";
+
+/** GET /custom-domain — return the org's current custom domain info */
+router.get("/custom-domain", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    const { rows } = await db.query<{
+      plan_tier: string;
+      custom_domain: string | null;
+      custom_domain_status: string;
+      custom_domain_verified_at: Date | null;
+    }>(
+      `SELECT plan_tier, custom_domain, custom_domain_status, custom_domain_verified_at
+         FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "Account not found" }); return; }
+    const row = rows[0];
+    res.json({
+      plan_tier: row.plan_tier,
+      custom_domain: row.custom_domain ?? null,
+      status: row.custom_domain ?? null ? row.custom_domain_status : null,
+      verified_at: row.custom_domain_verified_at?.toISOString() ?? null,
+      cname_target: CNAME_TARGET,
+    });
+  } catch (err) {
+    logger.error({ err }, "[CustomDomain] GET failed");
+    res.status(500).json({ error: "Failed to get custom domain info" });
+  }
+});
+
+/** PUT /custom-domain — save (or remove) a custom domain; sets status to unverified */
+router.put("/custom-domain", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as Record<string, unknown>;
+    const db = getDb();
+
+    const { rows: acctRows } = await db.query<{ plan_tier: string }>(
+      `SELECT plan_tier FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!acctRows[0]) { res.status(404).json({ error: "Account not found" }); return; }
+    const planTier = acctRows[0].plan_tier;
+    if (planTier === "free") {
+      res.status(403).json({ error: "Custom domains require a Pro or Enterprise plan." });
+      return;
+    }
+
+    const rawDomain = typeof body.domain === "string" ? body.domain.trim().toLowerCase() : null;
+    if (rawDomain === null || rawDomain === "") {
+      // Clear domain
+      await db.query(
+        `UPDATE accounts SET custom_domain = NULL, custom_domain_status = 'unverified', custom_domain_verified_at = NULL WHERE id = $1`,
+        [accountId],
+      );
+      res.json({ custom_domain: null, status: null, cname_target: CNAME_TARGET });
+      return;
+    }
+
+    // Basic hostname validation
+    const hostnameRe = /^[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?)*\.[a-z]{2,}$/;
+    if (!hostnameRe.test(rawDomain) || rawDomain.length > 253) {
+      res.status(400).json({ error: "Invalid domain name. Use a fully-qualified hostname like forms.yourcompany.com." });
+      return;
+    }
+
+    const { rows } = await db.query<{ custom_domain: string; custom_domain_status: string }>(
+      `UPDATE accounts
+          SET custom_domain = $1, custom_domain_status = 'unverified', custom_domain_verified_at = NULL
+        WHERE id = $2
+        RETURNING custom_domain, custom_domain_status`,
+      [rawDomain, accountId],
+    );
+    const row = rows[0];
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    void insertAuditLog({
+      accountId,
+      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorUserId: clerkUserId,
+      action: "custom_domain.set",
+      resourceType: "org",
+      resourceLabel: rawDomain,
+    });
+
+    res.json({ custom_domain: row.custom_domain, status: row.custom_domain_status, cname_target: CNAME_TARGET });
+  } catch (err) {
+    logger.error({ err }, "[CustomDomain] PUT failed");
+    res.status(500).json({ error: "Failed to save custom domain" });
+  }
+});
+
+/** POST /custom-domain/verify — attempt DNS CNAME verification */
+router.post("/custom-domain/verify", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+
+    const { rows: acctRows } = await db.query<{ plan_tier: string; custom_domain: string | null }>(
+      `SELECT plan_tier, custom_domain FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!acctRows[0]) { res.status(404).json({ error: "Account not found" }); return; }
+    const { plan_tier: planTier, custom_domain: domain } = acctRows[0];
+
+    if (planTier === "free") {
+      res.status(403).json({ error: "Custom domains require a Pro or Enterprise plan." });
+      return;
+    }
+    if (!domain) {
+      res.status(400).json({ error: "No custom domain saved. Please enter a domain first." });
+      return;
+    }
+
+    // Mark as verifying
+    await db.query(
+      `UPDATE accounts SET custom_domain_status = 'verifying' WHERE id = $1`,
+      [accountId],
+    );
+
+    // Resolve CNAME
+    let cnamePoints: string[] = [];
+    let dnsError: string | null = null;
+    try {
+      const { promises: dnsPromises } = await import("dns");
+      const result = await dnsPromises.resolveCname(domain);
+      cnamePoints = result.map((r) => r.toLowerCase().replace(/\.$/, ""));
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException).code ?? "";
+      if (code === "ENOTFOUND" || code === "ENODATA") {
+        dnsError = "DNS_NOT_FOUND";
+      } else if (code === "ENOENT") {
+        dnsError = "NO_CNAME";
+      } else {
+        dnsError = "DNS_ERROR";
+      }
+    }
+
+    const target = CNAME_TARGET.toLowerCase();
+    const verified = !dnsError && cnamePoints.some((c) => c === target || c.endsWith(`.${target}`));
+
+    let newStatus: string;
+    let verifiedAt: string | null = null;
+    if (verified) {
+      newStatus = "active";
+      verifiedAt = new Date().toISOString();
+      await db.query(
+        `UPDATE accounts SET custom_domain_status = 'active', custom_domain_verified_at = NOW() WHERE id = $1`,
+        [accountId],
+      );
+    } else {
+      newStatus = "error";
+      await db.query(
+        `UPDATE accounts SET custom_domain_status = 'error' WHERE id = $1`,
+        [accountId],
+      );
+    }
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    void insertAuditLog({
+      accountId,
+      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorUserId: clerkUserId,
+      action: "custom_domain.verify",
+      resourceType: "org",
+      resourceLabel: domain,
+      metadata: { status: newStatus, cnames: cnamePoints.slice(0, 5) },
+    });
+
+    res.json({
+      verified,
+      status: newStatus,
+      domain,
+      cname_target: CNAME_TARGET,
+      cnames_found: cnamePoints,
+      verified_at: verifiedAt,
+      error: dnsError,
+    });
+  } catch (err) {
+    logger.error({ err }, "[CustomDomain] verify failed");
+    res.status(500).json({ error: "Verification failed. Please try again." });
+  }
+});
+
 /** GET /security/login-history — recent login events for the current user */
 router.get("/security/login-history", async (req, res) => {
   try {

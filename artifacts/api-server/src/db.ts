@@ -338,6 +338,11 @@ export async function initDb(): Promise<void> {
     WHERE id = 1 AND plan_tier = 'free'
   `);
 
+  // ── Custom domain columns ─────────────────────────────────────────────────────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS custom_domain TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS custom_domain_status TEXT NOT NULL DEFAULT 'unverified'`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS custom_domain_verified_at TIMESTAMPTZ`);
+
   // ── Usage events — one row per billable action per account per period ─────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS usage_events (
