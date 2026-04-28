@@ -1260,6 +1260,9 @@ export default function AppSettings() {
   const nameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameEdited = useRef(false);
   const nameSaveSeq = useRef(0);
+  const colorDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const colorEdited = useRef(false);
+  const colorSaveSeq = useRef(0);
   const nameSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logoSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const colorSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1301,6 +1304,7 @@ export default function AppSettings() {
 
     return () => {
       if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
+      if (colorDebounceRef.current) clearTimeout(colorDebounceRef.current);
       if (nameSavedTimer.current) clearTimeout(nameSavedTimer.current);
       if (logoSavedTimer.current) clearTimeout(logoSavedTimer.current);
       if (colorSavedTimer.current) clearTimeout(colorSavedTimer.current);
@@ -1340,6 +1344,34 @@ export default function AppSettings() {
       if (nameDebounceRef.current) { clearTimeout(nameDebounceRef.current); nameDebounceRef.current = null; }
     };
   }, [name]);
+
+  // Auto-save brand color with 700ms debounce — only fires when user has changed the color
+  // (colorEdited is set in the onChange wrapper; cleared immediately in handleAutoSaveColor
+  //  so extracted-swatch clicks don't double-save via this path)
+  useEffect(() => {
+    if (!colorEdited.current || !org) return;
+    if (colorDebounceRef.current) clearTimeout(colorDebounceRef.current);
+    colorDebounceRef.current = setTimeout(async () => {
+      colorDebounceRef.current = null;
+      if (!/^#[0-9a-fA-F]{6}$/.test(brandColor)) return; // wait for a complete hex value
+      const seq = ++colorSaveSeq.current;
+      try {
+        const res = await fetch(`${SETTINGS_BASE}/org`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify({ brandColor }),
+        });
+        const data = await res.json() as { org?: ProductOrgSettings; error?: string };
+        if (seq !== colorSaveSeq.current) return;
+        if (!res.ok) { setErrorMsg(data.error ?? "Failed to save color"); return; }
+        if (data.org) applyOrg(data.org);
+        flashFieldSaved("color");
+      } catch { if (seq === colorSaveSeq.current) setErrorMsg("Failed to save brand color."); }
+    }, 700);
+    return () => {
+      if (colorDebounceRef.current) { clearTimeout(colorDebounceRef.current); colorDebounceRef.current = null; }
+    };
+  }, [brandColor]);
 
   async function uploadLogoFile(file: File) {
     if (!["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(file.type)) {
@@ -1412,6 +1444,12 @@ export default function AppSettings() {
 
   async function handleAutoSaveColor(newColor: string) {
     if (!org) return;
+    // Clear the flag immediately so the debounced color effect skips this save
+    // (extracted-swatch clicks call both onChange + onAutoSave; without this guard
+    //  the debounce would fire a redundant second PATCH 700ms later)
+    colorEdited.current = false;
+    if (colorDebounceRef.current) { clearTimeout(colorDebounceRef.current); colorDebounceRef.current = null; }
+    const seq = ++colorSaveSeq.current;
     try {
       const res = await fetch(`${SETTINGS_BASE}/org`, {
         method: "PATCH",
@@ -1419,11 +1457,12 @@ export default function AppSettings() {
         body: JSON.stringify({ brandColor: newColor }),
       });
       const data = await res.json() as { org?: ProductOrgSettings; error?: string };
+      if (seq !== colorSaveSeq.current) return;
       if (!res.ok) { setErrorMsg(data.error ?? "Failed to save color"); return; }
       if (data.org) applyOrg(data.org);
       flashFieldSaved("color");
     } catch {
-      setErrorMsg("Failed to save brand color.");
+      if (seq === colorSaveSeq.current) setErrorMsg("Failed to save brand color.");
     }
   }
 
@@ -1588,7 +1627,7 @@ export default function AppSettings() {
           <div className="flex-1">
             <BrandColorSection
               brandColor={brandColor}
-              onChange={setBrandColor}
+              onChange={(c) => { colorEdited.current = true; setBrandColor(c); }}
               onAutoSave={handleAutoSaveColor}
               extractEndpoint={`${SETTINGS_BASE}/extract-brand-colors`}
               getAuthHeaders={getAuthHeaders}
