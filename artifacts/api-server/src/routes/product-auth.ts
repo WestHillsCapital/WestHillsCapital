@@ -8,6 +8,7 @@ import { requireProductAuth } from "../middleware/requireProductAuth";
 import { requireAdminRole } from "../middleware/requireRole";
 import { linkPendingInvitation } from "../lib/auth-utils";
 import { seedDemoPackage } from "../lib/demoPackage";
+import { insertAuditLog, getActorEmail } from "../lib/auditLog";
 
 const router = Router();
 
@@ -326,6 +327,17 @@ router.post("/api-keys", requireProductAuth, requireAdminRole, async (req, res) 
     const row = result.rows[0];
     logger.info({ accountId, keyId: row.id }, "[ApiKeys] New API key created");
 
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    void insertAuditLog({
+      accountId,
+      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorUserId: clerkUserId,
+      action: "apikey.create",
+      resourceType: "api_key",
+      resourceId: String(row.id),
+      resourceLabel: name,
+    });
+
     return void res.status(201).json({
       id:         row.id,
       name,
@@ -387,8 +399,9 @@ router.get("/api-keys", requireProductAuth, requireAdminRole, async (req, res) =
       key_prefix: string;
       created_at: Date;
       revoked_at: Date | null;
+      last_used_at: Date | null;
     }>(
-      `SELECT id, name, key_prefix, created_at, revoked_at
+      `SELECT id, name, key_prefix, created_at, revoked_at, last_used_at
          FROM account_api_keys
         WHERE account_id = $1
         ORDER BY created_at DESC`,
@@ -397,17 +410,139 @@ router.get("/api-keys", requireProductAuth, requireAdminRole, async (req, res) =
 
     return void res.json({
       keys: result.rows.map((row) => ({
-        id:        row.id,
-        name:      row.name,
-        keyPrefix: row.key_prefix,
-        createdAt: row.created_at,
-        revokedAt: row.revoked_at ?? null,
-        active:    row.revoked_at === null,
+        id:          row.id,
+        name:        row.name,
+        keyPrefix:   row.key_prefix,
+        createdAt:   row.created_at,
+        revokedAt:   row.revoked_at ?? null,
+        lastUsedAt:  row.last_used_at ?? null,
+        active:      row.revoked_at === null,
       })),
     });
   } catch (err) {
     logger.error({ err }, "[ApiKeys] Failed to list API keys");
     return void res.status(500).json({ error: "Failed to list API keys." });
+  }
+});
+
+/**
+ * PATCH /api/product/auth/api-keys/:id
+ *
+ * Rename an active API key.
+ * Only keys belonging to the authenticated account can be renamed.
+ *
+ * Body: { name: string }
+ * Requires: Clerk JWT or existing API key
+ *
+ * @openapi
+ * /product/auth/api-keys/{id}:
+ *   patch:
+ *     tags:
+ *       - Product Portal — API Keys
+ *     summary: Rename an API key
+ *     description: Updates the human-readable name of an active API key. Only keys belonging to the authenticated account can be renamed.
+ *     security:
+ *       - productAuth: []
+ *       - apiKeyAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The numeric ID of the API key to rename.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Staging server
+ *                 description: New human-readable label for the key (max 100 characters).
+ *     responses:
+ *       200:
+ *         description: Key renamed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 id:
+ *                   type: integer
+ *                 name:
+ *                   type: string
+ *       400:
+ *         description: Missing or invalid name
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Key not found or already revoked
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.patch("/api-keys/:id", requireProductAuth, requireAdminRole, async (req, res) => {
+  const accountId = req.internalAccountId!;
+  const keyId = parseInt(String(req.params.id ?? ""), 10);
+
+  if (isNaN(keyId)) {
+    return void res.status(400).json({ error: "Invalid key id." });
+  }
+
+  const name = ((req.body as { name?: string }).name ?? "").trim();
+  if (!name) {
+    return void res.status(400).json({ error: "name is required." });
+  }
+  if (name.length > 100) {
+    return void res.status(400).json({ error: "name must be 100 characters or fewer." });
+  }
+
+  try {
+    const result = await getDb().query<{ id: number; name: string }>(
+      `UPDATE account_api_keys
+          SET name = $1
+        WHERE id = $2
+          AND account_id = $3
+          AND revoked_at IS NULL
+        RETURNING id, name`,
+      [name, keyId, accountId],
+    );
+
+    if (!result.rows[0]) {
+      return void res.status(404).json({ error: "API key not found or already revoked." });
+    }
+
+    logger.info({ accountId, keyId, name }, "[ApiKeys] API key renamed");
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    void insertAuditLog({
+      accountId,
+      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorUserId: clerkUserId,
+      action: "apikey.rename",
+      resourceType: "api_key",
+      resourceId: String(keyId),
+      resourceLabel: name,
+    });
+    return void res.json({ success: true, id: keyId, name: result.rows[0].name });
+  } catch (err) {
+    logger.error({ err }, "[ApiKeys] Failed to rename API key");
+    return void res.status(500).json({ error: "Failed to rename API key." });
   }
 });
 
@@ -476,13 +611,13 @@ router.delete("/api-keys/:id", requireProductAuth, requireAdminRole, async (req,
   }
 
   try {
-    const result = await getDb().query<{ id: number }>(
+    const result = await getDb().query<{ id: number; name: string }>(
       `UPDATE account_api_keys
           SET revoked_at = NOW()
         WHERE id = $1
           AND account_id = $2
           AND revoked_at IS NULL
-        RETURNING id`,
+        RETURNING id, name`,
       [keyId, accountId],
     );
 
@@ -491,6 +626,16 @@ router.delete("/api-keys/:id", requireProductAuth, requireAdminRole, async (req,
     }
 
     logger.info({ accountId, keyId }, "[ApiKeys] API key revoked");
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    void insertAuditLog({
+      accountId,
+      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorUserId: clerkUserId,
+      action: "apikey.revoke",
+      resourceType: "api_key",
+      resourceId: String(keyId),
+      resourceLabel: result.rows[0].name,
+    });
     return void res.json({ success: true, id: keyId });
   } catch (err) {
     logger.error({ err }, "[ApiKeys] Failed to revoke API key");

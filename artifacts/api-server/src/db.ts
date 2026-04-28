@@ -954,6 +954,13 @@ export async function initDb(): Promise<void> {
       ON webhook_deliveries (account_id)
   `);
 
+  // ── Task #217: store original payload for manual webhook retry ──────────────
+  // payload_json holds the raw JSON body that was (or would have been) sent so
+  // that failed deliveries can be replayed on demand from the dashboard.
+  await db.query(`
+    ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS payload_json TEXT
+  `);
+
   // ── IP allowlisting — per-account CIDR ranges for API key access ─────────────
   // Empty array = no restriction (default). Enterprise feature.
   await db.query(`
@@ -1040,6 +1047,26 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_channel_name TEXT`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_connected_at TIMESTAMPTZ`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_oauth_state TEXT`);
+
+  // ── Org-level audit log ──────────────────────────────────────────────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS org_audit_log (
+      id            BIGSERIAL PRIMARY KEY,
+      account_id    INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      actor_email   TEXT,
+      actor_user_id TEXT,
+      action        TEXT NOT NULL,
+      resource_type TEXT,
+      resource_id   TEXT,
+      resource_label TEXT,
+      metadata      JSONB NOT NULL DEFAULT '{}',
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS org_audit_log_account_created_idx
+      ON org_audit_log (account_id, created_at DESC)
+  `);
 
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
