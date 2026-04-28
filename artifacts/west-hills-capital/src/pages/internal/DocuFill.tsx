@@ -2978,11 +2978,10 @@ export default function DocuFill() {
   return (
     <div className="max-w-screen-2xl mx-auto px-4 py-6 text-[#0F1C3F]">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
-        {isPublicSession && (
-          <div>
-            <p className="text-sm text-[#6B7A99]">Complete your secure paperwork interview.</p>
-          </div>
-        )}
+        <div>
+          <h1 className="text-2xl font-semibold">Docuplete</h1>
+          {isPublicSession && <p className="text-sm text-[#6B7A99] mt-1">Complete your secure paperwork interview.</p>}
+        </div>
         {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
           <Tooltip>
             <TooltipTrigger asChild>
