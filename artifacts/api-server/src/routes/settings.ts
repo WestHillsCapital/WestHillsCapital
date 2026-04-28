@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { randomUUID } from "crypto";
+import { randomUUID, randomBytes } from "crypto";
 import { getAuth } from "@clerk/express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
@@ -18,6 +18,13 @@ import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificati
 import { sendOrgAlertEmails } from "../lib/email";
 import archiver from "archiver";
 import { PassThrough } from "node:stream";
+import { generateSecret as totpGenerateSecret, generateURI as totpGenerateURI, verifySync as totpVerifySync } from "otplib";
+import QRCode from "qrcode";
+import { createHash } from "crypto";
+
+function hashBackupCode(code: string): string {
+  return createHash("sha256").update(code.toUpperCase()).digest("hex");
+}
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -3010,6 +3017,338 @@ router.get("/profile/verify-email", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Profile] Failed to verify email");
     res.status(500).json({ error: "Failed to verify email change" });
+  }
+});
+
+// ── Security routes ──────────────────────────────────────────────────────────
+
+function parseUserAgent(ua: string | null): { browser: string; os: string; device: string } {
+  if (!ua) return { browser: "Unknown", os: "Unknown", device: "Unknown" };
+  let browser = "Unknown";
+  let os = "Unknown";
+  let device = "Desktop";
+
+  if (/mobile|android|iphone|ipad/i.test(ua)) device = "Mobile";
+  else if (/tablet/i.test(ua)) device = "Tablet";
+
+  if (/chrome\/[\d.]+/i.test(ua) && !/chromium|edg|opr|brave/i.test(ua)) browser = "Chrome";
+  else if (/firefox\/[\d.]+/i.test(ua)) browser = "Firefox";
+  else if (/safari\/[\d.]+/i.test(ua) && !/chrome/i.test(ua)) browser = "Safari";
+  else if (/edg\/[\d.]+/i.test(ua)) browser = "Edge";
+  else if (/opr\/[\d.]+/i.test(ua)) browser = "Opera";
+
+  if (/windows nt/i.test(ua)) os = "Windows";
+  else if (/mac os x/i.test(ua)) os = "macOS";
+  else if (/android/i.test(ua)) os = "Android";
+  else if (/iphone|ipad/i.test(ua)) os = "iOS";
+  else if (/linux/i.test(ua)) os = "Linux";
+
+  return { browser, os, device };
+}
+
+/** GET /security/2fa/status — returns current 2FA status for the current user */
+router.get("/security/2fa/status", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT totp_enabled, totp_backup_codes FROM account_users
+        WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const row = rows[0] as Record<string, unknown>;
+    res.json({
+      enabled: Boolean(row.totp_enabled),
+      backupCodesRemaining: ((row.totp_backup_codes as string[]) ?? []).length,
+    });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to get 2FA status");
+    res.status(500).json({ error: "Failed to get 2FA status" });
+  }
+});
+
+/** POST /security/2fa/setup — generate a TOTP secret and return QR code */
+router.post("/security/2fa/setup", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const db = getDb();
+
+    const { rows } = await db.query(
+      `SELECT id, email, totp_enabled FROM account_users
+        WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const row = rows[0] as Record<string, unknown>;
+    if (row.totp_enabled) { res.status(400).json({ error: "2FA is already enabled." }); return; }
+
+    const secret = totpGenerateSecret();
+    const otpauthUrl = totpGenerateURI({
+      issuer: "Docuplete",
+      label: row.email as string,
+      secret,
+    });
+    const qrCode = await QRCode.toDataURL(otpauthUrl);
+
+    // Store the pending secret (not yet enabled — user must verify first)
+    await db.query(
+      `UPDATE account_users SET totp_secret = $1 WHERE id = $2`,
+      [secret, row.id],
+    );
+
+    res.json({ secret, qrCode, otpauthUrl });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to setup 2FA");
+    res.status(500).json({ error: "Failed to setup 2FA" });
+  }
+});
+
+/** POST /security/2fa/enable — verify TOTP code and enable 2FA */
+router.post("/security/2fa/enable", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const body = req.body as Record<string, unknown>;
+    const code = typeof body.code === "string" ? body.code.trim().replace(/\s/g, "") : "";
+
+    if (!code) { res.status(400).json({ error: "Verification code is required." }); return; }
+
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT id, email, totp_secret, totp_enabled FROM account_users
+        WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const row = rows[0] as Record<string, unknown>;
+
+    if (row.totp_enabled) { res.status(400).json({ error: "2FA is already enabled." }); return; }
+    if (!row.totp_secret) { res.status(400).json({ error: "No pending 2FA setup found. Please start setup first." }); return; }
+
+    const verifyResult = totpVerifySync({ token: code, secret: row.totp_secret as string });
+    const isValid = verifyResult.valid;
+    if (!isValid) { res.status(400).json({ error: "Invalid verification code. Please try again." }); return; }
+
+    // Generate 8 one-time backup codes (stored as SHA-256 hashes; plaintext shown to user once)
+    const backupCodesPlain: string[] = Array.from({ length: 8 }, () =>
+      `${randomBytes(3).toString("hex").toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`,
+    );
+    const backupCodesHashed = backupCodesPlain.map(hashBackupCode);
+
+    await db.query(
+      `UPDATE account_users SET totp_enabled = TRUE, totp_backup_codes = $1 WHERE id = $2`,
+      [backupCodesHashed, row.id],
+    );
+
+    const actorEmail = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "security.2fa_enabled", resourceType: "user",
+    });
+
+    res.json({ success: true, backupCodes: backupCodesPlain });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to enable 2FA");
+    res.status(500).json({ error: "Failed to enable 2FA" });
+  }
+});
+
+/** DELETE /security/2fa — disable 2FA (requires current TOTP code or backup code) */
+router.delete("/security/2fa", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const body = req.body as Record<string, unknown>;
+    const code = typeof body.code === "string" ? body.code.trim().replace(/\s/g, "") : "";
+
+    if (!code) { res.status(400).json({ error: "Verification code is required to disable 2FA." }); return; }
+
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT id, totp_secret, totp_enabled, totp_backup_codes FROM account_users
+        WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const row = rows[0] as Record<string, unknown>;
+
+    if (!row.totp_enabled) { res.status(400).json({ error: "2FA is not enabled." }); return; }
+
+    const secret = row.totp_secret as string;
+    const storedHashes = (row.totp_backup_codes as string[]) ?? [];
+
+    const validTotp   = totpVerifySync({ token: code, secret }).valid;
+    const codeHash    = hashBackupCode(code);
+    const backupIdx   = storedHashes.indexOf(codeHash);
+    const validBackup = backupIdx !== -1;
+
+    if (!validTotp && !validBackup) {
+      res.status(400).json({ error: "Invalid verification code." }); return;
+    }
+
+    // Consume the backup code if used (remove it so it can't be reused)
+    const remainingHashes = validBackup
+      ? storedHashes.filter((_, i) => i !== backupIdx)
+      : storedHashes;
+
+    await db.query(
+      `UPDATE account_users SET totp_enabled = FALSE, totp_secret = NULL, totp_backup_codes = $2 WHERE id = $1`,
+      [row.id, remainingHashes],
+    );
+
+    const actorEmail = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "security.2fa_disabled", resourceType: "user",
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to disable 2FA");
+    res.status(500).json({ error: "Failed to disable 2FA" });
+  }
+});
+
+/** GET /security/sessions — list active sessions for the current user */
+router.get("/security/sessions", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const clerkAuth   = getAuth(req);
+    const currentSessionId = clerkAuth?.sessionId ?? null;
+
+    const db = getDb();
+    const { rows: userRows } = await db.query(
+      `SELECT id FROM account_users WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!userRows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const userId = (userRows[0] as Record<string, unknown>).id as number;
+
+    const { rows } = await db.query(
+      `SELECT id, clerk_session_id, ip_address, user_agent, last_active_at, created_at
+         FROM user_active_sessions
+        WHERE user_id = $1 AND revoked_at IS NULL
+        ORDER BY last_active_at DESC
+        LIMIT 20`,
+      [userId],
+    );
+
+    const sessions = rows.map((r) => {
+      const row = r as Record<string, unknown>;
+      const ua = parseUserAgent(row.user_agent as string | null);
+      return {
+        id:             row.id,
+        isCurrent:      row.clerk_session_id === currentSessionId,
+        browser:        ua.browser,
+        os:             ua.os,
+        device:         ua.device,
+        ipAddress:      row.ip_address ?? null,
+        lastActiveAt:   row.last_active_at,
+        createdAt:      row.created_at,
+      };
+    });
+
+    res.json({ sessions });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to list sessions");
+    res.status(500).json({ error: "Failed to list sessions" });
+  }
+});
+
+/** DELETE /security/sessions/:sessionId — revoke a session by its DB id */
+router.delete("/security/sessions/:sessionId", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const clerkAuth   = getAuth(req);
+    const currentSessionId = clerkAuth?.sessionId ?? null;
+    const sessionDbId = parseInt(req.params.sessionId ?? "", 10);
+    if (isNaN(sessionDbId)) { res.status(400).json({ error: "Invalid session ID." }); return; }
+
+    const db = getDb();
+    const { rows: userRows } = await db.query(
+      `SELECT id FROM account_users WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!userRows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const userId = (userRows[0] as Record<string, unknown>).id as number;
+
+    // Fetch the session to make sure it belongs to this user
+    const { rows: sessionRows } = await db.query(
+      `SELECT id, clerk_session_id FROM user_active_sessions
+        WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL`,
+      [sessionDbId, userId],
+    );
+    if (!sessionRows[0]) { res.status(404).json({ error: "Session not found." }); return; }
+
+    const session = sessionRows[0] as Record<string, unknown>;
+    if (session.clerk_session_id === currentSessionId) {
+      res.status(400).json({ error: "You cannot revoke your current session." }); return;
+    }
+
+    await db.query(
+      `UPDATE user_active_sessions SET revoked_at = NOW() WHERE id = $1`,
+      [sessionDbId],
+    );
+
+    const actorEmail = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "security.session_revoked", resourceType: "session",
+      resourceId: String(sessionDbId),
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to revoke session");
+    res.status(500).json({ error: "Failed to revoke session" });
+  }
+});
+
+/** GET /security/login-history — recent login events for the current user */
+router.get("/security/login-history", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+
+    const db = getDb();
+    const { rows: userRows } = await db.query(
+      `SELECT id FROM account_users WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!userRows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const userId = (userRows[0] as Record<string, unknown>).id as number;
+
+    const { rows } = await db.query(
+      `SELECT id, ip_address, user_agent, created_at
+         FROM user_login_history
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 30`,
+      [userId],
+    );
+
+    const history = rows.map((r) => {
+      const row = r as Record<string, unknown>;
+      const ua = parseUserAgent(row.user_agent as string | null);
+      return {
+        id:         row.id,
+        browser:    ua.browser,
+        os:         ua.os,
+        device:     ua.device,
+        ipAddress:  row.ip_address ?? null,
+        createdAt:  row.created_at,
+      };
+    });
+
+    res.json({ history });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to get login history");
+    res.status(500).json({ error: "Failed to get login history" });
   }
 });
 

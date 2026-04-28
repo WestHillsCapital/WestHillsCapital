@@ -1195,6 +1195,47 @@ export async function initDb(): Promise<void> {
     )
   `);
 
+  // ── Security: 2FA columns on account_users ───────────────────────────────────
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS totp_secret TEXT`);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS totp_backup_codes TEXT[] NOT NULL DEFAULT '{}'`);
+
+  // ── Security: active user sessions (tracks Clerk session IDs) ────────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS user_active_sessions (
+      id               SERIAL PRIMARY KEY,
+      account_id       INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      user_id          INTEGER NOT NULL REFERENCES account_users(id) ON DELETE CASCADE,
+      clerk_session_id TEXT NOT NULL UNIQUE,
+      ip_address       TEXT,
+      user_agent       TEXT,
+      last_active_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      revoked_at       TIMESTAMPTZ
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS user_active_sessions_user_idx
+      ON user_active_sessions (user_id, last_active_at DESC)
+  `);
+
+  // ── Security: login history (one row per distinct login event) ───────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS user_login_history (
+      id               SERIAL PRIMARY KEY,
+      account_id       INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      user_id          INTEGER NOT NULL REFERENCES account_users(id) ON DELETE CASCADE,
+      clerk_session_id TEXT,
+      ip_address       TEXT,
+      user_agent       TEXT,
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS user_login_history_user_idx
+      ON user_login_history (user_id, created_at DESC)
+  `);
+
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 

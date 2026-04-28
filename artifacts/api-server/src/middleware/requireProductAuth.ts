@@ -65,20 +65,60 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
   }
 
   try {
-    const result = await getDb().query<{ account_id: number; role: string }>(
-      `SELECT account_id, role FROM account_users
+    const result = await getDb().query<{ id: number; account_id: number; role: string }>(
+      `SELECT id, account_id, role FROM account_users
         WHERE clerk_user_id = $1 AND status = 'active'
         LIMIT 1`,
       [clerkUserId],
     );
 
     if (result.rows[0]) {
+      const uid       = result.rows[0].id;
+      const sessionId = auth?.sessionId ?? null;
+      const ip        = req.ip ?? req.socket?.remoteAddress ?? null;
+      const ua        = req.headers["user-agent"] ?? null;
+
+      // Check if this Clerk session has been revoked in our DB
+      if (sessionId) {
+        const { rows: revokedCheck } = await getDb().query(
+          `SELECT 1 FROM user_active_sessions WHERE clerk_session_id = $1 AND revoked_at IS NOT NULL LIMIT 1`,
+          [sessionId],
+        );
+        if (revokedCheck.length > 0) {
+          return void res.status(401).json({ error: "This session has been revoked. Please sign in again.", code: "SESSION_REVOKED" });
+        }
+      }
+
       req.internalAccountId = result.rows[0].account_id;
       req.productUserRole   = result.rows[0].role;
 
-      // Fire-and-forget: stamp last_seen_at without blocking the request
+      // Fire-and-forget: stamp last_seen_at and upsert the session record
       getDb()
         .query(`UPDATE account_users SET last_seen_at = NOW() WHERE clerk_user_id = $1`, [clerkUserId])
+        .then(async () => {
+          if (uid && sessionId) {
+            const db2 = getDb();
+            // Upsert active session (new session → also write login history)
+            const upRes = await db2.query<{ was_new: boolean }>(
+              `INSERT INTO user_active_sessions (account_id, user_id, clerk_session_id, ip_address, user_agent)
+                 VALUES ($1, $2, $3, $4, $5)
+                 ON CONFLICT (clerk_session_id) DO UPDATE
+                   SET last_active_at = NOW(),
+                       ip_address = EXCLUDED.ip_address,
+                       user_agent = EXCLUDED.user_agent
+                 RETURNING (xmax = 0) AS was_new`,
+              [result.rows[0].account_id, uid, sessionId, ip, ua],
+            );
+            const wasNew = (upRes.rows[0] as Record<string, unknown> | undefined)?.was_new as boolean | undefined;
+            if (wasNew) {
+              await db2.query(
+                `INSERT INTO user_login_history (account_id, user_id, clerk_session_id, ip_address, user_agent)
+                   VALUES ($1, $2, $3, $4, $5)`,
+                [result.rows[0].account_id, uid, sessionId, ip, ua],
+              );
+            }
+          }
+        })
         .catch(() => {});
 
       return next();
