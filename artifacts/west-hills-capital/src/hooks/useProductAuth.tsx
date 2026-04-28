@@ -9,6 +9,7 @@ export interface ProductAccount {
   slug:        string;
   email:       string;
   role:        string;
+  orgLogoUrl:  string | null;
 }
 
 export function useProductAuth() {
