@@ -1204,16 +1204,21 @@ router.get("/integrations", requireAdminRole, async (req, res) => {
         `SELECT slack_webhook_url, slack_channel_name, slack_connected_at FROM accounts WHERE id = $1`,
         [accountId],
       ),
-      db.query<{ count: string }>(
-        `SELECT COUNT(*) AS count FROM account_api_keys WHERE account_id = $1 AND revoked_at IS NULL`,
+      db.query<{ count: string; first_prefix: string | null }>(
+        `SELECT COUNT(*) AS count,
+                MIN(key_prefix) FILTER (WHERE revoked_at IS NULL) AS first_prefix
+           FROM account_api_keys
+          WHERE account_id = $1`,
         [accountId],
       ),
     ]);
     const acct = acctRows[0];
+    const apiKeyCount = parseInt(keyRows[0]?.count ?? "0", 10);
     res.json({
       integrations: {
         zapier: {
-          api_key_count: parseInt(keyRows[0]?.count ?? "0", 10),
+          api_key_count: apiKeyCount,
+          first_key_prefix: keyRows[0]?.first_prefix ?? null,
           available: true,
         },
         slack: {
