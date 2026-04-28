@@ -1109,6 +1109,17 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email_reply_to TEXT`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email_footer TEXT`);
 
+  // ── Interview defaults — org-level defaults for new interview sessions ────────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS interview_link_expiry_days INTEGER`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS interview_reminder_enabled BOOLEAN NOT NULL DEFAULT false`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS interview_reminder_days INTEGER NOT NULL DEFAULT 2`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS interview_default_locale TEXT NOT NULL DEFAULT 'en'`);
+
+  // ── Interview session — per-session locale and reminder preferences ───────────
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'en'`);
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS reminder_enabled BOOLEAN NOT NULL DEFAULT false`);
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS reminder_days INTEGER NOT NULL DEFAULT 2`);
+
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 

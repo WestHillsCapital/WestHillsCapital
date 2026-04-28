@@ -1676,6 +1676,316 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
   );
 }
 
+// ── Interview Defaults Section ────────────────────────────────────────────────
+
+interface InterviewDefaults {
+  linkExpiryDays:  number | null;
+  reminderEnabled: boolean;
+  reminderDays:    number;
+  defaultLocale:   string;
+}
+
+const LOCALE_OPTIONS: { value: string; label: string }[] = [
+  { value: "en", label: "English" },
+  { value: "es", label: "Spanish (Español)" },
+  { value: "fr", label: "French (Français)" },
+  { value: "de", label: "German (Deutsch)" },
+  { value: "pt", label: "Portuguese (Português)" },
+  { value: "zh", label: "Chinese (中文)" },
+  { value: "ja", label: "Japanese (日本語)" },
+  { value: "ko", label: "Korean (한국어)" },
+  { value: "ar", label: "Arabic (العربية)" },
+];
+
+const EXPIRY_PRESETS: { value: string; label: string }[] = [
+  { value: "never",  label: "Never expires" },
+  { value: "7",      label: "7 days" },
+  { value: "14",     label: "14 days" },
+  { value: "30",     label: "30 days" },
+  { value: "90",     label: "90 days" },
+  { value: "custom", label: "Custom…" },
+];
+
+function expiryToPreset(days: number | null): string {
+  if (days === null) return "never";
+  if ([7, 14, 30, 90].includes(days)) return String(days);
+  return "custom";
+}
+
+function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () => HeadersInit; isAdmin: boolean }) {
+  function authHeaders(contentType?: string): HeadersInit {
+    const h = new Headers(getAuthHeaders());
+    if (contentType) h.set("Content-Type", contentType);
+    return h;
+  }
+
+  const [linkExpiryDays, setLinkExpiryDays] = useState<number | null>(null);
+  const [expiryPreset, setExpiryPreset] = useState<string>("never");
+  const [customExpiry, setCustomExpiry] = useState<string>("");
+  const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [reminderDays, setReminderDays] = useState(2);
+  const [defaultLocale, setDefaultLocale] = useState("en");
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setIsLoading(true);
+    fetch(`${SETTINGS_BASE}/interview-defaults`, { headers: authHeaders() })
+      .then(async (r) => {
+        const data = await r.json() as { interviewDefaults?: InterviewDefaults; error?: string };
+        if (!r.ok) { setLoadError(data.error ?? "Failed to load interview defaults"); return; }
+        if (data.interviewDefaults) {
+          const d = data.interviewDefaults;
+          setLinkExpiryDays(d.linkExpiryDays);
+          setExpiryPreset(expiryToPreset(d.linkExpiryDays));
+          setCustomExpiry(d.linkExpiryDays !== null && ![7, 14, 30, 90].includes(d.linkExpiryDays) ? String(d.linkExpiryDays) : "");
+          setReminderEnabled(d.reminderEnabled);
+          setReminderDays(d.reminderDays);
+          setDefaultLocale(d.defaultLocale);
+        }
+      })
+      .catch(() => setLoadError("Failed to load interview defaults"))
+      .finally(() => setIsLoading(false));
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
+  }, []);
+
+  function handleExpiryPresetChange(preset: string) {
+    setExpiryPreset(preset);
+    if (preset === "never") { setLinkExpiryDays(null); setCustomExpiry(""); }
+    else if (preset === "custom") { /* keep current custom */ }
+    else { setLinkExpiryDays(Number(preset)); setCustomExpiry(""); }
+  }
+
+  function handleCustomExpiryChange(val: string) {
+    setCustomExpiry(val);
+    const n = parseInt(val, 10);
+    if (Number.isInteger(n) && n >= 1 && n <= 3650) setLinkExpiryDays(n);
+  }
+
+  function effectiveLinkExpiryDays(): number | null {
+    if (expiryPreset === "never") return null;
+    if (expiryPreset === "custom") {
+      const n = parseInt(customExpiry, 10);
+      return Number.isInteger(n) && n >= 1 && n <= 3650 ? n : null;
+    }
+    return linkExpiryDays;
+  }
+
+  async function handleSave() {
+    setSaveError(null);
+    setIsSaving(true);
+    const payload: Record<string, unknown> = {
+      linkExpiryDays: effectiveLinkExpiryDays(),
+      reminderEnabled,
+      reminderDays,
+      defaultLocale,
+    };
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/interview-defaults`, {
+        method: "PATCH",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json() as { interviewDefaults?: InterviewDefaults; error?: string };
+      if (!res.ok) { setSaveError(data.error ?? "Failed to save settings"); return; }
+      if (data.interviewDefaults) {
+        setLinkExpiryDays(data.interviewDefaults.linkExpiryDays);
+        setExpiryPreset(expiryToPreset(data.interviewDefaults.linkExpiryDays));
+        setReminderEnabled(data.interviewDefaults.reminderEnabled);
+        setReminderDays(data.interviewDefaults.reminderDays);
+        setDefaultLocale(data.interviewDefaults.defaultLocale);
+      }
+      setSaved(true);
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      savedTimerRef.current = setTimeout(() => setSaved(false), 3000);
+    } catch {
+      setSaveError("Failed to save settings");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  const expiryLabel = expiryPreset === "never"
+    ? "Never expires"
+    : expiryPreset === "custom"
+    ? customExpiry ? `${customExpiry} days` : "—"
+    : `${expiryPreset} days`;
+
+  return (
+    <section className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+      {/* Header */}
+      <div className="px-6 py-4">
+        <h2 className="text-base font-semibold text-gray-900">Interview defaults</h2>
+        <p className="text-xs text-gray-500 mt-0.5">Org-wide defaults applied to all new interview sessions. Individual interviews can still override these.</p>
+      </div>
+
+      {loadError && (
+        <div className="px-6 py-3 bg-red-50">
+          <p className="text-xs text-red-700">{loadError}</p>
+        </div>
+      )}
+
+      {saveError && (
+        <div className="px-6 py-3 bg-red-50">
+          <p className="text-xs text-red-700">{saveError}</p>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="px-6 py-8 flex justify-center">
+          <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+        </div>
+      ) : (
+        <>
+          {/* Link expiry */}
+          <div className="px-6 py-5">
+            <label className="text-sm font-medium text-gray-800 block mb-1">Default link expiry</label>
+            <p className="text-xs text-gray-500 mb-3">How long interview links stay active after creation.</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={expiryPreset}
+                onChange={(e) => handleExpiryPresetChange(e.target.value)}
+                disabled={!isAdmin}
+                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20 disabled:opacity-60"
+              >
+                {EXPIRY_PRESETS.map((p) => (
+                  <option key={p.value} value={p.value}>{p.label}</option>
+                ))}
+              </select>
+              {expiryPreset === "custom" && (
+                <div className="flex items-center gap-1.5">
+                  <input
+                    type="number"
+                    min={1}
+                    max={3650}
+                    value={customExpiry}
+                    onChange={(e) => handleCustomExpiryChange(e.target.value)}
+                    disabled={!isAdmin}
+                    placeholder="days"
+                    className="w-20 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20 disabled:opacity-60"
+                  />
+                  <span className="text-xs text-gray-500">days (1–3650)</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Reminder emails */}
+          <div className="px-6 py-5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <label className="text-sm font-medium text-gray-800 block mb-1">Reminder emails</label>
+                <p className="text-xs text-gray-500">
+                  Automatically remind recipients who haven&apos;t completed their interview.
+                  {!reminderEnabled && <span className="italic"> Currently disabled.</span>}
+                </p>
+              </div>
+              {isAdmin && (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={reminderEnabled}
+                  onClick={() => setReminderEnabled((v) => !v)}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:ring-offset-1 ${reminderEnabled ? "bg-gray-900" : "bg-gray-200"}`}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${reminderEnabled ? "translate-x-4" : "translate-x-0"}`} />
+                </button>
+              )}
+              {!isAdmin && (
+                <div className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent opacity-60 ${reminderEnabled ? "bg-gray-900" : "bg-gray-200"}`}>
+                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${reminderEnabled ? "translate-x-4" : "translate-x-0"}`} />
+                </div>
+              )}
+            </div>
+            {reminderEnabled && (
+              <div className="mt-4 flex items-center gap-2">
+                <label className="text-xs text-gray-600 shrink-0">Send reminder after</label>
+                <input
+                  type="number"
+                  min={1}
+                  max={90}
+                  value={reminderDays}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    if (Number.isInteger(n) && n >= 1 && n <= 90) setReminderDays(n);
+                  }}
+                  disabled={!isAdmin}
+                  className="w-16 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20 disabled:opacity-60"
+                />
+                <span className="text-xs text-gray-500">days of inactivity</span>
+              </div>
+            )}
+          </div>
+
+          {/* Default locale */}
+          <div className="px-6 py-5">
+            <label className="text-sm font-medium text-gray-800 block mb-1">Default language</label>
+            <p className="text-xs text-gray-500 mb-3">Language used for interview UI copy shown to recipients.</p>
+            <select
+              value={defaultLocale}
+              onChange={(e) => setDefaultLocale(e.target.value)}
+              disabled={!isAdmin}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20 disabled:opacity-60"
+            >
+              {LOCALE_OPTIONS.map((l) => (
+                <option key={l.value} value={l.value}>{l.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Summary card */}
+          <div className="px-6 py-5 bg-gray-50">
+            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-3">Current defaults</p>
+            <div className="rounded-lg border border-gray-200 bg-white overflow-hidden text-xs divide-y divide-gray-100">
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-gray-500">Link expiry</span>
+                <span className="font-medium text-gray-800">{expiryLabel}</span>
+              </div>
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-gray-500">Reminders</span>
+                <span className="font-medium text-gray-800">
+                  {reminderEnabled ? `After ${reminderDays} day${reminderDays !== 1 ? "s" : ""}` : "Disabled"}
+                </span>
+              </div>
+              <div className="flex items-center justify-between px-4 py-2.5">
+                <span className="text-gray-500">Language</span>
+                <span className="font-medium text-gray-800">
+                  {LOCALE_OPTIONS.find((l) => l.value === defaultLocale)?.label ?? defaultLocale}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Save */}
+          {isAdmin && (
+            <div className="px-6 py-4 flex items-center justify-between">
+              <div>
+                {saved && <span className="text-xs text-green-700 font-medium">Saved</span>}
+              </div>
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={() => { void handleSave(); }}
+                className="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+              >
+                {isSaving ? "Saving…" : "Save changes"}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+// ── Email Customization Section ───────────────────────────────────────────────
+
 interface EmailSettings {
   senderName:  string | null;
   replyTo:     string | null;
@@ -2360,6 +2670,11 @@ export default function AppSettings() {
       {/* Notifications section — all users (per-user prefs) */}
       <div id="notifications-section">
         <NotificationsSection getAuthHeaders={getAuthHeaders} />
+      </div>
+
+      {/* Interview defaults section — admin writes, all can view */}
+      <div id="interview-defaults-section">
+        <InterviewDefaultsSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
       </div>
 
       {/* Email customization section — admin writes, all can view */}

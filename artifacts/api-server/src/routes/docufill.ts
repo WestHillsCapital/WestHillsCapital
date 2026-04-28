@@ -2902,12 +2902,44 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
     }
     const token = createSessionToken();
     const db = getDb();
+
+    // Fetch org-level interview defaults and apply them (non-fatal).
+    let orgExpiryDays: number | null = null;
+    let orgReminderEnabled = false;
+    let orgReminderDays = 2;
+    let orgLocale = "en";
+    try {
+      const { rows: defaultRows } = await db.query(
+        `SELECT interview_link_expiry_days, interview_reminder_enabled,
+                interview_reminder_days, interview_default_locale
+           FROM accounts WHERE id = $1`,
+        [accountId],
+      );
+      if (defaultRows[0]) {
+        const d = defaultRows[0] as Record<string, unknown>;
+        orgExpiryDays      = typeof d.interview_link_expiry_days  === "number" ? d.interview_link_expiry_days  : null;
+        orgReminderEnabled = Boolean(d.interview_reminder_enabled);
+        orgReminderDays    = typeof d.interview_reminder_days     === "number" ? d.interview_reminder_days     : 2;
+        orgLocale          = typeof d.interview_default_locale    === "string" ? d.interview_default_locale    : "en";
+      }
+    } catch (defErr) {
+      logger.warn({ defErr }, "[DocuFill] Could not fetch interview defaults; using built-in defaults");
+    }
+
     const { rows } = await db.query(
       `INSERT INTO docufill_interview_sessions
-         (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers, expires_at, account_id)
-       VALUES ($1,$2,$3,$4,$5,$6,'draft',$7,$8::jsonb,'{}'::jsonb,NOW() + INTERVAL '90 days',$9)
+         (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers,
+          expires_at, account_id, locale, reminder_enabled, reminder_days)
+       VALUES ($1,$2,$3,$4,$5,$6,'draft',$7,$8::jsonb,'{}'::jsonb,
+               NOW() + ($10 || ' days')::INTERVAL,$9,$11,$12,$13)
        RETURNING *`,
-      [token, packageId, pkg.version ?? 1, requestedScope, body.dealId ?? null, cleanText(body.source) || "deal_builder", testMode, jsonParam(body.prefill ?? {}), acctId(req)],
+      [
+        token, packageId, pkg.version ?? 1, requestedScope,
+        body.dealId ?? null, cleanText(body.source) || "deal_builder", testMode,
+        jsonParam(body.prefill ?? {}), accountId,
+        orgExpiryDays ?? 90,
+        orgLocale, orgReminderEnabled, orgReminderDays,
+      ],
     );
     // Record submission usage event (fire-and-forget, non-fatal; test sessions skipped)
     if (!testMode) {
