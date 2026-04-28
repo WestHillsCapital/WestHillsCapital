@@ -1219,6 +1219,7 @@ export async function initDb(): Promise<void> {
       revoked_at       TIMESTAMPTZ
     )
   `);
+  await db.query(`ALTER TABLE user_active_sessions ADD COLUMN IF NOT EXISTS totp_verified BOOLEAN NOT NULL DEFAULT FALSE`);
   await db.query(`
     CREATE INDEX IF NOT EXISTS user_active_sessions_user_idx
       ON user_active_sessions (user_id, last_active_at DESC)

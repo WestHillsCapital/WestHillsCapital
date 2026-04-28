@@ -65,8 +65,8 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
   }
 
   try {
-    const result = await getDb().query<{ id: number; account_id: number; role: string }>(
-      `SELECT id, account_id, role FROM account_users
+    const result = await getDb().query<{ id: number; account_id: number; role: string; totp_enabled: boolean }>(
+      `SELECT id, account_id, role, totp_enabled FROM account_users
         WHERE clerk_user_id = $1 AND status = 'active'
         LIMIT 1`,
       [clerkUserId],
@@ -80,13 +80,24 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
 
       // Check if this Clerk session has been revoked in our DB
       if (sessionId) {
-        const { rows: revokedCheck } = await getDb().query(
-          `SELECT 1 FROM user_active_sessions WHERE clerk_session_id = $1 AND revoked_at IS NOT NULL LIMIT 1`,
+        const { rows: sessionCheck } = await getDb().query<{ revoked_at: Date | null; totp_verified: boolean }>(
+          `SELECT revoked_at, totp_verified FROM user_active_sessions WHERE clerk_session_id = $1 LIMIT 1`,
           [sessionId],
         );
-        if (revokedCheck.length > 0) {
+        if (sessionCheck.length > 0 && sessionCheck[0].revoked_at !== null) {
           return void res.status(401).json({ error: "This session has been revoked. Please sign in again.", code: "SESSION_REVOKED" });
         }
+
+        // Enforce 2FA: if the user has TOTP enabled, the session must be verified
+        if (result.rows[0].totp_enabled) {
+          const sessionVerified = sessionCheck.length > 0 && sessionCheck[0].totp_verified === true;
+          if (!sessionVerified) {
+            return void res.status(403).json({ error: "Two-factor authentication required.", code: "TOTP_REQUIRED" });
+          }
+        }
+      } else if (result.rows[0].totp_enabled) {
+        // No session ID available — cannot verify 2FA, block access
+        return void res.status(403).json({ error: "Two-factor authentication required.", code: "TOTP_REQUIRED" });
       }
 
       req.internalAccountId = result.rows[0].account_id;
