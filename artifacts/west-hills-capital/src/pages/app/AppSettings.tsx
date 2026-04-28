@@ -3046,6 +3046,15 @@ interface TwoFAStatus {
   backupCodesRemaining: number;
 }
 
+interface TrustedDevice {
+  id: number;
+  label: string;
+  ipAddress: string | null;
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt: string | null;
+}
+
 interface ActiveSession {
   id: number;
   isCurrent: boolean;
@@ -3160,10 +3169,14 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
   }
 
   const [twoFA, setTwoFA] = useState<TwoFAStatus | null>(null);
+  const [trustedDevices, setTrustedDevices] = useState<TrustedDevice[]>([]);
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [loginHistory, setLoginHistory] = useState<LoginEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [revokingDeviceId, setRevokingDeviceId] = useState<number | null>(null);
+  const [revokeDeviceError, setRevokeDeviceError] = useState<string | null>(null);
 
   const [setupStep, setSetupStep] = useState<"idle" | "scan" | "verify" | "codes">("idle");
   const [setupQr, setSetupQr] = useState<string | null>(null);
@@ -3188,16 +3201,19 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
       fetch(`${SETTINGS_BASE}/security/2fa/status`, { headers: authHeaders() }).then((r) => r.json()),
       fetch(`${SETTINGS_BASE}/security/sessions`, { headers: authHeaders() }).then((r) => r.json()),
       fetch(`${SETTINGS_BASE}/security/login-history`, { headers: authHeaders() }).then((r) => r.json()),
+      fetch(`${SETTINGS_BASE}/security/trusted-devices`, { headers: authHeaders() }).then((r) => r.json()),
     ])
-      .then(([fa, sess, hist]) => {
-        const faData = fa as { enabled?: boolean; backupCodesRemaining?: number; error?: string };
-        const sessData = sess as { sessions?: ActiveSession[]; error?: string };
-        const histData = hist as { history?: LoginEntry[]; error?: string };
-        const firstError = faData.error ?? sessData.error ?? histData.error;
+      .then(([fa, sess, hist, devices]) => {
+        const faData      = fa as { enabled?: boolean; backupCodesRemaining?: number; error?: string };
+        const sessData    = sess as { sessions?: ActiveSession[]; error?: string };
+        const histData    = hist as { history?: LoginEntry[]; error?: string };
+        const devicesData = devices as { trustedDevices?: TrustedDevice[]; error?: string };
+        const firstError = faData.error ?? sessData.error ?? histData.error ?? devicesData.error;
         if (firstError) { setLoadError(firstError); return; }
         setTwoFA({ enabled: faData.enabled ?? false, backupCodesRemaining: faData.backupCodesRemaining ?? 0 });
         setSessions(sessData.sessions ?? []);
         setLoginHistory(histData.history ?? []);
+        setTrustedDevices(devicesData.trustedDevices ?? []);
       })
       .catch(() => setLoadError("Failed to load security info"))
       .finally(() => setIsLoading(false));
@@ -3274,6 +3290,21 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
     } catch { setRevokeError("Failed to revoke session"); }
     finally { setRevokingId(null); }
+  }
+
+  async function handleRevokeTrustedDevice(deviceId: number) {
+    setRevokingDeviceId(deviceId);
+    setRevokeDeviceError(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/security/trusted-devices/${deviceId}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      const data = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) { setRevokeDeviceError(data.error ?? "Failed to revoke trusted device"); return; }
+      setTrustedDevices((prev) => prev.filter((d) => d.id !== deviceId));
+    } catch { setRevokeDeviceError("Failed to revoke trusted device"); }
+    finally { setRevokingDeviceId(null); }
   }
 
   function deviceIcon(device: string) {
@@ -3468,6 +3499,46 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
               </div>
             )}
           </div>
+
+          {/* ── Trusted Devices ───────────────────────────────────────────────── */}
+          {twoFA?.enabled && (
+            <div className="px-6 py-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-medium text-gray-900">Trusted devices</p>
+                <span className="text-xs text-gray-400">{trustedDevices.length === 0 ? "None" : `${trustedDevices.length} active`}</span>
+              </div>
+              {revokeDeviceError && (
+                <p className="text-xs text-red-600 mb-2">{revokeDeviceError}</p>
+              )}
+              {trustedDevices.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">No trusted devices. Check "Remember this device for 30 days" when verifying 2FA to skip the prompt on trusted machines.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {trustedDevices.map((d) => (
+                    <li key={d.id} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2.5">
+                      <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
+                      </svg>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-800 truncate">{d.label || "Unknown device"}</p>
+                        <p className="text-[11px] text-gray-400 truncate">
+                          {d.ipAddress ?? "Unknown IP"} · Trusted {formatRelative(d.createdAt)} · Expires {formatRelative(d.expiresAt)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={revokingDeviceId === d.id}
+                        onClick={() => { void handleRevokeTrustedDevice(d.id); }}
+                        className="shrink-0 text-[11px] font-medium text-red-600 hover:text-red-800 disabled:opacity-50 transition-colors"
+                      >
+                        {revokingDeviceId === d.id ? "Revoking…" : "Revoke"}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* ── Active Sessions ───────────────────────────────────────────────── */}
           <div className="px-6 py-5">

@@ -30,9 +30,10 @@ export interface AuditLogMetadataMap {
   "data.export_requested":     Record<string, never>;
   "data.deletion_requested":   { graceWindowDays: number };
   "data.deletion_cancelled":   Record<string, never>;
-  "security.2fa_enabled":      Record<string, never>;
-  "security.2fa_disabled":     Record<string, never>;
-  "security.session_revoked":  Record<string, never>;
+  "security.2fa_enabled":             Record<string, never>;
+  "security.2fa_disabled":            Record<string, never>;
+  "security.session_revoked":         Record<string, never>;
+  "security.trusted_device_revoked":  Record<string, never>;
   "custom_domain.set":         Record<string, never>;
   "custom_domain.verify":      { status: string; cnames: string[] };
 }

@@ -3358,6 +3358,84 @@ router.delete("/security/sessions/:sessionId", async (req, res) => {
   }
 });
 
+/** GET /security/trusted-devices — list trusted devices for the current user */
+router.get("/security/trusted-devices", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const db = getDb();
+    const { rows: userRows } = await db.query(
+      `SELECT id FROM account_users WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!userRows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const userId = (userRows[0] as Record<string, unknown>).id as number;
+
+    const { rows } = await db.query(
+      `SELECT id, label, ip_address, created_at, expires_at, last_used_at
+         FROM trusted_devices
+        WHERE user_id = $1 AND expires_at > NOW()
+        ORDER BY last_used_at DESC NULLS LAST, created_at DESC
+        LIMIT 20`,
+      [userId],
+    );
+
+    res.json({
+      trustedDevices: rows.map((r) => {
+        const row = r as Record<string, unknown>;
+        return {
+          id:          row.id,
+          label:       row.label,
+          ipAddress:   row.ip_address ?? null,
+          createdAt:   row.created_at,
+          expiresAt:   row.expires_at,
+          lastUsedAt:  row.last_used_at ?? null,
+        };
+      }),
+    });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to list trusted devices");
+    res.status(500).json({ error: "Failed to list trusted devices" });
+  }
+});
+
+/** DELETE /security/trusted-devices/:deviceId — revoke a trusted device */
+router.delete("/security/trusted-devices/:deviceId", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const deviceId    = parseInt(req.params.deviceId ?? "", 10);
+    if (isNaN(deviceId)) { res.status(400).json({ error: "Invalid device ID." }); return; }
+
+    const db = getDb();
+    const { rows: userRows } = await db.query(
+      `SELECT id FROM account_users WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!userRows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const userId = (userRows[0] as Record<string, unknown>).id as number;
+
+    const { rowCount } = await db.query(
+      `DELETE FROM trusted_devices WHERE id = $1 AND user_id = $2`,
+      [deviceId, userId],
+    );
+
+    if ((rowCount ?? 0) === 0) { res.status(404).json({ error: "Trusted device not found." }); return; }
+
+    const actorEmail = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "security.trusted_device_revoked", resourceType: "trusted_device",
+      resourceId: String(deviceId),
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to revoke trusted device");
+    res.status(500).json({ error: "Failed to revoke trusted device" });
+  }
+});
+
 // ─── Custom Domain ────────────────────────────────────────────────────────────
 
 const CNAME_TARGET = "interview.docuplete.com";

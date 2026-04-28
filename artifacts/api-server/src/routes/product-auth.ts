@@ -17,8 +17,31 @@ import { isRateLimited, isCurrentlyBlocked } from "../lib/ratelimit";
 const TOTP_FAIL_MAX = 10;
 const TOTP_FAIL_WINDOW_MS = 60 * 1000;
 
+const TRUSTED_DEVICE_COOKIE = "td_token";
+const TRUSTED_DEVICE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 function hashBackupCode(code: string): string {
   return createHash("sha256").update(code.toUpperCase()).digest("hex");
+}
+
+function hashDeviceToken(raw: string): string {
+  return createHash("sha256").update(raw).digest("hex");
+}
+
+function parseUserAgentLabel(ua: string | null): { browser: string; os: string } {
+  if (!ua) return { browser: "Unknown", os: "Unknown" };
+  let browser = "Unknown";
+  let os = "Unknown";
+  if (/chrome\/[\d.]+/i.test(ua) && !/chromium|edg|opr/i.test(ua)) browser = "Chrome";
+  else if (/firefox\/[\d.]+/i.test(ua)) browser = "Firefox";
+  else if (/safari\/[\d.]+/i.test(ua) && !/chrome/i.test(ua)) browser = "Safari";
+  else if (/edg\/[\d.]+/i.test(ua)) browser = "Edge";
+  if (/windows nt/i.test(ua)) os = "Windows";
+  else if (/mac os x/i.test(ua)) os = "macOS";
+  else if (/android/i.test(ua)) os = "Android";
+  else if (/iphone|ipad/i.test(ua)) os = "iOS";
+  else if (/linux/i.test(ua)) os = "Linux";
+  return { browser, os };
 }
 
 const router = Router();
@@ -253,7 +276,9 @@ router.post("/verify-2fa", async (req, res) => {
     return void res.status(429).json({ error: "Too many failed attempts. Please wait before trying again." });
   }
 
-  const code = ((req.body as { code?: string }).code ?? "").trim();
+  const body = req.body as { code?: string; trustDevice?: boolean };
+  const code = (body.code ?? "").trim();
+  const trustDevice = body.trustDevice === true;
   if (!code) {
     return void res.status(400).json({ error: "code is required." });
   }
@@ -351,6 +376,30 @@ router.post("/verify-2fa", async (req, res) => {
     );
 
     logger.info({ userId: user.id, accountId: user.account_id, usedBackup: validBackup && !validTotp }, "[ProductAuth] 2FA verified for session");
+
+    // Issue a trusted-device cookie if the user requested it
+    if (trustDevice) {
+      const rawToken = randomBytes(32).toString("hex");
+      const tokenHash = hashDeviceToken(rawToken);
+      const expiresAt = new Date(Date.now() + TRUSTED_DEVICE_TTL_MS);
+      const { browser, os } = parseUserAgentLabel(ua);
+      const label = `${browser} on ${os}`;
+
+      await getDb().query(
+        `INSERT INTO trusted_devices (user_id, account_id, token_hash, label, ip_address, expires_at)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+        [user.id, user.account_id, tokenHash, label, ip, expiresAt],
+      );
+
+      res.cookie(TRUSTED_DEVICE_COOKIE, rawToken, {
+        httpOnly: true,
+        signed:   true,
+        secure:   process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge:   TRUSTED_DEVICE_TTL_MS,
+        path:     "/",
+      });
+    }
 
     return void res.json({ success: true });
   } catch (err) {
