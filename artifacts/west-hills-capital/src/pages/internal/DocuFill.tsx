@@ -3149,8 +3149,8 @@ export default function DocuFill() {
                             const catGroups = activeGroups.filter((g) => (g.kind ?? "general") === cat);
                             const selectedInCat = (selectedPackage.group_ids ?? []).find((gid) => catGroups.some((g) => g.id === gid));
                             return (
-                              <label key={cat} className="block text-sm">
-                                <span className="block text-xs text-[#6B7A99] mb-1 capitalize">{cat}</span>
+                              <label key={cat} className="block text-sm col-span-full">
+                                {cat !== "general" && <span className="block text-xs text-[#6B7A99] mb-1 capitalize">{cat}</span>}
                                 <select
                                   value={selectedInCat ?? ""}
                                   onChange={(e) => {
