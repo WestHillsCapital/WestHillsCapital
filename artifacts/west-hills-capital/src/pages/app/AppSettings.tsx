@@ -556,11 +556,26 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     {roleBadge(member.role)}
                     {member.status === "pending" ? (
-                      <span className="text-[10px] text-amber-600 font-medium">Pending invitation</span>
+                      <>
+                        <span className="text-[10px] text-amber-600 font-medium">Pending invitation</span>
+                        {member.invited_at && (
+                          <span className="text-[10px] text-gray-400">&middot; {formatDate(member.invited_at)}</span>
+                        )}
+                        {member.invited_by && (
+                          <span className="text-[10px] text-gray-400">&middot; Invited by {member.invited_by}</span>
+                        )}
+                      </>
                     ) : (
-                      <span className="text-[10px] text-gray-400">
-                        Last seen {formatRelative(member.last_seen_at)}
-                      </span>
+                      <>
+                        <span className="text-[10px] text-gray-400">
+                          {member.invited_at
+                            ? `Joined ${formatDate(member.invited_at)}`
+                            : `Last seen ${formatRelative(member.last_seen_at)}`}
+                        </span>
+                        {isAdmin && member.invited_by && (
+                          <span className="text-[10px] text-gray-400">&middot; Invited by {member.invited_by}</span>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
