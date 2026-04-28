@@ -902,10 +902,15 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
   const [copied, setCopied] = useState(false);
   const [revokingId, setRevokingId] = useState<number | null>(null);
   const [confirmRevokeId, setConfirmRevokeId] = useState<number | null>(null);
+  const [renamingId, setRenamingId] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [isSavingRename, setIsSavingRename] = useState(false);
+  const [renameError, setRenameError] = useState<string | null>(null);
 
   function loadKeys() {
     setIsLoadingKeys(true);
     setKeysError(null);
+    setRenameError(null);
     fetch(`${AUTH_BASE}/api-keys`, { headers: authHeaders() })
       .then(async (r) => {
         const data = await r.json() as { keys?: ApiKey[]; error?: string };
@@ -976,6 +981,43 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
       setTimeout(() => setCopied(false), 2000);
     } catch {
       /* ignore */
+    }
+  }
+
+  function startRename(key: ApiKey) {
+    setRenamingId(key.id);
+    setRenameValue(key.name);
+    setRenameError(null);
+    setConfirmRevokeId(null);
+  }
+
+  function cancelRename() {
+    setRenamingId(null);
+    setRenameValue("");
+    setRenameError(null);
+  }
+
+  async function handleRename(id: number) {
+    const trimmed = renameValue.trim();
+    if (!trimmed) { setRenameError("Name is required."); return; }
+    if (trimmed.length > 100) { setRenameError("Name must be 100 characters or fewer."); return; }
+    setRenameError(null);
+    setIsSavingRename(true);
+    try {
+      const res = await fetch(`${AUTH_BASE}/api-keys/${id}`, {
+        method: "PATCH",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({ name: trimmed }),
+      });
+      const data = await res.json() as { success?: boolean; id?: number; name?: string; error?: string };
+      if (!res.ok) { setRenameError(data.error ?? "Failed to rename key."); return; }
+      setRenamingId(null);
+      setRenameValue("");
+      loadKeys();
+    } catch {
+      setRenameError("Failed to rename key.");
+    } finally {
+      setIsSavingRename(false);
     }
   }
 
@@ -1064,52 +1106,102 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
         ) : (
           <div className="divide-y divide-gray-100 -mx-6">
             {activeKeys.map((key) => (
-              <div key={key.id} className="flex items-center justify-between gap-4 px-6 py-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-gray-900 truncate">{key.name}</p>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="shrink-0 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-medium text-blue-700 cursor-default">Full Access</span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-xs">Grants full API access: read live pricing data, submit interview sessions, and manage DocuFill packages programmatically.</TooltipContent>
-                    </Tooltip>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    <code className="font-mono">{key.keyPrefix}…</code>
-                    {" · "}
-                    Created {formatDate(key.createdAt)}
-                    {" · "}
-                    Last used: {key.lastUsedAt ? formatRelative(key.lastUsedAt) : "Never"}
-                  </p>
-                </div>
-                {confirmRevokeId === key.id ? (
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-gray-600">Revoke this key?</span>
-                    <button
-                      type="button"
-                      disabled={revokingId === key.id}
-                      onClick={() => { void handleRevoke(key.id); }}
-                      className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60 transition-colors"
-                    >
-                      {revokingId === key.id ? "Revoking…" : "Yes, revoke"}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmRevokeId(null)}
-                      className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
-                    >
-                      Cancel
-                    </button>
+              <div key={key.id} className="px-6 py-3">
+                {renamingId === key.id ? (
+                  /* ── Inline rename mode ── */
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={renameValue}
+                        onChange={(e) => { setRenameValue(e.target.value); setRenameError(null); }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") void handleRename(key.id);
+                          if (e.key === "Escape") cancelRename();
+                        }}
+                        maxLength={100}
+                        autoFocus
+                        className="flex-1 min-w-0 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                      />
+                      <button
+                        type="button"
+                        disabled={isSavingRename}
+                        onClick={() => { void handleRename(key.id); }}
+                        className="shrink-0 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                      >
+                        {isSavingRename ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={cancelRename}
+                        className="shrink-0 rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    {renameError && (
+                      <p className="text-xs text-red-600">{renameError}</p>
+                    )}
                   </div>
                 ) : (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmRevokeId(key.id)}
-                    className="shrink-0 text-xs text-gray-400 hover:text-red-600 transition-colors"
-                  >
-                    Revoke
-                  </button>
+                  /* ── Normal display mode ── */
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-gray-900 truncate">{key.name}</p>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="shrink-0 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-medium text-blue-700 cursor-default">Full Access</span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="max-w-xs">Grants full API access: read live pricing data, submit interview sessions, and manage DocuFill packages programmatically.</TooltipContent>
+                        </Tooltip>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        <code className="font-mono">{key.keyPrefix}…</code>
+                        {" · "}
+                        Created {formatDate(key.createdAt)}
+                        {" · "}
+                        Last used: {key.lastUsedAt ? formatRelative(key.lastUsedAt) : "Never"}
+                      </p>
+                    </div>
+                    {confirmRevokeId === key.id ? (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-xs text-gray-600">Revoke this key?</span>
+                        <button
+                          type="button"
+                          disabled={revokingId === key.id}
+                          onClick={() => { void handleRevoke(key.id); }}
+                          className="rounded-lg bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60 transition-colors"
+                        >
+                          {revokingId === key.id ? "Revoking…" : "Yes, revoke"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmRevokeId(null)}
+                          className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => startRename(key)}
+                          className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
+                        >
+                          Rename
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmRevokeId(key.id)}
+                          className="text-xs text-gray-400 hover:text-red-600 transition-colors"
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             ))}

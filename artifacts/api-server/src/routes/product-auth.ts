@@ -414,6 +414,117 @@ router.get("/api-keys", requireProductAuth, requireAdminRole, async (req, res) =
 });
 
 /**
+ * PATCH /api/product/auth/api-keys/:id
+ *
+ * Rename an active API key.
+ * Only keys belonging to the authenticated account can be renamed.
+ *
+ * Body: { name: string }
+ * Requires: Clerk JWT or existing API key
+ *
+ * @openapi
+ * /product/auth/api-keys/{id}:
+ *   patch:
+ *     tags:
+ *       - Product Portal — API Keys
+ *     summary: Rename an API key
+ *     description: Updates the human-readable name of an active API key. Only keys belonging to the authenticated account can be renamed.
+ *     security:
+ *       - productAuth: []
+ *       - apiKeyAuth: []
+ *     parameters:
+ *       - name: id
+ *         in: path
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The numeric ID of the API key to rename.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - name
+ *             properties:
+ *               name:
+ *                 type: string
+ *                 example: Staging server
+ *                 description: New human-readable label for the key (max 100 characters).
+ *     responses:
+ *       200:
+ *         description: Key renamed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 id:
+ *                   type: integer
+ *                 name:
+ *                   type: string
+ *       400:
+ *         description: Missing or invalid name
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Not authenticated
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: Key not found or already revoked
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.patch("/api-keys/:id", requireProductAuth, requireAdminRole, async (req, res) => {
+  const accountId = req.internalAccountId!;
+  const keyId = parseInt(String(req.params.id ?? ""), 10);
+
+  if (isNaN(keyId)) {
+    return void res.status(400).json({ error: "Invalid key id." });
+  }
+
+  const name = ((req.body as { name?: string }).name ?? "").trim();
+  if (!name) {
+    return void res.status(400).json({ error: "name is required." });
+  }
+  if (name.length > 100) {
+    return void res.status(400).json({ error: "name must be 100 characters or fewer." });
+  }
+
+  try {
+    const result = await getDb().query<{ id: number; name: string }>(
+      `UPDATE account_api_keys
+          SET name = $1
+        WHERE id = $2
+          AND account_id = $3
+          AND revoked_at IS NULL
+        RETURNING id, name`,
+      [name, keyId, accountId],
+    );
+
+    if (!result.rows[0]) {
+      return void res.status(404).json({ error: "API key not found or already revoked." });
+    }
+
+    logger.info({ accountId, keyId, name }, "[ApiKeys] API key renamed");
+    return void res.json({ success: true, id: keyId, name: result.rows[0].name });
+  } catch (err) {
+    logger.error({ err }, "[ApiKeys] Failed to rename API key");
+    return void res.status(500).json({ error: "Failed to rename API key." });
+  }
+});
+
+/**
  * DELETE /api/product/auth/api-keys/:id
  *
  * Revoke an API key. The key is soft-deleted (revoked_at is set).
