@@ -12,6 +12,7 @@ import {
   formatDocuFillMappedValue,
   hydratePackageFields,
   parseDocuFillFields as parseFields,
+  type DocuFillFieldCondition,
   type DocuFillFieldItem,
 } from "../lib/docufill-redaction";
 import { saveDocuFillPacketToDrive } from "../lib/google-drive";
@@ -986,13 +987,28 @@ function fieldIsRequired(field: DocuFillFieldItem): boolean {
   return field.required === true && field.interviewVisible !== false;
 }
 
+function evaluateFieldCondition(
+  condition: DocuFillFieldCondition | null | undefined,
+  answers: Record<string, unknown>,
+): boolean {
+  if (!condition || !condition.fieldId) return true;
+  const triggerValue = String(answers[condition.fieldId] ?? "").trim();
+  switch (condition.operator) {
+    case "equals":          return triggerValue.toLowerCase() === (condition.value ?? "").toLowerCase();
+    case "not_equals":      return triggerValue.toLowerCase() !== (condition.value ?? "").toLowerCase();
+    case "is_answered":     return triggerValue !== "";
+    case "is_not_answered": return triggerValue === "";
+    default:                return true;
+  }
+}
+
 function validateSessionAnswers(session: Record<string, unknown>): { valid: boolean; missingFields: string[]; errors: string[] } {
   const answers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
   const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
   const fields = parseFields(session.fields);
   const missingFields: string[] = [];
   const errors: string[] = [];
-  fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly").forEach((field) => {
+  fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly" && evaluateFieldCondition(f.condition, answers)).forEach((field) => {
     const value = fieldAnswerValue(field, answers, prefill).trim();
     const fieldLabel = field.name ?? field.label ?? field.id;
     if (fieldIsRequired(field) && !value) {
@@ -1060,6 +1076,7 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
       documentMappings.forEach((mapping) => {
         const field = mapping.fieldId ? fieldsById.get(mapping.fieldId) : undefined;
         if (!field) return;
+        if (!evaluateFieldCondition(field.condition, answers)) return;
         const value = fieldAnswerValue(field, answers, prefill);
         const mappedValue = formatDocuFillMappedValue(value, mapping);
         if (!mappedValue) return;

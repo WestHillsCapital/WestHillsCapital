@@ -90,6 +90,12 @@ type DocItem = {
 
 type FieldInterviewMode = "required" | "optional" | "readonly" | "omitted";
 
+type FieldCondition = {
+  fieldId: string;
+  operator: "equals" | "not_equals" | "is_answered" | "is_not_answered";
+  value: string;
+};
+
 type FieldItem = {
   id: string;
   libraryFieldId?: string;
@@ -105,6 +111,7 @@ type FieldItem = {
   validationType?: "none" | "string" | "name" | "number" | "currency" | "email" | "phone" | "date" | "time" | "zip" | "zip4" | "ssn" | "percent" | "custom";
   validationPattern?: string;
   validationMessage?: string;
+  condition?: FieldCondition | null;
 };
 
 type FieldLibraryItem = {
@@ -939,7 +946,8 @@ export default function DocuFill() {
     name: string; color: string; type: FieldItem["type"]; options: string[];
     interviewMode: FieldInterviewMode; hasDefault: boolean; defaultValue: string;
     validationType: FieldItem["validationType"]; validationPattern: string; validationMessage: string; packageOnly: boolean;
-  }>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false });
+    condition: FieldCondition | null;
+  }>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false, condition: null });
   const sortSensors = useSensors(useSensor(SmartPointerSensor, { activationConstraint: { distance: 6 } }));
   const [session, setSession] = useState<Session | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -1089,14 +1097,25 @@ export default function DocuFill() {
     f.interviewMode ? f.interviewMode !== "omitted" : f.interviewVisible !== false;
   const fieldIsRequired = (f: { interviewMode?: string; required?: boolean; interviewVisible?: boolean }) =>
     f.interviewMode === "required" || (f.interviewMode === undefined && f.required === true && f.interviewVisible !== false);
+  function evaluateFieldCondition(condition: FieldCondition | null | undefined, ans: Record<string, string>): boolean {
+    if (!condition || !condition.fieldId) return true;
+    const triggerValue = (ans[condition.fieldId] ?? "").trim();
+    switch (condition.operator) {
+      case "equals":          return triggerValue.toLowerCase() === (condition.value ?? "").toLowerCase();
+      case "not_equals":      return triggerValue.toLowerCase() !== (condition.value ?? "").toLowerCase();
+      case "is_answered":     return triggerValue !== "";
+      case "is_not_answered": return triggerValue === "";
+      default:                return true;
+    }
+  }
   const visibleInterviewFields = useMemo(() => {
-    const fields = session?.fields.filter(fieldInInterview) ?? [];
+    const fields = (session?.fields ?? []).filter((f) => fieldInInterview(f) && evaluateFieldCondition(f.condition, answers));
     if (selectedPackage && selectedPackage.fields.length > 0) {
       const orderMap = new Map(selectedPackage.fields.map((f, i) => [f.id, i]));
       return [...fields].sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999));
     }
     return fields;
-  }, [session, selectedPackage]);
+  }, [session, selectedPackage, answers]);
   const missingRequiredFields = useMemo(() => {
     if (!session) return [];
     return visibleInterviewFields.filter((field) => fieldIsRequired(field) && !interviewFieldValue(field, answers, session.prefill).trim()).map((field) => field.name ?? field.id);
@@ -2184,7 +2203,7 @@ export default function DocuFill() {
       type: "text", options: [], interviewMode: "optional",
       hasDefault: false, defaultValue: "",
       validationType: "none", validationPattern: "", validationMessage: "",
-      packageOnly: false,
+      packageOnly: false, condition: null,
     });
     setFieldEditorModal({ mode: "add", fieldId: null });
   }
@@ -2201,7 +2220,7 @@ export default function DocuFill() {
       validationType: field.validationType ?? "none",
       validationPattern: field.validationPattern ?? "",
       validationMessage: field.validationMessage ?? "",
-      packageOnly: false,
+      packageOnly: false, condition: field.condition ?? null,
     });
     setSelectedFieldId(fieldId);
     setFieldEditorModal({ mode: "edit", fieldId });
@@ -2300,7 +2319,7 @@ export default function DocuFill() {
 
   async function saveFieldFromModal() {
     if (!fieldEditorModal || !selectedPackage) return;
-    const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage, packageOnly } = fieldEditorDraft;
+    const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage, packageOnly, condition } = fieldEditorDraft;
     const cleanOpts = options.filter(Boolean);
     const isChoiceType = type === "radio" || type === "checkbox";
 
@@ -2347,6 +2366,7 @@ export default function DocuFill() {
           interviewMode, defaultValue: hasDefault ? defaultValue : "",
           source: "interview", sensitive: false,
           validationType: validationType ?? "none", validationPattern, validationMessage,
+          condition: condition ?? undefined,
         };
         setSelectedFieldId(field.id);
         const autoMappings = isChoiceType ? autoPlacementsForOptions(field.id, cleanOpts, pkg.mappings) : [];
@@ -2365,6 +2385,7 @@ export default function DocuFill() {
             options: cleanOpts, optionsMode: "override" as const,
             interviewMode, defaultValue: hasDefault ? defaultValue : "",
             validationType: validationType ?? "none", validationPattern, validationMessage,
+            condition: condition ?? undefined,
           } : f),
           mappings: [...pkg.mappings, ...autoMappings],
         };
@@ -2669,7 +2690,7 @@ export default function DocuFill() {
 
   function validateInterviewAnswers(): boolean {
     if (!session) return true;
-    const activeFields = session.fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly");
+    const activeFields = session.fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly" && evaluateFieldCondition(f.condition, answers));
     const newErrors: Record<string, string> = {};
     for (const field of activeFields) {
       const value = interviewFieldValue(field, answers, session.prefill);
@@ -4866,6 +4887,7 @@ export default function DocuFill() {
                                         <span>{field.name}</span>
                                         {field.libraryFieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>}
                                         {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
+                                        {field.condition?.fieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5">Conditional</span>}
                                         {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
                                       </div>
                                       <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
@@ -6361,6 +6383,76 @@ export default function DocuFill() {
                   </div>
                 )}
               </div>
+              {fieldEditorDraft.interviewMode !== "omitted" && (
+                <div className="space-y-2 rounded border border-[#EFE8D8] bg-[#F8F6F0] px-3 py-3">
+                  <div className="flex items-center gap-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={fieldEditorDraft.condition !== null}
+                        onChange={(e) => setFieldEditorDraft((d) => ({
+                          ...d,
+                          condition: e.target.checked ? { fieldId: "", operator: "is_answered", value: "" } : null,
+                        }))}
+                        className="rounded"
+                      />
+                      <span className="text-sm">Show only when…</span>
+                    </label>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="inline-flex items-center text-[#8A9BB8] cursor-default">
+                          <Info className="w-3 h-3" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs text-xs leading-snug">
+                        <p>When enabled, this field is hidden until the trigger field meets the condition you set. Hidden fields are skipped in validation and PDF generation.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  {fieldEditorDraft.condition !== null && (
+                    <div className="space-y-2 pt-1">
+                      <div>
+                        <label className="text-xs text-[#6B7A99] mb-1 block">Trigger field</label>
+                        <select
+                          value={fieldEditorDraft.condition.fieldId}
+                          onChange={(e) => setFieldEditorDraft((d) => ({ ...d, condition: d.condition ? { ...d.condition, fieldId: e.target.value } : null }))}
+                          className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                        >
+                          <option value="">— select a field —</option>
+                          {(selectedPackage?.fields ?? [])
+                            .filter((f) => f.id !== fieldEditorModal?.fieldId && f.interviewMode !== "omitted")
+                            .map((f) => (
+                              <option key={f.id} value={f.id}>{f.name}</option>
+                            ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-xs text-[#6B7A99] mb-1 block">Condition</label>
+                        <select
+                          value={fieldEditorDraft.condition.operator}
+                          onChange={(e) => setFieldEditorDraft((d) => ({ ...d, condition: d.condition ? { ...d.condition, operator: e.target.value as FieldCondition["operator"] } : null }))}
+                          className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                        >
+                          <option value="is_answered">has any answer</option>
+                          <option value="is_not_answered">has no answer</option>
+                          <option value="equals">equals</option>
+                          <option value="not_equals">does not equal</option>
+                        </select>
+                      </div>
+                      {(fieldEditorDraft.condition.operator === "equals" || fieldEditorDraft.condition.operator === "not_equals") && (
+                        <div>
+                          <label className="text-xs text-[#6B7A99] mb-1 block">Value</label>
+                          <Input
+                            placeholder="Enter expected value"
+                            value={fieldEditorDraft.condition.value}
+                            onChange={(e) => setFieldEditorDraft((d) => ({ ...d, condition: d.condition ? { ...d.condition, value: e.target.value } : null }))}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
               <div>
                 <label className="flex items-center gap-2 cursor-pointer mb-2">
                   <input type="checkbox" checked={fieldEditorDraft.hasDefault} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, hasDefault: e.target.checked }))} className="rounded" />

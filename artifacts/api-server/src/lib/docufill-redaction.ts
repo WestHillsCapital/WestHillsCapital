@@ -1,3 +1,9 @@
+export type DocuFillFieldCondition = {
+  fieldId: string;
+  operator: "equals" | "not_equals" | "is_answered" | "is_not_answered";
+  value: string;
+};
+
 export type DocuFillFieldItem = {
   id: string;
   libraryFieldId?: string;
@@ -16,6 +22,7 @@ export type DocuFillFieldItem = {
   validationType?: "none" | "string" | "name" | "number" | "currency" | "email" | "phone" | "date" | "time" | "zip" | "zip4" | "ssn" | "percent" | "custom";
   validationPattern?: string;
   validationMessage?: string;
+  condition?: DocuFillFieldCondition | null;
 };
 
 export type DocuFillMappingFormat =

@@ -9,6 +9,12 @@ const SESSION_BASE = `${API_BASE}/api/v1/docufill/public/sessions`;
 
 type FieldInterviewMode = "required" | "optional" | "readonly" | "omitted";
 
+type FieldCondition = {
+  fieldId: string;
+  operator: "equals" | "not_equals" | "is_answered" | "is_not_answered";
+  value: string;
+};
+
 type FieldItem = {
   id: string;
   name: string;
@@ -21,6 +27,7 @@ type FieldItem = {
   validationType?: string;
   validationPattern?: string;
   validationMessage?: string;
+  condition?: FieldCondition | null;
 };
 
 type SessionData = {
@@ -39,6 +46,21 @@ type SessionData = {
 
 function fieldIsRequired(field: FieldItem): boolean {
   return field.interviewMode === "required";
+}
+
+function evaluateCondition(
+  condition: FieldCondition | null | undefined,
+  answers: Record<string, string>,
+): boolean {
+  if (!condition || !condition.fieldId) return true;
+  const triggerValue = (answers[condition.fieldId] ?? "").trim();
+  switch (condition.operator) {
+    case "equals":         return triggerValue.toLowerCase() === (condition.value ?? "").toLowerCase();
+    case "not_equals":     return triggerValue.toLowerCase() !== (condition.value ?? "").toLowerCase();
+    case "is_answered":    return triggerValue !== "";
+    case "is_not_answered": return triggerValue === "";
+    default:               return true;
+  }
 }
 
 function currentValue(field: FieldItem, answers: Record<string, string>, prefill: Record<string, string>): string {
@@ -131,7 +153,7 @@ export default function DocuFillCustomer() {
   }
 
   const visibleFields = (session?.fields ?? []).filter(
-    (f) => f.interviewMode !== "omitted",
+    (f) => f.interviewMode !== "omitted" && evaluateCondition(f.condition, answers),
   );
 
   function validate(): boolean {
