@@ -1297,6 +1297,13 @@ export default function AppSettings() {
       })
       .catch(() => setErrorMsg("Failed to load settings"))
       .finally(() => setIsLoading(false));
+
+    return () => {
+      if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
+      if (nameSavedTimer.current) clearTimeout(nameSavedTimer.current);
+      if (logoSavedTimer.current) clearTimeout(logoSavedTimer.current);
+      if (colorSavedTimer.current) clearTimeout(colorSavedTimer.current);
+    };
   }, []);
 
   // Auto-save name with 700ms debounce — only fires when user has edited the field
@@ -1304,6 +1311,7 @@ export default function AppSettings() {
     if (!nameEdited.current || !org) return;
     if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
     nameDebounceRef.current = setTimeout(async () => {
+      nameDebounceRef.current = null;
       if (!name.trim()) {
         setNameFieldError("Organization name cannot be empty.");
         return;
@@ -1321,6 +1329,9 @@ export default function AppSettings() {
         flashFieldSaved("name");
       } catch { setNameFieldError("Failed to save name. Please try again."); }
     }, 700);
+    return () => {
+      if (nameDebounceRef.current) { clearTimeout(nameDebounceRef.current); nameDebounceRef.current = null; }
+    };
   }, [name]);
 
   async function uploadLogoFile(file: File) {
