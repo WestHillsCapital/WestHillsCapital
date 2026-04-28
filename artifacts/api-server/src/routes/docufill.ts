@@ -19,6 +19,7 @@ import {
   sendInterviewLinkEmail,
   sendDocupleteStaffSubmissionEmail,
   sendDocupleteClientConfirmationEmail,
+  getOrgEmailSettings,
 } from "../lib/email";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { requireAdminRole, requireRole } from "../middleware/requireRole";
@@ -568,6 +569,9 @@ async function fireSubmissionEmailsAsync(
   const logoFullUrl   = orgLogoUrl ? `${origin}${orgLogoUrl}` : null;
   const submittedAt   = new Date().toISOString();
 
+  // Fetch org email customization settings once for all outbound emails
+  const emailSettings = accountId ? await getOrgEmailSettings(accountId) : null;
+
   // Staff notification — email and in-app, gated on per-user preferences
   if (session.notify_staff_on_submit === true && accountId) {
     try {
@@ -592,8 +596,9 @@ async function fireSubmissionEmailsAsync(
           clientEmail,
           submittedAt,
           appUrl,
-          pdfBuffer:  pdfBuffer.length <= 5 * 1024 * 1024 ? pdfBuffer : null,
+          pdfBuffer:     pdfBuffer.length <= 5 * 1024 * 1024 ? pdfBuffer : null,
           pdfFilename,
+          emailSettings,
         });
         logger.info({ staffEmails, token }, "[DocuFill] Staff submission emails sent");
       }
@@ -612,6 +617,7 @@ async function fireSubmissionEmailsAsync(
         orgName,
         orgLogoUrl:    logoFullUrl,
         orgBrandColor,
+        emailSettings,
       });
       logger.info({ clientEmail, token }, "[DocuFill] Client confirmation email sent");
     } catch (err) {
@@ -3038,6 +3044,7 @@ router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) =>
     const orgBrandColor = typeof session.org_brand_color === "string" ? session.org_brand_color : null;
     const orgName       = typeof session.org_name === "string" && session.org_name ? session.org_name : "Docuplete";
 
+    const emailSettings = await getOrgEmailSettings(acctId(req));
     await sendInterviewLinkEmail({
       recipientEmail,
       recipientName,
@@ -3046,6 +3053,7 @@ router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) =>
       orgLogoUrl:    orgLogoUrl ? `${origin}${orgLogoUrl}` : null,
       orgBrandColor,
       customMessage: typeof body.customMessage === "string" ? body.customMessage.trim() || null : null,
+      emailSettings,
     });
 
     await db.query(
