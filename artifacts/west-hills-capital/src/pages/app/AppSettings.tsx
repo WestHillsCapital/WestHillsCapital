@@ -2724,6 +2724,413 @@ interface UserProfile {
   pending_email: string | null;
 }
 
+interface TwoFAStatus {
+  enabled: boolean;
+  backupCodesRemaining: number;
+}
+
+interface ActiveSession {
+  id: number;
+  isCurrent: boolean;
+  browser: string;
+  os: string;
+  device: string;
+  ipAddress: string | null;
+  lastActiveAt: string;
+  createdAt: string;
+}
+
+interface LoginEntry {
+  id: number;
+  browser: string;
+  os: string;
+  device: string;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
+function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
+  function authHeaders(contentType?: string): HeadersInit {
+    const h = new Headers(getAuthHeaders());
+    if (contentType) h.set("Content-Type", contentType);
+    return h;
+  }
+
+  const [twoFA, setTwoFA] = useState<TwoFAStatus | null>(null);
+  const [sessions, setSessions] = useState<ActiveSession[]>([]);
+  const [loginHistory, setLoginHistory] = useState<LoginEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [setupStep, setSetupStep] = useState<"idle" | "scan" | "verify" | "codes">("idle");
+  const [setupQr, setSetupQr] = useState<string | null>(null);
+  const [setupSecret, setSetupSecret] = useState<string | null>(null);
+  const [setupCode, setSetupCode] = useState("");
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const [setupBusy, setSetupBusy] = useState(false);
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+
+  const [disableStep, setDisableStep] = useState<"idle" | "confirm">("idle");
+  const [disableCode, setDisableCode] = useState("");
+  const [disableError, setDisableError] = useState<string | null>(null);
+  const [disableBusy, setDisableBusy] = useState(false);
+
+  const [revokingId, setRevokingId] = useState<number | null>(null);
+  const [revokeError, setRevokeError] = useState<string | null>(null);
+
+  function load() {
+    setIsLoading(true);
+    setLoadError(null);
+    Promise.all([
+      fetch(`${SETTINGS_BASE}/security/2fa/status`, { headers: authHeaders() }).then((r) => r.json()),
+      fetch(`${SETTINGS_BASE}/security/sessions`, { headers: authHeaders() }).then((r) => r.json()),
+      fetch(`${SETTINGS_BASE}/security/login-history`, { headers: authHeaders() }).then((r) => r.json()),
+    ])
+      .then(([fa, sess, hist]) => {
+        const faData = fa as { enabled?: boolean; backupCodesRemaining?: number; error?: string };
+        const sessData = sess as { sessions?: ActiveSession[]; error?: string };
+        const histData = hist as { history?: LoginEntry[]; error?: string };
+        const firstError = faData.error ?? sessData.error ?? histData.error;
+        if (firstError) { setLoadError(firstError); return; }
+        setTwoFA({ enabled: faData.enabled ?? false, backupCodesRemaining: faData.backupCodesRemaining ?? 0 });
+        setSessions(sessData.sessions ?? []);
+        setLoginHistory(histData.history ?? []);
+      })
+      .catch(() => setLoadError("Failed to load security info"))
+      .finally(() => setIsLoading(false));
+  }
+
+  useEffect(() => { load(); }, []);
+
+  async function handleStartSetup() {
+    setSetupBusy(true);
+    setSetupError(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/security/2fa/setup`, {
+        method: "POST",
+        headers: authHeaders("application/json"),
+        body: "{}",
+      });
+      const data = await res.json() as { qrCode?: string; secret?: string; error?: string };
+      if (!res.ok) { setSetupError(data.error ?? "Failed to start 2FA setup"); return; }
+      setSetupQr(data.qrCode ?? null);
+      setSetupSecret(data.secret ?? null);
+      setSetupStep("scan");
+    } catch { setSetupError("Failed to start 2FA setup"); }
+    finally { setSetupBusy(false); }
+  }
+
+  async function handleVerifyEnable() {
+    if (!setupCode.trim()) { setSetupError("Enter the 6-digit code from your authenticator app."); return; }
+    setSetupBusy(true);
+    setSetupError(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/security/2fa/enable`, {
+        method: "POST",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({ code: setupCode }),
+      });
+      const data = await res.json() as { success?: boolean; backupCodes?: string[]; error?: string };
+      if (!res.ok) { setSetupError(data.error ?? "Invalid code"); return; }
+      setBackupCodes(data.backupCodes ?? []);
+      setSetupStep("codes");
+      setTwoFA({ enabled: true, backupCodesRemaining: data.backupCodes?.length ?? 8 });
+    } catch { setSetupError("Failed to enable 2FA"); }
+    finally { setSetupBusy(false); }
+  }
+
+  async function handleDisable() {
+    if (!disableCode.trim()) { setDisableError("Enter a 6-digit code or backup code to confirm."); return; }
+    setDisableBusy(true);
+    setDisableError(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/security/2fa`, {
+        method: "DELETE",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({ code: disableCode }),
+      });
+      const data = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) { setDisableError(data.error ?? "Failed to disable 2FA"); return; }
+      setTwoFA({ enabled: false, backupCodesRemaining: 0 });
+      setDisableStep("idle");
+      setDisableCode("");
+    } catch { setDisableError("Failed to disable 2FA"); }
+    finally { setDisableBusy(false); }
+  }
+
+  async function handleRevokeSession(sessionId: number) {
+    setRevokingId(sessionId);
+    setRevokeError(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/security/sessions/${sessionId}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      const data = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) { setRevokeError(data.error ?? "Failed to revoke session"); return; }
+      setSessions((prev) => prev.filter((s) => s.id !== sessionId));
+    } catch { setRevokeError("Failed to revoke session"); }
+    finally { setRevokingId(null); }
+  }
+
+  function deviceIcon(device: string) {
+    if (device === "Mobile") {
+      return (
+        <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 1.5H8.25A2.25 2.25 0 006 3.75v16.5a2.25 2.25 0 002.25 2.25h7.5A2.25 2.25 0 0018 20.25V3.75a2.25 2.25 0 00-2.25-2.25H13.5m-3 0V3h3V1.5m-3 0h3m-3 18h3" />
+        </svg>
+      );
+    }
+    return (
+      <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
+      </svg>
+    );
+  }
+
+  return (
+    <section className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+      <div className="px-6 py-4">
+        <h2 className="text-base font-semibold text-gray-900">Security</h2>
+        <p className="text-xs text-gray-500 mt-0.5">Manage two-factor authentication, active sessions, and login history.</p>
+      </div>
+
+      {loadError && (
+        <div className="px-6 py-3 bg-red-50">
+          <p className="text-xs text-red-700">{loadError}</p>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="px-6 py-8 flex justify-center">
+          <div className="w-5 h-5 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+        </div>
+      ) : (
+        <>
+          {/* ── Two-Factor Authentication ─────────────────────────────────────── */}
+          <div className="px-6 py-5">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-900">Two-factor authentication</p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Add a second layer of security using an authenticator app like Google Authenticator or Authy.
+                </p>
+                {twoFA?.enabled && (
+                  <p className="text-xs text-green-700 mt-1 font-medium">
+                    ✓ Enabled — {twoFA.backupCodesRemaining} backup code{twoFA.backupCodesRemaining !== 1 ? "s" : ""} remaining
+                  </p>
+                )}
+              </div>
+              {twoFA?.enabled ? (
+                <button
+                  type="button"
+                  onClick={() => { setDisableStep("confirm"); setDisableCode(""); setDisableError(null); }}
+                  className="shrink-0 rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 transition-colors"
+                >
+                  Disable 2FA
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled={setupBusy || setupStep !== "idle"}
+                  onClick={() => { void handleStartSetup(); }}
+                  className="shrink-0 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                >
+                  {setupBusy ? "Loading…" : "Enable 2FA"}
+                </button>
+              )}
+            </div>
+
+            {/* Setup flow — scan QR */}
+            {setupStep === "scan" && setupQr && (
+              <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+                <p className="text-sm font-medium text-gray-900">Step 1 — Scan this QR code</p>
+                <p className="text-xs text-gray-500">Open your authenticator app and scan the code below, or enter the setup key manually.</p>
+                <div className="flex justify-center">
+                  <img src={setupQr} alt="TOTP QR code" className="w-40 h-40 rounded-lg border border-gray-200" />
+                </div>
+                {setupSecret && (
+                  <div className="rounded-lg border border-gray-200 bg-white px-3 py-2">
+                    <p className="text-[10px] text-gray-400 mb-1">Setup key (manual entry)</p>
+                    <p className="text-xs font-mono text-gray-700 select-all break-all">{setupSecret}</p>
+                  </div>
+                )}
+                <div className="flex gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setSetupStep("verify")}
+                    className="rounded-lg bg-gray-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
+                  >
+                    Next — Enter code
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSetupStep("idle"); setSetupQr(null); setSetupSecret(null); setSetupError(null); }}
+                    className="rounded-lg border border-gray-200 px-4 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Setup flow — verify code */}
+            {setupStep === "verify" && (
+              <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-3">
+                <p className="text-sm font-medium text-gray-900">Step 2 — Verify the code</p>
+                <p className="text-xs text-gray-500">Enter the 6-digit code from your authenticator app to confirm setup.</p>
+                {setupError && <p className="text-xs text-red-600">{setupError}</p>}
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={6}
+                    value={setupCode}
+                    onChange={(e) => setSetupCode(e.target.value.replace(/\D/g, ""))}
+                    onKeyDown={(e) => { if (e.key === "Enter") void handleVerifyEnable(); }}
+                    placeholder="123456"
+                    className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 w-32"
+                  />
+                  <button
+                    type="button"
+                    disabled={setupBusy}
+                    onClick={() => { void handleVerifyEnable(); }}
+                    className="rounded-lg bg-gray-900 px-4 py-2 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                  >
+                    {setupBusy ? "Verifying…" : "Enable 2FA"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSetupStep("scan"); setSetupCode(""); setSetupError(null); }}
+                    className="rounded-lg border border-gray-200 px-3 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Setup flow — backup codes */}
+            {setupStep === "codes" && backupCodes.length > 0 && (
+              <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4 space-y-3">
+                <p className="text-sm font-semibold text-green-900">2FA is now enabled</p>
+                <p className="text-xs text-green-700">Save these backup codes in a safe place. Each code can be used once if you lose access to your authenticator app.</p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {backupCodes.map((code) => (
+                    <span key={code} className="rounded bg-white border border-green-200 px-2 py-1 text-xs font-mono text-gray-800 text-center">{code}</span>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => { setSetupStep("idle"); setSetupCode(""); setSetupQr(null); setSetupSecret(null); setBackupCodes([]); }}
+                  className="rounded-lg bg-green-800 px-4 py-1.5 text-xs font-medium text-white hover:bg-green-900 transition-colors"
+                >
+                  Done — I've saved my codes
+                </button>
+              </div>
+            )}
+
+            {/* Disable flow */}
+            {disableStep === "confirm" && (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 p-4 space-y-3">
+                <p className="text-sm font-medium text-red-900">Disable two-factor authentication</p>
+                <p className="text-xs text-red-700">Enter a 6-digit code from your authenticator app, or one of your backup codes, to confirm.</p>
+                {disableError && <p className="text-xs text-red-600 font-medium">{disableError}</p>}
+                <div className="flex gap-2 items-center flex-wrap">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={disableCode}
+                    onChange={(e) => setDisableCode(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") void handleDisable(); }}
+                    placeholder="123456 or backup code"
+                    className="rounded-lg border border-red-200 bg-white px-3 py-2 text-sm font-mono text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-red-400/20 w-48"
+                  />
+                  <button
+                    type="button"
+                    disabled={disableBusy}
+                    onClick={() => { void handleDisable(); }}
+                    className="rounded-lg bg-red-700 px-4 py-2 text-xs font-medium text-white hover:bg-red-800 disabled:opacity-60 transition-colors"
+                  >
+                    {disableBusy ? "Disabling…" : "Confirm disable"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setDisableStep("idle"); setDisableCode(""); setDisableError(null); }}
+                    className="rounded-lg border border-red-200 px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-100 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* ── Active Sessions ───────────────────────────────────────────────── */}
+          <div className="px-6 py-5">
+            <p className="text-sm font-medium text-gray-900 mb-3">Active sessions</p>
+            {revokeError && (
+              <p className="text-xs text-red-600 mb-2">{revokeError}</p>
+            )}
+            {sessions.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">No active sessions recorded yet. Sessions appear here after your next page load.</p>
+            ) : (
+              <ul className="space-y-2">
+                {sessions.map((s) => (
+                  <li key={s.id} className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${s.isCurrent ? "border-gray-900 bg-gray-50" : "border-gray-100 bg-white"}`}>
+                    {deviceIcon(s.device)}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-800 truncate">
+                        {s.browser} on {s.os}
+                        {s.isCurrent && <span className="ml-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Current</span>}
+                      </p>
+                      <p className="text-[11px] text-gray-400 truncate">
+                        {s.ipAddress ?? "Unknown IP"} · Last active {formatRelative(s.lastActiveAt)}
+                      </p>
+                    </div>
+                    {!s.isCurrent && (
+                      <button
+                        type="button"
+                        disabled={revokingId === s.id}
+                        onClick={() => { void handleRevokeSession(s.id); }}
+                        className="shrink-0 text-[11px] font-medium text-red-600 hover:text-red-800 disabled:opacity-50 transition-colors"
+                      >
+                        {revokingId === s.id ? "Revoking…" : "Revoke"}
+                      </button>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* ── Login History ─────────────────────────────────────────────────── */}
+          <div className="px-6 py-5">
+            <p className="text-sm font-medium text-gray-900 mb-3">Recent login history</p>
+            {loginHistory.length === 0 ? (
+              <p className="text-xs text-gray-400 italic">No login history recorded yet.</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {loginHistory.slice(0, 10).map((entry) => (
+                  <li key={entry.id} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2.5">
+                    {deviceIcon(entry.device)}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-medium text-gray-800 truncate">{entry.browser} on {entry.os}</p>
+                      <p className="text-[11px] text-gray-400 truncate">
+                        {entry.ipAddress ?? "Unknown IP"} · {formatRelative(entry.createdAt)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
 function ProfileSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
   function authHeaders(contentType?: string): HeadersInit {
     const h = new Headers(getAuthHeaders());
@@ -2801,33 +3208,25 @@ function ProfileSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
     };
   }, []);
 
-  // Debounced auto-save for display name
-  useEffect(() => {
+  async function handleDisplayNameSave() {
     if (!nameEdited.current || !profile) return;
-    if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
-    nameDebounceRef.current = setTimeout(async () => {
-      nameDebounceRef.current = null;
-      setNameError(null);
-      const seq = ++nameSaveSeq.current;
-      setIsSavingName(true);
-      try {
-        const res = await fetch(`${SETTINGS_BASE}/profile`, {
-          method: "PATCH",
-          headers: authHeaders("application/json"),
-          body: JSON.stringify({ display_name: displayName }),
-        });
-        const data = await res.json() as { profile?: UserProfile; error?: string };
-        if (seq !== nameSaveSeq.current) return;
-        if (!res.ok) { setNameError(data.error ?? "Failed to save name"); return; }
-        if (data.profile) { nameEdited.current = false; applyProfile(data.profile); }
-        flashSaved("name");
-      } catch { if (seq === nameSaveSeq.current) setNameError("Failed to save name."); }
-      finally { if (seq === nameSaveSeq.current) setIsSavingName(false); }
-    }, 700);
-    return () => {
-      if (nameDebounceRef.current) { clearTimeout(nameDebounceRef.current); nameDebounceRef.current = null; }
-    };
-  }, [displayName]);
+    setNameError(null);
+    const seq = ++nameSaveSeq.current;
+    setIsSavingName(true);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/profile`, {
+        method: "PATCH",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({ display_name: displayName }),
+      });
+      const data = await res.json() as { profile?: UserProfile; error?: string };
+      if (seq !== nameSaveSeq.current) return;
+      if (!res.ok) { setNameError(data.error ?? "Failed to save name"); return; }
+      if (data.profile) { nameEdited.current = false; applyProfile(data.profile); }
+      flashSaved("name");
+    } catch { if (seq === nameSaveSeq.current) setNameError("Failed to save name."); }
+    finally { if (seq === nameSaveSeq.current) setIsSavingName(false); }
+  }
 
   async function handleEmailSave() {
     if (!profile) return;
@@ -3067,18 +3466,27 @@ function ProfileSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
               <p className="text-xs text-gray-400 mt-0.5">Shown to teammates</p>
             </div>
             <div className="flex-1 flex flex-col gap-1">
-              <input
-                id="profile-display-name"
-                type="text"
-                value={displayName}
-                onChange={(e) => { nameEdited.current = true; setDisplayName(e.target.value); setNameError(null); setNameSaved(false); }}
-                placeholder="Your name"
-                className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 w-full"
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  id="profile-display-name"
+                  type="text"
+                  value={displayName}
+                  onChange={(e) => { nameEdited.current = true; setDisplayName(e.target.value); setNameError(null); setNameSaved(false); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") void handleDisplayNameSave(); }}
+                  placeholder="Your name"
+                  className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                />
+                <button
+                  type="button"
+                  disabled={isSavingName || !nameEdited.current}
+                  onClick={() => { void handleDisplayNameSave(); }}
+                  className="shrink-0 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+                >
+                  {isSavingName ? "Saving…" : "Save"}
+                </button>
+              </div>
               {nameError ? (
                 <span className="text-[11px] text-red-600">{nameError}</span>
-              ) : isSavingName ? (
-                <span className="text-[11px] text-gray-400">Saving…</span>
               ) : nameSaved ? (
                 <span className="text-[11px] text-green-600 font-medium">✓ Saved</span>
               ) : null}
@@ -3279,7 +3687,9 @@ export default function AppSettings() {
     setOrg(data);
     setName(data.name);
     setBrandColor(data.brand_color);
-    setDisplayLogoUrl(data.logo_url ? `${API_BASE}${data.logo_url}` : null);
+    // Append a timestamp so the browser re-fetches the logo after every upload
+    // rather than serving the stale cached version (same URL, new content).
+    setDisplayLogoUrl(data.logo_url ? `${API_BASE}${data.logo_url}?t=${Date.now()}` : null);
     updateProductOrgCache(data);
   }
 
@@ -3529,6 +3939,11 @@ export default function AppSettings() {
       {/* Profile section — per-user settings, visible to all roles */}
       <div id="profile-section">
         <ProfileSection getAuthHeaders={getAuthHeaders} />
+      </div>
+
+      {/* Security section — per-user 2FA, sessions, and login history */}
+      <div id="security-section">
+        <SecuritySection getAuthHeaders={getAuthHeaders} />
       </div>
 
       {/* Org branding setup prompt — shown until logo or custom color is set */}
