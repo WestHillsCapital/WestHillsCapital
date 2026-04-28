@@ -3067,6 +3067,7 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [signOutOtherDevices, setSignOutOtherDevices] = useState(false);
   const [isSavingPassword, setIsSavingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSaved, setPasswordSaved] = useState(false);
@@ -3086,10 +3087,11 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
     setPasswordError(null);
     setPasswordSaved(false);
     try {
-      await user.updatePassword({ currentPassword, newPassword, signOutOfOtherSessions: false });
+      await user.updatePassword({ currentPassword, newPassword, signOutOfOtherSessions: signOutOtherDevices });
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      setSignOutOtherDevices(false);
       setPasswordSaved(true);
       if (passwordSavedTimer.current) clearTimeout(passwordSavedTimer.current);
       passwordSavedTimer.current = setTimeout(() => setPasswordSaved(false), 4000);
@@ -3517,6 +3519,15 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
                     className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
                   />
                 </div>
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={signOutOtherDevices}
+                    onChange={(e) => setSignOutOtherDevices(e.target.checked)}
+                    className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900/20"
+                  />
+                  <span className="text-xs text-gray-600">Sign out all other devices</span>
+                </label>
                 <div className="flex items-center gap-3 pt-1">
                   <button
                     type="button"
