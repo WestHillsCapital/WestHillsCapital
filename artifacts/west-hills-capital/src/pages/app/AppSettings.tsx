@@ -1206,6 +1206,8 @@ interface AuditLogEntryBase {
   actor_email: string | null;
   resource_type: string | null;
   resource_label: string | null;
+  ip_address: string | null;
+  location: string | null;
   created_at: string;
 }
 
@@ -1581,6 +1583,15 @@ function AuditLogSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () => He
                     )}
                     {entry.action === "branding.update_name" && entry.metadata.from && (
                       <span>was &ldquo;{entry.metadata.from}&rdquo;</span>
+                    )}
+                    {(entry.location ?? entry.ip_address) && (
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                        </svg>
+                        {entry.location ?? entry.ip_address}
+                      </span>
                     )}
                   </div>
                 </div>

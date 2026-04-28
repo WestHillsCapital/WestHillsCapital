@@ -1997,9 +1997,9 @@ router.get("/audit-log", requireAdminRole, async (req, res) => {
     }
 
     const whereClause = whereParts.join(" AND ");
-    const [{ rows: entries }, { rows: countRows }] = await Promise.all([
+    const [{ rows: rawEntries }, { rows: countRows }] = await Promise.all([
       getDb().query(
-        `SELECT id, actor_email, actor_user_id, action, resource_type, resource_id, resource_label, metadata, created_at
+        `SELECT id, actor_email, actor_user_id, action, resource_type, resource_id, resource_label, metadata, ip_address, created_at
            FROM org_audit_log
           WHERE ${whereClause}
           ORDER BY created_at DESC
@@ -2008,6 +2008,11 @@ router.get("/audit-log", requireAdminRole, async (req, res) => {
       ),
       getDb().query(`SELECT COUNT(*)::int AS total FROM org_audit_log WHERE ${whereClause}`, params),
     ]);
+
+    const entries = (rawEntries as Array<Record<string, unknown>>).map(e => ({
+      ...e,
+      location: lookupIpLocation(e.ip_address as string | null),
+    }));
 
     return void res.json({
       entries,
