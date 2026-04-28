@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { useUser } from "@clerk/react";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { useProductRole } from "@/hooks/useProductRole";
 import { updateProductOrgCache, getCachedProductOrg, type ProductOrgSettings } from "@/hooks/useProductOrgSettings";
@@ -1183,15 +1184,34 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
   );
 }
 
-interface AuditLogEntry {
+interface AuditLogMetadataMap {
+  "team.invite":               { role: string };
+  "team.remove":               { role: string };
+  "team.role_change":          { from_role: string; to_role: string };
+  "apikey.create":             Record<string, never>;
+  "apikey.revoke":             Record<string, never>;
+  "apikey.rename":             Record<string, never>;
+  "branding.update_name":      { from: string; to: string };
+  "branding.update_color":     { from: string; to: string };
+  "branding.upload_logo":      Record<string, never>;
+  "branding.remove_logo":      Record<string, never>;
+  "plan.checkout_initiated":   { plan: string };
+  "plan.change":               { from_plan: string; to_plan: string; status: string; event_type: string };
+}
+
+type KnownAuditAction = keyof AuditLogMetadataMap;
+
+interface AuditLogEntryBase {
   id: number;
   actor_email: string | null;
-  action: string;
   resource_type: string | null;
   resource_label: string | null;
-  metadata: Record<string, unknown>;
   created_at: string;
 }
+
+type AuditLogEntry = {
+  [A in KnownAuditAction]: AuditLogEntryBase & { action: A; metadata: AuditLogMetadataMap[A] };
+}[KnownAuditAction];
 
 const ACTION_LABELS: Record<string, string> = {
   "team.invite":               "Invited team member",
@@ -1556,11 +1576,11 @@ function AuditLogSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () => He
                     {entry.actor_email && (
                       <span>by <span className="text-gray-600">{entry.actor_email}</span></span>
                     )}
-                    {entry.action === "team.role_change" && !!entry.metadata?.from_role && !!entry.metadata?.to_role && (
-                      <span>{String(entry.metadata.from_role)} → {String(entry.metadata.to_role)}</span>
+                    {entry.action === "team.role_change" && entry.metadata.from_role && (
+                      <span>{entry.metadata.from_role} → {entry.metadata.to_role}</span>
                     )}
-                    {entry.action === "branding.update_name" && !!entry.metadata?.from && (
-                      <span>was &ldquo;{String(entry.metadata.from)}&rdquo;</span>
+                    {entry.action === "branding.update_name" && entry.metadata.from && (
+                      <span>was &ldquo;{entry.metadata.from}&rdquo;</span>
                     )}
                   </div>
                 </div>
@@ -3040,6 +3060,45 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
     return h;
   }
 
+  const { user } = useUser();
+
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [isSavingPassword, setIsSavingPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSaved, setPasswordSaved] = useState(false);
+  const passwordSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  async function handlePasswordChange() {
+    if (!user) return;
+    if (newPassword !== confirmPassword) {
+      setPasswordError("New passwords do not match.");
+      return;
+    }
+    if (newPassword.length < 8) {
+      setPasswordError("Password must be at least 8 characters.");
+      return;
+    }
+    setIsSavingPassword(true);
+    setPasswordError(null);
+    setPasswordSaved(false);
+    try {
+      await user.updatePassword({ currentPassword, newPassword, signOutOfOtherSessions: false });
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setPasswordSaved(true);
+      if (passwordSavedTimer.current) clearTimeout(passwordSavedTimer.current);
+      passwordSavedTimer.current = setTimeout(() => setPasswordSaved(false), 4000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update password.";
+      setPasswordError(msg);
+    } finally {
+      setIsSavingPassword(false);
+    }
+  }
+
   const [twoFA, setTwoFA] = useState<TwoFAStatus | null>(null);
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [loginHistory, setLoginHistory] = useState<LoginEntry[]>([]);
@@ -3407,6 +3466,68 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
                   </li>
                 ))}
               </ul>
+            )}
+          </div>
+
+          {/* ── Change Password ───────────────────────────────────────────────── */}
+          <div className="px-6 py-5">
+            <p className="text-sm font-medium text-gray-900 mb-0.5">Change password</p>
+            {user?.passwordEnabled === false ? (
+              <p className="text-xs text-gray-400 mt-1">
+                Your account uses social sign-in and does not have a password. You can add one from your account settings.
+              </p>
+            ) : (
+              <div className="mt-3 space-y-3 max-w-sm">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sec-cur-pw">Current password</label>
+                  <input
+                    id="sec-cur-pw"
+                    type="password"
+                    autoComplete="current-password"
+                    value={currentPassword}
+                    onChange={(e) => { setCurrentPassword(e.target.value); setPasswordError(null); setPasswordSaved(false); }}
+                    placeholder="••••••••"
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sec-new-pw">New password</label>
+                  <input
+                    id="sec-new-pw"
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => { setNewPassword(e.target.value); setPasswordError(null); setPasswordSaved(false); }}
+                    placeholder="••••••••"
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sec-confirm-pw">Confirm new password</label>
+                  <input
+                    id="sec-confirm-pw"
+                    type="password"
+                    autoComplete="new-password"
+                    value={confirmPassword}
+                    onChange={(e) => { setConfirmPassword(e.target.value); setPasswordError(null); setPasswordSaved(false); }}
+                    placeholder="••••••••"
+                    onKeyDown={(e) => { if (e.key === "Enter") void handlePasswordChange(); }}
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                  />
+                </div>
+                <div className="flex items-center gap-3 pt-1">
+                  <button
+                    type="button"
+                    disabled={isSavingPassword || !currentPassword || !newPassword || !confirmPassword}
+                    onClick={() => { void handlePasswordChange(); }}
+                    className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 transition-colors"
+                  >
+                    {isSavingPassword ? "Updating…" : "Update password"}
+                  </button>
+                  {passwordSaved && <span className="text-xs text-green-600 font-medium">✓ Password updated</span>}
+                  {passwordError && <span className="text-xs text-red-600">{passwordError}</span>}
+                </div>
+              </div>
             )}
           </div>
         </>
