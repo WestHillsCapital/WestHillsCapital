@@ -1066,6 +1066,24 @@ export async function initDb(): Promise<void> {
       ON user_notification_prefs (account_id, clerk_user_id)
   `);
 
+  // ── In-app notification inbox ─────────────────────────────────────────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS user_in_app_notifications (
+      id            BIGSERIAL PRIMARY KEY,
+      account_id    INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      clerk_user_id TEXT    NOT NULL,
+      event_key     TEXT    NOT NULL,
+      title         TEXT    NOT NULL,
+      body          TEXT    NOT NULL,
+      read_at       TIMESTAMPTZ,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS user_in_app_notif_user_idx
+      ON user_in_app_notifications (account_id, clerk_user_id, created_at DESC)
+  `);
+
   // ── Org-level audit log ──────────────────────────────────────────────────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS org_audit_log (
