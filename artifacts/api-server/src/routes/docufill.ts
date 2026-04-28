@@ -2933,15 +2933,36 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
       logger.warn({ defErr }, "[DocuFill] Could not fetch interview defaults; using built-in defaults");
     }
 
-    // Apply per-session overrides: request body takes precedence over org defaults.
+    // Validate and apply per-session overrides: request body takes precedence over org defaults.
     // orgExpiryDays = null means "never expires" (admin explicitly chose this);
     // a number means that many days; 90 is the column default for new orgs.
+    const SESSION_ALLOWED_LOCALES = new Set(["en","es","fr","de","pt","zh","ja","ko","ar"]);
+
+    if ("linkExpiryDays" in body && body.linkExpiryDays !== null) {
+      const days = Number(body.linkExpiryDays);
+      if (!Number.isInteger(days) || days < 1 || days > 3650) {
+        res.status(400).json({ error: "linkExpiryDays must be null or an integer between 1 and 3650" });
+        return;
+      }
+    }
+    if ("locale" in body && typeof body.locale === "string" && !SESSION_ALLOWED_LOCALES.has(body.locale)) {
+      res.status(400).json({ error: "locale must be one of: en, es, fr, de, pt, zh, ja, ko, ar" });
+      return;
+    }
+    if ("reminderDays" in body && body.reminderDays !== undefined) {
+      const rd = Number(body.reminderDays);
+      if (!Number.isInteger(rd) || rd < 1 || rd > 90) {
+        res.status(400).json({ error: "reminderDays must be an integer between 1 and 90" });
+        return;
+      }
+    }
+
     const effectiveExpiryDays: number | null = "linkExpiryDays" in body
-      ? (body.linkExpiryDays === null ? null : (Number.isInteger(Number(body.linkExpiryDays)) && Number(body.linkExpiryDays) >= 1 ? Number(body.linkExpiryDays) : orgExpiryDays))
+      ? (body.linkExpiryDays === null ? null : Number(body.linkExpiryDays))
       : orgExpiryDays;
     const effectiveLocale: string = (typeof body.locale === "string" && body.locale) ? body.locale : orgLocale;
     const effectiveReminderEnabled: boolean = typeof body.reminderEnabled === "boolean" ? body.reminderEnabled : orgReminderEnabled;
-    const effectiveReminderDays: number = (typeof body.reminderDays === "number" && body.reminderDays >= 1) ? body.reminderDays : orgReminderDays;
+    const effectiveReminderDays: number = (typeof body.reminderDays === "number" && body.reminderDays >= 1) ? Math.min(body.reminderDays, 90) : orgReminderDays;
 
     // null = "never expires" → use far-future sentinel so existing NOT NULL constraint is satisfied
     const finalExpiresAt: Date = effectiveExpiryDays === null
