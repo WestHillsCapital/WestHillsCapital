@@ -135,7 +135,7 @@ router.get("/org", async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT id, name, slug, logo_url, brand_color FROM accounts WHERE id = $1`,
+      `SELECT id, name, slug, logo_url, brand_color, timezone, date_format FROM accounts WHERE id = $1`,
       [accountId],
     );
     if (!rows[0]) {
@@ -150,6 +150,8 @@ router.get("/org", async (req, res) => {
         slug: row.slug,
         logo_url: row.logo_url ? buildLogoServingUrl(accountId) : null,
         brand_color: row.brand_color ?? "#C49A38",
+        timezone:    (row.timezone    as string) || "America/New_York",
+        date_format: (row.date_format as string) || "MM/DD/YYYY",
       },
     });
   } catch (err) {
@@ -2220,6 +2222,87 @@ router.patch("/interview-defaults", requireAdminRole, async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Settings] Failed to update interview defaults");
     res.status(500).json({ error: "Failed to update interview defaults" });
+  }
+});
+
+// ── Timezone & Locale settings ────────────────────────────────────────────────
+
+const VALID_DATE_FORMATS = new Set(["MM/DD/YYYY", "DD/MM/YYYY", "YYYY-MM-DD"]);
+
+router.get("/locale", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT timezone, date_format FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "Account not found" }); return; }
+    const row = rows[0] as Record<string, unknown>;
+    res.json({
+      timezone:   (row.timezone   as string) || "America/New_York",
+      dateFormat: (row.date_format as string) || "MM/DD/YYYY",
+    });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to get locale settings");
+    res.status(500).json({ error: "Failed to get locale settings" });
+  }
+});
+
+router.patch("/locale", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body      = req.body as Record<string, unknown>;
+    const db        = getDb();
+
+    const { rows: cur } = await db.query(
+      `SELECT timezone, date_format FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!cur[0]) { res.status(404).json({ error: "Account not found" }); return; }
+    const current = cur[0] as Record<string, unknown>;
+
+    // Validate timezone using Intl (throws for unknown identifiers)
+    let timezone = (current.timezone as string) || "America/New_York";
+    if ("timezone" in body) {
+      const tz = typeof body.timezone === "string" ? body.timezone.trim() : "";
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: tz });
+        timezone = tz;
+      } catch {
+        res.status(400).json({ error: "Invalid IANA timezone identifier." });
+        return;
+      }
+    }
+
+    let dateFormat = (current.date_format as string) || "MM/DD/YYYY";
+    if ("dateFormat" in body) {
+      const fmt = typeof body.dateFormat === "string" ? body.dateFormat : "";
+      if (!VALID_DATE_FORMATS.has(fmt)) {
+        res.status(400).json({ error: "dateFormat must be one of: MM/DD/YYYY, DD/MM/YYYY, YYYY-MM-DD." });
+        return;
+      }
+      dateFormat = fmt;
+    }
+
+    await db.query(
+      `UPDATE accounts SET timezone = $1, date_format = $2 WHERE id = $3`,
+      [timezone, dateFormat, accountId],
+    );
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const actorEmail  = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "settings.update_locale",
+      resourceType: "org",
+      metadata: { timezone, dateFormat },
+    });
+
+    res.json({ timezone, dateFormat });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to update locale settings");
+    res.status(500).json({ error: "Failed to update locale settings" });
   }
 });
 

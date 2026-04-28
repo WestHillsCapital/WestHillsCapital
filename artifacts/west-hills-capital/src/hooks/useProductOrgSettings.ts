@@ -9,10 +9,16 @@ export type ProductOrgSettings = {
   slug: string;
   logo_url: string | null;
   brand_color: string;
+  timezone:    string;
+  date_format: string;
 };
 
 let cachedProductOrg: ProductOrgSettings | null = null;
 const productOrgListeners = new Set<(org: ProductOrgSettings | null) => void>();
+
+export function getCachedProductOrg(): ProductOrgSettings | null {
+  return cachedProductOrg;
+}
 
 export function invalidateProductOrgCache(): void {
   cachedProductOrg = null;
