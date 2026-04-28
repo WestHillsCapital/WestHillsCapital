@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useProductPrices, useBuybackPrices, useSpotPrices } from "@/hooks/use-pricing";
 import { Card, CardContent } from "@/components/ui/card";
@@ -274,6 +274,20 @@ export default function LivePricing() {
   const [zoomProduct, setZoomProduct] = useState<Product | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Track when tiles should animate in — triggers on first load and on manual refresh.
+  // spotData is `undefined` while loading and either an object or `null` once settled.
+  const [tilesVisible, setTilesVisible] = useState(false);
+  const [tilesAnimKey, setTilesAnimKey] = useState(0);
+  const prevSpotDataRef = useRef<typeof spotData | "loading">("loading");
+  useEffect(() => {
+    if (spotData !== undefined && prevSpotDataRef.current === "loading") {
+      setTilesVisible(true);
+    }
+    if (spotData !== undefined) {
+      prevSpotDataRef.current = spotData;
+    }
+  }, [spotData]);
+
   const ratio = spotData?.gold && spotData?.silver
     ? (spotData.gold / spotData.silver).toFixed(1)
     : null;
@@ -284,8 +298,16 @@ export default function LivePricing() {
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
+    // Hide tiles so the entrance animation replays after fresh data arrives
+    setTilesVisible(false);
+    prevSpotDataRef.current = "loading";
     await Promise.all([refetchSpot(), refetchProducts()]);
     setIsRefreshing(false);
+    // Bump key to remount tiles in their hidden state, then animate in
+    setTilesAnimKey((k) => k + 1);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setTilesVisible(true));
+    });
   }, [refetchSpot, refetchProducts]);
 
   return (
@@ -338,7 +360,15 @@ export default function LivePricing() {
           {/* SPOT STATS ROW */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             {/* Gold Spot */}
-            <div className="bg-white rounded-2xl border border-border/40 p-5">
+            <div
+              key={`gold-${tilesAnimKey}`}
+              className="bg-white rounded-2xl border border-border/40 p-5"
+              style={{
+                opacity: tilesVisible ? 1 : 0,
+                transform: tilesVisible ? "translateY(0)" : "translateY(10px)",
+                transition: "opacity 350ms ease-out, transform 350ms ease-out",
+              }}
+            >
               <Tooltip>
                 <TooltipTrigger asChild>
                   <p className="text-xs text-foreground/40 font-medium uppercase tracking-widest mb-2 cursor-default w-fit">Gold Spot</p>
@@ -357,7 +387,16 @@ export default function LivePricing() {
             </div>
 
             {/* Silver Spot */}
-            <div className="bg-white rounded-2xl border border-border/40 p-5">
+            <div
+              key={`silver-${tilesAnimKey}`}
+              className="bg-white rounded-2xl border border-border/40 p-5"
+              style={{
+                opacity: tilesVisible ? 1 : 0,
+                transform: tilesVisible ? "translateY(0)" : "translateY(10px)",
+                transition: "opacity 350ms ease-out, transform 350ms ease-out",
+                transitionDelay: tilesVisible ? "65ms" : "0ms",
+              }}
+            >
               <Tooltip>
                 <TooltipTrigger asChild>
                   <p className="text-xs text-foreground/40 font-medium uppercase tracking-widest mb-2 cursor-default w-fit">Silver Spot</p>
@@ -376,7 +415,17 @@ export default function LivePricing() {
             </div>
 
             {/* Gold/Silver Ratio */}
-            <RatioCard ratio={ratio} />
+            <div
+              key={`ratio-${tilesAnimKey}`}
+              style={{
+                opacity: tilesVisible ? 1 : 0,
+                transform: tilesVisible ? "translateY(0)" : "translateY(10px)",
+                transition: "opacity 350ms ease-out, transform 350ms ease-out",
+                transitionDelay: tilesVisible ? "130ms" : "0ms",
+              }}
+            >
+              <RatioCard ratio={ratio} />
+            </div>
           </div>
 
           {/* CHART */}
