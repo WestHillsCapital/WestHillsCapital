@@ -36,11 +36,11 @@ export async function resolveApiKeyAccountId(bearerToken: string): Promise<numbe
   const hash = hashApiKey(bearerToken);
   try {
     const result = await getDb().query<{ account_id: number }>(
-      `SELECT account_id
-         FROM account_api_keys
+      `UPDATE account_api_keys
+          SET last_used_at = NOW()
         WHERE key_hash = $1
           AND revoked_at IS NULL
-        LIMIT 1`,
+        RETURNING account_id`,
       [hash],
     );
     return result.rows[0]?.account_id ?? null;

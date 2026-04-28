@@ -387,8 +387,9 @@ router.get("/api-keys", requireProductAuth, requireAdminRole, async (req, res) =
       key_prefix: string;
       created_at: Date;
       revoked_at: Date | null;
+      last_used_at: Date | null;
     }>(
-      `SELECT id, name, key_prefix, created_at, revoked_at
+      `SELECT id, name, key_prefix, created_at, revoked_at, last_used_at
          FROM account_api_keys
         WHERE account_id = $1
         ORDER BY created_at DESC`,
@@ -397,12 +398,13 @@ router.get("/api-keys", requireProductAuth, requireAdminRole, async (req, res) =
 
     return void res.json({
       keys: result.rows.map((row) => ({
-        id:        row.id,
-        name:      row.name,
-        keyPrefix: row.key_prefix,
-        createdAt: row.created_at,
-        revokedAt: row.revoked_at ?? null,
-        active:    row.revoked_at === null,
+        id:          row.id,
+        name:        row.name,
+        keyPrefix:   row.key_prefix,
+        createdAt:   row.created_at,
+        revokedAt:   row.revoked_at ?? null,
+        lastUsedAt:  row.last_used_at ?? null,
+        active:      row.revoked_at === null,
       })),
     });
   } catch (err) {

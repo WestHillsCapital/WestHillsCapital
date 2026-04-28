@@ -882,6 +882,9 @@ export async function initDb(): Promise<void> {
      WHERE revoked_at IS NULL
   `);
 
+  // ── Task #186: last_used_at on API keys ───────────────────────────────────
+  await db.query(`ALTER TABLE account_api_keys ADD COLUMN IF NOT EXISTS last_used_at TIMESTAMPTZ`);
+
   // ── Task #192: team member management columns ─────────────────────────────
   await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active'`);
   await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS last_seen_at TIMESTAMPTZ`);

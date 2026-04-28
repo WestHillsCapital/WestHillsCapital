@@ -14,6 +14,7 @@ interface ApiKey {
   keyPrefix: string;
   createdAt: string;
   revokedAt: string | null;
+  lastUsedAt: string | null;
   active: boolean;
 }
 
@@ -815,6 +816,8 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     <code className="font-mono">{key.keyPrefix}…</code>
                     {" · "}
                     Created {formatDate(key.createdAt)}
+                    {" · "}
+                    Last used: {key.lastUsedAt ? formatRelative(key.lastUsedAt) : "Never"}
                   </p>
                 </div>
                 {confirmRevokeId === key.id ? (
