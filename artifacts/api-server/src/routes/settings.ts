@@ -1623,6 +1623,82 @@ router.get("/security/pdf-audit", requireAdminRole, async (req, res) => {
   }
 });
 
+// ── Per-user notification preferences ────────────────────────────────────────
+
+const NOTIFICATION_EVENT_KEYS = [
+  "submission_received",
+  "team_member_joined",
+  "team_member_removed",
+  "billing_plan_change",
+  "billing_payment_failed",
+  "api_key_created",
+  "api_key_revoked",
+  "plan_limit_warning",
+] as const;
+type NotificationEventKey = (typeof NOTIFICATION_EVENT_KEYS)[number];
+const NOTIFICATION_EVENT_KEYS_SET = new Set<string>(NOTIFICATION_EVENT_KEYS);
+
+router.get("/notifications", async (req, res) => {
+  const clerkUserId = getAuth(req)?.userId ?? null;
+  if (!clerkUserId) {
+    return void res.status(401).json({ error: "User authentication required for notification preferences." });
+  }
+  const accountId = req.internalAccountId ?? 1;
+  try {
+    const { rows } = await getDb().query<{ event_key: NotificationEventKey; email_enabled: boolean; in_app_enabled: boolean }>(
+      `SELECT event_key, email_enabled, in_app_enabled
+         FROM user_notification_prefs
+        WHERE account_id = $1 AND clerk_user_id = $2`,
+      [accountId, clerkUserId],
+    );
+    const saved = new Map(rows.map(r => [r.event_key, r]));
+    const prefs = NOTIFICATION_EVENT_KEYS.map(key => ({
+      event_key: key,
+      email_enabled: saved.get(key)?.email_enabled ?? true,
+      in_app_enabled: saved.get(key)?.in_app_enabled ?? true,
+    }));
+    return void res.json({ prefs });
+  } catch (err) {
+    logger.error({ err }, "[Notifications] Failed to get preferences");
+    res.status(500).json({ error: "Failed to load notification preferences." });
+  }
+});
+
+router.put("/notifications", async (req, res) => {
+  const clerkUserId = getAuth(req)?.userId ?? null;
+  if (!clerkUserId) {
+    return void res.status(401).json({ error: "User authentication required for notification preferences." });
+  }
+  const accountId = req.internalAccountId ?? 1;
+  const body = req.body as Record<string, unknown>;
+  const rawPrefs = body.prefs;
+  if (!Array.isArray(rawPrefs)) {
+    return void res.status(400).json({ error: "prefs must be an array." });
+  }
+  try {
+    const db = getDb();
+    for (const raw of rawPrefs) {
+      const pref = raw as Record<string, unknown>;
+      const key = typeof pref.event_key === "string" ? pref.event_key : "";
+      if (!NOTIFICATION_EVENT_KEYS_SET.has(key)) continue;
+      const emailEnabled = pref.email_enabled !== false;
+      const inAppEnabled = pref.in_app_enabled !== false;
+      await db.query(
+        `INSERT INTO user_notification_prefs
+           (account_id, clerk_user_id, event_key, email_enabled, in_app_enabled, updated_at)
+         VALUES ($1, $2, $3, $4, $5, NOW())
+         ON CONFLICT (account_id, clerk_user_id, event_key)
+         DO UPDATE SET email_enabled = $4, in_app_enabled = $5, updated_at = NOW()`,
+        [accountId, clerkUserId, key, emailEnabled, inAppEnabled],
+      );
+    }
+    return void res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[Notifications] Failed to save preferences");
+    res.status(500).json({ error: "Failed to save notification preferences." });
+  }
+});
+
 // ── Org audit log (admin read-only) ──────────────────────────────────────────
 
 router.get("/audit-log", requireAdminRole, async (req, res) => {
