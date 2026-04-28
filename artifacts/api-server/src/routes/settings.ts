@@ -1889,13 +1889,23 @@ router.patch("/email", requireAdminRole, async (req, res) => {
     }
     const current = existing[0] as Record<string, unknown>;
 
-    const senderName = "senderName" in body
-      ? (typeof body.senderName === "string" ? body.senderName.trim().slice(0, 100) || null : null)
+    // senderName: strip header-injection chars (\r \n < >) then trim/cap length
+    const rawSenderName = "senderName" in body
+      ? (typeof body.senderName === "string"
+          ? body.senderName.replace(/[\r\n<>]/g, "").trim().slice(0, 100) || null
+          : null)
       : (current.email_sender_name as string | null);
+
+    // Reject names that contain characters not safe for email display names
+    if (rawSenderName !== null && /[^\x20-\x7E]/.test(rawSenderName)) {
+      res.status(400).json({ error: "senderName contains unsupported characters" });
+      return;
+    }
+    const senderName = rawSenderName;
 
     const replyTo = "replyTo" in body
       ? (typeof body.replyTo === "string" && body.replyTo.trim()
-          ? body.replyTo.trim().slice(0, 254)
+          ? body.replyTo.replace(/[\r\n]/g, "").trim().toLowerCase().slice(0, 254)
           : null)
       : (current.email_reply_to as string | null);
 
