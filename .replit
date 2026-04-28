@@ -38,6 +38,10 @@ args = "db-deps"
 task = "workflow.run"
 args = "test-west-hills-chart"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "workspace-typecheck"
+
 [[workflows.workflow]]
 name = "docufill-redaction"
 author = "agent"
@@ -78,6 +82,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/west-hills-capital test"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "workspace-typecheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm typecheck"
 
 [workflows.workflow.metadata]
 isValidation = true

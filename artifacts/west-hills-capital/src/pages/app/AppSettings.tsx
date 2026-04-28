@@ -1272,10 +1272,10 @@ function AuditLogSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () => He
                     {entry.actor_email && (
                       <span>by <span className="text-gray-600">{entry.actor_email}</span></span>
                     )}
-                    {entry.action === "team.role_change" && entry.metadata?.from_role && entry.metadata?.to_role && (
+                    {entry.action === "team.role_change" && !!entry.metadata?.from_role && !!entry.metadata?.to_role && (
                       <span>{String(entry.metadata.from_role)} → {String(entry.metadata.to_role)}</span>
                     )}
-                    {entry.action === "branding.update_name" && entry.metadata?.from && (
+                    {entry.action === "branding.update_name" && !!entry.metadata?.from && (
                       <span>was &ldquo;{String(entry.metadata.from)}&rdquo;</span>
                     )}
                   </div>
