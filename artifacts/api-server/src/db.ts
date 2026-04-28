@@ -1140,6 +1140,10 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS reminder_enabled BOOLEAN NOT NULL DEFAULT false`);
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS reminder_days INTEGER NOT NULL DEFAULT 2`);
 
+  // ── Timezone & Locale ─────────────────────────────────────────────────────────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'America/New_York'`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS date_format TEXT NOT NULL DEFAULT 'MM/DD/YYYY'`);
+
   // ── Data & Privacy — submission retention and scheduled account deletion ──────
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS submission_retention_days INTEGER`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deletion_requested_at TIMESTAMPTZ`);

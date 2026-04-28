@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { useProductRole } from "@/hooks/useProductRole";
-import { updateProductOrgCache, type ProductOrgSettings } from "@/hooks/useProductOrgSettings";
+import { updateProductOrgCache, getCachedProductOrg, type ProductOrgSettings } from "@/hooks/useProductOrgSettings";
+import { formatOrgDate, formatOrgRelative } from "@/lib/orgDateFormat";
 import { BrandColorSection } from "@/components/settings/BrandColorSection";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
@@ -53,14 +54,7 @@ function roleBadge(role: string) {
 }
 
 function formatRelative(iso: string | null): string {
-  if (!iso) return "Never";
-  const diff = Date.now() - new Date(iso).getTime();
-  const days = Math.floor(diff / 86400000);
-  if (days === 0) return "Today";
-  if (days === 1) return "Yesterday";
-  if (days < 30)  return `${days}d ago`;
-  if (days < 365) return `${Math.floor(days / 30)}mo ago`;
-  return `${Math.floor(days / 365)}y ago`;
+  return formatOrgRelative(iso, getCachedProductOrg());
 }
 
 interface BillingInfo {
@@ -129,8 +123,7 @@ function UsageBar({ label, used, limit, unit = "" }: { label: string; used: numb
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return formatOrgDate(iso, getCachedProductOrg());
 }
 
 function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
@@ -956,8 +949,7 @@ function actionBadgeColor(action: string): string {
 }
 
 function formatTimestamp(iso: string): string {
-  const d = new Date(iso);
-  return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+  return formatOrgDate(iso, getCachedProductOrg(), true);
 }
 
 // ── Notifications Section ────────────────────────────────────────────────────
@@ -1461,7 +1453,7 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
   }
 
   function formatDate(iso: string) {
-    return new Date(iso).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    return formatOrgDate(iso, getCachedProductOrg());
   }
 
   const activeKeys = keys.filter((k) => k.active);
@@ -2219,6 +2211,166 @@ const RETENTION_OPTIONS: { label: string; value: number | null }[] = [
   { label: "1 year",       value: 365 },
   { label: "2 years",      value: 730 },
 ];
+
+const DATE_FORMAT_OPTIONS = [
+  { value: "MM/DD/YYYY", label: "MM/DD/YYYY  (e.g. 04/28/2026)" },
+  { value: "DD/MM/YYYY", label: "DD/MM/YYYY  (e.g. 28/04/2026)" },
+  { value: "YYYY-MM-DD", label: "YYYY-MM-DD  (e.g. 2026-04-28)" },
+];
+
+const ALL_TIMEZONES: string[] = (() => {
+  try { return Intl.supportedValuesOf("timeZone"); }
+  catch { return ["America/New_York", "America/Chicago", "America/Denver", "America/Los_Angeles", "UTC"]; }
+})();
+
+function TimezoneLocaleSection({
+  getAuthHeaders,
+  isAdmin,
+}: {
+  getAuthHeaders: () => HeadersInit;
+  isAdmin: boolean;
+}) {
+  const [timezone,   setTimezone]   = useState("America/New_York");
+  const [dateFormat, setDateFormat] = useState("MM/DD/YYYY");
+  const [tzSearch,   setTzSearch]   = useState("");
+  const [isSaving,   setIsSaving]   = useState(false);
+  const [saveMsg,    setSaveMsg]    = useState<string | null>(null);
+  const [loadErr,    setLoadErr]    = useState<string | null>(null);
+  const [dirty,      setDirty]      = useState(false);
+
+  useEffect(() => {
+    const h = new Headers(getAuthHeaders());
+    fetch(`${SETTINGS_BASE}/locale`, { headers: h })
+      .then((r) => r.json())
+      .then((d: { timezone?: string; dateFormat?: string; error?: string }) => {
+        if (d.error) { setLoadErr(d.error); return; }
+        if (d.timezone)   setTimezone(d.timezone);
+        if (d.dateFormat) setDateFormat(d.dateFormat);
+      })
+      .catch(() => setLoadErr("Failed to load locale settings."));
+  }, []);
+
+  const filteredTz = tzSearch.trim()
+    ? ALL_TIMEZONES.filter((tz) => tz.toLowerCase().includes(tzSearch.toLowerCase()))
+    : ALL_TIMEZONES;
+
+  const previewNow = new Date().toISOString();
+  const previewDate = formatOrgDate(previewNow, { timezone, date_format: dateFormat });
+  const previewDateTime = formatOrgDate(previewNow, { timezone, date_format: dateFormat }, true);
+
+  async function handleSave() {
+    setIsSaving(true);
+    setSaveMsg(null);
+    try {
+      const h = new Headers(getAuthHeaders());
+      h.set("Content-Type", "application/json");
+      const r = await fetch(`${SETTINGS_BASE}/locale`, {
+        method: "PATCH",
+        headers: h,
+        body: JSON.stringify({ timezone, dateFormat: dateFormat }),
+      });
+      const d = await r.json() as { timezone?: string; dateFormat?: string; error?: string };
+      if (!r.ok) { setSaveMsg(d.error ?? "Failed to save."); return; }
+      updateProductOrgCache({ ...getCachedProductOrg()!, timezone, date_format: dateFormat });
+      setSaveMsg("Saved!");
+      setDirty(false);
+      setTimeout(() => setSaveMsg(null), 3000);
+    } catch {
+      setSaveMsg("Failed to save.");
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-6">
+      <h2 className="text-base font-semibold text-gray-900 mb-1">Timezone &amp; Locale</h2>
+      <p className="text-sm text-gray-500 mb-5">
+        Set the timezone and date format used for all timestamps in this workspace.
+      </p>
+
+      {loadErr && (
+        <p className="text-sm text-red-600 mb-4">{loadErr}</p>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        {/* Timezone selector */}
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1.5">Timezone</label>
+          <input
+            type="text"
+            placeholder="Search timezones…"
+            value={tzSearch}
+            onChange={(e) => setTzSearch(e.target.value)}
+            disabled={!isAdmin}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 mb-1.5 disabled:bg-gray-50 disabled:text-gray-400"
+          />
+          <select
+            value={timezone}
+            onChange={(e) => { setTimezone(e.target.value); setDirty(true); }}
+            disabled={!isAdmin}
+            size={6}
+            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-400 disabled:bg-gray-50 disabled:text-gray-400"
+          >
+            {filteredTz.map((tz) => (
+              <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+            ))}
+          </select>
+          <p className="text-[11px] text-gray-400 mt-1">Selected: <span className="font-mono font-medium text-gray-600">{timezone}</span></p>
+        </div>
+
+        {/* Date format selector */}
+        <div>
+          <label className="block text-xs font-medium text-gray-700 mb-1.5">Date Format</label>
+          <div className="flex flex-col gap-2">
+            {DATE_FORMAT_OPTIONS.map((opt) => (
+              <label key={opt.value} className={`flex items-center gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors ${dateFormat === opt.value ? "border-gray-900 bg-gray-50" : "border-gray-200 bg-white hover:bg-gray-50"} ${!isAdmin ? "pointer-events-none opacity-60" : ""}`}>
+                <input
+                  type="radio"
+                  name="dateFormat"
+                  value={opt.value}
+                  checked={dateFormat === opt.value}
+                  disabled={!isAdmin}
+                  onChange={() => { setDateFormat(opt.value); setDirty(true); }}
+                  className="accent-gray-900"
+                />
+                <span className="text-sm text-gray-700 font-mono">{opt.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Live preview */}
+      <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-5 py-4 mb-5">
+        <p className="text-[11px] font-medium text-gray-500 uppercase tracking-wider mb-2">Preview</p>
+        <div className="flex flex-wrap gap-x-8 gap-y-1.5 text-sm text-gray-800">
+          <span><span className="text-gray-500 mr-1.5">Date:</span><span className="font-mono">{previewDate}</span></span>
+          <span><span className="text-gray-500 mr-1.5">Date &amp; Time:</span><span className="font-mono">{previewDateTime}</span></span>
+          <span><span className="text-gray-500 mr-1.5">Timezone:</span><span className="font-mono">{timezone}</span></span>
+        </div>
+      </div>
+
+      {isAdmin && (
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            disabled={isSaving || !dirty}
+            onClick={() => { void handleSave(); }}
+            className="rounded-lg bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 transition-colors"
+          >
+            {isSaving ? "Saving…" : "Save changes"}
+          </button>
+          {saveMsg && (
+            <span className={`text-sm font-medium ${saveMsg === "Saved!" ? "text-green-600" : "text-red-600"}`}>
+              {saveMsg}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function DataPrivacySection({
   getAuthHeaders,
@@ -3033,6 +3185,11 @@ export default function AppSettings() {
       {/* Email customization section — admin writes, all can view */}
       <div id="email-section">
         <EmailCustomizationSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
+      </div>
+
+      {/* Timezone & Locale section */}
+      <div id="timezone-locale-section">
+        <TimezoneLocaleSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
       </div>
 
       {/* Data & Privacy section */}
