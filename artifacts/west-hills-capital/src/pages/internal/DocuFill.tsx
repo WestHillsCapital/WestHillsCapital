@@ -15,7 +15,14 @@ import * as pdfjsLib from "pdfjs-dist";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+// In dev mode, always use the Vite proxy (relative "") so requests go to the
+// local API server. In production, use the Railway URL from VITE_API_URL.
+// We use import.meta.env.DEV (a Vite-native constant) rather than checking
+// VITE_API_URL itself, because VITE_API_URL can be set in the dev environment
+// and would otherwise be picked up by Vite's automatic VITE_* injection.
+const API_BASE = import.meta.env.DEV
+  ? ""
+  : ((import.meta.env.VITE_API_URL as string | undefined) ?? "");
 const DOCUFILL_TRANSACTION_TYPES = [
   { value: "ira_transfer", label: "IRA transfer / rollover" },
   { value: "ira_contribution", label: "IRA contribution" },
@@ -1649,7 +1656,11 @@ export default function DocuFill() {
   }
 
   async function createFieldLibraryItem(): Promise<string | null> {
-    const label = `Reusable field ${fieldLibrary.length + 1}`;
+    // Use a random suffix so the generated id can never collide with an
+    // existing entry — basing it on fieldLibrary.length caused conflicts
+    // whenever the browser's field list was stale relative to the database.
+    const suffix = Math.random().toString(36).slice(2, 7).toUpperCase();
+    const label = `New Field ${suffix}`;
     try {
       const res = await fetch(`${API_BASE}${docufillApiPath}/field-library`, {
         method: "POST",
