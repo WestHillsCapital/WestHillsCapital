@@ -1140,6 +1140,11 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS reminder_enabled BOOLEAN NOT NULL DEFAULT false`);
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS reminder_days INTEGER NOT NULL DEFAULT 2`);
 
+  // ── Data & Privacy — submission retention and scheduled account deletion ──────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS submission_retention_days INTEGER`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deletion_requested_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deletion_requested_by TEXT`);
+
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 
@@ -1163,6 +1168,49 @@ export async function initDb(): Promise<void> {
 
   pruneAuditTables().catch(() => {});
   setInterval(() => pruneAuditTables().catch(() => {}), 24 * 60 * 60 * 1000).unref();
+
+  // ── Submission retention: delete sessions older than the account's policy ─────
+  async function pruneRetainedSubmissions(): Promise<void> {
+    try {
+      const retentionDb = getDb();
+      const { rowCount } = await retentionDb.query(`
+        DELETE FROM docufill_interview_sessions dis
+        USING accounts a
+        WHERE dis.account_id = a.id
+          AND a.submission_retention_days IS NOT NULL
+          AND dis.created_at < NOW() - (a.submission_retention_days || ' days')::INTERVAL
+      `);
+      if ((rowCount ?? 0) > 0) {
+        logger.info({ rowCount }, "[DB] Pruned old interview sessions per retention policy");
+      }
+    } catch (err) {
+      logger.error({ err }, "[DB] Submission retention prune failed (non-fatal)");
+    }
+  }
+
+  pruneRetainedSubmissions().catch(() => {});
+  setInterval(() => pruneRetainedSubmissions().catch(() => {}), 24 * 60 * 60 * 1000).unref();
+
+  // ── Account deletion: hard-delete accounts past their 7-day grace period ──────
+  async function processScheduledDeletions(): Promise<void> {
+    try {
+      const delDb = getDb();
+      const { rows } = await delDb.query<{ id: number; name: string }>(
+        `SELECT id, name FROM accounts
+         WHERE deletion_requested_at IS NOT NULL
+           AND deletion_requested_at < NOW() - INTERVAL '7 days'`,
+      );
+      for (const account of rows) {
+        await delDb.query(`DELETE FROM accounts WHERE id = $1`, [account.id]);
+        logger.info({ accountId: account.id, name: account.name }, "[DB] Hard-deleted account after grace period");
+      }
+    } catch (err) {
+      logger.error({ err }, "[DB] Account deletion processing failed (non-fatal)");
+    }
+  }
+
+  processScheduledDeletions().catch(() => {});
+  setInterval(() => processScheduledDeletions().catch(() => {}), 6 * 60 * 60 * 1000).unref();
 }
 
 /**

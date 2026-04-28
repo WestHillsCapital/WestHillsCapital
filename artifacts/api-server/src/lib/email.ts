@@ -2131,3 +2131,60 @@ export async function sendOrgAlertEmails(params: {
     }
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+
+export async function sendDataExportEmail(params: {
+  to:         string;
+  orgName:    string;
+  exportJson: string;
+}): Promise<void> {
+  const date     = new Date().toISOString().slice(0, 10);
+  const safeName = params.orgName.replace(/[^a-z0-9_-]/gi, "_");
+  const filename = `${safeName}_data_export_${date}.json`;
+  const content  = Buffer.from(params.exportJson, "utf-8").toString("base64");
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f9fafb;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;border:1px solid #e5e7eb;overflow:hidden;">
+        <tr>
+          <td style="padding:28px 28px 0;">
+            <p style="margin:0 0 4px;font-size:18px;font-weight:700;color:#111827;">Your data export is ready</p>
+            <p style="margin:0;font-size:13px;color:#6b7280;">Docuplete · ${params.orgName}</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:20px 28px 28px;">
+            <p style="margin:0 0 12px;font-size:14px;color:#374151;line-height:1.6;">
+              The data export you requested for <strong>${params.orgName}</strong> is attached to this email as a JSON file.
+              It includes your organization settings, team members, packages, and submission records.
+            </p>
+            <p style="margin:0;font-size:12px;color:#9ca3af;">
+              If you didn&apos;t request this export, please contact your organization administrator immediately.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:12px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;">Sent by Docuplete &middot; This export contains sensitive organization data — handle with care.</p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  await sendEmail({
+    to:          params.to,
+    subject:     `Data export — ${params.orgName}`,
+    html,
+    attachments: [{ filename, content, contentType: "application/json" }],
+  });
+}

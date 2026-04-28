@@ -8,7 +8,7 @@ import { extractBrandColors, isSafeUrl } from "../lib/brandColorExtractor";
 import { requireAdminRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
 import { brandColorRateLimit } from "../middleware/brandColorRateLimit";
-import { sendTeamInvitationEmail } from "../lib/email";
+import { sendTeamInvitationEmail, sendDataExportEmail } from "../lib/email";
 import { getPlanLimits } from "../lib/plans";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { isIpAllowed } from "../lib/cidr";
@@ -2080,6 +2080,225 @@ router.patch("/interview-defaults", requireAdminRole, async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Settings] Failed to update interview defaults");
     res.status(500).json({ error: "Failed to update interview defaults" });
+  }
+});
+
+// ── Data & Privacy settings ───────────────────────────────────────────────────
+
+router.get("/data-privacy", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT submission_retention_days, deletion_requested_at, deletion_requested_by
+         FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "Account not found" }); return; }
+    const row = rows[0] as Record<string, unknown>;
+    res.json({
+      submissionRetentionDays: row.submission_retention_days ?? null,
+      deletionRequestedAt:     row.deletion_requested_at ?? null,
+      deletionRequestedBy:     row.deletion_requested_by ?? null,
+    });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to get data privacy settings");
+    res.status(500).json({ error: "Failed to get data privacy settings" });
+  }
+});
+
+router.patch("/data-privacy", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as Record<string, unknown>;
+    const db = getDb();
+
+    let retentionDays: number | null = null;
+    if ("submissionRetentionDays" in body) {
+      if (body.submissionRetentionDays === null) {
+        retentionDays = null;
+      } else if (typeof body.submissionRetentionDays === "number" && body.submissionRetentionDays > 0) {
+        retentionDays = Math.floor(body.submissionRetentionDays);
+      } else {
+        res.status(400).json({ error: "submissionRetentionDays must be a positive integer or null." });
+        return;
+      }
+    }
+
+    const { rows } = await db.query(
+      `UPDATE accounts SET submission_retention_days = $1
+         WHERE id = $2 RETURNING submission_retention_days`,
+      [retentionDays, accountId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "Account not found" }); return; }
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const actorEmail  = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "data.update_retention",
+      resourceType: "org",
+      metadata: { submissionRetentionDays: retentionDays },
+    });
+
+    const row = rows[0] as Record<string, unknown>;
+    res.json({ submissionRetentionDays: row.submission_retention_days ?? null });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to update data privacy settings");
+    res.status(500).json({ error: "Failed to update data privacy settings" });
+  }
+});
+
+// ── Data export ───────────────────────────────────────────────────────────────
+
+router.post("/data/request-export", requireAdminRole, async (req, res) => {
+  try {
+    const accountId    = req.internalAccountId ?? 1;
+    const clerkUserId  = getAuth(req)?.userId ?? null;
+    const actorEmail   = await getActorEmail(accountId, clerkUserId);
+
+    if (!actorEmail) {
+      res.status(400).json({ error: "Could not determine your email address for export delivery." });
+      return;
+    }
+
+    res.json({ success: true, message: "Export queued. You'll receive an email with your data shortly." });
+
+    setImmediate(() => {
+      void (async () => {
+        try {
+          const db = getDb();
+          const [orgRes, teamRes, packagesRes, sessionsRes] = await Promise.all([
+            db.query(
+              `SELECT id, name, slug, plan_tier, email_sender_name, email_reply_to, email_footer,
+                      interview_link_expiry_days, interview_reminder_enabled, interview_reminder_days,
+                      interview_default_locale, submission_retention_days, created_at
+                 FROM accounts WHERE id = $1`,
+              [accountId],
+            ),
+            db.query(
+              `SELECT email, role, status, created_at FROM account_users
+                WHERE account_id = $1 ORDER BY created_at`,
+              [accountId],
+            ),
+            db.query(
+              `SELECT id, name, status, created_at FROM docufill_packages
+                WHERE account_id = $1 ORDER BY created_at`,
+              [accountId],
+            ),
+            db.query(
+              `SELECT id, interview_token, status, respondent_email, created_at, submitted_at
+                 FROM docufill_interview_sessions
+                WHERE account_id = $1 ORDER BY created_at DESC`,
+              [accountId],
+            ),
+          ]);
+
+          const exportData = {
+            exportedAt:  new Date().toISOString(),
+            org:         orgRes.rows[0] ?? null,
+            team:        teamRes.rows,
+            packages:    packagesRes.rows,
+            submissions: sessionsRes.rows,
+          };
+
+          await sendDataExportEmail({
+            to:         actorEmail,
+            orgName:    (orgRes.rows[0] as Record<string, unknown>)?.name as string ?? "Your Organization",
+            exportJson: JSON.stringify(exportData, null, 2),
+          });
+
+          void insertAuditLog({
+            accountId, actorEmail, actorUserId: clerkUserId,
+            action: "data.export_requested",
+            resourceType: "org",
+          });
+        } catch (err) {
+          logger.error({ err }, "[Settings] Data export generation or delivery failed");
+        }
+      })();
+    });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to initiate data export");
+    res.status(500).json({ error: "Failed to initiate data export" });
+  }
+});
+
+// ── Account deletion ──────────────────────────────────────────────────────────
+
+router.post("/data/request-deletion", requireAdminRole, async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const body        = req.body as Record<string, unknown>;
+    const db          = getDb();
+
+    const { rows: orgRows } = await db.query(
+      `SELECT name FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!orgRows[0]) { res.status(404).json({ error: "Account not found" }); return; }
+    const orgName     = (orgRows[0] as Record<string, unknown>).name as string;
+
+    const confirmName = typeof body.confirmName === "string" ? body.confirmName.trim() : "";
+    if (confirmName !== orgName.trim()) {
+      res.status(400).json({ error: `Organization name does not match. Please type "${orgName}" exactly.` });
+      return;
+    }
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const actorEmail  = await getActorEmail(accountId, clerkUserId);
+
+    const { rows } = await db.query(
+      `UPDATE accounts
+          SET deletion_requested_at = NOW(), deletion_requested_by = $1
+        WHERE id = $2
+        RETURNING deletion_requested_at, deletion_requested_by`,
+      [actorEmail, accountId],
+    );
+    const row = rows[0] as Record<string, unknown>;
+
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "data.deletion_requested",
+      resourceType: "org",
+      metadata: { graceWindowDays: 7 },
+    });
+
+    res.json({
+      deletionRequestedAt: row.deletion_requested_at,
+      deletionRequestedBy: row.deletion_requested_by,
+      message: "Account deletion scheduled. You have 7 days to cancel before all data is permanently removed.",
+    });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to request account deletion");
+    res.status(500).json({ error: "Failed to request account deletion" });
+  }
+});
+
+router.delete("/data/cancel-deletion", requireAdminRole, async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const db          = getDb();
+
+    await db.query(
+      `UPDATE accounts
+          SET deletion_requested_at = NULL, deletion_requested_by = NULL
+        WHERE id = $1`,
+      [accountId],
+    );
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const actorEmail  = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "data.deletion_cancelled",
+      resourceType: "org",
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to cancel account deletion");
+    res.status(500).json({ error: "Failed to cancel account deletion" });
   }
 });
 
