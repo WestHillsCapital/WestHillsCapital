@@ -2,7 +2,7 @@ import { getDb } from "../db";
 import { logger } from "./logger";
 import { insertAuditLog } from "./auditLog";
 import { PLAN_LIMITS } from "./plans";
-import { getUserEmailsToNotify } from "./notificationPrefs";
+import { getUserEmailsToNotify, sendInAppNotifications } from "./notificationPrefs";
 import { sendOrgAlertEmails } from "./email";
 
 type StripeSubscriptionObject = {
@@ -128,7 +128,7 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
         },
       });
 
-      // Notify org members who want billing_plan_change emails
+      // Notify org members who want billing_plan_change notifications
       void (async () => {
         try {
           const { rows: orgRows } = await db.query<{ name: string }>(
@@ -136,7 +136,12 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
             [preAccount.id],
           );
           const orgName = orgRows[0]?.name ?? "Docuplete";
-          const emails = await getUserEmailsToNotify(preAccount.id, "billing_plan_change");
+          const notifTitle = `Plan changed to ${planTier}`;
+          const notifBody  = `Your subscription was updated from ${preAccount.plan_tier} to ${planTier}.`;
+          const [emails] = await Promise.all([
+            getUserEmailsToNotify(preAccount.id, "billing_plan_change"),
+            sendInAppNotifications(preAccount.id, "billing_plan_change", notifTitle, notifBody),
+          ]);
           await sendOrgAlertEmails({
             recipientEmails: emails,
             orgName,
@@ -177,14 +182,23 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
     const failedAcc = failedAccRows[0] ?? null;
     logger.warn({ customerId: inv.customer }, "[BillingSync] Subscription marked past_due on invoice.payment_failed");
 
-    // Notify org members who want billing_payment_failed emails
+    // Notify org members who want billing_payment_failed notifications
     if (failedAcc) {
       void (async () => {
         try {
-          const emails = await getUserEmailsToNotify(failedAcc.id, "billing_payment_failed");
+          const orgName = failedAcc.name ?? "Docuplete";
+          const [emails] = await Promise.all([
+            getUserEmailsToNotify(failedAcc.id, "billing_payment_failed"),
+            sendInAppNotifications(
+              failedAcc.id,
+              "billing_payment_failed",
+              "Payment failed",
+              "A payment attempt failed. Please update your billing information.",
+            ),
+          ]);
           await sendOrgAlertEmails({
             recipientEmails: emails,
-            orgName:  failedAcc.name ?? "Docuplete",
+            orgName,
             subject:  "Action required: payment failed on your Docuplete subscription",
             heading:  "Payment failed",
             bodyHtml: `<p>A payment attempt for your Docuplete subscription was unsuccessful. Your account has been marked as past due.</p><p>Please update your billing information to restore full access.</p>`,

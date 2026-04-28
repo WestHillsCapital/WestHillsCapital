@@ -14,7 +14,7 @@ import { getUncachableStripeClient } from "../lib/stripeClient";
 import { isIpAllowed } from "../lib/cidr";
 import express from "express";
 import { insertAuditLog, getActorEmail } from "../lib/auditLog";
-import { getUserEmailsToNotify } from "../lib/notificationPrefs";
+import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { sendOrgAlertEmails } from "../lib/email";
 
 const router: IRouter = Router();
@@ -873,15 +873,27 @@ router.delete("/team/:id", requireAdminRole, async (req, res) => {
       metadata: { role: targets[0].role },
     });
 
-    // Notify remaining org members who want team_member_removed emails
+    // Notify remaining org members who want team_member_removed notifications
     void (async () => {
       try {
         const { rows: orgRows } = await db.query<{ name: string }>(
           `SELECT name FROM accounts WHERE id = $1`, [accountId],
         );
         const orgName = orgRows[0]?.name ?? "Docuplete";
-        const emails = (await getUserEmailsToNotify(accountId, "team_member_removed"))
-          .filter(e => e !== removedEmail && e !== removeActorEmail);
+        const notifTitle = "Team member removed";
+        const notifBody  = `${removedEmail} was removed from your organization${removeActorEmail ? ` by ${removeActorEmail}` : ""}.`;
+        const [emails] = await Promise.all([
+          getUserEmailsToNotify(accountId, "team_member_removed").then(list =>
+            list.filter(e => e !== removedEmail && e !== removeActorEmail),
+          ),
+          sendInAppNotifications(
+            accountId,
+            "team_member_removed",
+            notifTitle,
+            notifBody,
+            clerkUserId ? [clerkUserId] : [],
+          ),
+        ]);
         await sendOrgAlertEmails({
           recipientEmails: emails,
           orgName,
@@ -1721,6 +1733,65 @@ router.put("/notifications", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Notifications] Failed to save preferences");
     res.status(500).json({ error: "Failed to save notification preferences." });
+  }
+});
+
+// ── In-app notification inbox ─────────────────────────────────────────────────
+
+router.get("/notifications/inbox", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId;
+    if (!clerkUserId) return void res.status(401).json({ error: "Unauthorized" });
+
+    const db = getDb();
+    const limit = Math.min(parseInt(String(req.query.limit ?? "50"), 10) || 50, 100);
+    const unreadOnly = req.query.unread === "true";
+
+    const whereExtra = unreadOnly ? "AND read_at IS NULL" : "";
+    const { rows } = await db.query<{
+      id: number;
+      event_key: string;
+      title: string;
+      body: string;
+      read_at: string | null;
+      created_at: string;
+    }>(
+      `SELECT id, event_key, title, body, read_at, created_at
+         FROM user_in_app_notifications
+        WHERE account_id = $1 AND clerk_user_id = $2 ${whereExtra}
+        ORDER BY created_at DESC
+        LIMIT ${limit}`,
+      [accountId, clerkUserId],
+    );
+    return void res.json({ notifications: rows });
+  } catch (err) {
+    logger.error({ err }, "[Notifications] Failed to fetch inbox");
+    res.status(500).json({ error: "Failed to fetch notifications." });
+  }
+});
+
+router.patch("/notifications/inbox/:id/read", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId;
+    if (!clerkUserId) return void res.status(401).json({ error: "Unauthorized" });
+
+    const db = getDb();
+    const notifId = parseInt(req.params["id"]!, 10);
+    if (isNaN(notifId)) return void res.status(400).json({ error: "Invalid notification ID." });
+
+    const { rowCount } = await db.query(
+      `UPDATE user_in_app_notifications
+          SET read_at = NOW()
+        WHERE id = $1 AND account_id = $2 AND clerk_user_id = $3 AND read_at IS NULL`,
+      [notifId, accountId, clerkUserId],
+    );
+    if (!rowCount) return void res.status(404).json({ error: "Notification not found or already read." });
+    return void res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[Notifications] Failed to mark as read");
+    res.status(500).json({ error: "Failed to mark notification as read." });
   }
 });
 
