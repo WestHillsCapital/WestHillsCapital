@@ -19,6 +19,7 @@ export function useProductAuth() {
   const [account, setAccount]     = useState<ProductAccount | null>(null);
   const [accountLoading, setAccountLoading] = useState(true);
   const [needsOnboard, setNeedsOnboard]     = useState(false);
+  const [needs2FA, setNeeds2FA]             = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -27,6 +28,7 @@ export function useProductAuth() {
       setAccount(null);
       setAccountLoading(false);
       setAuthError(null);
+      setNeeds2FA(false);
       return;
     }
     let cancelled = false;
@@ -46,22 +48,25 @@ export function useProductAuth() {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (res) => {
-        // 404 or 401 with ACCOUNT_NOT_FOUND → show the onboarding form
-        if (res.status === 404 || res.status === 401) {
-          const body = await res.json().catch(() => ({})) as { code?: string };
+        const body = await res.json().catch(() => ({})) as { code?: string; error?: string };
+
+        if (res.status === 403 && body.code === "TOTP_REQUIRED") {
+          setNeeds2FA(true);
+          setAccount(null);
+        } else if (res.status === 404 || res.status === 401) {
           if (res.status === 404 || body.code === "ACCOUNT_NOT_FOUND") {
             setNeedsOnboard(true);
             setAccount(null);
           } else {
-            // True auth failure (invalid/expired session) — surface an error
             setAuthError("Session could not be verified. Please sign out and sign back in.");
             setAccount(null);
           }
         } else if (res.ok) {
-          const data = await res.json() as ProductAccount;
+          const data = body as unknown as ProductAccount;
           if (data.orgLogoUrl) data.orgLogoUrl = `${API_BASE}${data.orgLogoUrl}`;
           setAccount(data);
           setNeedsOnboard(false);
+          setNeeds2FA(false);
           setAuthError(null);
         }
       })
@@ -82,6 +87,28 @@ export function useProductAuth() {
       if (data.orgLogoUrl) data.orgLogoUrl = `${API_BASE}${data.orgLogoUrl}`;
       setAccount(data);
       setNeedsOnboard(false);
+      setNeeds2FA(false);
+    }
+  }, [token]);
+
+  const verify2FA = useCallback(async (code: string): Promise<{ success: boolean; error?: string }> => {
+    if (!token) return { success: false, error: "Not authenticated." };
+    try {
+      const res = await fetch(`${API_BASE}/api/v1/product/auth/verify-2fa`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ code }),
+      });
+      const data = await res.json() as { success?: boolean; error?: string; code?: string };
+      if (res.ok && data.success) {
+        return { success: true };
+      }
+      return { success: false, error: data.error ?? "Verification failed." };
+    } catch {
+      return { success: false, error: "Unable to reach the server." };
     }
   }, [token]);
 
@@ -98,10 +125,12 @@ export function useProductAuth() {
     account,
     accountLoading,
     needsOnboard,
+    needs2FA,
     authError,
     setNeedsOnboard,
     getAuthHeaders,
     refreshAccount,
+    verify2FA,
     signOut,
   };
 }

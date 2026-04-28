@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { randomBytes, createHash } from "crypto";
 import { Router } from "express";
 import { getAuth } from "@clerk/express";
 import { getDb } from "../db";
@@ -11,6 +11,15 @@ import { seedDemoPackage } from "../lib/demoPackage";
 import { insertAuditLog, getActorEmail } from "../lib/auditLog";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { sendOrgAlertEmails } from "../lib/email";
+import { verifySync as totpVerifySync } from "otplib";
+import { isRateLimited, isCurrentlyBlocked } from "../lib/ratelimit";
+
+const TOTP_FAIL_MAX = 10;
+const TOTP_FAIL_WINDOW_MS = 60 * 1000;
+
+function hashBackupCode(code: string): string {
+  return createHash("sha256").update(code.toUpperCase()).digest("hex");
+}
 
 const router = Router();
 
@@ -214,6 +223,138 @@ router.get("/me", requireProductAuth, async (req, res) => {
     });
   } catch (err) {
     logger.error({ err }, "[ProductAuth] /me error");
+    return void res.status(500).json({ error: "Server error." });
+  }
+});
+
+/**
+ * POST /api/v1/product/auth/verify-2fa
+ *
+ * Verifies a TOTP code (or backup code) for the current Clerk session.
+ * When successful, marks the session as 2FA-verified so subsequent requests
+ * are allowed through requireProductAuth without another TOTP challenge.
+ *
+ * Body: { code: string }
+ * Requires: Clerk JWT (called before requireProductAuth would block access)
+ */
+router.post("/verify-2fa", async (req, res) => {
+  const auth = getAuth(req);
+  const clerkUserId = auth?.userId;
+  const ip = req.ip ?? req.socket?.remoteAddress ?? null;
+
+  if (!clerkUserId) {
+    return void res.status(401).json({ error: "Authentication required." });
+  }
+
+  // Rate limit by combined IP + Clerk user ID so that users on shared IPs
+  // don't block each other. This is a cheap in-memory check before any DB work.
+  const ipUserKey = `totp_fail:ip:${ip ?? "unknown"}:uid:${clerkUserId}`;
+  if (isCurrentlyBlocked(ipUserKey, TOTP_FAIL_MAX, TOTP_FAIL_WINDOW_MS)) {
+    return void res.status(429).json({ error: "Too many failed attempts. Please wait before trying again." });
+  }
+
+  const code = ((req.body as { code?: string }).code ?? "").trim();
+  if (!code) {
+    return void res.status(400).json({ error: "code is required." });
+  }
+
+  try {
+    const userResult = await getDb().query<{
+      id: number;
+      account_id: number;
+      role: string;
+      totp_enabled: boolean;
+      totp_secret: string | null;
+      totp_backup_codes: string[];
+    }>(
+      `SELECT id, account_id, role, totp_enabled, totp_secret, totp_backup_codes
+         FROM account_users
+        WHERE clerk_user_id = $1 AND status = 'active'
+        LIMIT 1`,
+      [clerkUserId],
+    );
+
+    if (!userResult.rows[0]) {
+      return void res.status(404).json({ error: "Account not found.", code: "ACCOUNT_NOT_FOUND" });
+    }
+
+    const user = userResult.rows[0];
+
+    // Also check per-user rate limit (blocks cross-IP brute-force on the same account)
+    const userKey = `totp_fail:user:${user.id}`;
+    if (isCurrentlyBlocked(userKey, TOTP_FAIL_MAX, TOTP_FAIL_WINDOW_MS)) {
+      return void res.status(429).json({ error: "Too many failed attempts. Please wait before trying again." });
+    }
+
+    if (!user.totp_enabled || !user.totp_secret) {
+      return void res.status(400).json({ error: "Two-factor authentication is not enabled for this account." });
+    }
+
+    const secret = user.totp_secret;
+    const storedHashes = user.totp_backup_codes ?? [];
+
+    // Check TOTP code first — wrap in try/catch since otplib may throw on
+    // malformed secrets or tokens rather than returning false
+    let validTotp = false;
+    try {
+      validTotp = totpVerifySync({ token: code, secret }).valid;
+    } catch {
+      // Invalid token format or secret — treat as failed verification
+      validTotp = false;
+    }
+
+    // Check backup code if TOTP didn't match
+    const codeHash = hashBackupCode(code);
+    const backupIndex = storedHashes.indexOf(codeHash);
+    const validBackup = backupIndex !== -1;
+
+    if (!validTotp && !validBackup) {
+      // Increment rate limit counters on failed attempts (IP+user combined, and user-scoped).
+      // Both must always be incremented, so avoid short-circuit evaluation.
+      // If either counter crosses the threshold right now, return 429 immediately.
+      const ipUserLimited = isRateLimited(ipUserKey, TOTP_FAIL_MAX, TOTP_FAIL_WINDOW_MS);
+      const userLimited    = isRateLimited(userKey, TOTP_FAIL_MAX, TOTP_FAIL_WINDOW_MS);
+      const nowLimited     = ipUserLimited || userLimited;
+      if (nowLimited) {
+        return void res.status(429).json({ error: "Too many failed attempts. Please wait before trying again." });
+      }
+      return void res.status(401).json({ error: "Invalid authentication code.", code: "TOTP_INVALID" });
+    }
+
+    const sessionId = auth?.sessionId ?? null;
+    const ua = req.headers["user-agent"] ?? null;
+
+    if (!sessionId) {
+      return void res.status(400).json({ error: "No session ID found. Please sign in again." });
+    }
+
+    // If a backup code was used, consume it (remove from the stored list)
+    if (validBackup && !validTotp) {
+      const updatedCodes = [...storedHashes];
+      updatedCodes.splice(backupIndex, 1);
+      await getDb().query(
+        `UPDATE account_users SET totp_backup_codes = $1 WHERE id = $2`,
+        [updatedCodes, user.id],
+      );
+    }
+
+    // Upsert the session record and mark it as 2FA-verified
+    await getDb().query(
+      `INSERT INTO user_active_sessions (account_id, user_id, clerk_session_id, ip_address, user_agent, totp_verified)
+         VALUES ($1, $2, $3, $4, $5, TRUE)
+         ON CONFLICT (clerk_session_id) DO UPDATE
+           SET totp_verified  = TRUE,
+               last_active_at = NOW(),
+               ip_address     = EXCLUDED.ip_address,
+               user_agent     = EXCLUDED.user_agent`,
+      [user.account_id, user.id, sessionId, ip, ua],
+    );
+
+    logger.info({ userId: user.id, accountId: user.account_id, usedBackup: validBackup && !validTotp }, "[ProductAuth] 2FA verified for session");
+
+    return void res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[ProductAuth] verify-2fa error");
     return void res.status(500).json({ error: "Server error." });
   }
 });

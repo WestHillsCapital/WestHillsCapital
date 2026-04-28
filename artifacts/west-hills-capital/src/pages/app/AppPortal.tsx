@@ -5,6 +5,7 @@ import { useProductRole } from "@/hooks/useProductRole";
 import { DocuFillConfigProvider } from "@/hooks/useDocuFillConfig";
 import { InternalAuthProvider } from "@/hooks/useInternalAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
+import { TwoFAGate } from "@/components/auth/TwoFAGate";
 import AppOnboard from "./AppOnboard";
 import DocuFill from "@/pages/internal/DocuFill";
 
@@ -46,21 +47,33 @@ export default function AppPortal() {
     account,
     accountLoading,
     needsOnboard,
+    needs2FA,
     authError,
     signOut,
     refreshAccount,
+    verify2FA,
     getAuthHeaders,
   } = useProductAuth();
 
   // Wait for Clerk to load. Once loaded, if we're signed in we wait until
   // the /me fetch completes (accountLoading) OR we know the outcome
-  // (account, needsOnboard, authError) before rendering anything.
-  if (!isLoaded || (isSignedIn && accountLoading && !account && !needsOnboard && !authError)) {
+  // (account, needsOnboard, authError, needs2FA) before rendering anything.
+  if (!isLoaded || (isSignedIn && accountLoading && !account && !needsOnboard && !authError && !needs2FA)) {
     return <Spinner />;
   }
 
   if (!isSignedIn) {
     return <Redirect to="/app/sign-in" />;
+  }
+
+  if (needs2FA) {
+    return (
+      <TwoFAGate
+        verify2FA={verify2FA}
+        onVerified={() => refreshAccount()}
+        onSignOut={() => signOut({ redirectUrl: "/app/sign-in" })}
+      />
+    );
   }
 
   if (authError) {
