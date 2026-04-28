@@ -1,13 +1,12 @@
 import { useState } from "react";
+import { getCachedOrg } from "@/hooks/useOrgSettings";
+import { formatOrgDate } from "@/lib/orgDateFormat";
 
 // ── Helper ────────────────────────────────────────────────────────────────────
 
 function fmtDate(ts: string | null | undefined): string {
   if (!ts) return "";
-  return new Date(ts).toLocaleString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-    hour: "numeric", minute: "2-digit",
-  });
+  return formatOrgDate(ts, getCachedOrg(), true);
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────

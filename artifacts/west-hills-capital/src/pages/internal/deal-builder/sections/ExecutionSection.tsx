@@ -1,5 +1,7 @@
 import type { ExecutionResult } from "../types";
 import { EXECUTION_STEPS } from "../hooks/useDealExecution";
+import { getCachedOrg } from "@/hooks/useOrgSettings";
+import { formatOrgDate } from "@/lib/orgDateFormat";
 
 interface Props {
   locked:               boolean;
@@ -36,7 +38,7 @@ export function ExecutionSection({
             </div>
             {lockedAt && (
               <div className="text-[#8A9BB8] text-xs mt-0.5">
-                {new Date(lockedAt).toLocaleString()}
+                {formatOrgDate(lockedAt, getCachedOrg(), true)}
               </div>
             )}
             {executionResult && (

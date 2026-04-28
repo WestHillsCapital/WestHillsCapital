@@ -9,10 +9,16 @@ export type OrgSettings = {
   slug: string;
   logo_url: string | null;
   brand_color: string;
+  timezone:    string;
+  date_format: string;
 };
 
 let cachedOrg: OrgSettings | null = null;
 const listeners = new Set<(org: OrgSettings | null) => void>();
+
+export function getCachedOrg(): OrgSettings | null {
+  return cachedOrg;
+}
 
 export function invalidateOrgCache(): void {
   cachedOrg = null;

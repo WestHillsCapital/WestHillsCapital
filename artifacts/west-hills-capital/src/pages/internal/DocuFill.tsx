@@ -7,6 +7,8 @@ import { CSS as DndCSS } from "@dnd-kit/utilities";
 import { useLocation, useParams, useSearch } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { useDocuFillConfig } from "@/hooks/useDocuFillConfig";
+import { getCachedOrg } from "@/hooks/useOrgSettings";
+import { formatOrgTime } from "@/lib/orgDateFormat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -3975,7 +3977,7 @@ export default function DocuFill() {
                                                   <span className="text-[9px] text-amber-600 shrink-0">retry #{d.attempt_number}</span>
                                                 )}
                                                 <span className="text-[10px] text-[#B0A898] shrink-0">{d.duration_ms}ms</span>
-                                                <span className="text-[10px] text-[#B0A898] shrink-0">{new Date(d.created_at).toLocaleTimeString()}</span>
+                                                <span className="text-[10px] text-[#B0A898] shrink-0">{formatOrgTime(d.created_at, getCachedOrg())}</span>
                                               </button>
                                               {canRetry && (
                                                 <button

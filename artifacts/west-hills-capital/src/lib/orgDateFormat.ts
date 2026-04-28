@@ -57,6 +57,30 @@ export function formatOrgDate(
   }
 }
 
+export function formatOrgTime(
+  iso: string | null | undefined,
+  locale?: OrgLocale | null,
+): string {
+  if (!iso) return "—";
+  try {
+    const date = new Date(iso);
+    if (isNaN(date.getTime())) return "—";
+    const tz = locale?.timezone || DEFAULT_LOCALE.timezone;
+    const timeParts = new Intl.DateTimeFormat("en-US", {
+      timeZone: tz,
+      hour:     "2-digit",
+      minute:   "2-digit",
+      hour12:   true,
+    }).formatToParts(date);
+    const hour      = timeParts.find((p) => p.type === "hour")?.value      ?? "12";
+    const minute    = timeParts.find((p) => p.type === "minute")?.value    ?? "00";
+    const dayPeriod = timeParts.find((p) => p.type === "dayPeriod")?.value?.toLowerCase() ?? "am";
+    return `${hour}:${minute} ${dayPeriod}`;
+  } catch {
+    return "—";
+  }
+}
+
 export function formatOrgRelative(
   iso: string | null | undefined,
   locale?: OrgLocale | null,

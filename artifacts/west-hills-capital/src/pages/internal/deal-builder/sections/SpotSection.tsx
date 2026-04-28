@@ -1,6 +1,8 @@
 import type { SpotData } from "../types";
 import { fmtMoney } from "../utils";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { getCachedOrg } from "@/hooks/useOrgSettings";
+import { formatOrgTime } from "@/lib/orgDateFormat";
 
 interface Props {
   spotData:      SpotData;
@@ -37,7 +39,7 @@ export function SpotSection({ spotData, isFetchingSpot, spotError, locked, onGet
           <div className="text-xs text-[#8A9BB8] mb-1">Spot Timestamp</div>
           <div className="text-sm text-[#374560] font-mono">
             {spotData.spotTimestamp
-              ? new Date(spotData.spotTimestamp).toLocaleTimeString()
+              ? formatOrgTime(spotData.spotTimestamp, getCachedOrg())
               : "—"}
           </div>
         </div>

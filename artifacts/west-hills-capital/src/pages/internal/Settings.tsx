@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
-import { updateOrgCache, type OrgSettings } from "@/hooks/useOrgSettings";
+import { updateOrgCache, getCachedOrg, type OrgSettings } from "@/hooks/useOrgSettings";
+import { formatOrgDate } from "@/lib/orgDateFormat";
 import { BrandColorSection } from "@/components/settings/BrandColorSection";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
@@ -84,8 +85,7 @@ function formatRelative(iso: string | null): string {
 }
 
 function formatDate(iso: string | null): string {
-  if (!iso) return "—";
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return formatOrgDate(iso, getCachedOrg());
 }
 
 function formatPeriodStart(iso: string | null): string {
