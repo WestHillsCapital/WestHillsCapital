@@ -11,6 +11,8 @@
 
 import { initDb, getDb } from "../src/db.js";
 
+process.env.NODE_ENV = "test";
+
 try {
   await initDb();
   console.log("Test database initialised successfully.");

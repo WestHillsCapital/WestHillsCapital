@@ -18,6 +18,9 @@ on:
       - "scripts/validate-docufill-redaction.mjs"
       - ".github/workflows/docufill-redaction.yml"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   docufill-redaction:
     runs-on: ubuntu-latest
