@@ -2052,10 +2052,22 @@ export async function sendOrgAlertEmails(params: {
   heading:         string;
   bodyHtml:        string;
   emailSettings?:  OrgEmailSettings | null;
+  ctaUrl?:         string;
+  ctaText?:        string;
 }): Promise<void> {
   if (!params.recipientEmails.length) return;
 
   const orgName = params.orgName || "Docuplete";
+  const ctaBlock = params.ctaUrl
+    ? `<tr>
+          <td style="padding:0 32px 24px;">
+            <a href="${params.ctaUrl}"
+               style="display:inline-block;padding:10px 20px;background:#2563eb;color:#ffffff;font-size:14px;font-weight:600;text-decoration:none;border-radius:4px;">
+              ${params.ctaText ?? "Upgrade Plan"}
+            </a>
+          </td>
+        </tr>`
+    : "";
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -2083,6 +2095,9 @@ export async function sendOrgAlertEmails(params: {
             </div>
           </td>
         </tr>
+
+        <!-- CTA -->
+        ${ctaBlock}
 
         <!-- Footer -->
         <tr>

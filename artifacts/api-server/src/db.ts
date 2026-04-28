@@ -1084,6 +1084,24 @@ export async function initDb(): Promise<void> {
       ON user_in_app_notifications (account_id, clerk_user_id, created_at DESC)
   `);
 
+  // ── Plan limit alert deduplication ───────────────────────────────────────────
+  // Tracks which threshold alerts have already been sent for a given account
+  // in a billing period so we never fire the same email twice.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS plan_limit_alerts (
+      id                   BIGSERIAL PRIMARY KEY,
+      account_id           INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      billing_period_start DATE    NOT NULL,
+      threshold_pct        INTEGER NOT NULL,
+      sent_at              TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (account_id, billing_period_start, threshold_pct)
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS plan_limit_alerts_lookup_idx
+      ON plan_limit_alerts (account_id, billing_period_start)
+  `);
+
   // ── Org-level audit log ──────────────────────────────────────────────────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS org_audit_log (
