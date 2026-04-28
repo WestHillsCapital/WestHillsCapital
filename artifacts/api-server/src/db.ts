@@ -1219,6 +1219,7 @@ export async function initDb(): Promise<void> {
       revoked_at       TIMESTAMPTZ
     )
   `);
+  await db.query(`ALTER TABLE user_active_sessions ADD COLUMN IF NOT EXISTS totp_verified BOOLEAN NOT NULL DEFAULT FALSE`);
   await db.query(`
     CREATE INDEX IF NOT EXISTS user_active_sessions_user_idx
       ON user_active_sessions (user_id, last_active_at DESC)
@@ -1286,6 +1287,35 @@ export async function initDb(): Promise<void> {
 
   pruneRetainedSubmissions().catch(() => {});
   setInterval(() => pruneRetainedSubmissions().catch(() => {}), 24 * 60 * 60 * 1000).unref();
+
+  // ── Session & login-history retention ─────────────────────────────────────────
+  // Keeps user_active_sessions and user_login_history from growing unboundedly.
+  // Sessions inactive for 30+ days are deleted; login history older than 90 days
+  // is pruned. Runs once on startup (to clear any backlog) and every 24 hours.
+  async function pruneSessionData(): Promise<void> {
+    try {
+      const pruneDb = getDb();
+      const { rowCount: sessionRows } = await pruneDb.query(`
+        DELETE FROM user_active_sessions
+         WHERE last_active_at < NOW() - INTERVAL '30 days'
+      `);
+      if ((sessionRows ?? 0) > 0) {
+        logger.info({ rowCount: sessionRows }, "[DB] Pruned inactive user_active_sessions");
+      }
+      const { rowCount: historyRows } = await pruneDb.query(`
+        DELETE FROM user_login_history
+         WHERE created_at < NOW() - INTERVAL '90 days'
+      `);
+      if ((historyRows ?? 0) > 0) {
+        logger.info({ rowCount: historyRows }, "[DB] Pruned old user_login_history rows");
+      }
+    } catch (err) {
+      logger.error({ err }, "[DB] Session data prune failed (non-fatal)");
+    }
+  }
+
+  pruneSessionData().catch(() => {});
+  setInterval(() => pruneSessionData().catch(() => {}), 24 * 60 * 60 * 1000).unref();
 
   // ── Account deletion: hard-delete accounts past their 7-day grace period ──────
   // Uses explicit ordered deletes inside a transaction to avoid FK violations on
