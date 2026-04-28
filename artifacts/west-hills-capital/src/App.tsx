@@ -204,7 +204,7 @@ function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
+        <TooltipProvider delayDuration={400}>
           <WouterRouter base={basePath}>
             <ClerkProviderWithRouter>
               <InternalAuthProvider>

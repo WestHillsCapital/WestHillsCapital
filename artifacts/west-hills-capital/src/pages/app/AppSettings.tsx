@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { updateProductOrgCache, type ProductOrgSettings } from "@/hooks/useProductOrgSettings";
 import { BrandColorSection } from "@/components/settings/BrandColorSection";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SETTINGS_BASE = `${API_BASE}/api/v1/product/settings`;
@@ -801,7 +802,15 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
             {activeKeys.map((key) => (
               <div key={key.id} className="flex items-center justify-between gap-4 px-6 py-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{key.name}</p>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-gray-900 truncate">{key.name}</p>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="shrink-0 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-medium text-blue-700 cursor-default">Full Access</span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">Grants full API access: read live pricing data, submit interview sessions, and manage DocuFill packages programmatically.</TooltipContent>
+                    </Tooltip>
+                  </div>
                   <p className="text-xs text-gray-400 mt-0.5">
                     <code className="font-mono">{key.keyPrefix}…</code>
                     {" · "}
