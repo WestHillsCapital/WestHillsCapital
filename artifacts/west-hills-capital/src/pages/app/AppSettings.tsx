@@ -1259,6 +1259,7 @@ export default function AppSettings() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const nameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameEdited = useRef(false);
+  const nameSaveSeq = useRef(0);
   const nameSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logoSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const colorSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -1312,22 +1313,28 @@ export default function AppSettings() {
     if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
     nameDebounceRef.current = setTimeout(async () => {
       nameDebounceRef.current = null;
-      if (!name.trim()) {
+      const trimmed = name.trim();
+      if (!trimmed) {
         setNameFieldError("Organization name cannot be empty.");
         return;
       }
       setNameFieldError(null);
+      const seq = ++nameSaveSeq.current;
       try {
         const res = await fetch(`${SETTINGS_BASE}/org`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-          body: JSON.stringify({ name: name.trim() }),
+          body: JSON.stringify({ name: trimmed }),
         });
         const data = await res.json() as { org?: ProductOrgSettings; error?: string };
+        if (seq !== nameSaveSeq.current) return; // stale response — a newer request is in flight
         if (!res.ok) { setNameFieldError(data.error ?? "Failed to save name"); return; }
-        if (data.org) { applyOrg(data.org); }
+        if (data.org) {
+          nameEdited.current = false; // prevent the applyOrg name-state change from re-triggering
+          applyOrg(data.org);
+        }
         flashFieldSaved("name");
-      } catch { setNameFieldError("Failed to save name. Please try again."); }
+      } catch { if (seq === nameSaveSeq.current) setNameFieldError("Failed to save name. Please try again."); }
     }, 700);
     return () => {
       if (nameDebounceRef.current) { clearTimeout(nameDebounceRef.current); nameDebounceRef.current = null; }
