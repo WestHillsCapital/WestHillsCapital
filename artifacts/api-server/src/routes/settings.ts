@@ -13,6 +13,7 @@ import { getPlanLimits } from "../lib/plans";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { isIpAllowed } from "../lib/cidr";
 import express from "express";
+import { insertAuditLog, getActorEmail } from "../lib/auditLog";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -276,6 +277,20 @@ router.patch("/org", requireAdminRole, async (req, res) => {
       [name, rawLogoPath, brandColor, accountId],
     );
     const row = rows[0] as Record<string, unknown>;
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const actorEmail = await getActorEmail(accountId, clerkUserId);
+    const auditBase = { accountId, actorEmail, actorUserId: clerkUserId };
+    if (body.name !== undefined && name !== (current.name as string)) {
+      void insertAuditLog({ ...auditBase, action: "branding.update_name", resourceType: "org", resourceLabel: name as string, metadata: { from: current.name, to: name } });
+    }
+    if (body.brandColor !== undefined && brandColor !== (current.brand_color as string)) {
+      void insertAuditLog({ ...auditBase, action: "branding.update_color", resourceType: "org", resourceLabel: brandColor as string, metadata: { from: current.brand_color, to: brandColor } });
+    }
+    if ("clearLogo" in body && body.clearLogo === true) {
+      void insertAuditLog({ ...auditBase, action: "branding.remove_logo", resourceType: "org" });
+    }
+
     res.json({
       org: {
         id: row.id,
@@ -440,6 +455,14 @@ router.post(
         return;
       }
       const row = rows[0] as Record<string, unknown>;
+      const clerkUserId = getAuth(req)?.userId ?? null;
+      void insertAuditLog({
+        accountId,
+        actorEmail: await getActorEmail(accountId, clerkUserId),
+        actorUserId: clerkUserId,
+        action: "branding.upload_logo",
+        resourceType: "org",
+      });
       res.json({
         org: {
           id: row.id,
@@ -712,6 +735,17 @@ router.post("/team/invite", requireAdminRole, requireWithinPlanLimits("seat"), a
       logger.warn({ emailErr, email }, "[Team] Invitation email failed — DB record still created");
     }
 
+    void insertAuditLog({
+      accountId,
+      actorEmail: inviterEmail,
+      actorUserId: getAuth(req)?.userId ?? null,
+      action: "team.invite",
+      resourceType: "team_member",
+      resourceId: String(member.id),
+      resourceLabel: email,
+      metadata: { role },
+    });
+
     return void res.status(201).json({
       member: {
         id:           member.id,
@@ -745,8 +779,8 @@ router.patch("/team/:id/role", requireAdminRole, async (req, res) => {
     const db = getDb();
 
     // Fetch target member
-    const { rows: targets } = await db.query<{ role: string }>(
-      `SELECT role FROM account_users WHERE id = $1 AND account_id = $2`,
+    const { rows: targets } = await db.query<{ role: string; email: string }>(
+      `SELECT role, email FROM account_users WHERE id = $1 AND account_id = $2`,
       [memberId, accountId],
     );
     if (!targets[0]) return void res.status(404).json({ error: "Team member not found." });
@@ -768,6 +802,18 @@ router.patch("/team/:id/role", requireAdminRole, async (req, res) => {
        RETURNING id, email, display_name, role, status, last_seen_at`,
       [newRole, memberId, accountId],
     );
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    void insertAuditLog({
+      accountId,
+      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorUserId: clerkUserId,
+      action: "team.role_change",
+      resourceType: "team_member",
+      resourceId: String(memberId),
+      resourceLabel: targets[0].email,
+      metadata: { from_role: targets[0].role, to_role: newRole },
+    });
 
     return void res.json({
       member: {
@@ -791,8 +837,8 @@ router.delete("/team/:id", requireAdminRole, async (req, res) => {
     const db = getDb();
 
     // Fetch target
-    const { rows: targets } = await db.query<{ role: string; status: string }>(
-      `SELECT role, status FROM account_users WHERE id = $1 AND account_id = $2`,
+    const { rows: targets } = await db.query<{ role: string; status: string; email: string }>(
+      `SELECT role, status, email FROM account_users WHERE id = $1 AND account_id = $2`,
       [memberId, accountId],
     );
     if (!targets[0]) return void res.status(404).json({ error: "Team member not found." });
@@ -810,6 +856,18 @@ router.delete("/team/:id", requireAdminRole, async (req, res) => {
     }
 
     await db.query(`DELETE FROM account_users WHERE id = $1 AND account_id = $2`, [memberId, accountId]);
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    void insertAuditLog({
+      accountId,
+      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorUserId: clerkUserId,
+      action: "team.remove",
+      resourceType: "team_member",
+      resourceId: String(memberId),
+      resourceLabel: targets[0].email,
+      metadata: { role: targets[0].role },
+    });
 
     return void res.json({ success: true, deletedId: memberId });
   } catch (err) {
@@ -1551,6 +1609,56 @@ router.get("/security/pdf-audit", requireAdminRole, async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[PdfAudit] Failed to fetch events");
     res.status(500).json({ error: "Failed to load PDF audit events" });
+  }
+});
+
+// ── Org audit log (admin read-only) ──────────────────────────────────────────
+
+router.get("/audit-log", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const limit = Math.min(parseInt(String(req.query.limit ?? "25"), 10) || 25, 100);
+    const page  = Math.max(parseInt(String(req.query.page  ?? "1"),  10) || 1,  1);
+    const offset = (page - 1) * limit;
+    const actionFilter = typeof req.query.action === "string" && req.query.action ? req.query.action : null;
+    const search = typeof req.query.search === "string" && req.query.search ? req.query.search.toLowerCase() : null;
+
+    const whereParts: string[] = ["account_id = $1"];
+    const params: unknown[] = [accountId];
+    let pIdx = 2;
+
+    if (actionFilter) {
+      whereParts.push(`action = $${pIdx++}`);
+      params.push(actionFilter);
+    }
+    if (search) {
+      whereParts.push(`(LOWER(COALESCE(actor_email,'')) LIKE $${pIdx} OR LOWER(COALESCE(resource_label,'')) LIKE $${pIdx})`);
+      params.push(`%${search}%`);
+      pIdx++;
+    }
+
+    const whereClause = whereParts.join(" AND ");
+    const [{ rows: entries }, { rows: countRows }] = await Promise.all([
+      getDb().query(
+        `SELECT id, actor_email, actor_user_id, action, resource_type, resource_id, resource_label, metadata, created_at
+           FROM org_audit_log
+          WHERE ${whereClause}
+          ORDER BY created_at DESC
+          LIMIT ${limit} OFFSET ${offset}`,
+        params,
+      ),
+      getDb().query(`SELECT COUNT(*)::int AS total FROM org_audit_log WHERE ${whereClause}`, params),
+    ]);
+
+    return void res.json({
+      entries,
+      total: (countRows[0] as { total: number })?.total ?? 0,
+      page,
+      limit,
+    });
+  } catch (err) {
+    logger.error({ err }, "[AuditLog] Failed to fetch org audit log");
+    res.status(500).json({ error: "Failed to fetch audit log." });
   }
 });
 

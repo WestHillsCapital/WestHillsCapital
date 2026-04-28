@@ -906,6 +906,214 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
   );
 }
 
+interface AuditLogEntry {
+  id: number;
+  actor_email: string | null;
+  action: string;
+  resource_type: string | null;
+  resource_label: string | null;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+const ACTION_LABELS: Record<string, string> = {
+  "team.invite":           "Invited team member",
+  "team.remove":           "Removed team member",
+  "team.role_change":      "Changed member role",
+  "apikey.create":         "Created API key",
+  "apikey.revoke":         "Revoked API key",
+  "apikey.rename":         "Renamed API key",
+  "branding.update_name":  "Updated organization name",
+  "branding.update_color": "Updated brand color",
+  "branding.upload_logo":  "Uploaded logo",
+  "branding.remove_logo":  "Removed logo",
+};
+
+const ACTION_FILTER_OPTIONS = [
+  { value: "",                  label: "All activity" },
+  { value: "team.invite",       label: "Team invites" },
+  { value: "team.remove",       label: "Member removals" },
+  { value: "team.role_change",  label: "Role changes" },
+  { value: "apikey.create",     label: "API key created" },
+  { value: "apikey.revoke",     label: "API key revoked" },
+  { value: "apikey.rename",     label: "API key renamed" },
+  { value: "branding.update_name",  label: "Org name change" },
+  { value: "branding.update_color", label: "Brand color change" },
+  { value: "branding.upload_logo",  label: "Logo uploaded" },
+  { value: "branding.remove_logo",  label: "Logo removed" },
+];
+
+function actionBadgeColor(action: string): string {
+  if (action.startsWith("team."))     return "bg-sky-50 border-sky-200 text-sky-700";
+  if (action.startsWith("apikey."))   return "bg-amber-50 border-amber-200 text-amber-700";
+  if (action.startsWith("branding.")) return "bg-purple-50 border-purple-200 text-purple-700";
+  return "bg-gray-100 border-gray-200 text-gray-600";
+}
+
+function formatTimestamp(iso: string): string {
+  const d = new Date(iso);
+  return d.toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function AuditLogSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () => HeadersInit; isAdmin: boolean }) {
+  function authHeaders(): HeadersInit {
+    return getAuthHeaders();
+  }
+
+  const [entries, setEntries] = useState<AuditLogEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [actionFilter, setActionFilter] = useState("");
+  const [searchInput, setSearchInput] = useState("");
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const LIMIT = 25;
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
+
+  function loadEntries(p: number, action: string, s: string) {
+    setIsLoading(true);
+    setLoadError(null);
+    const params = new URLSearchParams({ page: String(p), limit: String(LIMIT) });
+    if (action) params.set("action", action);
+    if (s.trim()) params.set("search", s.trim());
+    fetch(`${SETTINGS_BASE}/audit-log?${params.toString()}`, { headers: authHeaders() })
+      .then(async (r) => {
+        const data = await r.json() as { entries?: AuditLogEntry[]; total?: number; error?: string };
+        if (!r.ok) { setLoadError(data.error ?? "Failed to load audit log"); return; }
+        setEntries(data.entries ?? []);
+        setTotal(data.total ?? 0);
+      })
+      .catch(() => setLoadError("Failed to load audit log"))
+      .finally(() => setIsLoading(false));
+  }
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    loadEntries(page, actionFilter, search);
+  }, [page, actionFilter, search, isAdmin]);
+
+  function handleSearchChange(v: string) {
+    setSearchInput(v);
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      setSearch(v);
+      setPage(1);
+    }, 350);
+  }
+
+  function handleActionFilterChange(v: string) {
+    setActionFilter(v);
+    setPage(1);
+  }
+
+  if (!isAdmin) return null;
+
+  return (
+    <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-6 py-5 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">Audit log</h2>
+          <p className="text-xs text-gray-500 mt-0.5">A record of actions taken by admins and team members in your organization.</p>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="px-6 py-3 border-b border-gray-100 flex flex-col sm:flex-row gap-2">
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => handleSearchChange(e.target.value)}
+          placeholder="Search by user or resource…"
+          className="flex-1 rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-300"
+        />
+        <select
+          value={actionFilter}
+          onChange={(e) => handleActionFilterChange(e.target.value)}
+          className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-300"
+        >
+          {ACTION_FILTER_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Content */}
+      <div className="min-h-[120px]">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-10">
+            <div className="w-5 h-5 border-2 border-gray-200 border-t-gray-500 rounded-full animate-spin" />
+          </div>
+        ) : loadError ? (
+          <div className="px-6 py-8 text-center text-sm text-red-500">{loadError}</div>
+        ) : entries.length === 0 ? (
+          <div className="px-6 py-10 text-center text-sm text-gray-400">
+            {search || actionFilter ? "No entries match your filters." : "No activity recorded yet. Actions you and your team take will appear here."}
+          </div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {entries.map((entry) => (
+              <div key={entry.id} className="flex items-start gap-3 px-6 py-3.5">
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold shrink-0 ${actionBadgeColor(entry.action)}`}>
+                      {ACTION_LABELS[entry.action] ?? entry.action}
+                    </span>
+                    {entry.resource_label && (
+                      <span className="text-xs text-gray-600 truncate font-medium">{entry.resource_label}</span>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-x-3 text-[11px] text-gray-400 mt-0.5">
+                    {entry.actor_email && (
+                      <span>by <span className="text-gray-600">{entry.actor_email}</span></span>
+                    )}
+                    {entry.action === "team.role_change" && entry.metadata?.from_role && entry.metadata?.to_role && (
+                      <span>{String(entry.metadata.from_role)} → {String(entry.metadata.to_role)}</span>
+                    )}
+                    {entry.action === "branding.update_name" && entry.metadata?.from && (
+                      <span>was &ldquo;{String(entry.metadata.from)}&rdquo;</span>
+                    )}
+                  </div>
+                </div>
+                <span className="shrink-0 text-[11px] text-gray-400 tabular-nums mt-0.5">
+                  {formatTimestamp(entry.created_at)}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Pagination */}
+      {!isLoading && !loadError && totalPages > 1 && (
+        <div className="px-6 py-3 border-t border-gray-100 flex items-center justify-between">
+          <span className="text-xs text-gray-500">
+            {total} {total === 1 ? "entry" : "entries"} · page {page} of {totalPages}
+          </span>
+          <div className="flex gap-2">
+            <button
+              disabled={page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Previous
+            </button>
+            <button
+              disabled={page >= totalPages}
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-1 text-xs text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
   function authHeaders(contentType?: string): HeadersInit {
     const h = new Headers(getAuthHeaders());
@@ -1723,6 +1931,13 @@ export default function AppSettings() {
       <div id="api-keys-section">
         <ApiKeysSection getAuthHeaders={getAuthHeaders} />
       </div>
+
+      {/* Audit log section — admin only */}
+      {isAdmin && (
+        <div id="audit-log-section">
+          <AuditLogSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
+        </div>
+      )}
     </div>
   );
 }

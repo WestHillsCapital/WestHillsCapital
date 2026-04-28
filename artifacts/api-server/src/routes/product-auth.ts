@@ -8,6 +8,7 @@ import { requireProductAuth } from "../middleware/requireProductAuth";
 import { requireAdminRole } from "../middleware/requireRole";
 import { linkPendingInvitation } from "../lib/auth-utils";
 import { seedDemoPackage } from "../lib/demoPackage";
+import { insertAuditLog, getActorEmail } from "../lib/auditLog";
 
 const router = Router();
 
@@ -326,6 +327,17 @@ router.post("/api-keys", requireProductAuth, requireAdminRole, async (req, res) 
     const row = result.rows[0];
     logger.info({ accountId, keyId: row.id }, "[ApiKeys] New API key created");
 
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    void insertAuditLog({
+      accountId,
+      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorUserId: clerkUserId,
+      action: "apikey.create",
+      resourceType: "api_key",
+      resourceId: String(row.id),
+      resourceLabel: name,
+    });
+
     return void res.status(201).json({
       id:         row.id,
       name,
@@ -517,6 +529,16 @@ router.patch("/api-keys/:id", requireProductAuth, requireAdminRole, async (req, 
     }
 
     logger.info({ accountId, keyId, name }, "[ApiKeys] API key renamed");
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    void insertAuditLog({
+      accountId,
+      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorUserId: clerkUserId,
+      action: "apikey.rename",
+      resourceType: "api_key",
+      resourceId: String(keyId),
+      resourceLabel: name,
+    });
     return void res.json({ success: true, id: keyId, name: result.rows[0].name });
   } catch (err) {
     logger.error({ err }, "[ApiKeys] Failed to rename API key");
@@ -589,13 +611,13 @@ router.delete("/api-keys/:id", requireProductAuth, requireAdminRole, async (req,
   }
 
   try {
-    const result = await getDb().query<{ id: number }>(
+    const result = await getDb().query<{ id: number; name: string }>(
       `UPDATE account_api_keys
           SET revoked_at = NOW()
         WHERE id = $1
           AND account_id = $2
           AND revoked_at IS NULL
-        RETURNING id`,
+        RETURNING id, name`,
       [keyId, accountId],
     );
 
@@ -604,6 +626,16 @@ router.delete("/api-keys/:id", requireProductAuth, requireAdminRole, async (req,
     }
 
     logger.info({ accountId, keyId }, "[ApiKeys] API key revoked");
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    void insertAuditLog({
+      accountId,
+      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorUserId: clerkUserId,
+      action: "apikey.revoke",
+      resourceType: "api_key",
+      resourceId: String(keyId),
+      resourceLabel: result.rows[0].name,
+    });
     return void res.json({ success: true, id: keyId });
   } catch (err) {
     logger.error({ err }, "[ApiKeys] Failed to revoke API key");
