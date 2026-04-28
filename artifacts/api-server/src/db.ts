@@ -1169,6 +1169,14 @@ export async function initDb(): Promise<void> {
   `);
   await db.query(`ALTER TABLE data_export_requests ADD COLUMN IF NOT EXISTS export_format TEXT NOT NULL DEFAULT 'zip'`);
 
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS brand_color_rate_limit (
+      key          TEXT PRIMARY KEY,
+      count        INTEGER NOT NULL DEFAULT 0,
+      window_start BIGINT  NOT NULL
+    )
+  `);
+
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 
