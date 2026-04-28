@@ -6671,7 +6671,7 @@ function FieldLibraryPanel({
               </div>
             </div>
           </div>
-        ))}
+        ); })}
         {items.length === 0 && <div className="text-xs text-[#8A9BB8]">No shared fields yet.</div>}
       </div>
     </div>
