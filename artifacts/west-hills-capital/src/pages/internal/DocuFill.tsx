@@ -1752,24 +1752,28 @@ export default function DocuFill() {
   }
 
   async function createFieldLibraryItem(): Promise<string | null> {
-    // Use a random suffix so the generated id can never collide with an
-    // existing entry — basing it on fieldLibrary.length caused conflicts
-    // whenever the browser's field list was stale relative to the database.
-    const suffix = Math.random().toString(36).slice(2, 7).toUpperCase();
-    const label = `New Field ${suffix}`;
-    try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ label, category: "General", type: "text", source: "interview", active: true, sortOrder: (fieldLibrary.length + 1) * 10 }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) return data.error ?? "Could not create field";
-      await loadBootstrap();
-      return null;
-    } catch {
-      return "Network error — could not create field";
+    for (let attempt = 0; attempt < 5; attempt++) {
+      // Use a fresh random suffix on every attempt so label/id collisions auto-resolve.
+      const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
+      const label = `New Field ${suffix}`;
+      try {
+        const res = await fetch(`${API_BASE}${docufillApiPath}/field-library`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify({ label, category: "General", type: "text", source: "interview", active: true, sortOrder: (fieldLibrary.length + 1) * 10 }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok) {
+          await loadBootstrap();
+          return null;
+        }
+        if (res.status === 409) continue; // label or id collision — retry with new random suffix
+        return data.error ?? "Could not create field";
+      } catch {
+        return "Network error — could not create field";
+      }
     }
+    return "Could not create a unique field — please try again";
   }
 
   function updateFieldLibraryLocal(id: string, patch: Partial<FieldLibraryItem>) {
