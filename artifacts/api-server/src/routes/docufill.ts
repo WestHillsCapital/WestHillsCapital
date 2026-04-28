@@ -2001,12 +2001,17 @@ router.get("/packages/:id/webhook-deliveries", requireAdminRole, async (req, res
     if (!id) { res.status(400).json({ error: "Invalid package id" }); return; }
     const accountId = acctId(req);
     const db = getDb();
+    const { rows: owned } = await db.query(
+      `SELECT id FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      [id, accountId],
+    );
+    if (!owned[0]) { res.status(404).json({ error: "Package not found" }); return; }
     const { rows } = await db.query(
       `SELECT id, event_type, attempt_number, http_status, response_body, duration_ms, created_at
          FROM webhook_deliveries
         WHERE package_id = $1 AND account_id = $2
         ORDER BY created_at DESC
-        LIMIT 20`,
+        LIMIT 10`,
       [id, accountId],
     );
     res.json({ deliveries: rows });
