@@ -3694,6 +3694,7 @@ function ProfileSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
       if (!res.ok) { setAvatarError(data.error ?? "Avatar upload failed."); return; }
       if (data.profile) applyProfile(data.profile);
       flashSaved("avatar");
+      window.dispatchEvent(new CustomEvent("docuplete:profile-updated"));
     } catch { setAvatarError("Avatar upload failed. Please try again."); }
     finally {
       setIsUploadingAvatar(false);
@@ -3713,6 +3714,7 @@ function ProfileSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
       if (!res.ok) { setAvatarError(data.error ?? "Failed to remove avatar."); return; }
       if (data.profile) applyProfile(data.profile);
       flashSaved("avatar");
+      window.dispatchEvent(new CustomEvent("docuplete:profile-updated"));
     } catch { setAvatarError("Failed to remove avatar."); }
     finally { setIsUploadingAvatar(false); }
   }
