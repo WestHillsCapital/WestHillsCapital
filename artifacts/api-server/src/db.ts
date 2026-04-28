@@ -1228,9 +1228,13 @@ export async function initDb(): Promise<void> {
         const client = await delDb.connect();
         try {
           await client.query("BEGIN");
-          // 1. Null-out account_id on global reference tables that lack CASCADE
-          await client.query(`UPDATE docufill_custodians  SET account_id = NULL WHERE account_id = $1`, [account.id]);
-          await client.query(`UPDATE docufill_depositories SET account_id = NULL WHERE account_id = $1`, [account.id]);
+          // 1. Delete per-account reference data: custodians and depositories have
+          //    account_id NOT NULL (enforced by account_id_isolation_v1 migration),
+          //    so they must be deleted — not nulled. Their FKs from docufill_packages
+          //    (custodian_id / depository_id) are ON DELETE SET NULL, so deleting
+          //    these rows safely clears the package references first.
+          await client.query(`DELETE FROM docufill_custodians   WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM docufill_depositories WHERE account_id = $1`, [account.id]);
           // 2. Delete interview sessions (account_id FK lacks CASCADE on accounts)
           await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
           // 3. Delete packages (cascades: sessions via package_id, webhook_deliveries, package_documents)
