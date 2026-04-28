@@ -2977,12 +2977,9 @@ export default function DocuFill() {
 
   return (
     <div className="max-w-screen-2xl mx-auto px-4 py-6 text-[#0F1C3F]">
-      <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
-        <div>
-          <h1 className="text-2xl font-semibold">Docuplete</h1>
-          {isPublicSession && <p className="text-sm text-[#6B7A99] mt-1">Complete your secure paperwork interview.</p>}
-        </div>
-        {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
+      <div className="flex flex-wrap items-start gap-3 mb-5">
+        {isPublicSession && <p className="text-sm text-[#6B7A99]">Complete your secure paperwork interview.</p>}
+        {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white ml-auto">
           <Tooltip>
             <TooltipTrigger asChild>
               <button onClick={() => goBuilderStep(builderStep)} className={`px-3 py-2 text-sm ${tab === "packages" || tab === "mapper" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
