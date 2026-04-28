@@ -23,8 +23,10 @@ import QRCode from "qrcode";
 import { createHash } from "crypto";
 import geoip from "geoip-lite";
 
-// Simple in-process LRU cache for geoip results.
-// ES Maps preserve insertion order, so deleting the first key evicts the oldest entry.
+// In-process LRU cache for geoip results (max 1000 entries).
+// ES Maps preserve insertion order; true LRU is achieved by deleting and
+// re-inserting the key on every hit so it moves to the "most recently used"
+// tail, and evicting from the head (oldest) on capacity overflow.
 const IP_GEO_CACHE_MAX = 1000;
 const ipGeoCache = new Map<string, string | null>();
 
@@ -41,13 +43,19 @@ function lookupIpLocation(ip: string | null | undefined): string | null {
   ) {
     return null;
   }
-  if (ipGeoCache.has(cleanIp)) return ipGeoCache.get(cleanIp) ?? null;
+  if (ipGeoCache.has(cleanIp)) {
+    // Refresh recency: move the key to the tail so it isn't evicted while still hot.
+    const cached = ipGeoCache.get(cleanIp) ?? null;
+    ipGeoCache.delete(cleanIp);
+    ipGeoCache.set(cleanIp, cached);
+    return cached;
+  }
   const geo = geoip.lookup(cleanIp);
   const parts: string[] = [];
   if (geo?.city) parts.push(geo.city);
   if (geo?.country) parts.push(geo.country);
   const result = parts.length > 0 ? parts.join(", ") : null;
-  // Evict the oldest entry before adding if at capacity
+  // Evict the least-recently-used (head) entry before adding if at capacity
   if (ipGeoCache.size >= IP_GEO_CACHE_MAX) {
     const oldest = ipGeoCache.keys().next().value;
     if (oldest !== undefined) ipGeoCache.delete(oldest);
