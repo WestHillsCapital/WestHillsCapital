@@ -3069,7 +3069,7 @@ export default function DocuFill() {
                     <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
                       <summary className="cursor-pointer text-sm font-semibold">Optional settings and notes</summary>
                       <p className="mt-1 text-xs text-[#8A9BB8]">Set status, assign optional groupings, and add any notes that staff should see before starting an interview.</p>
-                      <div className="mt-4 grid md:grid-cols-2 gap-4">
+                      <div className="mt-4">
                         <label className="block text-sm">
                           <span className="block text-xs text-[#6B7A99] mb-1">Status</span>
                           <select value={selectedPackage.status} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, status: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
@@ -3078,50 +3078,30 @@ export default function DocuFill() {
                             <option value="inactive">Inactive</option>
                           </select>
                         </label>
-                        {/* One dropdown per distinct group category */}
-                        {(() => {
-                          const activeGroups = groups.filter((g) => g.active !== false);
-                          const categories = [...new Set(activeGroups.map((g) => g.kind ?? "general"))].sort();
-                          const groupsSection = (
-                            <div className="col-span-full mt-2">
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="text-xs text-[#6B7A99]">Groups</span>
-                                {groups.length > 0 && !inlineAddGroupOpen && (
-                                  <button type="button" onClick={() => { setInlineAddGroupOpen(true); setInlineAddGroupName(""); setInlineAddGroupError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add group</button>
-                                )}
-                              </div>
-                              {inlineAddGroupOpen && (
-                                <div className="mb-2 flex items-center gap-2">
-                                  <input
-                                    autoFocus
-                                    type="text"
-                                    placeholder="Group name…"
-                                    value={inlineAddGroupName}
-                                    onChange={(e) => setInlineAddGroupName(e.target.value)}
-                                    onKeyDown={async (e) => {
-                                      if (e.key === "Enter" && inlineAddGroupName.trim()) {
-                                        e.preventDefault();
-                                        setInlineAddGroupLoading(true);
-                                        setInlineAddGroupError(null);
-                                        const result = await createGroupNamed(inlineAddGroupName.trim());
-                                        setInlineAddGroupLoading(false);
-                                        if (typeof result === "string") {
-                                          setInlineAddGroupError(result);
-                                        } else {
-                                          if (result.id) updateSelectedPackage((pkg) => ({ ...pkg, group_ids: [...(pkg.group_ids ?? []), result.id], group_id: pkg.group_id ?? result.id }));
-                                          setInlineAddGroupOpen(false);
-                                          setInlineAddGroupName("");
-                                        }
-                                      } else if (e.key === "Escape") {
-                                        setInlineAddGroupOpen(false);
-                                      }
-                                    }}
-                                    className="flex-1 border border-[#D4C9B5] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#C49A38]"
-                                  />
-                                  <button
-                                    type="button"
-                                    disabled={!inlineAddGroupName.trim() || inlineAddGroupLoading}
-                                    onClick={async () => {
+                      </div>
+                      {/* One dropdown per distinct group category */}
+                      {(() => {
+                        const activeGroups = groups.filter((g) => g.active !== false);
+                        const categories = [...new Set(activeGroups.map((g) => g.kind ?? "general"))].sort();
+                        const groupsSection = (
+                          <div className="mt-4">
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs text-[#6B7A99]">Groups</span>
+                              {groups.length > 0 && !inlineAddGroupOpen && (
+                                <button type="button" onClick={() => { setInlineAddGroupOpen(true); setInlineAddGroupName(""); setInlineAddGroupError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add group</button>
+                              )}
+                            </div>
+                            {inlineAddGroupOpen && (
+                              <div className="mb-2 flex items-center gap-2">
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  placeholder="Group name…"
+                                  value={inlineAddGroupName}
+                                  onChange={(e) => setInlineAddGroupName(e.target.value)}
+                                  onKeyDown={async (e) => {
+                                    if (e.key === "Enter" && inlineAddGroupName.trim()) {
+                                      e.preventDefault();
                                       setInlineAddGroupLoading(true);
                                       setInlineAddGroupError(null);
                                       const result = await createGroupNamed(inlineAddGroupName.trim());
@@ -3133,23 +3113,44 @@ export default function DocuFill() {
                                         setInlineAddGroupOpen(false);
                                         setInlineAddGroupName("");
                                       }
-                                    }}
-                                    className="text-xs bg-[#C49A38] text-white rounded px-2 py-1.5 disabled:opacity-40"
-                                  >{inlineAddGroupLoading ? "Adding…" : "Add"}</button>
-                                  <button type="button" onClick={() => setInlineAddGroupOpen(false)} className="text-xs text-[#8A9BB8] hover:text-[#4A5568]">Cancel</button>
-                                </div>
-                              )}
-                              {inlineAddGroupError && <p className="mb-1 text-xs text-red-600">{inlineAddGroupError}</p>}
-                            </div>
-                          );
-                          if (categories.length === 0) return groupsSection;
-                          return (<>
-                            {groupsSection}
-                            {categories.map((cat) => {
+                                    } else if (e.key === "Escape") {
+                                      setInlineAddGroupOpen(false);
+                                    }
+                                  }}
+                                  className="flex-1 border border-[#D4C9B5] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#C49A38]"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={!inlineAddGroupName.trim() || inlineAddGroupLoading}
+                                  onClick={async () => {
+                                    setInlineAddGroupLoading(true);
+                                    setInlineAddGroupError(null);
+                                    const result = await createGroupNamed(inlineAddGroupName.trim());
+                                    setInlineAddGroupLoading(false);
+                                    if (typeof result === "string") {
+                                      setInlineAddGroupError(result);
+                                    } else {
+                                      if (result.id) updateSelectedPackage((pkg) => ({ ...pkg, group_ids: [...(pkg.group_ids ?? []), result.id], group_id: pkg.group_id ?? result.id }));
+                                      setInlineAddGroupOpen(false);
+                                      setInlineAddGroupName("");
+                                    }
+                                  }}
+                                  className="text-xs bg-[#C49A38] text-white rounded px-2 py-1.5 disabled:opacity-40"
+                                >{inlineAddGroupLoading ? "Adding…" : "Add"}</button>
+                                <button type="button" onClick={() => setInlineAddGroupOpen(false)} className="text-xs text-[#8A9BB8] hover:text-[#4A5568]">Cancel</button>
+                              </div>
+                            )}
+                            {inlineAddGroupError && <p className="mb-1 text-xs text-red-600">{inlineAddGroupError}</p>}
+                          </div>
+                        );
+                        if (categories.length === 0) return groupsSection;
+                        return (<>
+                          {groupsSection}
+                          {categories.map((cat) => {
                             const catGroups = activeGroups.filter((g) => (g.kind ?? "general") === cat);
                             const selectedInCat = (selectedPackage.group_ids ?? []).find((gid) => catGroups.some((g) => g.id === gid));
                             return (
-                              <label key={cat} className="block text-sm col-span-full">
+                              <label key={cat} className="block text-sm mt-2">
                                 {cat !== "general" && <span className="block text-xs text-[#6B7A99] mb-1 capitalize">{cat}</span>}
                                 <select
                                   value={selectedInCat ?? ""}
@@ -3169,9 +3170,8 @@ export default function DocuFill() {
                               </label>
                             );
                           })}
-                          </>);
-                        })()}
-                      </div>
+                        </>);
+                      })()}
                       <div className="mt-4 text-sm">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs text-[#6B7A99]">Type <span className="text-[#8A9BB8] font-normal">(optional)</span></span>
