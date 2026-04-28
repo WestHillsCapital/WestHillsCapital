@@ -394,9 +394,9 @@ async function doWebhookDelivery(
   const durationMs = Date.now() - start;
   db.query(
     `INSERT INTO webhook_deliveries
-       (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [packageId, accountId, eventType, payloadHash, attempt, httpStatus, responseSnippet, durationMs],
+       (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms, payload_json)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [packageId, accountId, eventType, payloadHash, attempt, httpStatus, responseSnippet, durationMs, body],
   ).catch((e) => {
     // Postgres FK violation (23503) on the package_id column means the package
     // was deleted before the retry row could be inserted — this happens in tests
@@ -475,9 +475,9 @@ function fireWebhookAsync(
       logger.error({ err, packageId, accountId }, "[DocuFill] Cannot fetch webhook_secret — aborting delivery");
       db.query(
         `INSERT INTO webhook_deliveries
-           (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms)
-         VALUES ($1, $2, $3, $4, 1, NULL, $5, 0)`,
-        [packageId, accountId, eventType, payloadHash, "Secret unavailable — delivery aborted"],
+           (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms, payload_json)
+         VALUES ($1, $2, $3, $4, 1, NULL, $5, 0, $6)`,
+        [packageId, accountId, eventType, payloadHash, "Secret unavailable — delivery aborted", bodyStr],
       ).catch((e) => {
         if (e?.code === "23503" && e?.constraint === "webhook_deliveries_package_id_fkey") return;
         logger.error({ e }, "[DocuFill] Failed to log aborted delivery");
@@ -2030,7 +2030,8 @@ router.get("/packages/:id/webhook-deliveries", requireAdminRole, async (req, res
     );
     if (!owned[0]) { res.status(404).json({ error: "Package not found" }); return; }
     const { rows } = await db.query(
-      `SELECT id, event_type, attempt_number, http_status, response_body, duration_ms, created_at
+      `SELECT id, event_type, attempt_number, http_status, response_body, duration_ms, created_at,
+              (payload_json IS NOT NULL) AS has_payload
          FROM webhook_deliveries
         WHERE package_id = $1 AND account_id = $2
         ORDER BY created_at DESC
@@ -2041,6 +2042,80 @@ router.get("/packages/:id/webhook-deliveries", requireAdminRole, async (req, res
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to fetch webhook deliveries");
     res.status(500).json({ error: "Failed to fetch webhook deliveries" });
+  }
+});
+
+// ── Task #217: manual retry of a failed webhook delivery ─────────────────────
+router.post("/packages/:id/webhook-deliveries/:deliveryId/retry", requireAdminRole, async (req, res) => {
+  try {
+    const packageId = parseId(req.params.id);
+    const deliveryId = parseId(req.params.deliveryId);
+    if (!packageId || !deliveryId) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    const accountId = acctId(req);
+    const db = getDb();
+
+    // Fetch the original delivery, scoped to this package + account.
+    const { rows: deliveryRows } = await db.query<{
+      id: number;
+      payload_json: string | null;
+      payload_hash: string;
+      event_type: string;
+      http_status: number | null;
+    }>(
+      `SELECT wd.id, wd.payload_json, wd.payload_hash, wd.event_type, wd.http_status
+         FROM webhook_deliveries wd
+         JOIN docufill_packages dp ON dp.id = wd.package_id
+        WHERE wd.id = $1 AND wd.package_id = $2 AND dp.account_id = $3`,
+      [deliveryId, packageId, accountId],
+    );
+    const delivery = deliveryRows[0];
+    if (!delivery) {
+      res.status(404).json({ error: "Delivery not found" });
+      return;
+    }
+    if (delivery.http_status !== null && delivery.http_status >= 200 && delivery.http_status < 300) {
+      res.status(409).json({ error: "This delivery already succeeded. Only failed deliveries can be retried." });
+      return;
+    }
+    if (!delivery.payload_json) {
+      res.status(409).json({
+        error: "Original payload not stored for this delivery. Only deliveries recorded after the retry feature was enabled can be replayed.",
+      });
+      return;
+    }
+
+    // Fetch the package's webhook URL and signing secret.
+    const { rows: pkgRows } = await db.query<{
+      webhook_url: string | null;
+      webhook_secret: string;
+    }>(
+      `SELECT webhook_url, webhook_secret FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      [packageId, accountId],
+    );
+    const pkg = pkgRows[0];
+    if (!pkg) {
+      res.status(404).json({ error: "Package not found" });
+      return;
+    }
+    if (!pkg.webhook_url) {
+      res.status(409).json({ error: "Package has no webhook URL configured" });
+      return;
+    }
+
+    // Re-deliver synchronously with attempt_number = 1 so the log shows it as
+    // a fresh manual attempt. The same payload_hash preserves idempotency.
+    await doWebhookDelivery(
+      db, packageId, accountId, pkg.webhook_url, pkg.webhook_secret,
+      delivery.payload_json, 1, delivery.event_type, delivery.payload_hash,
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to retry webhook delivery");
+    res.status(500).json({ error: "Failed to retry delivery" });
   }
 });
 

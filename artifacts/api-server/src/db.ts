@@ -954,6 +954,13 @@ export async function initDb(): Promise<void> {
       ON webhook_deliveries (account_id)
   `);
 
+  // ── Task #217: store original payload for manual webhook retry ──────────────
+  // payload_json holds the raw JSON body that was (or would have been) sent so
+  // that failed deliveries can be replayed on demand from the dashboard.
+  await db.query(`
+    ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS payload_json TEXT
+  `);
+
   // ── IP allowlisting — per-account CIDR ranges for API key access ─────────────
   // Empty array = no restriction (default). Enterprise feature.
   await db.query(`

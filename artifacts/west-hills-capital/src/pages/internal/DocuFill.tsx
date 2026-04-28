@@ -949,9 +949,10 @@ export default function DocuFill() {
   const [webhookSecretLoading, setWebhookSecretLoading] = useState(false);
   const [webhookSecretRevealed, setWebhookSecretRevealed] = useState(false);
   const [webhookSecretCopied, setWebhookSecretCopied] = useState(false);
-  const [webhookDeliveries, setWebhookDeliveries] = useState<Array<{ id: number; event_type: string; attempt_number: number; http_status: number | null; response_body: string; duration_ms: number; created_at: string; }>>([]);
+  const [webhookDeliveries, setWebhookDeliveries] = useState<Array<{ id: number; event_type: string; attempt_number: number; http_status: number | null; response_body: string; duration_ms: number; created_at: string; has_payload: boolean; }>>([]);
   const [webhookDeliveriesLoading, setWebhookDeliveriesLoading] = useState(false);
   const [expandedDelivery, setExpandedDelivery] = useState<number | null>(null);
+  const [retryingDelivery, setRetryingDelivery] = useState<number | null>(null);
   const [isDeletingPackage, setIsDeletingPackage] = useState(false);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [isDocumentDropActive, setIsDocumentDropActive] = useState(false);
@@ -1540,6 +1541,27 @@ export default function DocuFill() {
       // non-fatal
     } finally {
       setWebhookDeliveriesLoading(false);
+    }
+  }
+
+  async function retryDelivery(pkgId: number, deliveryId: number) {
+    setRetryingDelivery(deliveryId);
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${pkgId}/webhook-deliveries/${deliveryId}/retry`, {
+        method: "POST",
+        headers: { ...getAuthHeaders() },
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok) {
+        flashStatus(`Retry failed: ${data.error ?? `HTTP ${res.status}`}`);
+      } else {
+        flashStatus("Delivery retried.");
+        void fetchWebhookDeliveries(pkgId);
+      }
+    } catch {
+      flashStatus("Retry request failed.");
+    } finally {
+      setRetryingDelivery(null);
     }
   }
 
@@ -3915,24 +3937,39 @@ export default function DocuFill() {
                                     <div className="space-y-1 max-h-48 overflow-y-auto">
                                       {webhookDeliveries.map((d) => {
                                         const isOk = d.http_status !== null && d.http_status >= 200 && d.http_status < 300;
+                                        const isFailed = !isOk;
                                         const isExpanded = expandedDelivery === d.id;
+                                        const isRetrying = retryingDelivery === d.id;
+                                        const canRetry = isFailed && d.has_payload;
                                         return (
                                           <div key={d.id} className="bg-white border border-[#E8E0D0] rounded px-2 py-1.5">
-                                            <button
-                                              type="button"
-                                              onClick={() => setExpandedDelivery(isExpanded ? null : d.id)}
-                                              className="w-full text-left flex items-center gap-2"
-                                            >
-                                              <span className={`text-[10px] font-mono font-bold shrink-0 w-8 text-center rounded px-1 ${isOk ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                                                {d.http_status ?? "ERR"}
-                                              </span>
-                                              <span className="text-[10px] text-[#6B7A99] flex-1 min-w-0 truncate">{d.event_type}</span>
-                                              {d.attempt_number > 1 && (
-                                                <span className="text-[9px] text-amber-600 shrink-0">retry #{d.attempt_number}</span>
+                                            <div className="flex items-center gap-2">
+                                              <button
+                                                type="button"
+                                                onClick={() => setExpandedDelivery(isExpanded ? null : d.id)}
+                                                className="flex-1 min-w-0 text-left flex items-center gap-2"
+                                              >
+                                                <span className={`text-[10px] font-mono font-bold shrink-0 w-8 text-center rounded px-1 ${isOk ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                                                  {d.http_status ?? "ERR"}
+                                                </span>
+                                                <span className="text-[10px] text-[#6B7A99] flex-1 min-w-0 truncate">{d.event_type}</span>
+                                                {d.attempt_number > 1 && (
+                                                  <span className="text-[9px] text-amber-600 shrink-0">retry #{d.attempt_number}</span>
+                                                )}
+                                                <span className="text-[10px] text-[#B0A898] shrink-0">{d.duration_ms}ms</span>
+                                                <span className="text-[10px] text-[#B0A898] shrink-0">{new Date(d.created_at).toLocaleTimeString()}</span>
+                                              </button>
+                                              {canRetry && (
+                                                <button
+                                                  type="button"
+                                                  disabled={isRetrying}
+                                                  onClick={() => { void retryDelivery(selectedPackage.id, d.id); }}
+                                                  className="shrink-0 text-[10px] border border-red-200 bg-red-50 text-red-700 rounded px-1.5 py-0.5 hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                  {isRetrying ? "Retrying…" : "Retry"}
+                                                </button>
                                               )}
-                                              <span className="text-[10px] text-[#B0A898] shrink-0">{d.duration_ms}ms</span>
-                                              <span className="text-[10px] text-[#B0A898] shrink-0">{new Date(d.created_at).toLocaleTimeString()}</span>
-                                            </button>
+                                            </div>
                                             {isExpanded && d.response_body && (
                                               <pre className="mt-1.5 text-[9px] font-mono text-[#6B7A99] bg-[#F8F6F0] rounded p-1.5 overflow-x-auto whitespace-pre-wrap break-all max-h-20 overflow-y-auto">{d.response_body}</pre>
                                             )}
