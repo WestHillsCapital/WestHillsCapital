@@ -73,33 +73,42 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <header className="bg-white border-b border-gray-200 px-6 py-0">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-14">
 
-          {/* Left: org logo (or name if no logo) — links home */}
-          <Link href="/app" className="flex items-center gap-2 group">
-            {account?.orgLogoUrl ? (
-              <img
-                src={account.orgLogoUrl}
-                alt={account.accountName}
-                className="h-8 max-w-[160px] object-contain opacity-90 group-hover:opacity-100 transition-opacity"
-                onError={(e) => {
-                  const img = e.currentTarget;
-                  img.style.display = "none";
-                  const sib = img.nextElementSibling as HTMLElement | null;
-                  if (sib) sib.style.display = "inline";
-                }}
-              />
-            ) : null}
-            <span
-              className="text-lg font-semibold text-gray-900 group-hover:text-gray-700 transition-colors"
-              style={{ display: account?.orgLogoUrl ? "none" : "inline" }}
-            >
-              {account?.accountName ?? APP_NAME}
-            </span>
-          </Link>
-
-          {/* Right: org name + profile avatar + dropdown */}
+          {/* Left: Docuplete brand + org logo (or org name if no logo) */}
           <div className="flex items-center gap-3">
-            {account?.orgLogoUrl && account.accountName && (
-              <span className="hidden sm:block text-sm text-gray-400">{account.accountName}</span>
+            <Link href="/app" className="text-lg font-semibold text-gray-900 hover:text-gray-700 transition-colors shrink-0">
+              {APP_NAME}
+            </Link>
+            {account && (
+              <span className="border-l border-gray-200 pl-3 hidden sm:flex items-center">
+                {account.orgLogoUrl ? (
+                  <img
+                    src={account.orgLogoUrl}
+                    alt={account.accountName}
+                    className="h-7 max-w-[140px] object-contain"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      img.style.display = "none";
+                      const sib = img.nextElementSibling as HTMLElement | null;
+                      if (sib) sib.style.removeProperty("display");
+                    }}
+                  />
+                ) : null}
+                <span
+                  className="text-sm text-gray-500"
+                  style={account.orgLogoUrl ? { display: "none" } : undefined}
+                >
+                  {account.accountName}
+                </span>
+              </span>
+            )}
+          </div>
+
+          {/* Right: user display name + profile avatar + dropdown */}
+          <div className="flex items-center gap-3">
+            {(displayName || displayEmail) && (
+              <span className="hidden sm:block text-sm text-gray-400 max-w-[160px] truncate">
+                {displayName || displayEmail}
+              </span>
             )}
             <div className="relative" ref={dropdownRef}>
             <button
