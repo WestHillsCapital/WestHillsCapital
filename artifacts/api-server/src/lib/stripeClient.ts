@@ -8,10 +8,18 @@ async function getCredentials(): Promise<{ secretKey: string; publishableKey: st
       ? "depl " + process.env.WEB_REPL_RENEWAL
       : null;
 
+  // Outside Replit (Railway, etc.) fall back to explicit env vars so the app
+  // can work without the Replit connector sidecar.
   if (!hostname || !xReplitToken) {
+    const secretKey = process.env.STRIPE_SECRET_KEY;
+    const publishableKey = process.env.STRIPE_PUBLISHABLE_KEY ?? "";
+    if (secretKey) {
+      return { secretKey, publishableKey };
+    }
     throw new Error(
-      "Stripe integration not configured. " +
-      "Ensure REPLIT_CONNECTORS_HOSTNAME is set and the Stripe integration is connected."
+      "Stripe is not configured. " +
+      "In Replit, connect the Stripe integration. " +
+      "In external deployments (Railway, etc.), set STRIPE_SECRET_KEY and optionally STRIPE_PUBLISHABLE_KEY."
     );
   }
 
