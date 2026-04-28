@@ -2115,16 +2115,25 @@ router.patch("/data-privacy", requireAdminRole, async (req, res) => {
     const body = req.body as Record<string, unknown>;
     const db = getDb();
 
+    if (!("submissionRetentionDays" in body)) {
+      // No recognised fields to update — return current value unchanged
+      const { rows: cur } = await db.query(
+        `SELECT submission_retention_days FROM accounts WHERE id = $1`,
+        [accountId],
+      );
+      if (!cur[0]) { res.status(404).json({ error: "Account not found" }); return; }
+      res.json({ submissionRetentionDays: (cur[0] as Record<string, unknown>).submission_retention_days ?? null });
+      return;
+    }
+
     let retentionDays: number | null = null;
-    if ("submissionRetentionDays" in body) {
-      if (body.submissionRetentionDays === null) {
-        retentionDays = null;
-      } else if (typeof body.submissionRetentionDays === "number" && body.submissionRetentionDays > 0) {
-        retentionDays = Math.floor(body.submissionRetentionDays);
-      } else {
-        res.status(400).json({ error: "submissionRetentionDays must be a positive integer or null." });
-        return;
-      }
+    if (body.submissionRetentionDays === null) {
+      retentionDays = null;
+    } else if (typeof body.submissionRetentionDays === "number" && body.submissionRetentionDays > 0) {
+      retentionDays = Math.floor(body.submissionRetentionDays);
+    } else {
+      res.status(400).json({ error: "submissionRetentionDays must be a positive integer or null." });
+      return;
     }
 
     const { rows } = await db.query(
@@ -2185,7 +2194,7 @@ router.post("/data/request-export", requireAdminRole, async (req, res) => {
   }
 });
 
-router.get("/data/download-export", async (req, res) => {
+router.get("/data/download-export", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
     const token     = typeof req.query.token === "string" ? req.query.token : "";
@@ -2337,17 +2346,24 @@ async function processExportRequests(): Promise<void> {
   let db: ReturnType<typeof getDb>;
   try { db = getDb(); } catch { return; }
 
+  // Atomic claim: transition to 'processing' in a single statement so concurrent
+  // server instances never double-process the same export job.
   const { rows } = await db.query<{
     id: number;
     account_id: number;
     requested_by: string;
     download_token: string;
   }>(
-    `SELECT id, account_id, requested_by, download_token
-       FROM data_export_requests
-      WHERE status = 'pending'
-      ORDER BY requested_at ASC
-      LIMIT 5`,
+    `UPDATE data_export_requests
+        SET status = 'processing'
+      WHERE id IN (
+        SELECT id FROM data_export_requests
+         WHERE status = 'pending'
+         ORDER BY requested_at ASC
+         LIMIT 5
+         FOR UPDATE SKIP LOCKED
+      )
+      RETURNING id, account_id, requested_by, download_token`,
   );
 
   for (const job of rows) {
