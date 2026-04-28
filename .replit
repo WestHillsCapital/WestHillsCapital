@@ -30,6 +30,10 @@ args = "docufill-redaction"
 task = "workflow.run"
 args = "api-typecheck"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "db-deps"
+
 [[workflows.workflow]]
 name = "docufill-redaction"
 author = "agent"
@@ -48,6 +52,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "pnpm --filter @workspace/api-server typecheck"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "db-deps"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/scripts run check-db-deps"
 
 [workflows.workflow.metadata]
 isValidation = true
