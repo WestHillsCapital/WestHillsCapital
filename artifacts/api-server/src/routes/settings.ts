@@ -1552,6 +1552,144 @@ router.get("/admin/accounts", async (req, res) => {
   }
 });
 
+// ── Super-admin account detail ────────────────────────────────────────────────
+
+/**
+ * GET /admin/accounts/:id — returns detailed info for a single account:
+ *   - monthly submission counts for the last 6 months
+ *   - team member list
+ *   - current Stripe subscription details (if available)
+ */
+router.get("/admin/accounts/:id", async (req, res) => {
+  if (!req.internalEmail) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const rawId = req.params.id ?? "";
+  if (!/^\d+$/.test(rawId)) {
+    res.status(400).json({ error: "Invalid account ID" });
+    return;
+  }
+  const accountId = parseInt(rawId, 10);
+  try {
+    const db = getDb();
+
+    // Verify account exists
+    const { rows: acctRows } = await db.query<{
+      id: number;
+      name: string;
+      plan_tier: string;
+      subscription_status: string | null;
+      stripe_customer_id: string | null;
+      stripe_subscription_id: string | null;
+      created_at: Date;
+    }>(
+      `SELECT id, name, plan_tier, subscription_status, stripe_customer_id, stripe_subscription_id, created_at
+         FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!acctRows[0]) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+    const acct = acctRows[0];
+
+    // Monthly submission counts for the last 6 months
+    const { rows: usageRows } = await db.query<{ month: string; count: string }>(
+      `SELECT TO_CHAR(gs.month, 'YYYY-MM') AS month,
+              COALESCE(ue.cnt, 0)::TEXT AS count
+         FROM (
+           SELECT generate_series(
+             DATE_TRUNC('month', NOW()) - INTERVAL '5 months',
+             DATE_TRUNC('month', NOW()),
+             '1 month'::INTERVAL
+           ) AS month
+         ) gs
+         LEFT JOIN (
+           SELECT period_start, COUNT(*) AS cnt
+             FROM usage_events
+            WHERE account_id = $1 AND event_type = 'submission'
+            GROUP BY period_start
+         ) ue ON ue.period_start = gs.month::DATE
+        ORDER BY gs.month ASC`,
+      [accountId],
+    );
+
+    // Team members
+    const { rows: memberRows } = await db.query<{
+      id: number;
+      email: string;
+      role: string;
+      status: string;
+      display_name: string | null;
+      last_seen_at: Date | null;
+      invited_at: Date | null;
+    }>(
+      `SELECT id, email, role, status, display_name, last_seen_at, invited_at
+         FROM account_users
+        WHERE account_id = $1
+        ORDER BY role = 'admin' DESC, lower(email) ASC`,
+      [accountId],
+    );
+
+    // Stripe subscription details (best-effort)
+    let stripeSubscription: {
+      plan_name: string;
+      amount: number | null;
+      currency: string | null;
+      interval: string | null;
+      current_period_end: string | null;
+      status: string | null;
+    } | null = null;
+
+    if (acct.stripe_subscription_id) {
+      try {
+        const stripe = await getUncachableStripeClient();
+        const sub = await stripe.subscriptions.retrieve(acct.stripe_subscription_id, {
+          expand: ["items.data.price.product"],
+        });
+        const item = sub.items.data[0];
+        const price = item?.price;
+        const product = price?.product;
+        const productName = product && typeof product === "object" && "name" in product
+          ? (product as { name: string }).name
+          : null;
+        const rawSub = sub as unknown as Record<string, unknown>;
+        const periodEnd = typeof rawSub["current_period_end"] === "number"
+          ? new Date(rawSub["current_period_end"] * 1000).toISOString()
+          : null;
+        stripeSubscription = {
+          plan_name:          productName ?? acct.plan_tier,
+          amount:             price?.unit_amount ?? null,
+          currency:           price?.currency ?? null,
+          interval:           price?.recurring?.interval ?? null,
+          current_period_end: periodEnd,
+          status:             sub.status,
+        };
+      } catch {
+        // Stripe unavailable — omit subscription detail gracefully
+      }
+    }
+
+    res.json({
+      monthly_usage: usageRows.map((r) => ({ month: r.month, count: parseInt(r.count, 10) })),
+      team_members: memberRows.map((r) => ({
+        id:           r.id,
+        email:        r.email,
+        role:         r.role,
+        status:       r.status,
+        display_name: r.display_name ?? null,
+        last_seen_at: r.last_seen_at?.toISOString() ?? null,
+        invited_at:   r.invited_at?.toISOString() ?? null,
+      })),
+      stripe_subscription: stripeSubscription,
+    });
+  } catch (err) {
+    logger.error({ err }, "[Admin] Failed to load account detail");
+    res.status(500).json({ error: "Failed to load account detail" });
+  }
+});
+
 // ── IP allowlist management (admin only) ──────────────────────────────────────
 //
 // GET  /security/ip-allowlist  → { allowed_ip_ranges: string[] }
