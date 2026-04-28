@@ -2978,10 +2978,11 @@ export default function DocuFill() {
   return (
     <div className="max-w-screen-2xl mx-auto px-4 py-6 text-[#0F1C3F]">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
-        <div>
-          <h1 className="text-2xl font-semibold">Docuplete</h1>
-          {isPublicSession && <p className="text-sm text-[#6B7A99] mt-1">Complete your secure paperwork interview.</p>}
-        </div>
+        {isPublicSession && (
+          <div>
+            <p className="text-sm text-[#6B7A99]">Complete your secure paperwork interview.</p>
+          </div>
+        )}
         {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
           <Tooltip>
             <TooltipTrigger asChild>
@@ -6324,10 +6325,22 @@ export default function DocuFill() {
                 </div>
               )}
               <div className="space-y-2 rounded border border-[#EFE8D8] bg-[#F8F6F0] px-3 py-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={fieldEditorDraft.interviewMode === "omitted"} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, interviewMode: e.target.checked ? "omitted" : "optional" }))} className="rounded" />
-                  <span className="text-sm">Omit from interview</span>
-                </label>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={fieldEditorDraft.interviewMode === "omitted"} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, interviewMode: e.target.checked ? "omitted" : "optional" }))} className="rounded" />
+                    <span className="text-sm">Omit from interview</span>
+                  </label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center text-[#8A9BB8] cursor-default">
+                        <Info className="w-3 h-3" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-xs leading-snug">
+                      <p>This field will be completely hidden from the interview form. It will not be shown or editable by staff, and will use its default value (if any) when generating the document.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 {fieldEditorDraft.interviewMode !== "omitted" && (
                   <div>
                     <div className="flex items-center gap-1 mb-1">
@@ -6872,38 +6885,44 @@ function FieldLibraryPanel({
                 className="h-8 text-xs bg-white"
               />
             </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div className="relative pt-1">
-                {h && <HL>Field type</HL>}
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <select value={item.type} onChange={(e) => onChange(item.id, { type: e.target.value as FieldItem["type"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
-                      <option value="text">Text</option>
-                      <option value="date">Date</option>
-                      <option value="radio">Radio</option>
-                      <option value="checkbox">Checkbox</option>
-                      <option value="dropdown">Dropdown</option>
-                    </select>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-xs">
-                    {item.type === "text" ? "Text: a freeform typed response" : item.type === "date" ? "Date: a formatted date entry (MM/DD/YYYY)" : item.type === "radio" ? "Radio: one selection from a group" : item.type === "checkbox" ? "Checkbox: a checked/unchecked box; multiple selections when options are defined" : "Dropdown: a single choice from a predefined list"}
-                  </TooltipContent>
-                </Tooltip>
+            <div className="relative pt-1">
+              {h && <HL>Field type</HL>}
+              <div className="flex flex-wrap gap-1">
+                {([
+                  { value: "text",     label: "Text",     tip: "A freeform typed response — any text the user types" },
+                  { value: "date",     label: "Date",     tip: "A formatted date entry — renders as a date field on the filled PDF" },
+                  { value: "radio",    label: "Radio",    tip: "One selection from a group — only one option can be chosen" },
+                  { value: "checkbox", label: "Checkbox", tip: "A checked or unchecked box — supports multiple selections when options are defined" },
+                  { value: "dropdown", label: "Dropdown", tip: "A choice from a predefined list — single selection from a dropdown menu" },
+                ] as const).map(({ value, label, tip }) => (
+                  <Tooltip key={value}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        onClick={() => onChange(item.id, { type: value })}
+                        className={`px-2 py-0.5 text-xs rounded border transition-colors ${item.type === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}
+                      >
+                        {label}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">{tip}</TooltipContent>
+                  </Tooltip>
+                ))}
               </div>
-              <div className="relative pt-1">
-                {h && <HL>Validation rule</HL>}
-                <select value={item.validationType ?? "none"} onChange={(e) => onChange(item.id, { validationType: e.target.value as FieldItem["validationType"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
-                  <option value="none">No rule</option>
-                  <option value="name">Name</option>
-                  <option value="number">Number</option>
-                  <option value="currency">Currency</option>
-                  <option value="email">Email</option>
-                  <option value="phone">Phone</option>
-                  <option value="date">Date</option>
-                  <option value="ssn">SSN</option>
-                  <option value="custom">Custom</option>
-                </select>
-              </div>
+            </div>
+            <div className="relative pt-1">
+              {h && <HL>Validation rule</HL>}
+              <select value={item.validationType ?? "none"} onChange={(e) => onChange(item.id, { validationType: e.target.value as FieldItem["validationType"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
+                <option value="none">No rule</option>
+                <option value="name">Name</option>
+                <option value="number">Number</option>
+                <option value="currency">Currency</option>
+                <option value="email">Email</option>
+                <option value="phone">Phone</option>
+                <option value="date">Date</option>
+                <option value="ssn">SSN</option>
+                <option value="custom">Custom</option>
+              </select>
             </div>
             <div className="relative pt-1">
               {h && <HL>Options</HL>}

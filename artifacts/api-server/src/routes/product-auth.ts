@@ -145,12 +145,12 @@ router.get("/me", requireProductAuth, async (req, res) => {
   const clerkUserId = auth?.userId ?? null;
 
   try {
-    type MeRow = { account_id: number; account_name: string; slug: string; email: string | null; role: string };
+    type MeRow = { account_id: number; account_name: string; slug: string; email: string | null; role: string; logo_url: string | null };
 
     if (clerkUserId) {
       // Clerk path: look up user record for email and role
       let result = await getDb().query<MeRow>(
-        `SELECT au.account_id, a.name AS account_name, a.slug, au.email, au.role
+        `SELECT au.account_id, a.name AS account_name, a.slug, a.logo_url, au.email, au.role
            FROM account_users au
            JOIN accounts a ON a.id = au.account_id
           WHERE au.clerk_user_id = $1 AND au.status = 'active'
@@ -162,8 +162,8 @@ router.get("/me", requireProductAuth, async (req, res) => {
       if (!result.rows[0]) {
         const linked = await linkPendingInvitation(clerkUserId);
         if (linked) {
-          const acc = await getDb().query<{ name: string; slug: string }>(
-            `SELECT name, slug FROM accounts WHERE id = $1`,
+          const acc = await getDb().query<{ name: string; slug: string; logo_url: string | null }>(
+            `SELECT name, slug, logo_url FROM accounts WHERE id = $1`,
             [linked.account_id],
           );
           result = {
@@ -171,6 +171,7 @@ router.get("/me", requireProductAuth, async (req, res) => {
               account_id:   linked.account_id,
               account_name: acc.rows[0]?.name ?? "",
               slug:         acc.rows[0]?.slug ?? "",
+              logo_url:     acc.rows[0]?.logo_url ?? null,
               email:        linked.email,
               role:         linked.role,
             }],
@@ -184,17 +185,18 @@ router.get("/me", requireProductAuth, async (req, res) => {
 
       const row = result.rows[0];
       return void res.json({
-        accountId:   row.account_id,
-        accountName: row.account_name,
-        slug:        row.slug,
-        email:       row.email,
-        role:        row.role,
+        accountId:    row.account_id,
+        accountName:  row.account_name,
+        slug:         row.slug,
+        email:        row.email,
+        role:         row.role,
+        orgLogoUrl:   row.logo_url ? `/api/storage/org-logo/${row.account_id}` : null,
       });
     }
 
     // API key path: look up account by ID; no specific user context
-    const acc = await getDb().query<{ name: string; slug: string }>(
-      `SELECT name, slug FROM accounts WHERE id = $1 LIMIT 1`,
+    const acc = await getDb().query<{ name: string; slug: string; logo_url: string | null }>(
+      `SELECT name, slug, logo_url FROM accounts WHERE id = $1 LIMIT 1`,
       [accountId],
     );
 
@@ -208,6 +210,7 @@ router.get("/me", requireProductAuth, async (req, res) => {
       slug:        acc.rows[0].slug,
       email:       null,
       role:        req.productUserRole ?? "member",
+      orgLogoUrl:  acc.rows[0].logo_url ? `/api/storage/org-logo/${accountId}` : null,
     });
   } catch (err) {
     logger.error({ err }, "[ProductAuth] /me error");

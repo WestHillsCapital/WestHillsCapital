@@ -73,14 +73,32 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <header className="bg-white border-b border-gray-200 px-6 py-0">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-14">
 
-          {/* Left: app name + org name */}
+          {/* Left: app name + org logo or name */}
           <div className="flex items-center gap-4">
             <Link href="/app" className="text-lg font-semibold text-gray-900 hover:text-gray-700 transition-colors">
               {APP_NAME}
             </Link>
             {account && (
-              <span className="text-sm text-gray-400 border-l border-gray-200 pl-4 hidden sm:block">
-                {account.accountName}
+              <span className="border-l border-gray-200 pl-4 hidden sm:flex items-center">
+                {account.orgLogoUrl ? (
+                  <img
+                    src={account.orgLogoUrl}
+                    alt={account.accountName}
+                    className="h-6 max-w-[120px] object-contain"
+                    onError={(e) => {
+                      const img = e.currentTarget;
+                      img.style.display = "none";
+                      const sib = img.nextElementSibling as HTMLElement | null;
+                      if (sib) sib.style.display = "inline";
+                    }}
+                  />
+                ) : null}
+                <span
+                  className="text-sm text-gray-400"
+                  style={{ display: account.orgLogoUrl ? "none" : "inline" }}
+                >
+                  {account.accountName}
+                </span>
               </span>
             )}
           </div>
