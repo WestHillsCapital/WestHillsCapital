@@ -4974,7 +4974,7 @@ export default function DocuFill() {
         <section className="max-w-4xl mx-auto space-y-6">
           <div>
             <h2 className="text-lg font-semibold text-[#0F1C3F]">Groups</h2>
-            <p className="text-sm text-[#6B7A99] mt-1">Create and manage groups used to organize packages and recipients. Give each group a category name — type anything that fits your workflow, like "Custodian", "Depository", or "Exchange".</p>
+            <p className="text-sm text-[#6B7A99] mt-1">Create and manage groups used to organize packages and recipients.</p>
           </div>
           <EntityPanel
             title="All Groups"
@@ -4983,8 +4983,6 @@ export default function DocuFill() {
             onChange={(id, patch) => updateGroupLocal(id, patch)}
             onSave={saveGroup}
             onDelete={deleteGroup}
-            showKind
-            kindSuggestions={[...new Set(groups.map((g) => g.kind ?? "general"))]}
           />
         </section>
       )}
@@ -6673,7 +6671,7 @@ function FieldLibraryPanel({
               </div>
             </div>
           </div>
-        ))}
+        ); })}
         {items.length === 0 && <div className="text-xs text-[#8A9BB8]">No shared fields yet.</div>}
       </div>
     </div>
