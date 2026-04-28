@@ -2,6 +2,8 @@ import { createClerkClient } from "@clerk/express";
 import { getDb } from "../db";
 import { logger } from "./logger";
 import { getPlanLimits } from "./plans";
+import { getUserEmailsToNotify } from "./notificationPrefs";
+import { sendOrgAlertEmails } from "./email";
 
 /**
  * Attempts to link a pending team invitation to a Clerk user on their first sign-in.
@@ -92,11 +94,34 @@ export async function linkPendingInvitation(
     );
 
     if (result.rows[0]) {
+      const linked = result.rows[0];
       logger.info(
         { clerkUserId, email: primaryEmail },
         "[Auth] Linked pending invitation on first sign-in",
       );
-      return result.rows[0];
+
+      // Notify org members who want team_member_joined emails
+      void (async () => {
+        try {
+          const { rows: orgRows } = await getDb().query<{ name: string }>(
+            `SELECT name FROM accounts WHERE id = $1`, [linked.account_id],
+          );
+          const orgName = orgRows[0]?.name ?? "Docuplete";
+          const emails = (await getUserEmailsToNotify(linked.account_id, "team_member_joined"))
+            .filter(e => e !== linked.email);
+          await sendOrgAlertEmails({
+            recipientEmails: emails,
+            orgName,
+            subject:  `${orgName}: ${linked.email} joined your team`,
+            heading:  "A new team member joined",
+            bodyHtml: `<p><strong>${linked.email}</strong> has accepted their invitation and joined your organization as a <strong>${linked.role}</strong>.</p>`,
+          });
+        } catch (err) {
+          logger.error({ err, accountId: linked.account_id }, "[Auth] Failed to send team_member_joined notification emails");
+        }
+      })();
+
+      return linked;
     }
     return null;
   } catch (err) {

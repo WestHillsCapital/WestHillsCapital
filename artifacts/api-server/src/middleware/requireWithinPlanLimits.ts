@@ -2,6 +2,8 @@ import type { Request, Response, NextFunction } from "express";
 import { getDb } from "../db";
 import { getPlanLimits } from "../lib/plans";
 import { logger } from "../lib/logger";
+import { getUserEmailsToNotify } from "../lib/notificationPrefs";
+import { sendOrgAlertEmails } from "../lib/email";
 
 export type LimitedResource = "package" | "submission" | "seat";
 
@@ -174,10 +176,62 @@ export function requireWithinPlanLimits(resource: LimitedResource) {
 
 /**
  * Records a submission usage event for the given account.
+ * After recording, fires a plan_limit_warning notification when usage crosses
+ * the 80% or 90% threshold for the first time in the billing period.
  * Call after a session is successfully created (fire-and-forget is acceptable).
  */
 export async function recordSubmissionEvent(accountId: number): Promise<void> {
   await recordUsageEvent(accountId, "submission");
+
+  // Check if usage just crossed a warning threshold and notify opted-in members
+  void (async () => {
+    try {
+      const db = getDb();
+      const { rows: acctRows } = await db.query<{
+        plan_tier: string;
+        name: string;
+        billing_period_start: Date | null;
+      }>(
+        `SELECT plan_tier, name, billing_period_start FROM accounts WHERE id = $1`,
+        [accountId],
+      );
+      const acct = acctRows[0];
+      if (!acct) return;
+
+      const limits = getPlanLimits(acct.plan_tier);
+      const maxSubs = limits.maxSubmissionsPerMonth;
+      if (maxSubs === null) return; // unlimited plan
+
+      const period = billingPeriodStart(acct.billing_period_start);
+      const { rows: countRows } = await db.query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM usage_events
+          WHERE account_id = $1 AND event_type = 'submission' AND created_at >= $2::date`,
+        [accountId, period],
+      );
+      const used = parseInt(countRows[0]?.count ?? "0", 10);
+
+      const threshold80 = Math.floor(maxSubs * 0.8);
+      const threshold90 = Math.floor(maxSubs * 0.9);
+
+      let pctLabel: string | null = null;
+      if (used === threshold90 && threshold90 !== threshold80) pctLabel = "90%";
+      else if (used === threshold80) pctLabel = "80%";
+      if (!pctLabel) return;
+
+      const orgName = acct.name ?? "Docuplete";
+      const emails = await getUserEmailsToNotify(accountId, "plan_limit_warning");
+      await sendOrgAlertEmails({
+        recipientEmails: emails,
+        orgName,
+        subject:  `${orgName}: you've used ${pctLabel} of your monthly submission limit`,
+        heading:  `${pctLabel} of your submission limit used`,
+        bodyHtml: `<p>Your organization has used <strong>${used} of ${maxSubs}</strong> interview submissions allowed this billing period (${pctLabel}).</p><p>Consider upgrading your plan if you're approaching your limit to avoid interruption.</p>`,
+      });
+      logger.info({ accountId, used, maxSubs, pctLabel }, "[PlanLimits] Sent plan_limit_warning notification");
+    } catch (err) {
+      logger.error({ err, accountId }, "[PlanLimits] Failed to check/send plan_limit_warning");
+    }
+  })();
 }
 
 /**
