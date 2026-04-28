@@ -351,8 +351,8 @@ async function probeWebhookUrl(
   }
 }
 
-/** Delays (ms) between delivery attempts: immediate, +5s, +30s, +5min. */
-const WEBHOOK_RETRY_DELAYS_MS = [5_000, 30_000, 5 * 60_000];
+/** Delays (ms) between delivery attempts: 1 s, 4 s, 16 s (exponential backoff). */
+const WEBHOOK_RETRY_DELAYS_MS = [1_000, 4_000, 16_000];
 
 /**
  * Execute one HTTP delivery attempt, log the result to webhook_deliveries,
@@ -408,8 +408,41 @@ async function doWebhookDelivery(
 }
 
 /**
+ * Attempt to deliver a webhook and schedule retries on failure.
+ * Retries use exponential backoff defined by WEBHOOK_RETRY_DELAYS_MS (1 s, 4 s, 16 s).
+ * Every attempt — including final failures — is recorded in webhook_deliveries.
+ */
+async function retryWebhookDelivery(
+  db: Pool,
+  packageId: number,
+  accountId: number,
+  webhookUrl: string,
+  secret: string | null,
+  bodyStr: string,
+  attempt: number,
+  eventType: string,
+  payloadHash: string,
+): Promise<void> {
+  const success = await doWebhookDelivery(
+    db, packageId, accountId, webhookUrl, secret, bodyStr, attempt, eventType, payloadHash,
+  );
+  if (!success) {
+    if (attempt <= WEBHOOK_RETRY_DELAYS_MS.length) {
+      const delay = WEBHOOK_RETRY_DELAYS_MS[attempt - 1];
+      logger.warn({ packageId, attempt, nextDelayMs: delay }, "[DocuFill] Webhook failed — scheduling retry");
+      setTimeout(
+        () => void retryWebhookDelivery(db, packageId, accountId, webhookUrl, secret, bodyStr, attempt + 1, eventType, payloadHash),
+        delay,
+      ).unref();
+    } else {
+      logger.error({ packageId, webhookUrl, totalAttempts: attempt }, "[DocuFill] Webhook delivery failed after all retries — giving up");
+    }
+  }
+}
+
+/**
  * Fire a signed webhook and retry up to 3 times on failure.
- * Retries are scheduled at 5 s, 30 s, and 5 min after each failure.
+ * Retries use exponential backoff: 1 s, 4 s, 16 s.
  * Every attempt is recorded in webhook_deliveries.
  *
  * The signing secret is fetched directly from the DB here so that
@@ -425,16 +458,6 @@ function fireWebhookAsync(
 ): void {
   const bodyStr = JSON.stringify(payload);
   const payloadHash = createHash("sha256").update(bodyStr).digest("hex").slice(0, 16);
-
-  async function tryDeliver(attempt: number, secret: string | null): Promise<void> {
-    const success = await doWebhookDelivery(
-      db, packageId, accountId, webhookUrl, secret, bodyStr, attempt, eventType, payloadHash,
-    );
-    if (!success && attempt <= WEBHOOK_RETRY_DELAYS_MS.length) {
-      const delay = WEBHOOK_RETRY_DELAYS_MS[attempt - 1];
-      setTimeout(() => void tryDeliver(attempt + 1, secret), delay).unref();
-    }
-  }
 
   setImmediate(async () => {
     // Fetch the signing secret here — keeps secret material out of session/request context.
@@ -461,7 +484,7 @@ function fireWebhookAsync(
       });
       return;
     }
-    void tryDeliver(1, secret);
+    void retryWebhookDelivery(db, packageId, accountId, webhookUrl, secret, bodyStr, 1, eventType, payloadHash);
   });
 }
 
