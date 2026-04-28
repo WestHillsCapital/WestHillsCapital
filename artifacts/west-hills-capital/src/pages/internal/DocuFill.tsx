@@ -56,6 +56,7 @@ function normalizeTransactionScope(scope: string | null | undefined) {
 type Entity = {
   id: number;
   name: string;
+  kind?: string;
   contact_name: string | null;
   email: string | null;
   phone: string | null;
@@ -1559,7 +1560,7 @@ export default function DocuFill() {
       const res = await fetch(`${API_BASE}${docufillApiPath}/groups/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ name: item.name, email: item.email, phone: item.phone, notes: item.notes, active: item.active }),
+        body: JSON.stringify({ name: item.name, kind: item.kind ?? "general", email: item.email, phone: item.phone, notes: item.notes, active: item.active }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return data.error ?? "Could not save group";
@@ -3016,21 +3017,16 @@ export default function DocuFill() {
                           <span className="block text-xs text-[#6B7A99] mb-1">Group</span>
                           <select value={selectedPackage.group_id ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, group_id: e.target.value ? Number(e.target.value) : null }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
                             <option value="">None</option>
-                            {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                          </select>
-                        </label>
-                        <label className="block text-sm">
-                          <span className="block text-xs text-[#6B7A99] mb-1">Custodian (legacy)</span>
-                          <select value={selectedPackage.custodian_id ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, custodian_id: e.target.value ? Number(e.target.value) : null }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
-                            <option value="">None</option>
-                            {custodians.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                          </select>
-                        </label>
-                        <label className="block text-sm">
-                          <span className="block text-xs text-[#6B7A99] mb-1">Depository (legacy)</span>
-                          <select value={selectedPackage.depository_id ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, depository_id: e.target.value ? Number(e.target.value) : null }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
-                            <option value="">None</option>
-                            {depositories.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                            {["custodian", "depository", "general"].map((kind) => {
+                              const subset = groups.filter((g) => (g.kind ?? "general") === kind && g.active !== false);
+                              if (!subset.length) return null;
+                              const label = kind === "custodian" ? "Custodians" : kind === "depository" ? "Depositories" : "General";
+                              return (
+                                <optgroup key={kind} label={label}>
+                                  {subset.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                                </optgroup>
+                              );
+                            })}
                           </select>
                         </label>
                       </div>
@@ -3161,20 +3157,7 @@ export default function DocuFill() {
                           onChange={(id, patch) => updateGroupLocal(id, patch)}
                           onSave={saveGroup}
                           onDelete={deleteGroup}
-                        />
-                        <EntityPanel
-                          title="Custodians (legacy)"
-                          items={custodians}
-                          onAdd={() => createEntity("custodians")}
-                          onChange={(id, patch) => updateEntityLocal("custodians", id, patch)}
-                          onSave={(item) => saveEntity("custodians", item)}
-                        />
-                        <EntityPanel
-                          title="Depositories (legacy)"
-                          items={depositories}
-                          onAdd={() => createEntity("depositories")}
-                          onChange={(id, patch) => updateEntityLocal("depositories", id, patch)}
-                          onSave={(item) => saveEntity("depositories", item)}
+                          showKind
                         />
                       </div>
                       <div className="mt-4 space-y-4">
@@ -5789,75 +5772,39 @@ export default function DocuFill() {
                   {(selectedPackage.recipients ?? []).some((r) => r.type === "customer") && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
                 </button>
               </div>
-              {groups.filter((g) => g.active !== false).length > 0 && (
-                <div>
-                  <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Groups</div>
-                  <div className="space-y-1">
-                    {groups.filter((g) => g.active !== false).map((g) => {
-                      const already = (selectedPackage.recipients ?? []).some((r) => r.type === "group" && r.refId === g.id);
-                      return (
-                        <button
-                          key={g.id}
-                          type="button"
-                          disabled={already}
-                          onClick={() => addRecipient({ id: newRecipientId(), label: g.name, color: pickRecipientColor((selectedPackage.recipients ?? []).map((r) => r.color)), type: "group", refId: g.id })}
-                          className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] border border-[#EFE8D8] disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                          {g.name}
-                          {already && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
-                        </button>
-                      );
-                    })}
+              {["custodian", "depository", "general"].map((kind) => {
+                const subset = groups.filter((g) => (g.kind ?? "general") === kind && g.active !== false);
+                if (!subset.length) return null;
+                const sectionLabel = kind === "custodian" ? "Custodians" : kind === "depository" ? "Depositories" : "Groups";
+                const icon = kind === "custodian"
+                  ? <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 8v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                  : kind === "depository"
+                  ? <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" /></svg>
+                  : <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
+                return (
+                  <div key={kind}>
+                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">{sectionLabel}</div>
+                    <div className="space-y-1">
+                      {subset.map((g) => {
+                        const already = (selectedPackage.recipients ?? []).some((r) => r.type === "group" && r.refId === g.id);
+                        return (
+                          <button
+                            key={g.id}
+                            type="button"
+                            disabled={already}
+                            onClick={() => addRecipient({ id: newRecipientId(), label: g.name, color: pickRecipientColor((selectedPackage.recipients ?? []).map((r) => r.color)), type: "group", refId: g.id })}
+                            className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] border border-[#EFE8D8] disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            {icon}
+                            {g.name}
+                            {already && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
-              {custodians.filter((c) => c.active !== false).length > 0 && (
-                <div>
-                  <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Custodians (legacy)</div>
-                  <div className="space-y-1">
-                    {custodians.filter((c) => c.active !== false).map((c) => {
-                      const already = (selectedPackage.recipients ?? []).some((r) => r.type === "custodian" && r.refId === c.id);
-                      return (
-                        <button
-                          key={c.id}
-                          type="button"
-                          disabled={already}
-                          onClick={() => addRecipient({ id: newRecipientId(), label: c.name, color: pickRecipientColor((selectedPackage.recipients ?? []).map((r) => r.color)), type: "custodian", refId: c.id })}
-                          className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] border border-[#EFE8D8] disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-2 8v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                          {c.name}
-                          {already && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {depositories.filter((d) => d.active !== false).length > 0 && (
-                <div>
-                  <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Depositories</div>
-                  <div className="space-y-1">
-                    {depositories.filter((d) => d.active !== false).map((d) => {
-                      const already = (selectedPackage.recipients ?? []).some((r) => r.type === "depository" && r.refId === d.id);
-                      return (
-                        <button
-                          key={d.id}
-                          type="button"
-                          disabled={already}
-                          onClick={() => addRecipient({ id: newRecipientId(), label: d.name, color: pickRecipientColor((selectedPackage.recipients ?? []).map((r) => r.color)), type: "depository", refId: d.id })}
-                          className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] border border-[#EFE8D8] disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4V10z" /></svg>
-                          {d.name}
-                          {already && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
+                );
+              })}
             </div>
           </div>
         </div>
@@ -6171,6 +6118,7 @@ function EntityPanel({
   onChange,
   onSave,
   onDelete,
+  showKind,
 }: {
   title: string;
   items: Entity[];
@@ -6178,6 +6126,7 @@ function EntityPanel({
   onChange: (id: number, patch: Partial<Entity>) => void;
   onSave: (item: Entity) => Promise<string | null>;
   onDelete?: (id: number) => Promise<string | null>;
+  showKind?: boolean;
 }) {
   const [adding, setAdding] = useState(false);
   const [savingId, setSavingId] = useState<number | null>(null);
@@ -6230,6 +6179,17 @@ function EntityPanel({
         {items.map((item) => (
           <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
             <Input value={item.name} onChange={(e) => onChange(item.id, { name: e.target.value })} className="h-8 text-xs bg-white" />
+            {showKind && (
+              <select
+                value={item.kind ?? "general"}
+                onChange={(e) => onChange(item.id, { kind: e.target.value })}
+                className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
+              >
+                <option value="custodian">Custodian</option>
+                <option value="depository">Depository</option>
+                <option value="general">General</option>
+              </select>
+            )}
             <div className="grid grid-cols-2 gap-2">
               <Input placeholder="Phone" value={item.phone ?? ""} onChange={(e) => onChange(item.id, { phone: e.target.value })} className="h-8 text-xs bg-white" />
               <Input placeholder="Email" value={item.email ?? ""} onChange={(e) => onChange(item.id, { email: e.target.value })} className="h-8 text-xs bg-white" />

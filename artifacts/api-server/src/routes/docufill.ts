@@ -1206,10 +1206,11 @@ router.post("/groups", requireAdminRole, async (req, res) => {
     const count = (await getDb().query("SELECT COUNT(*) FROM docufill_groups WHERE account_id=$1", [acctId(req)])).rows[0]?.count ?? 0;
     const name = cleanText(body.name) || `New Group ${Number(count) + 1}`;
     const accountId = acctId(req);
+    const kind = ["custodian", "depository"].includes(body.kind ?? "") ? body.kind : "general";
     const { rows } = await getDb().query(
-      `INSERT INTO docufill_groups (name, phone, email, notes, active, sort_order, account_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [name, nullableText(body.phone), nullableText(body.email), nullableText(body.notes), body.active !== false, 100, accountId],
+      `INSERT INTO docufill_groups (name, kind, phone, email, notes, active, sort_order, account_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [name, kind, nullableText(body.phone), nullableText(body.email), nullableText(body.notes), body.active !== false, 100, accountId],
     );
     res.status(201).json({ group: rows[0] });
   } catch (err) {
@@ -1232,10 +1233,11 @@ router.patch("/groups/:id", requireAdminRole, async (req, res) => {
       return;
     }
     const accountId = acctId(req);
+    const kind = ["custodian", "depository"].includes(body.kind ?? "") ? body.kind : "general";
     const { rows } = await getDb().query(
-      `UPDATE docufill_groups SET name=$1, phone=$2, email=$3, notes=$4, active=$5, updated_at=NOW()
-        WHERE id=$6 AND account_id=$7 RETURNING *`,
-      [name, nullableText(body.phone), nullableText(body.email), nullableText(body.notes), body.active !== false, id, accountId],
+      `UPDATE docufill_groups SET name=$1, kind=$2, phone=$3, email=$4, notes=$5, active=$6, updated_at=NOW()
+        WHERE id=$7 AND account_id=$8 RETURNING *`,
+      [name, kind, nullableText(body.phone), nullableText(body.email), nullableText(body.notes), body.active !== false, id, accountId],
     );
     if (!rows[0]) {
       res.status(404).json({ error: "Group not found" });
