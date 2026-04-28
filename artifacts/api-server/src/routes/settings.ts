@@ -2022,10 +2022,14 @@ router.patch("/interview-defaults", requireAdminRole, async (req, res) => {
       }
     }
 
-    // reminderEnabled: boolean
+    // reminderEnabled: strict boolean (reject strings, numbers, etc.)
     let reminderEnabled: boolean = Boolean(cur.interview_reminder_enabled);
     if ("reminderEnabled" in body) {
-      reminderEnabled = Boolean(body.reminderEnabled);
+      if (typeof body.reminderEnabled !== "boolean") {
+        res.status(400).json({ error: "reminderEnabled must be a boolean" });
+        return;
+      }
+      reminderEnabled = body.reminderEnabled;
     }
 
     // reminderDays: positive integer 1–90
