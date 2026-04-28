@@ -6256,7 +6256,6 @@ export default function DocuFill() {
                 <div className="flex flex-wrap gap-1.5">
                   {([
                     { value: "text",     label: "Text box",   tip: "A freeform typed response — any text the user types" },
-                    { value: "date",     label: "Date",       tip: "A formatted date entry — renders as a date field on the filled PDF" },
                     { value: "radio",    label: "Radio",      tip: "One selection from a group — only one option can be chosen" },
                     { value: "checkbox", label: "Checkbox",   tip: "A checked or unchecked box — supports multiple selections when options are defined" },
                     { value: "dropdown", label: "Dropdown",   tip: "A choice from a predefined list — single selection from a dropdown menu" },
@@ -6902,7 +6901,6 @@ function FieldLibraryPanel({
               <div className="flex flex-wrap gap-1">
                 {([
                   { value: "text",     label: "Text",     tip: "A freeform typed response — any text the user types" },
-                  { value: "date",     label: "Date",     tip: "A formatted date entry — renders as a date field on the filled PDF" },
                   { value: "radio",    label: "Radio",    tip: "One selection from a group — only one option can be chosen" },
                   { value: "checkbox", label: "Checkbox", tip: "A checked or unchecked box — supports multiple selections when options are defined" },
                   { value: "dropdown", label: "Dropdown", tip: "A choice from a predefined list — single selection from a dropdown menu" },
