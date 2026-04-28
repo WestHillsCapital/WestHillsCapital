@@ -3040,6 +3040,7 @@ interface ActiveSession {
   os: string;
   device: string;
   ipAddress: string | null;
+  location: string | null;
   lastActiveAt: string;
   createdAt: string;
 }
@@ -3050,6 +3051,7 @@ interface LoginEntry {
   os: string;
   device: string;
   ipAddress: string | null;
+  location: string | null;
   createdAt: string;
 }
 
@@ -3428,7 +3430,7 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
                         {s.isCurrent && <span className="ml-1.5 text-[10px] font-semibold text-gray-500 uppercase tracking-wide">Current</span>}
                       </p>
                       <p className="text-[11px] text-gray-400 truncate">
-                        {s.ipAddress ?? "Unknown IP"} · Last active {formatRelative(s.lastActiveAt)}
+                        {s.ipAddress ?? "Unknown IP"}{s.location ? ` · ${s.location}` : ""} · Last active {formatRelative(s.lastActiveAt)}
                       </p>
                     </div>
                     {!s.isCurrent && (
@@ -3460,7 +3462,7 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
                     <div className="flex-1 min-w-0">
                       <p className="text-xs font-medium text-gray-800 truncate">{entry.browser} on {entry.os}</p>
                       <p className="text-[11px] text-gray-400 truncate">
-                        {entry.ipAddress ?? "Unknown IP"} · {formatRelative(entry.createdAt)}
+                        {entry.ipAddress ?? "Unknown IP"}{entry.location ? ` · ${entry.location}` : ""} · {formatRelative(entry.createdAt)}
                       </p>
                     </div>
                   </li>
