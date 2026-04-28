@@ -1,4 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { Info } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
@@ -6140,7 +6141,21 @@ export default function DocuFill() {
                 </label>
                 {fieldEditorDraft.interviewMode !== "omitted" && (
                   <div>
-                    <label className="block text-xs text-[#6B7A99] mb-1">Interview behavior</label>
+                    <div className="flex items-center gap-1 mb-1">
+                      <label className="text-xs text-[#6B7A99]">Interview behavior</label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className="inline-flex items-center text-[#8A9BB8] cursor-default">
+                            <Info className="w-3 h-3" />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs text-xs leading-snug space-y-1">
+                          <p><strong>Optional</strong> — staff may fill this in during the interview but it is not required.</p>
+                          <p><strong>Required</strong> — staff must answer this field before the document can be generated.</p>
+                          <p><strong>Read-only</strong> — the value is shown during the interview but cannot be edited.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
                     <select value={fieldEditorDraft.interviewMode} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, interviewMode: e.target.value as FieldInterviewMode }))} className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white">
                       <option value="optional">Optional — staff fills in during interview</option>
                       <option value="required">Required — must answer before generating</option>
@@ -6713,9 +6728,36 @@ function FieldLibraryPanel({
             <div className="relative pt-1">
               {h && <HL>Active · Required · Sensitive</HL>}
               <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
-                <label className="flex items-center gap-1"><input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} /> Active</label>
-                <label className="flex items-center gap-1"><input type="checkbox" checked={item.required} onChange={(e) => onChange(item.id, { required: e.target.checked })} /> Required</label>
-                <label className="flex items-center gap-1"><input type="checkbox" checked={item.sensitive} onChange={(e) => onChange(item.id, { sensitive: e.target.checked })} /> Sensitive</label>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} />
+                  Active
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[180px] text-xs">Field appears in the interview form when active.</TooltipContent>
+                  </Tooltip>
+                </label>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={item.required} onChange={(e) => onChange(item.id, { required: e.target.checked })} />
+                  Required
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[180px] text-xs">Staff must fill this field before the document can be generated.</TooltipContent>
+                  </Tooltip>
+                </label>
+                <label className="flex items-center gap-1">
+                  <input type="checkbox" checked={item.sensitive} onChange={(e) => onChange(item.id, { sensitive: e.target.checked })} />
+                  Sensitive
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[180px] text-xs">Value is masked in logs and exports to protect private data.</TooltipContent>
+                  </Tooltip>
+                </label>
               </div>
             </div>
             <div className="flex items-center justify-between">
