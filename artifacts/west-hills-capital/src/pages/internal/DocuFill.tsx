@@ -3082,7 +3082,7 @@ export default function DocuFill() {
                             <div className="col-span-full mt-2">
                               <div className="flex items-center justify-between mb-1">
                                 <span className="text-xs text-[#6B7A99]">Groups</span>
-                                {!inlineAddGroupOpen && (
+                                {groups.length > 0 && !inlineAddGroupOpen && (
                                   <button type="button" onClick={() => { setInlineAddGroupOpen(true); setInlineAddGroupName(""); setInlineAddGroupError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add group</button>
                                 )}
                               </div>
@@ -3295,8 +3295,6 @@ export default function DocuFill() {
                           onChange={(id, patch) => updateGroupLocal(id, patch)}
                           onSave={saveGroup}
                           onDelete={deleteGroup}
-                          showKind
-                          kindSuggestions={[...new Set(groups.map((g) => g.kind ?? "general"))]}
                         />
                       </div>
                       <div className="mt-4 space-y-4">
