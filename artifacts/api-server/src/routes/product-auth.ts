@@ -18,7 +18,7 @@ const API_KEY_PREFIX = "sk_live_";
 const MAX_KEYS_PER_ACCOUNT = 25;
 
 /**
- * POST /api/product/auth/onboard
+ * POST /api/v1/product/auth/onboard
  *
  * Called immediately after a new user signs up via Clerk.
  * Creates an accounts row + account_users row for the new tenant,
@@ -216,7 +216,7 @@ router.get("/me", requireProductAuth, async (req, res) => {
 });
 
 /**
- * POST /api/product/auth/api-keys
+ * POST /api/v1/product/auth/api-keys
  *
  * Create a new API key for the authenticated account.
  * Returns the plaintext key ONCE — it cannot be retrieved again.
@@ -390,7 +390,7 @@ router.post("/api-keys", requireProductAuth, requireAdminRole, async (req, res) 
 });
 
 /**
- * GET /api/product/auth/api-keys
+ * GET /api/v1/product/auth/api-keys
  *
  * List all active (non-revoked) API keys for the authenticated account.
  * Plaintext keys are never returned — only prefix and metadata.
@@ -463,7 +463,7 @@ router.get("/api-keys", requireProductAuth, requireAdminRole, async (req, res) =
 });
 
 /**
- * PATCH /api/product/auth/api-keys/:id
+ * PATCH /api/v1/product/auth/api-keys/:id
  *
  * Rename an active API key.
  * Only keys belonging to the authenticated account can be renamed.
@@ -584,7 +584,7 @@ router.patch("/api-keys/:id", requireProductAuth, requireAdminRole, async (req, 
 });
 
 /**
- * DELETE /api/product/auth/api-keys/:id
+ * DELETE /api/v1/product/auth/api-keys/:id
  *
  * Revoke an API key. The key is soft-deleted (revoked_at is set).
  * Only keys belonging to the authenticated account can be revoked.

@@ -1,3 +1,21 @@
+export function fieldFormatHint(vt: string | undefined, message?: string): string | null {
+  switch (vt) {
+    case "phone":    return "555-123-4567";
+    case "ssn":      return "XXX-XX-XXXX";
+    case "email":    return "user@example.com";
+    case "currency": return "1234.56";
+    case "number":   return "Numeric value";
+    case "date":     return "MM/DD/YYYY";
+    case "time":     return "HH:MM";
+    case "zip":      return "12345";
+    case "zip4":     return "12345-6789";
+    case "percent":  return "0–100";
+    case "name":     return "Text (name format)";
+    case "custom":   return message && message.trim() ? message.trim() : "Custom format";
+    default:         return null;
+  }
+}
+
 export type ValidatableField = {
   id?: string;
   name?: string;

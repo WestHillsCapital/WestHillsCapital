@@ -236,6 +236,20 @@ describe("Cross-tenant data isolation", () => {
     });
   });
 
+  describe("Webhook deliveries isolation", () => {
+    it("account A can read its own webhook deliveries (returns array, max 10)", async () => {
+      const res = await supertest(appA).get(`/packages/${packageAId}/webhook-deliveries`);
+      assert.equal(res.status, 200, `Expected 200 but got ${res.status}: ${JSON.stringify(res.body)}`);
+      assert.ok(Array.isArray(res.body.deliveries), "Expected deliveries array");
+      assert.ok(res.body.deliveries.length <= 10, `Expected at most 10 deliveries, got ${res.body.deliveries.length}`);
+    });
+
+    it("account B GET on account A's webhook deliveries → 404", async () => {
+      const res = await supertest(appB).get(`/packages/${packageAId}/webhook-deliveries`);
+      assert.equal(res.status, 404, `Expected 404 but got ${res.status}: ${JSON.stringify(res.body)}`);
+    });
+  });
+
   describe("Session isolation", () => {
     it("account A can read its own session", async () => {
       const res = await supertest(appA).get(`/sessions/${sessionAToken}`);

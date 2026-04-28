@@ -114,7 +114,7 @@ router.get("/storage/public-objects/*filePath", async (req: Request, res: Respon
  */
 router.get("/storage/org-logo/:accountId", async (req: Request, res: Response) => {
   try {
-    const accountId = parseInt(req.params.accountId, 10);
+    const accountId = parseInt(String(req.params.accountId), 10);
     if (isNaN(accountId) || accountId <= 0) {
       res.status(400).json({ error: "Invalid account ID" });
       return;

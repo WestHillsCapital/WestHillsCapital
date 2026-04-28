@@ -9,7 +9,7 @@ import internalAuthRouter  from "./internal-auth";
 import internalRouter      from "./internal";
 import dealsRouter         from "./deals";
 import fedexRouter         from "./fedex";
-import docufillRouter, { publicDocufillRouter } from "./docufill";
+import docufillRouter, { publicDocufillRouter, apiKeyDocufillRouter } from "./docufill";
 import contentRouter, { publicContentRouter } from "./content";
 import productAuthRouter   from "./product-auth";
 import storageRouter       from "./storage";
@@ -18,6 +18,7 @@ import docsRouter          from "./docs";
 import { requireInternalAuth } from "../middleware/requireInternalAuth";
 import { requireProductAuth } from "../middleware/requireProductAuth";
 import { requireAccountId } from "../middleware/requireAccountId";
+import { requireApiKeyAuth } from "../middleware/requireApiKeyAuth";
 
 const router: IRouter = Router();
 
@@ -68,6 +69,7 @@ v1Router.use("/docufill/public",   publicDocufillRouter);
 v1Router.use("/product/docufill",  requireProductAuth, requireAccountId, docufillRouter);
 v1Router.use("/product/auth",      productAuthRouter);
 v1Router.use("/product/settings",  requireProductAuth, settingsRouter);
+v1Router.use("/packages",          requireApiKeyAuth,  requireAccountId, apiKeyDocufillRouter);
 
 router.use("/v1", v1Router);
 

@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect, useCallback, lazy, Suspense } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from "react";
 import { usePageMeta } from "@/hooks/use-page-meta";
 import { useProductPrices, useBuybackPrices, useSpotPrices } from "@/hooks/use-pricing";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Link } from "wouter";
 import { Shield, ArrowRight, ZoomIn, RotateCcw, TrendingDown, TrendingUp, Info, X, RefreshCw } from "lucide-react";
 
@@ -61,13 +62,23 @@ function ProductCard({ product, onZoom }: { product: Product; onZoom: (p: Produc
         </div>
         <h3 className="text-xl font-bold mb-4 leading-snug">{product.name}</h3>
         <div className="mb-2">
-          <div className="text-3xl font-serif font-semibold text-foreground">
-            ${product.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-          </div>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="text-3xl font-serif font-semibold text-foreground cursor-default w-fit">
+                ${product.finalPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="top" className="max-w-xs">Ask — the price you pay to purchase this product. Includes dealer premium over spot.</TooltipContent>
+          </Tooltip>
         </div>
         <div className="space-y-1.5 mb-5 pb-5 border-b border-border/30 text-sm text-foreground/55">
           <div className="flex items-center justify-between">
-            <span>{product.metal === "gold" ? "Gold Spot" : "Silver Spot"}</span>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="cursor-default">{product.metal === "gold" ? "Gold Spot" : "Silver Spot"}</span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">The spot price is the raw global market benchmark before any dealer premium or fabrication cost is added.</TooltipContent>
+            </Tooltip>
             <span>${product.spotPrice.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
           </div>
           {product.deliveryWindow && (
@@ -263,6 +274,20 @@ export default function LivePricing() {
   const [zoomProduct, setZoomProduct] = useState<Product | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  // Track when tiles should animate in — triggers on first load and on manual refresh.
+  // spotData is `undefined` while loading and either an object or `null` once settled.
+  const [tilesVisible, setTilesVisible] = useState(false);
+  const [tilesAnimKey, setTilesAnimKey] = useState(0);
+  const prevSpotDataRef = useRef<typeof spotData | "loading">("loading");
+  useEffect(() => {
+    if (spotData !== undefined && prevSpotDataRef.current === "loading") {
+      setTilesVisible(true);
+    }
+    if (spotData !== undefined) {
+      prevSpotDataRef.current = spotData;
+    }
+  }, [spotData]);
+
   const ratio = spotData?.gold && spotData?.silver
     ? (spotData.gold / spotData.silver).toFixed(1)
     : null;
@@ -273,8 +298,16 @@ export default function LivePricing() {
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
+    // Hide tiles so the entrance animation replays after fresh data arrives
+    setTilesVisible(false);
+    prevSpotDataRef.current = "loading";
     await Promise.all([refetchSpot(), refetchProducts()]);
     setIsRefreshing(false);
+    // Bump key to remount tiles in their hidden state, then animate in
+    setTilesAnimKey((k) => k + 1);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setTilesVisible(true));
+    });
   }, [refetchSpot, refetchProducts]);
 
   return (
@@ -327,8 +360,21 @@ export default function LivePricing() {
           {/* SPOT STATS ROW */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
             {/* Gold Spot */}
-            <div className="bg-white rounded-2xl border border-border/40 p-5">
-              <p className="text-xs text-foreground/40 font-medium uppercase tracking-widest mb-2">Gold Spot</p>
+            <div
+              key={`gold-${tilesAnimKey}`}
+              className="bg-white rounded-2xl border border-border/40 p-5"
+              style={{
+                opacity: tilesVisible ? 1 : 0,
+                transform: tilesVisible ? "translateY(0)" : "translateY(10px)",
+                transition: "opacity 350ms ease-out, transform 350ms ease-out",
+              }}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className="text-xs text-foreground/40 font-medium uppercase tracking-widest mb-2 cursor-default w-fit">Gold Spot</p>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs">The raw global market benchmark price for gold before any dealer premium or fabrication cost is added.</TooltipContent>
+              </Tooltip>
               <p className="text-2xl font-serif font-semibold">
                 {spotData?.gold != null ? `$${spotData.gold.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
               </p>
@@ -341,8 +387,22 @@ export default function LivePricing() {
             </div>
 
             {/* Silver Spot */}
-            <div className="bg-white rounded-2xl border border-border/40 p-5">
-              <p className="text-xs text-foreground/40 font-medium uppercase tracking-widest mb-2">Silver Spot</p>
+            <div
+              key={`silver-${tilesAnimKey}`}
+              className="bg-white rounded-2xl border border-border/40 p-5"
+              style={{
+                opacity: tilesVisible ? 1 : 0,
+                transform: tilesVisible ? "translateY(0)" : "translateY(10px)",
+                transition: "opacity 350ms ease-out, transform 350ms ease-out",
+                transitionDelay: tilesVisible ? "65ms" : "0ms",
+              }}
+            >
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <p className="text-xs text-foreground/40 font-medium uppercase tracking-widest mb-2 cursor-default w-fit">Silver Spot</p>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-xs">The raw global market benchmark price for silver before any dealer premium or fabrication cost is added.</TooltipContent>
+              </Tooltip>
               <p className="text-2xl font-serif font-semibold">
                 {spotData?.silver != null ? `$${spotData.silver.toLocaleString(undefined, { minimumFractionDigits: 2 })}` : "—"}
               </p>
@@ -355,7 +415,17 @@ export default function LivePricing() {
             </div>
 
             {/* Gold/Silver Ratio */}
-            <RatioCard ratio={ratio} />
+            <div
+              key={`ratio-${tilesAnimKey}`}
+              style={{
+                opacity: tilesVisible ? 1 : 0,
+                transform: tilesVisible ? "translateY(0)" : "translateY(10px)",
+                transition: "opacity 350ms ease-out, transform 350ms ease-out",
+                transitionDelay: tilesVisible ? "130ms" : "0ms",
+              }}
+            >
+              <RatioCard ratio={ratio} />
+            </div>
           </div>
 
           {/* CHART */}
@@ -426,7 +496,14 @@ export default function LivePricing() {
               <div className="grid grid-cols-12 gap-4 text-xs font-semibold tracking-widest uppercase opacity-60">
                 <div className="col-span-6 md:col-span-5">Product</div>
                 <div className="hidden md:block col-span-3 text-right">Indicative Spread</div>
-                <div className="col-span-6 md:col-span-4 text-right">Est. Buyback Price</div>
+                <div className="col-span-6 md:col-span-4 text-right">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-default">Est. Buyback Price</span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-left">Bid — the price at which dealers buy metal back from you. Lower than the Ask (purchase) price; the difference is the dealer spread.</TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
             </div>
             <div className="divide-y divide-border/40">

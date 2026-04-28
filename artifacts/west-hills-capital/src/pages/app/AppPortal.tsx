@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import { Redirect, Switch, Route } from "wouter";
 import { useProductAuth } from "@/hooks/useProductAuth";
+import { useProductRole } from "@/hooks/useProductRole";
 import { DocuFillConfigProvider } from "@/hooks/useDocuFillConfig";
 import { InternalAuthProvider } from "@/hooks/useInternalAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -18,12 +19,14 @@ function Spinner() {
 }
 
 function DocuFillWrapper({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
+  const { isAdmin } = useProductRole(getAuthHeaders);
   return (
     <InternalAuthProvider>
       <DocuFillConfigProvider
         config={{
           apiPath: "/api/v1/product/docufill",
           getAuthHeaders,
+          isAdmin,
         }}
       >
         <Suspense fallback={<Spinner />}>

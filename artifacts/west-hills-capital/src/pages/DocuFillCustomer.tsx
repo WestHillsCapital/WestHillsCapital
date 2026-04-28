@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { validateFieldValue } from "@/lib/validateField";
+import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SESSION_BASE = `${API_BASE}/api/v1/docufill/public/sessions`;
@@ -254,10 +254,13 @@ export default function DocuFillCustomer() {
     );
   }
 
+  const brandColor = session!.org_brand_color ?? "#C49A38";
   const requiredCount = visibleFields.filter((f) => fieldIsRequired(f) && f.interviewMode !== "readonly").length;
   const answeredCount = visibleFields.filter((f) => fieldIsRequired(f) && f.interviewMode !== "readonly" && currentValue(f, answers, session!.prefill).trim()).length;
   const hasErrors = Object.keys(fieldErrors).length > 0;
   const missingRequiredCount = requiredCount - answeredCount;
+  const progressPct = requiredCount > 0 ? Math.round((answeredCount / requiredCount) * 100) : 100;
+  const ringStyle = { "--tw-ring-color": `${brandColor}66` } as React.CSSProperties;
 
   return (
     <div className="min-h-screen bg-[#F8F6F0]">
@@ -300,6 +303,18 @@ export default function DocuFillCustomer() {
             {requiredCount > 0 && ` ${answeredCount} of ${requiredCount} required fields answered.`}
           </p>
         </div>
+
+        {/* Progress bar */}
+        {requiredCount > 0 && (
+          <div className="space-y-1">
+            <div className="h-1.5 w-full bg-[#EFE8D8] rounded-full overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${progressPct}%`, backgroundColor: brandColor }}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Missing fields warning */}
         {missingFields.length > 0 && (
@@ -383,7 +398,8 @@ export default function DocuFillCustomer() {
                     value={val}
                     onChange={(e) => updateAnswer(field.id, e.target.value)}
                     onBlur={(e) => handleFieldBlur(field, e.target.value)}
-                    className={`w-full border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#C49A38]/40 ${
+                    style={ringStyle}
+                    className={`w-full border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 ${
                       hasFieldError ? "border-red-400" : isMissing ? "border-amber-400" : "border-[#D4C9B5]"
                     }`}
                   >
@@ -442,6 +458,7 @@ export default function DocuFillCustomer() {
                     value={val}
                     onChange={(e) => updateAnswer(field.id, e.target.value)}
                     onBlur={(e) => handleFieldBlur(field, e.target.value)}
+                    style={hasFieldError || isMissing ? undefined : ringStyle}
                     className={
                       hasFieldError ? "border-red-400 focus-visible:ring-red-300"
                       : isMissing ? "border-amber-400 focus-visible:ring-amber-300"
@@ -451,6 +468,13 @@ export default function DocuFillCustomer() {
                 )}
 
                 {fieldError && <p className="mt-1.5 text-xs text-red-600">{fieldError}</p>}
+                {(() => {
+                  const hint = fieldFormatHint(field.validationType, field.validationMessage ?? undefined);
+                  const hasValidValue = val.trim() !== "" && validateFieldValue(field, val) === null;
+                  return hint && !hasFieldError && !hasValidValue ? (
+                    <p className="mt-1.5 text-[11px] text-[#8A9BB8]">Format: {hint}</p>
+                  ) : null;
+                })()}
               </div>
             );
           })}
@@ -464,7 +488,8 @@ export default function DocuFillCustomer() {
           <Button
             onClick={handleSubmit}
             disabled={pageStatus === "submitting" || hasErrors || missingRequiredCount > 0}
-            className="w-full bg-[#0F1C3F] hover:bg-[#182B5F] disabled:opacity-60 py-3"
+            style={{ backgroundColor: brandColor }}
+            className="w-full disabled:opacity-60 py-3 hover:opacity-90"
           >
             {pageStatus === "submitting" ? "Submitting…" : "Submit and generate documents"}
           </Button>
