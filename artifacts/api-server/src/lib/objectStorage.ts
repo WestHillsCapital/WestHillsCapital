@@ -82,21 +82,49 @@ export function assertStorageCredentials(): void {
 
 export function wrapGcsError(err: unknown): never {
   const msg = err instanceof Error ? err.message : String(err);
-  const isAuthOrSidecar =
+  const code = (err as Record<string, unknown>)?.code;
+  const statusCode = (err as Record<string, unknown>)?.statusCode ?? (err as Record<string, unknown>)?.status;
+
+  const isAuthOrPermission =
+    // Replit sidecar not reachable
     msg.includes("ECONNREFUSED") ||
     msg.includes("127.0.0.1:1106") ||
+    // GCS auth failures
     msg.includes("token") ||
     msg.includes("credential") ||
     msg.includes("Could not load") ||
     msg.includes("invalid_grant") ||
     msg.includes("UNAUTHENTICATED") ||
-    msg.includes("Permission denied");
-  if (isAuthOrSidecar) {
+    // GCS permission denied — text variants
+    msg.includes("Permission denied") ||
+    msg.includes("does not have storage.objects") ||
+    msg.includes("does not have permission") ||
+    msg.includes("ACCESS_DENIED") ||
+    msg.includes("PERMISSION_DENIED") ||
+    // GCS HTTP status codes
+    code === 401 || code === 403 ||
+    statusCode === 401 || statusCode === 403;
+
+  if (isAuthOrPermission) {
     throw new StorageMisconfigError(
-      "GCS credential error — ensure GOOGLE_SERVICE_ACCOUNT_KEY is set in your deployment environment. " +
+      "GCS permission error — the service account does not have write access to this bucket. " +
+      "Grant the service account the 'Storage Object Admin' role on the bucket, or 'roles/storage.objectAdmin' at the project level. " +
       `Underlying: ${msg}`
     );
   }
+
+  // Bucket does not exist
+  const isBucketMissing =
+    msg.includes("No such object") ||
+    msg.includes("Not Found") ||
+    code === 404 || statusCode === 404;
+  if (isBucketMissing) {
+    throw new StorageMisconfigError(
+      "GCS bucket not found — check that PRIVATE_OBJECT_DIR refers to an existing bucket. " +
+      `Underlying: ${msg}`
+    );
+  }
+
   throw err;
 }
 
