@@ -3140,30 +3140,77 @@ export default function AppSettings() {
 
       {/* Preview */}
       <section className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h2 className="text-base font-semibold text-gray-900">Customer form preview</h2>
-          <p className="text-xs text-gray-500 mt-0.5">How your branding appears in the header of customer-facing forms.</p>
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-4">
+          <div>
+            <h2 className="text-base font-semibold text-gray-900">Customer form preview</h2>
+            <p className="text-xs text-gray-500 mt-0.5">How your branding appears to customers on document collection forms.</p>
+          </div>
+          <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2.5 py-0.5 text-[11px] font-medium text-gray-500 shrink-0">Preview</span>
         </div>
-        <div className="bg-white border-b border-gray-200 px-4 py-4">
-          <div className="flex items-center gap-3">
-            <div
-              className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden"
-              style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38" }}
-            >
-              {displayLogoUrl ? (
-                <img src={displayLogoUrl} alt="Logo" className="w-full h-full object-contain" />
-              ) : (
-                <span className="text-white text-xs font-bold">{(name || "?").charAt(0).toUpperCase()}</span>
-              )}
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-gray-900">{name || "Your company name"}</div>
-              <div className="text-[11px] text-gray-500">Secure document collection</div>
-            </div>
+        {/* Simulated browser chrome */}
+        <div className="bg-gray-100 px-4 py-2 flex items-center gap-2 border-b border-gray-200">
+          <div className="flex gap-1.5">
+            <div className="w-2.5 h-2.5 rounded-full bg-gray-300" />
+            <div className="w-2.5 h-2.5 rounded-full bg-gray-300" />
+            <div className="w-2.5 h-2.5 rounded-full bg-gray-300" />
+          </div>
+          <div className="flex-1 bg-white rounded border border-gray-200 px-2 py-0.5 text-[10px] text-gray-400 font-mono truncate">
+            docuplete.com/collect/…
           </div>
         </div>
-        <div className="px-4 py-3 bg-gray-50">
-          <div className="h-2 w-32 rounded bg-gray-200" />
+        {/* Mocked interview page */}
+        <div className="bg-[#F8F6F0] px-6 py-6">
+          <div className="max-w-sm mx-auto overflow-hidden rounded-xl shadow-sm border border-[#DDD5C4]">
+            {/* Form header — matches the actual customer interview header exactly */}
+            <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden"
+                  style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38" }}
+                >
+                  {displayLogoUrl ? (
+                    <img src={displayLogoUrl} alt={name || "Logo"} className="w-full h-full object-contain" />
+                  ) : (
+                    <span className="text-white text-xs font-bold">{(name || "?").charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-[#0F1C3F]">{name || "Your company name"}</div>
+                  <div className="text-[11px] text-[#6B7A99]">Secure document collection</div>
+                </div>
+              </div>
+            </header>
+            {/* Form body */}
+            <div className="bg-[#F8F6F0] px-4 py-6 space-y-5">
+              {/* Package title */}
+              <div>
+                <h2 className="text-lg font-semibold text-[#0F1C3F]">Client Intake Form</h2>
+                <p className="text-xs text-[#6B7A99] mt-1">Please complete the form below. Your answers are saved automatically as you type.</p>
+              </div>
+              {/* Progress bar */}
+              <div className="h-1.5 w-full bg-[#EFE8D8] rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full w-1/3"
+                  style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38" }}
+                />
+              </div>
+              {/* Sample field */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-medium text-[#0F1C3F]">Full name <span className="text-red-500">*</span></label>
+                <div className="rounded-lg border border-[#DDD5C4] bg-white px-3 py-2 text-sm text-[#6B7A99] italic">
+                  Jane Smith
+                </div>
+              </div>
+              {/* Branded submit button */}
+              <button
+                type="button"
+                className="w-full rounded-lg py-2.5 text-sm font-semibold text-white pointer-events-none"
+                style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38" }}
+              >
+                Continue →
+              </button>
+            </div>
+          </div>
         </div>
       </section>
 
