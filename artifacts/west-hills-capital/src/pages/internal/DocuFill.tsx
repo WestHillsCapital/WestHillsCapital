@@ -1072,12 +1072,12 @@ export default function DocuFill() {
     : "612 / 792";
   const nativePageW = selectedPageSize?.width && selectedPageSize.width > 0 ? selectedPageSize.width : 612;
   const nativePageH = selectedPageSize?.height && selectedPageSize.height > 0 ? selectedPageSize.height : 792;
-  const mapperMaxH = Math.round(viewportHeight * 0.88);
+  // Viewport bounds: width fills the available column; height caps the scrollable area.
   const mapperMaxW = Math.max(320, mapperContainerWidth - 2);
-  const mapperScale = Math.min(mapperMaxH / nativePageH, mapperMaxW / nativePageW);
+  const mapperMaxH = Math.max(400, viewportHeight - 220);
+  // Scale to fill the column width — portrait PDFs scroll vertically inside the viewport.
+  const mapperScale = nativePageW > 0 ? mapperMaxW / nativePageW : 1;
   const effectiveScale = mapperScale * userZoom;
-  const mapperFrameW = Math.round(nativePageW * mapperScale);
-  const mapperFrameH = Math.round(nativePageH * mapperScale);
   // Outer container dimensions grow with zoom up to the available space, then scroll.
   const mapperViewW = Math.min(Math.round(nativePageW * effectiveScale), mapperMaxW);
   const mapperViewH = Math.min(Math.round(nativePageH * effectiveScale), mapperMaxH);
