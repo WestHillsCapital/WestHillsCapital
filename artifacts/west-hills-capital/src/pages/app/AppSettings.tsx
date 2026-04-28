@@ -107,9 +107,13 @@ function UsageBar({ label, used, limit, unit = "" }: { label: string; used: numb
     <div className="mb-3 last:mb-0">
       <div className="flex items-center justify-between mb-1">
         <span className="text-xs text-gray-600">{label}</span>
-        <span className={`text-xs font-medium ${isOver ? "text-red-600" : "text-gray-700"}`}>
-          {limit === null ? `${used.toLocaleString()} / ∞` : `${used.toLocaleString()} / ${limit.toLocaleString()}${unit}`}
-        </span>
+        {limit === null ? (
+          <span className="text-xs font-medium text-gray-500 italic">Unlimited</span>
+        ) : (
+          <span className={`text-xs font-medium ${isOver ? "text-red-600" : "text-gray-700"}`}>
+            {`${used.toLocaleString()} / ${limit.toLocaleString()}${unit}`}
+          </span>
+        )}
       </div>
       {limit !== null && (
         <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
