@@ -2254,6 +2254,7 @@ function TimezoneLocaleSection({
     ? ALL_TIMEZONES.filter((tz) => tz.toLowerCase().includes(tzSearch.toLowerCase()))
     : ALL_TIMEZONES;
 
+
   const previewNow = new Date().toISOString();
   const previewDate = formatOrgDate(previewNow, { timezone, date_format: dateFormat });
   const previewDateTime = formatOrgDate(previewNow, { timezone, date_format: dateFormat }, true);
@@ -2271,10 +2272,10 @@ function TimezoneLocaleSection({
       });
       const d = await r.json() as { timezone?: string; dateFormat?: string; error?: string };
       if (!r.ok) { setSaveMsg(d.error ?? "Failed to save."); return; }
-      updateProductOrgCache({ ...getCachedProductOrg()!, timezone, date_format: dateFormat });
+      const cached = getCachedProductOrg();
+      if (cached) updateProductOrgCache({ ...cached, timezone, date_format: dateFormat });
       setSaveMsg("Saved!");
       setDirty(false);
-      setTimeout(() => setSaveMsg(null), 3000);
     } catch {
       setSaveMsg("Failed to save.");
     } finally {
@@ -2305,17 +2306,27 @@ function TimezoneLocaleSection({
             disabled={!isAdmin}
             className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400 mb-1.5 disabled:bg-gray-50 disabled:text-gray-400"
           />
-          <select
-            value={timezone}
-            onChange={(e) => { setTimezone(e.target.value); setDirty(true); }}
-            disabled={!isAdmin}
-            size={6}
-            className="w-full rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-400 disabled:bg-gray-50 disabled:text-gray-400"
+          <div
+            role="listbox"
+            aria-label="Timezone"
+            className={`h-36 overflow-y-auto rounded-lg border border-gray-300 bg-white focus:outline-none ${!isAdmin ? "opacity-60 pointer-events-none" : ""}`}
           >
-            {filteredTz.map((tz) => (
-              <option key={tz} value={tz}>{tz.replace(/_/g, " ")}</option>
+            {filteredTz.length === 0 ? (
+              <p className="px-3 py-2 text-xs text-gray-400 italic">No timezones match.</p>
+            ) : filteredTz.map((tz) => (
+              <button
+                key={tz}
+                type="button"
+                role="option"
+                aria-selected={timezone === tz}
+                disabled={!isAdmin}
+                onClick={() => { setTimezone(tz); setDirty(true); setSaveMsg(null); }}
+                className={`w-full text-left px-3 py-1 text-sm transition-colors ${timezone === tz ? "bg-gray-900 text-white font-medium" : "text-gray-800 hover:bg-gray-100"}`}
+              >
+                {tz.replace(/_/g, " ")}
+              </button>
             ))}
-          </select>
+          </div>
           <p className="text-[11px] text-gray-400 mt-1">Selected: <span className="font-mono font-medium text-gray-600">{timezone}</span></p>
         </div>
 
@@ -2331,7 +2342,7 @@ function TimezoneLocaleSection({
                   value={opt.value}
                   checked={dateFormat === opt.value}
                   disabled={!isAdmin}
-                  onChange={() => { setDateFormat(opt.value); setDirty(true); }}
+                  onChange={() => { setDateFormat(opt.value); setDirty(true); setSaveMsg(null); }}
                   className="accent-gray-900"
                 />
                 <span className="text-sm text-gray-700 font-mono">{opt.label}</span>
