@@ -3995,6 +3995,7 @@ const ALL_SETTINGS_NAV: Array<{ id: string; label: string; adminOnly?: boolean }
   { id: "security-section",           label: "Security" },
   { id: "organization-section",       label: "Organization" },
   { id: "billing-section",            label: "Billing" },
+  { id: "custom-domain-section",      label: "Custom domain", adminOnly: true },
   { id: "team-section",               label: "Team" },
   { id: "integrations-section",       label: "Integrations" },
   { id: "api-keys-section",           label: "API Keys" },
@@ -4038,14 +4039,17 @@ export default function AppSettings() {
   const [activeSection, setActiveSection] = useState<string>("profile-section");
   const [presentSections, setPresentSections] = useState<Set<string>>(new Set());
 
-  // After mount, find which section elements actually exist in the DOM
+  // After the org finishes loading, find which section elements exist in the DOM.
+  // Must depend on isLoading: during loading the component returns early (spinner),
+  // so sections are not in the DOM yet and all getElementById calls return null.
   useEffect(() => {
+    if (isLoading) return;
     const present = new Set<string>();
     for (const item of ALL_SETTINGS_NAV) {
       if (document.getElementById(item.id)) present.add(item.id);
     }
     setPresentSections(present);
-  }, []);
+  }, [isLoading]);
 
   // Highlight the nav item for the section nearest the top of the viewport
   useEffect(() => {
@@ -4081,8 +4085,11 @@ export default function AppSettings() {
   function scrollToSection(id: string) {
     const el = document.getElementById(id);
     if (!el) return;
-    const navHeight = navRef.current?.offsetHeight ?? 44;
-    const top = el.getBoundingClientRect().top + window.scrollY - navHeight - 72;
+    // App header is h-14 (56px) and is NOT sticky — it scrolls away.
+    // After the smooth scroll completes the header is gone, so we only need
+    // a small breathing-room gap at the top of the viewport.
+    const OFFSET = 72; // 56px header + 16px gap
+    const top = el.getBoundingClientRect().top + window.scrollY - OFFSET;
     window.scrollTo({ top, behavior: "smooth" });
     setActiveSection(id);
   }
@@ -4304,27 +4311,23 @@ export default function AppSettings() {
   });
 
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10 space-y-8">
-      {/* Page header */}
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Manage your organization's branding and preferences.</p>
-      </div>
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="lg:flex lg:gap-10 lg:items-start">
 
-      {/* Section quick-nav — sticky pill row */}
-      {visibleNavItems.length > 1 && (
-        <div
-          ref={navRef}
-          className="sticky top-0 z-20 -mx-4 px-4 bg-white/95 backdrop-blur-sm border-b border-gray-100 py-2"
-        >
-          <div className="flex gap-1.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+        {/* ── Left sidebar nav — desktop only ────────────────────────── */}
+        <aside className="hidden lg:block w-44 shrink-0 sticky top-[72px] self-start">
+          <div className="mb-5">
+            <h1 className="text-xl font-semibold text-gray-900">Settings</h1>
+            <p className="text-xs text-gray-400 mt-0.5">Account &amp; workspace</p>
+          </div>
+          <nav ref={navRef} className="space-y-0.5">
             {visibleNavItems.map(item => (
               <button
                 key={item.id}
                 data-nav={item.id}
                 onClick={() => scrollToSection(item.id)}
                 className={[
-                  "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+                  "w-full text-left rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   activeSection === item.id
                     ? "bg-gray-900 text-white"
                     : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
@@ -4333,28 +4336,59 @@ export default function AppSettings() {
                 {item.label}
               </button>
             ))}
-          </div>
-        </div>
-      )}
+          </nav>
+        </aside>
 
-      {/* Read-only banner for non-admins */}
-      {!isAdmin && (
-        <div className="rounded-xl border border-sky-200 bg-sky-50 px-5 py-4 flex items-start gap-3">
-          <svg className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-          </svg>
-          <div>
-            <p className="text-sm font-medium text-sky-900">You have {roleLabel} access</p>
-            <p className="text-xs text-sky-700 mt-0.5">
-              You can view these settings but cannot make changes. Contact your admin to update the organization's branding or configuration.
-            </p>
-          </div>
-        </div>
-      )}
+        {/* ── Main content column ─────────────────────────────────────── */}
+        <div className="flex-1 min-w-0 space-y-8">
 
-      {errorMsg && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMsg}</div>
-      )}
+          {/* Page header — shown on mobile; desktop header lives in the sidebar */}
+          <div className="lg:hidden">
+            <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
+            <p className="text-sm text-gray-500 mt-0.5">Manage your organization's branding and preferences.</p>
+          </div>
+
+          {/* Mobile horizontal pill nav — hidden on desktop */}
+          {visibleNavItems.length > 1 && (
+            <div className="lg:hidden sticky top-0 z-20 -mx-4 px-4 bg-white/95 backdrop-blur-sm border-b border-gray-100 py-2">
+              <div className="flex gap-1.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+                {visibleNavItems.map(item => (
+                  <button
+                    key={item.id}
+                    data-nav={item.id}
+                    onClick={() => scrollToSection(item.id)}
+                    className={[
+                      "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+                      activeSection === item.id
+                        ? "bg-gray-900 text-white"
+                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
+                    ].join(" ")}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Read-only banner for non-admins */}
+          {!isAdmin && (
+            <div className="rounded-xl border border-sky-200 bg-sky-50 px-5 py-4 flex items-start gap-3">
+              <svg className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+              </svg>
+              <div>
+                <p className="text-sm font-medium text-sky-900">You have {roleLabel} access</p>
+                <p className="text-xs text-sky-700 mt-0.5">
+                  You can view these settings but cannot make changes. Contact your admin to update the organization's branding or configuration.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {errorMsg && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{errorMsg}</div>
+          )}
 
       {/* Profile section — per-user settings, visible to all roles */}
       <div id="profile-section">
@@ -4651,12 +4685,15 @@ export default function AppSettings() {
         <DataPrivacySection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} orgName={name} />
       </div>
 
-      {/* Audit log section — admin only */}
-      {isAdmin && (
-        <div id="audit-log-section">
-          <AuditLogSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
-        </div>
-      )}
+          {/* Audit log section — admin only */}
+          {isAdmin && (
+            <div id="audit-log-section">
+              <AuditLogSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
+            </div>
+          )}
+
+        </div>{/* end content column */}
+      </div>{/* end lg:flex container */}
     </div>
   );
 }
