@@ -1206,6 +1206,8 @@ interface AuditLogEntryBase {
   actor_email: string | null;
   resource_type: string | null;
   resource_label: string | null;
+  ip_address: string | null;
+  location: string | null;
   created_at: string;
 }
 
@@ -1581,6 +1583,15 @@ function AuditLogSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () => He
                     )}
                     {entry.action === "branding.update_name" && entry.metadata.from && (
                       <span>was &ldquo;{entry.metadata.from}&rdquo;</span>
+                    )}
+                    {(entry.location ?? entry.ip_address) && (
+                      <span className="flex items-center gap-1">
+                        <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                        </svg>
+                        {entry.location ?? entry.ip_address}
+                      </span>
                     )}
                   </div>
                 </div>
@@ -3073,6 +3084,49 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
   const [passwordSaved, setPasswordSaved] = useState(false);
   const passwordSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const [spNew, setSpNew] = useState("");
+  const [spConfirm, setSpConfirm] = useState("");
+  const [isSettingPassword, setIsSettingPassword] = useState(false);
+  const [spError, setSpError] = useState<string | null>(null);
+  const [spSaved, setSpSaved] = useState(false);
+  const spSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (passwordSavedTimer.current) clearTimeout(passwordSavedTimer.current);
+      if (spSavedTimer.current) clearTimeout(spSavedTimer.current);
+    };
+  }, []);
+
+  async function handleSetPassword() {
+    if (!user) return;
+    if (spNew !== spConfirm) {
+      setSpError("Passwords do not match.");
+      return;
+    }
+    if (spNew.length < 8) {
+      setSpError("Password must be at least 8 characters.");
+      return;
+    }
+    setIsSettingPassword(true);
+    setSpError(null);
+    setSpSaved(false);
+    try {
+      await user.updatePassword({ newPassword: spNew });
+      await user.reload();
+      setSpNew("");
+      setSpConfirm("");
+      setSpSaved(true);
+      if (spSavedTimer.current) clearTimeout(spSavedTimer.current);
+      spSavedTimer.current = setTimeout(() => setSpSaved(false), 4000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to set password.";
+      setSpError(msg);
+    } finally {
+      setIsSettingPassword(false);
+    }
+  }
+
   async function handlePasswordChange() {
     if (!user) return;
     if (newPassword !== confirmPassword) {
@@ -3475,11 +3529,48 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
 
           {/* ── Change Password ───────────────────────────────────────────────── */}
           <div className="px-6 py-5">
-            <p className="text-sm font-medium text-gray-900 mb-0.5">Change password</p>
+            <p className="text-sm font-medium text-gray-900 mb-0.5">{user?.passwordEnabled === false ? "Set a password" : "Change password"}</p>
             {user?.passwordEnabled === false ? (
-              <p className="text-xs text-gray-400 mt-1">
-                Your account uses social sign-in and does not have a password. You can add one from your account settings.
-              </p>
+              <div className="mt-3 space-y-3 max-w-sm">
+                <p className="text-xs text-gray-500">
+                  Your account uses social sign-in. You can add a password to also sign in with your email.
+                </p>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sp-new-pw">New password</label>
+                  <input
+                    id="sp-new-pw"
+                    type="password"
+                    autoComplete="new-password"
+                    value={spNew}
+                    onChange={(e) => { setSpNew(e.target.value); setSpError(null); setSpSaved(false); }}
+                    placeholder="••••••••"
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1" htmlFor="sp-confirm-pw">Confirm password</label>
+                  <input
+                    id="sp-confirm-pw"
+                    type="password"
+                    autoComplete="new-password"
+                    value={spConfirm}
+                    onChange={(e) => { setSpConfirm(e.target.value); setSpError(null); setSpSaved(false); }}
+                    placeholder="••••••••"
+                    onKeyDown={(e) => { if (e.key === "Enter") void handleSetPassword(); }}
+                    className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                  />
+                </div>
+                {spError && <p className="text-xs text-red-600">{spError}</p>}
+                {spSaved && <p className="text-xs text-green-600">Password set successfully.</p>}
+                <button
+                  type="button"
+                  disabled={isSettingPassword || !spNew || !spConfirm}
+                  onClick={() => { void handleSetPassword(); }}
+                  className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                >
+                  {isSettingPassword ? "Setting…" : "Set password"}
+                </button>
+              </div>
             ) : (
               <div className="mt-3 space-y-3 max-w-sm">
                 <div>

@@ -21,6 +21,28 @@ import { PassThrough } from "node:stream";
 import { generateSecret as totpGenerateSecret, generateURI as totpGenerateURI, verifySync as totpVerifySync } from "otplib";
 import QRCode from "qrcode";
 import { createHash } from "crypto";
+import geoip from "geoip-lite";
+
+function lookupIpLocation(ip: string | null | undefined): string | null {
+  if (!ip) return null;
+  const cleanIp = ip.trim();
+  // Skip loopback and private ranges — geoip-lite returns null for these anyway
+  if (
+    cleanIp === "127.0.0.1" ||
+    cleanIp === "::1" ||
+    cleanIp.startsWith("10.") ||
+    cleanIp.startsWith("192.168.") ||
+    /^172\.(1[6-9]|2[0-9]|3[01])\./.test(cleanIp)
+  ) {
+    return null;
+  }
+  const geo = geoip.lookup(cleanIp);
+  if (!geo) return null;
+  const parts: string[] = [];
+  if (geo.city) parts.push(geo.city);
+  if (geo.country) parts.push(geo.country);
+  return parts.length > 0 ? parts.join(", ") : null;
+}
 
 function hashBackupCode(code: string): string {
   return createHash("sha256").update(code.toUpperCase()).digest("hex");
@@ -295,10 +317,10 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     const actorEmail = await getActorEmail(accountId, clerkUserId);
     const auditBase = { accountId, actorEmail, actorUserId: clerkUserId };
     if (body.name !== undefined && name !== (current.name as string)) {
-      void insertAuditLog({ ...auditBase, action: "branding.update_name", resourceType: "org", resourceLabel: name as string, metadata: { from: current.name, to: name } });
+      void insertAuditLog({ ...auditBase, action: "branding.update_name", resourceType: "org", resourceLabel: name as string, metadata: { from: current.name as string, to: name as string } });
     }
     if (body.brandColor !== undefined && brandColor !== (current.brand_color as string)) {
-      void insertAuditLog({ ...auditBase, action: "branding.update_color", resourceType: "org", resourceLabel: brandColor as string, metadata: { from: current.brand_color, to: brandColor } });
+      void insertAuditLog({ ...auditBase, action: "branding.update_color", resourceType: "org", resourceLabel: brandColor as string, metadata: { from: current.brand_color as string, to: brandColor as string } });
     }
     if ("clearLogo" in body && body.clearLogo === true) {
       void insertAuditLog({ ...auditBase, action: "branding.remove_logo", resourceType: "org" });
@@ -1975,9 +1997,9 @@ router.get("/audit-log", requireAdminRole, async (req, res) => {
     }
 
     const whereClause = whereParts.join(" AND ");
-    const [{ rows: entries }, { rows: countRows }] = await Promise.all([
+    const [{ rows: rawEntries }, { rows: countRows }] = await Promise.all([
       getDb().query(
-        `SELECT id, actor_email, actor_user_id, action, resource_type, resource_id, resource_label, metadata, created_at
+        `SELECT id, actor_email, actor_user_id, action, resource_type, resource_id, resource_label, metadata, ip_address, created_at
            FROM org_audit_log
           WHERE ${whereClause}
           ORDER BY created_at DESC
@@ -1986,6 +2008,11 @@ router.get("/audit-log", requireAdminRole, async (req, res) => {
       ),
       getDb().query(`SELECT COUNT(*)::int AS total FROM org_audit_log WHERE ${whereClause}`, params),
     ]);
+
+    const entries = (rawEntries as Array<Record<string, unknown>>).map(e => ({
+      ...e,
+      location: lookupIpLocation(e.ip_address as string | null),
+    }));
 
     return void res.json({
       entries,
@@ -3240,13 +3267,15 @@ router.get("/security/sessions", async (req, res) => {
     const sessions = rows.map((r) => {
       const row = r as Record<string, unknown>;
       const ua = parseUserAgent(row.user_agent as string | null);
+      const ipAddress = (row.ip_address as string | null) ?? null;
       return {
         id:             row.id,
         isCurrent:      row.clerk_session_id === currentSessionId,
         browser:        ua.browser,
         os:             ua.os,
         device:         ua.device,
-        ipAddress:      row.ip_address ?? null,
+        ipAddress,
+        location:       lookupIpLocation(ipAddress),
         lastActiveAt:   row.last_active_at,
         createdAt:      row.created_at,
       };
@@ -3523,12 +3552,14 @@ router.get("/security/login-history", async (req, res) => {
     const history = rows.map((r) => {
       const row = r as Record<string, unknown>;
       const ua = parseUserAgent(row.user_agent as string | null);
+      const ipAddress = (row.ip_address as string | null) ?? null;
       return {
         id:         row.id,
         browser:    ua.browser,
         os:         ua.os,
         device:     ua.device,
-        ipAddress:  row.ip_address ?? null,
+        ipAddress,
+        location:   lookupIpLocation(ipAddress),
         createdAt:  row.created_at,
       };
     });
