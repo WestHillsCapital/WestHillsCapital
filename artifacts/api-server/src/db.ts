@@ -1261,6 +1261,29 @@ export async function initDb(): Promise<void> {
 
   processScheduledDeletions().catch(() => {});
   setInterval(() => processScheduledDeletions().catch(() => {}), 6 * 60 * 60 * 1000).unref();
+
+  // ── Data export cleanup — clear export payloads after link expiry ────────────
+  // Removes sensitive archive payloads from data_export_requests once the
+  // 48-hour download window has passed, minimising sensitive data retention.
+  async function purgeExpiredExports(): Promise<void> {
+    try {
+      const cleanDb = getDb();
+      const result = await cleanDb.query(
+        `UPDATE data_export_requests
+            SET export_json = NULL, status = 'expired'
+          WHERE expires_at < NOW()
+            AND export_json IS NOT NULL`,
+      );
+      if ((result.rowCount ?? 0) > 0) {
+        logger.info({ purged: result.rowCount }, "[DB] Cleared export payloads from expired data_export_requests rows");
+      }
+    } catch (err) {
+      logger.error({ err }, "[DB] Export payload purge failed (non-fatal)");
+    }
+  }
+
+  purgeExpiredExports().catch(() => {});
+  setInterval(() => purgeExpiredExports().catch(() => {}), 6 * 60 * 60 * 1000).unref();
 }
 
 /**

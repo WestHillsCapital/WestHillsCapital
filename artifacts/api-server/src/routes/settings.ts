@@ -2173,6 +2173,12 @@ router.post("/data/request-export", requireAdminRole, async (req, res) => {
       return;
     }
 
+    if (!process.env.FRONTEND_URL) {
+      logger.warn("[Settings] FRONTEND_URL is not set — export download link will be broken; request rejected");
+      res.status(503).json({ error: "Data export is not available in this environment (server misconfiguration). Please contact support." });
+      return;
+    }
+
     const db    = getDb();
     const token = randomUUID();
     await db.query(
