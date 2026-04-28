@@ -123,6 +123,7 @@ export default function SpotChart() {
     <div className="relative">
       {/* Chart content — fades in when data is ready */}
       <div
+        data-testid="chart-content"
         className="transition-opacity duration-300"
         style={{ opacity: showSkeleton ? 0 : 1 }}
       >
@@ -228,6 +229,7 @@ export default function SpotChart() {
 
       {/* Skeleton overlay — fades out when data is ready */}
       <div
+        data-testid="chart-skeleton-overlay"
         className="absolute inset-0 transition-opacity duration-300"
         style={{
           opacity: showSkeleton ? 1 : 0,
