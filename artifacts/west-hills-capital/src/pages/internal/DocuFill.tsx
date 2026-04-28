@@ -6324,10 +6324,22 @@ export default function DocuFill() {
                 </div>
               )}
               <div className="space-y-2 rounded border border-[#EFE8D8] bg-[#F8F6F0] px-3 py-3">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" checked={fieldEditorDraft.interviewMode === "omitted"} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, interviewMode: e.target.checked ? "omitted" : "optional" }))} className="rounded" />
-                  <span className="text-sm">Omit from interview</span>
-                </label>
+                <div className="flex items-center gap-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input type="checkbox" checked={fieldEditorDraft.interviewMode === "omitted"} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, interviewMode: e.target.checked ? "omitted" : "optional" }))} className="rounded" />
+                    <span className="text-sm">Omit from interview</span>
+                  </label>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="inline-flex items-center text-[#8A9BB8] cursor-default">
+                        <Info className="w-3 h-3" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs text-xs leading-snug">
+                      <p>This field will be completely hidden from the interview form. It will not be shown or editable by staff, and will use its default value (if any) when generating the document.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
                 {fieldEditorDraft.interviewMode !== "omitted" && (
                   <div>
                     <div className="flex items-center gap-1 mb-1">
