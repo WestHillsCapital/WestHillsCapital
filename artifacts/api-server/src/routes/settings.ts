@@ -1951,4 +1951,132 @@ router.patch("/email", requireAdminRole, async (req, res) => {
   }
 });
 
+// ── Interview defaults settings (Task #285) ───────────────────────────────────
+
+const ALLOWED_LOCALES = ["en", "es", "fr", "de", "pt", "zh", "ja", "ko", "ar"] as const;
+type AllowedLocale = (typeof ALLOWED_LOCALES)[number];
+
+function isAllowedLocale(v: unknown): v is AllowedLocale {
+  return typeof v === "string" && (ALLOWED_LOCALES as readonly string[]).includes(v);
+}
+
+router.get("/interview-defaults", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT interview_link_expiry_days, interview_reminder_enabled,
+              interview_reminder_days, interview_default_locale
+         FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+    const row = rows[0] as Record<string, unknown>;
+    res.json({
+      interviewDefaults: {
+        linkExpiryDays:    (row.interview_link_expiry_days   as number | null) ?? null,
+        reminderEnabled:   (row.interview_reminder_enabled   as boolean) ?? false,
+        reminderDays:      (row.interview_reminder_days      as number) ?? 2,
+        defaultLocale:     (row.interview_default_locale     as string) ?? "en",
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to get interview defaults");
+    res.status(500).json({ error: "Failed to get interview defaults" });
+  }
+});
+
+router.patch("/interview-defaults", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as Record<string, unknown>;
+    const db = getDb();
+
+    const { rows: existing } = await db.query(
+      `SELECT interview_link_expiry_days, interview_reminder_enabled,
+              interview_reminder_days, interview_default_locale
+         FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!existing[0]) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+    const cur = existing[0] as Record<string, unknown>;
+
+    // linkExpiryDays: null (never) or a positive integer
+    let linkExpiryDays: number | null = cur.interview_link_expiry_days as number | null;
+    if ("linkExpiryDays" in body) {
+      if (body.linkExpiryDays === null) {
+        linkExpiryDays = null;
+      } else {
+        const days = Number(body.linkExpiryDays);
+        if (!Number.isInteger(days) || days < 1 || days > 3650) {
+          res.status(400).json({ error: "linkExpiryDays must be null or an integer between 1 and 3650" });
+          return;
+        }
+        linkExpiryDays = days;
+      }
+    }
+
+    // reminderEnabled: boolean
+    let reminderEnabled: boolean = Boolean(cur.interview_reminder_enabled);
+    if ("reminderEnabled" in body) {
+      reminderEnabled = Boolean(body.reminderEnabled);
+    }
+
+    // reminderDays: positive integer 1–90
+    let reminderDays: number = Number(cur.interview_reminder_days ?? 2);
+    if ("reminderDays" in body) {
+      const days = Number(body.reminderDays);
+      if (!Number.isInteger(days) || days < 1 || days > 90) {
+        res.status(400).json({ error: "reminderDays must be an integer between 1 and 90" });
+        return;
+      }
+      reminderDays = days;
+    }
+
+    // defaultLocale: one of the allowed locales
+    let defaultLocale: string = (cur.interview_default_locale as string) ?? "en";
+    if ("defaultLocale" in body) {
+      if (!isAllowedLocale(body.defaultLocale)) {
+        res.status(400).json({ error: `defaultLocale must be one of: ${ALLOWED_LOCALES.join(", ")}` });
+        return;
+      }
+      defaultLocale = body.defaultLocale;
+    }
+
+    await db.query(
+      `UPDATE accounts
+          SET interview_link_expiry_days=$1,
+              interview_reminder_enabled=$2,
+              interview_reminder_days=$3,
+              interview_default_locale=$4
+        WHERE id=$5`,
+      [linkExpiryDays, reminderEnabled, reminderDays, defaultLocale, accountId],
+    );
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const actorEmail = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId,
+      actorEmail,
+      actorUserId: clerkUserId,
+      action: "interview_defaults.update",
+      resourceType: "org",
+      metadata: { linkExpiryDays, reminderEnabled, reminderDays, defaultLocale },
+    });
+
+    res.json({
+      interviewDefaults: { linkExpiryDays, reminderEnabled, reminderDays, defaultLocale },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Settings] Failed to update interview defaults");
+    res.status(500).json({ error: "Failed to update interview defaults" });
+  }
+});
+
 export default router;
