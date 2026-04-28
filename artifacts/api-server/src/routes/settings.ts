@@ -14,6 +14,8 @@ import { getUncachableStripeClient } from "../lib/stripeClient";
 import { isIpAllowed } from "../lib/cidr";
 import express from "express";
 import { insertAuditLog, getActorEmail } from "../lib/auditLog";
+import { getUserEmailsToNotify } from "../lib/notificationPrefs";
+import { sendOrgAlertEmails } from "../lib/email";
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -858,16 +860,39 @@ router.delete("/team/:id", requireAdminRole, async (req, res) => {
     await db.query(`DELETE FROM account_users WHERE id = $1 AND account_id = $2`, [memberId, accountId]);
 
     const clerkUserId = getAuth(req)?.userId ?? null;
+    const removeActorEmail = await getActorEmail(accountId, clerkUserId);
+    const removedEmail = targets[0].email;
     void insertAuditLog({
       accountId,
-      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorEmail: removeActorEmail,
       actorUserId: clerkUserId,
       action: "team.remove",
       resourceType: "team_member",
       resourceId: String(memberId),
-      resourceLabel: targets[0].email,
+      resourceLabel: removedEmail,
       metadata: { role: targets[0].role },
     });
+
+    // Notify remaining org members who want team_member_removed emails
+    void (async () => {
+      try {
+        const { rows: orgRows } = await db.query<{ name: string }>(
+          `SELECT name FROM accounts WHERE id = $1`, [accountId],
+        );
+        const orgName = orgRows[0]?.name ?? "Docuplete";
+        const emails = (await getUserEmailsToNotify(accountId, "team_member_removed"))
+          .filter(e => e !== removedEmail && e !== removeActorEmail);
+        await sendOrgAlertEmails({
+          recipientEmails: emails,
+          orgName,
+          subject:  `${orgName}: team member removed`,
+          heading:  "A team member was removed",
+          bodyHtml: `<p><strong>${removedEmail}</strong> has been removed from your organization${removeActorEmail ? ` by <strong>${removeActorEmail}</strong>` : ""}.</p>`,
+        });
+      } catch (err) {
+        logger.error({ err, accountId }, "[Team] Failed to send team_member_removed notification emails");
+      }
+    })();
 
     return void res.json({ success: true, deletedId: memberId });
   } catch (err) {

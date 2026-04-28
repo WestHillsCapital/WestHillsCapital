@@ -20,6 +20,7 @@ import {
   sendDocupleteStaffSubmissionEmail,
   sendDocupleteClientConfirmationEmail,
 } from "../lib/email";
+import { getUserEmailsToNotify } from "../lib/notificationPrefs";
 import { requireAdminRole, requireRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits, recordSubmissionEvent, recordPdfGenerationEvent } from "../middleware/requireWithinPlanLimits";
 import { recordPdfAuditEvent, actorContextFromRequest } from "../lib/pdf-audit";
@@ -27,6 +28,59 @@ const requireMemberRole = requireRole("member");
 
 const router: IRouter = Router();
 export const publicDocufillRouter: IRouter = Router();
+
+/**
+ * API-key-authenticated public developer router.
+ * Mounted at /api/v1/packages — requires requireApiKeyAuth + requireAccountId
+ * upstream in index.ts.
+ */
+export const apiKeyDocufillRouter: IRouter = Router();
+
+apiKeyDocufillRouter.get("/:id/webhook-deliveries", async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) { res.status(400).json({ error: "Invalid package id" }); return; }
+    const accountId = acctId(req);
+
+    const rawLimit  = parseInt(String(req.query["limit"]  ?? "50"), 10);
+    const rawOffset = parseInt(String(req.query["offset"] ?? "0"),  10);
+    const limit     = Number.isFinite(rawLimit)  && rawLimit  > 0 ? Math.min(rawLimit, 200) : 50;
+    const offset    = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
+
+    const db = getDb();
+    const { rows: owned } = await db.query(
+      `SELECT id FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      [id, accountId],
+    );
+    if (!owned[0]) { res.status(404).json({ error: "Package not found" }); return; }
+
+    const [{ rows }, { rows: countRows }] = await Promise.all([
+      db.query(
+        `SELECT id, event_type, attempt_number, http_status, response_body, duration_ms, created_at,
+                (payload_json IS NOT NULL) AS has_payload
+           FROM webhook_deliveries
+          WHERE package_id = $1 AND account_id = $2
+          ORDER BY created_at DESC
+          LIMIT $3 OFFSET $4`,
+        [id, accountId, limit, offset],
+      ),
+      db.query<{ total: string }>(
+        `SELECT COUNT(*) AS total FROM webhook_deliveries WHERE package_id = $1 AND account_id = $2`,
+        [id, accountId],
+      ),
+    ]);
+
+    res.json({
+      deliveries: rows,
+      total:  parseInt(countRows[0]?.total ?? "0", 10),
+      limit,
+      offset,
+    });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to fetch webhook deliveries (API key)");
+    res.status(500).json({ error: "Failed to fetch webhook deliveries" });
+  }
+});
 const MAX_PACKAGE_PDF_BYTES = 100 * 1024 * 1024;
 const TRANSACTION_SCOPES = new Set(["ira_transfer", "ira_contribution", "ira_distribution", "cash_purchase", "storage_change", "beneficiary_update", "liquidation", "buy_sell_direction", "address_change"]);
 
@@ -107,6 +161,7 @@ type EntityInput = {
   phone?: string;
   notes?: string;
   active?: boolean;
+  kind?: string;
 };
 
 type TransactionTypeInput = {
@@ -350,8 +405,8 @@ async function probeWebhookUrl(
   }
 }
 
-/** Delays (ms) between delivery attempts: immediate, +5s, +30s, +5min. */
-const WEBHOOK_RETRY_DELAYS_MS = [5_000, 30_000, 5 * 60_000];
+/** Delays (ms) between delivery attempts: 1 s, 4 s, 16 s (exponential backoff). */
+const WEBHOOK_RETRY_DELAYS_MS = [1_000, 4_000, 16_000];
 
 /**
  * Execute one HTTP delivery attempt, log the result to webhook_deliveries,
@@ -393,9 +448,9 @@ async function doWebhookDelivery(
   const durationMs = Date.now() - start;
   db.query(
     `INSERT INTO webhook_deliveries
-       (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-    [packageId, accountId, eventType, payloadHash, attempt, httpStatus, responseSnippet, durationMs],
+       (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms, payload_json)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+    [packageId, accountId, eventType, payloadHash, attempt, httpStatus, responseSnippet, durationMs, body],
   ).catch((e) => {
     // Postgres FK violation (23503) on the package_id column means the package
     // was deleted before the retry row could be inserted — this happens in tests
@@ -407,8 +462,41 @@ async function doWebhookDelivery(
 }
 
 /**
+ * Attempt to deliver a webhook and schedule retries on failure.
+ * Retries use exponential backoff defined by WEBHOOK_RETRY_DELAYS_MS (1 s, 4 s, 16 s).
+ * Every attempt — including final failures — is recorded in webhook_deliveries.
+ */
+async function retryWebhookDelivery(
+  db: Pool,
+  packageId: number,
+  accountId: number,
+  webhookUrl: string,
+  secret: string | null,
+  bodyStr: string,
+  attempt: number,
+  eventType: string,
+  payloadHash: string,
+): Promise<void> {
+  const success = await doWebhookDelivery(
+    db, packageId, accountId, webhookUrl, secret, bodyStr, attempt, eventType, payloadHash,
+  );
+  if (!success) {
+    if (attempt <= WEBHOOK_RETRY_DELAYS_MS.length) {
+      const delay = WEBHOOK_RETRY_DELAYS_MS[attempt - 1];
+      logger.warn({ packageId, attempt, nextDelayMs: delay }, "[DocuFill] Webhook failed — scheduling retry");
+      setTimeout(
+        () => void retryWebhookDelivery(db, packageId, accountId, webhookUrl, secret, bodyStr, attempt + 1, eventType, payloadHash),
+        delay,
+      ).unref();
+    } else {
+      logger.error({ packageId, webhookUrl, totalAttempts: attempt }, "[DocuFill] Webhook delivery failed after all retries — giving up");
+    }
+  }
+}
+
+/**
  * Fire a signed webhook and retry up to 3 times on failure.
- * Retries are scheduled at 5 s, 30 s, and 5 min after each failure.
+ * Retries use exponential backoff: 1 s, 4 s, 16 s.
  * Every attempt is recorded in webhook_deliveries.
  *
  * The signing secret is fetched directly from the DB here so that
@@ -424,16 +512,6 @@ function fireWebhookAsync(
 ): void {
   const bodyStr = JSON.stringify(payload);
   const payloadHash = createHash("sha256").update(bodyStr).digest("hex").slice(0, 16);
-
-  async function tryDeliver(attempt: number, secret: string | null): Promise<void> {
-    const success = await doWebhookDelivery(
-      db, packageId, accountId, webhookUrl, secret, bodyStr, attempt, eventType, payloadHash,
-    );
-    if (!success && attempt <= WEBHOOK_RETRY_DELAYS_MS.length) {
-      const delay = WEBHOOK_RETRY_DELAYS_MS[attempt - 1];
-      setTimeout(() => void tryDeliver(attempt + 1, secret), delay).unref();
-    }
-  }
 
   setImmediate(async () => {
     // Fetch the signing secret here — keeps secret material out of session/request context.
@@ -451,16 +529,16 @@ function fireWebhookAsync(
       logger.error({ err, packageId, accountId }, "[DocuFill] Cannot fetch webhook_secret — aborting delivery");
       db.query(
         `INSERT INTO webhook_deliveries
-           (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms)
-         VALUES ($1, $2, $3, $4, 1, NULL, $5, 0)`,
-        [packageId, accountId, eventType, payloadHash, "Secret unavailable — delivery aborted"],
+           (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms, payload_json)
+         VALUES ($1, $2, $3, $4, 1, NULL, $5, 0, $6)`,
+        [packageId, accountId, eventType, payloadHash, "Secret unavailable — delivery aborted", bodyStr],
       ).catch((e) => {
         if (e?.code === "23503" && e?.constraint === "webhook_deliveries_package_id_fkey") return;
         logger.error({ e }, "[DocuFill] Failed to log aborted delivery");
       });
       return;
     }
-    void tryDeliver(1, secret);
+    void retryWebhookDelivery(db, packageId, accountId, webhookUrl, secret, bodyStr, 1, eventType, payloadHash);
   });
 }
 
@@ -490,14 +568,10 @@ async function fireSubmissionEmailsAsync(
   const logoFullUrl   = orgLogoUrl ? `${origin}${orgLogoUrl}` : null;
   const submittedAt   = new Date().toISOString();
 
-  // Staff notification
+  // Staff notification — only send to users who have submission_received email enabled
   if (session.notify_staff_on_submit === true && accountId) {
     try {
-      const { rows: userRows } = await db.query(
-        `SELECT email FROM account_users WHERE account_id = $1 AND email IS NOT NULL AND email <> ''`,
-        [accountId],
-      );
-      const staffEmails: string[] = userRows.map((r: Record<string, unknown>) => String(r.email)).filter(Boolean);
+      const staffEmails = await getUserEmailsToNotify(accountId, "submission_received");
       if (staffEmails.length) {
         const appUrl = `${origin}/internal/docufill?session=${token}`;
         await sendDocupleteStaffSubmissionEmail({
@@ -781,7 +855,7 @@ function clampNumber(value: unknown, fallback: number, min: number, max: number)
  * E-sign completion certificates will augment this trail, not replace it.
  */
 async function stampPdfAuditFooter(
-  doc: InstanceType<typeof PdfLibDocument>,
+  doc: PdfLibDocument,
   sessionToken: string,
   generatedAt: Date,
 ): Promise<void> {
@@ -1159,9 +1233,9 @@ router.get("/field-library", async (_req, res) => {
 });
 
 router.post("/field-library", requireAdminRole, async (req, res) => {
+  const body = req.body as FieldLibraryInput;
+  const label = cleanText(body.label);
   try {
-    const body = req.body as FieldLibraryInput;
-    const label = cleanText(body.label);
     if (!label) {
       res.status(400).json({ error: "Field label is required" });
       return;
@@ -1803,6 +1877,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
 
 router.patch("/packages/:id", async (req, res) => {
   try {
+    const db = getDb();
     const id = parseId(req.params.id);
     if (!id) {
       res.status(400).json({ error: "Invalid package id" });
@@ -1810,7 +1885,7 @@ router.patch("/packages/:id", async (req, res) => {
     }
     const body = req.body as PackageInput;
     const accountId = acctId(req);
-    const existing = await getPackage(id, getDb(), false, accountId);
+    const existing = await getPackage(id, db, false, accountId);
     if (!existing) {
       res.status(404).json({ error: "Package not found" });
       return;
@@ -1853,7 +1928,6 @@ router.patch("/packages/:id", async (req, res) => {
         .filter((doc) => doc.pdfStored && !incomingDocuments.some((incoming) => incoming.id === doc.id))
         .map((doc) => doc.id)
       : [];
-    const db = getDb();
     const client = await db.connect();
     try {
       await client.query("BEGIN");
@@ -2000,18 +2074,98 @@ router.get("/packages/:id/webhook-deliveries", requireAdminRole, async (req, res
     if (!id) { res.status(400).json({ error: "Invalid package id" }); return; }
     const accountId = acctId(req);
     const db = getDb();
+    const { rows: owned } = await db.query(
+      `SELECT id FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      [id, accountId],
+    );
+    if (!owned[0]) { res.status(404).json({ error: "Package not found" }); return; }
     const { rows } = await db.query(
-      `SELECT id, event_type, attempt_number, http_status, response_body, duration_ms, created_at
+      `SELECT id, event_type, attempt_number, http_status, response_body, duration_ms, created_at,
+              (payload_json IS NOT NULL) AS has_payload
          FROM webhook_deliveries
         WHERE package_id = $1 AND account_id = $2
         ORDER BY created_at DESC
-        LIMIT 20`,
+        LIMIT 50`,
       [id, accountId],
     );
     res.json({ deliveries: rows });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to fetch webhook deliveries");
     res.status(500).json({ error: "Failed to fetch webhook deliveries" });
+  }
+});
+
+// ── Task #217: manual retry of a failed webhook delivery ─────────────────────
+router.post("/packages/:id/webhook-deliveries/:deliveryId/retry", requireAdminRole, async (req, res) => {
+  try {
+    const packageId = parseId(req.params.id);
+    const deliveryId = parseId(req.params.deliveryId);
+    if (!packageId || !deliveryId) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    const accountId = acctId(req);
+    const db = getDb();
+
+    // Fetch the original delivery, scoped to this package + account.
+    const { rows: deliveryRows } = await db.query<{
+      id: number;
+      payload_json: string | null;
+      payload_hash: string;
+      event_type: string;
+      http_status: number | null;
+    }>(
+      `SELECT wd.id, wd.payload_json, wd.payload_hash, wd.event_type, wd.http_status
+         FROM webhook_deliveries wd
+         JOIN docufill_packages dp ON dp.id = wd.package_id
+        WHERE wd.id = $1 AND wd.package_id = $2 AND dp.account_id = $3`,
+      [deliveryId, packageId, accountId],
+    );
+    const delivery = deliveryRows[0];
+    if (!delivery) {
+      res.status(404).json({ error: "Delivery not found" });
+      return;
+    }
+    if (delivery.http_status !== null && delivery.http_status >= 200 && delivery.http_status < 300) {
+      res.status(409).json({ error: "This delivery already succeeded. Only failed deliveries can be retried." });
+      return;
+    }
+    if (!delivery.payload_json) {
+      res.status(409).json({
+        error: "Original payload not stored for this delivery. Only deliveries recorded after the retry feature was enabled can be replayed.",
+      });
+      return;
+    }
+
+    // Fetch the package's webhook URL and signing secret.
+    const { rows: pkgRows } = await db.query<{
+      webhook_url: string | null;
+      webhook_secret: string;
+    }>(
+      `SELECT webhook_url, webhook_secret FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      [packageId, accountId],
+    );
+    const pkg = pkgRows[0];
+    if (!pkg) {
+      res.status(404).json({ error: "Package not found" });
+      return;
+    }
+    if (!pkg.webhook_url) {
+      res.status(409).json({ error: "Package has no webhook URL configured" });
+      return;
+    }
+
+    // Re-deliver synchronously with attempt_number = 1 so the log shows it as
+    // a fresh manual attempt. The same payload_hash preserves idempotency.
+    await doWebhookDelivery(
+      db, packageId, accountId, pkg.webhook_url, pkg.webhook_secret,
+      delivery.payload_json, 1, delivery.event_type, delivery.payload_hash,
+    );
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to retry webhook delivery");
+    res.status(500).json({ error: "Failed to retry delivery" });
   }
 });
 
@@ -2853,7 +3007,7 @@ router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
 router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) => {
   try {
     const db = getDb();
-    const session = await getSession(req.params.token, db, acctId(req));
+    const session = await getSession(String(req.params.token), db, acctId(req));
     if (!session) {
       res.status(404).json({ error: "Interview session not found" });
       return;
@@ -2904,7 +3058,7 @@ router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) =>
 router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => {
   try {
     const db = getDb();
-    const session = await getSession(req.params.token, db, acctId(req));
+    const session = await getSession(String(req.params.token), db, acctId(req));
     if (!session) {
       res.status(404).json({ error: "Interview session not found" });
       return;
@@ -2957,7 +3111,7 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
     const { actorIp, actorUa } = actorContextFromRequest(req);
     recordPdfAuditEvent({
       accountId:    acctId(req),
-      sessionToken: req.params.token,
+      sessionToken: String(req.params.token),
       eventType:    "generated",
       actorType:    req.internalEmail ? "staff" : "api",
       actorEmail:   req.internalEmail ?? null,
