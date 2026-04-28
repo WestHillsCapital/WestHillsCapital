@@ -295,10 +295,10 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     const actorEmail = await getActorEmail(accountId, clerkUserId);
     const auditBase = { accountId, actorEmail, actorUserId: clerkUserId };
     if (body.name !== undefined && name !== (current.name as string)) {
-      void insertAuditLog({ ...auditBase, action: "branding.update_name", resourceType: "org", resourceLabel: name as string, metadata: { from: current.name, to: name } });
+      void insertAuditLog({ ...auditBase, action: "branding.update_name", resourceType: "org", resourceLabel: name as string, metadata: { from: current.name as string, to: name as string } });
     }
     if (body.brandColor !== undefined && brandColor !== (current.brand_color as string)) {
-      void insertAuditLog({ ...auditBase, action: "branding.update_color", resourceType: "org", resourceLabel: brandColor as string, metadata: { from: current.brand_color, to: brandColor } });
+      void insertAuditLog({ ...auditBase, action: "branding.update_color", resourceType: "org", resourceLabel: brandColor as string, metadata: { from: current.brand_color as string, to: brandColor as string } });
     }
     if ("clearLogo" in body && body.clearLogo === true) {
       void insertAuditLog({ ...auditBase, action: "branding.remove_logo", resourceType: "org" });

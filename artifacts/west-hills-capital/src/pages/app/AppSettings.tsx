@@ -1183,15 +1183,34 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
   );
 }
 
-interface AuditLogEntry {
+interface AuditLogMetadataMap {
+  "team.invite":               { role: string };
+  "team.remove":               { role: string };
+  "team.role_change":          { from_role: string; to_role: string };
+  "apikey.create":             Record<string, never>;
+  "apikey.revoke":             Record<string, never>;
+  "apikey.rename":             Record<string, never>;
+  "branding.update_name":      { from: string; to: string };
+  "branding.update_color":     { from: string; to: string };
+  "branding.upload_logo":      Record<string, never>;
+  "branding.remove_logo":      Record<string, never>;
+  "plan.checkout_initiated":   { plan: string };
+  "plan.change":               { from_plan: string; to_plan: string; status: string; event_type: string };
+}
+
+type KnownAuditAction = keyof AuditLogMetadataMap;
+
+interface AuditLogEntryBase {
   id: number;
   actor_email: string | null;
-  action: string;
   resource_type: string | null;
   resource_label: string | null;
-  metadata: Record<string, unknown>;
   created_at: string;
 }
+
+type AuditLogEntry = {
+  [A in KnownAuditAction]: AuditLogEntryBase & { action: A; metadata: AuditLogMetadataMap[A] };
+}[KnownAuditAction];
 
 const ACTION_LABELS: Record<string, string> = {
   "team.invite":               "Invited team member",
@@ -1556,11 +1575,11 @@ function AuditLogSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () => He
                     {entry.actor_email && (
                       <span>by <span className="text-gray-600">{entry.actor_email}</span></span>
                     )}
-                    {entry.action === "team.role_change" && !!entry.metadata?.from_role && !!entry.metadata?.to_role && (
-                      <span>{String(entry.metadata.from_role)} → {String(entry.metadata.to_role)}</span>
+                    {entry.action === "team.role_change" && entry.metadata.from_role && (
+                      <span>{entry.metadata.from_role} → {entry.metadata.to_role}</span>
                     )}
-                    {entry.action === "branding.update_name" && !!entry.metadata?.from && (
-                      <span>was &ldquo;{String(entry.metadata.from)}&rdquo;</span>
+                    {entry.action === "branding.update_name" && entry.metadata.from && (
+                      <span>was &ldquo;{entry.metadata.from}&rdquo;</span>
                     )}
                   </div>
                 </div>
