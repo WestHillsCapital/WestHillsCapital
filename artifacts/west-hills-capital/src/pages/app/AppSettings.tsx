@@ -1026,6 +1026,13 @@ function NotificationsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
       .finally(() => setIsLoading(false));
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (pendingSaveRef.current) clearTimeout(pendingSaveRef.current);
+      if (savedTimerRef.current)  clearTimeout(savedTimerRef.current);
+    };
+  }, []);
+
   function getPref(key: string): NotifPref {
     return prefs.get(key) ?? { event_key: key, email_enabled: true, in_app_enabled: true };
   }
