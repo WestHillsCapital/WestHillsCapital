@@ -1997,49 +1997,36 @@ export default function DocuFill() {
   function autoMapFromPdfFields() {
     if (!selectedDocument || !selectedPackage || !acroAnnotations.length) return;
     let placed = 0;
+    let skipped = 0;
     updateSelectedPackage((pkg) => {
       mappingUndoStack.current = [...mappingUndoStack.current, [...pkg.mappings]].slice(-20);
-      let newFields = [...pkg.fields];
       let newMappings = [...pkg.mappings];
       for (const ann of acroAnnotations) {
         const [x1, y1, x2, y2] = ann.rect;
         // Convert from PDF coords (bottom-left origin) to percentage (top-left origin)
-        const xPct  = clampPercent((x1 / nativePageW) * 100, 0, 98);
-        const yPct  = clampPercent(((nativePageH - y2) / nativePageH) * 100, 0, 98);
-        const wPct  = Math.max(((x2 - x1) / nativePageW) * 100, 1);
-        const hPct  = Math.max(((y2 - y1) / nativePageH) * 100, 0.5);
-        // Determine best field type from AcroForm field type code
-        let fieldType: FieldItem["type"] = "text";
-        if (ann.fieldType === "Btn") fieldType = "checkbox";
-        else if (ann.fieldType === "Ch") fieldType = "dropdown";
-        // Find existing field by name (case-insensitive) or create a new one
-        let field = ann.fieldName
-          ? newFields.find((f) => f.name.toLowerCase() === ann.fieldName.toLowerCase())
+        const xPct = clampPercent((x1 / nativePageW) * 100, 0, 98);
+        const yPct = clampPercent(((nativePageH - y2) / nativePageH) * 100, 0, 98);
+        const wPct = Math.max(((x2 - x1) / nativePageW) * 100, 1);
+        const hPct = Math.max(((y2 - y1) / nativePageH) * 100, 0.5);
+        // Only match against fields that already exist in this package — never
+        // create new fields automatically. PDF form fields often have many
+        // semantically-equivalent names (Printed Name, Signer Name, Account Holder)
+        // that all represent the same Docuplete field. Creating a new field for
+        // each unmatched annotation would pollute the interview with duplicates.
+        const field = ann.fieldName
+          ? pkg.fields.find((f) => f.name.toLowerCase() === ann.fieldName.toLowerCase())
           : undefined;
-        if (!field) {
-          field = {
-            id: newId("field"),
-            libraryFieldId: "",
-            name: ann.fieldName || `PDF Field ${newFields.length + 1}`,
-            color: pickFieldColor(newFields.map((f) => f.color), false),
-            type: fieldType,
-            interviewMode: "optional",
-            defaultValue: "",
-            source: "interview",
-            sensitive: false,
-          };
-          newFields = [...newFields, field];
-        }
+        if (!field) { skipped++; continue; }
         // Skip if this field already has a mapping very close to this position on this page
         const alreadyMapped = newMappings.some(
           (m) =>
-            m.fieldId === field!.id &&
+            m.fieldId === field.id &&
             m.documentId === selectedDocument.id &&
             m.page === selectedPage &&
             Math.abs(m.x - xPct) < 3 &&
             Math.abs(m.y - yPct) < 3,
         );
-        if (alreadyMapped) continue;
+        if (alreadyMapped) { skipped++; continue; }
         newMappings = [
           ...newMappings,
           {
@@ -2059,12 +2046,18 @@ export default function DocuFill() {
         placed++;
       }
       if (placed === 0) return pkg;
-      return { ...pkg, fields: newFields, mappings: newMappings };
+      return { ...pkg, mappings: newMappings };
     });
     if (placed > 0) {
-      flashStatus(`Auto-mapped ${placed} field${placed === 1 ? "" : "s"} from PDF.`);
+      const skipNote = skipped > 0 ? ` (${skipped} unmatched — drag them manually)` : "";
+      flashStatus(`Auto-mapped ${placed} field${placed === 1 ? "" : "s"} from PDF.${skipNote}`);
     } else {
-      flashStatus("All PDF fields are already mapped on this page.");
+      const allUnmatched = skipped === acroAnnotations.length;
+      flashStatus(
+        allUnmatched
+          ? "No PDF field names matched existing package fields. Rename your fields to match, or drag them manually."
+          : "All matching PDF fields are already mapped on this page.",
+      );
     }
   }
 
