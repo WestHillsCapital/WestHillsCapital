@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { UserResource } from "@clerk/types";
+import type { UserResource } from "@clerk/shared/types";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const APP_NAME = "Docuplete";

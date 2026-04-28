@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { randomUUID } from "crypto";
+import { randomUUID, randomBytes } from "crypto";
 import { getAuth } from "@clerk/express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
@@ -8,7 +8,7 @@ import { extractBrandColors, isSafeUrl } from "../lib/brandColorExtractor";
 import { requireAdminRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
 import { brandColorRateLimit } from "../middleware/brandColorRateLimit";
-import { sendTeamInvitationEmail, sendDataExportEmail } from "../lib/email";
+import { sendTeamInvitationEmail, sendDataExportEmail, sendEmailVerificationEmail } from "../lib/email";
 import { getPlanLimits } from "../lib/plans";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { isIpAllowed } from "../lib/cidr";
@@ -18,6 +18,13 @@ import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificati
 import { sendOrgAlertEmails } from "../lib/email";
 import archiver from "archiver";
 import { PassThrough } from "node:stream";
+import { generateSecret as totpGenerateSecret, generateURI as totpGenerateURI, verifySync as totpVerifySync } from "otplib";
+import QRCode from "qrcode";
+import { createHash } from "crypto";
+
+function hashBackupCode(code: string): string {
+  return createHash("sha256").update(code.toUpperCase()).digest("hex");
+}
 
 const router: IRouter = Router();
 const objectStorageService = new ObjectStorageService();
@@ -2668,5 +2675,869 @@ async function processExportRequests(): Promise<void> {
 
 setInterval(() => processExportRequests().catch(() => {}), 60 * 1000).unref();
 processExportRequests().catch(() => {});
+
+// ── User profile routes ───────────────────────────────────────────────────────
+
+function buildAvatarServingUrl(avatarToken: string): string {
+  return `/api/storage/user-avatar/${avatarToken}`;
+}
+
+/** GET /profile — returns the current user's profile data */
+router.get("/profile", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const db = getDb();
+
+    const { rows } = await db.query(
+      `SELECT id, email, display_name, avatar_url, avatar_token, pending_email
+         FROM account_users
+        WHERE account_id = $1 AND clerk_user_id = $2
+        LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+
+    if (!rows[0]) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const row = rows[0] as Record<string, unknown>;
+    res.json({
+      profile: {
+        id:            row.id,
+        email:         row.email,
+        display_name:  row.display_name ?? null,
+        avatar_url:    (row.avatar_url && row.avatar_token) ? buildAvatarServingUrl(row.avatar_token as string) : null,
+        pending_email: row.pending_email ?? null,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Profile] Failed to get profile");
+    res.status(500).json({ error: "Failed to load profile" });
+  }
+});
+
+/** PATCH /profile — update display_name, cancel pending email, and/or request an email change */
+router.patch("/profile", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const body = req.body as Record<string, unknown>;
+    const db = getDb();
+
+    const { rows: current } = await db.query(
+      `SELECT id, email, display_name, avatar_url, avatar_token, pending_email
+         FROM account_users
+        WHERE account_id = $1 AND clerk_user_id = $2
+        LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+
+    if (!current[0]) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+
+    const row = current[0] as Record<string, unknown>;
+    const userId = row.id as number;
+
+    let displayName = row.display_name as string | null;
+    if ("display_name" in body) {
+      displayName = cleanText(body.display_name) || null;
+    }
+
+    let pendingEmail = row.pending_email as string | null;
+    let emailVerificationSent = false;
+
+    // cancel_pending_email: true — clears the pending email change without
+    // committing it, so the user's email stays as-is.
+    if (body.cancel_pending_email === true) {
+      await db.query(
+        `UPDATE account_users
+            SET pending_email = NULL, pending_email_token = NULL, pending_email_expires_at = NULL
+          WHERE id = $1`,
+        [userId],
+      );
+      pendingEmail = null;
+    } else if ("email" in body && typeof body.email === "string") {
+      const newEmail = body.email.trim().toLowerCase();
+      if (!newEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+        res.status(400).json({ error: "A valid email address is required." });
+        return;
+      }
+
+      if (newEmail !== (row.email as string).toLowerCase()) {
+        // Check the new email is not already taken by another user in this account
+        const { rows: conflict } = await db.query(
+          `SELECT id FROM account_users WHERE account_id = $1 AND lower(email) = $2 AND id != $3`,
+          [accountId, newEmail, userId],
+        );
+        if (conflict.length > 0) {
+          res.status(409).json({ error: "That email address is already in use by another team member." });
+          return;
+        }
+
+        const token = randomUUID();
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+        await db.query(
+          `UPDATE account_users
+              SET pending_email = $1, pending_email_token = $2, pending_email_expires_at = $3
+            WHERE id = $4`,
+          [newEmail, token, expiresAt, userId],
+        );
+        pendingEmail = newEmail;
+
+        const origin = process.env.APP_ORIGIN
+          ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://app.docuplete.com");
+        const verifyUrl = `${origin}/app/settings?verify_email=${token}`;
+
+        try {
+          await sendEmailVerificationEmail({
+            to: newEmail,
+            displayName: displayName ?? (row.display_name as string | null),
+            verifyUrl,
+          });
+          emailVerificationSent = true;
+        } catch (emailErr) {
+          logger.warn({ emailErr, newEmail }, "[Profile] Verification email failed — pending record still saved");
+        }
+      }
+    }
+
+    const { rows: updated } = await db.query(
+      `UPDATE account_users SET display_name = $1 WHERE id = $2
+         RETURNING id, email, display_name, avatar_url, avatar_token, pending_email`,
+      [displayName, userId],
+    );
+    const u = updated[0] as Record<string, unknown>;
+
+    res.json({
+      profile: {
+        id:            u.id,
+        email:         u.email,
+        display_name:  u.display_name ?? null,
+        avatar_url:    (u.avatar_url && u.avatar_token) ? buildAvatarServingUrl(u.avatar_token as string) : null,
+        pending_email: pendingEmail,
+      },
+      email_verification_sent: emailVerificationSent,
+    });
+  } catch (err) {
+    logger.error({ err }, "[Profile] Failed to update profile");
+    res.status(500).json({ error: "Failed to update profile" });
+  }
+});
+
+/** POST /profile/avatar — upload a profile photo */
+router.post(
+  "/profile/avatar",
+  express.raw({ type: ALLOWED_IMAGE_TYPES as unknown as string[], limit: "5mb" }),
+  async (req, res) => {
+    try {
+      const accountId = req.internalAccountId ?? 1;
+      const clerkUserId = getAuth(req)?.userId ?? null;
+      const contentType = (req.headers["content-type"] ?? "").split(";")[0].trim() as ImageContentType;
+
+      if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(contentType)) {
+        res.status(400).json({ error: "Only PNG, JPG, and WebP images are accepted" });
+        return;
+      }
+      const buffer = req.body as Buffer;
+      if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+        res.status(400).json({ error: "Empty image body" });
+        return;
+      }
+      if (buffer.length > 5 * 1024 * 1024) {
+        res.status(400).json({ error: "Avatar must be under 5 MB" });
+        return;
+      }
+
+      const db = getDb();
+      const { rows: current } = await db.query(
+        `SELECT id FROM account_users WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+        [accountId, clerkUserId],
+      );
+      if (!current[0]) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      const userId = (current[0] as Record<string, unknown>).id as number;
+
+      let rawAvatarPath: string;
+      try {
+        rawAvatarPath = await uploadLogoBuffer(buffer, contentType);
+      } catch (uploadErr) {
+        logger.error({ err: uploadErr }, "[Profile] Avatar upload failed");
+        if (uploadErr instanceof StorageMisconfigError) {
+          res.status(503).json({
+            error: "Storage is not configured on this server. Avatar uploads are unavailable.",
+          });
+        } else {
+          res.status(500).json({ error: "Avatar upload failed. Please try again." });
+        }
+        return;
+      }
+
+      const newAvatarToken = randomUUID();
+      const { rows: updated } = await db.query(
+        `UPDATE account_users SET avatar_url = $1, avatar_token = $2 WHERE id = $3
+           RETURNING id, email, display_name, avatar_url, avatar_token, pending_email`,
+        [rawAvatarPath, newAvatarToken, userId],
+      );
+      if (!updated[0]) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      const u = updated[0] as Record<string, unknown>;
+      res.json({
+        profile: {
+          id:            u.id,
+          email:         u.email,
+          display_name:  u.display_name ?? null,
+          avatar_url:    buildAvatarServingUrl(newAvatarToken),
+          pending_email: u.pending_email ?? null,
+        },
+      });
+    } catch (err) {
+      logger.error({ err }, "[Profile] Unexpected error during avatar upload");
+      res.status(500).json({ error: "An unexpected error occurred. Please try again." });
+    }
+  },
+);
+
+/** DELETE /profile/avatar — remove profile photo */
+router.delete("/profile/avatar", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const db = getDb();
+
+    const { rows } = await db.query(
+      `UPDATE account_users SET avatar_url = NULL, avatar_token = NULL
+         WHERE account_id = $1 AND clerk_user_id = $2
+         RETURNING id, email, display_name, pending_email`,
+      [accountId, clerkUserId],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    const u = rows[0] as Record<string, unknown>;
+    res.json({
+      profile: {
+        id:            u.id,
+        email:         u.email,
+        display_name:  u.display_name ?? null,
+        avatar_url:    null,
+        pending_email: u.pending_email ?? null,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Profile] Failed to remove avatar");
+    res.status(500).json({ error: "Failed to remove avatar" });
+  }
+});
+
+/**
+ * GET /profile/verify-email?token=<token>
+ *
+ * Verifies a pending email change. Called by the frontend when the user
+ * clicks the verification link, which navigates to /app/settings?verify_email=<token>.
+ */
+router.get("/profile/verify-email", async (req, res) => {
+  try {
+    const token = typeof req.query.token === "string" ? req.query.token.trim() : "";
+    if (!token) {
+      res.status(400).json({ error: "Verification token is required." });
+      return;
+    }
+
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT id, account_id, email, pending_email, pending_email_expires_at, display_name, avatar_url, avatar_token
+         FROM account_users
+        WHERE pending_email_token = $1`,
+      [token],
+    );
+
+    if (!rows[0]) {
+      res.status(404).json({ error: "Invalid or expired verification link." });
+      return;
+    }
+
+    const row = rows[0] as Record<string, unknown>;
+    const expiresAt = row.pending_email_expires_at as Date | null;
+    if (!expiresAt || new Date(expiresAt) < new Date()) {
+      res.status(410).json({ error: "This verification link has expired. Please request a new email change." });
+      return;
+    }
+
+    const newEmail = row.pending_email as string;
+    const userId = row.id as number;
+    const accountId = row.account_id as number;
+
+    // Re-check that the new email is still available (case-insensitive) at commit time
+    const { rows: conflict } = await db.query(
+      `SELECT id FROM account_users WHERE account_id = $1 AND lower(email) = $2 AND id != $3`,
+      [accountId, newEmail.toLowerCase(), userId],
+    );
+    if (conflict.length > 0) {
+      // Clear the pending state so the user gets a clean start
+      await db.query(
+        `UPDATE account_users
+            SET pending_email = NULL, pending_email_token = NULL, pending_email_expires_at = NULL
+          WHERE id = $1`,
+        [userId],
+      );
+      res.status(409).json({ error: "That email address is already in use by another team member. Your pending email change has been cancelled." });
+      return;
+    }
+
+    // Apply the email change
+    const { rows: updated } = await db.query(
+      `UPDATE account_users
+          SET email = $1, pending_email = NULL, pending_email_token = NULL, pending_email_expires_at = NULL
+        WHERE id = $2
+        RETURNING id, email, display_name, avatar_url, avatar_token, pending_email`,
+      [newEmail, userId],
+    );
+
+    const u = updated[0] as Record<string, unknown>;
+    res.json({
+      success: true,
+      profile: {
+        id:            u.id,
+        email:         u.email,
+        display_name:  u.display_name ?? null,
+        avatar_url:    (u.avatar_url && u.avatar_token) ? buildAvatarServingUrl(u.avatar_token as string) : null,
+        pending_email: null,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[Profile] Failed to verify email");
+    res.status(500).json({ error: "Failed to verify email change" });
+  }
+});
+
+// ── Security routes ──────────────────────────────────────────────────────────
+
+function parseUserAgent(ua: string | null): { browser: string; os: string; device: string } {
+  if (!ua) return { browser: "Unknown", os: "Unknown", device: "Unknown" };
+  let browser = "Unknown";
+  let os = "Unknown";
+  let device = "Desktop";
+
+  if (/mobile|android|iphone|ipad/i.test(ua)) device = "Mobile";
+  else if (/tablet/i.test(ua)) device = "Tablet";
+
+  if (/chrome\/[\d.]+/i.test(ua) && !/chromium|edg|opr|brave/i.test(ua)) browser = "Chrome";
+  else if (/firefox\/[\d.]+/i.test(ua)) browser = "Firefox";
+  else if (/safari\/[\d.]+/i.test(ua) && !/chrome/i.test(ua)) browser = "Safari";
+  else if (/edg\/[\d.]+/i.test(ua)) browser = "Edge";
+  else if (/opr\/[\d.]+/i.test(ua)) browser = "Opera";
+
+  if (/windows nt/i.test(ua)) os = "Windows";
+  else if (/mac os x/i.test(ua)) os = "macOS";
+  else if (/android/i.test(ua)) os = "Android";
+  else if (/iphone|ipad/i.test(ua)) os = "iOS";
+  else if (/linux/i.test(ua)) os = "Linux";
+
+  return { browser, os, device };
+}
+
+/** GET /security/2fa/status — returns current 2FA status for the current user */
+router.get("/security/2fa/status", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT totp_enabled, totp_backup_codes FROM account_users
+        WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const row = rows[0] as Record<string, unknown>;
+    res.json({
+      enabled: Boolean(row.totp_enabled),
+      backupCodesRemaining: ((row.totp_backup_codes as string[]) ?? []).length,
+    });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to get 2FA status");
+    res.status(500).json({ error: "Failed to get 2FA status" });
+  }
+});
+
+/** POST /security/2fa/setup — generate a TOTP secret and return QR code */
+router.post("/security/2fa/setup", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const db = getDb();
+
+    const { rows } = await db.query(
+      `SELECT id, email, totp_enabled FROM account_users
+        WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const row = rows[0] as Record<string, unknown>;
+    if (row.totp_enabled) { res.status(400).json({ error: "2FA is already enabled." }); return; }
+
+    const secret = totpGenerateSecret();
+    const otpauthUrl = totpGenerateURI({
+      issuer: "Docuplete",
+      label: row.email as string,
+      secret,
+    });
+    const qrCode = await QRCode.toDataURL(otpauthUrl);
+
+    // Store the pending secret (not yet enabled — user must verify first)
+    await db.query(
+      `UPDATE account_users SET totp_secret = $1 WHERE id = $2`,
+      [secret, row.id],
+    );
+
+    res.json({ secret, qrCode, otpauthUrl });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to setup 2FA");
+    res.status(500).json({ error: "Failed to setup 2FA" });
+  }
+});
+
+/** POST /security/2fa/enable — verify TOTP code and enable 2FA */
+router.post("/security/2fa/enable", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const body = req.body as Record<string, unknown>;
+    const code = typeof body.code === "string" ? body.code.trim().replace(/\s/g, "") : "";
+
+    if (!code) { res.status(400).json({ error: "Verification code is required." }); return; }
+
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT id, email, totp_secret, totp_enabled FROM account_users
+        WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const row = rows[0] as Record<string, unknown>;
+
+    if (row.totp_enabled) { res.status(400).json({ error: "2FA is already enabled." }); return; }
+    if (!row.totp_secret) { res.status(400).json({ error: "No pending 2FA setup found. Please start setup first." }); return; }
+
+    const verifyResult = totpVerifySync({ token: code, secret: row.totp_secret as string });
+    const isValid = verifyResult.valid;
+    if (!isValid) { res.status(400).json({ error: "Invalid verification code. Please try again." }); return; }
+
+    // Generate 8 one-time backup codes (stored as SHA-256 hashes; plaintext shown to user once)
+    const backupCodesPlain: string[] = Array.from({ length: 8 }, () =>
+      `${randomBytes(3).toString("hex").toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`,
+    );
+    const backupCodesHashed = backupCodesPlain.map(hashBackupCode);
+
+    await db.query(
+      `UPDATE account_users SET totp_enabled = TRUE, totp_backup_codes = $1 WHERE id = $2`,
+      [backupCodesHashed, row.id],
+    );
+
+    const actorEmail = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "security.2fa_enabled", resourceType: "user",
+    });
+
+    res.json({ success: true, backupCodes: backupCodesPlain });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to enable 2FA");
+    res.status(500).json({ error: "Failed to enable 2FA" });
+  }
+});
+
+/** DELETE /security/2fa — disable 2FA (requires current TOTP code or backup code) */
+router.delete("/security/2fa", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const body = req.body as Record<string, unknown>;
+    const code = typeof body.code === "string" ? body.code.trim().replace(/\s/g, "") : "";
+
+    if (!code) { res.status(400).json({ error: "Verification code is required to disable 2FA." }); return; }
+
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT id, totp_secret, totp_enabled, totp_backup_codes FROM account_users
+        WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const row = rows[0] as Record<string, unknown>;
+
+    if (!row.totp_enabled) { res.status(400).json({ error: "2FA is not enabled." }); return; }
+
+    const secret = row.totp_secret as string;
+    const storedHashes = (row.totp_backup_codes as string[]) ?? [];
+
+    const validTotp   = totpVerifySync({ token: code, secret }).valid;
+    const codeHash    = hashBackupCode(code);
+    const backupIdx   = storedHashes.indexOf(codeHash);
+    const validBackup = backupIdx !== -1;
+
+    if (!validTotp && !validBackup) {
+      res.status(400).json({ error: "Invalid verification code." }); return;
+    }
+
+    // Consume the backup code if used (remove it so it can't be reused)
+    const remainingHashes = validBackup
+      ? storedHashes.filter((_, i) => i !== backupIdx)
+      : storedHashes;
+
+    await db.query(
+      `UPDATE account_users SET totp_enabled = FALSE, totp_secret = NULL, totp_backup_codes = $2 WHERE id = $1`,
+      [row.id, remainingHashes],
+    );
+
+    const actorEmail = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "security.2fa_disabled", resourceType: "user",
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to disable 2FA");
+    res.status(500).json({ error: "Failed to disable 2FA" });
+  }
+});
+
+/** GET /security/sessions — list active sessions for the current user */
+router.get("/security/sessions", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const clerkAuth   = getAuth(req);
+    const currentSessionId = clerkAuth?.sessionId ?? null;
+
+    const db = getDb();
+    const { rows: userRows } = await db.query(
+      `SELECT id FROM account_users WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!userRows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const userId = (userRows[0] as Record<string, unknown>).id as number;
+
+    const { rows } = await db.query(
+      `SELECT id, clerk_session_id, ip_address, user_agent, last_active_at, created_at
+         FROM user_active_sessions
+        WHERE user_id = $1 AND revoked_at IS NULL
+        ORDER BY last_active_at DESC
+        LIMIT 20`,
+      [userId],
+    );
+
+    const sessions = rows.map((r) => {
+      const row = r as Record<string, unknown>;
+      const ua = parseUserAgent(row.user_agent as string | null);
+      return {
+        id:             row.id,
+        isCurrent:      row.clerk_session_id === currentSessionId,
+        browser:        ua.browser,
+        os:             ua.os,
+        device:         ua.device,
+        ipAddress:      row.ip_address ?? null,
+        lastActiveAt:   row.last_active_at,
+        createdAt:      row.created_at,
+      };
+    });
+
+    res.json({ sessions });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to list sessions");
+    res.status(500).json({ error: "Failed to list sessions" });
+  }
+});
+
+/** DELETE /security/sessions/:sessionId — revoke a session by its DB id */
+router.delete("/security/sessions/:sessionId", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const clerkAuth   = getAuth(req);
+    const currentSessionId = clerkAuth?.sessionId ?? null;
+    const sessionDbId = parseInt(req.params.sessionId ?? "", 10);
+    if (isNaN(sessionDbId)) { res.status(400).json({ error: "Invalid session ID." }); return; }
+
+    const db = getDb();
+    const { rows: userRows } = await db.query(
+      `SELECT id FROM account_users WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!userRows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const userId = (userRows[0] as Record<string, unknown>).id as number;
+
+    // Fetch the session to make sure it belongs to this user
+    const { rows: sessionRows } = await db.query(
+      `SELECT id, clerk_session_id FROM user_active_sessions
+        WHERE id = $1 AND user_id = $2 AND revoked_at IS NULL`,
+      [sessionDbId, userId],
+    );
+    if (!sessionRows[0]) { res.status(404).json({ error: "Session not found." }); return; }
+
+    const session = sessionRows[0] as Record<string, unknown>;
+    if (session.clerk_session_id === currentSessionId) {
+      res.status(400).json({ error: "You cannot revoke your current session." }); return;
+    }
+
+    await db.query(
+      `UPDATE user_active_sessions SET revoked_at = NOW() WHERE id = $1`,
+      [sessionDbId],
+    );
+
+    const actorEmail = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "security.session_revoked", resourceType: "session",
+      resourceId: String(sessionDbId),
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to revoke session");
+    res.status(500).json({ error: "Failed to revoke session" });
+  }
+});
+
+// ─── Custom Domain ────────────────────────────────────────────────────────────
+
+const CNAME_TARGET = "interview.docuplete.com";
+
+/** GET /custom-domain — return the org's current custom domain info */
+router.get("/custom-domain", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    const { rows } = await db.query<{
+      plan_tier: string;
+      custom_domain: string | null;
+      custom_domain_status: string;
+      custom_domain_verified_at: Date | null;
+    }>(
+      `SELECT plan_tier, custom_domain, custom_domain_status, custom_domain_verified_at
+         FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "Account not found" }); return; }
+    const row = rows[0];
+    res.json({
+      plan_tier: row.plan_tier,
+      custom_domain: row.custom_domain ?? null,
+      status: row.custom_domain ?? null ? row.custom_domain_status : null,
+      verified_at: row.custom_domain_verified_at?.toISOString() ?? null,
+      cname_target: CNAME_TARGET,
+    });
+  } catch (err) {
+    logger.error({ err }, "[CustomDomain] GET failed");
+    res.status(500).json({ error: "Failed to get custom domain info" });
+  }
+});
+
+/** PUT /custom-domain — save (or remove) a custom domain; sets status to unverified */
+router.put("/custom-domain", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as Record<string, unknown>;
+    const db = getDb();
+
+    const { rows: acctRows } = await db.query<{ plan_tier: string }>(
+      `SELECT plan_tier FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!acctRows[0]) { res.status(404).json({ error: "Account not found" }); return; }
+    const planTier = acctRows[0].plan_tier;
+    if (planTier === "free") {
+      res.status(403).json({ error: "Custom domains require a Pro or Enterprise plan." });
+      return;
+    }
+
+    const rawDomain = typeof body.domain === "string" ? body.domain.trim().toLowerCase() : null;
+    if (rawDomain === null || rawDomain === "") {
+      // Clear domain
+      await db.query(
+        `UPDATE accounts SET custom_domain = NULL, custom_domain_status = 'unverified', custom_domain_verified_at = NULL WHERE id = $1`,
+        [accountId],
+      );
+      res.json({ custom_domain: null, status: null, cname_target: CNAME_TARGET });
+      return;
+    }
+
+    // Basic hostname validation
+    const hostnameRe = /^[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9\-]{0,61}[a-z0-9])?)*\.[a-z]{2,}$/;
+    if (!hostnameRe.test(rawDomain) || rawDomain.length > 253) {
+      res.status(400).json({ error: "Invalid domain name. Use a fully-qualified hostname like forms.yourcompany.com." });
+      return;
+    }
+
+    const { rows } = await db.query<{ custom_domain: string; custom_domain_status: string }>(
+      `UPDATE accounts
+          SET custom_domain = $1, custom_domain_status = 'unverified', custom_domain_verified_at = NULL
+        WHERE id = $2
+        RETURNING custom_domain, custom_domain_status`,
+      [rawDomain, accountId],
+    );
+    const row = rows[0];
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    void insertAuditLog({
+      accountId,
+      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorUserId: clerkUserId,
+      action: "custom_domain.set",
+      resourceType: "org",
+      resourceLabel: rawDomain,
+    });
+
+    res.json({ custom_domain: row.custom_domain, status: row.custom_domain_status, cname_target: CNAME_TARGET });
+  } catch (err) {
+    logger.error({ err }, "[CustomDomain] PUT failed");
+    res.status(500).json({ error: "Failed to save custom domain" });
+  }
+});
+
+/** POST /custom-domain/verify — attempt DNS CNAME verification */
+router.post("/custom-domain/verify", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+
+    const { rows: acctRows } = await db.query<{ plan_tier: string; custom_domain: string | null }>(
+      `SELECT plan_tier, custom_domain FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!acctRows[0]) { res.status(404).json({ error: "Account not found" }); return; }
+    const { plan_tier: planTier, custom_domain: domain } = acctRows[0];
+
+    if (planTier === "free") {
+      res.status(403).json({ error: "Custom domains require a Pro or Enterprise plan." });
+      return;
+    }
+    if (!domain) {
+      res.status(400).json({ error: "No custom domain saved. Please enter a domain first." });
+      return;
+    }
+
+    // Mark as verifying
+    await db.query(
+      `UPDATE accounts SET custom_domain_status = 'verifying' WHERE id = $1`,
+      [accountId],
+    );
+
+    // Resolve CNAME
+    let cnamePoints: string[] = [];
+    let dnsError: string | null = null;
+    try {
+      const { promises: dnsPromises } = await import("dns");
+      const result = await dnsPromises.resolveCname(domain);
+      cnamePoints = result.map((r) => r.toLowerCase().replace(/\.$/, ""));
+    } catch (err: unknown) {
+      const code = (err as NodeJS.ErrnoException).code ?? "";
+      if (code === "ENOTFOUND" || code === "ENODATA") {
+        dnsError = "DNS_NOT_FOUND";
+      } else if (code === "ENOENT") {
+        dnsError = "NO_CNAME";
+      } else {
+        dnsError = "DNS_ERROR";
+      }
+    }
+
+    const target = CNAME_TARGET.toLowerCase();
+    const verified = !dnsError && cnamePoints.some((c) => c === target || c.endsWith(`.${target}`));
+
+    let newStatus: string;
+    let verifiedAt: string | null = null;
+    if (verified) {
+      newStatus = "active";
+      verifiedAt = new Date().toISOString();
+      await db.query(
+        `UPDATE accounts SET custom_domain_status = 'active', custom_domain_verified_at = NOW() WHERE id = $1`,
+        [accountId],
+      );
+    } else {
+      newStatus = "error";
+      await db.query(
+        `UPDATE accounts SET custom_domain_status = 'error' WHERE id = $1`,
+        [accountId],
+      );
+    }
+
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    void insertAuditLog({
+      accountId,
+      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorUserId: clerkUserId,
+      action: "custom_domain.verify",
+      resourceType: "org",
+      resourceLabel: domain,
+      metadata: { status: newStatus, cnames: cnamePoints.slice(0, 5) },
+    });
+
+    res.json({
+      verified,
+      status: newStatus,
+      domain,
+      cname_target: CNAME_TARGET,
+      cnames_found: cnamePoints,
+      verified_at: verifiedAt,
+      error: dnsError,
+    });
+  } catch (err) {
+    logger.error({ err }, "[CustomDomain] verify failed");
+    res.status(500).json({ error: "Verification failed. Please try again." });
+  }
+});
+
+/** GET /security/login-history — recent login events for the current user */
+router.get("/security/login-history", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+
+    const db = getDb();
+    const { rows: userRows } = await db.query(
+      `SELECT id FROM account_users WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!userRows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const userId = (userRows[0] as Record<string, unknown>).id as number;
+
+    const { rows } = await db.query(
+      `SELECT id, ip_address, user_agent, created_at
+         FROM user_login_history
+        WHERE user_id = $1
+        ORDER BY created_at DESC
+        LIMIT 30`,
+      [userId],
+    );
+
+    const history = rows.map((r) => {
+      const row = r as Record<string, unknown>;
+      const ua = parseUserAgent(row.user_agent as string | null);
+      return {
+        id:         row.id,
+        browser:    ua.browser,
+        os:         ua.os,
+        device:     ua.device,
+        ipAddress:  row.ip_address ?? null,
+        createdAt:  row.created_at,
+      };
+    });
+
+    res.json({ history });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to get login history");
+    res.status(500).json({ error: "Failed to get login history" });
+  }
+});
 
 export default router;

@@ -153,4 +153,53 @@ router.get("/storage/org-logo/:accountId", async (req: Request, res: Response) =
   }
 });
 
+/**
+ * GET /storage/user-avatar/:avatarToken
+ *
+ * Serves the profile avatar for a given avatar token.
+ * The token is a random UUID generated when the avatar is uploaded and stored in
+ * account_users.avatar_token — it is NOT the sequential account_users.id.
+ * This keeps the route unauthenticated while remaining non-enumerable.
+ */
+router.get("/storage/user-avatar/:avatarToken", async (req: Request, res: Response) => {
+  try {
+    const avatarToken = String(req.params.avatarToken ?? "").trim();
+    if (!avatarToken || !/^[0-9a-f-]{36}$/i.test(avatarToken)) {
+      res.status(400).json({ error: "Invalid avatar token" });
+      return;
+    }
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT avatar_url FROM account_users WHERE avatar_token = $1`,
+      [avatarToken],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Avatar not found" });
+      return;
+    }
+    const avatarUrl = (rows[0] as Record<string, unknown>).avatar_url as string | null;
+    if (!avatarUrl) {
+      res.status(404).json({ error: "No avatar configured" });
+      return;
+    }
+    const objectFile = await objectStorageService.getObjectEntityFile(avatarUrl);
+    const response = await objectStorageService.downloadObject(objectFile);
+    res.status(response.status);
+    response.headers.forEach((value, key) => res.setHeader(key, value));
+    if (response.body) {
+      const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
+      nodeStream.pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (err) {
+    if (err instanceof ObjectNotFoundError) {
+      res.status(404).json({ error: "Avatar not found" });
+      return;
+    }
+    logger.error({ err }, "Error serving user avatar");
+    res.status(500).json({ error: "Failed to serve avatar" });
+  }
+});
+
 export default router;

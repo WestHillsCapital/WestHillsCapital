@@ -6911,17 +6911,33 @@ function FieldLibraryPanel({
             </div>
             <div className="relative pt-1">
               {h && <HL>Validation rule</HL>}
-              <select value={item.validationType ?? "none"} onChange={(e) => onChange(item.id, { validationType: e.target.value as FieldItem["validationType"] })} className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white">
-                <option value="none">No rule</option>
-                <option value="name">Name</option>
-                <option value="number">Number</option>
-                <option value="currency">Currency</option>
-                <option value="email">Email</option>
-                <option value="phone">Phone</option>
-                <option value="date">Date</option>
-                <option value="ssn">SSN</option>
-                <option value="custom">Custom</option>
-              </select>
+              <div role="group" aria-label="Validation rule" className="flex flex-wrap gap-1">
+                {([
+                  { value: "none",     label: "None",     tip: "No validation — any input is accepted" },
+                  { value: "name",     label: "Name",     tip: "Validates as a person's name — letters, spaces, hyphens, and apostrophes" },
+                  { value: "email",    label: "Email",    tip: "Validates as an email address — must contain @ and a valid domain" },
+                  { value: "phone",    label: "Phone",    tip: "Validates as a US phone number — 10 digits, accepts common formats like (555) 555-5555" },
+                  { value: "ssn",      label: "SSN",      tip: "Validates as a Social Security Number — expects NNN-NN-NNNN format" },
+                  { value: "number",   label: "Number",   tip: "Validates as a numeric value — digits only, no formatting" },
+                  { value: "currency", label: "Currency", tip: "Validates as a dollar amount — accepts values like 1,234.56 or $1234" },
+                  { value: "date",     label: "Date",     tip: "Validates as a date — expects MM/DD/YYYY format" },
+                  { value: "custom",   label: "Custom",   tip: "Validates against a custom regular expression pattern you provide below" },
+                ] as const).map(({ value, label, tip }) => (
+                  <Tooltip key={value}>
+                    <TooltipTrigger asChild>
+                      <button
+                        type="button"
+                        aria-pressed={(item.validationType ?? "none") === value}
+                        onClick={() => onChange(item.id, { validationType: value as FieldItem["validationType"] })}
+                        className={`px-2 py-0.5 text-xs rounded border transition-colors ${(item.validationType ?? "none") === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}
+                      >
+                        {label}
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">{tip}</TooltipContent>
+                  </Tooltip>
+                ))}
+              </div>
             </div>
             <div className="relative pt-1">
               {h && <HL>Options</HL>}

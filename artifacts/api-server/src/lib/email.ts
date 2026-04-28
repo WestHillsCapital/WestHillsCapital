@@ -2195,3 +2195,71 @@ export async function sendDataExportEmail(params: {
     html,
   });
 }
+
+export async function sendEmailVerificationEmail(params: {
+  to:          string;
+  displayName: string | null;
+  verifyUrl:   string;
+}): Promise<void> {
+  const name = params.displayName || params.to;
+  await sendEmail({
+    to:      params.to,
+    subject: "Verify your new email address — Docuplete",
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Verify your email — Docuplete</title>
+</head>
+<body style="margin:0;padding:0;background:#F4F4F0;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr><td align="center" style="padding:40px 16px;">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0"
+           style="max-width:560px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #e5e7eb;">
+      <tr>
+        <td style="background:#0F1C3F;padding:24px 32px;">
+          <p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">Docuplete</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:32px;">
+          <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;line-height:1.3;">
+            Verify your new email address
+          </h1>
+          <p style="margin:0 0 20px;font-size:14px;color:#4b5563;line-height:1.65;">
+            Hi ${name}, you recently requested to update your email address on Docuplete.
+            Click the button below to confirm this change.
+          </p>
+          <p style="margin:0 0 28px;font-size:14px;color:#4b5563;line-height:1.65;">
+            This link expires in <strong>24 hours</strong>. If you didn't request this change, you can safely ignore this email.
+          </p>
+          <table role="presentation" cellpadding="0" cellspacing="0">
+            <tr>
+              <td style="background:#0F1C3F;border-radius:6px;">
+                <a href="${params.verifyUrl}" target="_blank"
+                   style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;">
+                  Verify email address
+                </a>
+              </td>
+            </tr>
+          </table>
+          <p style="margin:24px 0 0;font-size:12px;color:#9ca3af;line-height:1.6;">
+            Or copy this link: <a href="${params.verifyUrl}" style="color:#0F1C3F;">${params.verifyUrl}</a>
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:16px 32px 24px;border-top:1px solid #f3f4f6;">
+          <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;">
+            This request was made from your Docuplete account settings.
+            If you did not request this, no action is needed.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`,
+  });
+}

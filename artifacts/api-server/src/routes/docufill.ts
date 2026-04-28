@@ -2990,7 +2990,19 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
     }
     const appOrigin = process.env.APP_ORIGIN
       ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://docuplete.com");
-    const interviewUrl = `${appOrigin}/docufill/public/${token}`;
+    // Use custom domain when active
+    let interviewOrigin = appOrigin;
+    try {
+      const domainRow = await db.query<{ custom_domain: string | null; custom_domain_status: string }>(
+        `SELECT custom_domain, custom_domain_status FROM accounts WHERE id = $1`,
+        [accountId],
+      );
+      const dr = domainRow.rows[0];
+      if (dr?.custom_domain && dr.custom_domain_status === "active") {
+        interviewOrigin = `https://${dr.custom_domain}`;
+      }
+    } catch { /* non-fatal — fall back to default origin */ }
+    const interviewUrl = `${interviewOrigin}/docufill/public/${token}`;
     res.status(201).json({ session: rows[0], token, interviewUrl });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to create interview session");
@@ -3111,9 +3123,20 @@ router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) =>
       return;
     }
 
-    const origin = process.env.APP_ORIGIN
+    const appOrigin2 = process.env.APP_ORIGIN
       ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://docuplete.com");
-    const interviewUrl = `${origin}/docufill/public/${req.params.token}`;
+    let interviewOrigin2 = appOrigin2;
+    try {
+      const dr2 = await db.query<{ custom_domain: string | null; custom_domain_status: string }>(
+        `SELECT custom_domain, custom_domain_status FROM accounts WHERE id = $1`,
+        [acctId(req)],
+      );
+      const r2 = dr2.rows[0];
+      if (r2?.custom_domain && r2.custom_domain_status === "active") {
+        interviewOrigin2 = `https://${r2.custom_domain}`;
+      }
+    } catch { /* non-fatal */ }
+    const interviewUrl = `${interviewOrigin2}/docufill/public/${req.params.token}`;
 
     const orgLogoUrl    = typeof session.org_logo_url === "string" ? session.org_logo_url : null;
     const orgBrandColor = typeof session.org_brand_color === "string" ? session.org_brand_color : null;
@@ -3125,7 +3148,7 @@ router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) =>
       recipientName,
       interviewUrl,
       orgName,
-      orgLogoUrl:    orgLogoUrl ? `${origin}${orgLogoUrl}` : null,
+      orgLogoUrl:    orgLogoUrl ? `${interviewOrigin2}${orgLogoUrl}` : null,
       orgBrandColor,
       customMessage: typeof body.customMessage === "string" ? body.customMessage.trim() || null : null,
       emailSettings,

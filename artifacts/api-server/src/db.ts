@@ -338,6 +338,11 @@ export async function initDb(): Promise<void> {
     WHERE id = 1 AND plan_tier = 'free'
   `);
 
+  // ── Custom domain columns ─────────────────────────────────────────────────────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS custom_domain TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS custom_domain_status TEXT NOT NULL DEFAULT 'unverified'`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS custom_domain_verified_at TIMESTAMPTZ`);
+
   // ── Usage events — one row per billable action per account per period ─────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS usage_events (
@@ -891,6 +896,24 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS invited_by TEXT`);
   await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS invited_at TIMESTAMPTZ`);
   await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS display_name TEXT`);
+  // ── Task #280: user profile fields ────────────────────────────────────────
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS avatar_url TEXT`);
+  // avatar_token: a random UUID used as the public-facing URL segment for the avatar
+  // serving route so that profile photos are not enumerable by sequential user IDs.
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS avatar_token TEXT`);
+  await db.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS account_users_avatar_token_idx
+    ON account_users (avatar_token)
+    WHERE avatar_token IS NOT NULL
+  `);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS pending_email TEXT`);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS pending_email_token TEXT`);
+  await db.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS account_users_pending_email_token_idx
+    ON account_users (pending_email_token)
+    WHERE pending_email_token IS NOT NULL
+  `);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS pending_email_expires_at TIMESTAMPTZ`);
   // Back-fill any rows that pre-date the status column — they are all active
   await db.query(`UPDATE account_users SET status = 'active' WHERE status IS NULL OR status = ''`);
 
@@ -1168,6 +1191,55 @@ export async function initDb(): Promise<void> {
       ON data_export_requests (status, requested_at)
   `);
   await db.query(`ALTER TABLE data_export_requests ADD COLUMN IF NOT EXISTS export_format TEXT NOT NULL DEFAULT 'zip'`);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS brand_color_rate_limit (
+      key          TEXT PRIMARY KEY,
+      count        INTEGER NOT NULL DEFAULT 0,
+      window_start BIGINT  NOT NULL
+    )
+  `);
+
+  // ── Security: 2FA columns on account_users ───────────────────────────────────
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS totp_secret TEXT`);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS totp_enabled BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.query(`ALTER TABLE account_users ADD COLUMN IF NOT EXISTS totp_backup_codes TEXT[] NOT NULL DEFAULT '{}'`);
+
+  // ── Security: active user sessions (tracks Clerk session IDs) ────────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS user_active_sessions (
+      id               SERIAL PRIMARY KEY,
+      account_id       INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      user_id          INTEGER NOT NULL REFERENCES account_users(id) ON DELETE CASCADE,
+      clerk_session_id TEXT NOT NULL UNIQUE,
+      ip_address       TEXT,
+      user_agent       TEXT,
+      last_active_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      revoked_at       TIMESTAMPTZ
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS user_active_sessions_user_idx
+      ON user_active_sessions (user_id, last_active_at DESC)
+  `);
+
+  // ── Security: login history (one row per distinct login event) ───────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS user_login_history (
+      id               SERIAL PRIMARY KEY,
+      account_id       INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      user_id          INTEGER NOT NULL REFERENCES account_users(id) ON DELETE CASCADE,
+      clerk_session_id TEXT,
+      ip_address       TEXT,
+      user_agent       TEXT,
+      created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS user_login_history_user_idx
+      ON user_login_history (user_id, created_at DESC)
+  `);
 
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
