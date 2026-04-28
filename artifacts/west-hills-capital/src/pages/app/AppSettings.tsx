@@ -624,7 +624,7 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
 }
 
 interface IntegrationsStatus {
-  zapier: { api_key_count: number; available: boolean };
+  zapier: { api_key_count: number; first_key_prefix: string | null; available: boolean };
   slack: { connected: boolean; channel_name: string | null; connected_at: string | null; available: boolean };
 }
 
@@ -761,12 +761,24 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                   <p className="text-sm font-medium text-gray-900">Zapier</p>
                   <p className="text-[10px] text-gray-400">Automate with 5,000+ apps</p>
                 </div>
-                <span className="ml-auto inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Ready</span>
+                {(status?.zapier.api_key_count ?? 0) > 0
+                  ? <span className="ml-auto inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Connected</span>
+                  : <span className="ml-auto inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">Not connected</span>
+                }
               </div>
+              {(status?.zapier.api_key_count ?? 0) > 0 && status?.zapier.first_key_prefix ? (
+                <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+                  <p className="text-[10px] text-gray-400 mb-1">API key in use</p>
+                  <code className="text-xs font-mono text-gray-700">{status.zapier.first_key_prefix}…</code>
+                  {status.zapier.api_key_count > 1 && (
+                    <span className="ml-2 text-[10px] text-gray-400">+{status.zapier.api_key_count - 1} more</span>
+                  )}
+                </div>
+              ) : null}
               <p className="text-xs text-gray-500 leading-relaxed">
                 {(status?.zapier.api_key_count ?? 0) === 0
                   ? "Create an API key below to connect with Zapier. Use it as your authentication credential in any Zapier Docuplete action."
-                  : `You have ${status!.zapier.api_key_count} active API key${status!.zapier.api_key_count !== 1 ? "s" : ""}. Use any of them as your Zapier authentication credential.`}
+                  : "Use your API key as the authentication credential in any Zapier Docuplete action or trigger."}
               </p>
               <div className="flex items-center gap-2 mt-auto pt-1">
                 <a
