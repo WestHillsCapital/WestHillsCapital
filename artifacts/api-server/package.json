@@ -7,11 +7,12 @@
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "test": "node --import tsx/esm --test src/tests/cross-tenant-isolation.test.ts",
+    "test": "node --import tsx/esm --test \"src/tests/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
+    "archiver": "^7.0.1",
     "@clerk/express": "^2.1.9",
     "@google-cloud/storage": "^7.19.0",
     "@sentry/node": "^10.50.0",
@@ -37,6 +38,7 @@
     "swagger-ui-express": "^5.0.1"
   },
   "devDependencies": {
+    "@types/archiver": "^6.0.3",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "catalog:",
