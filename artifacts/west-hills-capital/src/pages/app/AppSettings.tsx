@@ -1253,6 +1253,7 @@ export default function AppSettings() {
   const [isDraggingLogo, setIsDraggingLogo] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [nameSaved, setNameSaved] = useState(false);
+  const [nameFieldError, setNameFieldError] = useState<string | null>(null);
   const [logoSaved, setLogoSaved] = useState(false);
   const [colorSaved, setColorSaved] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -1303,7 +1304,11 @@ export default function AppSettings() {
     if (!nameEdited.current || !org) return;
     if (nameDebounceRef.current) clearTimeout(nameDebounceRef.current);
     nameDebounceRef.current = setTimeout(async () => {
-      if (!name.trim()) return;
+      if (!name.trim()) {
+        setNameFieldError("Organization name cannot be empty.");
+        return;
+      }
+      setNameFieldError(null);
       try {
         const res = await fetch(`${SETTINGS_BASE}/org`, {
           method: "PATCH",
@@ -1311,10 +1316,10 @@ export default function AppSettings() {
           body: JSON.stringify({ name: name.trim() }),
         });
         const data = await res.json() as { org?: ProductOrgSettings; error?: string };
-        if (!res.ok) { setErrorMsg(data.error ?? "Failed to save name"); return; }
-        if (data.org) { applyOrg(data.org); setErrorMsg(null); }
+        if (!res.ok) { setNameFieldError(data.error ?? "Failed to save name"); return; }
+        if (data.org) { applyOrg(data.org); }
         flashFieldSaved("name");
-      } catch { setErrorMsg("Failed to save name."); }
+      } catch { setNameFieldError("Failed to save name. Please try again."); }
     }, 700);
   }, [name]);
 
@@ -1381,7 +1386,7 @@ export default function AppSettings() {
       const data = await res.json() as { org?: ProductOrgSettings; error?: string };
       if (!res.ok) { setErrorMsg(data.error ?? "Failed to remove logo"); return; }
       if (data.org) applyOrg(data.org);
-      setLogoSaved(false);
+      flashFieldSaved("logo");
     } catch {
       setErrorMsg("Failed to remove logo.");
     }
@@ -1461,9 +1466,11 @@ export default function AppSettings() {
               placeholder="Your organization name"
               className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 w-full"
             />
-            {nameSaved && (
+            {nameFieldError ? (
+              <span className="text-[11px] text-red-600">{nameFieldError}</span>
+            ) : nameSaved ? (
               <span className="text-[11px] text-green-600 font-medium">✓ Saved</span>
-            )}
+            ) : null}
           </div>
         </div>
 
