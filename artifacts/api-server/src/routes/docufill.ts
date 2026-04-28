@@ -107,6 +107,7 @@ type EntityInput = {
   phone?: string;
   notes?: string;
   active?: boolean;
+  kind?: string;
 };
 
 type TransactionTypeInput = {
@@ -781,7 +782,7 @@ function clampNumber(value: unknown, fallback: number, min: number, max: number)
  * E-sign completion certificates will augment this trail, not replace it.
  */
 async function stampPdfAuditFooter(
-  doc: InstanceType<typeof PdfLibDocument>,
+  doc: PdfLibDocument,
   sessionToken: string,
   generatedAt: Date,
 ): Promise<void> {
@@ -1159,9 +1160,9 @@ router.get("/field-library", async (_req, res) => {
 });
 
 router.post("/field-library", requireAdminRole, async (req, res) => {
+  const body = req.body as FieldLibraryInput;
+  const label = cleanText(body.label);
   try {
-    const body = req.body as FieldLibraryInput;
-    const label = cleanText(body.label);
     if (!label) {
       res.status(400).json({ error: "Field label is required" });
       return;
@@ -1803,6 +1804,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
 
 router.patch("/packages/:id", async (req, res) => {
   try {
+    const db = getDb();
     const id = parseId(req.params.id);
     if (!id) {
       res.status(400).json({ error: "Invalid package id" });
@@ -1810,7 +1812,7 @@ router.patch("/packages/:id", async (req, res) => {
     }
     const body = req.body as PackageInput;
     const accountId = acctId(req);
-    const existing = await getPackage(id, getDb(), false, accountId);
+    const existing = await getPackage(id, db, false, accountId);
     if (!existing) {
       res.status(404).json({ error: "Package not found" });
       return;
@@ -1853,7 +1855,6 @@ router.patch("/packages/:id", async (req, res) => {
         .filter((doc) => doc.pdfStored && !incomingDocuments.some((incoming) => incoming.id === doc.id))
         .map((doc) => doc.id)
       : [];
-    const db = getDb();
     const client = await db.connect();
     try {
       await client.query("BEGIN");
@@ -2853,7 +2854,7 @@ router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
 router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) => {
   try {
     const db = getDb();
-    const session = await getSession(req.params.token, db, acctId(req));
+    const session = await getSession(String(req.params.token), db, acctId(req));
     if (!session) {
       res.status(404).json({ error: "Interview session not found" });
       return;
@@ -2904,7 +2905,7 @@ router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) =>
 router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => {
   try {
     const db = getDb();
-    const session = await getSession(req.params.token, db, acctId(req));
+    const session = await getSession(String(req.params.token), db, acctId(req));
     if (!session) {
       res.status(404).json({ error: "Interview session not found" });
       return;
@@ -2957,7 +2958,7 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
     const { actorIp, actorUa } = actorContextFromRequest(req);
     recordPdfAuditEvent({
       accountId:    acctId(req),
-      sessionToken: req.params.token,
+      sessionToken: String(req.params.token),
       eventType:    "generated",
       actorType:    req.internalEmail ? "staff" : "api",
       actorEmail:   req.internalEmail ?? null,

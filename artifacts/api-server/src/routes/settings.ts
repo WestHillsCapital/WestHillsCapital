@@ -690,7 +690,7 @@ router.post("/team/invite", requireAdminRole, requireWithinPlanLimits("seat"), a
 router.patch("/team/:id/role", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
-    const memberId  = parseInt(req.params.id ?? "", 10);
+    const memberId  = parseInt(String(req.params.id ?? ""), 10);
     if (isNaN(memberId)) return void res.status(400).json({ error: "Invalid member id." });
 
     const body = req.body as Record<string, unknown>;
@@ -742,7 +742,7 @@ router.patch("/team/:id/role", requireAdminRole, async (req, res) => {
 router.delete("/team/:id", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
-    const memberId  = parseInt(req.params.id ?? "", 10);
+    const memberId  = parseInt(String(req.params.id ?? ""), 10);
     if (isNaN(memberId)) return void res.status(400).json({ error: "Invalid member id." });
 
     const db = getDb();
