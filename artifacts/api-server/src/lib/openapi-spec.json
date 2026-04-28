@@ -459,6 +459,10 @@
           "created_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "has_payload": {
+            "type": "boolean",
+            "description": "True when the original webhook payload is still stored and can be used to re-trigger the delivery."
           }
         },
         "required": [
@@ -468,7 +472,8 @@
           "http_status",
           "response_body",
           "duration_ms",
-          "created_at"
+          "created_at",
+          "has_payload"
         ]
       }
     }
@@ -1225,6 +1230,135 @@
           },
           "404": {
             "description": "Package not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/packages/{id}/webhook-deliveries": {
+      "get": {
+        "tags": [
+          "Webhooks"
+        ],
+        "summary": "List webhook delivery history for a package",
+        "description": "Returns a paginated log of webhook delivery attempts for the specified package.\n\nEach entry represents a single HTTP call made to your configured webhook URL, including the HTTP status returned by your server, the first 1 KB of its response body, and the round-trip duration. This lets you build custom monitoring or alerting on top of the delivery log.\n\n**Authentication:** API key only (`Authorization: Bearer sk_live_…`). Clerk JWTs are not accepted on this endpoint.",
+        "security": [
+          {
+            "apiKeyAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Numeric package ID"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "maximum": 200
+            },
+            "description": "Maximum number of delivery records to return (default 50, max 200)"
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 0
+            },
+            "description": "Number of records to skip (for pagination)"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated list of webhook delivery records, newest first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": ["deliveries", "total", "limit", "offset"],
+                  "properties": {
+                    "deliveries": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/WebhookDelivery"
+                      }
+                    },
+                    "total": {
+                      "type": "integer",
+                      "description": "Total number of delivery records for this package (before pagination)"
+                    },
+                    "limit": {
+                      "type": "integer",
+                      "description": "The effective limit used for this response"
+                    },
+                    "offset": {
+                      "type": "integer",
+                      "description": "The effective offset used for this response"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid package ID",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "IP address not permitted by account allowlist",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Package not found or does not belong to the authenticated account",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many failed authentication attempts",
             "content": {
               "application/json": {
                 "schema": {

@@ -27,6 +27,59 @@ const requireMemberRole = requireRole("member");
 
 const router: IRouter = Router();
 export const publicDocufillRouter: IRouter = Router();
+
+/**
+ * API-key-authenticated public developer router.
+ * Mounted at /api/v1/packages — requires requireApiKeyAuth + requireAccountId
+ * upstream in index.ts.
+ */
+export const apiKeyDocufillRouter: IRouter = Router();
+
+apiKeyDocufillRouter.get("/:id/webhook-deliveries", async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) { res.status(400).json({ error: "Invalid package id" }); return; }
+    const accountId = acctId(req);
+
+    const rawLimit  = parseInt(String(req.query["limit"]  ?? "50"), 10);
+    const rawOffset = parseInt(String(req.query["offset"] ?? "0"),  10);
+    const limit     = Number.isFinite(rawLimit)  && rawLimit  > 0 ? Math.min(rawLimit, 200) : 50;
+    const offset    = Number.isFinite(rawOffset) && rawOffset >= 0 ? rawOffset : 0;
+
+    const db = getDb();
+    const { rows: owned } = await db.query(
+      `SELECT id FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      [id, accountId],
+    );
+    if (!owned[0]) { res.status(404).json({ error: "Package not found" }); return; }
+
+    const [{ rows }, { rows: countRows }] = await Promise.all([
+      db.query(
+        `SELECT id, event_type, attempt_number, http_status, response_body, duration_ms, created_at,
+                (payload_json IS NOT NULL) AS has_payload
+           FROM webhook_deliveries
+          WHERE package_id = $1 AND account_id = $2
+          ORDER BY created_at DESC
+          LIMIT $3 OFFSET $4`,
+        [id, accountId, limit, offset],
+      ),
+      db.query<{ total: string }>(
+        `SELECT COUNT(*) AS total FROM webhook_deliveries WHERE package_id = $1 AND account_id = $2`,
+        [id, accountId],
+      ),
+    ]);
+
+    res.json({
+      deliveries: rows,
+      total:  parseInt(countRows[0]?.total ?? "0", 10),
+      limit,
+      offset,
+    });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to fetch webhook deliveries (API key)");
+    res.status(500).json({ error: "Failed to fetch webhook deliveries" });
+  }
+});
 const MAX_PACKAGE_PDF_BYTES = 100 * 1024 * 1024;
 const TRANSACTION_SCOPES = new Set(["ira_transfer", "ira_contribution", "ira_distribution", "cash_purchase", "storage_change", "beneficiary_update", "liquidation", "buy_sell_direction", "address_change"]);
 
@@ -2035,7 +2088,7 @@ router.get("/packages/:id/webhook-deliveries", requireAdminRole, async (req, res
          FROM webhook_deliveries
         WHERE package_id = $1 AND account_id = $2
         ORDER BY created_at DESC
-        LIMIT 10`,
+        LIMIT 50`,
       [id, accountId],
     );
     res.json({ deliveries: rows });
