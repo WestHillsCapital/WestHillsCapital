@@ -1237,6 +1237,17 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
       ],
     );
     if (!rows[0]) {
+      // ON CONFLICT (id) DO NOTHING silently skipped the insert — another row
+      // with this id already exists (race condition). Return it as a 201 so
+      // the caller can link to it without surfacing an error.
+      const { rows: existingRows } = await db.query(
+        `${fieldLibrarySelectSql()} WHERE id = $1`,
+        [id],
+      );
+      if (existingRows[0]) {
+        res.status(201).json({ field: existingRows[0] });
+        return;
+      }
       res.status(409).json({ error: "A shared field with that id already exists", fieldId: id });
       return;
     }
