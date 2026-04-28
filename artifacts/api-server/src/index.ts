@@ -5,6 +5,7 @@ import app from "./app";
 import { logger } from "./lib/logger";
 import { initDb, getDb } from "./db";
 import { validateConfig } from "./lib/config";
+import { ObjectStorageService } from "./lib/objectStorage";
 import { syncDealOpsStatus, updateOperationsMilestone, computeOpsStatus } from "./lib/google-sheets";
 import {
   sendShippingNotificationEmail,
@@ -45,6 +46,28 @@ const server: Server = app.listen(port, () => {
     server.close(() => process.exit(1));
     setTimeout(() => process.exit(1), 5_000).unref();
     return;
+  }
+
+  // ── 3b. Storage readiness probe ───────────────────────────────────────────
+  // Non-fatal: warns immediately if PRIVATE_OBJECT_DIR or GCS credentials are
+  // absent so the issue is visible in Railway logs at deploy time rather than
+  // surfacing silently as a 500 when someone first tries to upload a logo.
+  try {
+    new ObjectStorageService().getPrivateObjectDir();
+    const hasCredentials = !!(process.env.GOOGLE_SERVICE_ACCOUNT_KEY || process.env.REPL_ID || process.env.REPLIT_DOMAINS);
+    if (!hasCredentials) {
+      logger.warn(
+        "Object storage: GOOGLE_SERVICE_ACCOUNT_KEY is not set and Replit sidecar is unavailable — logo uploads will fail. " +
+        "Set GOOGLE_SERVICE_ACCOUNT_KEY in Railway environment variables."
+      );
+    } else {
+      logger.info("Object storage: PRIVATE_OBJECT_DIR and GCS credentials present");
+    }
+  } catch {
+    logger.warn(
+      "Object storage: PRIVATE_OBJECT_DIR is not set — logo and file uploads will return 503. " +
+      "Set PRIVATE_OBJECT_DIR in Railway environment variables."
+    );
   }
 
   // ── 4. Initialise the database ──────────────────────────────────────────────

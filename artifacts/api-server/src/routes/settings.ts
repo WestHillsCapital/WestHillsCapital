@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import { getAuth } from "@clerk/express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
-import { ObjectStorageService, objectStorageClient } from "../lib/objectStorage";
+import { ObjectStorageService, objectStorageClient, StorageMisconfigError, assertStorageCredentials, wrapGcsError } from "../lib/objectStorage";
 import { extractBrandColors, isSafeUrl } from "../lib/brandColorExtractor";
 import { requireAdminRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
@@ -37,7 +37,10 @@ function buildLogoServingUrl(accountId: number): string {
 const UUID_V4_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 async function uploadLogoBuffer(buffer: Buffer, contentType: ImageContentType): Promise<string> {
-  const privateDir = objectStorageService.getPrivateObjectDir();
+  // Fail fast with a typed error if credentials or path are missing before
+  // attempting a GCS write that would fail with a cryptic auth error.
+  assertStorageCredentials();
+  const privateDir = objectStorageService.getPrivateObjectDir(); // throws StorageMisconfigError if unset
   const entityDir = privateDir.endsWith("/") ? privateDir : `${privateDir}/`;
   const entityId = randomUUID();
 
@@ -55,7 +58,11 @@ async function uploadLogoBuffer(buffer: Buffer, contentType: ImageContentType): 
   const objectName = parts.slice(1).join("/");
   const bucket = objectStorageClient.bucket(bucketName);
   const file = bucket.file(objectName);
-  await file.save(buffer, { contentType, resumable: false });
+  try {
+    await file.save(buffer, { contentType, resumable: false });
+  } catch (gcsErr) {
+    wrapGcsError(gcsErr); // rethrows as StorageMisconfigError for auth/sidecar errors; otherwise rethrows as-is
+  }
   return `/objects/${entityId}`;
 }
 
@@ -413,13 +420,8 @@ router.post(
       try {
         rawLogoPath = await uploadLogoBuffer(buffer, contentType);
       } catch (uploadErr) {
-        const msg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
-        const isMisconfig =
-          msg.includes("PRIVATE_OBJECT_DIR") ||
-          msg.includes("not set") ||
-          msg.includes("not configured");
         logger.error({ err: uploadErr }, "[Settings] Logo upload failed");
-        if (isMisconfig) {
+        if (uploadErr instanceof StorageMisconfigError) {
           res.status(503).json({
             error: "Storage is not configured on this server. Set PRIVATE_OBJECT_DIR and GOOGLE_SERVICE_ACCOUNT_KEY in the deployment environment.",
           });

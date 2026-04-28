@@ -46,6 +46,47 @@ export class ObjectNotFoundError extends Error {
   }
 }
 
+export class StorageMisconfigError extends Error {
+  constructor(detail: string) {
+    super(`Storage is not configured: ${detail}`);
+    this.name = "StorageMisconfigError";
+    Object.setPrototypeOf(this, StorageMisconfigError.prototype);
+  }
+}
+
+function isOnReplit(): boolean {
+  return !!(process.env.REPL_ID || process.env.REPLIT_DOMAINS);
+}
+
+export function assertStorageCredentials(): void {
+  if (!process.env.GOOGLE_SERVICE_ACCOUNT_KEY && !isOnReplit()) {
+    throw new StorageMisconfigError(
+      "GOOGLE_SERVICE_ACCOUNT_KEY is not set and the Replit sidecar is not available in this environment. " +
+      "Set GOOGLE_SERVICE_ACCOUNT_KEY in your deployment environment variables."
+    );
+  }
+}
+
+export function wrapGcsError(err: unknown): never {
+  const msg = err instanceof Error ? err.message : String(err);
+  const isAuthOrSidecar =
+    msg.includes("ECONNREFUSED") ||
+    msg.includes("127.0.0.1:1106") ||
+    msg.includes("token") ||
+    msg.includes("credential") ||
+    msg.includes("Could not load") ||
+    msg.includes("invalid_grant") ||
+    msg.includes("UNAUTHENTICATED") ||
+    msg.includes("Permission denied");
+  if (isAuthOrSidecar) {
+    throw new StorageMisconfigError(
+      "GCS credential error — ensure GOOGLE_SERVICE_ACCOUNT_KEY is set in your deployment environment. " +
+      `Underlying: ${msg}`
+    );
+  }
+  throw err;
+}
+
 export class ObjectStorageService {
   constructor() {}
 
@@ -71,9 +112,8 @@ export class ObjectStorageService {
   getPrivateObjectDir(): string {
     const dir = process.env.PRIVATE_OBJECT_DIR || "";
     if (!dir) {
-      throw new Error(
-        "PRIVATE_OBJECT_DIR not set. Create a bucket in 'Object Storage' " +
-          "tool and set PRIVATE_OBJECT_DIR env var."
+      throw new StorageMisconfigError(
+        "PRIVATE_OBJECT_DIR is not set. Add this environment variable to your deployment."
       );
     }
     return dir;
