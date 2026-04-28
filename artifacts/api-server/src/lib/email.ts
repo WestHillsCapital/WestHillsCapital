@@ -1955,3 +1955,75 @@ export async function sendTeamInvitationEmail(params: {
 </html>`,
   });
 }
+
+/**
+ * Sends a simple org-level alert email to one or more recipients.
+ * Used for billing events, API key events, team changes, and plan limit warnings.
+ * Each recipient receives an individual email.
+ *
+ * Callers should filter recipients using getUserEmailsToNotify() first so that
+ * only users who have opted in receive this alert.
+ */
+export async function sendOrgAlertEmails(params: {
+  recipientEmails: string[];
+  orgName:         string;
+  subject:         string;
+  heading:         string;
+  bodyHtml:        string;
+}): Promise<void> {
+  if (!params.recipientEmails.length) return;
+
+  const orgName = params.orgName || "Docuplete";
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>${params.subject}</title></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="520" cellpadding="0" cellspacing="0"
+             style="max-width:520px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #e5e7eb;">
+
+        <!-- Header -->
+        <tr>
+          <td style="padding:24px 32px 20px;border-bottom:1px solid #f3f4f6;">
+            <p style="margin:0;font-size:13px;font-weight:600;color:#6b7280;letter-spacing:0.05em;text-transform:uppercase;">${orgName}</p>
+            <h1 style="margin:8px 0 0;font-size:20px;font-weight:700;color:#111827;line-height:1.3;">${params.heading}</h1>
+          </td>
+        </tr>
+
+        <!-- Body -->
+        <tr>
+          <td style="padding:24px 32px;">
+            <div style="font-size:14px;color:#374151;line-height:1.6;">
+              ${params.bodyHtml}
+            </div>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:16px 32px 24px;border-top:1px solid #f3f4f6;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;">
+              This notification was sent by ${orgName} via Docuplete.
+              You can update your notification preferences in your account settings.
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  for (const to of params.recipientEmails) {
+    try {
+      await sendEmail({ to, subject: params.subject, html });
+    } catch (err) {
+      logger.error({ err, to, subject: params.subject }, "[Email] sendOrgAlertEmails: failed to send to recipient");
+    }
+  }
+}

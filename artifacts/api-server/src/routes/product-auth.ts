@@ -9,6 +9,8 @@ import { requireAdminRole } from "../middleware/requireRole";
 import { linkPendingInvitation } from "../lib/auth-utils";
 import { seedDemoPackage } from "../lib/demoPackage";
 import { insertAuditLog, getActorEmail } from "../lib/auditLog";
+import { getUserEmailsToNotify } from "../lib/notificationPrefs";
+import { sendOrgAlertEmails } from "../lib/email";
 
 const router = Router();
 
@@ -328,15 +330,37 @@ router.post("/api-keys", requireProductAuth, requireAdminRole, async (req, res) 
     logger.info({ accountId, keyId: row.id }, "[ApiKeys] New API key created");
 
     const clerkUserId = getAuth(req)?.userId ?? null;
+    const actorEmail = await getActorEmail(accountId, clerkUserId);
     void insertAuditLog({
       accountId,
-      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorEmail,
       actorUserId: clerkUserId,
       action: "apikey.create",
       resourceType: "api_key",
       resourceId: String(row.id),
       resourceLabel: name,
     });
+
+    // Notify org members who want api_key_created emails
+    void (async () => {
+      try {
+        const { rows: orgRows } = await getDb().query<{ name: string }>(
+          `SELECT name FROM accounts WHERE id = $1`, [accountId],
+        );
+        const orgName = orgRows[0]?.name ?? "Docuplete";
+        const emails = (await getUserEmailsToNotify(accountId, "api_key_created"))
+          .filter(e => e !== actorEmail);
+        await sendOrgAlertEmails({
+          recipientEmails: emails,
+          orgName,
+          subject:  `${orgName}: new API key created`,
+          heading:  "A new API key was created",
+          bodyHtml: `<p>A new API key named <strong>${name}</strong> was created in your organization${actorEmail ? ` by <strong>${actorEmail}</strong>` : ""}.</p><p>If you didn't expect this, please review your API keys in settings immediately.</p>`,
+        });
+      } catch (err) {
+        logger.error({ err, accountId }, "[ApiKeys] Failed to send api_key_created notification emails");
+      }
+    })();
 
     return void res.status(201).json({
       id:         row.id,
@@ -627,15 +651,39 @@ router.delete("/api-keys/:id", requireProductAuth, requireAdminRole, async (req,
 
     logger.info({ accountId, keyId }, "[ApiKeys] API key revoked");
     const clerkUserId = getAuth(req)?.userId ?? null;
+    const revokeActorEmail = await getActorEmail(accountId, clerkUserId);
+    const revokedKeyName = result.rows[0].name;
     void insertAuditLog({
       accountId,
-      actorEmail: await getActorEmail(accountId, clerkUserId),
+      actorEmail: revokeActorEmail,
       actorUserId: clerkUserId,
       action: "apikey.revoke",
       resourceType: "api_key",
       resourceId: String(keyId),
-      resourceLabel: result.rows[0].name,
+      resourceLabel: revokedKeyName,
     });
+
+    // Notify org members who want api_key_revoked emails
+    void (async () => {
+      try {
+        const { rows: orgRows } = await getDb().query<{ name: string }>(
+          `SELECT name FROM accounts WHERE id = $1`, [accountId],
+        );
+        const orgName = orgRows[0]?.name ?? "Docuplete";
+        const emails = (await getUserEmailsToNotify(accountId, "api_key_revoked"))
+          .filter(e => e !== revokeActorEmail);
+        await sendOrgAlertEmails({
+          recipientEmails: emails,
+          orgName,
+          subject:  `${orgName}: API key revoked`,
+          heading:  "An API key was revoked",
+          bodyHtml: `<p>The API key <strong>${revokedKeyName}</strong> was revoked in your organization${revokeActorEmail ? ` by <strong>${revokeActorEmail}</strong>` : ""}.</p><p>Any integrations using this key will stop working. Update them with a new key if needed.</p>`,
+        });
+      } catch (err) {
+        logger.error({ err, accountId }, "[ApiKeys] Failed to send api_key_revoked notification emails");
+      }
+    })();
+
     return void res.json({ success: true, id: keyId });
   } catch (err) {
     logger.error({ err }, "[ApiKeys] Failed to revoke API key");

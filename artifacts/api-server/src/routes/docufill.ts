@@ -20,6 +20,7 @@ import {
   sendDocupleteStaffSubmissionEmail,
   sendDocupleteClientConfirmationEmail,
 } from "../lib/email";
+import { getUserEmailsToNotify } from "../lib/notificationPrefs";
 import { requireAdminRole, requireRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits, recordSubmissionEvent, recordPdfGenerationEvent } from "../middleware/requireWithinPlanLimits";
 import { recordPdfAuditEvent, actorContextFromRequest } from "../lib/pdf-audit";
@@ -567,14 +568,10 @@ async function fireSubmissionEmailsAsync(
   const logoFullUrl   = orgLogoUrl ? `${origin}${orgLogoUrl}` : null;
   const submittedAt   = new Date().toISOString();
 
-  // Staff notification
+  // Staff notification — only send to users who have submission_received email enabled
   if (session.notify_staff_on_submit === true && accountId) {
     try {
-      const { rows: userRows } = await db.query(
-        `SELECT email FROM account_users WHERE account_id = $1 AND email IS NOT NULL AND email <> ''`,
-        [accountId],
-      );
-      const staffEmails: string[] = userRows.map((r: Record<string, unknown>) => String(r.email)).filter(Boolean);
+      const staffEmails = await getUserEmailsToNotify(accountId, "submission_received");
       if (staffEmails.length) {
         const appUrl = `${origin}/internal/docufill?session=${token}`;
         await sendDocupleteStaffSubmissionEmail({

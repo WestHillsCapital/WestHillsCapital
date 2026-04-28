@@ -2,6 +2,8 @@ import { getDb } from "../db";
 import { logger } from "./logger";
 import { insertAuditLog } from "./auditLog";
 import { PLAN_LIMITS } from "./plans";
+import { getUserEmailsToNotify } from "./notificationPrefs";
+import { sendOrgAlertEmails } from "./email";
 
 type StripeSubscriptionObject = {
   id: string;
@@ -125,6 +127,27 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
           event_type: event.type,
         },
       });
+
+      // Notify org members who want billing_plan_change emails
+      void (async () => {
+        try {
+          const { rows: orgRows } = await db.query<{ name: string }>(
+            `SELECT name FROM accounts WHERE id = $1`,
+            [preAccount.id],
+          );
+          const orgName = orgRows[0]?.name ?? "Docuplete";
+          const emails = await getUserEmailsToNotify(preAccount.id, "billing_plan_change");
+          await sendOrgAlertEmails({
+            recipientEmails: emails,
+            orgName,
+            subject:   `${orgName}: plan changed to ${planTier}`,
+            heading:   "Your plan has changed",
+            bodyHtml:  `<p>Your Docuplete subscription has been updated from <strong>${preAccount.plan_tier}</strong> to <strong>${planTier}</strong>.</p><p>If you didn't make this change or have questions, please contact your account administrator.</p>`,
+          });
+        } catch (err) {
+          logger.error({ err, accountId: preAccount.id }, "[BillingSync] Failed to send plan_change notification emails");
+        }
+      })();
     }
 
     return;
@@ -145,11 +168,33 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
   if (event.type === "invoice.payment_failed") {
     const inv = event.data.object as StripeInvoiceObject;
     if (!inv.customer) return;
-    await db.query(
-      `UPDATE accounts SET subscription_status = 'past_due' WHERE stripe_customer_id = $1`,
+    const { rows: failedAccRows } = await db.query<{ id: number; name: string }>(
+      `UPDATE accounts SET subscription_status = 'past_due'
+        WHERE stripe_customer_id = $1
+        RETURNING id, name`,
       [inv.customer],
     );
+    const failedAcc = failedAccRows[0] ?? null;
     logger.warn({ customerId: inv.customer }, "[BillingSync] Subscription marked past_due on invoice.payment_failed");
+
+    // Notify org members who want billing_payment_failed emails
+    if (failedAcc) {
+      void (async () => {
+        try {
+          const emails = await getUserEmailsToNotify(failedAcc.id, "billing_payment_failed");
+          await sendOrgAlertEmails({
+            recipientEmails: emails,
+            orgName:  failedAcc.name ?? "Docuplete",
+            subject:  "Action required: payment failed on your Docuplete subscription",
+            heading:  "Payment failed",
+            bodyHtml: `<p>A payment attempt for your Docuplete subscription was unsuccessful. Your account has been marked as past due.</p><p>Please update your billing information to restore full access.</p>`,
+          });
+        } catch (err) {
+          logger.error({ err, accountId: failedAcc.id }, "[BillingSync] Failed to send payment_failed notification emails");
+        }
+      })();
+    }
+
     return;
   }
 }
