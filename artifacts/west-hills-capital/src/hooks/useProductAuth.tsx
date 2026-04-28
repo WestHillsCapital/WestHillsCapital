@@ -58,8 +58,9 @@ export function useProductAuth() {
             setAccount(null);
           }
         } else if (res.ok) {
-          const data = await res.json();
-          setAccount(data as ProductAccount);
+          const data = await res.json() as ProductAccount;
+          if (data.orgLogoUrl) data.orgLogoUrl = `${API_BASE}${data.orgLogoUrl}`;
+          setAccount(data);
           setNeedsOnboard(false);
           setAuthError(null);
         }
@@ -77,8 +78,9 @@ export function useProductAuth() {
       headers: { Authorization: `Bearer ${t}` },
     });
     if (res.ok) {
-      const data = await res.json();
-      setAccount(data as ProductAccount);
+      const data = await res.json() as ProductAccount;
+      if (data.orgLogoUrl) data.orgLogoUrl = `${API_BASE}${data.orgLogoUrl}`;
+      setAccount(data);
       setNeedsOnboard(false);
     }
   }, [token]);
