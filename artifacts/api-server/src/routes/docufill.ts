@@ -511,6 +511,36 @@ function parseGroupIds(groupIds: unknown, groupId: unknown): number[] {
   return single ? [single] : [];
 }
 
+/**
+ * Validates that all groupIds are active groups belonging to `accountId`, and that
+ * there is at most one group per category (kind). Returns an error message on failure.
+ */
+async function validateGroupIds(client: QueryClient, groupIds: number[], accountId: number): Promise<string | null> {
+  if (groupIds.length === 0) return null;
+  const { rows } = await client.query<{ id: number; kind: string }>(
+    `SELECT id, kind FROM docufill_groups WHERE id = ANY($1) AND account_id = $2`,
+    [groupIds, accountId],
+  );
+  if (rows.length !== groupIds.length) {
+    const foundIds = new Set(rows.map((r) => r.id));
+    const bad = groupIds.filter((id) => !foundIds.has(id));
+    return `Invalid or inaccessible group id(s): ${bad.join(", ")}`;
+  }
+  const kindCounts = new Map<string, number[]>();
+  for (const row of rows) {
+    const kind = row.kind ?? "general";
+    const existing = kindCounts.get(kind) ?? [];
+    existing.push(row.id);
+    kindCounts.set(kind, existing);
+  }
+  for (const [kind, ids] of kindCounts) {
+    if (ids.length > 1) {
+      return `A package may have at most one group per category. Multiple groups found for category "${kind}": ids ${ids.join(", ")}`;
+    }
+  }
+  return null;
+}
+
 /** Replace all junction rows for a package with the given group ids (within a transaction). */
 async function syncPackageGroups(client: QueryClient, packageId: number, groupIds: number[]): Promise<void> {
   await client.query(`DELETE FROM docufill_package_groups WHERE package_id = $1`, [packageId]);
@@ -1643,6 +1673,8 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
     const db = getDb();
     const webhookSecret = randomBytes(32).toString("hex");
     const incomingGroupIds = parseGroupIds(body.groupIds, body.groupId);
+    const groupValidationError = await validateGroupIds(db, incomingGroupIds, accountId);
+    if (groupValidationError) { res.status(400).json({ error: groupValidationError }); return; }
     const primaryGroupId = incomingGroupIds[0] ?? null;
     const { rows } = await db.query(
       `INSERT INTO docufill_packages
@@ -1701,6 +1733,10 @@ router.patch("/packages/:id", async (req, res) => {
     }
     const groupIdsProvided = body.groupIds !== undefined || body.groupId !== undefined;
     const incomingGroupIds = groupIdsProvided ? parseGroupIds(body.groupIds, body.groupId) : null;
+    if (incomingGroupIds !== null) {
+      const groupValidationError = await validateGroupIds(db, incomingGroupIds, acctId(req));
+      if (groupValidationError) { res.status(400).json({ error: groupValidationError }); return; }
+    }
     const primaryGroupId = incomingGroupIds !== null
       ? (incomingGroupIds[0] ?? null)
       : (existing.group_id as number | null ?? null);
