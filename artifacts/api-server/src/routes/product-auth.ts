@@ -9,7 +9,7 @@ import { requireAdminRole } from "../middleware/requireRole";
 import { linkPendingInvitation } from "../lib/auth-utils";
 import { seedDemoPackage } from "../lib/demoPackage";
 import { insertAuditLog, getActorEmail } from "../lib/auditLog";
-import { getUserEmailsToNotify } from "../lib/notificationPrefs";
+import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { sendOrgAlertEmails } from "../lib/email";
 
 const router = Router();
@@ -341,15 +341,28 @@ router.post("/api-keys", requireProductAuth, requireAdminRole, async (req, res) 
       resourceLabel: name,
     });
 
-    // Notify org members who want api_key_created emails
+    // Notify org members who want api_key_created notifications
     void (async () => {
       try {
         const { rows: orgRows } = await getDb().query<{ name: string }>(
           `SELECT name FROM accounts WHERE id = $1`, [accountId],
         );
         const orgName = orgRows[0]?.name ?? "Docuplete";
-        const emails = (await getUserEmailsToNotify(accountId, "api_key_created"))
-          .filter(e => e !== actorEmail);
+        const notifTitle = "New API key created";
+        const notifBody  = `The key "${name}" was created${actorEmail ? ` by ${actorEmail}` : ""}.`;
+
+        const [emails] = await Promise.all([
+          getUserEmailsToNotify(accountId, "api_key_created").then(list =>
+            actorEmail ? list.filter(e => e !== actorEmail) : list,
+          ),
+          sendInAppNotifications(
+            accountId,
+            "api_key_created",
+            notifTitle,
+            notifBody,
+            clerkUserId ? [clerkUserId] : [],
+          ),
+        ]);
         await sendOrgAlertEmails({
           recipientEmails: emails,
           orgName,
@@ -663,15 +676,28 @@ router.delete("/api-keys/:id", requireProductAuth, requireAdminRole, async (req,
       resourceLabel: revokedKeyName,
     });
 
-    // Notify org members who want api_key_revoked emails
+    // Notify org members who want api_key_revoked notifications
     void (async () => {
       try {
         const { rows: orgRows } = await getDb().query<{ name: string }>(
           `SELECT name FROM accounts WHERE id = $1`, [accountId],
         );
         const orgName = orgRows[0]?.name ?? "Docuplete";
-        const emails = (await getUserEmailsToNotify(accountId, "api_key_revoked"))
-          .filter(e => e !== revokeActorEmail);
+        const notifTitle = "API key revoked";
+        const notifBody  = `The key "${revokedKeyName}" was revoked${revokeActorEmail ? ` by ${revokeActorEmail}` : ""}.`;
+
+        const [emails] = await Promise.all([
+          getUserEmailsToNotify(accountId, "api_key_revoked").then(list =>
+            revokeActorEmail ? list.filter(e => e !== revokeActorEmail) : list,
+          ),
+          sendInAppNotifications(
+            accountId,
+            "api_key_revoked",
+            notifTitle,
+            notifBody,
+            clerkUserId ? [clerkUserId] : [],
+          ),
+        ]);
         await sendOrgAlertEmails({
           recipientEmails: emails,
           orgName,
