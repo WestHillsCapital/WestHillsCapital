@@ -6577,7 +6577,7 @@ function FieldLibraryPanel({
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
       <div className="grid md:grid-cols-2 gap-2 text-sm">
         {items.map((item, idx) => {
-          const h = showHints && idx === 0;
+          const h = showHints && idx === 1;
           const HL = ({ children }: { children: string }) => (
             <span className="absolute -top-2 left-1.5 z-10 text-[9px] bg-[#C49A38] text-white font-semibold rounded px-1 leading-4 pointer-events-none">{children}</span>
           );
