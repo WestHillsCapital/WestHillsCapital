@@ -255,7 +255,7 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     const db = getDb();
 
     const { rows: existing } = await db.query(
-      `SELECT id, name, logo_url, brand_color FROM accounts WHERE id = $1`,
+      `SELECT id, name, logo_url, brand_color, timezone, date_format FROM accounts WHERE id = $1`,
       [accountId],
     );
     if (!existing[0]) {
@@ -279,7 +279,7 @@ router.patch("/org", requireAdminRole, async (req, res) => {
 
     const { rows } = await db.query(
       `UPDATE accounts SET name=$1, logo_url=$2, brand_color=$3
-         WHERE id=$4 RETURNING id, name, slug, logo_url, brand_color`,
+         WHERE id=$4 RETURNING id, name, slug, logo_url, brand_color, timezone, date_format`,
       [name, rawLogoPath, brandColor, accountId],
     );
     const row = rows[0] as Record<string, unknown>;
@@ -304,6 +304,8 @@ router.patch("/org", requireAdminRole, async (req, res) => {
         slug: row.slug,
         logo_url: row.logo_url ? buildLogoServingUrl(accountId) : null,
         brand_color: row.brand_color ?? "#C49A38",
+        timezone:    (row.timezone    as string) || "America/New_York",
+        date_format: (row.date_format as string) || "MM/DD/YYYY",
       },
     });
   } catch (err) {
@@ -453,7 +455,7 @@ router.post(
         return;
       }
       const { rows } = await db.query(
-        `UPDATE accounts SET logo_url=$1 WHERE id=$2 RETURNING id, name, slug, logo_url, brand_color`,
+        `UPDATE accounts SET logo_url=$1 WHERE id=$2 RETURNING id, name, slug, logo_url, brand_color, timezone, date_format`,
         [rawLogoPath, accountId],
       );
       if (!rows[0]) {
@@ -476,6 +478,8 @@ router.post(
           slug: row.slug,
           logo_url: buildLogoServingUrl(accountId),
           brand_color: row.brand_color ?? "#C49A38",
+          timezone:    (row.timezone    as string) || "America/New_York",
+          date_format: (row.date_format as string) || "MM/DD/YYYY",
         },
       });
     } catch (err) {
