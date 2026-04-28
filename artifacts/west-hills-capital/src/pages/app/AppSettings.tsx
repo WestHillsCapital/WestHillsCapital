@@ -3158,6 +3158,26 @@ function ProfileSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
   );
 }
 
+// ── Settings page navigation ──────────────────────────────────────────────────
+// Add entries here whenever a new section is added. Items with adminOnly=true
+// are only shown to admins. Items whose DOM element doesn't exist yet (e.g. a
+// section from an in-progress task) are filtered out automatically.
+const ALL_SETTINGS_NAV: Array<{ id: string; label: string; adminOnly?: boolean }> = [
+  { id: "profile-section",            label: "Profile" },
+  { id: "security-section",           label: "Security" },
+  { id: "organization-section",       label: "Organization" },
+  { id: "billing-section",            label: "Billing" },
+  { id: "team-section",               label: "Team" },
+  { id: "integrations-section",       label: "Integrations" },
+  { id: "api-keys-section",           label: "API Keys" },
+  { id: "notifications-section",      label: "Notifications" },
+  { id: "interview-defaults-section", label: "Interview" },
+  { id: "email-section",              label: "Email" },
+  { id: "timezone-locale-section",    label: "Timezone" },
+  { id: "data-privacy-section",       label: "Data & Privacy" },
+  { id: "audit-log-section",          label: "Audit log", adminOnly: true },
+];
+
 export default function AppSettings() {
   const { getAuthHeaders } = useProductAuth();
   const { isAdmin, role } = useProductRole(getAuthHeaders);
@@ -3184,6 +3204,60 @@ export default function AppSettings() {
   const nameSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const logoSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const colorSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+
+  // Section quick-nav: track which section is visible and which nav items exist
+  const [activeSection, setActiveSection] = useState<string>("profile-section");
+  const [presentSections, setPresentSections] = useState<Set<string>>(new Set());
+
+  // After mount, find which section elements actually exist in the DOM
+  useEffect(() => {
+    const present = new Set<string>();
+    for (const item of ALL_SETTINGS_NAV) {
+      if (document.getElementById(item.id)) present.add(item.id);
+    }
+    setPresentSections(present);
+  }, []);
+
+  // Highlight the nav item for the section nearest the top of the viewport
+  useEffect(() => {
+    const ids = ALL_SETTINGS_NAV
+      .filter(item => !(item.adminOnly && !isAdmin))
+      .map(item => item.id);
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+        if (visible.length > 0) {
+          setActiveSection(visible[0].target.id);
+          // Scroll the active nav pill into view
+          const btn = navRef.current?.querySelector<HTMLButtonElement>(`[data-nav="${visible[0].target.id}"]`);
+          btn?.scrollIntoView({ block: "nearest", inline: "center" });
+        }
+      },
+      { rootMargin: "-10% 0px -75% 0px", threshold: 0 },
+    );
+
+    const timer = setTimeout(() => {
+      ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) observer.observe(el);
+      });
+    }, 200);
+
+    return () => { clearTimeout(timer); observer.disconnect(); };
+  }, [isAdmin, presentSections]);
+
+  function scrollToSection(id: string) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const navHeight = navRef.current?.offsetHeight ?? 44;
+    const top = el.getBoundingClientRect().top + window.scrollY - navHeight - 72;
+    window.scrollTo({ top, behavior: "smooth" });
+    setActiveSection(id);
+  }
 
   function flashFieldSaved(field: "name" | "logo" | "color") {
     if (field === "name") {
@@ -3394,6 +3468,11 @@ export default function AppSettings() {
 
   const roleLabel = role === "readonly" ? "Read-only" : role === "member" ? "Member" : role ?? "Member";
 
+  const visibleNavItems = ALL_SETTINGS_NAV.filter(item => {
+    if (item.adminOnly && !isAdmin) return false;
+    return presentSections.has(item.id);
+  });
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-10 space-y-8">
       {/* Page header */}
@@ -3401,6 +3480,32 @@ export default function AppSettings() {
         <h1 className="text-2xl font-semibold text-gray-900">Settings</h1>
         <p className="text-sm text-gray-500 mt-0.5">Manage your organization's branding and preferences.</p>
       </div>
+
+      {/* Section quick-nav — sticky pill row */}
+      {visibleNavItems.length > 1 && (
+        <div
+          ref={navRef}
+          className="sticky top-0 z-20 -mx-4 px-4 bg-white/95 backdrop-blur-sm border-b border-gray-100 py-2"
+        >
+          <div className="flex gap-1.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
+            {visibleNavItems.map(item => (
+              <button
+                key={item.id}
+                data-nav={item.id}
+                onClick={() => scrollToSection(item.id)}
+                className={[
+                  "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap",
+                  activeSection === item.id
+                    ? "bg-gray-900 text-white"
+                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
+                ].join(" ")}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Read-only banner for non-admins */}
       {!isAdmin && (
@@ -3442,7 +3547,7 @@ export default function AppSettings() {
       )}
 
       {/* Organization section */}
-      <section className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+      <section id="organization-section" className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
         <div className="px-6 py-4">
           <h2 className="text-base font-semibold text-gray-900">Organization</h2>
           <p className="text-xs text-gray-500 mt-0.5">This name and logo appear on customer-facing forms.</p>
@@ -3667,10 +3772,14 @@ export default function AppSettings() {
       </div>
 
       {/* Team section */}
-      <TeamSection getAuthHeaders={getAuthHeaders} />
+      <div id="team-section">
+        <TeamSection getAuthHeaders={getAuthHeaders} />
+      </div>
 
       {/* Integrations section */}
-      <IntegrationsSection getAuthHeaders={getAuthHeaders} />
+      <div id="integrations-section">
+        <IntegrationsSection getAuthHeaders={getAuthHeaders} />
+      </div>
 
       {/* API Keys section */}
       <div id="api-keys-section">
