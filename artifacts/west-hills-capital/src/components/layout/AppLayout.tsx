@@ -73,38 +73,35 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <header className="bg-white border-b border-gray-200 px-6 py-0">
         <div className="max-w-7xl mx-auto flex items-center justify-between h-14">
 
-          {/* Left: app name + org logo or name */}
-          <div className="flex items-center gap-4">
-            <Link href="/app" className="text-lg font-semibold text-gray-900 hover:text-gray-700 transition-colors">
-              {APP_NAME}
-            </Link>
-            {account && (
-              <span className="border-l border-gray-200 pl-4 hidden sm:flex items-center">
-                {account.orgLogoUrl ? (
-                  <img
-                    src={account.orgLogoUrl}
-                    alt={account.accountName}
-                    className="h-6 max-w-[120px] object-contain"
-                    onError={(e) => {
-                      const img = e.currentTarget;
-                      img.style.display = "none";
-                      const sib = img.nextElementSibling as HTMLElement | null;
-                      if (sib) sib.style.display = "inline";
-                    }}
-                  />
-                ) : null}
-                <span
-                  className="text-sm text-gray-400"
-                  style={{ display: account.orgLogoUrl ? "none" : "inline" }}
-                >
-                  {account.accountName}
-                </span>
-              </span>
-            )}
-          </div>
+          {/* Left: org logo (or name if no logo) — links home */}
+          <Link href="/app" className="flex items-center gap-2 group">
+            {account?.orgLogoUrl ? (
+              <img
+                src={account.orgLogoUrl}
+                alt={account.accountName}
+                className="h-8 max-w-[160px] object-contain opacity-90 group-hover:opacity-100 transition-opacity"
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  img.style.display = "none";
+                  const sib = img.nextElementSibling as HTMLElement | null;
+                  if (sib) sib.style.display = "inline";
+                }}
+              />
+            ) : null}
+            <span
+              className="text-lg font-semibold text-gray-900 group-hover:text-gray-700 transition-colors"
+              style={{ display: account?.orgLogoUrl ? "none" : "inline" }}
+            >
+              {account?.accountName ?? APP_NAME}
+            </span>
+          </Link>
 
-          {/* Right: profile avatar + dropdown */}
-          <div className="relative" ref={dropdownRef}>
+          {/* Right: org name + profile avatar + dropdown */}
+          <div className="flex items-center gap-3">
+            {account?.orgLogoUrl && account.accountName && (
+              <span className="hidden sm:block text-sm text-gray-400">{account.accountName}</span>
+            )}
+            <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen((o) => !o)}
               className="flex items-center gap-2 rounded-full p-0.5 hover:ring-2 hover:ring-gray-200 transition-all focus:outline-none focus:ring-2 focus:ring-gray-300"
@@ -165,8 +162,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 </div>
               </div>
             )}
-          </div>
-        </div>
+            </div>{/* relative dropdown */}
+          </div>{/* flex items-center gap-3 */}
+        </div>{/* max-w-7xl */}
       </header>
 
       <OnboardingChecklist getAuthHeaders={getAuthHeaders} />
