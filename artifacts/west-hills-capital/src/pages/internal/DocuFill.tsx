@@ -845,7 +845,21 @@ export default function DocuFill() {
   const getAuthHeaders = docufillConfig?.getAuthHeaders ?? defaultGetAuthHeaders;
   const docufillApiPath = docufillConfig?.apiPath ?? "/api/internal/docufill";
   const isAdmin = docufillConfig?.isAdmin ?? true;
-  const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv" | "groups">(sessionToken ? "interview" : "packages");
+
+  // Capture deep-link URL params on first mount (before they are cleared)
+  const _initSp = new URLSearchParams(search);
+  const initialUrlAction = useRef(_initSp.get("action"));
+  const initialUrlPkgId = useRef<number | null>((() => {
+    const n = parseInt(_initSp.get("packageId") ?? "", 10);
+    return isNaN(n) ? null : n;
+  })());
+  const urlParamsApplied = useRef(false);
+
+  const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv" | "groups">(() => {
+    if (sessionToken) return "interview";
+    if (_initSp.get("tab") === "sessions") return "interview";
+    return "packages";
+  });
   const [builderStep, setBuilderStep] = useState<BuilderStep>("documents");
   const [groups, setGroups] = useState<Entity[]>([]);
   const [custodians, setCustodians] = useState<Entity[]>([]);
@@ -886,7 +900,7 @@ export default function DocuFill() {
   const [linkEmailError, setLinkEmailError] = useState<string | null>(null);
   const [newPackageName, setNewPackageName] = useState("");
   const [newPackageGroupId, setNewPackageGroupId] = useState("");
-  const [addingPackage, setAddingPackage] = useState(false);
+  const [addingPackage, setAddingPackage] = useState(() => initialUrlAction.current === "new-package");
   const [interviewOutputTab, setInterviewOutputTab] = useState<"staff" | "customerLink">("staff");
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
@@ -1262,6 +1276,27 @@ export default function DocuFill() {
     if (isPublicSession) return;
     loadBootstrap();
   }, [isPublicSession]);
+
+  // Clear deep-link URL params from the address bar immediately on mount so
+  // they don't persist or show up if the user copies the URL.
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search);
+    const hasDeepLink = sp.has("action") || sp.has("packageId") || sp.has("tab");
+    if (hasDeepLink) {
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  // After packages have loaded, apply any packageId deep-link param.
+  // We use a ref flag to ensure this only runs once.
+  useEffect(() => {
+    if (urlParamsApplied.current || packages.length === 0) return;
+    urlParamsApplied.current = true;
+    const pkgId = initialUrlPkgId.current;
+    if (pkgId !== null && packages.some((p) => p.id === pkgId)) {
+      setSelectedPackageId(pkgId);
+    }
+  }, [packages]);
 
   useEffect(() => {
     setWebhookTestStatus(null);
