@@ -2,8 +2,8 @@
  * check-build-deps.mjs
  *
  * Verifies that every third-party package imported by build.mjs or any
- * script under scripts/ is listed in `dependencies` (not just
- * `devDependencies`) of package.json.
+ * .mjs, .js, or .ts script under scripts/ is listed in `dependencies`
+ * (not just `devDependencies`) of package.json.
  *
  * Build tooling that lives only in devDependencies will be absent in
  * production installs (e.g. Railway with NODE_ENV=production), causing

@@ -16,9 +16,14 @@ import { fileURLToPath } from "node:url";
 
 // Import the pure functions from the shared lib so we avoid the script's
 // top-level side-effects (file reads, process.exit calls).
+import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
+import os from "node:os";
+
 import {
   collectSpecifiers,
   pkgName,
+  collectScriptFiles,
+  SCRIPT_EXTENSIONS,
 } from "../../scripts/check-build-deps-lib.mjs";
 
 const artifactDir = path.resolve(
@@ -244,7 +249,77 @@ describe("dependency check pipeline", () => {
   });
 });
 
-// ── 4. End-to-end smoke test ──────────────────────────────────────────────────
+// ── 4. collectScriptFiles ─────────────────────────────────────────────────────
+//
+// These tests verify that collectScriptFiles discovers .mjs, .js, and .ts
+// files (and skips all other extensions) by writing temporary fixture files
+// into a fresh temp directory.
+
+describe("collectScriptFiles", () => {
+  it("SCRIPT_EXTENSIONS covers .mjs, .js, and .ts", () => {
+    assert.ok(SCRIPT_EXTENSIONS.has(".mjs"), "must include .mjs");
+    assert.ok(SCRIPT_EXTENSIONS.has(".js"),  "must include .js");
+    assert.ok(SCRIPT_EXTENSIONS.has(".ts"),  "must include .ts");
+  });
+
+  it("collects .mjs, .js, and .ts files and skips other extensions", () => {
+    const tmpDir = mkdtempSync(path.join(os.tmpdir(), "check-build-deps-test-"));
+    const fixtures: Record<string, boolean> = {
+      "script.mjs": true,
+      "script.js":  true,
+      "script.ts":  true,
+      "script.json": false,
+      "script.txt":  false,
+      "script.cjs":  false,
+    };
+    for (const name of Object.keys(fixtures)) {
+      writeFileSync(path.join(tmpDir, name), "");
+    }
+
+    const found = new Set(collectScriptFiles(tmpDir).map((f) => path.basename(f)));
+    for (const [name, shouldBeFound] of Object.entries(fixtures)) {
+      if (shouldBeFound) {
+        assert.ok(found.has(name), `expected ${name} to be collected`);
+      } else {
+        assert.ok(!found.has(name), `expected ${name} to be skipped`);
+      }
+    }
+  });
+
+  it("recurses into subdirectories", () => {
+    const tmpDir = mkdtempSync(path.join(os.tmpdir(), "check-build-deps-test-"));
+    const subDir = path.join(tmpDir, "sub");
+    mkdirSync(subDir);
+    writeFileSync(path.join(tmpDir, "top.mjs"), "");
+    writeFileSync(path.join(subDir, "nested.ts"), "");
+
+    const found = collectScriptFiles(tmpDir).map((f) => path.basename(f));
+    assert.ok(found.includes("top.mjs"), "should find top-level .mjs");
+    assert.ok(found.includes("nested.ts"), "should find nested .ts");
+  });
+
+  it("returns an empty array for a directory with no matching files", () => {
+    const tmpDir = mkdtempSync(path.join(os.tmpdir(), "check-build-deps-test-"));
+    writeFileSync(path.join(tmpDir, "README.md"), "");
+    writeFileSync(path.join(tmpDir, "data.json"), "");
+
+    const found = collectScriptFiles(tmpDir);
+    assert.equal(found.length, 0, "no script files expected");
+  });
+
+  it("returns an empty array for a non-existent directory", () => {
+    const found = collectScriptFiles("/tmp/__does_not_exist_xyz__");
+    assert.equal(found.length, 0);
+  });
+
+  it("discovers init-test-db.ts in the real scripts/ directory", () => {
+    const scriptsDir = path.join(artifactDir, "scripts");
+    const found = collectScriptFiles(scriptsDir).map((f) => path.basename(f));
+    assert.ok(found.includes("init-test-db.ts"), "init-test-db.ts should be discovered");
+  });
+});
+
+// ── 5. End-to-end smoke test ──────────────────────────────────────────────────
 
 describe("check-build-deps.mjs end-to-end", () => {
   it("exits 0 against the real codebase (passing state)", () => {
