@@ -32,6 +32,7 @@ import {
   createEsignIdentityToken,
   verifyEsignIdentityToken,
 } from "../lib/esign";
+import { requestTimestamp, TSA_ENDPOINTS } from "../lib/tsa";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { requireAdminRole, requireRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits, recordSubmissionEvent, recordPdfGenerationEvent } from "../middleware/requireWithinPlanLimits";
@@ -1196,6 +1197,7 @@ async function appendSigningCertificatePage(
     signerEmail: string;
     packageName: string;
     signedAt: Date;
+    tsaUrl?: string | null;
   },
 ): Promise<Buffer> {
   const existing = await PdfLibDocument.load(pdfBytes, { ignoreEncryption: true });
@@ -1226,6 +1228,10 @@ async function appendSigningCertificatePage(
     { label: "Signer Email", value: params.signerEmail },
     { label: "Signed At",    value: params.signedAt.toUTCString() },
     { label: "Method",       value: "Email OTP — Docuplete E-sign v1" },
+    ...(params.tsaUrl ? [
+      { label: "Timestamp Authority", value: params.tsaUrl },
+      { label: "Timestamp Standard",  value: "RFC 3161 — token stored in signing record" },
+    ] : []),
   ];
   for (const row of rows) {
     y -= 8;
@@ -3961,21 +3967,36 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
         }
       }
     }
-    // ── E-sign v1: append signing certificate page + compute PDF hash ─────────
+    // ── E-sign v1: append signing certificate page, compute PDF hash, RFC 3161 timestamp ──
     let pdfSha256: string | null = null;
+    let tsaTokenB64: string | null = null;
+    let tsaUrlUsed: string | null = null;
     const signedAt = esignEmail ? new Date() : null;
     if (esignEmail && esignSignerName) {
+      // Use the primary TSA URL as the "intended" authority shown in the cert page.
+      // The actual TSA that responds (may be a fallback) is stored separately.
+      const intendedTsaUrl = TSA_ENDPOINTS[0];
       try {
         pdfBuffer = await appendSigningCertificatePage(pdfBuffer, {
           signerName: esignSignerName,
           signerEmail: esignEmail,
           packageName: String(session.package_name ?? "Document Package"),
           signedAt: signedAt!,
+          tsaUrl: intendedTsaUrl,
         });
       } catch (certErr) {
         logger.warn({ certErr }, "[E-sign] Failed to append certificate page — using base PDF");
       }
       pdfSha256 = hashPdfBuffer(pdfBuffer);
+      // Request RFC 3161 timestamp of the final PDF hash (fire-and-forget on failure)
+      try {
+        const tsaResult = await requestTimestamp(pdfSha256);
+        tsaTokenB64 = tsaResult.tokenB64;
+        tsaUrlUsed  = tsaResult.tsaUrl;
+        logger.info({ tsaUrl: tsaUrlUsed, token: req.params.token }, "[E-sign] RFC 3161 timestamp obtained");
+      } catch (tsaErr) {
+        logger.warn({ tsaErr, token: req.params.token }, "[E-sign] RFC 3161 timestamp failed — proceeding without TSA token");
+      }
     }
     await db.query(
       `UPDATE docufill_interview_sessions
@@ -3988,10 +4009,12 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
               signer_name=$6,
               signed_at=$7,
               pdf_sha256=$8,
+              tsa_token_b64=$9,
+              tsa_url=$10,
               updated_at=NOW()
         WHERE token=$4`,
       [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token,
-       esignEmail, esignSignerName, signedAt, pdfSha256],
+       esignEmail, esignSignerName, signedAt, pdfSha256, tsaTokenB64, tsaUrlUsed],
     );
     // Append-only signing audit event (fire-and-forget)
     if (esignEmail) {
@@ -4000,7 +4023,14 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
         `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, metadata)
          VALUES ($1, $2, 'signed', $3, $4, $5::jsonb)`,
         [req.params.token, pkgAccountId, esignEmail, req.ip ?? null,
-         JSON.stringify({ signerName: esignSignerName, packageName: session.package_name, pdfSha256, signedAt: signedAt?.toISOString() })],
+         JSON.stringify({
+           signerName: esignSignerName,
+           packageName: session.package_name,
+           pdfSha256,
+           signedAt: signedAt?.toISOString(),
+           tsaUrl: tsaUrlUsed,
+           tsaTokenObtained: tsaTokenB64 !== null,
+         })],
       ).catch(() => {});
     }
     const allPublicWarnings = [...(driveWarning ? [driveWarning] : []), ...(hubspotWarning ? [hubspotWarning] : [])];

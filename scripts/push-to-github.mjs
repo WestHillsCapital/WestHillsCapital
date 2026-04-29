@@ -18,6 +18,7 @@ const DEFAULT_FILES = [
   "artifacts/api-server/src/lib/ratelimit.ts",
   "artifacts/api-server/src/lib/email.ts",
   "artifacts/api-server/src/lib/esign.ts",
+  "artifacts/api-server/src/lib/tsa.ts",
   "artifacts/api-server/src/lib/logger.ts",
   "artifacts/api-server/src/routes/docufill.ts",
   "artifacts/api-server/src/routes/scheduling.ts",
