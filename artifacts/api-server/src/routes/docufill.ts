@@ -3505,7 +3505,23 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
       res.status(404).json({ error: "Interview session not found" });
       return;
     }
-    const output = await buildPacketPdfBuffer(session, db);
+    let output = await buildPacketPdfBuffer(session, db);
+    // Re-append signing certificate page if this session was e-signed
+    if (typeof session.signer_email === "string" && session.signer_email &&
+        typeof session.signer_name  === "string" && session.signer_name &&
+        session.signed_at) {
+      try {
+        output = await appendSigningCertificatePage(output, {
+          signerName:  session.signer_name  as string,
+          signerEmail: session.signer_email as string,
+          packageName: String(session.package_name ?? "Document Package"),
+          signedAt:    new Date(session.signed_at as string),
+          tsaUrl:      typeof session.tsa_url === "string" ? session.tsa_url : null,
+        });
+      } catch (certErr) {
+        logger.warn({ certErr }, "[E-sign] Failed to re-append certificate page on download");
+      }
+    }
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `attachment; filename=docufill-${req.params.token}.pdf`);
     res.setHeader("Content-Length", String(output.length));
@@ -4156,7 +4172,23 @@ publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
       res.status(404).json({ error: "Interview session not found" });
       return;
     }
-    const output = await buildPacketPdfBuffer(session, db);
+    let output = await buildPacketPdfBuffer(session, db);
+    // Re-append signing certificate page if this session was e-signed
+    if (typeof session.signer_email === "string" && session.signer_email &&
+        typeof session.signer_name  === "string" && session.signer_name &&
+        session.signed_at) {
+      try {
+        output = await appendSigningCertificatePage(output, {
+          signerName:  session.signer_name  as string,
+          signerEmail: session.signer_email as string,
+          packageName: String(session.package_name ?? "Document Package"),
+          signedAt:    new Date(session.signed_at as string),
+          tsaUrl:      typeof session.tsa_url === "string" ? session.tsa_url : null,
+        });
+      } catch (certErr) {
+        logger.warn({ certErr }, "[E-sign] Failed to re-append certificate page on public download");
+      }
+    }
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", `inline; filename=docufill-${req.params.token}.pdf`);
     res.setHeader("Content-Length", String(output.length));
