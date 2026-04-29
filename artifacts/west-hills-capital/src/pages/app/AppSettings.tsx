@@ -4544,21 +4544,26 @@ function ProfileSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
 // Add entries here whenever a new section is added. Items with adminOnly=true
 // are only shown to admins. Items whose DOM element doesn't exist yet (e.g. a
 // section from an in-progress task) are filtered out automatically.
-const ALL_SETTINGS_NAV: Array<{ id: string; label: string; adminOnly?: boolean }> = [
-  { id: "profile-section",            label: "Profile" },
+const ALL_SETTINGS_NAV: Array<{ id: string; label: string; adminOnly?: boolean; group?: string }> = [
+  // Account — personal to the logged-in user
+  { id: "profile-section",            label: "Profile",        group: "Account" },
   { id: "security-section",           label: "Security" },
-  { id: "organization-section",       label: "Organization" },
-  { id: "billing-section",            label: "Billing" },
-  { id: "custom-domain-section",      label: "Custom domain", adminOnly: true },
-  { id: "team-section",               label: "Team" },
-  { id: "integrations-section",       label: "Integrations" },
-  { id: "developer-section",          label: "Developer" },
   { id: "notifications-section",      label: "Notifications" },
-  { id: "interview-defaults-section", label: "Interview" },
-  { id: "email-section",              label: "Email" },
   { id: "timezone-locale-section",    label: "Timezone" },
-  { id: "data-privacy-section",       label: "Data & Privacy" },
-  { id: "audit-log-section",          label: "Audit log", adminOnly: true },
+  // Workspace — organisation-wide settings
+  { id: "organization-section",       label: "Organization",   group: "Workspace" },
+  { id: "billing-section",            label: "Billing" },
+  { id: "custom-domain-section",      label: "Custom domain",  adminOnly: true },
+  { id: "team-section",               label: "Team" },
+  // DocuFill — how the interview product behaves
+  { id: "interview-defaults-section", label: "Interview",      group: "DocuFill" },
+  { id: "email-section",              label: "Email" },
+  // Connect — external tools and developer APIs
+  { id: "integrations-section",       label: "Integrations",   group: "Connect" },
+  { id: "developer-section",          label: "Developer" },
+  // Admin — governance and data controls
+  { id: "data-privacy-section",       label: "Data & Privacy", group: "Admin" },
+  { id: "audit-log-section",          label: "Audit log",      adminOnly: true },
 ];
 
 export default function AppSettings() {
@@ -4875,21 +4880,34 @@ export default function AppSettings() {
             <p className="text-xs text-gray-400 mt-0.5">Account &amp; workspace</p>
           </div>
           <nav ref={navRef} className="space-y-0.5">
-            {visibleNavItems.map(item => (
-              <button
-                key={item.id}
-                data-nav={item.id}
-                onClick={() => scrollToSection(item.id)}
-                className={[
-                  "w-full text-left rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  activeSection === item.id
-                    ? "bg-gray-900 text-white"
-                    : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
-                ].join(" ")}
-              >
-                {item.label}
-              </button>
-            ))}
+            {(() => {
+              let lastGroup: string | undefined;
+              return visibleNavItems.map(item => {
+                const showHeader = item.group && item.group !== lastGroup;
+                if (showHeader) lastGroup = item.group;
+                return (
+                  <div key={item.id}>
+                    {showHeader && (
+                      <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 first:pt-1">
+                        {item.group}
+                      </p>
+                    )}
+                    <button
+                      data-nav={item.id}
+                      onClick={() => scrollToSection(item.id)}
+                      className={[
+                        "w-full text-left rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+                        activeSection === item.id
+                          ? "bg-gray-900 text-white"
+                          : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
+                      ].join(" ")}
+                    >
+                      {item.label}
+                    </button>
+                  </div>
+                );
+              });
+            })()}
           </nav>
         </aside>
 
@@ -4952,6 +4970,16 @@ export default function AppSettings() {
       {/* Security section — per-user 2FA, sessions, and login history */}
       <div id="security-section">
         <SecuritySection getAuthHeaders={getAuthHeaders} />
+      </div>
+
+      {/* Notifications section — per-user email prefs */}
+      <div id="notifications-section">
+        <NotificationsSection getAuthHeaders={getAuthHeaders} />
+      </div>
+
+      {/* Timezone & Locale section */}
+      <div id="timezone-locale-section">
+        <TimezoneLocaleSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
       </div>
 
       {/* Org branding setup prompt — shown until logo or custom color is set */}
@@ -5204,6 +5232,16 @@ export default function AppSettings() {
         <TeamSection getAuthHeaders={getAuthHeaders} />
       </div>
 
+      {/* Interview defaults section — admin writes, all can view */}
+      <div id="interview-defaults-section">
+        <InterviewDefaultsSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
+      </div>
+
+      {/* Email customization section — admin writes, all can view */}
+      <div id="email-section">
+        <EmailCustomizationSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
+      </div>
+
       {/* Integrations section */}
       <div id="integrations-section">
         <IntegrationsSection getAuthHeaders={getAuthHeaders} />
@@ -5215,26 +5253,6 @@ export default function AppSettings() {
         <div id="api-keys-section">
           <ApiKeysSection getAuthHeaders={getAuthHeaders} />
         </div>
-      </div>
-
-      {/* Notifications section — all users (per-user prefs) */}
-      <div id="notifications-section">
-        <NotificationsSection getAuthHeaders={getAuthHeaders} />
-      </div>
-
-      {/* Interview defaults section — admin writes, all can view */}
-      <div id="interview-defaults-section">
-        <InterviewDefaultsSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
-      </div>
-
-      {/* Email customization section — admin writes, all can view */}
-      <div id="email-section">
-        <EmailCustomizationSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
-      </div>
-
-      {/* Timezone & Locale section */}
-      <div id="timezone-locale-section">
-        <TimezoneLocaleSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
       </div>
 
       {/* Data & Privacy section */}
