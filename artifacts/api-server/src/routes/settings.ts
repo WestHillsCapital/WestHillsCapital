@@ -1799,52 +1799,110 @@ router.get("/admin/accounts", async (req, res) => {
       last_activity_at: Date | null;
       created_at: Date;
       stripe_customer_id: string | null;
+      stripe_subscription_id: string | null;
+      churn_risk: boolean;
     }>(
-      `SELECT
-          a.id,
-          a.name,
-          a.slug,
-          a.plan_tier,
-          a.subscription_status,
-          a.billing_period_start,
-          a.seat_limit,
-          a.created_at,
-          a.stripe_customer_id,
-          (SELECT COUNT(*)
-             FROM account_users au
-            WHERE au.account_id = a.id AND au.status != 'pending') AS seat_count,
-          (SELECT COUNT(*)
-             FROM usage_events ue
-            WHERE ue.account_id = a.id
-              AND ue.event_type = 'submission'
-              AND ue.created_at >= COALESCE(a.billing_period_start, DATE_TRUNC('month', NOW()))
-          ) AS submission_count,
-          (SELECT COUNT(*)
-             FROM docufill_packages dp
-            WHERE dp.account_id = a.id) AS package_count,
-          (SELECT MAX(s.created_at)
-             FROM docufill_interview_sessions s
-            WHERE s.account_id = a.id) AS last_activity_at
+      `WITH last_activity AS (
+         SELECT account_id, MAX(created_at) AS last_at
+           FROM docufill_interview_sessions
+          GROUP BY account_id
+       )
+       SELECT
+           a.id,
+           a.name,
+           a.slug,
+           a.plan_tier,
+           a.subscription_status,
+           a.billing_period_start,
+           a.seat_limit,
+           a.created_at,
+           a.stripe_customer_id,
+           a.stripe_subscription_id,
+           (SELECT COUNT(*)
+              FROM account_users au
+             WHERE au.account_id = a.id AND au.status != 'pending') AS seat_count,
+           (SELECT COUNT(*)
+              FROM usage_events ue
+             WHERE ue.account_id = a.id
+               AND ue.event_type = 'submission'
+               AND ue.created_at >= COALESCE(a.billing_period_start, DATE_TRUNC('month', NOW()))
+           ) AS submission_count,
+           (SELECT COUNT(*)
+              FROM docufill_packages dp
+             WHERE dp.account_id = a.id) AS package_count,
+           la.last_at AS last_activity_at,
+           CASE
+             WHEN a.subscription_status IN ('active', 'manual', 'trialing')
+              AND (la.last_at IS NULL OR la.last_at < NOW() - INTERVAL '30 days')
+             THEN true ELSE false
+           END AS churn_risk
          FROM accounts a
+         LEFT JOIN last_activity la ON la.account_id = a.id
         ORDER BY a.created_at DESC`,
     );
 
+    // ── Batch-fetch Stripe subscription data (MRR + trial_end) ─────────────────
+    const stripeDataMap = new Map<string, { mrr_cents: number | null; trial_end: string | null }>();
+    const subIds = rows
+      .map((r) => r.stripe_subscription_id)
+      .filter((id): id is string => !!id);
+
+    if (subIds.length > 0) {
+      try {
+        const stripe = await getUncachableStripeClient();
+        const settled = await Promise.allSettled(
+          subIds.map((id) =>
+            stripe.subscriptions.retrieve(id, { expand: ["items.data.price"] }),
+          ),
+        );
+        subIds.forEach((subId, i) => {
+          const result = settled[i];
+          if (result.status !== "fulfilled") return;
+          const sub = result.value;
+          const price = sub.items.data[0]?.price;
+          // trial_end lives on the raw subscription object
+          const rawSub = sub as unknown as Record<string, unknown>;
+          const trialEnd =
+            typeof rawSub["trial_end"] === "number"
+              ? new Date((rawSub["trial_end"] as number) * 1000).toISOString()
+              : null;
+          // Normalise to monthly recurring revenue
+          let mrr: number | null = price?.unit_amount ?? null;
+          if (mrr !== null && price?.recurring?.interval === "year") {
+            mrr = Math.round(mrr / 12);
+          }
+          stripeDataMap.set(subId, { mrr_cents: mrr, trial_end: trialEnd });
+        });
+      } catch {
+        // Stripe unavailable — omit MRR/trial data gracefully
+      }
+    }
+
     res.json({
-      accounts: rows.map((r) => ({
-        id:                   r.id,
-        name:                 r.name,
-        slug:                 r.slug,
-        plan_tier:            r.plan_tier,
-        subscription_status:  r.subscription_status ?? null,
-        billing_period_start: r.billing_period_start?.toISOString().slice(0, 10) ?? null,
-        seat_limit:           r.seat_limit,
-        seat_count:           parseInt(r.seat_count, 10),
-        submission_count:     parseInt(r.submission_count, 10),
-        package_count:        parseInt(r.package_count, 10),
-        last_activity_at:     r.last_activity_at?.toISOString() ?? null,
-        created_at:           r.created_at.toISOString(),
-        stripe_customer_id:   r.stripe_customer_id ?? null,
-      })),
+      accounts: rows.map((r) => {
+        const stripeExtra = r.stripe_subscription_id
+          ? (stripeDataMap.get(r.stripe_subscription_id) ?? { mrr_cents: null, trial_end: null })
+          : { mrr_cents: null, trial_end: null };
+        return {
+          id:                     r.id,
+          name:                   r.name,
+          slug:                   r.slug,
+          plan_tier:              r.plan_tier,
+          subscription_status:    r.subscription_status ?? null,
+          billing_period_start:   r.billing_period_start?.toISOString().slice(0, 10) ?? null,
+          seat_limit:             r.seat_limit,
+          seat_count:             parseInt(r.seat_count, 10),
+          submission_count:       parseInt(r.submission_count, 10),
+          package_count:          parseInt(r.package_count, 10),
+          last_activity_at:       r.last_activity_at?.toISOString() ?? null,
+          created_at:             r.created_at.toISOString(),
+          stripe_customer_id:     r.stripe_customer_id ?? null,
+          stripe_subscription_id: r.stripe_subscription_id ?? null,
+          churn_risk:             r.churn_risk,
+          mrr_cents:              stripeExtra.mrr_cents,
+          trial_end:              stripeExtra.trial_end,
+        };
+      }),
     });
   } catch (err) {
     logger.error({ err }, "[Admin] Failed to list accounts");
@@ -1932,7 +1990,7 @@ router.get("/admin/accounts/:id", async (req, res) => {
       [accountId],
     );
 
-    // Stripe subscription details (best-effort)
+    // Stripe subscription details + invoice history (best-effort, parallel)
     let stripeSubscription: {
       plan_name: string;
       amount: number | null;
@@ -1942,34 +2000,101 @@ router.get("/admin/accounts/:id", async (req, res) => {
       status: string | null;
     } | null = null;
 
-    if (acct.stripe_subscription_id) {
+    type InvoiceRow = {
+      id: string; status: string | null; amount_due: number;
+      amount_paid: number; currency: string; created: string;
+      invoice_pdf: string | null; hosted_invoice_url: string | null;
+      number: string | null;
+    };
+    let invoices: InvoiceRow[] = [];
+
+    if (acct.stripe_subscription_id || acct.stripe_customer_id) {
       try {
         const stripe = await getUncachableStripeClient();
-        const sub = await stripe.subscriptions.retrieve(acct.stripe_subscription_id, {
-          expand: ["items.data.price.product"],
-        });
-        const item = sub.items.data[0];
-        const price = item?.price;
-        const product = price?.product;
-        const productName = product && typeof product === "object" && "name" in product
-          ? (product as { name: string }).name
-          : null;
-        const rawSub = sub as unknown as Record<string, unknown>;
-        const periodEnd = typeof rawSub["current_period_end"] === "number"
-          ? new Date(rawSub["current_period_end"] * 1000).toISOString()
-          : null;
-        stripeSubscription = {
-          plan_name:          productName ?? acct.plan_tier,
-          amount:             price?.unit_amount ?? null,
-          currency:           price?.currency ?? null,
-          interval:           price?.recurring?.interval ?? null,
-          current_period_end: periodEnd,
-          status:             sub.status,
-        };
+        const [subResult, invoiceResult] = await Promise.allSettled([
+          acct.stripe_subscription_id
+            ? stripe.subscriptions.retrieve(acct.stripe_subscription_id, {
+                expand: ["items.data.price.product"],
+              })
+            : Promise.resolve(null),
+          acct.stripe_customer_id
+            ? stripe.invoices.list({ customer: acct.stripe_customer_id, limit: 12 })
+            : Promise.resolve(null),
+        ]);
+
+        if (subResult.status === "fulfilled" && subResult.value) {
+          const sub = subResult.value;
+          const item = sub.items.data[0];
+          const price = item?.price;
+          const product = price?.product;
+          const productName = product && typeof product === "object" && "name" in product
+            ? (product as { name: string }).name
+            : null;
+          const rawSub = sub as unknown as Record<string, unknown>;
+          const periodEnd = typeof rawSub["current_period_end"] === "number"
+            ? new Date((rawSub["current_period_end"] as number) * 1000).toISOString()
+            : null;
+          stripeSubscription = {
+            plan_name:          productName ?? acct.plan_tier,
+            amount:             price?.unit_amount ?? null,
+            currency:           price?.currency ?? null,
+            interval:           price?.recurring?.interval ?? null,
+            current_period_end: periodEnd,
+            status:             sub.status,
+          };
+        }
+
+        if (invoiceResult.status === "fulfilled" && invoiceResult.value) {
+          invoices = invoiceResult.value.data.map((inv) => {
+            const rawInv = inv as unknown as Record<string, unknown>;
+            return {
+              id:                  inv.id,
+              status:              inv.status ?? null,
+              amount_due:          inv.amount_due,
+              amount_paid:         inv.amount_paid,
+              currency:            inv.currency,
+              created:             new Date((rawInv["created"] as number) * 1000).toISOString(),
+              invoice_pdf:         (rawInv["invoice_pdf"] as string | null) ?? null,
+              hosted_invoice_url:  (rawInv["hosted_invoice_url"] as string | null) ?? null,
+              number:              (rawInv["number"] as string | null) ?? null,
+            };
+          });
+        }
       } catch {
-        // Stripe unavailable — omit subscription detail gracefully
+        // Stripe unavailable — omit gracefully
       }
     }
+
+    // Adoption flags (single DB round-trip)
+    const { rows: adoptionRows } = await db.query<{
+      active_api_keys: string;
+      webhook_count: string;
+      has_custom_domain: boolean;
+      has_slack: boolean;
+    }>(
+      `SELECT
+         (SELECT COUNT(*) FROM account_api_keys k
+           WHERE k.account_id = $1 AND k.revoked_at IS NULL) AS active_api_keys,
+         (SELECT COUNT(*) FROM webhook_deliveries wd
+           WHERE wd.account_id = $1) AS webhook_count,
+         (a.custom_domain IS NOT NULL AND a.custom_domain <> '') AS has_custom_domain,
+         (a.slack_webhook_url IS NOT NULL AND a.slack_webhook_url <> '') AS has_slack
+       FROM accounts a WHERE a.id = $1`,
+      [accountId],
+    );
+    const adoption = adoptionRows[0] ?? { active_api_keys: "0", webhook_count: "0", has_custom_domain: false, has_slack: false };
+
+    // Internal admin notes
+    const { rows: noteRows } = await db.query<{
+      id: number; note: string; created_by: string; created_at: Date;
+    }>(
+      `SELECT id, note, created_by, created_at
+         FROM account_admin_notes
+        WHERE account_id = $1
+        ORDER BY created_at DESC
+        LIMIT 50`,
+      [accountId],
+    );
 
     res.json({
       monthly_usage: usageRows.map((r) => ({ month: r.month, count: parseInt(r.count, 10) })),
@@ -1983,6 +2108,19 @@ router.get("/admin/accounts/:id", async (req, res) => {
         invited_at:   r.invited_at?.toISOString() ?? null,
       })),
       stripe_subscription: stripeSubscription,
+      invoices,
+      adoption: {
+        active_api_keys:  parseInt(adoption.active_api_keys, 10),
+        webhook_count:    parseInt(adoption.webhook_count, 10),
+        has_custom_domain: adoption.has_custom_domain,
+        has_slack:         adoption.has_slack,
+      },
+      notes: noteRows.map((n) => ({
+        id:         n.id,
+        note:       n.note,
+        created_by: n.created_by,
+        created_at: n.created_at.toISOString(),
+      })),
     });
   } catch (err) {
     logger.error({ err }, "[Admin] Failed to load account detail");
@@ -2068,6 +2206,70 @@ router.patch("/admin/accounts/:id", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Admin] Failed to apply plan override");
     res.status(500).json({ error: "Failed to apply override" });
+  }
+});
+
+// ── Super-admin account notes ─────────────────────────────────────────────────
+
+router.post("/admin/accounts/:id/notes", async (req, res) => {
+  if (!req.internalEmail) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const rawId = req.params.id ?? "";
+  if (!/^\d+$/.test(rawId)) {
+    res.status(400).json({ error: "Invalid account ID" });
+    return;
+  }
+  const accountId = parseInt(rawId, 10);
+  const body = req.body as Record<string, unknown>;
+  const note = typeof body.note === "string" ? body.note.trim() : "";
+  if (!note) {
+    res.status(400).json({ error: "Note text is required." });
+    return;
+  }
+  if (note.length > 4000) {
+    res.status(400).json({ error: "Note must be 4000 characters or fewer." });
+    return;
+  }
+  try {
+    const { rows } = await getDb().query<{ id: number; note: string; created_by: string; created_at: Date }>(
+      `INSERT INTO account_admin_notes (account_id, note, created_by)
+       VALUES ($1, $2, $3)
+       RETURNING id, note, created_by, created_at`,
+      [accountId, note, req.internalEmail],
+    );
+    res.status(201).json({ note: { ...rows[0], created_at: rows[0]!.created_at.toISOString() } });
+  } catch (err) {
+    logger.error({ err }, "[Admin] Failed to save note");
+    res.status(500).json({ error: "Failed to save note" });
+  }
+});
+
+router.delete("/admin/accounts/:id/notes/:noteId", async (req, res) => {
+  if (!req.internalEmail) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const rawId     = req.params.id     ?? "";
+  const rawNoteId = req.params.noteId ?? "";
+  if (!/^\d+$/.test(rawId) || !/^\d+$/.test(rawNoteId)) {
+    res.status(400).json({ error: "Invalid ID" });
+    return;
+  }
+  try {
+    const { rowCount } = await getDb().query(
+      `DELETE FROM account_admin_notes WHERE id = $1 AND account_id = $2`,
+      [parseInt(rawNoteId, 10), parseInt(rawId, 10)],
+    );
+    if (!rowCount) {
+      res.status(404).json({ error: "Note not found" });
+      return;
+    }
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "[Admin] Failed to delete note");
+    res.status(500).json({ error: "Failed to delete note" });
   }
 });
 

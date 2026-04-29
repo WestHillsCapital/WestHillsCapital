@@ -1491,6 +1491,21 @@ export async function initDb(): Promise<void> {
 
   purgeExpiredExports().catch(() => {});
   setInterval(() => purgeExpiredExports().catch(() => {}), 6 * 60 * 60 * 1000).unref();
+
+  // ── Super-admin account notes ─────────────────────────────────────────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS account_admin_notes (
+      id          SERIAL PRIMARY KEY,
+      account_id  INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      note        TEXT NOT NULL,
+      created_by  TEXT NOT NULL,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS account_admin_notes_account_idx
+      ON account_admin_notes (account_id, created_at DESC)
+  `);
 }
 
 /**
