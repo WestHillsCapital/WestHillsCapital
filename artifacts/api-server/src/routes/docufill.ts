@@ -711,8 +711,15 @@ function fieldLibrarySelectSql(): string {
             FROM docufill_fields`;
 }
 
-async function getFieldLibrary(client: QueryClient = getDb()) {
-  const { rows } = await client.query(`${fieldLibrarySelectSql()} ORDER BY active DESC, sort_order ASC, label ASC`);
+async function getFieldLibrary(client: QueryClient = getDb(), accountId?: number) {
+  const filter = accountId !== undefined && accountId !== null
+    ? `WHERE (account_id IS NULL OR account_id = $1)`
+    : `WHERE account_id IS NULL`;
+  const params = accountId !== undefined && accountId !== null ? [accountId] : [];
+  const { rows } = await client.query(
+    `${fieldLibrarySelectSql()} ${filter} ORDER BY active DESC, sort_order ASC, label ASC`,
+    params,
+  );
   return rows as Array<Record<string, unknown> & { id: string }>;
 }
 
@@ -819,8 +826,8 @@ async function hydrateStoredDocumentMetadata(packages: PackageRow[], client: Que
   });
 }
 
-async function hydratePackages(packages: PackageRow[], client: QueryClient = getDb(), fieldLibrary?: Array<Record<string, unknown> & { id: string }>): Promise<PackageRow[]> {
-  const library = fieldLibrary ?? await getFieldLibrary(client);
+async function hydratePackages(packages: PackageRow[], client: QueryClient = getDb(), fieldLibrary?: Array<Record<string, unknown> & { id: string }>, accountId?: number): Promise<PackageRow[]> {
+  const library = fieldLibrary ?? await getFieldLibrary(client, accountId);
   const withDocuments = await hydrateStoredDocumentMetadata(packages, client);
   return withDocuments.map((pkg) => ({ ...pkg, fields: hydratePackageFields(pkg.fields, library) }));
 }
@@ -943,7 +950,7 @@ async function getPackage(packageId: number, client: QueryClient = getDb(), hydr
   const group_ids = junctionGroupIds.length > 0 ? junctionGroupIds : (pkg.group_id ? [Number(pkg.group_id)] : []);
   const withGroupIds = { ...pkg, group_ids };
   if (!hydrate) return withGroupIds;
-  return (await hydratePackages([withGroupIds], client))[0];
+  return (await hydratePackages([withGroupIds], client, undefined, accountId))[0];
 }
 
 async function getSession(token: string, client: QueryClient = getDb(), accountId?: number): Promise<Record<string, unknown> | undefined> {
@@ -1231,7 +1238,7 @@ router.get("/bootstrap", async (req, res) => {
     const [groups, transactionTypes, fieldLibrary, packages, packageGroupRows] = await Promise.all([
       db.query("SELECT * FROM docufill_groups WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, name ASC", [accountId]),
       db.query("SELECT * FROM docufill_transaction_types ORDER BY active DESC, sort_order ASC, label ASC"),
-      getFieldLibrary(db),
+      getFieldLibrary(db, accountId),
       db.query(`SELECT p.*, g.name AS group_name
                   FROM docufill_packages p
                   LEFT JOIN docufill_groups g ON g.id = p.group_id
@@ -1259,9 +1266,10 @@ router.get("/bootstrap", async (req, res) => {
   }
 });
 
-router.get("/field-library", async (_req, res) => {
+router.get("/field-library", async (req, res) => {
   try {
-    res.json({ fieldLibrary: await getFieldLibrary() });
+    const accountId = req.internalAccountId ?? undefined;
+    res.json({ fieldLibrary: await getFieldLibrary(getDb(), accountId) });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load field library");
     res.status(500).json({ error: "Failed to load field library" });
@@ -1769,7 +1777,7 @@ router.get("/packages", requireMemberRole, async (req, res) => {
       const junctionIds = junctionMap.get(pkg.id as number) ?? [];
       return { ...pkg, group_ids: junctionIds.length > 0 ? junctionIds : (pkg.group_id ? [Number(pkg.group_id)] : []) };
     });
-    const hydrated = await hydratePackages(rowsWithGroupIds, db);
+    const hydrated = await hydratePackages(rowsWithGroupIds, db, undefined, accountId);
     res.json({ packages: hydrated.map(sanitizePackageForClient) });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to list packages");
@@ -1902,7 +1910,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
     if (incomingGroupIds.length > 0) {
       await syncPackageGroups(db, newPkgId, incomingGroupIds);
     }
-    const hydrated = await hydratePackages(rows as PackageRow[], db);
+    const hydrated = await hydratePackages(rows as PackageRow[], db, undefined, accountId);
     const withGroupIds: PackageRow = { ...hydrated[0], group_ids: incomingGroupIds };
     res.status(201).json({ package: sanitizePackageForClient(withGroupIds) });
   } catch (err) {
@@ -2022,7 +2030,7 @@ router.patch("/packages/:id", async (req, res) => {
         await syncPackageGroups(client, id, incomingGroupIds);
       }
       await client.query("COMMIT");
-      const hydrated = await hydratePackages(rows as PackageRow[], client);
+      const hydrated = await hydratePackages(rows as PackageRow[], client, undefined, accountId);
       // Fetch the up-to-date group_ids from the junction table to return to the client
       const { rows: pgRows } = await client.query(
         `SELECT array_agg(group_id ORDER BY group_id) AS group_ids FROM docufill_package_groups WHERE package_id=$1`,

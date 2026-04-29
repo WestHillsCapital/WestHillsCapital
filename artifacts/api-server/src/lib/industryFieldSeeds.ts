@@ -185,12 +185,16 @@ const INDUSTRY_FIELDS: Record<IndustryKey, SeedField[]> = {
 };
 
 /**
- * Seeds industry-specific fields into the global shared field library.
- * Idempotent — uses ON CONFLICT DO NOTHING on the primary key.
- * Also always seeds the general fields regardless of industry.
+ * Seeds industry-specific fields into the account's field library (per-account scoped).
+ * Fields are stored in `docufill_fields` with `account_id` set, so they are
+ * visible only to the account that onboarded — not to other tenants.
+ *
+ * Idempotent — uses ON CONFLICT (id) DO NOTHING on the primary key.
+ * Field IDs are namespaced as `{base_id}_a{accountId}` to prevent PK collisions
+ * across accounts. Falls back to "general" when the industry is null or unrecognised.
  */
-export async function seedIndustryFields(db: Pool, industry: string): Promise<void> {
-  const key = industry as IndustryKey;
+export async function seedIndustryFields(db: Pool, accountId: number, industry: string | null | undefined): Promise<void> {
+  const key: IndustryKey = (industry && INDUSTRY_FIELDS[industry as IndustryKey]) ? (industry as IndustryKey) : "general";
   const industryFields = INDUSTRY_FIELDS[key] ?? [];
   const generalFields  = GENERAL_FIELDS;
 
@@ -202,14 +206,15 @@ export async function seedIndustryFields(db: Pool, industry: string): Promise<vo
 
   try {
     for (const f of toInsert) {
+      const scopedId = `${f.id}_a${accountId}`;
       await db.query(
         `INSERT INTO docufill_fields
            (id, label, category, field_type, source, options, sensitive, required,
-            validation_type, validation_pattern, validation_message, active, sort_order)
-         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, TRUE, $12)
-         ON CONFLICT DO NOTHING`,
+            validation_type, validation_pattern, validation_message, active, sort_order, account_id)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, TRUE, $12, $13)
+         ON CONFLICT (id) DO NOTHING`,
         [
-          f.id,
+          scopedId,
           f.label,
           f.category,
           f.field_type,
@@ -221,11 +226,12 @@ export async function seedIndustryFields(db: Pool, industry: string): Promise<vo
           f.validation_pattern ?? null,
           f.validation_message ?? null,
           f.sort_order,
+          accountId,
         ],
       );
     }
-    logger.info({ industry, count: toInsert.length }, "[IndustrySeeds] Seeded industry fields");
+    logger.info({ industry: key, accountId, count: toInsert.length }, "[IndustrySeeds] Seeded industry fields for account");
   } catch (err) {
-    logger.warn({ err, industry }, "[IndustrySeeds] Failed to seed industry fields (non-fatal)");
+    logger.warn({ err, industry, accountId }, "[IndustrySeeds] Failed to seed industry fields (non-fatal)");
   }
 }
