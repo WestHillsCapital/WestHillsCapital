@@ -6396,7 +6396,7 @@ export default function DocuFill() {
                         }))}
                         className="rounded"
                       />
-                      <span className="text-sm">Conditional display</span>
+                      <span className="text-sm">Hide this field unless</span>
                     </label>
                     <Tooltip>
                       <TooltipTrigger asChild>
