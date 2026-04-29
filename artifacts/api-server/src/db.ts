@@ -1513,6 +1513,50 @@ export async function initDb(): Promise<void> {
   // Encrypted JSONB answers column; plaintext `answers` kept as fallback during
   // dual-mode migration period then cleared after all rows are migrated.
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS answers_ciphertext TEXT`);
+
+  // ── E-sign v1 — email OTP identity verification ───────────────────────────
+  // Per-package auth level: 'none' (default) or 'email_otp'
+  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS auth_level TEXT NOT NULL DEFAULT 'none'`);
+  // Signing record stored on the completed interview session
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signer_email TEXT`);
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signer_name TEXT`);
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signed_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS pdf_sha256 TEXT`);
+  // One row per OTP send; hashed code, expiry, attempt counter
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_esign_otps (
+      id            SERIAL PRIMARY KEY,
+      session_token TEXT NOT NULL,
+      email         TEXT NOT NULL,
+      otp_hash      TEXT NOT NULL,
+      expires_at    TIMESTAMPTZ NOT NULL,
+      used_at       TIMESTAMPTZ,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS docufill_esign_otps_session_idx
+      ON docufill_esign_otps (session_token, created_at DESC)
+  `);
+  // Append-only audit trail for all e-sign lifecycle events
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_signing_events (
+      id            SERIAL PRIMARY KEY,
+      session_token TEXT NOT NULL,
+      account_id    INTEGER,
+      event_type    TEXT NOT NULL,
+      actor_email   TEXT,
+      actor_ip      TEXT,
+      actor_ua      TEXT,
+      metadata      JSONB NOT NULL DEFAULT '{}'::jsonb,
+      created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS docufill_signing_events_session_idx
+      ON docufill_signing_events (session_token, created_at)
+  `);
 }
 
 /**

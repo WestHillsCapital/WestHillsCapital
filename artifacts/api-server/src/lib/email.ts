@@ -2263,3 +2263,67 @@ export async function sendEmailVerificationEmail(params: {
 </html>`,
   });
 }
+
+export async function sendEsignOtpEmail(params: {
+  to: string;
+  otpCode: string;
+  packageName: string;
+  orgName: string | null;
+  emailSettings?: OrgEmailSettings | null;
+}): Promise<void> {
+  const org = params.orgName ?? "Docuplete";
+  await sendEmail({
+    to: params.to,
+    subject: `Your verification code — ${params.packageName}`,
+    fromName: params.emailSettings?.senderName ?? undefined,
+    replyTo: params.emailSettings?.replyTo ?? undefined,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Your signing verification code</title>
+</head>
+<body style="margin:0;padding:0;background:#F4F4F0;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr><td align="center" style="padding:40px 16px;">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0"
+           style="max-width:560px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #e5e7eb;">
+      <tr>
+        <td style="background:#0F1C3F;padding:24px 32px;">
+          <p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">${org}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:32px;">
+          <h1 style="margin:0 0 12px;font-size:20px;font-weight:700;color:#111827;line-height:1.3;">
+            Your verification code
+          </h1>
+          <p style="margin:0 0 20px;font-size:14px;color:#4b5563;line-height:1.65;">
+            You requested a one-time code to verify your identity and sign <strong>${params.packageName}</strong>.
+            Enter the code below in the signing form.
+          </p>
+          <div style="margin:0 0 28px;background:#F8F6F0;border:1px solid #e5e7eb;border-radius:8px;padding:20px;text-align:center;">
+            <span style="font-size:36px;font-weight:700;letter-spacing:0.25em;color:#0F1C3F;font-family:monospace;">${params.otpCode}</span>
+          </div>
+          <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.6;">
+            This code expires in <strong>15 minutes</strong>. Do not share it with anyone.
+          </p>
+          <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6;">
+            If you did not request this, no action is needed — this code cannot be used without access to your signing link.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:16px 32px 24px;border-top:1px solid #f3f4f6;">
+          <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;">
+            Sent on behalf of ${org} via Docuplete secure document collection.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`,
+  });
+}
