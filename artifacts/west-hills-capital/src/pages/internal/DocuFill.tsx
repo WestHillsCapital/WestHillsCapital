@@ -6185,15 +6185,15 @@ export default function DocuFill() {
                   {(selectedPackage.recipients ?? []).some((r) => r.type === "customer") && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
                 </button>
               </div>
-              {[...new Set(groups.filter((g) => g.active !== false).map((g) => g.kind ?? "general"))].sort().map((kind) => {
-                const subset = groups.filter((g) => (g.kind ?? "general") === kind && g.active !== false);
-                if (!subset.length) return null;
+              {(() => {
+                const userGroups = groups.filter((g) => g.active !== false && (!g.kind || g.kind === "general"));
+                if (!userGroups.length) return null;
                 const icon = <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
                 return (
-                  <div key={kind}>
-                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2 capitalize">{kind}</div>
+                  <div>
+                    <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Groups</div>
                     <div className="space-y-1">
-                      {subset.map((g) => {
+                      {userGroups.map((g) => {
                         const already = (selectedPackage.recipients ?? []).some((r) => r.type === "group" && r.refId === g.id);
                         return (
                           <button
@@ -6212,7 +6212,7 @@ export default function DocuFill() {
                     </div>
                   </div>
                 );
-              })}
+              })()}
             </div>
           </div>
         </div>
