@@ -1201,6 +1201,7 @@ async function appendSigningCertificatePage(
     packageName: string;
     signedAt: Date;
     tsaUrl?: string | null;
+    sessionToken?: string | null;
   },
 ): Promise<Buffer> {
   const existing = await PdfLibDocument.load(pdfBytes, { ignoreEncryption: true });
@@ -1226,6 +1227,11 @@ async function appendSigningCertificatePage(
   const dividerY = y + 8;
   page.drawLine({ start: { x: margin, y: dividerY }, end: { x: width - margin, y: dividerY }, thickness: 0.5, color: gold });
   y -= 8;
+  const verifyOrigin = process.env.APP_ORIGIN
+    ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://docuplete.com");
+  const verifyUrl = params.sessionToken
+    ? `${verifyOrigin}/verify?token=${params.sessionToken}`
+    : null;
   const rows: Array<{ label: string; value: string }> = [
     { label: "Signer Name",  value: params.signerName },
     { label: "Signer Email", value: params.signerEmail },
@@ -1235,6 +1241,7 @@ async function appendSigningCertificatePage(
       { label: "Timestamp Authority", value: params.tsaUrl },
       { label: "Timestamp Standard",  value: "RFC 3161 — token stored in signing record" },
     ] : []),
+    ...(verifyUrl ? [{ label: "Verify online", value: verifyUrl }] : []),
   ];
   for (const row of rows) {
     y -= 8;
@@ -3598,6 +3605,7 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
           packageName: String(session.package_name ?? "Document Package"),
           signedAt:    new Date(session.signed_at as string),
           tsaUrl:      typeof session.tsa_url === "string" ? session.tsa_url : null,
+          sessionToken: req.params.token,
         });
       } catch (certErr) {
         logger.warn({ certErr }, "[E-sign] Failed to re-append certificate page on download");
@@ -4081,6 +4089,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
           packageName: String(session.package_name ?? "Document Package"),
           signedAt: signedAt!,
           tsaUrl: intendedTsaUrl,
+          sessionToken: req.params.token,
         });
       } catch (certErr) {
         logger.warn({ certErr }, "[E-sign] Failed to append certificate page — using base PDF");
@@ -4272,6 +4281,109 @@ publicDocufillRouter.post("/embed/:embedKey/session", async (req, res) => {
   }
 });
 
+// ── Verify endpoint helpers ────────────────────────────────────────────────────
+
+/** Mask an email address: `john.doe@example.com` → `j***@example.com` */
+function maskEmail(email: string): string {
+  const atIdx = email.indexOf("@");
+  if (atIdx < 0) return "***";
+  const local  = email.slice(0, atIdx);
+  const domain = email.slice(atIdx);
+  const masked = local.length <= 1 ? "***" : `${local[0]}${"*".repeat(Math.min(local.length - 1, 4))}`;
+  return `${masked}${domain}`;
+}
+
+function buildVerifyPayload(
+  session: Record<string, unknown>,
+  packageName: string,
+  hashParam?: string,
+) {
+  const signerEmail = typeof session.signer_email === "string" ? session.signer_email : null;
+  const pdfSha256   = typeof session.pdf_sha256   === "string" ? session.pdf_sha256   : null;
+  return {
+    token:       session.token,
+    packageName,
+    signerName:  typeof session.signer_name === "string" ? session.signer_name : null,
+    signerEmail: signerEmail ? maskEmail(signerEmail) : null,
+    signedAt:    session.signed_at ? new Date(session.signed_at as string).toISOString() : null,
+    pdfSha256,
+    tsaUrl:      typeof session.tsa_url === "string" ? session.tsa_url : null,
+    tsaObtained: Boolean(session.tsa_obtained),
+    ...(hashParam != null ? {
+      hashMatches: pdfSha256 != null
+        ? pdfSha256.toLowerCase() === hashParam.toLowerCase()
+        : false,
+    } : {}),
+  };
+}
+
+/**
+ * GET /docufill/public/sessions/:token/verify
+ * Returns the signing metadata for a session (public, no auth required).
+ * Optional query param ?hash=<sha256hex> — response includes hashMatches boolean.
+ */
+publicDocufillRouter.get("/sessions/:token/verify", async (req, res) => {
+  try {
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT s.token, s.signer_name, s.signer_email, s.signed_at,
+              s.pdf_sha256, s.tsa_url, (s.tsa_token_b64 IS NOT NULL) AS tsa_obtained,
+              p.name AS package_name
+         FROM docufill_interview_sessions s
+         JOIN docufill_packages p ON p.id = s.package_id
+        WHERE s.token = $1`,
+      [req.params.token],
+    );
+    const session = rows[0] as Record<string, unknown> | undefined;
+    if (!session) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+    if (!session.signed_at) {
+      res.status(404).json({ error: "This document has not been signed yet" });
+      return;
+    }
+    const hashParam = typeof req.query.hash === "string" ? req.query.hash.trim() : undefined;
+    res.json(buildVerifyPayload(session, String(session.package_name ?? "Document Package"), hashParam));
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] verify by token failed");
+    res.status(500).json({ error: "Verification lookup failed" });
+  }
+});
+
+/**
+ * GET /docufill/public/verify?hash=<sha256hex>
+ * Finds a signed session by PDF SHA-256 hash and returns its signing metadata.
+ */
+publicDocufillRouter.get("/verify", async (req, res) => {
+  try {
+    const hash = typeof req.query.hash === "string" ? req.query.hash.trim().toLowerCase() : "";
+    if (!hash || !/^[0-9a-f]{64}$/.test(hash)) {
+      res.status(400).json({ error: "A valid 64-character SHA-256 hex hash is required" });
+      return;
+    }
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT s.token, s.signer_name, s.signer_email, s.signed_at,
+              s.pdf_sha256, s.tsa_url, (s.tsa_token_b64 IS NOT NULL) AS tsa_obtained,
+              p.name AS package_name
+         FROM docufill_interview_sessions s
+         JOIN docufill_packages p ON p.id = s.package_id
+        WHERE lower(s.pdf_sha256) = $1 AND s.signed_at IS NOT NULL`,
+      [hash],
+    );
+    const session = rows[0] as Record<string, unknown> | undefined;
+    if (!session) {
+      res.status(404).json({ error: "No signed document matches this hash" });
+      return;
+    }
+    res.json(buildVerifyPayload(session, String(session.package_name ?? "Document Package"), hash));
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] verify by hash failed");
+    res.status(500).json({ error: "Verification lookup failed" });
+  }
+});
+
 publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
   try {
     const db = getDb();
@@ -4316,6 +4428,7 @@ publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
           packageName: String(session.package_name ?? "Document Package"),
           signedAt:    new Date(session.signed_at as string),
           tsaUrl:      typeof session.tsa_url === "string" ? session.tsa_url : null,
+          sessionToken: req.params.token,
         });
       } catch (certErr) {
         logger.warn({ certErr }, "[E-sign] Failed to re-append certificate page on public download");
