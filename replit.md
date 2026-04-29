@@ -47,6 +47,8 @@ Custodial paperwork engine. Staff configure reusable document packages; clients 
 - **Sessions (public interview):** Token-scoped. Monthly submission count enforced + `usage_events` recorded.
 - **PDF Overlay:** `pdf-lib` for parsing and overlay; `pdfkit` for generation.
 - **DocuFill mapper UI:** 3-column grid `[190px_1fr_260px]` in the document editor.
+- **E-sign v1:** Email OTP identity verification, SHA-256 PDF hash, signing certificate appended as final PDF page, append-only audit trail in `docufill_signing_events`. Toggle per package via `auth_level` column.
+- **RFC 3161 Trusted Timestamp (TSA):** After cert page is appended and PDF hash is computed, the SHA-256 is submitted to a chain of public TSAs (DigiCert → Sectigo → FreeTSA). The raw DER `TimeStampResp` is stored in `tsa_token_b64` (verifiable with `openssl ts -verify`) and the responding endpoint in `tsa_url`. TSA failure is non-blocking — signing proceeds and a warning is logged. Cert page shows the intended primary TSA URL; actual responder stored in DB. Client: `artifacts/api-server/src/lib/tsa.ts`.
 
 ## Settings Page (Product Portal)
 Multi-section settings page at `/app/settings`. Desktop: left sidebar navigation (sticky, `top-[72px]`). Mobile: horizontal pill nav.
@@ -108,6 +110,8 @@ All tables are auto-created on startup via `initializeDatabase()` in `db.ts`.
 | `docufill_groups` | Custodian/depository groups |
 | `docufill_shared_fields` | Reusable field definitions |
 | `docufill_sessions` | Public interview sessions |
+| `docufill_interview_sessions` | Interview sessions with e-sign fields: `signer_email`, `signer_name`, `signed_at`, `pdf_sha256`, `tsa_token_b64` (raw DER RFC 3161 token, base64), `tsa_url` (TSA endpoint that responded) |
+| `docufill_signing_events` | Append-only audit trail for signing events (signed, OTP sent, etc.) |
 | `usage_events` | Submission usage tracking for plan limits |
 | `stripe_subscriptions` | Billing subscription records |
 | `leads`, `appointments` | WHC scheduling/sales data |
@@ -162,6 +166,9 @@ ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS group_id integer REFERENC
 | Google Sheets API | Admin notifications / deal records |
 | FedEx API | Shipping location search |
 | `geoip-lite` | IP → City/Country resolution (in-process, LRU-cached) |
+| DigiCert TSA (`timestamp.digicert.com`) | RFC 3161 trusted timestamp authority (primary) |
+| Sectigo TSA (`timestamp.sectigo.com`) | RFC 3161 TSA fallback #1 |
+| FreeTSA (`freetsa.org/tsr`) | RFC 3161 TSA fallback #2 |
 | `pdfkit` / `pdf-lib` | PDF generation and overlay |
 | `otplib` | TOTP 2FA secret generation + verification |
 | `cookie-parser` | Signed HttpOnly cookies for trusted device tokens |
