@@ -1,3 +1,60 @@
+/**
+ * Given the raw value typed into a sensitive (password) field and its validationType,
+ * returns a masked preview string where every digit is replaced with "•" but separator
+ * characters (hyphens, slashes) are preserved at their expected positions.
+ *
+ * Returns null for unknown types or types whose format carries no structural separators.
+ * Note: "date" is deliberately excluded here — it is handled by MaskedDateFormatGuide.
+ *
+ * Examples:
+ *   buildSensitiveMask("123456789",  "ssn")   → "•••-••-••••"
+ *   buildSensitiveMask("123456789",  "zip4")  → "•••••-••••"
+ *   buildSensitiveMask("1234567890", "phone") → "•••-•••-••••"
+ *   buildSensitiveMask("12345",      "zip")   → "•••••"
+ */
+export function buildSensitiveMask(value: string, validationType: string): string | null {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return null;
+
+  switch (validationType) {
+    case "ssn": {
+      // NNN-NN-NNNN
+      const d = digits.slice(0, 9);
+      let out = "";
+      for (let i = 0; i < d.length; i++) {
+        if (i === 3 || i === 5) out += "-";
+        out += "•";
+      }
+      return out;
+    }
+    case "zip": {
+      return "•".repeat(Math.min(digits.length, 5));
+    }
+    case "zip4": {
+      // NNNNN-NNNN
+      const d = digits.slice(0, 9);
+      let out = "";
+      for (let i = 0; i < d.length; i++) {
+        if (i === 5) out += "-";
+        out += "•";
+      }
+      return out;
+    }
+    case "phone": {
+      // NNN-NNN-NNNN
+      const d = digits.slice(0, 10);
+      let out = "";
+      for (let i = 0; i < d.length; i++) {
+        if (i === 3 || i === 6) out += "-";
+        out += "•";
+      }
+      return out;
+    }
+    default:
+      return null;
+  }
+}
+
 export function fieldFormatHint(vt: string | undefined, message?: string): string | null {
   switch (vt) {
     case "phone":    return "555-123-4567";

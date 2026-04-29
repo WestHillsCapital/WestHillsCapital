@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useLayoutEffect } from "react";
 import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
+import { validateFieldValue, fieldFormatHint, buildSensitiveMask } from "@/lib/validateField";
 import SignaturePad, { type SignaturePadRef } from "@/components/SignaturePad";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -139,6 +139,21 @@ function MaskedDateFormatGuide({ value, field }: { value: string; field: { valid
           </span>
         );
       })}
+    </div>
+  );
+}
+
+// ─── Sensitive format ghost ────────────────────────────────────────────────────
+// Shown below any sensitive password input (except date, which uses
+// MaskedDateFormatGuide) when the signer has focus or has typed a value.
+// Replaces the static "Format:" hint for ssn / zip / zip4 / phone.
+
+function SensitiveFormatGhost({ value, validationType }: { value: string; validationType: string }) {
+  const mask = buildSensitiveMask(value, validationType);
+  if (!mask) return null;
+  return (
+    <div className="mt-1.5 font-mono text-xs text-[#8A9BB8] tracking-wide select-none" aria-hidden>
+      {mask}
     </div>
   );
 }
@@ -985,6 +1000,10 @@ export default function DocuFillCustomer() {
                       (focusedFieldId === field.id || val !== "") && (
                       <MaskedDateFormatGuide value={val} field={field} />
                     )}
+                    {field.sensitive && field.validationType && field.validationType !== "date" &&
+                      (focusedFieldId === field.id || val !== "") && (
+                      <SensitiveFormatGhost value={val} validationType={field.validationType} />
+                    )}
                   </>
                 )}
 
@@ -992,9 +1011,14 @@ export default function DocuFillCustomer() {
                 {(() => {
                   const hint = fieldFormatHint(field.validationType, field.validationMessage ?? undefined);
                   const hasValidValue = val.trim() !== "" && validateFieldValue(field, val) === null;
-                  // Suppress the static hint for sensitive date fields — the MaskedDateFormatGuide replaces it
+                  // Suppress the static hint when a specialized visualization replaces it:
+                  // - sensitive+date → MaskedDateFormatGuide
+                  // - sensitive+ssn/zip/zip4/phone → SensitiveFormatGhost
                   const isMaskedDate = field.sensitive && field.validationType === "date";
-                  return hint && !hasFieldError && !hasValidValue && !isMaskedDate ? (
+                  const hasSensitiveGhost = field.sensitive && !!field.validationType
+                    && field.validationType !== "date"
+                    && buildSensitiveMask("1", field.validationType) !== null;
+                  return hint && !hasFieldError && !hasValidValue && !isMaskedDate && !hasSensitiveGhost ? (
                     <p className="mt-1.5 text-[11px] text-[#8A9BB8]">Format: {hint}</p>
                   ) : null;
                 })()}
