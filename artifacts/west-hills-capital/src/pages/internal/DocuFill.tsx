@@ -6396,7 +6396,7 @@ export default function DocuFill() {
                         }))}
                         className="rounded"
                       />
-                      <span className="text-sm">{fieldEditorDraft.condition !== null ? "Show only when…" : "Always shown"}</span>
+                      <span className="text-sm">Conditional display</span>
                     </label>
                     <Tooltip>
                       <TooltipTrigger asChild>
