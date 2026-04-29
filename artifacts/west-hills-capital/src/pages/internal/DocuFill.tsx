@@ -151,7 +151,8 @@ type MappingFormat =
   | "last-four"
   | "currency"
   | "date-mm-dd-yyyy"
-  | "checkbox-yes";
+  | "checkbox-yes"
+  | "signature";
 
 type MappingItem = {
   id: string;
@@ -248,6 +249,7 @@ function clampPercent(value: number, min: number, max: number) {
 }
 
 function defaultMappingFormat(field: FieldItem): MappingItem["format"] {
+  if (inferFieldCategory(field) === "signature") return "signature";
   if (field.validationType === "currency") return "currency";
   if (field.validationType === "number") return "digits-only";
   if (field.validationType === "date" || field.type === "date") return "date-mm-dd-yyyy";
@@ -342,6 +344,7 @@ const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string; group
   { value: "currency", label: "Currency", group: "Numbers" },
   { value: "date-mm-dd-yyyy", label: "Date MM/DD/YYYY", group: "Dates" },
   { value: "checkbox-yes", label: "Checkbox mark when yes", group: "Checks" },
+  { value: "signature", label: "Drawn / typed signature", group: "Signature" },
 ];
 
 const NAME_MAPPING_FORMATS: MappingFormat[] = ["first-name", "middle-name", "last-name", "last-first-m", "first-last", "initials"];
@@ -420,6 +423,7 @@ function sampleValueForMapping(field: FieldItem | undefined, format: MappingForm
   if (fmt === "last-four") return "1234";
   if (fmt === "currency") return "$50,000.00";
   if (fmt === "checkbox-yes") return "X";
+  if (fmt === "signature") return "~ Signature ~";
 
   const isUpper = fmt === "uppercase";
   const isLower = fmt === "lowercase";
@@ -452,6 +456,8 @@ function mappingFormatOptionsForField(field: FieldItem | undefined): Array<{ val
   if (!field) return MAPPING_FORMAT_OPTIONS;
   const vt = field.validationType ?? "none";
   const type = field.type;
+  const cat = inferFieldCategory(field);
+  if (cat === "signature") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Signature" || o.group === "Name" || o.group === "Text");
   if (type === "checkbox" || type === "radio") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Checks");
   if (type === "date" || vt === "date") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Dates");
   if (vt === "currency") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "currency" || o.group === "Text");
@@ -845,6 +851,8 @@ export default function DocuFill() {
   const { getAuthHeaders: defaultGetAuthHeaders } = useInternalAuth();
   const docufillConfig = useDocuFillConfig();
   const getAuthHeaders = docufillConfig?.getAuthHeaders ?? defaultGetAuthHeaders;
+  const getAuthHeadersRef = useRef(getAuthHeaders);
+  getAuthHeadersRef.current = getAuthHeaders;
   const docufillApiPath = docufillConfig?.apiPath ?? "/api/internal/docufill";
   const isAdmin = docufillConfig?.isAdmin ?? true;
 
@@ -1316,7 +1324,8 @@ export default function DocuFill() {
 
   useEffect(() => {
     if (!sessionToken) return;
-    fetch(`${API_BASE}${sessionBasePath}/${sessionToken}`, { headers: sessionHeaders })
+    const headers = isPublicSession ? {} : { ...getAuthHeadersRef.current() };
+    fetch(`${API_BASE}${sessionBasePath}/${sessionToken}`, { headers })
       .then((res) => res.ok ? res.json() : Promise.reject(new Error("Could not load interview")))
       .then((data: { session: Session }) => {
         setSession(data.session);
@@ -1326,7 +1335,7 @@ export default function DocuFill() {
         setTab("interview");
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not load interview"));
-  }, [sessionToken, sessionBasePath, getAuthHeaders, isPublicSession]);
+  }, [sessionToken, sessionBasePath, isPublicSession]);
 
   useEffect(() => {
     if (selectedPackage && !selectedDocumentId) setSelectedDocumentId(selectedPackage.documents[0]?.id ?? null);
@@ -1355,7 +1364,7 @@ export default function DocuFill() {
       return;
     }
     const url = `${API_BASE}${docufillApiPath}/packages/${selectedPackage.id}/documents/${selectedDocument.id}.pdf`;
-    fetch(url, { headers: { ...getAuthHeaders() } })
+    fetch(url, { headers: { ...getAuthHeadersRef.current() } })
       .then((res) => {
         if (!res.ok) throw new Error("Could not load PDF preview");
         return res.blob();
@@ -1381,7 +1390,7 @@ export default function DocuFill() {
     return () => {
       cancelled = true;
     };
-  }, [selectedPackage?.id, selectedDocument?.id, selectedDocument?.pdfStored, getAuthHeaders]);
+  }, [selectedPackage?.id, selectedDocument?.id, selectedDocument?.pdfStored]);
 
   useEffect(() => {
     return () => {
@@ -6801,6 +6810,9 @@ function DocumentPreviewTile({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
 
+  const getAuthHeadersRef = useRef(getAuthHeaders);
+  getAuthHeadersRef.current = getAuthHeaders;
+
   useEffect(() => {
     let cancelled = false;
     setPreviewUrl(null);
@@ -6812,7 +6824,7 @@ function DocumentPreviewTile({
       setPreviewUrl(cachedUrl);
       return;
     }
-    fetch(`${API_BASE}${docufillApiPath}/packages/${packageId}/documents/${doc.id}.pdf`, { headers: { ...getAuthHeaders() } })
+    fetch(`${API_BASE}${docufillApiPath}/packages/${packageId}/documents/${doc.id}.pdf`, { headers: { ...getAuthHeadersRef.current() } })
       .then((res) => {
         if (!res.ok) throw new Error("Could not load document preview");
         return res.blob();
@@ -6838,7 +6850,8 @@ function DocumentPreviewTile({
     return () => {
       cancelled = true;
     };
-  }, [packageId, doc.id, doc.pdfStored, getAuthHeaders, previewCache, previewCacheOrder]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packageId, doc.id, doc.pdfStored, previewCache, previewCacheOrder]);
 
   return (
     <div

@@ -3,6 +3,7 @@ import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
+import SignaturePad, { type SignaturePadRef } from "@/components/SignaturePad";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SESSION_BASE = `${API_BASE}/api/v1/docufill/public/sessions`;
@@ -117,6 +118,9 @@ export default function DocuFillCustomer() {
   const [signerEmail, setSignerEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [signerName, setSignerName] = useState("");
+  const [sigMode, setSigMode] = useState<"type" | "draw">("type");
+  const [sigPadHasContent, setSigPadHasContent] = useState(false);
+  const sigPadRef = useRef<SignaturePadRef>(null);
   const [identityToken, setIdentityToken] = useState<string | null>(null);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState("");
@@ -292,6 +296,10 @@ export default function DocuFillCustomer() {
       const genBody: Record<string, unknown> = {};
       if (identityToken) genBody.esignToken = identityToken;
       if (signerName.trim()) genBody.signerName = signerName.trim();
+      if (sigMode === "draw") {
+        const dataUrl = sigPadRef.current?.getDataUrl();
+        if (dataUrl) genBody.signatureImage = dataUrl;
+      }
       const genRes = await fetch(`${SESSION_BASE}/${token}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -543,9 +551,10 @@ export default function DocuFillCustomer() {
             </div>
           )}
 
-          {/* Consent / typed signature step */}
+          {/* Consent / signature step */}
           {esignStep === "consent" && (
             <div className="bg-white rounded-xl border border-[#DDD5C4] p-6 space-y-4">
+              {/* Identity confirmed header */}
               <div className="flex items-start gap-3">
                 <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0 mt-0.5">
                   <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -557,9 +566,11 @@ export default function DocuFillCustomer() {
                   <p className="text-sm text-[#6B7A99]">{signerEmail}</p>
                 </div>
               </div>
+
+              {/* Full legal name (always required) */}
               <div className="space-y-2">
                 <label className="text-sm font-medium text-[#0F1C3F]" htmlFor="esign-name">
-                  Type your full legal name to sign
+                  Full legal name
                 </label>
                 <Input
                   id="esign-name"
@@ -570,28 +581,77 @@ export default function DocuFillCustomer() {
                   autoFocus
                   disabled={pageStatus === "submitting"}
                 />
-                <p className="text-xs text-[#8A9BB8]">
-                  By typing your name and clicking "Submit and sign", you agree that this constitutes your legal electronic signature.
-                </p>
               </div>
-              {/* Preview of typed signature */}
-              {signerName.trim() && (
-                <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] p-3">
-                  <p className="text-[10px] text-[#8A9BB8] uppercase tracking-wide mb-1">Signature preview</p>
-                  <p className="text-xl font-serif italic text-[#0F1C3F]">{signerName}</p>
+
+              {/* Draw / type toggle */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-1 rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-1 w-fit">
+                  <button
+                    type="button"
+                    onClick={() => { setSigMode("type"); }}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${sigMode === "type" ? "bg-white shadow-sm text-[#0F1C3F] font-medium" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                    disabled={pageStatus === "submitting"}
+                  >
+                    Type
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSigMode("draw"); }}
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${sigMode === "draw" ? "bg-white shadow-sm text-[#0F1C3F] font-medium" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                    disabled={pageStatus === "submitting"}
+                  >
+                    Draw
+                  </button>
                 </div>
-              )}
+
+                {sigMode === "type" && signerName.trim() && (
+                  <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] p-3">
+                    <p className="text-[10px] text-[#8A9BB8] uppercase tracking-wide mb-1">Signature preview</p>
+                    <p className="text-xl font-serif italic text-[#0F1C3F]">{signerName}</p>
+                  </div>
+                )}
+
+                {sigMode === "draw" && (
+                  <div className="space-y-1.5">
+                    <SignaturePad
+                      ref={sigPadRef}
+                      width={440}
+                      height={160}
+                      disabled={pageStatus === "submitting"}
+                      onChange={setSigPadHasContent}
+                      className="w-full"
+                    />
+                    <div className="flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => { sigPadRef.current?.clear(); }}
+                        disabled={!sigPadHasContent || pageStatus === "submitting"}
+                        className="text-xs text-[#8A9BB8] hover:text-[#0F1C3F] disabled:opacity-40"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="rounded-lg border border-[#DDD5C4] bg-[#FAFAF8] p-3 text-xs text-[#6B7A99] space-y-1">
                 <p>By submitting, you confirm:</p>
                 <ul className="list-disc list-inside space-y-0.5 pl-1">
                   <li>The information in this form is accurate and complete.</li>
-                  <li>Your typed name above is your legal electronic signature.</li>
+                  <li>
+                    {sigMode === "draw"
+                      ? "Your drawn signature above is your legal electronic signature."
+                      : "Your typed name above is your legal electronic signature."}
+                  </li>
                   <li>You consent to the use of electronic records and signatures.</li>
                 </ul>
               </div>
+
               {errorMsg && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{errorMsg}</div>
               )}
+
               <div className="flex gap-3">
                 <Button
                   type="button"
@@ -605,7 +665,11 @@ export default function DocuFillCustomer() {
                 <Button
                   type="button"
                   onClick={() => { void handleSubmit(); }}
-                  disabled={pageStatus === "submitting" || !signerName.trim()}
+                  disabled={
+                    pageStatus === "submitting" ||
+                    !signerName.trim() ||
+                    (sigMode === "draw" && !sigPadHasContent)
+                  }
                   className="flex-1 bg-[#0F1C3F] hover:bg-[#182B5F]"
                 >
                   {pageStatus === "submitting" ? "Submitting…" : "Submit and sign"}
