@@ -120,12 +120,11 @@ router.post("/onboard", async (req, res) => {
       logger.warn({ err, accountId }, "[ProductAuth] Demo package seed failed (non-fatal)");
     });
 
-    // Seed industry-specific fields into the shared field library (non-fatal).
-    if (industry) {
-      await seedIndustryFields(getDb(), industry).catch((err) => {
-        logger.warn({ err, accountId, industry }, "[ProductAuth] Industry field seed failed (non-fatal)");
-      });
-    }
+    // Seed industry-specific fields into this account's field library (non-fatal).
+    // Always runs — seedIndustryFields defaults to "general" when industry is null.
+    await seedIndustryFields(getDb(), accountId, industry ?? null).catch((err) => {
+      logger.warn({ err, accountId, industry }, "[ProductAuth] Industry field seed failed (non-fatal)");
+    });
 
     return void res.status(201).json({
       accountId,
