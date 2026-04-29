@@ -96,6 +96,24 @@ function CheckIcon() {
   );
 }
 
+function useCountdown(target: Date | null): { secondsLeft: number; isExpired: boolean } {
+  const [secondsLeft, setSecondsLeft] = useState(0);
+  useEffect(() => {
+    if (!target) { setSecondsLeft(0); return; }
+    const update = () => setSecondsLeft(Math.max(0, Math.floor((target.getTime() - Date.now()) / 1000)));
+    update();
+    const id = setInterval(update, 1000);
+    return () => clearInterval(id);
+  }, [target]);
+  return { secondsLeft, isExpired: target !== null && secondsLeft === 0 };
+}
+
+function formatCountdown(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 export default function DocuFillCustomer() {
   const params = useParams<{ token: string }>();
   const token = params.token ?? "";
@@ -124,6 +142,12 @@ export default function DocuFillCustomer() {
   const [identityToken, setIdentityToken] = useState<string | null>(null);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState("");
+  const [otpExpiresAt, setOtpExpiresAt] = useState<Date | null>(null);
+  const [otpCooldownUntil, setOtpCooldownUntil] = useState<Date | null>(null);
+  const otpInputRef = useRef<HTMLInputElement | null>(null);
+
+  const { secondsLeft: expirySecondsLeft, isExpired: otpExpired } = useCountdown(otpExpiresAt);
+  const { secondsLeft: cooldownSecondsLeft, isExpired: cooldownExpired } = useCountdown(otpCooldownUntil);
 
   useLayoutEffect(() => {
     if (!isEmbed) return;
@@ -238,6 +262,8 @@ export default function DocuFillCustomer() {
         setOtpError(data.error ?? "Could not send verification code. Please try again.");
         return;
       }
+      if (data.expiresAt)    setOtpExpiresAt(new Date(data.expiresAt as string));
+      if (data.cooldownUntil) setOtpCooldownUntil(new Date(data.cooldownUntil as string));
       setOtpCode("");
       setEsignStep("code");
     } catch {
@@ -264,6 +290,8 @@ export default function DocuFillCustomer() {
       const data = await res.json();
       if (!res.ok) {
         setOtpError(data.error ?? "Invalid or expired code. Please try again.");
+        setOtpCode("");
+        setTimeout(() => otpInputRef.current?.focus(), 0);
         return;
       }
       setIdentityToken(data.identityToken as string);
@@ -500,16 +528,17 @@ export default function DocuFillCustomer() {
                 <h2 className="text-lg font-semibold text-[#0F1C3F]">Enter your code</h2>
                 <p className="text-sm text-[#6B7A99] mt-1">
                   We sent a 6-digit code to <strong className="text-[#0F1C3F]">{signerEmail}</strong>.
-                  It expires in 15 minutes.
                 </p>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-[#0F1C3F]" htmlFor="esign-code">Verification code</label>
                 <Input
                   id="esign-code"
+                  ref={otpInputRef}
                   type="text"
                   inputMode="numeric"
                   pattern="[0-9]*"
+                  autoComplete="one-time-code"
                   maxLength={6}
                   value={otpCode}
                   onChange={(e) => { setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setOtpError(""); }}
@@ -520,15 +549,28 @@ export default function DocuFillCustomer() {
                   className={`font-mono tracking-widest text-center text-xl ${otpError ? "border-red-400 focus-visible:ring-red-300" : ""}`}
                 />
                 {otpError && <p className="text-xs text-red-600">{otpError}</p>}
+                {/* Expiry countdown */}
+                {otpExpiresAt && (
+                  otpExpired
+                    ? <p className="text-xs text-amber-600 font-medium">Code expired — request a new one</p>
+                    : <p className="text-xs text-[#6B7A99]">Code expires in {formatCountdown(expirySecondsLeft)}</p>
+                )}
               </div>
-              <button
-                type="button"
-                onClick={() => { void handleRequestOtp(); }}
-                disabled={otpLoading}
-                className="text-xs text-[#6B7A99] hover:text-[#0F1C3F] underline disabled:opacity-50"
-              >
-                Resend code
-              </button>
+              {/* Resend with cooldown */}
+              {cooldownExpired ? (
+                <button
+                  type="button"
+                  onClick={() => { void handleRequestOtp(); }}
+                  disabled={otpLoading}
+                  className="text-xs text-[#0F1C3F] hover:underline disabled:opacity-50"
+                >
+                  Resend code
+                </button>
+              ) : (
+                <p className="text-xs text-[#8A9BB8]">
+                  Resend in {formatCountdown(cooldownSecondsLeft)}
+                </p>
+              )}
               <div className="flex gap-3">
                 <Button
                   type="button"
@@ -542,7 +584,7 @@ export default function DocuFillCustomer() {
                 <Button
                   type="button"
                   onClick={() => { void handleVerifyOtp(); }}
-                  disabled={otpLoading || otpCode.length < 6}
+                  disabled={otpLoading || otpCode.length < 6 || otpExpired}
                   className="flex-1 bg-[#0F1C3F] hover:bg-[#182B5F]"
                 >
                   {otpLoading ? "Verifying…" : "Verify code"}

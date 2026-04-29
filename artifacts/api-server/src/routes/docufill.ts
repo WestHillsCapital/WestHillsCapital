@@ -3950,7 +3950,7 @@ publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
       [req.params.token],
     );
     if ((recent[0] as { n: number }).n >= 3) {
-      res.status(429).json({ error: "Too many verification codes requested. Please wait before trying again." });
+      res.status(429).json({ error: "You've requested too many codes. Please wait a few minutes before trying again." });
       return;
     }
     const { code, hash } = generateOtp();
@@ -3976,7 +3976,13 @@ publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
       orgName: String(session.org_name ?? "Docuplete"),
       emailSettings,
     });
-    res.json({ ok: true, message: "Verification code sent. Check your email." });
+    const cooldownUntil = new Date(Date.now() + 60 * 1000); // 60-second resend cooldown
+    res.json({
+      ok: true,
+      message: "Verification code sent. Check your email.",
+      expiresAt: expiresAt.toISOString(),
+      cooldownUntil: cooldownUntil.toISOString(),
+    });
   } catch (err) {
     logger.error({ err }, "[E-sign] Failed to send OTP");
     res.status(500).json({ error: "Failed to send verification code" });
