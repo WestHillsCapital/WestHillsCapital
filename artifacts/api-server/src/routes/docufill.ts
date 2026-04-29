@@ -2109,14 +2109,30 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
     }
 
     const db = getDb();
+
+    // Read org-level package channel defaults so new packages inherit them.
+    const { rows: orgRows } = await db.query(
+      `SELECT pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
+              pkg_default_notify_staff, pkg_default_notify_client
+         FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    const orgDefaults = orgRows[0] as Record<string, unknown> | undefined;
+    const defaultInterview     = orgDefaults?.pkg_default_interview     !== false;
+    const defaultCsv           = orgDefaults?.pkg_default_csv           !== false;
+    const defaultCustomerLink  = orgDefaults?.pkg_default_customer_link !== false;
+    const defaultNotifyStaff   = orgDefaults?.pkg_default_notify_staff  !== false;
+    const defaultNotifyClient  = orgDefaults?.pkg_default_notify_client === true;
+
     const incomingGroupIds = parseGroupIds(body.groupIds, body.groupId);
     const groupValidationError = await validateGroupIds(db, incomingGroupIds, accountId);
     if (groupValidationError) { res.status(400).json({ error: groupValidationError }); return; }
     const primaryGroupId = incomingGroupIds[0] ?? null;
     const { rows } = await db.query(
       `INSERT INTO docufill_packages
-         (name, group_id, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id, tags, webhook_enabled, webhook_url, webhook_secret)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13::jsonb,$14,$15,$16)
+         (name, group_id, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id, tags, webhook_enabled, webhook_url, webhook_secret,
+          enable_interview, enable_csv, enable_customer_link, notify_staff_on_submit, notify_client_on_submit)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21)
        RETURNING *`,
       [
         name,
@@ -2135,6 +2151,11 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
         body.webhookEnabled === true,
         parseWebhookUrl(body.webhookUrl),
         webhookSecret,
+        defaultInterview,
+        defaultCsv,
+        defaultCustomerLink,
+        defaultNotifyStaff,
+        defaultNotifyClient,
       ],
     );
     const newPkgId = (rows[0] as PackageRow).id as number;

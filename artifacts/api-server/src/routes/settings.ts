@@ -186,7 +186,10 @@ router.get("/org", async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT id, name, slug, logo_url, brand_color, timezone, date_format FROM accounts WHERE id = $1`,
+      `SELECT id, name, slug, logo_url, brand_color, timezone, date_format,
+              pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
+              pkg_default_notify_staff, pkg_default_notify_client
+         FROM accounts WHERE id = $1`,
       [accountId],
     );
     if (!rows[0]) {
@@ -203,6 +206,11 @@ router.get("/org", async (req, res) => {
         brand_color: row.brand_color ?? "#C49A38",
         timezone:    (row.timezone    as string) || "America/New_York",
         date_format: (row.date_format as string) || "MM/DD/YYYY",
+        pkg_default_interview:      row.pkg_default_interview      !== false,
+        pkg_default_csv:            row.pkg_default_csv            !== false,
+        pkg_default_customer_link:  row.pkg_default_customer_link  !== false,
+        pkg_default_notify_staff:   row.pkg_default_notify_staff   !== false,
+        pkg_default_notify_client:  row.pkg_default_notify_client  === true,
       },
     });
   } catch (err) {
@@ -306,7 +314,10 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     const db = getDb();
 
     const { rows: existing } = await db.query(
-      `SELECT id, name, logo_url, brand_color, timezone, date_format FROM accounts WHERE id = $1`,
+      `SELECT id, name, logo_url, brand_color, timezone, date_format,
+              pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
+              pkg_default_notify_staff, pkg_default_notify_client
+         FROM accounts WHERE id = $1`,
       [accountId],
     );
     if (!existing[0]) {
@@ -328,10 +339,24 @@ router.patch("/org", requireAdminRole, async (req, res) => {
       rawLogoPath = null;
     }
 
+    // Package channel defaults — accept optional boolean overrides
+    const pkgDefaultInterview     = "pkgDefaultInterview"    in body ? body.pkgDefaultInterview    !== false : (current.pkg_default_interview    !== false);
+    const pkgDefaultCsv           = "pkgDefaultCsv"          in body ? body.pkgDefaultCsv          !== false : (current.pkg_default_csv          !== false);
+    const pkgDefaultCustomerLink  = "pkgDefaultCustomerLink" in body ? body.pkgDefaultCustomerLink !== false : (current.pkg_default_customer_link !== false);
+    const pkgDefaultNotifyStaff   = "pkgDefaultNotifyStaff"  in body ? body.pkgDefaultNotifyStaff  !== false : (current.pkg_default_notify_staff  !== false);
+    const pkgDefaultNotifyClient  = "pkgDefaultNotifyClient" in body ? body.pkgDefaultNotifyClient === true  : (current.pkg_default_notify_client  === true);
+
     const { rows } = await db.query(
-      `UPDATE accounts SET name=$1, logo_url=$2, brand_color=$3
-         WHERE id=$4 RETURNING id, name, slug, logo_url, brand_color, timezone, date_format`,
-      [name, rawLogoPath, brandColor, accountId],
+      `UPDATE accounts
+          SET name=$1, logo_url=$2, brand_color=$3,
+              pkg_default_interview=$5, pkg_default_csv=$6,
+              pkg_default_customer_link=$7, pkg_default_notify_staff=$8, pkg_default_notify_client=$9
+        WHERE id=$4
+        RETURNING id, name, slug, logo_url, brand_color, timezone, date_format,
+                  pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
+                  pkg_default_notify_staff, pkg_default_notify_client`,
+      [name, rawLogoPath, brandColor, accountId,
+       pkgDefaultInterview, pkgDefaultCsv, pkgDefaultCustomerLink, pkgDefaultNotifyStaff, pkgDefaultNotifyClient],
     );
     const row = rows[0] as Record<string, unknown>;
 
@@ -357,6 +382,11 @@ router.patch("/org", requireAdminRole, async (req, res) => {
         brand_color: row.brand_color ?? "#C49A38",
         timezone:    (row.timezone    as string) || "America/New_York",
         date_format: (row.date_format as string) || "MM/DD/YYYY",
+        pkg_default_interview:      row.pkg_default_interview      !== false,
+        pkg_default_csv:            row.pkg_default_csv            !== false,
+        pkg_default_customer_link:  row.pkg_default_customer_link  !== false,
+        pkg_default_notify_staff:   row.pkg_default_notify_staff   !== false,
+        pkg_default_notify_client:  row.pkg_default_notify_client  === true,
       },
     });
   } catch (err) {

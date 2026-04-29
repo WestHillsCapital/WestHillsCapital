@@ -2431,9 +2431,20 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
   const [saveError, setSaveError] = useState<string | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Package channel defaults state
+  const [pkgDefaultInterview,    setPkgDefaultInterview]    = useState(true);
+  const [pkgDefaultCsv,          setPkgDefaultCsv]          = useState(true);
+  const [pkgDefaultCustomerLink, setPkgDefaultCustomerLink] = useState(true);
+  const [pkgDefaultNotifyStaff,  setPkgDefaultNotifyStaff]  = useState(true);
+  const [pkgDefaultNotifyClient, setPkgDefaultNotifyClient] = useState(false);
+  const [pkgDefaultsSaving, setPkgDefaultsSaving] = useState(false);
+  const [pkgDefaultsSaved,  setPkgDefaultsSaved]  = useState(false);
+  const [pkgDefaultsError,  setPkgDefaultsError]  = useState<string | null>(null);
+  const pkgSavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   useEffect(() => {
     setIsLoading(true);
-    fetch(`${SETTINGS_BASE}/interview-defaults`, { headers: authHeaders() })
+    const interviewDefaultsFetch = fetch(`${SETTINGS_BASE}/interview-defaults`, { headers: authHeaders() })
       .then(async (r) => {
         const data = await r.json() as { interviewDefaults?: InterviewDefaults; error?: string };
         if (!r.ok) { setLoadError(data.error ?? "Failed to load interview defaults"); return; }
@@ -2446,11 +2457,25 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
           setReminderDays(d.reminderDays);
           setDefaultLocale(d.defaultLocale);
         }
-      })
-      .catch(() => setLoadError("Failed to load interview defaults"))
+      });
+    const orgFetch = fetch(`${SETTINGS_BASE}/org`, { headers: authHeaders() })
+      .then(async (r) => {
+        if (!r.ok) return;
+        const data = await r.json() as { org?: { pkg_default_interview?: boolean; pkg_default_csv?: boolean; pkg_default_customer_link?: boolean; pkg_default_notify_staff?: boolean; pkg_default_notify_client?: boolean } };
+        if (data.org) {
+          setPkgDefaultInterview(data.org.pkg_default_interview !== false);
+          setPkgDefaultCsv(data.org.pkg_default_csv !== false);
+          setPkgDefaultCustomerLink(data.org.pkg_default_customer_link !== false);
+          setPkgDefaultNotifyStaff(data.org.pkg_default_notify_staff !== false);
+          setPkgDefaultNotifyClient(data.org.pkg_default_notify_client === true);
+        }
+      });
+    Promise.all([interviewDefaultsFetch, orgFetch])
+      .catch(() => setLoadError("Failed to load settings"))
       .finally(() => setIsLoading(false));
     return () => {
       if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+      if (pkgSavedTimerRef.current) clearTimeout(pkgSavedTimerRef.current);
     };
   }, []);
 
@@ -2518,6 +2543,40 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
       setSaveError("Failed to save settings");
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handlePkgDefaultsSave() {
+    setPkgDefaultsError(null);
+    setPkgDefaultsSaving(true);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/org`, {
+        method: "PATCH",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({
+          pkgDefaultInterview:    pkgDefaultInterview,
+          pkgDefaultCsv:          pkgDefaultCsv,
+          pkgDefaultCustomerLink: pkgDefaultCustomerLink,
+          pkgDefaultNotifyStaff:  pkgDefaultNotifyStaff,
+          pkgDefaultNotifyClient: pkgDefaultNotifyClient,
+        }),
+      });
+      const data = await res.json() as { org?: { pkg_default_interview?: boolean; pkg_default_csv?: boolean; pkg_default_customer_link?: boolean; pkg_default_notify_staff?: boolean; pkg_default_notify_client?: boolean }; error?: string };
+      if (!res.ok) { setPkgDefaultsError(data.error ?? "Failed to save defaults"); return; }
+      if (data.org) {
+        setPkgDefaultInterview(data.org.pkg_default_interview !== false);
+        setPkgDefaultCsv(data.org.pkg_default_csv !== false);
+        setPkgDefaultCustomerLink(data.org.pkg_default_customer_link !== false);
+        setPkgDefaultNotifyStaff(data.org.pkg_default_notify_staff !== false);
+        setPkgDefaultNotifyClient(data.org.pkg_default_notify_client === true);
+      }
+      setPkgDefaultsSaved(true);
+      if (pkgSavedTimerRef.current) clearTimeout(pkgSavedTimerRef.current);
+      pkgSavedTimerRef.current = setTimeout(() => setPkgDefaultsSaved(false), 3000);
+    } catch {
+      setPkgDefaultsError("Failed to save defaults");
+    } finally {
+      setPkgDefaultsSaving(false);
     }
   }
 
@@ -2688,6 +2747,65 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
               </button>
             </div>
           )}
+
+          {/* Package channel defaults */}
+          <div className="px-6 py-5 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Package channel defaults</h3>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Choose which output channels are enabled when a new package is created. Each package can still override these individually.
+              </p>
+            </div>
+            {pkgDefaultsError && (
+              <p className="text-xs text-red-600">{pkgDefaultsError}</p>
+            )}
+            {(
+              [
+                { label: "Staff Interview",    desc: "Staff can launch guided interviews from the dashboard.", value: pkgDefaultInterview,    set: setPkgDefaultInterview },
+                { label: "Batch CSV",          desc: "Staff can fill many packets at once by uploading a CSV.", value: pkgDefaultCsv,          set: setPkgDefaultCsv },
+                { label: "Customer Link",      desc: "Send a branded link so customers can self-fill on their own device.", value: pkgDefaultCustomerLink, set: setPkgDefaultCustomerLink },
+                { label: "Staff Notification", desc: "Email all staff when a client submits.", value: pkgDefaultNotifyStaff,   set: setPkgDefaultNotifyStaff },
+                { label: "Client Confirmation",desc: "Send the client a branded receipt after they submit.", value: pkgDefaultNotifyClient, set: setPkgDefaultNotifyClient },
+              ] as Array<{ label: string; desc: string; value: boolean; set: (v: boolean) => void }>
+            ).map(({ label, desc, value, set }) => (
+              <div key={label} className="flex items-start justify-between gap-4">
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-800">{label}</p>
+                  <p className="text-xs text-gray-500">{desc}</p>
+                </div>
+                {isAdmin ? (
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={value}
+                    onClick={() => set(!value)}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:ring-offset-1 ${value ? "bg-gray-900" : "bg-gray-200"}`}
+                  >
+                    <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${value ? "translate-x-4" : "translate-x-0"}`} />
+                  </button>
+                ) : (
+                  <div className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent opacity-60 ${value ? "bg-gray-900" : "bg-gray-200"}`}>
+                    <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${value ? "translate-x-4" : "translate-x-0"}`} />
+                  </div>
+                )}
+              </div>
+            ))}
+            {isAdmin && (
+              <div className="flex items-center justify-between pt-1">
+                <div>
+                  {pkgDefaultsSaved && <span className="text-xs text-green-700 font-medium">Saved</span>}
+                </div>
+                <button
+                  type="button"
+                  disabled={pkgDefaultsSaving}
+                  onClick={() => { void handlePkgDefaultsSave(); }}
+                  className="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                >
+                  {pkgDefaultsSaving ? "Saving…" : "Save defaults"}
+                </button>
+              </div>
+            )}
+          </div>
         </>
       )}
     </section>

@@ -1519,6 +1519,16 @@ export async function initDb(): Promise<void> {
   // ── Encryption at rest — PII fields ──────────────────────────────────────────
   // Per-account data-encryption key, wrapped by ENCRYPTION_MASTER_KEY env var.
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS encrypted_dek TEXT`);
+
+  // ── Package channel defaults ──────────────────────────────────────────────────
+  // These org-level flags determine which output channels are enabled by default
+  // when a new package is created. Each flag defaults to true so new accounts
+  // get the most useful channels pre-enabled without any manual configuration.
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pkg_default_interview BOOLEAN NOT NULL DEFAULT true`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pkg_default_csv BOOLEAN NOT NULL DEFAULT true`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pkg_default_customer_link BOOLEAN NOT NULL DEFAULT true`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pkg_default_notify_staff BOOLEAN NOT NULL DEFAULT true`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pkg_default_notify_client BOOLEAN NOT NULL DEFAULT false`);
   // Encrypted JSONB answers column; plaintext `answers` kept as fallback during
   // dual-mode migration period then cleared after all rows are migrated.
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS answers_ciphertext TEXT`);
