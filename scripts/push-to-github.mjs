@@ -17,7 +17,9 @@ const DEFAULT_FILES = [
   "artifacts/api-server/src/db.ts",
   "artifacts/api-server/src/lib/ratelimit.ts",
   "artifacts/api-server/src/lib/email.ts",
+  "artifacts/api-server/src/lib/esign.ts",
   "artifacts/api-server/src/lib/logger.ts",
+  "artifacts/api-server/src/routes/docufill.ts",
   "artifacts/api-server/src/routes/scheduling.ts",
   "artifacts/api-server/src/routes/leads.ts",
   "artifacts/api-server/src/routes/pricing.ts",
@@ -26,6 +28,8 @@ const DEFAULT_FILES = [
   "artifacts/api-server/src/index.ts",
   "artifacts/west-hills-capital/src/hooks/use-scheduling.ts",
   "artifacts/west-hills-capital/src/hooks/use-pricing.ts",
+  "artifacts/west-hills-capital/src/pages/DocuFillCustomer.tsx",
+  "artifacts/west-hills-capital/src/pages/internal/DocuFill.tsx",
 ];
 
 const h = {

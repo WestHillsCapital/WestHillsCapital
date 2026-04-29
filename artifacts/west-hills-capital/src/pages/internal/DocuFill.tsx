@@ -216,6 +216,7 @@ type PackageItem = {
   embed_key: string | null;
   enable_gdrive: boolean;
   enable_hubspot: boolean;
+  auth_level: "none" | "email_otp";
 };
 
 type Session = {
@@ -505,6 +506,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     embed_key: typeof (pkg as PackageItem & Record<string, unknown>).embed_key === "string" ? (pkg as PackageItem & Record<string, unknown>).embed_key as string : null,
     enable_gdrive: (pkg as PackageItem & Record<string, unknown>).enable_gdrive === true,
     enable_hubspot: (pkg as PackageItem & Record<string, unknown>).enable_hubspot === true,
+    auth_level: (pkg as PackageItem & Record<string, unknown>).auth_level === "email_otp" ? "email_otp" as const : "none" as const,
     tags: Array.isArray((pkg as PackageItem & { tags?: unknown }).tags)
       ? ((pkg as PackageItem & { tags?: unknown }).tags as unknown[]).map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
       : [],
@@ -1619,6 +1621,7 @@ export default function DocuFill() {
           enableEmbed: pkg.enable_embed,
           enableGdrive: pkg.enable_gdrive,
           enableHubspot: pkg.enable_hubspot,
+          authLevel: pkg.auth_level,
         }),
       });
       const data = await res.json();
@@ -3987,6 +3990,21 @@ export default function DocuFill() {
                               </div>
                             )}
                           </div>
+                          {/* E-sign: identity verification level */}
+                          <button
+                            type="button"
+                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, auth_level: pkg.auth_level === "email_otp" ? "none" : "email_otp" }))}
+                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.auth_level === "email_otp" ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
+                          >
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.auth_level === "email_otp" ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
+                              <span className={`text-sm font-semibold ${selectedPackage.auth_level === "email_otp" ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>E-sign — Email Verification</span>
+                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.auth_level === "email_otp" ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
+                                {selectedPackage.auth_level === "email_otp" ? "Required" : "Off"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-[#6B7A99]">Require the customer to verify their email with a one-time code before submitting. Their name is captured as a typed legal signature and a signing certificate page is appended to the PDF.</p>
+                          </button>
                           {/* Customer Link — toggleable */}
                           <button
                             type="button"
