@@ -24,6 +24,7 @@ import {
   sendDocupleteClientConfirmationEmail,
   sendEsignOtpEmail,
   getOrgEmailSettings,
+  sendSignerConfirmationEmail,
 } from "../lib/email";
 import {
   generateOtp,
@@ -4141,6 +4142,20 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
            tsaTokenObtained: tsaTokenB64 !== null,
          })],
       ).catch(() => {});
+      // Send confirmation email with signed PDF to signer (fire-and-forget)
+      sendSignerConfirmationEmail({
+        signerEmail: esignEmail,
+        signerName:  esignSignerName!,
+        packageName: String(session.package_name ?? "Document Package"),
+        signedAt:    signedAt!,
+        pdfSha256:   pdfSha256 ?? "",
+        pdfBuffer,
+        orgName:     typeof session.org_name === "string" ? session.org_name : null,
+      }).then(() => {
+        logger.info({ to: esignEmail, token: req.params.token }, "[E-sign] Confirmation email sent to signer");
+      }).catch((err) => {
+        logger.warn({ err, to: esignEmail, token: req.params.token }, "[E-sign] Confirmation email failed (non-fatal)");
+      });
     }
     const allPublicWarnings = [...(driveWarning ? [driveWarning] : []), ...(hubspotWarning ? [hubspotWarning] : [])];
     res.json({

@@ -2327,3 +2327,131 @@ export async function sendEsignOtpEmail(params: {
 </html>`,
   });
 }
+
+// ── Signer confirmation email ─────────────────────────────────────────────────
+
+const MAX_PDF_ATTACHMENT_BYTES = 10 * 1024 * 1024; // 10 MB guard
+
+/**
+ * Send the signed PDF confirmation email to the signer after a successful
+ * e-sign generate. Fire-and-forget — never throws. Skips silently when
+ * RESEND_API_KEY is absent or the PDF buffer exceeds the 10 MB guard.
+ */
+export async function sendSignerConfirmationEmail(params: {
+  signerEmail:  string;
+  signerName:   string;
+  packageName:  string;
+  signedAt:     Date;
+  pdfSha256:    string;
+  pdfBuffer:    Buffer;
+  orgName?:     string | null;
+}): Promise<void> {
+  const shortHash = params.pdfSha256.slice(-8).toUpperCase();
+  const org       = params.orgName?.trim() || "Docuplete";
+  const dateStr   = params.signedAt.toLocaleDateString("en-US", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC",
+  });
+  const timeStr   = params.signedAt.toLocaleTimeString("en-US", {
+    hour: "2-digit", minute: "2-digit", timeZoneName: "short", timeZone: "UTC",
+  });
+
+  const attachments: EmailAttachment[] = [];
+  if (params.pdfBuffer.length <= MAX_PDF_ATTACHMENT_BYTES) {
+    const safeName = params.packageName.replace(/[^a-zA-Z0-9 _-]/g, "").trim() || "Document";
+    attachments.push({
+      filename:    `${safeName}-signed.pdf`,
+      content:     params.pdfBuffer.toString("base64"),
+      contentType: "application/pdf",
+    });
+  } else {
+    logger.warn(
+      { bytes: params.pdfBuffer.length, to: params.signerEmail },
+      "[E-sign] PDF too large for attachment — skipping attachment",
+    );
+  }
+
+  await sendEmail({
+    to:          params.signerEmail,
+    subject:     `Your signed documents — ${params.packageName}`,
+    fromName:    org,
+    attachments,
+    html: `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Your signed documents</title>
+</head>
+<body style="margin:0;padding:0;background:#F4F4F0;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr><td align="center" style="padding:40px 16px;">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0"
+           style="max-width:560px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #e5e7eb;">
+      <!-- Header -->
+      <tr>
+        <td style="background:#0F1C3F;padding:24px 32px;">
+          <p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">${org}</p>
+        </td>
+      </tr>
+      <!-- Body -->
+      <tr>
+        <td style="padding:32px;">
+          <h1 style="margin:0 0 8px;font-size:20px;font-weight:700;color:#111827;line-height:1.3;">
+            Documents signed successfully
+          </h1>
+          <p style="margin:0 0 24px;font-size:14px;color:#4b5563;line-height:1.65;">
+            Hi ${params.signerName}, your signed document packet is attached to this email.
+            Keep it for your records.
+          </p>
+
+          <!-- Detail card -->
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                 style="background:#F8F6F0;border:1px solid #e5e7eb;border-radius:8px;margin-bottom:24px;">
+            <tr>
+              <td style="padding:20px 24px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="6">
+                  <tr>
+                    <td style="font-size:12px;color:#6b7280;width:130px;padding:4px 0;vertical-align:top;">Package</td>
+                    <td style="font-size:13px;color:#111827;font-weight:600;padding:4px 0;">${params.packageName}</td>
+                  </tr>
+                  <tr>
+                    <td style="font-size:12px;color:#6b7280;padding:4px 0;vertical-align:top;">Signed by</td>
+                    <td style="font-size:13px;color:#111827;padding:4px 0;">${params.signerName}</td>
+                  </tr>
+                  <tr>
+                    <td style="font-size:12px;color:#6b7280;padding:4px 0;vertical-align:top;">Date</td>
+                    <td style="font-size:13px;color:#111827;padding:4px 0;">${dateStr} at ${timeStr}</td>
+                  </tr>
+                  <tr>
+                    <td style="font-size:12px;color:#6b7280;padding:4px 0;vertical-align:top;">Document ID</td>
+                    <td style="font-size:13px;color:#111827;font-family:monospace;padding:4px 0;">···${shortHash}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+
+          <p style="margin:0 0 8px;font-size:13px;color:#6b7280;line-height:1.6;">
+            The attached PDF includes an <strong>Electronic Signing Certificate</strong> page as its last page.
+            The full SHA-256 document hash and RFC&nbsp;3161 trusted timestamp token are on record with ${org}.
+          </p>
+          <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6;">
+            If you have questions about this document, please contact ${org} directly.
+          </p>
+        </td>
+      </tr>
+      <!-- Footer -->
+      <tr>
+        <td style="padding:16px 32px 24px;border-top:1px solid #f3f4f6;">
+          <p style="margin:0;font-size:11px;color:#9ca3af;line-height:1.6;">
+            This confirmation was generated by Docuplete on behalf of ${org}.
+            Document hash (last 8): <span style="font-family:monospace;">···${shortHash}</span>
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`,
+  });
+}
