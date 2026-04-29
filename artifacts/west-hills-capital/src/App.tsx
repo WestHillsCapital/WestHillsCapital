@@ -38,6 +38,7 @@ const Insights      = lazy(() => import("@/pages/Insights"));
 const InsightArticle = lazy(() => import("@/pages/InsightArticle"));
 const FAQ           = lazy(() => import("@/pages/FAQ"));
 const NotFound      = lazy(() => import("@/pages/not-found"));
+const Verify        = lazy(() => import("@/pages/Verify"));
 
 // ── Internal pages (lazy-loaded — never sent to public visitors) ──────────────
 const InternalProspectingPipeline = lazy(() => import("@/pages/internal/Leads"));
@@ -168,6 +169,7 @@ function Router() {
           <Route path="/insights"        component={Insights}       />
           <Route path="/insights/:slug"  component={InsightArticle} />
           <Route path="/faq"             component={FAQ}            />
+          <Route path="/verify"          component={Verify}         />
           <Route component={NotFound} />
         </Switch>
       </Suspense>
