@@ -21,7 +21,7 @@ import { PassThrough } from "node:stream";
 import { generateSecret as totpGenerateSecret, generateURI as totpGenerateURI, verifySync as totpVerifySync } from "otplib";
 import QRCode from "qrcode";
 import { createHash } from "crypto";
-import geoip from "geoip-lite";
+import geoip from "../lib/geoip";
 
 // In-process LRU cache for geoip results (max 1000 entries).
 // ES Maps preserve insertion order; true LRU is achieved by deleting and
