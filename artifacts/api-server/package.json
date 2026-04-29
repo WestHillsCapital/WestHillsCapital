@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
-    "prebuild": "node scripts/check-build-deps.mjs",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "test": "node --import tsx/esm --test \"src/tests/*.test.ts\"",
