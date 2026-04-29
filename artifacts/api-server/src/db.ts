@@ -338,6 +338,9 @@ export async function initDb(): Promise<void> {
     WHERE id = 1 AND plan_tier = 'free'
   `);
 
+  // ── Industry column ───────────────────────────────────────────────────────────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS industry TEXT`);
+
   // ── Custom domain columns ─────────────────────────────────────────────────────
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS custom_domain TEXT`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS custom_domain_status TEXT NOT NULL DEFAULT 'unverified'`);

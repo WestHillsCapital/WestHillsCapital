@@ -8,6 +8,7 @@ import { requireProductAuth } from "../middleware/requireProductAuth";
 import { requireAdminRole } from "../middleware/requireRole";
 import { linkPendingInvitation } from "../lib/auth-utils";
 import { seedDemoPackage } from "../lib/demoPackage";
+import { seedIndustryFields } from "../lib/industryFieldSeeds";
 import { insertAuditLog, getActorEmail } from "../lib/auditLog";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { sendOrgAlertEmails } from "../lib/email";
@@ -69,6 +70,7 @@ router.post("/onboard", async (req, res) => {
 
   const email: string | undefined = (req.body as { email?: string }).email?.trim().toLowerCase();
   const companyName: string | undefined = (req.body as { companyName?: string }).companyName?.trim();
+  const industry: string | undefined = (req.body as { industry?: string }).industry?.trim() || undefined;
 
   if (!email) {
     return void res.status(400).json({ error: "email is required." });
@@ -98,8 +100,8 @@ router.post("/onboard", async (req, res) => {
     const slug = `${slugBase}-${Date.now()}`;
 
     const acctResult = await getDb().query<{ id: number }>(
-      `INSERT INTO accounts (name, slug) VALUES ($1, $2) RETURNING id`,
-      [name, slug],
+      `INSERT INTO accounts (name, slug, industry) VALUES ($1, $2, $3) RETURNING id`,
+      [name, slug, industry ?? null],
     );
     const accountId = acctResult.rows[0].id;
 
@@ -117,6 +119,13 @@ router.post("/onboard", async (req, res) => {
     await seedDemoPackage(getDb(), accountId).catch((err) => {
       logger.warn({ err, accountId }, "[ProductAuth] Demo package seed failed (non-fatal)");
     });
+
+    // Seed industry-specific fields into the shared field library (non-fatal).
+    if (industry) {
+      await seedIndustryFields(getDb(), industry).catch((err) => {
+        logger.warn({ err, accountId, industry }, "[ProductAuth] Industry field seed failed (non-fatal)");
+      });
+    }
 
     return void res.status(201).json({
       accountId,
