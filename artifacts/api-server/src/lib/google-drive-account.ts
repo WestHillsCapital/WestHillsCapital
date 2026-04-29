@@ -55,7 +55,10 @@ export function generateGDriveAuthUrl(state: string, redirectUri: string): strin
   return oauth2.generateAuthUrl({
     access_type: "offline",
     prompt: "consent",
-    scope: ["https://www.googleapis.com/auth/drive"],
+    scope: [
+      "https://www.googleapis.com/auth/drive",
+      "https://www.googleapis.com/auth/userinfo.email",
+    ],
     state,
     redirect_uri: redirectUri,
   });
