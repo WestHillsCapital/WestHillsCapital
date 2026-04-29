@@ -11,6 +11,12 @@ export type ProductOrgSettings = {
   brand_color: string;
   timezone:    string;
   date_format: string;
+  // Package channel defaults — inherited by newly created packages
+  pkg_default_interview:     boolean;
+  pkg_default_csv:           boolean;
+  pkg_default_customer_link: boolean;
+  pkg_default_notify_staff:  boolean;
+  pkg_default_notify_client: boolean;
 };
 
 let cachedProductOrg: ProductOrgSettings | null = null;
