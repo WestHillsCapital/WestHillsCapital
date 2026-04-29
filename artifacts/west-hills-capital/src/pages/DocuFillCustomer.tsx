@@ -118,7 +118,7 @@ export default function DocuFillCustomer() {
   const [signerEmail, setSignerEmail] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [signerName, setSignerName] = useState("");
-  const [sigMode, setSigMode] = useState<"type" | "draw">("type");
+  const [sigMode, setSigMode] = useState<"type" | "draw">("draw");
   const [sigPadHasContent, setSigPadHasContent] = useState(false);
   const sigPadRef = useRef<SignaturePadRef>(null);
   const [identityToken, setIdentityToken] = useState<string | null>(null);
