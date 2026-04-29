@@ -16,12 +16,13 @@ import express from "express";
 import { insertAuditLog, getActorEmail } from "../lib/auditLog";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { sendOrgAlertEmails } from "../lib/email";
+import { isGDriveConfigured, generateGDriveAuthUrl, exchangeGDriveCode, parseFolderIdFromInput, verifyFolderAccess } from "../lib/google-drive-account";
 import archiver from "archiver";
 import { PassThrough } from "node:stream";
 import { generateSecret as totpGenerateSecret, generateURI as totpGenerateURI, verifySync as totpVerifySync } from "otplib";
 import QRCode from "qrcode";
 import { createHash } from "crypto";
-import geoip from "geoip-lite";
+import geoip from "../lib/geoip";
 
 // In-process LRU cache for geoip results (max 1000 entries).
 // ES Maps preserve insertion order; true LRU is achieved by deleting and
@@ -1364,8 +1365,19 @@ router.get("/integrations", requireAdminRole, async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     const [{ rows: acctRows }, { rows: keyRows }] = await Promise.all([
-      db.query<{ slack_webhook_url: string | null; slack_channel_name: string | null; slack_connected_at: Date | null }>(
-        `SELECT slack_webhook_url, slack_channel_name, slack_connected_at FROM accounts WHERE id = $1`,
+      db.query<{
+        slack_webhook_url: string | null;
+        slack_channel_name: string | null;
+        slack_connected_at: Date | null;
+        gdrive_connected_email: string | null;
+        gdrive_folder_name: string | null;
+        gdrive_connected_at: Date | null;
+        gdrive_refresh_token: string | null;
+      }>(
+        `SELECT slack_webhook_url, slack_channel_name, slack_connected_at,
+                gdrive_connected_email, gdrive_folder_name, gdrive_connected_at,
+                gdrive_refresh_token
+           FROM accounts WHERE id = $1`,
         [accountId],
       ),
       db.query<{ count: string; first_prefix: string | null }>(
@@ -1390,6 +1402,13 @@ router.get("/integrations", requireAdminRole, async (req, res) => {
           channel_name: acct?.slack_channel_name ?? null,
           connected_at: acct?.slack_connected_at?.toISOString() ?? null,
           available: !!process.env.SLACK_CLIENT_ID,
+        },
+        gdrive: {
+          connected: !!acct?.gdrive_refresh_token,
+          email: acct?.gdrive_connected_email ?? null,
+          folder_name: acct?.gdrive_folder_name ?? null,
+          connected_at: acct?.gdrive_connected_at?.toISOString() ?? null,
+          available: !!(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET),
         },
       },
     });
@@ -1523,6 +1542,146 @@ router.delete("/integrations/slack", requireAdminRole, async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Integrations] Failed to disconnect Slack");
     res.status(500).json({ error: "Failed to disconnect Slack" });
+  }
+});
+
+// ── Google Drive — per-account OAuth ─────────────────────────────────────────
+
+/**
+ * POST /integrations/gdrive/connect — generates Google OAuth URL.
+ * The frontend redirects the user to the returned URL. Google redirects back
+ * to the redirectUri (the frontend settings page with ?gdrive=1) with
+ * ?code=...&state=..., which the client exchanges via /exchange.
+ */
+router.post("/integrations/gdrive/connect", requireAdminRole, async (req, res) => {
+  if (!isGDriveConfigured()) {
+    res.status(503).json({ error: "Google Drive integration is not configured on this server." });
+    return;
+  }
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as { redirectUri?: string };
+    if (!body.redirectUri || typeof body.redirectUri !== "string") {
+      res.status(400).json({ error: "redirectUri is required" });
+      return;
+    }
+    const state = randomUUID();
+    const db = getDb();
+    await db.query(`UPDATE accounts SET gdrive_oauth_state = $1 WHERE id = $2`, [state, accountId]);
+    const url = generateGDriveAuthUrl(state, body.redirectUri);
+    if (!url) {
+      res.status(503).json({ error: "Failed to generate Google OAuth URL." });
+      return;
+    }
+    res.json({ url });
+  } catch (err) {
+    logger.error({ err }, "[Integrations] Failed to generate Google Drive OAuth URL");
+    res.status(500).json({ error: "Failed to initiate Google Drive connection" });
+  }
+});
+
+/**
+ * POST /integrations/gdrive/exchange — exchanges the OAuth code for tokens.
+ * Called by the frontend after Google redirects back with ?code=...&state=...
+ */
+router.post("/integrations/gdrive/exchange", requireAdminRole, async (req, res) => {
+  if (!isGDriveConfigured()) {
+    res.status(503).json({ error: "Google Drive integration is not configured." });
+    return;
+  }
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as { code?: string; state?: string; redirectUri?: string };
+    if (!body.code || !body.state) {
+      res.status(400).json({ error: "code and state are required" });
+      return;
+    }
+    const db = getDb();
+    const { rows } = await db.query<{ gdrive_oauth_state: string | null }>(
+      `SELECT gdrive_oauth_state FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0] || rows[0].gdrive_oauth_state !== body.state) {
+      res.status(400).json({ error: "Invalid or expired OAuth state. Please try connecting again." });
+      return;
+    }
+    const result = await exchangeGDriveCode(body.code, body.redirectUri ?? "");
+    await db.query(
+      `UPDATE accounts
+          SET gdrive_access_token = $1, gdrive_refresh_token = $2,
+              gdrive_connected_email = $3, gdrive_folder_id = $4, gdrive_folder_name = $5,
+              gdrive_connected_at = NOW(), gdrive_oauth_state = NULL
+        WHERE id = $6`,
+      [result.accessToken, result.refreshToken, result.email, result.folderId, result.folderName, accountId],
+    );
+    res.json({ success: true, email: result.email, folder_name: result.folderName });
+  } catch (err) {
+    logger.error({ err }, "[Integrations] Google Drive exchange failed");
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to connect Google Drive" });
+  }
+});
+
+/**
+ * PATCH /integrations/gdrive/folder — updates the destination folder.
+ * Accepts a folder URL or raw folder ID in the body.
+ */
+router.patch("/integrations/gdrive/folder", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as { folderInput?: string };
+    const folderId = parseFolderIdFromInput(body.folderInput ?? "");
+    if (!folderId) {
+      res.status(400).json({ error: "Provide a valid Google Drive folder URL or ID." });
+      return;
+    }
+    const db = getDb();
+    const { rows } = await db.query<{ gdrive_access_token: string | null; gdrive_refresh_token: string | null }>(
+      `SELECT gdrive_access_token, gdrive_refresh_token FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0]?.gdrive_access_token || !rows[0]?.gdrive_refresh_token) {
+      res.status(400).json({ error: "Connect Google Drive first." });
+      return;
+    }
+    let folderName: string;
+    try {
+      folderName = await verifyFolderAccess(
+        { accessToken: rows[0].gdrive_access_token, refreshToken: rows[0].gdrive_refresh_token },
+        folderId,
+      );
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : "Cannot access that folder. Make sure it is shared with your Google account." });
+      return;
+    }
+    await db.query(
+      `UPDATE accounts SET gdrive_folder_id = $1, gdrive_folder_name = $2 WHERE id = $3`,
+      [folderId, folderName, accountId],
+    );
+    res.json({ success: true, folder_name: folderName });
+  } catch (err) {
+    logger.error({ err }, "[Integrations] Failed to update Google Drive folder");
+    res.status(500).json({ error: "Failed to update folder" });
+  }
+});
+
+/** DELETE /integrations/gdrive — clears stored Google Drive credentials */
+router.delete("/integrations/gdrive", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    await db.query(
+      `UPDATE accounts
+          SET gdrive_access_token = NULL, gdrive_refresh_token = NULL,
+              gdrive_connected_email = NULL, gdrive_folder_id = NULL,
+              gdrive_folder_name = NULL, gdrive_connected_at = NULL,
+              gdrive_oauth_state = NULL
+        WHERE id = $1`,
+      [accountId],
+    );
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[Integrations] Failed to disconnect Google Drive");
+    res.status(500).json({ error: "Failed to disconnect Google Drive" });
   }
 });
 
@@ -3355,6 +3514,84 @@ router.delete("/security/sessions/:sessionId", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Security] Failed to revoke session");
     res.status(500).json({ error: "Failed to revoke session" });
+  }
+});
+
+/** GET /security/trusted-devices — list trusted devices for the current user */
+router.get("/security/trusted-devices", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const db = getDb();
+    const { rows: userRows } = await db.query(
+      `SELECT id FROM account_users WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!userRows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const userId = (userRows[0] as Record<string, unknown>).id as number;
+
+    const { rows } = await db.query(
+      `SELECT id, label, ip_address, created_at, expires_at, last_used_at
+         FROM trusted_devices
+        WHERE user_id = $1 AND expires_at > NOW()
+        ORDER BY last_used_at DESC NULLS LAST, created_at DESC
+        LIMIT 20`,
+      [userId],
+    );
+
+    res.json({
+      trustedDevices: rows.map((r) => {
+        const row = r as Record<string, unknown>;
+        return {
+          id:          row.id,
+          label:       row.label,
+          ipAddress:   row.ip_address ?? null,
+          createdAt:   row.created_at,
+          expiresAt:   row.expires_at,
+          lastUsedAt:  row.last_used_at ?? null,
+        };
+      }),
+    });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to list trusted devices");
+    res.status(500).json({ error: "Failed to list trusted devices" });
+  }
+});
+
+/** DELETE /security/trusted-devices/:deviceId — revoke a trusted device */
+router.delete("/security/trusted-devices/:deviceId", async (req, res) => {
+  try {
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+    const deviceId    = parseInt(req.params.deviceId ?? "", 10);
+    if (isNaN(deviceId)) { res.status(400).json({ error: "Invalid device ID." }); return; }
+
+    const db = getDb();
+    const { rows: userRows } = await db.query(
+      `SELECT id FROM account_users WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    if (!userRows[0]) { res.status(404).json({ error: "User not found" }); return; }
+    const userId = (userRows[0] as Record<string, unknown>).id as number;
+
+    const { rowCount } = await db.query(
+      `DELETE FROM trusted_devices WHERE id = $1 AND user_id = $2`,
+      [deviceId, userId],
+    );
+
+    if ((rowCount ?? 0) === 0) { res.status(404).json({ error: "Trusted device not found." }); return; }
+
+    const actorEmail = await getActorEmail(accountId, clerkUserId);
+    void insertAuditLog({
+      accountId, actorEmail, actorUserId: clerkUserId,
+      action: "security.trusted_device_revoked", resourceType: "trusted_device",
+      resourceId: String(deviceId),
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[Security] Failed to revoke trusted device");
+    res.status(500).json({ error: "Failed to revoke trusted device" });
   }
 });
 
