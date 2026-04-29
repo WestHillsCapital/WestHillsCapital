@@ -618,20 +618,50 @@ export async function initDb(): Promise<void> {
     ["docufill_fields_scoped_label_v1"],
   );
   if (!fieldScopeMig.rows[0]) {
-    await db.query(`DROP INDEX IF EXISTS docufill_fields_label_unique`);
-    await db.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS docufill_fields_global_label_unique
-        ON docufill_fields (lower(label)) WHERE account_id IS NULL
-    `);
-    await db.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS docufill_fields_account_label_unique
-        ON docufill_fields (account_id, lower(label)) WHERE account_id IS NOT NULL
-    `);
-    await db.query(
-      "INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
-      ["docufill_fields_scoped_label_v1"],
-    );
-    logger.info("[DB] docufill_fields_scoped_label_v1: per-scope label uniqueness applied");
+    try {
+      await db.query(`DROP INDEX IF EXISTS docufill_fields_label_unique`);
+      // Deduplicate global fields (account_id IS NULL) before building the partial
+      // unique index — production data may have duplicate labels if the global index
+      // was absent. Keep the row with the lowest sort_order (system fields first).
+      await db.query(`
+        DELETE FROM docufill_fields
+        WHERE account_id IS NULL
+          AND id NOT IN (
+            SELECT DISTINCT ON (lower(label)) id
+              FROM docufill_fields
+             WHERE account_id IS NULL
+             ORDER BY lower(label), sort_order ASC, id ASC
+          )
+      `);
+      // Deduplicate per-account fields similarly.
+      await db.query(`
+        DELETE FROM docufill_fields
+        WHERE account_id IS NOT NULL
+          AND id NOT IN (
+            SELECT DISTINCT ON (account_id, lower(label)) id
+              FROM docufill_fields
+             WHERE account_id IS NOT NULL
+             ORDER BY account_id, lower(label), sort_order ASC, id ASC
+          )
+      `);
+      await db.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS docufill_fields_global_label_unique
+          ON docufill_fields (lower(label)) WHERE account_id IS NULL
+      `);
+      await db.query(`
+        CREATE UNIQUE INDEX IF NOT EXISTS docufill_fields_account_label_unique
+          ON docufill_fields (account_id, lower(label)) WHERE account_id IS NOT NULL
+      `);
+      await db.query(
+        "INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
+        ["docufill_fields_scoped_label_v1"],
+      );
+      logger.info("[DB] docufill_fields_scoped_label_v1: per-scope label uniqueness applied");
+    } catch (migErr) {
+      // Non-fatal: log and continue so the server stays up.
+      // The migration will be retried on next restart once the data issue is resolved.
+      logger.error({ err: migErr }, "[DB] docufill_fields_scoped_label_v1 migration failed (non-fatal) — server will continue");
+    }
   }
 
   // ── Multi-tenant isolation hardening (migration v1) ───────────────────────
