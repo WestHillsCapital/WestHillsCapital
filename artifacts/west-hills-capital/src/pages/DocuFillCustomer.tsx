@@ -96,6 +96,53 @@ function CheckIcon() {
   );
 }
 
+// ─── Masked date format guide ─────────────────────────────────────────────────
+// Only rendered for fields that are both sensitive AND have validationType="date"
+// (e.g. date-of-birth). The input is type="password" so the signer can't see
+// what they typed — this guide gives character-level format feedback without
+// revealing any actual digits.
+
+const DATE_TEMPLATE = "MM/DD/YYYY";
+const DATE_SEPARATOR_POSITIONS = new Set([2, 5]);
+
+function MaskedDateFormatGuide({ value, field }: { value: string; field: { validationType?: string; validationMessage?: string } }) {
+  const isComplete = value.length >= 10;
+  const isValid = isComplete && validateFieldValue({ ...field, interviewMode: "optional" }, value) === null;
+
+  if (isValid) {
+    return (
+      <div className="mt-1.5 flex items-center gap-1 text-xs text-green-600" aria-hidden>
+        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+        <span className="font-medium">Valid date</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-1.5 flex gap-px font-mono text-xs leading-none select-none" aria-hidden>
+      {Array.from(DATE_TEMPLATE).map((templateChar, i) => {
+        const isSep = DATE_SEPARATOR_POSITIONS.has(i);
+        const inputChar = value[i];
+        if (!inputChar) {
+          return (
+            <span key={i} className={isSep ? "text-[#8A9BB8]" : "text-[#B8C4D8]"}>
+              {templateChar}
+            </span>
+          );
+        }
+        const isCorrect = isSep ? inputChar === "/" : /\d/.test(inputChar);
+        return (
+          <span key={i} className={isCorrect ? "text-green-600" : "text-red-500"}>
+            {isSep ? inputChar : "•"}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function useCountdown(target: Date | null): { secondsLeft: number; isExpired: boolean } {
   const [secondsLeft, setSecondsLeft] = useState(0);
   useEffect(() => {
@@ -148,6 +195,7 @@ export default function DocuFillCustomer() {
 
   const { secondsLeft: expirySecondsLeft, isExpired: otpExpired } = useCountdown(otpExpiresAt);
   const { secondsLeft: cooldownSecondsLeft, isExpired: cooldownExpired } = useCountdown(otpCooldownUntil);
+  const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
 
   useLayoutEffect(() => {
     if (!isEmbed) return;
@@ -918,26 +966,35 @@ export default function DocuFillCustomer() {
                     })}
                   </div>
                 ) : (
-                  <Input
-                    id={`input-${field.id}`}
-                    type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"}
-                    value={val}
-                    onChange={(e) => updateAnswer(field.id, e.target.value)}
-                    onBlur={(e) => handleFieldBlur(field, e.target.value)}
-                    style={hasFieldError || isMissing ? undefined : ringStyle}
-                    className={
-                      hasFieldError ? "border-red-400 focus-visible:ring-red-300"
-                      : isMissing ? "border-amber-400 focus-visible:ring-amber-300"
-                      : ""
-                    }
-                  />
+                  <>
+                    <Input
+                      id={`input-${field.id}`}
+                      type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"}
+                      value={val}
+                      onChange={(e) => updateAnswer(field.id, e.target.value)}
+                      onFocus={() => setFocusedFieldId(field.id)}
+                      onBlur={(e) => { handleFieldBlur(field, e.target.value); setFocusedFieldId(null); }}
+                      style={hasFieldError || isMissing ? undefined : ringStyle}
+                      className={
+                        hasFieldError ? "border-red-400 focus-visible:ring-red-300"
+                        : isMissing ? "border-amber-400 focus-visible:ring-amber-300"
+                        : ""
+                      }
+                    />
+                    {field.sensitive && field.validationType === "date" &&
+                      (focusedFieldId === field.id || val !== "") && (
+                      <MaskedDateFormatGuide value={val} field={field} />
+                    )}
+                  </>
                 )}
 
                 {fieldError && <p className="mt-1.5 text-xs text-red-600">{fieldError}</p>}
                 {(() => {
                   const hint = fieldFormatHint(field.validationType, field.validationMessage ?? undefined);
                   const hasValidValue = val.trim() !== "" && validateFieldValue(field, val) === null;
-                  return hint && !hasFieldError && !hasValidValue ? (
+                  // Suppress the static hint for sensitive date fields — the MaskedDateFormatGuide replaces it
+                  const isMaskedDate = field.sensitive && field.validationType === "date";
+                  return hint && !hasFieldError && !hasValidValue && !isMaskedDate ? (
                     <p className="mt-1.5 text-[11px] text-[#8A9BB8]">Format: {hint}</p>
                   ) : null;
                 })()}
