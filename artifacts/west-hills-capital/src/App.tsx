@@ -46,6 +46,7 @@ const DealBuilder                 = lazy(() => import("@/pages/internal/DealBuil
 const ContentEngine               = lazy(() => import("@/pages/internal/ContentEngine"));
 const DocuFillInternal            = lazy(() => import("@/pages/internal/DocuFill"));
 const SettingsInternal            = lazy(() => import("@/pages/internal/Settings"));
+const SuperAdminInternal          = lazy(() => import("@/pages/internal/SuperAdmin"));
 const DocuFillCustomer            = lazy(() => import("@/pages/DocuFillCustomer"));
 
 // ── Product portal pages (Clerk-auth, lazy-loaded) ────────────────────────────
@@ -97,6 +98,7 @@ function InternalRouter() {
         <Route path="/internal/content"              component={ContentEngine}               />
         <Route path="/internal/docufill"             component={DocuFillInternal}            />
         <Route path="/internal/settings"             component={SettingsInternal}            />
+        <Route path="/internal/super-admin"          component={SuperAdminInternal}          />
         <Route>
           <Redirect to="/internal/prospecting-pipeline" />
         </Route>
