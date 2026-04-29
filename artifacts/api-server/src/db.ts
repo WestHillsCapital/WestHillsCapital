@@ -1134,6 +1134,16 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_connected_at TIMESTAMPTZ`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS slack_oauth_state TEXT`);
 
+  // ── Google Drive — per-account OAuth credentials ──────────────────────────────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gdrive_access_token TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gdrive_refresh_token TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gdrive_connected_email TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gdrive_folder_id TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gdrive_folder_name TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gdrive_connected_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gdrive_oauth_state TEXT`);
+  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS enable_gdrive BOOLEAN NOT NULL DEFAULT false`);
+
   // ── Per-user notification preferences ────────────────────────────────────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS user_notification_prefs (

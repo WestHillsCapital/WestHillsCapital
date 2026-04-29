@@ -16,6 +16,7 @@ import {
   type DocuFillFieldItem,
 } from "../lib/docufill-redaction";
 import { saveDocuFillPacketToDrive } from "../lib/google-drive";
+import { uploadSessionPdfToAccountDrive } from "../lib/google-drive-account";
 import {
   sendInterviewLinkEmail,
   sendDocupleteStaffSubmissionEmail,
@@ -114,6 +115,7 @@ type PackageInput = {
   notifyStaffOnSubmit?: boolean;
   notifyClientOnSubmit?: boolean;
   enableEmbed?: boolean;
+  enableGdrive?: boolean;
 };
 
 type DocItem = {
@@ -965,11 +967,13 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
             p.webhook_enabled, p.webhook_url,
             p.notify_staff_on_submit, p.notify_client_on_submit,
             p.enable_embed, p.embed_key,
+            p.enable_gdrive,
             p.account_id AS package_account_id,
             c.name AS custodian_name, d.name AS depository_name, g.name AS group_name,
             a.name AS org_name,
             CASE WHEN a.logo_url IS NOT NULL THEN '/api/storage/org-logo/' || a.id::text ELSE NULL END AS org_logo_url,
-            a.brand_color AS org_brand_color
+            a.brand_color AS org_brand_color,
+            a.gdrive_access_token, a.gdrive_refresh_token, a.gdrive_folder_id
        FROM docufill_interview_sessions s
        JOIN docufill_packages p ON p.id = s.package_id
        LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
@@ -2013,8 +2017,9 @@ router.patch("/packages/:id", async (req, res) => {
           enable_customer_link=$14, tags=$15::jsonb, webhook_enabled=$16, webhook_url=$17,
           notify_staff_on_submit=$18, notify_client_on_submit=$19,
           enable_embed=$20, embed_key=COALESCE($21, embed_key),
+          enable_gdrive=$22,
           version=version+1, updated_at=NOW()
-        WHERE id=$22 AND account_id=$23
+        WHERE id=$23 AND account_id=$24
         RETURNING *`,
       [
         name,
@@ -2043,6 +2048,8 @@ router.patch("/packages/:id", async (req, res) => {
           if (willEnable && !existing.embed_key) return `emb_${randomBytes(16).toString("base64url")}`;
           return null; // null → COALESCE keeps existing key
         })(),
+        // $22 enable_gdrive
+        body.enableGdrive === undefined ? (existing.enable_gdrive ?? false) : Boolean(body.enableGdrive),
         id,
         accountId,
       ],
@@ -3249,6 +3256,31 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
         logger.error({ err, token: req.params.token }, "[DocuFill] Failed to save packet to Drive");
       }
     }
+    // Per-account Google Drive upload (enable_gdrive channel)
+    if (!driveResult && session.enable_gdrive === true) {
+      const accessToken = typeof session.gdrive_access_token === "string" ? session.gdrive_access_token : null;
+      const refreshToken = typeof session.gdrive_refresh_token === "string" ? session.gdrive_refresh_token : null;
+      const folderId = typeof session.gdrive_folder_id === "string" ? session.gdrive_folder_id : null;
+      if (accessToken && refreshToken && folderId) {
+        try {
+          const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+          driveResult = await uploadSessionPdfToAccountDrive(
+            { accessToken, refreshToken },
+            folderId,
+            pdfBuffer,
+            {
+              firstName: cleanText(prefill.firstName),
+              lastName: cleanText(prefill.lastName),
+              packageName: String(session.package_name ?? "Docuplete"),
+              generatedAt,
+            },
+          );
+        } catch (err) {
+          driveWarning = err instanceof Error ? err.message : "Could not save packet to Google Drive";
+          logger.error({ err, token: req.params.token }, "[DocuFill] Per-account Drive upload failed");
+        }
+      }
+    }
     await db.query(
       `UPDATE docufill_interview_sessions
           SET status='generated',
@@ -3538,6 +3570,31 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
       } catch (err) {
         driveWarning = err instanceof Error ? err.message : "Could not save packet to Google Drive";
         logger.error({ err, token: req.params.token }, "[DocuFill] Failed to save public packet to Drive");
+      }
+    }
+    // Per-account Google Drive upload (enable_gdrive channel)
+    if (!driveResult && session.enable_gdrive === true) {
+      const accessToken = typeof session.gdrive_access_token === "string" ? session.gdrive_access_token : null;
+      const refreshToken = typeof session.gdrive_refresh_token === "string" ? session.gdrive_refresh_token : null;
+      const folderId = typeof session.gdrive_folder_id === "string" ? session.gdrive_folder_id : null;
+      if (accessToken && refreshToken && folderId) {
+        try {
+          const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+          driveResult = await uploadSessionPdfToAccountDrive(
+            { accessToken, refreshToken },
+            folderId,
+            pdfBuffer,
+            {
+              firstName: cleanText(prefill.firstName),
+              lastName: cleanText(prefill.lastName),
+              packageName: String(session.package_name ?? "Docuplete"),
+              generatedAt,
+            },
+          );
+        } catch (err) {
+          driveWarning = err instanceof Error ? err.message : "Could not save packet to Google Drive";
+          logger.error({ err, token: req.params.token }, "[DocuFill] Per-account Drive upload failed (public submit)");
+        }
       }
     }
     await db.query(
