@@ -14,9 +14,9 @@ const nodeBuiltins = new Set(builtinModules);
 
 // Collect all static import specifiers from a source string.
 // Matches:  import ... from "pkg"  |  import("pkg")  |  require("pkg")
-const importRe = /(?:^|\s)import\s[^'"]*['"]([^'"]+)['"]/gm;
-const dynamicRe = /import\(['"]([^'"]+)['"]\)/g;
-const requireRe = /\brequire\(['"]([^'"]+)['"]\)/g;
+const importRe = /(?:^|\s)import\s[^'"\n]*['"]([^'"\n]+)['"]/gm;
+const dynamicRe = /import\(['"]([^'"\n]+)['"]\)/g;
+const requireRe = /\brequire\(['"]([^'"\n]+)['"]\)/g;
 
 export function collectSpecifiers(src) {
   const specifiers = new Set();

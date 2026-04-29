@@ -88,6 +88,19 @@ describe("collectSpecifiers", () => {
     const second = [...collectSpecifiers(src)].sort();
     assert.deepEqual(first, second);
   });
+
+  it("does not produce false positives from 'import' in a JSDoc comment with a later apostrophe", () => {
+    const src = [
+      `/**`,
+      ` * Exported so tests can import without triggering the script's`,
+      ` * top-level side-effects.`,
+      ` */`,
+      `import express from "express";`,
+    ].join("\n");
+    const specs = collectSpecifiers(src);
+    assert.ok(specs.has("express"), "should still detect the real import");
+    assert.equal(specs.size, 1, "should not produce extra false-positive specifiers from the comment");
+  });
 });
 
 // ── 2. pkgName ────────────────────────────────────────────────────────────────
