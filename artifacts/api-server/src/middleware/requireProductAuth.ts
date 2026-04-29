@@ -72,8 +72,8 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
   }
 
   try {
-    const result = await getDb().query<{ id: number; account_id: number; role: string; totp_enabled: boolean }>(
-      `SELECT id, account_id, role, totp_enabled FROM account_users
+    const result = await getDb().query<{ id: number; account_id: number; role: string; email: string; totp_enabled: boolean }>(
+      `SELECT id, account_id, role, email, totp_enabled FROM account_users
         WHERE clerk_user_id = $1 AND status = 'active'
         LIMIT 1`,
       [clerkUserId],
@@ -142,6 +142,7 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
 
       req.internalAccountId = result.rows[0].account_id;
       req.productUserRole   = result.rows[0].role;
+      req.productUserEmail  = result.rows[0].email;
 
       // Fire-and-forget: stamp last_seen_at and upsert the session record
       getDb()
@@ -180,6 +181,7 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
     if (linked) {
       req.internalAccountId = linked.account_id;
       req.productUserRole   = linked.role;
+      req.productUserEmail  = linked.email;
       return next();
     }
 
