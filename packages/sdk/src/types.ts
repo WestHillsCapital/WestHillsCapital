@@ -29,8 +29,16 @@ export type Account = components["schemas"]["AccountInfo"];
 export interface CreateSessionParams {
   packageId: number;
   prefill?: Record<string, unknown>;
+  recipientEmail?: string;
   transactionScope?: string;
   source?: string;
+}
+
+export interface GenerateSessionResult {
+  packet: Record<string, unknown>;
+  downloadUrl: string;
+  drive: { fileId: string; url: string } | null;
+  warnings: string[];
 }
 
 export interface ListSessionsParams {

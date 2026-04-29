@@ -12,14 +12,20 @@ export type {
   Account,
   CreateSessionParams,
   ListSessionsParams,
+  GenerateSessionResult,
 } from "./types.js";
 export { DocupleteError } from "./client.js";
-export type { CreateSessionResult } from "./resources/sessions.js";
+export type { CreateSessionResult, SendLinkParams } from "./resources/sessions.js";
+export {
+  verifyWebhookSignature,
+  constructWebhookEvent,
+  type WebhookPayload,
+} from "./webhooks.js";
 
 export class Docuplete {
   readonly packages: PackagesResource;
   readonly sessions: SessionsResource;
-  readonly account: AccountResource;
+  readonly account:  AccountResource;
 
   private readonly _client: DocupleteClient;
 
