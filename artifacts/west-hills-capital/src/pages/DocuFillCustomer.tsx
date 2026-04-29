@@ -7,6 +7,14 @@ import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SESSION_BASE = `${API_BASE}/api/v1/docufill/public/sessions`;
 
+/** Turn camelCase / snake_case keys into readable labels: "firstName" → "First Name" */
+function humanizeKey(key: string): string {
+  return key
+    .replace(/_/g, " ")
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 type FieldInterviewMode = "required" | "optional" | "readonly" | "omitted";
 
 type FieldCondition = {
@@ -694,15 +702,15 @@ export default function DocuFillCustomer() {
           <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{errorMsg}</div>
         )}
 
-        {/* Prefill context — show what advisor already provided */}
+        {/* Prefill context — show what was pre-filled on this session */}
         {Object.keys(session!.prefill ?? {}).filter((k) => String(session!.prefill[k] ?? "").trim()).length > 0 && (
-          <div className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-            <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Provided by your advisor</div>
-            <div className="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+          <div className="rounded-lg border border-[#DDD5C4] bg-[#FAFAF8] px-4 py-3">
+            <div className="text-[11px] font-semibold text-[#8A9BB8] uppercase tracking-wider mb-2">Information on file</div>
+            <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
               {Object.entries(session!.prefill).filter(([, v]) => String(v ?? "").trim()).map(([key, value]) => (
-                <div key={key} className="flex gap-1.5">
-                  <span className="text-[#8A9BB8] shrink-0">{key}:</span>
-                  <span className="text-[#0F1C3F] font-medium">{String(value)}</span>
+                <div key={key} className="flex gap-2 min-w-0">
+                  <span className="text-[#8A9BB8] shrink-0 w-24 truncate">{humanizeKey(key)}</span>
+                  <span className="text-[#0F1C3F] font-medium truncate">{String(value)}</span>
                 </div>
               ))}
             </div>
