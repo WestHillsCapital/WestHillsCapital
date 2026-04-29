@@ -28,7 +28,7 @@ type FieldItem = {
   id: string;
   name: string;
   color: string;
-  type: "text" | "date" | "radio" | "checkbox" | "dropdown";
+  type: "text" | "date" | "radio" | "checkbox" | "dropdown" | "initials";
   interviewMode: FieldInterviewMode;
   options?: string[];
   sensitive?: boolean;
@@ -56,7 +56,7 @@ type SessionData = {
   signer_name?: string | null;
 };
 
-type EsignStep = "email" | "code" | "consent";
+type EsignStep = "email" | "code" | "initials" | "consent";
 
 function fieldIsRequired(field: FieldItem): boolean {
   return field.interviewMode === "required";
@@ -202,6 +202,11 @@ export default function DocuFillCustomer() {
   const [sigPadHasContent, setSigPadHasContent] = useState(false);
   const sigPadRef = useRef<SignaturePadRef>(null);
   const [identityToken, setIdentityToken] = useState<string | null>(null);
+  // Initials step state
+  const [initialsMode, setInitialsMode] = useState<"draw" | "type">("draw");
+  const [typedInitials, setTypedInitials] = useState("");
+  const [initPadHasContent, setInitPadHasContent] = useState(false);
+  const initPadRef = useRef<SignaturePadRef>(null);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [otpExpiresAt, setOtpExpiresAt] = useState<Date | null>(null);
@@ -284,8 +289,14 @@ export default function DocuFillCustomer() {
     });
   }
 
+  // Initials fields are collected in their own e-sign step, not the interview form
+  const initialsFields = (session?.fields ?? []).filter(
+    (f) => f.type === "initials" && f.interviewMode !== "omitted",
+  );
+  const hasInitialsStep = initialsFields.length > 0 && session?.auth_level === "email_otp";
+
   const visibleFields = (session?.fields ?? []).filter(
-    (f) => f.interviewMode !== "omitted" && evaluateCondition(f.condition, answers),
+    (f) => f.interviewMode !== "omitted" && f.type !== "initials" && evaluateCondition(f.condition, answers),
   );
 
   function validate(): boolean {
@@ -358,12 +369,26 @@ export default function DocuFillCustomer() {
         return;
       }
       setIdentityToken(data.identityToken as string);
-      setEsignStep("consent");
+      setEsignStep(hasInitialsStep ? "initials" : "consent");
     } catch {
       setOtpError("A network error occurred. Please try again.");
     } finally {
       setOtpLoading(false);
     }
+  }
+
+  function handleInitialsContinue() {
+    const value = initialsMode === "draw"
+      ? (initPadRef.current?.getDataUrl() ?? "")
+      : typedInitials.trim();
+    if (!value) return;
+    const next = { ...answers };
+    for (const f of initialsFields) {
+      next[f.id] = value;
+    }
+    setAnswers(next);
+    scheduleAutoSave(next);
+    setEsignStep("consent");
   }
 
   async function handleSubmit() {
@@ -519,9 +544,12 @@ export default function DocuFillCustomer() {
         <main className={`max-w-2xl mx-auto px-4 space-y-6 ${isEmbed ? "py-6" : "py-8"}`}>
           {/* Progress stepper */}
           <div className="flex items-center gap-2 text-xs text-[#6B7A99]">
-            {(["email", "code", "consent"] as EsignStep[]).map((s, i) => {
-              const labels: Record<EsignStep, string> = { email: "Email", code: "Verify", consent: "Sign" };
-              const stepIdx = ["email", "code", "consent"].indexOf(esignStep!);
+            {(hasInitialsStep
+              ? ["email", "code", "initials", "consent"]
+              : ["email", "code", "consent"] as EsignStep[]
+            ).map((s, i, arr) => {
+              const labels: Record<EsignStep, string> = { email: "Email", code: "Verify", initials: "Initials", consent: "Sign" };
+              const stepIdx = arr.indexOf(esignStep!);
               const done = i < stepIdx;
               const active = i === stepIdx;
               return (
@@ -531,7 +559,7 @@ export default function DocuFillCustomer() {
                     <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border ${active ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : done ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-white text-[#8A9BB8] border-[#DDD5C4]"}`}>
                       {done ? "✓" : i + 1}
                     </div>
-                    <span>{labels[s]}</span>
+                    <span>{labels[s as EsignStep]}</span>
                   </div>
                 </div>
               );
@@ -656,6 +684,95 @@ export default function DocuFillCustomer() {
             </div>
           )}
 
+          {/* Initials step */}
+          {esignStep === "initials" && (
+            <div className="bg-white rounded-xl border border-[#DDD5C4] p-6 space-y-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[#0F1C3F]">Add your initials</h2>
+                <p className="text-sm text-[#6B7A99] mt-1">
+                  This document requires your initials. Draw or type them below.
+                </p>
+              </div>
+              {/* Draw/type toggle */}
+              <div className="flex items-center gap-1 rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-1 w-fit">
+                <button
+                  type="button"
+                  onClick={() => setInitialsMode("draw")}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${initialsMode === "draw" ? "bg-white shadow-sm text-[#0F1C3F] font-medium" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                >
+                  Draw
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setInitialsMode("type")}
+                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${initialsMode === "type" ? "bg-white shadow-sm text-[#0F1C3F] font-medium" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                >
+                  Type
+                </button>
+              </div>
+              {/* Draw pad */}
+              {initialsMode === "draw" && (
+                <div className="space-y-1.5">
+                  <SignaturePad
+                    ref={initPadRef}
+                    width={220}
+                    height={80}
+                    onChange={setInitPadHasContent}
+                    className="w-full max-w-xs"
+                  />
+                  <div className="flex justify-end max-w-xs">
+                    <button
+                      type="button"
+                      onClick={() => { initPadRef.current?.clear(); }}
+                      disabled={!initPadHasContent}
+                      className="text-xs text-[#8A9BB8] hover:text-[#0F1C3F] disabled:opacity-40"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
+              {/* Type input */}
+              {initialsMode === "type" && (
+                <div className="space-y-2">
+                  <Input
+                    type="text"
+                    value={typedInitials}
+                    onChange={(e) => setTypedInitials(e.target.value.toUpperCase().slice(0, 4))}
+                    placeholder="e.g. JD"
+                    maxLength={4}
+                    autoFocus
+                    className="max-w-xs font-mono text-xl tracking-widest text-center"
+                  />
+                  {typedInitials.trim() && (
+                    <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] p-3 max-w-xs">
+                      <p className="text-[10px] text-[#8A9BB8] uppercase tracking-wide mb-1">Initials preview</p>
+                      <p className="text-xl font-serif italic text-[#0F1C3F]">{typedInitials}</p>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  onClick={() => { setEsignStep("code"); setOtpError(""); setOtpCode(""); setIdentityToken(null); }}
+                  variant="outline"
+                  className="border-[#DDD5C4] text-[#6B7A99] hover:bg-[#F8F6F0]"
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handleInitialsContinue}
+                  disabled={initialsMode === "draw" ? !initPadHasContent : !typedInitials.trim()}
+                  className="flex-1 bg-[#0F1C3F] hover:bg-[#182B5F]"
+                >
+                  Continue
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Consent / signature step */}
           {esignStep === "consent" && (
             <div className="bg-white rounded-xl border border-[#DDD5C4] p-6 space-y-4">
@@ -760,7 +877,7 @@ export default function DocuFillCustomer() {
               <div className="flex gap-3">
                 <Button
                   type="button"
-                  onClick={() => { setEsignStep("code"); setOtpError(""); setOtpCode(""); setIdentityToken(null); }}
+                  onClick={() => { setEsignStep(hasInitialsStep ? "initials" : "code"); if (!hasInitialsStep) { setOtpError(""); setOtpCode(""); setIdentityToken(null); } }}
                   variant="outline"
                   className="border-[#DDD5C4] text-[#6B7A99] hover:bg-[#F8F6F0]"
                   disabled={pageStatus === "submitting"}

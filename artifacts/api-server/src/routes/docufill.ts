@@ -1117,6 +1117,7 @@ async function buildPacketPdfBuffer(
     });
     const merged = await PdfLibDocument.create();
     const font = await merged.embedFont(StandardFonts.Helvetica);
+    const italicFont = await merged.embedFont(StandardFonts.HelveticaOblique);
     const storedRowById = new Map(storedRows.map((row) => [row.document_id, row]));
     for (const sourceDoc of storedDocuments) {
       const row = storedRowById.get(sourceDoc.id);
@@ -1137,6 +1138,40 @@ async function buildPacketPdfBuffer(
         const yTop = height - (Number(mapping.y ?? 0) / 100) * height;
         const boxHeight = Math.max(14, (clampNumber(mapping.h, 10, 1, 100) / 100) * height);
         const maxWidth = Math.max(18, (clampNumber(mapping.w, 26, 2, 100) / 100) * width);
+
+        // Initials field: overlay drawn PNG or typed italic initials
+        if (field.type === "initials") {
+          const rawValue = fieldAnswerValue(field, answers, prefill);
+          if (rawValue.startsWith("data:image/png;base64,")) {
+            try {
+              const base64Data = rawValue.replace(/^data:image\/png;base64,/, "");
+              const imgBytes = Buffer.from(base64Data, "base64");
+              const embeddedImg = await merged.embedPng(imgBytes);
+              const imgDims = embeddedImg.scaleToFit(maxWidth, boxHeight);
+              page.drawImage(embeddedImg, {
+                x,
+                y: yTop - boxHeight + (boxHeight - imgDims.height) / 2,
+                width: imgDims.width,
+                height: imgDims.height,
+              });
+            } catch {
+              // fallback: draw the first few chars as italic text
+              const text = rawValue.slice(0, 6);
+              if (text.trim()) {
+                const fontSize = clampNumber(mapping.fontSize, 11, 6, 18);
+                const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize * 0.2 + 2));
+                page.drawText(text.trim(), { x, y: yDraw, size: fontSize, font: italicFont, color: rgb(0, 0, 0) });
+              }
+            }
+          } else if (rawValue.trim()) {
+            // Typed initials — render as oblique text
+            const text = rawValue.trim().slice(0, 6);
+            const fontSize = clampNumber(mapping.fontSize, 11, 6, 18);
+            const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize * 0.2 + 2));
+            page.drawText(text, { x, y: yDraw, size: fontSize, font: italicFont, color: rgb(0, 0, 0) });
+          }
+          continue;
+        }
 
         // Signature field: overlay drawn PNG or italic typed name
         if (mapping.format === "signature") {
