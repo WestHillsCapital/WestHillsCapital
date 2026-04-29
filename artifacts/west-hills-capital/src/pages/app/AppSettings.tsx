@@ -924,6 +924,7 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
 interface IntegrationsStatus {
   zapier: { api_key_count: number; first_key_prefix: string | null; available: boolean };
   slack: { connected: boolean; channel_name: string | null; connected_at: string | null; available: boolean };
+  gdrive: { connected: boolean; email: string | null; folder_name: string | null; connected_at: string | null; available: boolean };
 }
 
 function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
@@ -941,6 +942,13 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
   const [slackError, setSlackError] = useState<string | null>(null);
   const [slackSuccess, setSlackSuccess] = useState<string | null>(null);
 
+  const [gdriveConnecting, setGdriveConnecting] = useState(false);
+  const [gdriveDisconnecting, setGdriveDisconnecting] = useState(false);
+  const [gdriveError, setGdriveError] = useState<string | null>(null);
+  const [gdriveSuccess, setGdriveSuccess] = useState<string | null>(null);
+  const [gdriveFolderInput, setGdriveFolderInput] = useState("");
+  const [gdriveUpdatingFolder, setGdriveUpdatingFolder] = useState(false);
+
   function loadStatus() {
     setIsLoading(true);
     fetch(`${SETTINGS_BASE}/integrations`, { headers: authHeaders() })
@@ -956,17 +964,47 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
   useEffect(() => {
     loadStatus();
 
-    // Handle Slack OAuth callback — Slack redirects back to this page with ?code=&state=
+    // Handle OAuth callbacks — providers redirect back to this page with ?code=&state=
     const params = new URLSearchParams(window.location.search);
     const code = params.get("code");
     const state = params.get("state");
     const oauthError = params.get("error");
+    const isGdrive = params.get("gdrive") === "1";
 
     // Clean the URL immediately so params don't linger on refresh
-    if (code || state || oauthError) {
+    if (code || state || oauthError || isGdrive) {
       window.history.replaceState({}, "", window.location.pathname);
     }
 
+    if (isGdrive) {
+      // Google Drive OAuth callback
+      if (oauthError === "access_denied") {
+        setGdriveError("Google Drive connection was cancelled.");
+        return;
+      }
+      if (code && state) {
+        const redirectUri = window.location.origin + window.location.pathname + "?gdrive=1";
+        setGdriveConnecting(true);
+        const headers = new Headers(getAuthHeaders());
+        headers.set("Content-Type", "application/json");
+        fetch(`${SETTINGS_BASE}/integrations/gdrive/exchange`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ code, state, redirectUri }),
+        })
+          .then(async (r) => {
+            const data = await r.json() as { success?: boolean; email?: string; folder_name?: string; error?: string };
+            if (!r.ok) { setGdriveError(data.error ?? "Failed to connect Google Drive."); return; }
+            setGdriveSuccess(`Connected as ${data.email ?? "your Google account"}. Files will be saved to "${data.folder_name ?? "Docuplete Submissions"}".`);
+            loadStatus();
+          })
+          .catch(() => setGdriveError("Failed to connect Google Drive."))
+          .finally(() => setGdriveConnecting(false));
+      }
+      return;
+    }
+
+    // Slack OAuth callback
     if (oauthError === "access_denied") {
       setSlackError("Slack connection was cancelled.");
       return;
@@ -1027,6 +1065,65 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
       setSlackError("Failed to disconnect Slack.");
     } finally {
       setSlackDisconnecting(false);
+    }
+  }
+
+  async function handleGdriveConnect() {
+    setGdriveError(null);
+    setGdriveConnecting(true);
+    try {
+      const redirectUri = window.location.origin + window.location.pathname + "?gdrive=1";
+      const res = await fetch(`${SETTINGS_BASE}/integrations/gdrive/connect`, {
+        method: "POST",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({ redirectUri }),
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) { setGdriveError(data.error ?? "Failed to initiate Google Drive connection."); setGdriveConnecting(false); return; }
+      window.location.href = data.url;
+    } catch {
+      setGdriveError("Failed to initiate Google Drive connection.");
+      setGdriveConnecting(false);
+    }
+  }
+
+  async function handleGdriveDisconnect() {
+    setGdriveDisconnecting(true);
+    setGdriveError(null);
+    setGdriveSuccess(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/integrations/gdrive`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (!res.ok) { setGdriveError("Failed to disconnect Google Drive."); return; }
+      loadStatus();
+    } catch {
+      setGdriveError("Failed to disconnect Google Drive.");
+    } finally {
+      setGdriveDisconnecting(false);
+    }
+  }
+
+  async function handleGdriveUpdateFolder() {
+    if (!gdriveFolderInput.trim()) return;
+    setGdriveUpdatingFolder(true);
+    setGdriveError(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/integrations/gdrive/folder`, {
+        method: "PATCH",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({ folderInput: gdriveFolderInput }),
+      });
+      const data = await res.json() as { success?: boolean; folder_name?: string; error?: string };
+      if (!res.ok) { setGdriveError(data.error ?? "Could not update folder."); return; }
+      setGdriveFolderInput("");
+      setGdriveSuccess(`Folder updated to "${data.folder_name ?? gdriveFolderInput}".`);
+      loadStatus();
+    } catch {
+      setGdriveError("Failed to update folder.");
+    } finally {
+      setGdriveUpdatingFolder(false);
     }
   }
 
@@ -1156,6 +1253,87 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                       className="rounded-lg bg-[#4A154B] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#611565] disabled:opacity-60 transition-colors"
                     >
                       Add to Slack
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* ── Google Drive card ───────────────────────────────────────── */}
+            <div className="rounded-xl border border-gray-200 p-5 flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#1AA260] flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M6.18 17.01a5.09 5.09 0 01-3.6-1.49A5.12 5.12 0 011.1 12a5.07 5.07 0 011.49-3.6A5.07 5.07 0 016.18 6.9h2.18V9H6.18a3.01 3.01 0 000 6.02h2.18v2.09H6.18zm11.64 0h-2.18v-2.09h2.18a3.01 3.01 0 000-6.02h-2.18V6.9h2.18a5.07 5.07 0 013.6 1.49A5.09 5.09 0 0122.91 12a5.12 5.12 0 01-1.49 3.52 5.07 5.07 0 01-3.6 1.49zM8.09 13.09v-2.18h7.82v2.18H8.09z" /></svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Google Drive</p>
+                  <p className="text-[10px] text-gray-400">Auto-save submitted packets</p>
+                </div>
+                {status?.gdrive.connected
+                  ? <span className="ml-auto inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Connected</span>
+                  : <span className="ml-auto inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">Not connected</span>
+                }
+              </div>
+
+              {gdriveConnecting && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin shrink-0" />
+                  Connecting to Google Drive…
+                </div>
+              )}
+              {gdriveError && <p className="text-xs text-red-600">{gdriveError}</p>}
+              {gdriveSuccess && <p className="text-xs text-green-700">{gdriveSuccess}</p>}
+
+              {status?.gdrive.connected ? (
+                <>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Connected as <span className="font-medium text-gray-700">{status.gdrive.email ?? "your Google account"}</span>.
+                    Submitted packets are saved to <span className="font-medium text-gray-700">"{status.gdrive.folder_name ?? "Docuplete Submissions"}"</span>.
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="text"
+                      placeholder="Paste a different folder URL to change"
+                      value={gdriveFolderInput}
+                      onChange={(e) => setGdriveFolderInput(e.target.value)}
+                      className="flex-1 min-w-0 text-xs rounded-lg border border-gray-200 px-3 py-1.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
+                    />
+                    <button
+                      type="button"
+                      disabled={gdriveUpdatingFolder || !gdriveFolderInput.trim()}
+                      onClick={() => { void handleGdriveUpdateFolder(); }}
+                      className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-40 transition-colors shrink-0"
+                    >
+                      {gdriveUpdatingFolder ? "Updating…" : "Update"}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={gdriveDisconnecting}
+                    onClick={() => { void handleGdriveDisconnect(); }}
+                    className="mt-auto pt-1 text-xs text-gray-400 hover:text-red-600 transition-colors text-left disabled:opacity-60"
+                  >
+                    {gdriveDisconnecting ? "Disconnecting…" : "Disconnect Google Drive"}
+                  </button>
+                </>
+              ) : !status?.gdrive.available ? (
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  Google Drive integration is not enabled on this server. Contact your administrator to configure <code className="font-mono">GOOGLE_OAUTH_CLIENT_ID</code>.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Automatically save a copy of every completed PDF packet to a folder in your Google Drive.
+                    Enable the Google Drive channel on any DocuFill package to activate.
+                  </p>
+                  <div className="mt-auto pt-1">
+                    <button
+                      type="button"
+                      disabled={gdriveConnecting}
+                      onClick={() => { void handleGdriveConnect(); }}
+                      className="rounded-lg bg-[#1AA260] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#158a51] disabled:opacity-60 transition-colors"
+                    >
+                      Connect Google Drive
                     </button>
                   </div>
                 </>
@@ -3046,6 +3224,15 @@ interface TwoFAStatus {
   backupCodesRemaining: number;
 }
 
+interface TrustedDevice {
+  id: number;
+  label: string;
+  ipAddress: string | null;
+  createdAt: string;
+  expiresAt: string;
+  lastUsedAt: string | null;
+}
+
 interface ActiveSession {
   id: number;
   isCurrent: boolean;
@@ -3160,10 +3347,14 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
   }
 
   const [twoFA, setTwoFA] = useState<TwoFAStatus | null>(null);
+  const [trustedDevices, setTrustedDevices] = useState<TrustedDevice[]>([]);
   const [sessions, setSessions] = useState<ActiveSession[]>([]);
   const [loginHistory, setLoginHistory] = useState<LoginEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [revokingDeviceId, setRevokingDeviceId] = useState<number | null>(null);
+  const [revokeDeviceError, setRevokeDeviceError] = useState<string | null>(null);
 
   const [setupStep, setSetupStep] = useState<"idle" | "scan" | "verify" | "codes">("idle");
   const [setupQr, setSetupQr] = useState<string | null>(null);
@@ -3188,16 +3379,19 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
       fetch(`${SETTINGS_BASE}/security/2fa/status`, { headers: authHeaders() }).then((r) => r.json()),
       fetch(`${SETTINGS_BASE}/security/sessions`, { headers: authHeaders() }).then((r) => r.json()),
       fetch(`${SETTINGS_BASE}/security/login-history`, { headers: authHeaders() }).then((r) => r.json()),
+      fetch(`${SETTINGS_BASE}/security/trusted-devices`, { headers: authHeaders() }).then((r) => r.json()),
     ])
-      .then(([fa, sess, hist]) => {
-        const faData = fa as { enabled?: boolean; backupCodesRemaining?: number; error?: string };
-        const sessData = sess as { sessions?: ActiveSession[]; error?: string };
-        const histData = hist as { history?: LoginEntry[]; error?: string };
-        const firstError = faData.error ?? sessData.error ?? histData.error;
+      .then(([fa, sess, hist, devices]) => {
+        const faData      = fa as { enabled?: boolean; backupCodesRemaining?: number; error?: string };
+        const sessData    = sess as { sessions?: ActiveSession[]; error?: string };
+        const histData    = hist as { history?: LoginEntry[]; error?: string };
+        const devicesData = devices as { trustedDevices?: TrustedDevice[]; error?: string };
+        const firstError = faData.error ?? sessData.error ?? histData.error ?? devicesData.error;
         if (firstError) { setLoadError(firstError); return; }
         setTwoFA({ enabled: faData.enabled ?? false, backupCodesRemaining: faData.backupCodesRemaining ?? 0 });
         setSessions(sessData.sessions ?? []);
         setLoginHistory(histData.history ?? []);
+        setTrustedDevices(devicesData.trustedDevices ?? []);
       })
       .catch(() => setLoadError("Failed to load security info"))
       .finally(() => setIsLoading(false));
@@ -3274,6 +3468,21 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
       setSessions((prev) => prev.filter((s) => s.id !== sessionId));
     } catch { setRevokeError("Failed to revoke session"); }
     finally { setRevokingId(null); }
+  }
+
+  async function handleRevokeTrustedDevice(deviceId: number) {
+    setRevokingDeviceId(deviceId);
+    setRevokeDeviceError(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/security/trusted-devices/${deviceId}`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      const data = await res.json() as { success?: boolean; error?: string };
+      if (!res.ok) { setRevokeDeviceError(data.error ?? "Failed to revoke trusted device"); return; }
+      setTrustedDevices((prev) => prev.filter((d) => d.id !== deviceId));
+    } catch { setRevokeDeviceError("Failed to revoke trusted device"); }
+    finally { setRevokingDeviceId(null); }
   }
 
   function deviceIcon(device: string) {
@@ -3468,6 +3677,46 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
               </div>
             )}
           </div>
+
+          {/* ── Trusted Devices ───────────────────────────────────────────────── */}
+          {twoFA?.enabled && (
+            <div className="px-6 py-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-medium text-gray-900">Trusted devices</p>
+                <span className="text-xs text-gray-400">{trustedDevices.length === 0 ? "None" : `${trustedDevices.length} active`}</span>
+              </div>
+              {revokeDeviceError && (
+                <p className="text-xs text-red-600 mb-2">{revokeDeviceError}</p>
+              )}
+              {trustedDevices.length === 0 ? (
+                <p className="text-xs text-gray-400 italic">No trusted devices. Check "Remember this device for 30 days" when verifying 2FA to skip the prompt on trusted machines.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {trustedDevices.map((d) => (
+                    <li key={d.id} className="flex items-center gap-3 rounded-lg border border-gray-100 bg-white px-3 py-2.5">
+                      <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25A2.25 2.25 0 015.25 3h13.5A2.25 2.25 0 0121 5.25z" />
+                      </svg>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-800 truncate">{d.label || "Unknown device"}</p>
+                        <p className="text-[11px] text-gray-400 truncate">
+                          {d.ipAddress ?? "Unknown IP"} · Trusted {formatRelative(d.createdAt)} · Expires {formatRelative(d.expiresAt)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        disabled={revokingDeviceId === d.id}
+                        onClick={() => { void handleRevokeTrustedDevice(d.id); }}
+                        className="shrink-0 text-[11px] font-medium text-red-600 hover:text-red-800 disabled:opacity-50 transition-colors"
+                      >
+                        {revokingDeviceId === d.id ? "Revoking…" : "Revoke"}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
 
           {/* ── Active Sessions ───────────────────────────────────────────────── */}
           <div className="px-6 py-5">
