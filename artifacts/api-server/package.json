@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "export NODE_ENV=development && pnpm run build && pnpm run start",
+    "prebuild": "node scripts/check-build-deps.mjs",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "test": "node --import tsx/esm --test \"src/tests/*.test.ts\"",
@@ -40,6 +41,7 @@
     "qrcode": "^1.5.4",
     "esbuild": "^0.27.3",
     "esbuild-plugin-pino": "^2.3.3",
+    "thread-stream": "3.1.0",
     "stripe": "^22.1.0",
     "stripe-replit-sync": "^1.0.0",
     "swagger-jsdoc": "^6.2.8",
@@ -56,7 +58,6 @@
     "@types/swagger-ui-express": "^4.1.8",
     "pino-pretty": "^13",
     "supertest": "^7.2.2",
-    "thread-stream": "3.1.0",
     "tsx": "catalog:"
   }
 }
