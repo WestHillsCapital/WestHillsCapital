@@ -295,8 +295,13 @@ export default function DocuFillCustomer() {
   );
   const hasInitialsStep = initialsFields.length > 0 && session?.auth_level === "email_otp";
 
+  // Exclude initials from the interview form only when the dedicated e-sign initials step is active;
+  // for non-email_otp sessions, initials are collected as regular text fields in the interview.
   const visibleFields = (session?.fields ?? []).filter(
-    (f) => f.interviewMode !== "omitted" && f.type !== "initials" && evaluateCondition(f.condition, answers),
+    (f) =>
+      f.interviewMode !== "omitted" &&
+      !(hasInitialsStep && f.type === "initials") &&
+      evaluateCondition(f.condition, answers),
   );
 
   function validate(): boolean {
@@ -381,7 +386,7 @@ export default function DocuFillCustomer() {
     const value = initialsMode === "draw"
       ? (initPadRef.current?.getDataUrl() ?? "")
       : typedInitials.trim();
-    if (!value) return;
+    if (initialsMode === "draw" ? !value : value.length < 2) return;
     const next = { ...answers };
     for (const f of initialsFields) {
       next[f.id] = value;
@@ -764,7 +769,7 @@ export default function DocuFillCustomer() {
                 <Button
                   type="button"
                   onClick={handleInitialsContinue}
-                  disabled={initialsMode === "draw" ? !initPadHasContent : !typedInitials.trim()}
+                  disabled={initialsMode === "draw" ? !initPadHasContent : typedInitials.trim().length < 2}
                   className="flex-1 bg-[#0F1C3F] hover:bg-[#182B5F]"
                 >
                   Continue
