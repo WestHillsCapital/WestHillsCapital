@@ -212,6 +212,8 @@ type PackageItem = {
   tags: string[];
   notify_staff_on_submit: boolean;
   notify_client_on_submit: boolean;
+  enable_embed: boolean;
+  embed_key: string | null;
 };
 
 type Session = {
@@ -497,6 +499,8 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     webhook_url: typeof (pkg as PackageItem & Record<string, unknown>).webhook_url === "string" ? (pkg as PackageItem & Record<string, unknown>).webhook_url as string : null,
     notify_staff_on_submit: (pkg as PackageItem & Record<string, unknown>).notify_staff_on_submit === true,
     notify_client_on_submit: (pkg as PackageItem & Record<string, unknown>).notify_client_on_submit === true,
+    enable_embed: (pkg as PackageItem & Record<string, unknown>).enable_embed === true,
+    embed_key: typeof (pkg as PackageItem & Record<string, unknown>).embed_key === "string" ? (pkg as PackageItem & Record<string, unknown>).embed_key as string : null,
     tags: Array.isArray((pkg as PackageItem & { tags?: unknown }).tags)
       ? ((pkg as PackageItem & { tags?: unknown }).tags as unknown[]).map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
       : [],
@@ -773,6 +777,57 @@ const ScrollPageCanvas = memo(function ScrollPageCanvas({
     />
   );
 });
+
+function EmbedSnippetPanel({ embedKey, apiBase }: { embedKey: string | null; apiBase: string }) {
+  const [copied, setCopied] = useState(false);
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const effectiveApi = apiBase || origin;
+
+  if (!embedKey) {
+    return (
+      <div className="mt-3 rounded-lg bg-[#F8F6F0] border border-[#EFE8D8] px-4 py-3 text-xs text-[#6B7A99]">
+        Save the package to generate your embed key.
+      </div>
+    );
+  }
+
+  const snippet =
+    `<div id="docuplete-form"></div>\n` +
+    `<script\n` +
+    `  src="${origin}/embed/v1.js"\n` +
+    `  data-key="${embedKey}"\n` +
+    `  data-api="${effectiveApi}"\n` +
+    `  data-target="docuplete-form">\n` +
+    `</script>`;
+
+  function copy() {
+    void navigator.clipboard.writeText(snippet).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] text-[#6B7A99] font-medium uppercase tracking-wide">Your embed snippet</span>
+        <button
+          type="button"
+          onClick={copy}
+          className="text-[11px] text-[#0F1C3F] hover:text-[#182B5F] font-medium px-2 py-0.5 rounded border border-[#0F1C3F]/20 bg-[#EAF0FB] hover:bg-[#D8E6F9] transition-colors"
+        >
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+      <pre className="rounded-lg bg-[#0F1C3F] text-[#A8C0E8] text-[11px] p-3 overflow-x-auto leading-relaxed whitespace-pre-wrap break-all select-all font-mono">
+        {snippet}
+      </pre>
+      <p className="text-[11px] text-[#8A9BB8]">
+        Paste this where you want the form to appear on your website. The form auto-resizes to fit its content.
+      </p>
+    </div>
+  );
+}
 
 export default function DocuFill() {
   const search = useSearch();
@@ -1522,6 +1577,7 @@ export default function DocuFill() {
           tags: pkg.tags ?? [],
           notifyStaffOnSubmit: pkg.notify_staff_on_submit,
           notifyClientOnSubmit: pkg.notify_client_on_submit,
+          enableEmbed: pkg.enable_embed,
         }),
       });
       const data = await res.json();
@@ -2204,7 +2260,7 @@ export default function DocuFill() {
       type: "text", options: [], interviewMode: "optional",
       hasDefault: false, defaultValue: "",
       validationType: "none", validationPattern: "", validationMessage: "",
-      packageOnly: false, condition: null,
+      packageOnly: false, condition: null, condition2: null,
     });
     setFieldEditorModal({ mode: "add", fieldId: null });
   }
@@ -4053,14 +4109,31 @@ export default function DocuFill() {
                             </div>
                             <p className="text-xs text-[#6B7A99]">Send the client a branded receipt email after they submit. Requires a client email address in the session (from customer link or email field).</p>
                           </button>
-                          {/* Embed — coming soon */}
-                          <div className="rounded-lg border border-dashed border-[#DDD5C4] bg-[#F8F6F0] p-3 opacity-60 cursor-not-allowed">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <svg className="w-4 h-4 shrink-0 text-[#8A9BB8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
-                              <span className="text-sm font-semibold text-[#8A9BB8]">Embed</span>
-                              <span className="ml-auto text-[10px] bg-[#EFE8D8] text-[#8A9BB8] border border-[#DDD5C4] rounded px-1.5 py-0.5 shrink-0">Coming soon</span>
-                            </div>
-                            <p className="text-xs text-[#8A9BB8]">Drop a JavaScript snippet onto any webpage. Customers complete the form inline without leaving your site.</p>
+                          {/* Embed channel */}
+                          <div className={`rounded-lg border-2 p-3 transition-colors ${selectedPackage.enable_embed ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}>
+                            <button
+                              type="button"
+                              className="w-full text-left"
+                              onClick={() => {
+                                const next = !selectedPackage.enable_embed;
+                                updateSelectedPackage((pkg) => ({ ...pkg, enable_embed: next }));
+                              }}
+                            >
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <svg className={`w-4 h-4 shrink-0 ${selectedPackage.enable_embed ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
+                                <span className={`text-sm font-semibold ${selectedPackage.enable_embed ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Embed</span>
+                                <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.enable_embed ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
+                                  {selectedPackage.enable_embed ? "Enabled" : "Off"}
+                                </span>
+                              </div>
+                              <p className="text-xs text-[#6B7A99]">Drop a JavaScript snippet onto any webpage. Customers complete the form inline without leaving your site.</p>
+                            </button>
+                            {selectedPackage.enable_embed && (
+                              <EmbedSnippetPanel
+                                embedKey={selectedPackage.embed_key}
+                                apiBase={API_BASE}
+                              />
+                            )}
                           </div>
                         </div>
                       </div>

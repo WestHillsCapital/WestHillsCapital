@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useLayoutEffect } from "react";
 import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -85,6 +85,7 @@ function CheckIcon() {
 export default function DocuFillCustomer() {
   const params = useParams<{ token: string }>();
   const token = params.token ?? "";
+  const isEmbed = new URLSearchParams(window.location.search).get("embed") === "1";
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -96,6 +97,24 @@ export default function DocuFillCustomer() {
   const [isDownloading, setIsDownloading] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasSavedRef = useRef(false);
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useLayoutEffect(() => {
+    if (!isEmbed) return;
+    const el = rootRef.current ?? document.documentElement;
+    let lastHeight = 0;
+    const send = () => {
+      const h = el.scrollHeight;
+      if (h !== lastHeight) {
+        lastHeight = h;
+        window.parent.postMessage({ type: "docuplete:resize", height: h }, "*");
+      }
+    };
+    const ro = new ResizeObserver(send);
+    ro.observe(el);
+    send();
+    return () => ro.disconnect();
+  }, [isEmbed, pageStatus]);
 
   useEffect(() => {
     if (!token) { setPageStatus("expired"); return; }
@@ -224,9 +243,11 @@ export default function DocuFillCustomer() {
     }
   }
 
+  const screenCls = isEmbed ? "bg-white flex items-center justify-center px-4 py-10" : "min-h-screen bg-[#F8F6F0] flex items-center justify-center px-4";
+
   if (pageStatus === "loading") {
     return (
-      <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center">
+      <div className={screenCls}>
         <div className="text-[#6B7A99] text-sm">Loading your form…</div>
       </div>
     );
@@ -234,7 +255,7 @@ export default function DocuFillCustomer() {
 
   if (pageStatus === "expired" || (!session && pageStatus !== "error")) {
     return (
-      <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center px-4">
+      <div className={screenCls}>
         <div className="max-w-md w-full bg-white rounded-xl border border-[#DDD5C4] p-8 text-center space-y-3">
           <svg className="w-10 h-10 text-[#8A9BB8] mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
@@ -248,7 +269,7 @@ export default function DocuFillCustomer() {
 
   if (pageStatus === "error") {
     return (
-      <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center px-4">
+      <div className={screenCls}>
         <div className="max-w-md w-full bg-white rounded-xl border border-[#DDD5C4] p-8 text-center space-y-3">
           <p className="text-sm text-red-600">Something went wrong loading your form. Please try refreshing the page.</p>
         </div>
@@ -258,7 +279,7 @@ export default function DocuFillCustomer() {
 
   if (pageStatus === "generated") {
     return (
-      <div className="min-h-screen bg-[#F8F6F0] flex items-center justify-center px-4">
+      <div className={screenCls}>
         <div className="max-w-md w-full bg-white rounded-xl border border-[#DDD5C4] p-8 text-center space-y-5">
           <div className="flex justify-center"><CheckIcon /></div>
           <div>
@@ -285,9 +306,9 @@ export default function DocuFillCustomer() {
   const ringStyle = { "--tw-ring-color": `${brandColor}66` } as React.CSSProperties;
 
   return (
-    <div className="min-h-screen bg-[#F8F6F0]">
-      {/* Header */}
-      <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
+    <div ref={rootRef} className={isEmbed ? "bg-white" : "min-h-screen bg-[#F8F6F0]"}>
+      {/* Header — hidden in embed mode */}
+      {!isEmbed && <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           {(() => {
             const orgName = session!.org_name ?? "West Hills Capital";
@@ -314,9 +335,9 @@ export default function DocuFillCustomer() {
             );
           })()}
         </div>
-      </header>
+      </header>}
 
-      <main className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <main className={`max-w-2xl mx-auto px-4 space-y-6 ${isEmbed ? "py-6" : "py-8"}`}>
         {/* Title */}
         <div>
           <h1 className="text-2xl font-semibold text-[#0F1C3F]">{session!.package_name}</h1>
