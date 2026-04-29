@@ -42,7 +42,12 @@ type SessionData = {
   org_name?: string | null;
   org_logo_url?: string | null;
   org_brand_color?: string | null;
+  auth_level?: "none" | "email_otp";
+  signed_at?: string | null;
+  signer_name?: string | null;
 };
+
+type EsignStep = "email" | "code" | "consent";
 
 function fieldIsRequired(field: FieldItem): boolean {
   return field.interviewMode === "required";
@@ -98,6 +103,15 @@ export default function DocuFillCustomer() {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasSavedRef = useRef(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+
+  // E-sign flow state
+  const [esignStep, setEsignStep] = useState<EsignStep | null>(null);
+  const [signerEmail, setSignerEmail] = useState("");
+  const [otpCode, setOtpCode] = useState("");
+  const [signerName, setSignerName] = useState("");
+  const [identityToken, setIdentityToken] = useState<string | null>(null);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState("");
 
   useLayoutEffect(() => {
     if (!isEmbed) return;
@@ -193,9 +207,70 @@ export default function DocuFillCustomer() {
     return Object.keys(newErrors).length === 0;
   }
 
+  async function handleRequestOtp() {
+    const email = signerEmail.trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setOtpError("Please enter a valid email address.");
+      return;
+    }
+    setOtpLoading(true);
+    setOtpError("");
+    try {
+      const res = await fetch(`${SESSION_BASE}/${token}/request-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setOtpError(data.error ?? "Could not send verification code. Please try again.");
+        return;
+      }
+      setOtpCode("");
+      setEsignStep("code");
+    } catch {
+      setOtpError("A network error occurred. Please try again.");
+    } finally {
+      setOtpLoading(false);
+    }
+  }
+
+  async function handleVerifyOtp() {
+    const code = otpCode.trim();
+    if (!code) {
+      setOtpError("Please enter the 6-digit code from your email.");
+      return;
+    }
+    setOtpLoading(true);
+    setOtpError("");
+    try {
+      const res = await fetch(`${SESSION_BASE}/${token}/verify-otp`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: signerEmail.trim(), code }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setOtpError(data.error ?? "Invalid or expired code. Please try again.");
+        return;
+      }
+      setIdentityToken(data.identityToken as string);
+      setEsignStep("consent");
+    } catch {
+      setOtpError("A network error occurred. Please try again.");
+    } finally {
+      setOtpLoading(false);
+    }
+  }
+
   async function handleSubmit() {
     if (!validate()) {
       window.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    // If email OTP required and identity not yet verified, start the esign flow
+    if (session?.auth_level === "email_otp" && !identityToken) {
+      setEsignStep("email");
       return;
     }
     setPageStatus("submitting");
@@ -206,9 +281,13 @@ export default function DocuFillCustomer() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answers }),
       });
+      const genBody: Record<string, unknown> = {};
+      if (identityToken) genBody.identityToken = identityToken;
+      if (signerName.trim()) genBody.signerName = signerName.trim();
       const genRes = await fetch(`${SESSION_BASE}/${token}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(genBody),
       });
       const genData = await genRes.json();
       if (!genRes.ok) {
@@ -304,6 +383,236 @@ export default function DocuFillCustomer() {
   const missingRequiredCount = requiredCount - answeredCount;
   const progressPct = requiredCount > 0 ? Math.round((answeredCount / requiredCount) * 100) : 100;
   const ringStyle = { "--tw-ring-color": `${brandColor}66` } as React.CSSProperties;
+
+  // E-sign step overlay — renders on top of the form while user goes through identity verification
+  if (esignStep !== null) {
+    return (
+      <div ref={rootRef} className={isEmbed ? "bg-white" : "min-h-screen bg-[#F8F6F0]"}>
+        {!isEmbed && <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
+          <div className="max-w-2xl mx-auto flex items-center gap-3">
+            {(() => {
+              const orgName = session!.org_name ?? "West Hills Capital";
+              const logoSrc = session!.org_logo_url ? `${API_BASE}${session!.org_logo_url}` : null;
+              const bColor = session!.org_brand_color ?? "#C49A38";
+              const initial = orgName.charAt(0).toUpperCase();
+              return (
+                <>
+                  <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden" style={{ backgroundColor: bColor }}>
+                    {logoSrc ? <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" /> : <span className="text-white text-xs font-bold">{initial}</span>}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-[#0F1C3F]">{orgName}</div>
+                    <div className="text-[11px] text-[#6B7A99]">Secure document collection</div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </header>}
+        <main className={`max-w-2xl mx-auto px-4 space-y-6 ${isEmbed ? "py-6" : "py-8"}`}>
+          {/* Progress stepper */}
+          <div className="flex items-center gap-2 text-xs text-[#6B7A99]">
+            {(["email", "code", "consent"] as EsignStep[]).map((s, i) => {
+              const labels: Record<EsignStep, string> = { email: "Email", code: "Verify", consent: "Sign" };
+              const stepIdx = ["email", "code", "consent"].indexOf(esignStep!);
+              const done = i < stepIdx;
+              const active = i === stepIdx;
+              return (
+                <div key={s} className="flex items-center gap-2">
+                  {i > 0 && <div className={`h-px w-6 ${done || active ? "bg-[#0F1C3F]" : "bg-[#DDD5C4]"}`} />}
+                  <div className={`flex items-center gap-1.5 ${active ? "text-[#0F1C3F] font-semibold" : done ? "text-[#6B7A99]" : "text-[#8A9BB8]"}`}>
+                    <div className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold border ${active ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : done ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-white text-[#8A9BB8] border-[#DDD5C4]"}`}>
+                      {done ? "✓" : i + 1}
+                    </div>
+                    <span>{labels[s]}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Email step */}
+          {esignStep === "email" && (
+            <div className="bg-white rounded-xl border border-[#DDD5C4] p-6 space-y-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[#0F1C3F]">Verify your identity</h2>
+                <p className="text-sm text-[#6B7A99] mt-1">
+                  This document requires identity verification. Enter your email address and we'll send you a one-time code.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[#0F1C3F]" htmlFor="esign-email">Email address</label>
+                <Input
+                  id="esign-email"
+                  type="email"
+                  value={signerEmail}
+                  onChange={(e) => { setSignerEmail(e.target.value); setOtpError(""); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { void handleRequestOtp(); } }}
+                  placeholder="you@example.com"
+                  autoFocus
+                  disabled={otpLoading}
+                  className={otpError ? "border-red-400 focus-visible:ring-red-300" : ""}
+                />
+                {otpError && <p className="text-xs text-red-600">{otpError}</p>}
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  onClick={() => { setEsignStep(null); setOtpError(""); }}
+                  variant="outline"
+                  className="border-[#DDD5C4] text-[#6B7A99] hover:bg-[#F8F6F0]"
+                  disabled={otpLoading}
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => { void handleRequestOtp(); }}
+                  disabled={otpLoading || !signerEmail.trim()}
+                  className="flex-1 bg-[#0F1C3F] hover:bg-[#182B5F]"
+                >
+                  {otpLoading ? "Sending code…" : "Send verification code"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* OTP code step */}
+          {esignStep === "code" && (
+            <div className="bg-white rounded-xl border border-[#DDD5C4] p-6 space-y-4">
+              <div>
+                <h2 className="text-lg font-semibold text-[#0F1C3F]">Enter your code</h2>
+                <p className="text-sm text-[#6B7A99] mt-1">
+                  We sent a 6-digit code to <strong className="text-[#0F1C3F]">{signerEmail}</strong>.
+                  It expires in 15 minutes.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[#0F1C3F]" htmlFor="esign-code">Verification code</label>
+                <Input
+                  id="esign-code"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(e) => { setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6)); setOtpError(""); }}
+                  onKeyDown={(e) => { if (e.key === "Enter") { void handleVerifyOtp(); } }}
+                  placeholder="000000"
+                  autoFocus
+                  disabled={otpLoading}
+                  className={`font-mono tracking-widest text-center text-xl ${otpError ? "border-red-400 focus-visible:ring-red-300" : ""}`}
+                />
+                {otpError && <p className="text-xs text-red-600">{otpError}</p>}
+              </div>
+              <button
+                type="button"
+                onClick={() => { void handleRequestOtp(); }}
+                disabled={otpLoading}
+                className="text-xs text-[#6B7A99] hover:text-[#0F1C3F] underline disabled:opacity-50"
+              >
+                Resend code
+              </button>
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  onClick={() => { setEsignStep("email"); setOtpError(""); setOtpCode(""); }}
+                  variant="outline"
+                  className="border-[#DDD5C4] text-[#6B7A99] hover:bg-[#F8F6F0]"
+                  disabled={otpLoading}
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => { void handleVerifyOtp(); }}
+                  disabled={otpLoading || otpCode.length < 6}
+                  className="flex-1 bg-[#0F1C3F] hover:bg-[#182B5F]"
+                >
+                  {otpLoading ? "Verifying…" : "Verify code"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Consent / typed signature step */}
+          {esignStep === "consent" && (
+            <div className="bg-white rounded-xl border border-[#DDD5C4] p-6 space-y-4">
+              <div className="flex items-start gap-3">
+                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-[#0F1C3F]">Identity verified</h2>
+                  <p className="text-sm text-[#6B7A99]">{signerEmail}</p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-[#0F1C3F]" htmlFor="esign-name">
+                  Type your full legal name to sign
+                </label>
+                <Input
+                  id="esign-name"
+                  type="text"
+                  value={signerName}
+                  onChange={(e) => setSignerName(e.target.value)}
+                  placeholder="Full legal name"
+                  autoFocus
+                  disabled={pageStatus === "submitting"}
+                />
+                <p className="text-xs text-[#8A9BB8]">
+                  By typing your name and clicking "Submit and sign", you agree that this constitutes your legal electronic signature.
+                </p>
+              </div>
+              {/* Preview of typed signature */}
+              {signerName.trim() && (
+                <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] p-3">
+                  <p className="text-[10px] text-[#8A9BB8] uppercase tracking-wide mb-1">Signature preview</p>
+                  <p className="text-xl font-serif italic text-[#0F1C3F]">{signerName}</p>
+                </div>
+              )}
+              <div className="rounded-lg border border-[#DDD5C4] bg-[#FAFAF8] p-3 text-xs text-[#6B7A99] space-y-1">
+                <p>By submitting, you confirm:</p>
+                <ul className="list-disc list-inside space-y-0.5 pl-1">
+                  <li>The information in this form is accurate and complete.</li>
+                  <li>Your typed name above is your legal electronic signature.</li>
+                  <li>You consent to the use of electronic records and signatures.</li>
+                </ul>
+              </div>
+              {errorMsg && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{errorMsg}</div>
+              )}
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  onClick={() => { setEsignStep("code"); setOtpError(""); setOtpCode(""); setIdentityToken(null); }}
+                  variant="outline"
+                  className="border-[#DDD5C4] text-[#6B7A99] hover:bg-[#F8F6F0]"
+                  disabled={pageStatus === "submitting"}
+                >
+                  Back
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => { void handleSubmit(); }}
+                  disabled={pageStatus === "submitting" || !signerName.trim()}
+                  className="flex-1 bg-[#0F1C3F] hover:bg-[#182B5F]"
+                >
+                  {pageStatus === "submitting" ? "Submitting…" : "Submit and sign"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <p className="text-center text-[11px] text-[#8A9BB8] pb-4">
+            Your answers are encrypted in transit and stored securely.
+          </p>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div ref={rootRef} className={isEmbed ? "bg-white" : "min-h-screen bg-[#F8F6F0]"}>
@@ -526,7 +835,9 @@ export default function DocuFillCustomer() {
         {/* Submit */}
         <div className="bg-white rounded-lg border border-[#DDD5C4] p-5 space-y-3">
           <div className="text-sm text-[#6B7A99]">
-            By submitting, you confirm the information above is accurate. Your completed documents will be generated immediately and sent to your advisor.
+            {session!.auth_level === "email_otp"
+              ? "Once you complete your form, you'll verify your identity by email and type your legal name as an electronic signature."
+              : "By submitting, you confirm the information above is accurate. Your completed documents will be generated immediately and sent to your advisor."}
           </div>
           <Button
             onClick={handleSubmit}
@@ -534,7 +845,11 @@ export default function DocuFillCustomer() {
             style={{ backgroundColor: brandColor }}
             className="w-full disabled:opacity-60 py-3 hover:opacity-90"
           >
-            {pageStatus === "submitting" ? "Submitting…" : "Submit and generate documents"}
+            {pageStatus === "submitting"
+              ? "Submitting…"
+              : session!.auth_level === "email_otp"
+              ? "Continue to signing"
+              : "Submit and generate documents"}
           </Button>
           {(hasErrors || missingRequiredCount > 0) && pageStatus !== "submitting" && (
             <p className="text-xs text-red-600 text-center">

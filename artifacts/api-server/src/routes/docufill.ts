@@ -22,8 +22,16 @@ import {
   sendInterviewLinkEmail,
   sendDocupleteStaffSubmissionEmail,
   sendDocupleteClientConfirmationEmail,
+  sendEsignOtpEmail,
   getOrgEmailSettings,
 } from "../lib/email";
+import {
+  generateOtp,
+  hashOtp,
+  hashPdfBuffer,
+  createEsignIdentityToken,
+  verifyEsignIdentityToken,
+} from "../lib/esign";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { requireAdminRole, requireRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits, recordSubmissionEvent, recordPdfGenerationEvent } from "../middleware/requireWithinPlanLimits";
@@ -124,6 +132,7 @@ type PackageInput = {
   enableEmbed?: boolean;
   enableGdrive?: boolean;
   enableHubspot?: boolean;
+  authLevel?: "none" | "email_otp";
 };
 
 type DocItem = {
@@ -305,6 +314,7 @@ function publicSessionView(session: Record<string, unknown>): Record<string, unk
     depository_id: _dp,
     group_id: _gi,
     account_id: _ai,
+    signer_email: _se,    // email is PII — omit from public view
     ...rest
   } = session;
   return rest;
@@ -976,6 +986,7 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
             p.notify_staff_on_submit, p.notify_client_on_submit,
             p.enable_embed, p.embed_key,
             p.enable_gdrive, p.enable_hubspot,
+            p.auth_level,
             p.account_id AS package_account_id,
             c.name AS custodian_name, d.name AS depository_name, g.name AS group_name,
             a.name AS org_name,
@@ -1174,6 +1185,74 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
     });
     doc.end();
   });
+}
+
+/** Append a signing certificate page to an existing PDF buffer.
+ *  Uses pdf-lib to merge so all original pages are preserved exactly. */
+async function appendSigningCertificatePage(
+  pdfBytes: Buffer,
+  params: {
+    signerName: string;
+    signerEmail: string;
+    packageName: string;
+    signedAt: Date;
+  },
+): Promise<Buffer> {
+  const existing = await PdfLibDocument.load(pdfBytes, { ignoreEncryption: true });
+  const cert = await PdfLibDocument.create();
+  const helv = await cert.embedFont(StandardFonts.Helvetica);
+  const helvB = await cert.embedFont(StandardFonts.HelveticaBold);
+  const page = cert.addPage([612, 792]); // US Letter
+  const { width, height } = page.getSize();
+  const margin = 64;
+  let y = height - margin;
+  const navy = rgb(0.059, 0.11, 0.247); // #0F1C3F
+  const gray = rgb(0.42, 0.48, 0.6);
+  const gold = rgb(0.77, 0.60, 0.22);   // brand gold
+  // Header bar
+  page.drawRectangle({ x: 0, y: height - 56, width, height: 56, color: navy });
+  page.drawText("Electronic Signing Certificate", {
+    x: margin, y: height - 36,
+    font: helvB, size: 16, color: rgb(1, 1, 1),
+  });
+  y = height - 80;
+  page.drawText(`Package: ${params.packageName}`, { x: margin, y, font: helvB, size: 12, color: navy });
+  y -= 28;
+  const dividerY = y + 8;
+  page.drawLine({ start: { x: margin, y: dividerY }, end: { x: width - margin, y: dividerY }, thickness: 0.5, color: gold });
+  y -= 8;
+  const rows: Array<{ label: string; value: string }> = [
+    { label: "Signer Name",  value: params.signerName },
+    { label: "Signer Email", value: params.signerEmail },
+    { label: "Signed At",    value: params.signedAt.toUTCString() },
+    { label: "Method",       value: "Email OTP — Docuplete E-sign v1" },
+  ];
+  for (const row of rows) {
+    y -= 8;
+    page.drawText(row.label, { x: margin, y, font: helvB, size: 10, color: gray });
+    y -= 16;
+    page.drawText(row.value, { x: margin, y, font: helv, size: 11, color: navy });
+    y -= 12;
+  }
+  y -= 20;
+  page.drawLine({ start: { x: margin, y }, end: { x: width - margin, y }, thickness: 0.5, color: gold });
+  y -= 20;
+  page.drawText(
+    "This page certifies that the signer completed email-based identity verification\nbefore submitting the document packet. A 6-digit one-time password was\ndelivered to the signer\'s email address and verified by the Docuplete platform.\n\nThis record is part of the signing audit trail maintained by Docuplete.",
+    { x: margin, y, font: helv, size: 9, color: gray, lineHeight: 14, maxWidth: width - margin * 2 },
+  );
+  // Page number footer
+  page.drawText(`Signing Certificate — Page ${existing.getPageCount() + 1} of ${existing.getPageCount() + 1}`, {
+    x: margin, y: 28, font: helv, size: 8, color: gray,
+  });
+  // Copy original pages then add certificate
+  const copiedPages = await existing.copyPages(cert, cert.getPageIndices());
+  const output = await PdfLibDocument.create();
+  const origCopied = await output.copyPages(existing, existing.getPageIndices());
+  origCopied.forEach((p) => output.addPage(p));
+  copiedPages.forEach((p) => output.addPage(p));
+  const bytes = await output.save();
+  return Buffer.from(bytes);
 }
 
 async function upsertPackageDocument(params: {
@@ -2038,8 +2117,9 @@ router.patch("/packages/:id", async (req, res) => {
           enable_embed=$20, embed_key=COALESCE($21, embed_key),
           enable_gdrive=$22,
           enable_hubspot=$23,
+          auth_level=$24,
           version=version+1, updated_at=NOW()
-        WHERE id=$24 AND account_id=$25
+        WHERE id=$25 AND account_id=$26
         RETURNING *`,
       [
         name,
@@ -2071,6 +2151,8 @@ router.patch("/packages/:id", async (req, res) => {
         // $22 enable_gdrive, $23 enable_hubspot
         body.enableGdrive === undefined ? (existing.enable_gdrive ?? false) : Boolean(body.enableGdrive),
         body.enableHubspot === undefined ? (existing.enable_hubspot ?? false) : Boolean(body.enableHubspot),
+        // $24 auth_level
+        body.authLevel === undefined ? (existing.auth_level ?? "none") : (body.authLevel === "email_otp" ? "email_otp" : "none"),
         id,
         accountId,
       ],
@@ -3580,6 +3662,147 @@ publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
   }
 });
 
+// ── E-sign v1: request OTP ────────────────────────────────────────────────────
+publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
+  try {
+    const db = getDb();
+    const session = await getSession(req.params.token, db);
+    if (!session) {
+      res.status(404).json({ error: "Session not found or expired" });
+      return;
+    }
+    if (session.auth_level !== "email_otp") {
+      res.status(400).json({ error: "This session does not require email verification" });
+      return;
+    }
+    if (session.signed_at) {
+      res.status(400).json({ error: "This session has already been signed" });
+      return;
+    }
+    const email = String(req.body?.email ?? "").toLowerCase().trim();
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      res.status(400).json({ error: "A valid email address is required" });
+      return;
+    }
+    // Rate-limit: max 3 active (unused, non-expired) OTPs per session per hour
+    const { rows: recent } = await db.query(
+      `SELECT count(*)::int AS n FROM docufill_esign_otps
+        WHERE session_token=$1
+          AND used_at IS NULL
+          AND expires_at > NOW()
+          AND created_at > NOW() - INTERVAL '1 hour'`,
+      [req.params.token],
+    );
+    if ((recent[0] as { n: number }).n >= 3) {
+      res.status(429).json({ error: "Too many verification codes requested. Please wait before trying again." });
+      return;
+    }
+    const { code, hash } = generateOtp();
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+    await db.query(
+      `INSERT INTO docufill_esign_otps (session_token, email, otp_hash, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [req.params.token, email, hash, expiresAt],
+    );
+    // Fire-and-forget audit event
+    const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
+    db.query(
+      `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, metadata)
+       VALUES ($1, $2, 'otp_sent', $3, $4, $5::jsonb)`,
+      [req.params.token, pkgAccountId, email, req.ip ?? null, JSON.stringify({ packageName: session.package_name })],
+    ).catch(() => {});
+    // Send OTP email
+    const emailSettings = pkgAccountId ? await getOrgEmailSettings(pkgAccountId).catch(() => null) : null;
+    await sendEsignOtpEmail({
+      to: email,
+      otpCode: code,
+      packageName: String(session.package_name ?? "Document Package"),
+      orgName: String(session.org_name ?? "Docuplete"),
+      emailSettings,
+    });
+    res.json({ ok: true, message: "Verification code sent. Check your email." });
+  } catch (err) {
+    logger.error({ err }, "[E-sign] Failed to send OTP");
+    res.status(500).json({ error: "Failed to send verification code" });
+  }
+});
+
+// ── E-sign v1: verify OTP ─────────────────────────────────────────────────────
+publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
+  try {
+    const db = getDb();
+    const session = await getSession(req.params.token, db);
+    if (!session) {
+      res.status(404).json({ error: "Session not found or expired" });
+      return;
+    }
+    if (session.auth_level !== "email_otp") {
+      res.status(400).json({ error: "This session does not require email verification" });
+      return;
+    }
+    const email = String(req.body?.email ?? "").toLowerCase().trim();
+    const code  = String(req.body?.code  ?? "").trim();
+    if (!email || !code) {
+      res.status(400).json({ error: "email and code are required" });
+      return;
+    }
+    const inputHash = hashOtp(code);
+    // Fetch the most recent unused, non-expired OTP for this session+email
+    const { rows: otpRows } = await db.query(
+      `SELECT id, attempt_count FROM docufill_esign_otps
+        WHERE session_token=$1
+          AND email=$2
+          AND used_at IS NULL
+          AND expires_at > NOW()
+        ORDER BY created_at DESC
+        LIMIT 1`,
+      [req.params.token, email],
+    );
+    const otpRow = otpRows[0] as { id: number; attempt_count: number } | undefined;
+    if (!otpRow) {
+      res.status(400).json({ error: "No active verification code found. Please request a new one." });
+      return;
+    }
+    if (otpRow.attempt_count >= 5) {
+      res.status(400).json({ error: "Too many failed attempts. Please request a new code." });
+      return;
+    }
+    // Increment attempt counter first, then check hash (prevents timing oracle)
+    await db.query(
+      `UPDATE docufill_esign_otps SET attempt_count=attempt_count+1 WHERE id=$1`,
+      [otpRow.id],
+    );
+    // Re-fetch to get the actual stored hash for comparison
+    const { rows: fullRow } = await db.query(
+      `SELECT otp_hash FROM docufill_esign_otps WHERE id=$1`,
+      [otpRow.id],
+    );
+    const storedHash = (fullRow[0] as { otp_hash: string } | undefined)?.otp_hash;
+    if (!storedHash || storedHash !== inputHash) {
+      res.status(400).json({ error: "Incorrect verification code. Please try again." });
+      return;
+    }
+    // Mark OTP as used
+    await db.query(
+      `UPDATE docufill_esign_otps SET used_at=NOW() WHERE id=$1`,
+      [otpRow.id],
+    );
+    // Audit event
+    const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
+    db.query(
+      `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, metadata)
+       VALUES ($1, $2, 'otp_verified', $3, $4, $5::jsonb)`,
+      [req.params.token, pkgAccountId, email, req.ip ?? null, JSON.stringify({ packageName: session.package_name })],
+    ).catch(() => {});
+    // Issue a short-lived identity token
+    const identityToken = createEsignIdentityToken(req.params.token, email);
+    res.json({ ok: true, identityToken });
+  } catch (err) {
+    logger.error({ err }, "[E-sign] Failed to verify OTP");
+    res.status(500).json({ error: "Failed to verify code" });
+  }
+});
+
 /**
  * @openapi
  * /docufill/public/sessions/{token}/generate:
@@ -3646,13 +3869,31 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
       res.status(404).json({ error: "Interview session not found" });
       return;
     }
+    // ── E-sign v1: enforce identity verification when auth_level=email_otp ────
+    let esignEmail: string | null = null;
+    let esignSignerName: string | null = null;
+    if (session.auth_level === "email_otp") {
+      const rawToken = String(req.headers["x-esign-token"] ?? req.body?.esignToken ?? "");
+      const identity = rawToken ? verifyEsignIdentityToken(rawToken, req.params.token) : null;
+      if (!identity) {
+        res.status(401).json({ error: "Email identity verification required. Please verify your email before submitting." });
+        return;
+      }
+      const signerName = String(req.body?.signerName ?? "").trim();
+      if (!signerName) {
+        res.status(400).json({ error: "signerName is required for electronic signature" });
+        return;
+      }
+      esignEmail = identity.email;
+      esignSignerName = signerName;
+    }
     const validation = validateSessionAnswers(session);
     if (!validation.valid) {
       res.status(400).json({ error: "Packet is missing required or valid fields", ...validation });
       return;
     }
     const generated = buildDocuFillPacketSummary(session);
-    const pdfBuffer = await buildPacketPdfBuffer(session, db);
+    let pdfBuffer = await buildPacketPdfBuffer(session, db);
     const generatedAt = new Date().toISOString();
     let driveResult: { fileId: string; webViewLink: string } | null = null;
     let driveWarning: string | null = null;
@@ -3720,6 +3961,22 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
         }
       }
     }
+    // ── E-sign v1: append signing certificate page + compute PDF hash ─────────
+    let pdfSha256: string | null = null;
+    const signedAt = esignEmail ? new Date() : null;
+    if (esignEmail && esignSignerName) {
+      try {
+        pdfBuffer = await appendSigningCertificatePage(pdfBuffer, {
+          signerName: esignSignerName,
+          signerEmail: esignEmail,
+          packageName: String(session.package_name ?? "Document Package"),
+          signedAt: signedAt!,
+        });
+      } catch (certErr) {
+        logger.warn({ certErr }, "[E-sign] Failed to append certificate page — using base PDF");
+      }
+      pdfSha256 = hashPdfBuffer(pdfBuffer);
+    }
     await db.query(
       `UPDATE docufill_interview_sessions
           SET status='generated',
@@ -3727,16 +3984,32 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
               generated_pdf_drive_id=$2,
               generated_pdf_url=$3,
               generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
+              signer_email=$5,
+              signer_name=$6,
+              signed_at=$7,
+              pdf_sha256=$8,
               updated_at=NOW()
         WHERE token=$4`,
-      [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token],
+      [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token,
+       esignEmail, esignSignerName, signedAt, pdfSha256],
     );
+    // Append-only signing audit event (fire-and-forget)
+    if (esignEmail) {
+      const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
+      db.query(
+        `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, metadata)
+         VALUES ($1, $2, 'signed', $3, $4, $5::jsonb)`,
+        [req.params.token, pkgAccountId, esignEmail, req.ip ?? null,
+         JSON.stringify({ signerName: esignSignerName, packageName: session.package_name, pdfSha256, signedAt: signedAt?.toISOString() })],
+      ).catch(() => {});
+    }
     const allPublicWarnings = [...(driveWarning ? [driveWarning] : []), ...(hubspotWarning ? [hubspotWarning] : [])];
     res.json({
       packet: generated,
       downloadUrl: `/api/v1/docufill/public/sessions/${req.params.token}/packet.pdf`,
       drive: driveResult ? { fileId: driveResult.fileId, url: driveResult.webViewLink } : null,
       warnings: allPublicWarnings,
+      signed: esignEmail ? { signerName: esignSignerName, signedAt: signedAt?.toISOString(), pdfSha256 } : null,
     });
     const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
     if (session.webhook_enabled === true && webhookUrl) {
