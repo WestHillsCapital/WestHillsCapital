@@ -338,6 +338,9 @@ export async function initDb(): Promise<void> {
     WHERE id = 1 AND plan_tier = 'free'
   `);
 
+  // ── Industry column ───────────────────────────────────────────────────────────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS industry TEXT`);
+
   // ── Custom domain columns ─────────────────────────────────────────────────────
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS custom_domain TEXT`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS custom_domain_status TEXT NOT NULL DEFAULT 'unverified'`);
@@ -1240,6 +1243,25 @@ export async function initDb(): Promise<void> {
   await db.query(`
     CREATE INDEX IF NOT EXISTS user_login_history_user_idx
       ON user_login_history (user_id, created_at DESC)
+  `);
+
+  // ── Trusted devices (device-trust tokens for 2FA "remember this device") ─────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS trusted_devices (
+      id           SERIAL PRIMARY KEY,
+      user_id      INTEGER NOT NULL REFERENCES account_users(id) ON DELETE CASCADE,
+      account_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      token_hash   TEXT NOT NULL UNIQUE,
+      label        TEXT NOT NULL DEFAULT '',
+      ip_address   TEXT,
+      created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at   TIMESTAMPTZ NOT NULL,
+      last_used_at TIMESTAMPTZ
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS trusted_devices_user_idx
+      ON trusted_devices (user_id, expires_at DESC)
   `);
 
   dbReady = true;

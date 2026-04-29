@@ -22,7 +22,7 @@ const STEPS = [
   {
     key: "explore_demo" as const,
     label: "Explore the demo package",
-    description: "Open the pre-loaded demo package and try generating an interview link.",
+    description: "Open the pre-loaded demo package and browse your industry-specific field library.",
     href: "/app",
   },
   {
