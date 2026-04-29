@@ -1522,6 +1522,9 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signer_name TEXT`);
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signed_at TIMESTAMPTZ`);
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS pdf_sha256 TEXT`);
+  // RFC 3161 trusted timestamp — raw TimeStampResp DER stored as base64, verifiable with openssl ts -verify
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS tsa_token_b64 TEXT`);
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS tsa_url TEXT`);
   // One row per OTP send; hashed code, expiry, attempt counter
   await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_esign_otps (
