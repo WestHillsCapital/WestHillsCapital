@@ -1525,6 +1525,8 @@ export async function initDb(): Promise<void> {
   // RFC 3161 trusted timestamp — raw TimeStampResp DER stored as base64, verifiable with openssl ts -verify
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS tsa_token_b64 TEXT`);
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS tsa_url TEXT`);
+  // Immutable signed PDF stored in GCS — /objects/signed-pdfs/{token}.pdf
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS generated_pdf_storage_key TEXT`);
   // One row per OTP send; hashed code, expiry, attempt counter
   await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_esign_otps (

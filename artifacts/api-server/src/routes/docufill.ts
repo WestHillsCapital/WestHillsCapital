@@ -33,6 +33,7 @@ import {
   verifyEsignIdentityToken,
 } from "../lib/esign";
 import { requestTimestamp, TSA_ENDPOINTS } from "../lib/tsa";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { requireAdminRole, requireRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits, recordSubmissionEvent, recordPdfGenerationEvent } from "../middleware/requireWithinPlanLimits";
@@ -47,6 +48,7 @@ const requireMemberRole = requireRole("member");
 
 const router: IRouter = Router();
 export const publicDocufillRouter: IRouter = Router();
+const objectStorage = new ObjectStorageService();
 
 /**
  * API-key-authenticated public developer router.
@@ -2870,6 +2872,57 @@ router.get("/sessions", async (req, res) => {
   }
 });
 
+/** Lightweight sessions list for the portal Sessions view.
+ *  Returns signing/storage metadata without decrypting answer payloads. */
+router.get("/sessions/portal-list", async (req, res) => {
+  try {
+    const db = getDb();
+    const packageId = req.query.packageId ? Number(req.query.packageId) : null;
+    const status    = typeof req.query.status === "string" ? req.query.status : null;
+    const search    = typeof req.query.search === "string" ? req.query.search.trim() : null;
+    const limit     = Math.min(Math.max(Number(req.query.limit ?? 50), 1), 200);
+    const offset    = Math.max(Number(req.query.offset ?? 0), 0);
+
+    const params: (number | string | null)[] = [acctId(req)];
+    const conditions: string[] = ["s.account_id = $1"];
+
+    if (packageId) { params.push(packageId); conditions.push(`s.package_id = $${params.length}`); }
+    if (status)    { params.push(status);    conditions.push(`s.status = $${params.length}`); }
+    if (search) {
+      params.push(`%${search}%`);
+      const idx = params.length;
+      conditions.push(`(s.signer_name ILIKE $${idx} OR s.signer_email ILIKE $${idx} OR p.name ILIKE $${idx})`);
+    }
+    const where = conditions.join(" AND ");
+
+    const [countRes, { rows }] = await Promise.all([
+      db.query<{ count: string }>(`SELECT COUNT(*) AS count FROM docufill_interview_sessions s JOIN docufill_packages p ON p.id = s.package_id WHERE ${where}`, params),
+      db.query(
+        `SELECT s.token, s.id, s.package_id, s.status,
+                s.created_at, s.updated_at, s.expires_at,
+                s.signer_name, s.signer_email, s.signed_at,
+                s.pdf_sha256, s.tsa_url,
+                (s.tsa_token_b64 IS NOT NULL) AS tsa_obtained,
+                (s.generated_pdf_storage_key IS NOT NULL) AS pdf_stored,
+                s.generated_pdf_url,
+                s.link_email_recipient,
+                p.name AS package_name
+           FROM docufill_interview_sessions s
+           JOIN docufill_packages p ON p.id = s.package_id
+          WHERE ${where}
+          ORDER BY s.updated_at DESC, s.id DESC
+          LIMIT $${(params.push(limit), params.length)} OFFSET $${(params.push(offset), params.length)}`,
+        params,
+      ),
+    ]);
+
+    res.json({ sessions: rows, total: Number(countRes.rows[0]?.count ?? 0) });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to list portal sessions");
+    res.status(500).json({ error: "Failed to list sessions" });
+  }
+});
+
 /**
  * @openapi
  * /internal/docufill/sessions:
@@ -3505,8 +3558,35 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
       res.status(404).json({ error: "Interview session not found" });
       return;
     }
+    const storageKey = typeof session.generated_pdf_storage_key === "string" ? session.generated_pdf_storage_key : null;
+    if (storageKey) {
+      // Serve the immutable stored PDF directly from object storage
+      try {
+        const file = await objectStorage.getObjectEntityFile(storageKey);
+        const storageRes = await objectStorage.downloadObject(file, 0);
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `attachment; filename=docufill-${req.params.token}.pdf`);
+        const contentLength = storageRes.headers.get("Content-Length");
+        if (contentLength) res.setHeader("Content-Length", contentLength);
+        const reader = storageRes.body!.getReader();
+        const pump = async () => {
+          const { done, value } = await reader.read();
+          if (done) { res.end(); return; }
+          res.write(value);
+          await pump();
+        };
+        await pump();
+        const { actorIp: dlIp, actorUa: dlUa } = actorContextFromRequest(req);
+        recordPdfAuditEvent({ accountId: acctId(req), sessionToken: req.params.token, eventType: "downloaded", actorType: req.internalEmail ? "staff" : "api", actorEmail: req.internalEmail ?? null, actorIp: dlIp, actorUa: dlUa }).catch(() => {});
+        return;
+      } catch (storageErr) {
+        if (!(storageErr instanceof ObjectNotFoundError)) {
+          logger.warn({ storageErr, token: req.params.token }, "[DocuFill] Storage read failed — falling back to regeneration");
+        }
+      }
+    }
+    // Fallback: regenerate (cert page re-attached if signed)
     let output = await buildPacketPdfBuffer(session, db);
-    // Re-append signing certificate page if this session was e-signed
     if (typeof session.signer_email === "string" && session.signer_email &&
         typeof session.signer_name  === "string" && session.signer_name &&
         session.signed_at) {
@@ -3987,6 +4067,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
     let pdfSha256: string | null = null;
     let tsaTokenB64: string | null = null;
     let tsaUrlUsed: string | null = null;
+    let pdfStorageKey: string | null = null;
     const signedAt = esignEmail ? new Date() : null;
     if (esignEmail && esignSignerName) {
       // Use the primary TSA URL as the "intended" authority shown in the cert page.
@@ -4014,6 +4095,17 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
         logger.warn({ tsaErr, token: req.params.token }, "[E-sign] RFC 3161 timestamp failed — proceeding without TSA token");
       }
     }
+    // Store final PDF (signed or unsigned) in object storage for instant downloads
+    try {
+      pdfStorageKey = await objectStorage.uploadBuffer(
+        `signed-pdfs/${req.params.token}.pdf`,
+        pdfBuffer,
+        "application/pdf",
+      );
+      logger.info({ storageKey: pdfStorageKey, token: req.params.token }, "[DocuFill] PDF stored in object storage");
+    } catch (storageErr) {
+      logger.warn({ storageErr, token: req.params.token }, "[DocuFill] Object storage upload failed — download will regenerate");
+    }
     await db.query(
       `UPDATE docufill_interview_sessions
           SET status='generated',
@@ -4027,10 +4119,11 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
               pdf_sha256=$8,
               tsa_token_b64=$9,
               tsa_url=$10,
+              generated_pdf_storage_key=$11,
               updated_at=NOW()
         WHERE token=$4`,
       [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token,
-       esignEmail, esignSignerName, signedAt, pdfSha256, tsaTokenB64, tsaUrlUsed],
+       esignEmail, esignSignerName, signedAt, pdfSha256, tsaTokenB64, tsaUrlUsed, pdfStorageKey],
     );
     // Append-only signing audit event (fire-and-forget)
     if (esignEmail) {
@@ -4172,8 +4265,32 @@ publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
       res.status(404).json({ error: "Interview session not found" });
       return;
     }
+    const storageKey = typeof session.generated_pdf_storage_key === "string" ? session.generated_pdf_storage_key : null;
+    if (storageKey) {
+      try {
+        const file = await objectStorage.getObjectEntityFile(storageKey);
+        const storageRes = await objectStorage.downloadObject(file, 0);
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("Content-Disposition", `inline; filename=docufill-${req.params.token}.pdf`);
+        const contentLength = storageRes.headers.get("Content-Length");
+        if (contentLength) res.setHeader("Content-Length", contentLength);
+        const reader = storageRes.body!.getReader();
+        const pump = async () => {
+          const { done, value } = await reader.read();
+          if (done) { res.end(); return; }
+          res.write(value);
+          await pump();
+        };
+        await pump();
+        return;
+      } catch (storageErr) {
+        if (!(storageErr instanceof ObjectNotFoundError)) {
+          logger.warn({ storageErr, token: req.params.token }, "[DocuFill] Storage read failed — falling back to regeneration");
+        }
+      }
+    }
+    // Fallback: regenerate (cert page re-attached if signed)
     let output = await buildPacketPdfBuffer(session, db);
-    // Re-append signing certificate page if this session was e-signed
     if (typeof session.signer_email === "string" && session.signer_email &&
         typeof session.signer_name  === "string" && session.signer_name &&
         session.signed_at) {
