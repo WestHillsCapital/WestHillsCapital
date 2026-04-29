@@ -126,6 +126,27 @@ CREATE TABLE IF NOT EXISTS docufill_groups (
 ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS group_id integer REFERENCES docufill_groups(id) ON DELETE SET NULL;
 ```
 
+## Encryption at Rest (PII)
+
+**Status:** Implemented. Requires `ENCRYPTION_MASTER_KEY` set in Railway.
+
+**Architecture:** Envelope encryption (AES-256-GCM).
+- `ENCRYPTION_MASTER_KEY` (32-byte hex env var) → wraps per-account DEKs stored in `accounts.encrypted_dek TEXT`
+- Each DEK encrypts the session `answers` JSONB → stored as `answers_ciphertext TEXT` in `docufill_interview_sessions`
+- Format: `hex(iv):hex(authTag):hex(ciphertext)` (12-byte IV, 16-byte GCM auth tag)
+- Dual-mode reads: decrypt `answers_ciphertext` if present, fall back to plaintext `answers` (migration period)
+- In-process DEK cache (cleared on server restart) to avoid per-request DB roundtrips
+- PII fields protected: `client_ssn`, `client_dob`, `ira_account_number`, all other session answers
+
+**Files:**
+- `artifacts/api-server/src/lib/encryption.ts` — crypto primitives + DEK cache
+- `scripts/migrate-pii-encryption.mjs` — one-time migration for existing rows
+
+**Production setup:**
+1. Set `ENCRYPTION_MASTER_KEY=<64 hex chars>` in Railway environment
+2. Deploy (DB migration runs automatically via `initDb()`)
+3. Run `node scripts/migrate-pii-encryption.mjs` once to encrypt existing rows (use `--dry-run` first)
+
 # External Dependencies
 
 | Dependency | Purpose |
@@ -153,5 +174,5 @@ ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS group_id integer REFERENC
 - **CI/CD:** Railway (API server) and Vercel (frontend) auto-deploy from `WestHillsCapital/WestHillsCapital` GitHub `main` branch.
 - **Sync script:** `node scripts/sync-to-github.mjs --dry-run` shows stale files. `node scripts/push-to-github.mjs "message" file1 file2 ...` pushes specific files.
 - **Important:** After task agent merges, always run `--dry-run` and explicitly push ALL stale/missing files. The sync script may not catch every file; use `push-to-github.mjs` directly for any file shown as MISSING.
-- **Required Railway env vars:** `DATABASE_URL`, `COOKIE_SECRET` (throws at startup if absent), `CORS_ALLOWED_ORIGINS` (fails closed in production if unset), `SENTRY_DSN` (optional).
+- **Required Railway env vars:** `DATABASE_URL`, `COOKIE_SECRET` (throws at startup if absent), `CORS_ALLOWED_ORIGINS` (fails closed in production if unset), `SENTRY_DSN` (optional), `ENCRYPTION_MASTER_KEY` (warns at startup if absent — PII stored in plaintext without it; must be 64 hex chars = 32 bytes).
 - Vercel handles API rewrites to proxy requests to the Railway-hosted API.

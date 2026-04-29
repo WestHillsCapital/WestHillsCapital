@@ -70,6 +70,23 @@ const server: Server = app.listen(port, () => {
     );
   }
 
+  // ── 3c. Encryption-at-rest key probe ──────────────────────────────────────
+  if (!process.env.ENCRYPTION_MASTER_KEY) {
+    logger.warn(
+      "[Encryption] ENCRYPTION_MASTER_KEY is not set — PII fields will be stored in plaintext. " +
+      "Set a 64-char hex value (32 random bytes) in environment variables to enable encryption at rest."
+    );
+  } else {
+    const keyLen = Buffer.from(process.env.ENCRYPTION_MASTER_KEY, "hex").length;
+    if (keyLen !== 32) {
+      logger.warn(
+        `[Encryption] ENCRYPTION_MASTER_KEY is ${keyLen} bytes — expected 32 bytes (64 hex chars). Encryption disabled.`
+      );
+    } else {
+      logger.info("[Encryption] ENCRYPTION_MASTER_KEY present — AES-256-GCM encryption at rest enabled.");
+    }
+  }
+
   // ── 4. Initialise the database ──────────────────────────────────────────────
   // Runs after the server is confirmed listening and config is valid.
   // If it fails, close the server so Railway restarts the container.
