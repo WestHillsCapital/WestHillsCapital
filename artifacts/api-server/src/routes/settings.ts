@@ -1990,6 +1990,87 @@ router.get("/admin/accounts/:id", async (req, res) => {
   }
 });
 
+// ── Super-admin plan override ──────────────────────────────────────────────────
+
+/**
+ * PATCH /admin/accounts/:id — override plan tier, seat limit, or subscription
+ * status for any account. Internal portal only.
+ */
+router.patch("/admin/accounts/:id", async (req, res) => {
+  if (!req.internalEmail) {
+    res.status(403).json({ error: "Forbidden" });
+    return;
+  }
+  const rawId = req.params.id ?? "";
+  if (!/^\d+$/.test(rawId)) {
+    res.status(400).json({ error: "Invalid account ID" });
+    return;
+  }
+  const accountId = parseInt(rawId, 10);
+
+  const VALID_TIERS    = new Set(["free", "pro", "enterprise"]);
+  const VALID_STATUSES = new Set(["active", "trialing", "canceled", "past_due", "manual", "none"]);
+
+  const body = req.body as Record<string, unknown>;
+  const updates: string[] = [];
+  const params: unknown[] = [];
+
+  if (body.plan_tier !== undefined) {
+    if (typeof body.plan_tier !== "string" || !VALID_TIERS.has(body.plan_tier)) {
+      res.status(400).json({ error: "Invalid plan_tier. Must be free, pro, or enterprise." });
+      return;
+    }
+    params.push(body.plan_tier);
+    updates.push(`plan_tier = $${params.length}`);
+  }
+
+  if (body.seat_limit !== undefined) {
+    const n = Number(body.seat_limit);
+    if (!Number.isInteger(n) || n < 1 || n > 10000) {
+      res.status(400).json({ error: "Invalid seat_limit. Must be an integer between 1 and 10000." });
+      return;
+    }
+    params.push(n);
+    updates.push(`seat_limit = $${params.length}`);
+  }
+
+  if (body.subscription_status !== undefined) {
+    const s = body.subscription_status === "" ? null : body.subscription_status;
+    if (s !== null && (typeof s !== "string" || !VALID_STATUSES.has(s))) {
+      res.status(400).json({ error: "Invalid subscription_status." });
+      return;
+    }
+    params.push(s);
+    updates.push(`subscription_status = $${params.length}`);
+  }
+
+  if (updates.length === 0) {
+    res.status(400).json({ error: "No valid fields to update." });
+    return;
+  }
+
+  try {
+    params.push(accountId);
+    const { rows } = await getDb().query<{
+      id: number; name: string; plan_tier: string;
+      subscription_status: string | null; seat_limit: number;
+    }>(
+      `UPDATE accounts SET ${updates.join(", ")} WHERE id = $${params.length}
+       RETURNING id, name, plan_tier, subscription_status, seat_limit`,
+      params,
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+    logger.info({ accountId, updates: body, by: req.internalEmail }, "[Admin] Plan override applied");
+    res.json({ account: rows[0] });
+  } catch (err) {
+    logger.error({ err }, "[Admin] Failed to apply plan override");
+    res.status(500).json({ error: "Failed to apply override" });
+  }
+});
+
 // ── IP allowlist management (admin only) ──────────────────────────────────────
 //
 // GET  /security/ip-allowlist  → { allowed_ip_ranges: string[] }

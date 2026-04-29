@@ -22,6 +22,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
     { href: "/internal/docufill",             label: "Docuplete" },
     { href: "/internal/content",              label: "Content" },
     { href: "/internal/settings",             label: "Settings" },
+    { href: "/internal/super-admin",          label: "Super Admin" },
   ];
 
   return (
