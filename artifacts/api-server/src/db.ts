@@ -1226,6 +1226,7 @@ export async function initDb(): Promise<void> {
     CREATE INDEX IF NOT EXISTS org_audit_log_account_created_idx
       ON org_audit_log (account_id, created_at DESC)
   `);
+  await db.query(`ALTER TABLE org_audit_log ADD COLUMN IF NOT EXISTS ip_address TEXT`);
 
   // ── Email customization — per-org sender display name, reply-to, footer ──────
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS email_sender_name TEXT`);
