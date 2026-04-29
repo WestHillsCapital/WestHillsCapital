@@ -112,6 +112,7 @@ type FieldItem = {
   validationPattern?: string;
   validationMessage?: string;
   condition?: FieldCondition | null;
+  condition2?: FieldCondition | null;
 };
 
 type FieldLibraryItem = {
@@ -946,8 +947,8 @@ export default function DocuFill() {
     name: string; color: string; type: FieldItem["type"]; options: string[];
     interviewMode: FieldInterviewMode; hasDefault: boolean; defaultValue: string;
     validationType: FieldItem["validationType"]; validationPattern: string; validationMessage: string; packageOnly: boolean;
-    condition: FieldCondition | null;
-  }>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false, condition: null });
+    condition: FieldCondition | null; condition2: FieldCondition | null;
+  }>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false, condition: null, condition2: null });
   const sortSensors = useSensors(useSensor(SmartPointerSensor, { activationConstraint: { distance: 6 } }));
   const [session, setSession] = useState<Session | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -1109,7 +1110,7 @@ export default function DocuFill() {
     }
   }
   const visibleInterviewFields = useMemo(() => {
-    const fields = (session?.fields ?? []).filter((f) => fieldInInterview(f) && evaluateFieldCondition(f.condition, answers));
+    const fields = (session?.fields ?? []).filter((f) => fieldInInterview(f) && evaluateFieldCondition(f.condition, answers) && evaluateFieldCondition(f.condition2, answers));
     if (selectedPackage && selectedPackage.fields.length > 0) {
       const orderMap = new Map(selectedPackage.fields.map((f, i) => [f.id, i]));
       return [...fields].sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999));
@@ -2220,7 +2221,7 @@ export default function DocuFill() {
       validationType: field.validationType ?? "none",
       validationPattern: field.validationPattern ?? "",
       validationMessage: field.validationMessage ?? "",
-      packageOnly: false, condition: field.condition ?? null,
+      packageOnly: false, condition: field.condition ?? null, condition2: field.condition2 ?? null,
     });
     setSelectedFieldId(fieldId);
     setFieldEditorModal({ mode: "edit", fieldId });
@@ -2319,7 +2320,7 @@ export default function DocuFill() {
 
   async function saveFieldFromModal() {
     if (!fieldEditorModal || !selectedPackage) return;
-    const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage, packageOnly, condition } = fieldEditorDraft;
+    const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage, packageOnly, condition, condition2 } = fieldEditorDraft;
     const cleanOpts = options.filter(Boolean);
     const isChoiceType = type === "radio" || type === "checkbox";
 
@@ -2367,6 +2368,7 @@ export default function DocuFill() {
           source: "interview", sensitive: false,
           validationType: validationType ?? "none", validationPattern, validationMessage,
           condition: condition ?? undefined,
+          condition2: condition2 ?? undefined,
         };
         setSelectedFieldId(field.id);
         const autoMappings = isChoiceType ? autoPlacementsForOptions(field.id, cleanOpts, pkg.mappings) : [];
@@ -2386,6 +2388,7 @@ export default function DocuFill() {
             interviewMode, defaultValue: hasDefault ? defaultValue : "",
             validationType: validationType ?? "none", validationPattern, validationMessage,
             condition: condition ?? undefined,
+            condition2: condition2 ?? undefined,
           } : f),
           mappings: [...pkg.mappings, ...autoMappings],
         };
@@ -2690,7 +2693,7 @@ export default function DocuFill() {
 
   function validateInterviewAnswers(): boolean {
     if (!session) return true;
-    const activeFields = session.fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly" && evaluateFieldCondition(f.condition, answers));
+    const activeFields = session.fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly" && evaluateFieldCondition(f.condition, answers) && evaluateFieldCondition(f.condition2, answers));
     const newErrors: Record<string, string> = {};
     for (const field of activeFields) {
       const value = interviewFieldValue(field, answers, session.prefill);
@@ -4887,7 +4890,7 @@ export default function DocuFill() {
                                         <span>{field.name}</span>
                                         {field.libraryFieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>}
                                         {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
-                                        {field.condition?.fieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5">Conditional</span>}
+                                        {(field.condition?.fieldId || field.condition2?.fieldId) && <span className="text-[10px] uppercase tracking-wide rounded bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5">Conditional</span>}
                                         {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
                                       </div>
                                       <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
@@ -6447,6 +6450,64 @@ export default function DocuFill() {
                             value={fieldEditorDraft.condition.value}
                             onChange={(e) => setFieldEditorDraft((d) => ({ ...d, condition: d.condition ? { ...d.condition, value: e.target.value } : null }))}
                           />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {fieldEditorDraft.condition !== null && (
+                    <div className="pt-2 mt-1 border-t border-[#EFE8D8]">
+                      {fieldEditorDraft.condition2 === null ? (
+                        <button
+                          type="button"
+                          onClick={() => setFieldEditorDraft((d) => ({ ...d, condition2: { fieldId: "", operator: "is_answered", value: "" } }))}
+                          className="text-xs text-[#6B7A99] hover:text-[#0F1C3F] underline underline-offset-2"
+                        >
+                          + Add second condition (AND)
+                        </button>
+                      ) : (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide">AND</span>
+                            <button type="button" onClick={() => setFieldEditorDraft((d) => ({ ...d, condition2: null }))} className="text-xs text-red-500 hover:underline">Remove</button>
+                          </div>
+                          <div>
+                            <label className="text-xs text-[#6B7A99] mb-1 block">Trigger field</label>
+                            <select
+                              value={fieldEditorDraft.condition2.fieldId}
+                              onChange={(e) => setFieldEditorDraft((d) => ({ ...d, condition2: d.condition2 ? { ...d.condition2, fieldId: e.target.value } : null }))}
+                              className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                            >
+                              <option value="">— select a field —</option>
+                              {(selectedPackage?.fields ?? [])
+                                .filter((f) => f.id !== fieldEditorModal?.fieldId && f.interviewMode !== "omitted" && f.interviewMode !== "readonly")
+                                .map((f) => (
+                                  <option key={f.id} value={f.id}>{f.name}</option>
+                                ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="text-xs text-[#6B7A99] mb-1 block">Condition</label>
+                            <select
+                              value={fieldEditorDraft.condition2.operator}
+                              onChange={(e) => setFieldEditorDraft((d) => ({ ...d, condition2: d.condition2 ? { ...d.condition2, operator: e.target.value as FieldCondition["operator"] } : null }))}
+                              className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                            >
+                              <option value="is_answered">has any answer</option>
+                              <option value="is_not_answered">has no answer</option>
+                              <option value="equals">equals</option>
+                              <option value="not_equals">does not equal</option>
+                            </select>
+                          </div>
+                          {(fieldEditorDraft.condition2.operator === "equals" || fieldEditorDraft.condition2.operator === "not_equals") && (
+                            <div>
+                              <label className="text-xs text-[#6B7A99] mb-1 block">Value</label>
+                              <Input
+                                placeholder="Enter expected value"
+                                value={fieldEditorDraft.condition2.value}
+                                onChange={(e) => setFieldEditorDraft((d) => ({ ...d, condition2: d.condition2 ? { ...d.condition2, value: e.target.value } : null }))}
+                              />
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
