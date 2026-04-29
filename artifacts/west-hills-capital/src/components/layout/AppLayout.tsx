@@ -179,6 +179,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 {/* Menu items */}
                 <div className="py-1">
                   <Link
+                    href="/app/sessions"
+                    onClick={() => setDropdownOpen(false)}
+                    className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors ${
+                      location.startsWith("/app/sessions")
+                        ? "bg-gray-50 text-gray-900 font-medium"
+                        : "text-gray-700 hover:bg-gray-50 hover:text-gray-900"
+                    }`}
+                    role="menuitem"
+                  >
+                    <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" />
+                    </svg>
+                    Sessions
+                  </Link>
+                  <Link
                     href="/app/settings"
                     onClick={() => setDropdownOpen(false)}
                     className={`flex items-center gap-3 w-full px-4 py-2.5 text-sm transition-colors ${

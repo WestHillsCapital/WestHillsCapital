@@ -196,6 +196,25 @@ export class ObjectStorageService {
     return new Response(webStream, { headers });
   }
 
+  /**
+   * Upload a Buffer directly from the server to GCS.
+   * `objectId` is the path beneath PRIVATE_OBJECT_DIR, e.g. "signed-pdfs/df_abc123.pdf".
+   * Returns the normalized object path: "/objects/signed-pdfs/df_abc123.pdf"
+   */
+  async uploadBuffer(objectId: string, buffer: Buffer, contentType: string): Promise<string> {
+    const privateObjectDir = this.getPrivateObjectDir();
+    const fullPath = `${privateObjectDir}/${objectId}`;
+    const { bucketName, objectName } = parseObjectPath(fullPath);
+    const bucket = objectStorageClient.bucket(bucketName);
+    const file = bucket.file(objectName);
+    try {
+      await file.save(buffer, { contentType, resumable: false });
+    } catch (err) {
+      wrapGcsError(err);
+    }
+    return `/objects/${objectId}`;
+  }
+
   async getObjectEntityUploadURL(): Promise<string> {
     const privateObjectDir = this.getPrivateObjectDir();
     if (!privateObjectDir) {

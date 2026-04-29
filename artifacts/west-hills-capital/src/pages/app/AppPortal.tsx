@@ -10,6 +10,7 @@ import AppOnboard from "./AppOnboard";
 import DocuFill from "@/pages/internal/DocuFill";
 
 const AppSettings = lazy(() => import("./AppSettings"));
+const AppSessionsPage = lazy(() => import("./AppSessions"));
 
 function Spinner() {
   return (
@@ -111,6 +112,7 @@ export default function AppPortal() {
       <Suspense fallback={<Spinner />}>
         <Switch>
           <Route path="/app/settings" component={AppSettings} />
+          <Route path="/app/sessions" component={() => <AppSessionsPage getAuthHeaders={getAuthHeaders} />} />
           <Route component={() => <DocuFillWrapper getAuthHeaders={getAuthHeaders} />} />
         </Switch>
       </Suspense>
