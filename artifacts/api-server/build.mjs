@@ -3,7 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { build as esbuild } from "esbuild";
 import esbuildPluginPino from "esbuild-plugin-pino";
-import { rm } from "node:fs/promises";
+import { rm, cp, mkdir } from "node:fs/promises";
 import { execSync } from "node:child_process";
 
 // Plugins (e.g. 'esbuild-plugin-pino') may use `require` to resolve dependencies
@@ -106,6 +106,7 @@ async function buildAll() {
       "puppeteer",
       "puppeteer-core",
       "electron",
+      "geoip-lite",
     ],
     sourcemap: "linked",
     plugins: [
@@ -124,6 +125,21 @@ globalThis.__dirname = __bannerPath.dirname(globalThis.__filename);
     `,
     },
   });
+
+  // Copy geoip-lite data files so Railway's GEODATADIR can find them.
+  // geoip-lite reads GEODATADIR synchronously at require-time; the env var set
+  // in geoip.ts runs too late on the first require, so we make the files
+  // available at the path Railway sets ($ARTIFACT_DIR/data/).
+  try {
+    const geoipPkgPath = globalThis.require.resolve("geoip-lite/package.json");
+    const geoipDataSrc = path.join(path.dirname(geoipPkgPath), "data");
+    const geoipDataDest = path.resolve(artifactDir, "data");
+    await mkdir(geoipDataDest, { recursive: true });
+    await cp(geoipDataSrc, geoipDataDest, { recursive: true });
+    console.log(`[build] Copied geoip-lite data → ${geoipDataDest}`);
+  } catch (err) {
+    console.warn("[build] Could not copy geoip-lite data files:", err instanceof Error ? err.message : String(err));
+  }
 }
 
 buildAll().catch((err) => {
