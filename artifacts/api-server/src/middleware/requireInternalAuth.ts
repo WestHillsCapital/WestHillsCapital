@@ -7,10 +7,12 @@ import { logger } from "../lib/logger";
 declare global {
   namespace Express {
     interface Request {
-      internalEmail?:     string;
-      internalAccountId?: number;
+      internalEmail?:      string;
+      internalAccountId?:  number;
       /** Role of the authenticated product/SaaS user (admin | member | readonly). Unset for internal-portal or API-key auth. */
-      productUserRole?:   string;
+      productUserRole?:    string;
+      /** Email of the authenticated product/SaaS user (Clerk path). Set by requireProductAuth; unset for API-key auth. */
+      productUserEmail?:   string;
     }
   }
 }

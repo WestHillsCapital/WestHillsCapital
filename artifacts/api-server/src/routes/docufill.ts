@@ -3034,7 +3034,9 @@ router.post("/sessions/:token/void", requireAdminRole, async (req, res) => {
     );
 
     // Append-only audit event (fire-and-forget)
-    const actorEmail = req.internalEmail ?? null;
+    // internalEmail is set for staff (internal portal) sessions;
+    // productUserEmail is set for product/SaaS admins authenticated via Clerk.
+    const actorEmail = req.internalEmail ?? req.productUserEmail ?? null;
     db.query(
       `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, metadata)
        VALUES ($1, $2, 'voided', $3, $4, $5::jsonb)`,
