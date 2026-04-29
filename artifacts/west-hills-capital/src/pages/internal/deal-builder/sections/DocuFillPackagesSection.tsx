@@ -49,9 +49,12 @@ export function DocuFillPackagesSection({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const getAuthHeadersRef = useRef(getAuthHeaders);
+  getAuthHeadersRef.current = getAuthHeaders;
+
   useEffect(() => {
     setIsLoading(true);
-    fetch(`${API_BASE}/api/internal/docufill/bootstrap`, { headers: { ...getAuthHeaders() } })
+    fetch(`${API_BASE}/api/internal/docufill/bootstrap`, { headers: { ...getAuthHeadersRef.current() } })
       .then((res) => res.ok ? res.json() : Promise.reject(new Error("Could not load DocuFill packages")))
       .then((data: { custodians: DocuFillEntity[]; depositories: DocuFillEntity[]; transactionTypes?: DocuFillTransactionType[]; packages: DocuFillPackage[] }) => {
         setCustodians(data.custodians ?? []);
@@ -61,7 +64,8 @@ export function DocuFillPackagesSection({
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not load DocuFill packages"))
       .finally(() => setIsLoading(false));
-  }, [getAuthHeaders]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const { selectedCustodian, selectedDepository } = resolveDocuFillSelections(customer, custodians, depositories);
 
@@ -72,12 +76,19 @@ export function DocuFillPackagesSection({
   const labelForScope = (scope: string) => transactionTypes.find((item) => item.scope === scope)?.label ?? getDocuFillTransactionLabel(scope);
 
   useEffect(() => {
-    if (selectedCustodian && customer.custodianId !== String(selectedCustodian.id)) {
-      setCustomer((prev) => ({ ...prev, custodianId: String(selectedCustodian.id), custodian: selectedCustodian.name }));
-    }
-    if (selectedDepository && customer.depositoryId !== String(selectedDepository.id)) {
-      setCustomer((prev) => ({ ...prev, depositoryId: String(selectedDepository.id), depository: selectedDepository.name }));
-    }
+    const custodianDiffers = selectedCustodian && customer.custodianId !== String(selectedCustodian.id);
+    const depositoryDiffers = selectedDepository && customer.depositoryId !== String(selectedDepository.id);
+    if (!custodianDiffers && !depositoryDiffers) return;
+    setCustomer((prev) => {
+      let next = prev;
+      if (custodianDiffers) {
+        next = { ...next, custodianId: String(selectedCustodian.id), custodian: selectedCustodian.name };
+      }
+      if (depositoryDiffers) {
+        next = { ...next, depositoryId: String(selectedDepository.id), depository: selectedDepository.name };
+      }
+      return next;
+    });
   }, [customer.custodianId, customer.depositoryId, selectedCustodian, selectedDepository, setCustomer]);
 
   const packageIdRef = useRef(packageId);

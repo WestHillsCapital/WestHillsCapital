@@ -11,8 +11,9 @@ export function useSpotPricing(
   const [isFetchingSpot, setIsFetchingSpot] = useState(false);
   const [spotError,      setSpotError]      = useState<string | null>(null);
 
-  const getSpotPrice = useCallback(async () => {
-    setIsFetchingSpot(true);
+  /** Core fetch — merges prices into state without resetting the product rows. */
+  const fetchPrices = useCallback(async (showLoadingIndicator: boolean) => {
+    if (showLoadingIndicator) setIsFetchingSpot(true);
     setSpotError(null);
     try {
       const [spotRes, prodRes] = await Promise.all([
@@ -54,13 +55,17 @@ export function useSpotPricing(
     } catch {
       setSpotError("Could not fetch live pricing. Check API connection.");
     } finally {
-      setIsFetchingSpot(false);
+      if (showLoadingIndicator) setIsFetchingSpot(false);
     }
   }, [setSpotData, setRows]);
 
-  // Auto-fetch on mount for new deals only
+  /** User-triggered refresh — shows the loading indicator on the button. */
+  const getSpotPrice = useCallback(() => fetchPrices(true), [fetchPrices]);
+
+  // Auto-fetch on mount for new deals only. Runs silently (no loading spinner)
+  // so it doesn't cause a visible flash while the user fills out the form.
   useEffect(() => {
-    if (!urlDealId) void getSpotPrice();
+    if (!urlDealId) void fetchPrices(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

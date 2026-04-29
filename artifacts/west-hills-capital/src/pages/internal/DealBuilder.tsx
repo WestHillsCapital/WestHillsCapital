@@ -1,5 +1,5 @@
 import { useSearch, useLocation } from "wouter";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useInternalAuth } from "../../hooks/useInternalAuth";
 import { getCachedOrg } from "../../hooks/useOrgSettings";
 import { formatOrgDate } from "../../lib/orgDateFormat";
@@ -56,19 +56,23 @@ export default function DealBuilder() {
   const handlePackageChange = useCallback((id: string) => setDocufillPackageId(id), []);
   const handleTransactionScopeChange = useCallback((scope: string) => setDocufillTransactionScope(scope), []);
 
+  // Keep a stable ref to getAuthHeaders so effects don't re-fire when auth state resolves on load
+  const getAuthHeadersRef = useRef(getAuthHeaders);
+  getAuthHeadersRef.current = getAuthHeaders;
+
   // ── Restore DocuFill session when reopening a locked deal via URL ─────────
   const [restoredSessionToken, setRestoredSessionToken] = useState<string | null>(null);
   useEffect(() => {
     if (!urlDealId || !s.savedDealId || s.dealType !== "ira" || restoredSessionToken) return;
     fetch(`${API_BASE}/api/internal/docufill/sessions?dealId=${s.savedDealId}`, {
-      headers: { ...getAuthHeaders() },
+      headers: { ...getAuthHeadersRef.current() },
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
       .then((data: { token?: string }) => {
         if (data.token) setRestoredSessionToken(data.token);
       })
       .catch(() => {});
-  }, [urlDealId, s.savedDealId, s.dealType, restoredSessionToken, getAuthHeaders]);
+  }, [urlDealId, s.savedDealId, s.dealType, restoredSessionToken]);
 
   // ── Computed totals ───────────────────────────────────────────────────────
   const rowTotals = s.rows.map((r) => {
