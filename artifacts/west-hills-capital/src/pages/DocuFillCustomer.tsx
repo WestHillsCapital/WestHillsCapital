@@ -282,7 +282,7 @@ export default function DocuFillCustomer() {
         body: JSON.stringify({ answers }),
       });
       const genBody: Record<string, unknown> = {};
-      if (identityToken) genBody.identityToken = identityToken;
+      if (identityToken) genBody.esignToken = identityToken;
       if (signerName.trim()) genBody.signerName = signerName.trim();
       const genRes = await fetch(`${SESSION_BASE}/${token}/generate`, {
         method: "POST",

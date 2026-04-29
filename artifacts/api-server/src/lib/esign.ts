@@ -2,8 +2,8 @@ import { createHmac, randomInt, createHash } from "node:crypto";
 
 function esignSecret(): Buffer {
   const key = process.env.ENCRYPTION_MASTER_KEY;
-  if (key) return Buffer.from(key, "hex");
-  return Buffer.from("docuplete-esign-dev-only-insecure-fallback", "utf8");
+  if (!key) throw new Error("ENCRYPTION_MASTER_KEY is required for e-sign identity tokens");
+  return Buffer.from(key, "hex");
 }
 
 /** Generate a 6-digit OTP and its SHA-256 hash. */
