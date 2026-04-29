@@ -215,6 +215,7 @@ type PackageItem = {
   enable_embed: boolean;
   embed_key: string | null;
   enable_gdrive: boolean;
+  enable_hubspot: boolean;
 };
 
 type Session = {
@@ -503,6 +504,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     enable_embed: (pkg as PackageItem & Record<string, unknown>).enable_embed === true,
     embed_key: typeof (pkg as PackageItem & Record<string, unknown>).embed_key === "string" ? (pkg as PackageItem & Record<string, unknown>).embed_key as string : null,
     enable_gdrive: (pkg as PackageItem & Record<string, unknown>).enable_gdrive === true,
+    enable_hubspot: (pkg as PackageItem & Record<string, unknown>).enable_hubspot === true,
     tags: Array.isArray((pkg as PackageItem & { tags?: unknown }).tags)
       ? ((pkg as PackageItem & { tags?: unknown }).tags as unknown[]).map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
       : [],
@@ -1581,6 +1583,7 @@ export default function DocuFill() {
           notifyClientOnSubmit: pkg.notify_client_on_submit,
           enableEmbed: pkg.enable_embed,
           enableGdrive: pkg.enable_gdrive,
+          enableHubspot: pkg.enable_hubspot,
         }),
       });
       const data = await res.json();
@@ -3918,6 +3921,33 @@ export default function DocuFill() {
                                 <svg className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                                 <p className="text-[11px] text-amber-800 leading-snug">
                                   Requires Google Drive connected in <a href="/app/settings?tab=integrations" className="underline font-medium" target="_blank" rel="noopener noreferrer">Settings → Integrations</a>.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                          {/* HubSpot CRM — toggleable */}
+                          <div className={`rounded-lg border-2 p-3 transition-colors ${selectedPackage.enable_hubspot ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}>
+                            <button
+                              type="button"
+                              onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, enable_hubspot: !pkg.enable_hubspot }))}
+                              className="w-full text-left"
+                            >
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <svg className={`w-4 h-4 shrink-0 ${selectedPackage.enable_hubspot ? "text-[#FF7A59]" : "text-[#8A9BB8]"}`} viewBox="0 0 24 24" fill="currentColor">
+                                  <path d="M16.5 8.25V5.87A2.25 2.25 0 0 0 15 3.75H15a2.25 2.25 0 0 0-2.25 2.25v2.37a4.5 4.5 0 0 0-1.31.73L8.1 7.2A3.75 3.75 0 1 0 6.75 9.9l3.26 1.9a4.47 4.47 0 0 0 0 2.44L6.75 16.1A3.75 3.75 0 1 0 8.1 18.8l3.34-1.85a4.5 4.5 0 1 0 5.06-8.7ZM6.75 11.25a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm9-5.25a2.25 2.25 0 1 1 0-4.5 2.25 2.25 0 0 1 0 4.5Z" />
+                                </svg>
+                                <span className={`text-sm font-semibold ${selectedPackage.enable_hubspot ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>HubSpot CRM</span>
+                                <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.enable_hubspot ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
+                                  {selectedPackage.enable_hubspot ? "Enabled" : "Off"}
+                                </span>
+                              </div>
+                              <p className="text-xs text-[#6B7A99]">Create or update a HubSpot CRM contact with the submitter's details when this packet is completed.</p>
+                            </button>
+                            {selectedPackage.enable_hubspot && (
+                              <div className="mt-2 flex items-start gap-1.5 rounded bg-amber-50 border border-amber-200 px-2 py-1.5">
+                                <svg className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <p className="text-[11px] text-amber-800 leading-snug">
+                                  Requires HubSpot connected in <a href="/app/settings?tab=integrations" className="underline font-medium" target="_blank" rel="noopener noreferrer">Settings → Integrations</a>.
                                 </p>
                               </div>
                             )}

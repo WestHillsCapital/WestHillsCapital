@@ -17,6 +17,7 @@ import {
 } from "../lib/docufill-redaction";
 import { saveDocuFillPacketToDrive } from "../lib/google-drive";
 import { uploadSessionPdfToAccountDrive } from "../lib/google-drive-account";
+import { upsertHubSpotContact, extractHubSpotProperties } from "../lib/hubspot-account";
 import {
   sendInterviewLinkEmail,
   sendDocupleteStaffSubmissionEmail,
@@ -116,6 +117,7 @@ type PackageInput = {
   notifyClientOnSubmit?: boolean;
   enableEmbed?: boolean;
   enableGdrive?: boolean;
+  enableHubspot?: boolean;
 };
 
 type DocItem = {
@@ -967,13 +969,14 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
             p.webhook_enabled, p.webhook_url,
             p.notify_staff_on_submit, p.notify_client_on_submit,
             p.enable_embed, p.embed_key,
-            p.enable_gdrive,
+            p.enable_gdrive, p.enable_hubspot,
             p.account_id AS package_account_id,
             c.name AS custodian_name, d.name AS depository_name, g.name AS group_name,
             a.name AS org_name,
             CASE WHEN a.logo_url IS NOT NULL THEN '/api/storage/org-logo/' || a.id::text ELSE NULL END AS org_logo_url,
             a.brand_color AS org_brand_color,
-            a.gdrive_access_token, a.gdrive_refresh_token, a.gdrive_folder_id
+            a.gdrive_access_token, a.gdrive_refresh_token, a.gdrive_folder_id,
+            a.hubspot_access_token, a.hubspot_refresh_token
        FROM docufill_interview_sessions s
        JOIN docufill_packages p ON p.id = s.package_id
        LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
@@ -2018,8 +2021,9 @@ router.patch("/packages/:id", async (req, res) => {
           notify_staff_on_submit=$18, notify_client_on_submit=$19,
           enable_embed=$20, embed_key=COALESCE($21, embed_key),
           enable_gdrive=$22,
+          enable_hubspot=$23,
           version=version+1, updated_at=NOW()
-        WHERE id=$23 AND account_id=$24
+        WHERE id=$24 AND account_id=$25
         RETURNING *`,
       [
         name,
@@ -2048,8 +2052,9 @@ router.patch("/packages/:id", async (req, res) => {
           if (willEnable && !existing.embed_key) return `emb_${randomBytes(16).toString("base64url")}`;
           return null; // null → COALESCE keeps existing key
         })(),
-        // $22 enable_gdrive
+        // $22 enable_gdrive, $23 enable_hubspot
         body.enableGdrive === undefined ? (existing.enable_gdrive ?? false) : Boolean(body.enableGdrive),
+        body.enableHubspot === undefined ? (existing.enable_hubspot ?? false) : Boolean(body.enableHubspot),
         id,
         accountId,
       ],
@@ -3281,6 +3286,28 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
         }
       }
     }
+    // ── HubSpot contact upsert ───────────────────────────────────────────────
+    let hubspotWarning: string | undefined;
+    if (session.enable_hubspot === true) {
+      const hsAccessToken  = typeof session.hubspot_access_token  === "string" ? session.hubspot_access_token  : null;
+      const hsRefreshToken = typeof session.hubspot_refresh_token === "string" ? session.hubspot_refresh_token : null;
+      if (hsAccessToken && hsRefreshToken) {
+        try {
+          const prefill  = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+          const fields   = Array.isArray(session.fields) ? (session.fields as Array<{ id: string; label: string; type?: string }>) : [];
+          const answers  = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
+          const props    = extractHubSpotProperties(prefill, fields, answers);
+          const result   = await upsertHubSpotContact(hsAccessToken, hsRefreshToken, props);
+          if (result.newAccessToken) {
+            await db.query(`UPDATE accounts SET hubspot_access_token=$1 WHERE id=$2`, [result.newAccessToken, acctId(req)]);
+          }
+          logger.info({ contactId: result.contactId, created: result.created }, "[DocuFill] HubSpot contact upserted");
+        } catch (err) {
+          hubspotWarning = err instanceof Error ? err.message : "Could not sync contact to HubSpot";
+          logger.error({ err, token: req.params.token }, "[DocuFill] HubSpot upsert failed");
+        }
+      }
+    }
     await db.query(
       `UPDATE docufill_interview_sessions
           SET status='generated',
@@ -3293,11 +3320,12 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
           AND account_id = $5`,
       [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token, acctId(req)],
     );
+    const allWarnings = [...(driveWarning ? [driveWarning] : []), ...(hubspotWarning ? [hubspotWarning] : [])];
     res.json({
       packet: generated,
       downloadUrl: `/api/internal/docufill/sessions/${req.params.token}/packet.pdf`,
       drive: driveResult ? { fileId: driveResult.fileId, url: driveResult.webViewLink } : null,
-      warnings: driveWarning ? [driveWarning] : [],
+      warnings: allWarnings,
     });
     // Audit trail — non-blocking
     const { actorIp, actorUa } = actorContextFromRequest(req);
@@ -3597,6 +3625,29 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
         }
       }
     }
+    // ── HubSpot contact upsert ───────────────────────────────────────────────
+    let hubspotWarning: string | undefined;
+    if (session.enable_hubspot === true) {
+      const hsAccessToken  = typeof session.hubspot_access_token  === "string" ? session.hubspot_access_token  : null;
+      const hsRefreshToken = typeof session.hubspot_refresh_token === "string" ? session.hubspot_refresh_token : null;
+      if (hsAccessToken && hsRefreshToken) {
+        try {
+          const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+          const fields  = Array.isArray(session.fields) ? (session.fields as Array<{ id: string; label: string; type?: string }>) : [];
+          const answers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
+          const props   = extractHubSpotProperties(prefill, fields, answers);
+          const packageAccountId = typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id);
+          const result  = await upsertHubSpotContact(hsAccessToken, hsRefreshToken, props);
+          if (result.newAccessToken) {
+            await db.query(`UPDATE accounts SET hubspot_access_token=$1 WHERE id=$2`, [result.newAccessToken, packageAccountId]);
+          }
+          logger.info({ contactId: result.contactId, created: result.created }, "[DocuFill] HubSpot contact upserted (public)");
+        } catch (err) {
+          hubspotWarning = err instanceof Error ? err.message : "Could not sync contact to HubSpot";
+          logger.error({ err, token: req.params.token }, "[DocuFill] HubSpot upsert failed (public submit)");
+        }
+      }
+    }
     await db.query(
       `UPDATE docufill_interview_sessions
           SET status='generated',
@@ -3608,11 +3659,12 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
         WHERE token=$4`,
       [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token],
     );
+    const allPublicWarnings = [...(driveWarning ? [driveWarning] : []), ...(hubspotWarning ? [hubspotWarning] : [])];
     res.json({
       packet: generated,
       downloadUrl: `/api/v1/docufill/public/sessions/${req.params.token}/packet.pdf`,
       drive: driveResult ? { fileId: driveResult.fileId, url: driveResult.webViewLink } : null,
-      warnings: driveWarning ? [driveWarning] : [],
+      warnings: allPublicWarnings,
     });
     const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
     if (session.webhook_enabled === true && webhookUrl) {
