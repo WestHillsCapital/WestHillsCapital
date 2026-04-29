@@ -11,10 +11,10 @@
  * actual build surfaces the problem immediately with a clear error message.
  */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { builtinModules } from "node:module";
+import { collectSpecifiers, pkgName, collectScriptFiles } from "./check-build-deps-lib.mjs";
 
 const artifactDir = path.dirname(path.dirname(fileURLToPath(import.meta.url)));
 const scriptsDir = path.join(artifactDir, "scripts");
@@ -25,72 +25,21 @@ const pkg = JSON.parse(readFileSync(pkgFile, "utf8"));
 const prodDeps = new Set(Object.keys(pkg.dependencies ?? {}));
 const devDeps = new Set(Object.keys(pkg.devDependencies ?? {}));
 
-// Use the runtime's own list so the check stays accurate across Node versions.
-const nodeBuiltins = new Set(builtinModules);
-
-// Collect all static import specifiers from a source string.
-// Matches:  import ... from "pkg"  |  import("pkg")  |  require("pkg")
-const importRe = /(?:^|\s)import\s[^'"]*['"]([^'"]+)['"]/gm;
-const dynamicRe = /import\(['"]([^'"]+)['"]\)/g;
-const requireRe = /\brequire\(['"]([^'"]+)['"]\)/g;
-
-function collectSpecifiers(src) {
-  const specifiers = new Set();
-  for (const re of [importRe, dynamicRe, requireRe]) {
-    // Reset lastIndex since we reuse the same RegExp objects across calls.
-    re.lastIndex = 0;
-    let m;
-    while ((m = re.exec(src)) !== null) {
-      specifiers.add(m[1]);
-    }
-  }
-  return specifiers;
-}
-
-// Resolve a bare specifier to its package name (handles scoped packages).
-function pkgName(specifier) {
-  if (specifier.startsWith(".") || specifier.startsWith("/")) return null;
-  if (specifier.startsWith("node:")) return null;
-  const top = specifier.startsWith("@")
-    ? specifier.split("/").slice(0, 2).join("/")
-    : specifier.split("/")[0];
-  if (nodeBuiltins.has(top)) return null;
-  return top;
-}
-
-const SCRIPT_EXTENSIONS = new Set([".mjs", ".js", ".ts"]);
-
-// Recursively collect all script files under a directory.
-function collectScriptFiles(dir) {
-  const results = [];
-  let entries;
-  try {
-    entries = readdirSync(dir, { withFileTypes: true });
-  } catch {
-    return results; // directory doesn't exist or isn't readable
-  }
-  for (const entry of entries) {
-    const full = path.join(dir, entry.name);
-    if (entry.isDirectory()) {
-      results.push(...collectScriptFiles(full));
-    } else if (entry.isFile() && SCRIPT_EXTENSIONS.has(path.extname(entry.name))) {
-      results.push(full);
-    }
-  }
-  return results;
-}
-
 // Build the list of files to check: build.mjs is required; scripts/ files are
-// discovered dynamically. The checker itself is excluded to avoid false positives.
+// discovered dynamically. The checker itself and its support library are
+// excluded to avoid false positives from their own source text.
 const selfPath = fileURLToPath(import.meta.url);
+const libPath = fileURLToPath(new URL("./check-build-deps-lib.mjs", import.meta.url));
 
 const filesToCheck = [
   // build.mjs is a required input — fail fast if it's unreadable.
   { filePath: path.join(artifactDir, "build.mjs"), required: true },
 ];
 
+const excluded = new Set([selfPath, libPath]);
+
 for (const filePath of collectScriptFiles(scriptsDir)) {
-  if (filePath !== selfPath) {
+  if (!excluded.has(filePath)) {
     filesToCheck.push({ filePath, required: false });
   }
 }
