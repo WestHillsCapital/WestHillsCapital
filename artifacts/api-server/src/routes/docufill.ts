@@ -2896,7 +2896,7 @@ router.get("/sessions/portal-list", async (req, res) => {
     const where = conditions.join(" AND ");
 
     const [countRes, { rows }] = await Promise.all([
-      db.query<{ count: string }>(`SELECT COUNT(*) AS count FROM docufill_interview_sessions s JOIN docufill_packages p ON p.id = s.package_id WHERE ${where}`, params),
+      db.query<{ count: string }>(`SELECT COUNT(*) AS count FROM docufill_interview_sessions s JOIN docufill_packages p ON p.id = s.package_id WHERE ${where}`, [...params]),
       db.query(
         `SELECT s.token, s.id, s.package_id, s.status,
                 s.created_at, s.updated_at, s.expires_at,
