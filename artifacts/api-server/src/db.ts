@@ -447,10 +447,10 @@ export async function initDb(): Promise<void> {
       updated_at         TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-  await db.query(`
-    CREATE UNIQUE INDEX IF NOT EXISTS docufill_fields_label_unique
-      ON docufill_fields (lower(label))
-  `);
+  // NOTE: the global label-uniqueness index was replaced by per-scope partial indexes
+  // via migration docufill_fields_scoped_label_v1 (see migration block below).
+  // Do NOT recreate docufill_fields_label_unique here — the migration drops it
+  // once and creates docufill_fields_global_label_unique + docufill_fields_account_label_unique.
   // Add per-account scoping column (NULL = global system field, set = account-owned field)
   await db.query(`ALTER TABLE docufill_fields ADD COLUMN IF NOT EXISTS account_id INTEGER REFERENCES accounts(id)`);
   await db.query(`

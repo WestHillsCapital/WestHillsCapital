@@ -1287,16 +1287,19 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
     const requestedId = cleanText(body.id);
     let id = requestedId || fieldLibraryIdFromLabel(label);
     const db = getDb();
+    const accountId = acctId(req);
+    // Label uniqueness is per-account scope (includes global NULL fields visible to the account).
     const { rows: labelDuplicateRows } = await db.query(
       `SELECT id, label
          FROM docufill_fields
         WHERE lower(label) = lower($1)
+          AND (account_id IS NULL OR account_id = $2)
         LIMIT 1`,
-      [label],
+      [label, accountId],
     );
     if (labelDuplicateRows[0]) {
       res.status(409).json({
-        error: "A shared field with that label already exists",
+        error: "A field with that label already exists",
         fieldId: labelDuplicateRows[0].id,
       });
       return;
@@ -1309,7 +1312,7 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
       [id],
     );
     if (idDuplicateRows[0] && requestedId) {
-      res.status(409).json({ error: "A shared field with that id already exists", fieldId: id });
+      res.status(409).json({ error: "A field with that id already exists", fieldId: id });
       return;
     }
     if (idDuplicateRows[0]) {
@@ -1332,8 +1335,8 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
       `WITH inserted AS (
          INSERT INTO docufill_fields
            (id, label, category, field_type, source, options, sensitive, required,
-            validation_type, validation_pattern, validation_message, active, sort_order)
-         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13)
+            validation_type, validation_pattern, validation_message, active, sort_order, account_id)
+         VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14)
          ON CONFLICT (id) DO NOTHING
          RETURNING id
        )
@@ -1352,6 +1355,7 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
         nullableText(body.validationMessage),
         body.active !== false,
         normalizeSortOrder(body.sortOrder),
+        accountId,
       ],
     );
     if (!rows[0]) {
@@ -1366,17 +1370,18 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
         res.status(201).json({ field: existingRows[0] });
         return;
       }
-      res.status(409).json({ error: "A shared field with that id already exists", fieldId: id });
+      res.status(409).json({ error: "A field with that id already exists", fieldId: id });
       return;
     }
     res.status(201).json({ field: rows[0] });
   } catch (err) {
     if (isUniqueViolation(err)) {
+      const accountId = acctId(req);
       const { rows: existingRows } = await getDb().query(
-        `SELECT id FROM docufill_fields WHERE lower(label) = lower($1) LIMIT 1`,
-        [label],
+        `SELECT id FROM docufill_fields WHERE lower(label) = lower($1) AND (account_id IS NULL OR account_id = $2) LIMIT 1`,
+        [label, accountId],
       ).catch(() => ({ rows: [] as { id: string }[] }));
-      res.status(409).json({ error: "A shared field with that label already exists", fieldId: existingRows[0]?.id ?? null });
+      res.status(409).json({ error: "A field with that label already exists", fieldId: existingRows[0]?.id ?? null });
       return;
     }
     logger.error({ err }, "[DocuFill] Failed to create field library item");
@@ -1394,15 +1399,18 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
       return;
     }
     const db = getDb();
+    const accountId = acctId(req);
+    // Scope label uniqueness to the requesting account (excluding the field being updated).
     const { rows: duplicateRows } = await db.query(
       `SELECT id
          FROM docufill_fields
         WHERE lower(label) = lower($1) AND id <> $2
+          AND (account_id IS NULL OR account_id = $3)
         LIMIT 1`,
-      [label, id],
+      [label, id, accountId],
     );
     if (duplicateRows[0]) {
-      res.status(409).json({ error: "A shared field with that label already exists", fieldId: duplicateRows[0].id });
+      res.status(409).json({ error: "A field with that label already exists", fieldId: duplicateRows[0].id });
       return;
     }
     const { rows } = await db.query(
@@ -1410,7 +1418,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
           label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
           sensitive=$6, required=$7, validation_type=$8, validation_pattern=$9,
           validation_message=$10, active=$11, sort_order=$12, updated_at=NOW()
-        WHERE id=$13
+        WHERE id=$13 AND account_id = $14
         RETURNING id, label, category, field_type AS type, source, options, sensitive, required,
                   validation_type AS "validationType", validation_pattern AS "validationPattern",
                   validation_message AS "validationMessage", active, sort_order AS "sortOrder"`,
@@ -1428,6 +1436,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
         body.active !== false,
         normalizeSortOrder(body.sortOrder),
         id,
+        accountId,
       ],
     );
     if (!rows[0]) {
@@ -1437,7 +1446,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
     res.json({ field: rows[0] });
   } catch (err) {
     if (isUniqueViolation(err)) {
-      res.status(409).json({ error: "A shared field with that label already exists" });
+      res.status(409).json({ error: "A field with that label already exists" });
       return;
     }
     logger.error({ err }, "[DocuFill] Failed to update field library item");
@@ -1453,7 +1462,9 @@ router.delete("/field-library/:id", requireAdminRole, async (req, res) => {
       return;
     }
     const db = getDb();
-    await db.query(`DELETE FROM docufill_fields WHERE id = $1`, [id]);
+    const accountId = acctId(req);
+    // Only allow deletion of fields owned by the requesting account.
+    await db.query(`DELETE FROM docufill_fields WHERE id = $1 AND account_id = $2`, [id, accountId]);
     res.json({ deletedFieldId: id });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to delete field library item");
