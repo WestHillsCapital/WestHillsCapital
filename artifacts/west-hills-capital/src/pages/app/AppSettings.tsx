@@ -1269,7 +1269,7 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                   <p className="text-sm font-medium text-gray-900">Google Drive</p>
                   <p className="text-[10px] text-gray-400">Auto-save submitted packets</p>
                 </div>
-                {status?.gdrive.connected
+                {status?.gdrive?.connected
                   ? <span className="ml-auto inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Connected</span>
                   : <span className="ml-auto inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">Not connected</span>
                 }
@@ -1284,11 +1284,11 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
               {gdriveError && <p className="text-xs text-red-600">{gdriveError}</p>}
               {gdriveSuccess && <p className="text-xs text-green-700">{gdriveSuccess}</p>}
 
-              {status?.gdrive.connected ? (
+              {status?.gdrive?.connected ? (
                 <>
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Connected as <span className="font-medium text-gray-700">{status.gdrive.email ?? "your Google account"}</span>.
-                    Submitted packets are saved to <span className="font-medium text-gray-700">"{status.gdrive.folder_name ?? "Docuplete Submissions"}"</span>.
+                    Connected as <span className="font-medium text-gray-700">{status.gdrive?.email ?? "your Google account"}</span>.
+                    Submitted packets are saved to <span className="font-medium text-gray-700">"{status.gdrive?.folder_name ?? "Docuplete Submissions"}"</span>.
                   </p>
                   <div className="flex gap-2 items-center">
                     <input
@@ -1316,7 +1316,7 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                     {gdriveDisconnecting ? "Disconnecting…" : "Disconnect Google Drive"}
                   </button>
                 </>
-              ) : !status?.gdrive.available ? (
+              ) : !status?.gdrive?.available ? (
                 <p className="text-xs text-gray-400 leading-relaxed">
                   Google Drive integration is not enabled on this server. Contact your administrator to configure <code className="font-mono">GOOGLE_OAUTH_CLIENT_ID</code>.
                 </p>
