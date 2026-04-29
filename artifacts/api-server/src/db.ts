@@ -984,6 +984,10 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS notify_staff_on_submit BOOLEAN NOT NULL DEFAULT false`);
   await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS notify_client_on_submit BOOLEAN NOT NULL DEFAULT false`);
 
+  // ── Embed JS snippet output channel ────────────────────────────────────────
+  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS enable_embed BOOLEAN NOT NULL DEFAULT false`);
+  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS embed_key TEXT`);
+
   // ── Task #196: self-serve onboarding state ──────────────────────────────────
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS onboarding_completed_steps JSONB NOT NULL DEFAULT '{}'::jsonb`);
 

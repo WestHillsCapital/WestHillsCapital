@@ -113,6 +113,7 @@ type PackageInput = {
   tags?: unknown;
   notifyStaffOnSubmit?: boolean;
   notifyClientOnSubmit?: boolean;
+  enableEmbed?: boolean;
 };
 
 type DocItem = {
@@ -963,6 +964,7 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
             p.transaction_scope, p.custodian_id, p.depository_id, p.group_id,
             p.webhook_enabled, p.webhook_url,
             p.notify_staff_on_submit, p.notify_client_on_submit,
+            p.enable_embed, p.embed_key,
             p.account_id AS package_account_id,
             c.name AS custodian_name, d.name AS depository_name, g.name AS group_name,
             a.name AS org_name,
@@ -2010,8 +2012,9 @@ router.patch("/packages/:id", async (req, res) => {
           mappings=$10::jsonb, recipients=$11::jsonb, enable_interview=$12, enable_csv=$13,
           enable_customer_link=$14, tags=$15::jsonb, webhook_enabled=$16, webhook_url=$17,
           notify_staff_on_submit=$18, notify_client_on_submit=$19,
+          enable_embed=$20, embed_key=COALESCE($21, embed_key),
           version=version+1, updated_at=NOW()
-        WHERE id=$20 AND account_id=$21
+        WHERE id=$22 AND account_id=$23
         RETURNING *`,
       [
         name,
@@ -2033,6 +2036,13 @@ router.patch("/packages/:id", async (req, res) => {
         body.webhookUrl === undefined ? (existing.webhook_url ?? null) : parseWebhookUrl(body.webhookUrl),
         body.notifyStaffOnSubmit === undefined ? (existing.notify_staff_on_submit ?? false) : Boolean(body.notifyStaffOnSubmit),
         body.notifyClientOnSubmit === undefined ? (existing.notify_client_on_submit ?? false) : Boolean(body.notifyClientOnSubmit),
+        // $20 enable_embed, $21 embed_key (COALESCE so null preserves existing)
+        body.enableEmbed === undefined ? (existing.enable_embed ?? false) : Boolean(body.enableEmbed),
+        (() => {
+          const willEnable = body.enableEmbed === undefined ? Boolean(existing.enable_embed) : Boolean(body.enableEmbed);
+          if (willEnable && !existing.embed_key) return `emb_${randomBytes(16).toString("base64url")}`;
+          return null; // null → COALESCE keeps existing key
+        })(),
         id,
         accountId,
       ],
@@ -3607,6 +3617,53 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
+/**
+ * POST /docufill/public/embed/:embedKey/session
+ * Creates a new anonymous interview session for the package that owns this embed key.
+ * Called by the embed/v1.js snippet running on a third-party webpage.
+ */
+publicDocufillRouter.post("/embed/:embedKey/session", async (req, res) => {
+  try {
+    const { embedKey } = req.params;
+    if (!embedKey || !embedKey.startsWith("emb_")) {
+      res.status(400).json({ error: "Invalid embed key" });
+      return;
+    }
+    const db = getDb();
+    const { rows: pkgRows } = await db.query(
+      `SELECT p.*, a.custom_domain, a.custom_domain_status
+         FROM docufill_packages p
+         JOIN accounts a ON a.id = p.account_id
+        WHERE p.embed_key = $1 AND p.enable_embed = true AND p.status = 'active'`,
+      [embedKey],
+    );
+    const pkg = pkgRows[0] as (PackageRow & { custom_domain: string | null; custom_domain_status: string | null }) | undefined;
+    if (!pkg) {
+      res.status(404).json({ error: "Embed key not found or package is not active" });
+      return;
+    }
+    const token = createSessionToken();
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    await db.query(
+      `INSERT INTO docufill_interview_sessions
+         (token, package_id, package_version, transaction_scope, source, status, test_mode, prefill, answers, expires_at, account_id)
+       VALUES ($1, $2, $3, $4, 'embed', 'draft', false, '{}'::jsonb, '{}'::jsonb, $5, $6)`,
+      [token, pkg.id, pkg.version ?? 1, pkg.transaction_scope ?? "", expiresAt, pkg.account_id],
+    );
+    const appOrigin = process.env.APP_ORIGIN
+      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://docuplete.com");
+    const interviewOrigin =
+      pkg.custom_domain && pkg.custom_domain_status === "active"
+        ? `https://${pkg.custom_domain}`
+        : appOrigin;
+    const interviewUrl = `${interviewOrigin}/docufill/public/${token}`;
+    res.status(201).json({ token, interviewUrl });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to create embed session");
+    res.status(500).json({ error: "Failed to create session" });
+  }
+});
+
 publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
   try {
     const db = getDb();
