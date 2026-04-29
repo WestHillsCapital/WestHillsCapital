@@ -1506,6 +1506,13 @@ export async function initDb(): Promise<void> {
     CREATE INDEX IF NOT EXISTS account_admin_notes_account_idx
       ON account_admin_notes (account_id, created_at DESC)
   `);
+
+  // ── Encryption at rest — PII fields ──────────────────────────────────────────
+  // Per-account data-encryption key, wrapped by ENCRYPTION_MASTER_KEY env var.
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS encrypted_dek TEXT`);
+  // Encrypted JSONB answers column; plaintext `answers` kept as fallback during
+  // dual-mode migration period then cleared after all rows are migrated.
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS answers_ciphertext TEXT`);
 }
 
 /**

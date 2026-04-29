@@ -28,6 +28,12 @@ import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificati
 import { requireAdminRole, requireRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits, recordSubmissionEvent, recordPdfGenerationEvent } from "../middleware/requireWithinPlanLimits";
 import { recordPdfAuditEvent, actorContextFromRequest } from "../lib/pdf-audit";
+import {
+  getOrCreateAccountDek,
+  encryptAnswers,
+  decryptAnswers,
+  isEncryptionEnabled,
+} from "../lib/encryption";
 const requireMemberRole = requireRole("member");
 
 const router: IRouter = Router();
@@ -990,7 +996,17 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
   const session = rows[0] as Record<string, unknown> | undefined;
   if (!session) return undefined;
   const hydratedPackage = (await hydratePackages([{ id: session.package_id, documents: session.documents, fields: session.fields }], client))[0];
-  return { ...session, documents: hydratedPackage.documents, fields: hydratedPackage.fields };
+  const result: Record<string, unknown> = { ...session, documents: hydratedPackage.documents, fields: hydratedPackage.fields };
+  if (isEncryptionEnabled() && result.answers_ciphertext) {
+    try {
+      const dek = await getOrCreateAccountDek(result.account_id as number, getDb());
+      result.answers = decryptAnswers(result.answers_ciphertext as string, dek);
+    } catch (err) {
+      logger.warn({ err }, "[Encryption] Failed to decrypt session answers — returning plaintext fallback");
+    }
+  }
+  delete result.answers_ciphertext;
+  return result;
 }
 
 function fieldInInterview(field: DocuFillFieldItem): boolean {
@@ -2463,6 +2479,9 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
     const packageVersion = Number(pkg.version ?? 1);
     type BatchResult = { rowIndex: number; token: string | null; status: "generated" | "error"; pdfUrl?: string; error?: string };
     const results: BatchResult[] = [];
+    const csvBatchDek = isEncryptionEnabled()
+      ? await getOrCreateAccountDek(acctId(req), db)
+      : null;
     for (let i = 0; i < body.rows.length; i++) {
       const row = body.rows[i] as Record<string, string>;
       let insertedToken: string | null = null;
@@ -2476,11 +2495,12 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
           answers[fieldId] = String(val ?? "");
         }
         const token = createSessionToken();
+        const csvCiphertext = csvBatchDek ? encryptAnswers(answers, csvBatchDek) : null;
         await db.query(
           `INSERT INTO docufill_interview_sessions
-             (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers, expires_at, account_id)
-           VALUES ($1,$2,$3,$4,NULL,'csv_batch','draft',false,'{}'::jsonb,$5::jsonb,NOW() + INTERVAL '90 days',$6)`,
-          [token, packageId, packageVersion, transactionScope, jsonParam(answers), acctId(req)],
+             (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers, answers_ciphertext, expires_at, account_id)
+           VALUES ($1,$2,$3,$4,NULL,'csv_batch','draft',false,'{}'::jsonb,$5::jsonb,$6,NOW() + INTERVAL '90 days',$7)`,
+          [token, packageId, packageVersion, transactionScope, csvBatchDek ? jsonParam({}) : jsonParam(answers), csvCiphertext, acctId(req)],
         );
         insertedToken = token;
         const session: Record<string, unknown> = {
@@ -2726,10 +2746,10 @@ router.get("/sessions", async (req, res) => {
     const total = Number(countRes.rows[0]?.count ?? 0);
 
     params.push(limit, offset);
-    const { rows } = await db.query(
+    const { rows: rawListRows } = await db.query(
       `SELECT s.token, s.id, s.package_id, s.status,
               s.created_at, s.updated_at, s.expires_at,
-              s.answers, s.prefill, s.generated_pdf_url,
+              s.answers, s.answers_ciphertext, s.prefill, s.generated_pdf_url,
               p.name AS package_name
          FROM docufill_interview_sessions s
          JOIN docufill_packages p ON p.id = s.package_id
@@ -2738,8 +2758,24 @@ router.get("/sessions", async (req, res) => {
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
       params,
     );
+    let listRows: Record<string, unknown>[] = rawListRows as Record<string, unknown>[];
+    if (isEncryptionEnabled() && listRows.some((r) => r.answers_ciphertext)) {
+      try {
+        const listDek = await getOrCreateAccountDek(acctId(req), db);
+        listRows = listRows.map((row) => {
+          const r = { ...row };
+          if (r.answers_ciphertext) {
+            try { r.answers = decryptAnswers(r.answers_ciphertext as string, listDek); } catch { /* keep plaintext fallback */ }
+          }
+          delete r.answers_ciphertext;
+          return r;
+        });
+      } catch { /* non-fatal — return with plaintext fallback */ }
+    } else {
+      listRows = listRows.map((row) => { const r = { ...row }; delete r.answers_ciphertext; return r; });
+    }
 
-    res.json({ sessions: rows, total });
+    res.json({ sessions: listRows, total });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to list sessions");
     res.status(500).json({ error: "Failed to list sessions" });
@@ -3142,20 +3178,34 @@ router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
   try {
     const body = req.body as AnswersInput;
     const db = getDb();
+    const accountId = acctId(req);
+    const inputAnswers: Record<string, unknown> = getRecord(body.answers);
+    let answersParam: string = jsonParam(inputAnswers);
+    let ciphertextParam: string | null = null;
+    if (isEncryptionEnabled()) {
+      const dek = await getOrCreateAccountDek(accountId, db);
+      ciphertextParam = encryptAnswers(inputAnswers, dek);
+      answersParam = jsonParam({});
+    }
     const { rows } = await db.query(
       `UPDATE docufill_interview_sessions SET
-          answers=$1::jsonb, status=COALESCE($2, status), updated_at=NOW()
+          answers=$1::jsonb, answers_ciphertext=$5, status=COALESCE($2, status), updated_at=NOW()
         WHERE token=$3
           AND expires_at > NOW()
           AND account_id = $4
-        RETURNING *`,
-      [jsonParam(body.answers ?? {}), body.status ?? null, req.params.token, acctId(req)],
+        RETURNING id`,
+      [answersParam, body.status ?? null, req.params.token, accountId, ciphertextParam],
     );
     if (!rows[0]) {
       res.status(404).json({ error: "Interview session not found" });
       return;
     }
-    res.json({ session: rows[0] });
+    const session = await getSession(String(req.params.token), db, accountId);
+    if (!session) {
+      res.status(404).json({ error: "Interview session not found" });
+      return;
+    }
+    res.json({ session });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to save interview answers");
     res.status(500).json({ error: "Failed to save interview answers" });
@@ -3489,19 +3539,41 @@ publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
   try {
     const body = req.body as AnswersInput;
     const db = getDb();
+    const { rows: metaRows } = await db.query<{ account_id: number }>(
+      `SELECT account_id FROM docufill_interview_sessions WHERE token=$1 AND expires_at > NOW()`,
+      [req.params.token],
+    );
+    if (!metaRows[0]) {
+      res.status(404).json({ error: "Interview session not found" });
+      return;
+    }
+    const accountId = metaRows[0].account_id;
+    const inputAnswers: Record<string, unknown> = getRecord(body.answers);
+    let answersParam: string = jsonParam(inputAnswers);
+    let ciphertextParam: string | null = null;
+    if (isEncryptionEnabled()) {
+      const dek = await getOrCreateAccountDek(accountId, db);
+      ciphertextParam = encryptAnswers(inputAnswers, dek);
+      answersParam = jsonParam({});
+    }
     const { rows } = await db.query(
       `UPDATE docufill_interview_sessions SET
-          answers=$1::jsonb, status=COALESCE($2, status), updated_at=NOW()
+          answers=$1::jsonb, answers_ciphertext=$4, status=COALESCE($2, status), updated_at=NOW()
         WHERE token=$3
           AND expires_at > NOW()
-        RETURNING *`,
-      [jsonParam(body.answers ?? {}), body.status ?? null, req.params.token],
+        RETURNING id`,
+      [answersParam, body.status ?? null, req.params.token, ciphertextParam],
     );
     if (!rows[0]) {
       res.status(404).json({ error: "Interview session not found" });
       return;
     }
-    res.json({ session: rows[0] });
+    const session = await getSession(req.params.token, db);
+    if (!session) {
+      res.status(404).json({ error: "Interview session not found" });
+      return;
+    }
+    res.json({ session });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to save public interview answers");
     res.status(500).json({ error: "Failed to save interview answers" });
