@@ -1245,12 +1245,12 @@ async function appendSigningCertificatePage(
   page.drawText(`Signing Certificate — Page ${existing.getPageCount() + 1} of ${existing.getPageCount() + 1}`, {
     x: margin, y: 28, font: helv, size: 8, color: gray,
   });
-  // Copy original pages then add certificate
-  const copiedPages = await existing.copyPages(cert, cert.getPageIndices());
+  // Build output: copy original pages then certificate page into a single new document
   const output = await PdfLibDocument.create();
   const origCopied = await output.copyPages(existing, existing.getPageIndices());
   origCopied.forEach((p) => output.addPage(p));
-  copiedPages.forEach((p) => output.addPage(p));
+  const certCopied = await output.copyPages(cert, cert.getPageIndices());
+  certCopied.forEach((p) => output.addPage(p));
   const bytes = await output.save();
   return Buffer.from(bytes);
 }
