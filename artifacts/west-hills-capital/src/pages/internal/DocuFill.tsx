@@ -214,6 +214,7 @@ type PackageItem = {
   notify_client_on_submit: boolean;
   enable_embed: boolean;
   embed_key: string | null;
+  enable_gdrive: boolean;
 };
 
 type Session = {
@@ -501,6 +502,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     notify_client_on_submit: (pkg as PackageItem & Record<string, unknown>).notify_client_on_submit === true,
     enable_embed: (pkg as PackageItem & Record<string, unknown>).enable_embed === true,
     embed_key: typeof (pkg as PackageItem & Record<string, unknown>).embed_key === "string" ? (pkg as PackageItem & Record<string, unknown>).embed_key as string : null,
+    enable_gdrive: (pkg as PackageItem & Record<string, unknown>).enable_gdrive === true,
     tags: Array.isArray((pkg as PackageItem & { tags?: unknown }).tags)
       ? ((pkg as PackageItem & { tags?: unknown }).tags as unknown[]).map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
       : [],
@@ -1578,6 +1580,7 @@ export default function DocuFill() {
           notifyStaffOnSubmit: pkg.notify_staff_on_submit,
           notifyClientOnSubmit: pkg.notify_client_on_submit,
           enableEmbed: pkg.enable_embed,
+          enableGdrive: pkg.enable_gdrive,
         }),
       });
       const data = await res.json();
@@ -3894,14 +3897,30 @@ export default function DocuFill() {
                             </div>
                             <p className="text-xs text-[#6B7A99]">Staff can fill many packets at once by uploading a CSV. Full run history stays in the Batch CSV tab.</p>
                           </button>
-                          {/* Google Drive — optional */}
-                          <div className="rounded-lg border border-[#DDD5C4] bg-white p-3">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <svg className="w-4 h-4 text-[#6B7A99] shrink-0" viewBox="0 0 24 24" fill="currentColor"><path d="M6.18 17.01a5.09 5.09 0 01-3.6-1.49A5.12 5.12 0 011.1 12a5.07 5.07 0 011.49-3.6A5.07 5.07 0 016.18 6.9h2.18V9H6.18a3.01 3.01 0 000 6.02h2.18v2.09H6.18zm11.64 0h-2.18v-2.09h2.18a3.01 3.01 0 000-6.02h-2.18V6.9h2.18a5.07 5.07 0 013.6 1.49A5.09 5.09 0 0122.91 12a5.12 5.12 0 01-1.49 3.52 5.07 5.07 0 01-3.6 1.49zM8.09 13.09v-2.18h7.82v2.18H8.09z" /></svg>
-                              <span className="text-sm font-semibold">Google Drive</span>
-                              <span className="ml-auto text-[10px] bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] rounded px-1.5 py-0.5 shrink-0">Optional</span>
-                            </div>
-                            <p className="text-xs text-[#6B7A99]">Automatically push the completed packet to a connected Google Drive folder after submission.</p>
+                          {/* Google Drive — toggleable */}
+                          <div className={`rounded-lg border-2 p-3 transition-colors ${selectedPackage.enable_gdrive ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}>
+                            <button
+                              type="button"
+                              onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, enable_gdrive: !pkg.enable_gdrive }))}
+                              className="w-full text-left"
+                            >
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <svg className={`w-4 h-4 shrink-0 ${selectedPackage.enable_gdrive ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} viewBox="0 0 24 24" fill="currentColor"><path d="M6.18 17.01a5.09 5.09 0 01-3.6-1.49A5.12 5.12 0 011.1 12a5.07 5.07 0 011.49-3.6A5.07 5.07 0 016.18 6.9h2.18V9H6.18a3.01 3.01 0 000 6.02h2.18v2.09H6.18zm11.64 0h-2.18v-2.09h2.18a3.01 3.01 0 000-6.02h-2.18V6.9h2.18a5.07 5.07 0 013.6 1.49A5.09 5.09 0 0122.91 12a5.12 5.12 0 01-1.49 3.52 5.07 5.07 0 01-3.6 1.49zM8.09 13.09v-2.18h7.82v2.18H8.09z" /></svg>
+                                <span className={`text-sm font-semibold ${selectedPackage.enable_gdrive ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Google Drive</span>
+                                <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.enable_gdrive ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
+                                  {selectedPackage.enable_gdrive ? "Enabled" : "Off"}
+                                </span>
+                              </div>
+                              <p className="text-xs text-[#6B7A99]">Automatically push the completed packet to your connected Google Drive folder after submission.</p>
+                            </button>
+                            {selectedPackage.enable_gdrive && (
+                              <div className="mt-2 flex items-start gap-1.5 rounded bg-amber-50 border border-amber-200 px-2 py-1.5">
+                                <svg className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <p className="text-[11px] text-amber-800 leading-snug">
+                                  Requires Google Drive connected in <a href="/app/settings?tab=integrations" className="underline font-medium" target="_blank" rel="noopener noreferrer">Settings → Integrations</a>.
+                                </p>
+                              </div>
+                            )}
                           </div>
                           {/* Customer Link — toggleable */}
                           <button
@@ -3934,12 +3953,12 @@ export default function DocuFill() {
                             >
                               <div className="flex items-center gap-2 mb-1.5">
                                 <svg className={`w-4 h-4 shrink-0 ${selectedPackage.webhook_enabled ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 002.25-2.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v2.25A2.25 2.25 0 006 10.5zm0 9.75h2.25A2.25 2.25 0 0010.5 18v-2.25a2.25 2.25 0 00-2.25-2.25H6a2.25 2.25 0 00-2.25 2.25V18A2.25 2.25 0 006 20.25zm9.75-9.75H18a2.25 2.25 0 002.25-2.25V6A2.25 2.25 0 0018 3.75h-2.25A2.25 2.25 0 0013.5 6v2.25a2.25 2.25 0 002.25 2.25z" /></svg>
-                                <span className={`text-sm font-semibold ${selectedPackage.webhook_enabled ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Webhook</span>
+                                <span className={`text-sm font-semibold ${selectedPackage.webhook_enabled ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Webhook / Make.com</span>
                                 <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.webhook_enabled ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
                                   {selectedPackage.webhook_enabled ? "Enabled" : "Off"}
                                 </span>
                               </div>
-                              <p className="text-xs text-[#6B7A99]">Fire a POST request to any URL when an interview or customer form is completed. Connects to your CRM, Zapier, or any automation platform.</p>
+                              <p className="text-xs text-[#6B7A99]">Fire a POST request to any URL when an interview or customer form is completed. Connects to Make.com, Zapier, or any CRM or automation platform.</p>
                             </button>
                             {selectedPackage.webhook_enabled && (
                               <div className="mt-3 space-y-3">
