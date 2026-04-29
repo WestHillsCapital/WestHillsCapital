@@ -97,7 +97,38 @@ const SignaturePad = forwardRef<SignaturePadRef, Props>(function SignaturePad(
     getDataUrl() {
       const canvas = canvasRef.current;
       if (!canvas || !hasStrokes) return null;
-      return canvas.toDataURL("image/png");
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return canvas.toDataURL("image/png");
+      // Crop to the bounding box of non-transparent pixels so the signature
+      // image fills its PDF bounding box tightly instead of floating in whitespace.
+      const { data, width: pw, height: ph } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      let x0 = pw, y0 = ph, x1 = 0, y1 = 0;
+      for (let y = 0; y < ph; y++) {
+        for (let x = 0; x < pw; x++) {
+          if (data[(y * pw + x) * 4 + 3] > 0) {
+            if (x < x0) x0 = x;
+            if (x > x1) x1 = x;
+            if (y < y0) y0 = y;
+            if (y > y1) y1 = y;
+          }
+        }
+      }
+      if (x0 > x1 || y0 > y1) return null;
+      // Add a small padding so strokes at the very edge aren't clipped
+      const pad = 6;
+      x0 = Math.max(0, x0 - pad);
+      y0 = Math.max(0, y0 - pad);
+      x1 = Math.min(canvas.width - 1, x1 + pad);
+      y1 = Math.min(canvas.height - 1, y1 + pad);
+      const cropW = x1 - x0 + 1;
+      const cropH = y1 - y0 + 1;
+      const tmp = document.createElement("canvas");
+      tmp.width  = cropW;
+      tmp.height = cropH;
+      const tmpCtx = tmp.getContext("2d");
+      if (!tmpCtx) return canvas.toDataURL("image/png");
+      tmpCtx.drawImage(canvas, x0, y0, cropW, cropH, 0, 0, cropW, cropH);
+      return tmp.toDataURL("image/png");
     },
     isEmpty() { return !hasStrokes; },
     clear() {

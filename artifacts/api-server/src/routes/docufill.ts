@@ -1299,7 +1299,7 @@ async function appendSigningCertificatePage(
   const rows: Array<{ label: string; value: string }> = [
     { label: "Signer Name",  value: params.signerName },
     { label: "Signer Email", value: params.signerEmail },
-    { label: "Signed At",    value: params.signedAt.toUTCString() },
+    { label: "Signed At",    value: `${params.signedAt.toUTCString()} (server-assigned at time of submission)` },
     { label: "Method",       value: "Email OTP — Docuplete E-sign v1" },
     ...(params.tsaUrl ? [
       { label: "Timestamp Authority", value: params.tsaUrl },
@@ -4061,6 +4061,12 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
       }
       esignEmail = identity.email;
       esignSignerName = signerName;
+    }
+    // Reject any client-supplied signedAt — the signing timestamp is always
+    // assigned server-side at generate time and must not be influenced by the client.
+    if (req.body && "signedAt" in req.body) {
+      res.status(400).json({ error: "signedAt must not be supplied by the client; it is assigned server-side" });
+      return;
     }
     // Accept optional drawn signature image (base64 PNG data URL, ≤200 KB)
     let esignSignatureImage: string | null = null;
