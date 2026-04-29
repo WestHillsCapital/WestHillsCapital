@@ -1,10 +1,17 @@
 import type { RequestHandler } from "express";
+import { createHash } from "crypto";
 import { getAuth } from "@clerk/express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import { resolveApiKeyAccountId } from "./requireApiKeyAuth";
 import { isRateLimited, isCurrentlyBlocked } from "../lib/ratelimit";
 import { linkPendingInvitation } from "../lib/auth-utils";
+
+const TRUSTED_DEVICE_COOKIE = "td_token";
+
+function hashDeviceToken(raw: string): string {
+  return createHash("sha256").update(raw).digest("hex");
+}
 
 const APIKEY_FAIL_MAX = 10;
 const APIKEY_FAIL_WINDOW_MS = 60 * 1000;
@@ -92,7 +99,40 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
         if (result.rows[0].totp_enabled) {
           const sessionVerified = sessionCheck.length > 0 && sessionCheck[0].totp_verified === true;
           if (!sessionVerified) {
-            return void res.status(403).json({ error: "Two-factor authentication required.", code: "TOTP_REQUIRED" });
+            // Check device-trust cookie as an alternative to per-session TOTP.
+            // req.signedCookies returns the raw value when signature is valid,
+            // or false when the cookie has been tampered with.
+            const cookieVal: string | false | undefined = (req.signedCookies as Record<string, string | false | undefined>)?.[TRUSTED_DEVICE_COOKIE];
+            const rawToken: string | undefined = typeof cookieVal === "string" ? cookieVal : undefined;
+            if (rawToken) {
+              const tokenHash = hashDeviceToken(rawToken);
+              const { rows: deviceRows } = await getDb().query<{ id: number }>(
+                `UPDATE trusted_devices
+                    SET last_used_at = NOW()
+                  WHERE user_id = $1 AND token_hash = $2 AND expires_at > NOW()
+                  RETURNING id`,
+                [uid, tokenHash],
+              );
+              if (deviceRows.length > 0) {
+                // Trusted device recognised — also stamp the current session as totp_verified
+                // so subsequent requests in this Clerk session skip the cookie lookup.
+                if (sessionId) {
+                  getDb().query(
+                    `INSERT INTO user_active_sessions (account_id, user_id, clerk_session_id, ip_address, user_agent, totp_verified)
+                       VALUES ($1, $2, $3, $4, $5, TRUE)
+                       ON CONFLICT (clerk_session_id) DO UPDATE
+                         SET totp_verified  = TRUE,
+                             last_active_at = NOW()`,
+                    [result.rows[0].account_id, uid, sessionId, ip, ua],
+                  ).catch(() => {});
+                }
+                // Fall through to grant access
+              } else {
+                return void res.status(403).json({ error: "Two-factor authentication required.", code: "TOTP_REQUIRED" });
+              }
+            } else {
+              return void res.status(403).json({ error: "Two-factor authentication required.", code: "TOTP_REQUIRED" });
+            }
           }
         }
       } else if (result.rows[0].totp_enabled) {

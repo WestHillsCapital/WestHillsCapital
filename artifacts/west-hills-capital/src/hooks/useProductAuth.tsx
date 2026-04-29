@@ -45,6 +45,7 @@ export function useProductAuth() {
     if (!isSignedIn || !token) return;
     setAccountLoading(true);
     fetch(`${API_BASE}/api/v1/product/auth/me`, {
+      credentials: "include",
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (res) => {
@@ -80,6 +81,7 @@ export function useProductAuth() {
     const t = newToken ?? token;
     if (!t) return;
     const res = await fetch(`${API_BASE}/api/v1/product/auth/me`, {
+      credentials: "include",
       headers: { Authorization: `Bearer ${t}` },
     });
     if (res.ok) {
@@ -91,16 +93,17 @@ export function useProductAuth() {
     }
   }, [token]);
 
-  const verify2FA = useCallback(async (code: string): Promise<{ success: boolean; error?: string }> => {
+  const verify2FA = useCallback(async (code: string, trustDevice?: boolean): Promise<{ success: boolean; error?: string }> => {
     if (!token) return { success: false, error: "Not authenticated." };
     try {
       const res = await fetch(`${API_BASE}/api/v1/product/auth/verify-2fa`, {
         method: "POST",
+        credentials: "include",
         headers: {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ code }),
+        body: JSON.stringify({ code, trustDevice: trustDevice ?? false }),
       });
       const data = await res.json() as { success?: boolean; error?: string; code?: string };
       if (res.ok && data.success) {

@@ -1283,7 +1283,7 @@ router.get("/onboarding", async (req, res) => {
         [accountId],
       ),
       db.query(
-        `SELECT tags FROM docufill_packages
+        `SELECT id, tags FROM docufill_packages
           WHERE account_id = $1 AND status <> 'deleted'`,
         [accountId],
       ),
@@ -1297,13 +1297,14 @@ router.get("/onboarding", async (req, res) => {
 
     const stored = (accountRes.rows[0]?.onboarding_completed_steps ?? {}) as Record<string, unknown>;
 
-    const packages = packagesRes.rows as Array<{ tags: unknown }>;
+    const packages = packagesRes.rows as Array<{ id: number; tags: unknown }>;
     const sessions = sessionsRes.rows as Array<{ source: string }>;
 
-    const hasDemoPackage = packages.some((p) => {
+    const demoPackage = packages.find((p) => {
       const tags = Array.isArray(p.tags) ? p.tags : [];
       return tags.includes("Demo");
     });
+    const hasDemoPackage = Boolean(demoPackage);
 
     const hasOwnPackage = packages.some((p) => {
       const tags = Array.isArray(p.tags) ? p.tags : [];
@@ -1317,6 +1318,7 @@ router.get("/onboarding", async (req, res) => {
       onboarding: {
         dismissed: stored.dismissed === true,
         demo_package_exists: hasDemoPackage,
+        demo_package_id: demoPackage?.id ?? null,
         steps: {
           explore_demo: hasAnySessions,
           create_package: hasOwnPackage,

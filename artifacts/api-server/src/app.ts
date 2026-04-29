@@ -2,6 +2,7 @@ import "./instrument.js";
 import * as Sentry from "@sentry/node";
 import express, { type Express } from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
 import path from "node:path";
@@ -85,6 +86,8 @@ function normalizeOrigin(origin: string): string {
   }
 }
 
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
 app.use(
   cors({
     origin: allowedOrigins
@@ -98,12 +101,33 @@ app.use(
             cb(new Error(`CORS: origin ${origin} is not allowed`));
           }
         }
-      : "*",
+      : IS_PRODUCTION
+        // In production, allowedOrigins should always be set.
+        // If missing, fail closed to avoid credentialed cross-origin exposure.
+        ? (_origin, cb) => cb(new Error("CORS: CORS_ALLOWED_ORIGINS is not configured"))
+        // In development (Replit preview), reflect the requesting origin so
+        // credentialed requests (cookies) work from the preview iframe.
+        : (origin, cb) => cb(null, origin ?? false),
+    credentials:      true,
     methods:          ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders:   ["Content-Type", "Authorization", "X-Requested-With", "X-File-Name", "X-Document-Title"],
     optionsSuccessStatus: 200,
   }),
 );
+
+// ── Cookie secret ───────────────────────────────────────────────────────────
+// Used to sign the trusted-device cookie so that the value cannot be tampered
+// with client-side.  Set COOKIE_SECRET in the environment for production.
+// In development, a predictable fallback is used — this is intentional and
+// safe because signed cookies are only a tamper-prevention mechanism and the
+// full security comes from the server-side hash lookup in the DB.
+const COOKIE_SECRET =
+  process.env.COOKIE_SECRET ??
+  (IS_PRODUCTION
+    ? (() => { throw new Error("COOKIE_SECRET must be set in production"); })()
+    : "dev-only-cookie-secret-please-change-in-prod");
+
+app.use(cookieParser(COOKIE_SECRET));
 
 // ── Stripe webhook (must be before body parsers — needs raw Buffer) ───────────
 // Primary path: verifyAndParseWebhook uses STRIPE_WEBHOOK_SECRET for direct

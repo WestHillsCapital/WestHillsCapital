@@ -7,6 +7,7 @@ const SETTINGS_BASE = `${API_BASE}/api/v1/product/settings`;
 interface OnboardingState {
   dismissed: boolean;
   demo_package_exists: boolean;
+  demo_package_id: number | null;
   steps: {
     explore_demo: boolean;
     create_package: boolean;
@@ -18,26 +19,33 @@ interface Props {
   getAuthHeaders: () => HeadersInit;
 }
 
-const STEPS = [
+const STEP_DEFS = [
   {
     key: "explore_demo" as const,
     label: "Explore the demo package",
     description: "Open the pre-loaded demo package and browse your industry-specific field library.",
-    href: "/app",
   },
   {
     key: "create_package" as const,
     label: "Create your first package",
     description: "Set up a real document package with your own fields and branding.",
-    href: "/app",
   },
   {
     key: "send_interview" as const,
     label: "Send your first interview link",
     description: "Generate a client-facing interview link and share it with a client.",
-    href: "/app",
   },
 ];
+
+function buildStepHref(key: "explore_demo" | "create_package" | "send_interview", state: OnboardingState): string {
+  if (key === "explore_demo") {
+    return state.demo_package_id != null ? `/app?packageId=${state.demo_package_id}` : "/app";
+  }
+  if (key === "create_package") {
+    return "/app?action=new-package";
+  }
+  return "/app?tab=sessions";
+}
 
 /** PATCH the onboarding dismissed flag and swallow errors. */
 function patchDismissed(getAuthHeaders: () => HeadersInit) {
@@ -189,13 +197,14 @@ export function OnboardingChecklist({ getAuthHeaders }: Props) {
 
         {!collapsed && (
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 pb-1">
-            {STEPS.map((step) => {
+            {STEP_DEFS.map((step) => {
               const done = state.steps[step.key];
               return (
                 <button
                   key={step.key}
                   type="button"
-                  onClick={() => navigate(step.href)}
+                  onClick={done ? undefined : () => navigate(buildStepHref(step.key, state))}
+                  disabled={done}
                   className={`flex items-start gap-2.5 rounded-lg px-3 py-2.5 text-left transition-colors ${
                     done
                       ? "bg-gray-800 opacity-60 cursor-default"

@@ -1,15 +1,16 @@
 import { useState, useRef, type FormEvent } from "react";
 
 interface TwoFAGateProps {
-  verify2FA: (code: string) => Promise<{ success: boolean; error?: string }>;
+  verify2FA: (code: string, trustDevice?: boolean) => Promise<{ success: boolean; error?: string }>;
   onVerified: () => void;
   onSignOut: () => void;
 }
 
 export function TwoFAGate({ verify2FA, onVerified, onSignOut }: TwoFAGateProps) {
-  const [code, setCode]       = useState("");
-  const [error, setError]     = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [code, setCode]             = useState("");
+  const [trustDevice, setTrustDevice] = useState(false);
+  const [error, setError]           = useState<string | null>(null);
+  const [loading, setLoading]       = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -21,7 +22,7 @@ export function TwoFAGate({ verify2FA, onVerified, onSignOut }: TwoFAGateProps) 
     }
     setLoading(true);
     setError(null);
-    const result = await verify2FA(trimmed);
+    const result = await verify2FA(trimmed, trustDevice);
     setLoading(false);
     if (result.success) {
       onVerified();
@@ -63,6 +64,17 @@ export function TwoFAGate({ verify2FA, onVerified, onSignOut }: TwoFAGateProps) 
               className="w-full px-4 py-3 text-center text-lg font-mono tracking-widest border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50"
             />
           </div>
+
+          <label className="flex items-center gap-2.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={trustDevice}
+              onChange={(e) => setTrustDevice(e.target.checked)}
+              disabled={loading}
+              className="w-4 h-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900 cursor-pointer disabled:opacity-50"
+            />
+            <span className="text-sm text-gray-600">Remember this device for 30 days</span>
+          </label>
 
           {error && (
             <p className="text-sm text-red-600 text-center">{error}</p>
