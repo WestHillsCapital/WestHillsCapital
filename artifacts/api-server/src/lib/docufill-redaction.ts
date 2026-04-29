@@ -23,6 +23,7 @@ export type DocuFillFieldItem = {
   validationPattern?: string;
   validationMessage?: string;
   condition?: DocuFillFieldCondition | null;
+  condition2?: DocuFillFieldCondition | null;
 };
 
 export type DocuFillMappingFormat =

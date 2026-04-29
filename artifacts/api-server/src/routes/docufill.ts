@@ -1015,7 +1015,7 @@ function validateSessionAnswers(session: Record<string, unknown>): { valid: bool
   const fields = parseFields(session.fields);
   const missingFields: string[] = [];
   const errors: string[] = [];
-  fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly" && evaluateFieldCondition(f.condition, answers)).forEach((field) => {
+  fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly" && evaluateFieldCondition(f.condition, answers) && evaluateFieldCondition(f.condition2, answers)).forEach((field) => {
     const value = fieldAnswerValue(field, answers, prefill).trim();
     const fieldLabel = field.name ?? field.label ?? field.id;
     if (fieldIsRequired(field) && !value) {
@@ -1083,7 +1083,7 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
       documentMappings.forEach((mapping) => {
         const field = mapping.fieldId ? fieldsById.get(mapping.fieldId) : undefined;
         if (!field) return;
-        if (!evaluateFieldCondition(field.condition, answers)) return;
+        if (!evaluateFieldCondition(field.condition, answers) || !evaluateFieldCondition(field.condition2, answers)) return;
         const value = fieldAnswerValue(field, answers, prefill);
         const mappedValue = formatDocuFillMappedValue(value, mapping);
         if (!mappedValue) return;
