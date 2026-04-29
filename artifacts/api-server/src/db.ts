@@ -805,6 +805,14 @@ export async function initDb(): Promise<void> {
     ALTER TABLE docufill_interview_sessions
     ADD COLUMN IF NOT EXISTS test_mode BOOLEAN NOT NULL DEFAULT false
   `);
+  await db.query(`
+    ALTER TABLE docufill_interview_sessions
+    ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ
+  `);
+  await db.query(`
+    ALTER TABLE docufill_interview_sessions
+    ADD COLUMN IF NOT EXISTS voided_reason TEXT
+  `);
 
   // ── Fix stale transaction_scope defaults ──────────────────────────────────
   // Older migrations used 'Custodial paperwork' / 'ira_transfer' as defaults.

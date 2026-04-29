@@ -9,7 +9,7 @@ interface PortalSession {
   id: number;
   package_id: number;
   package_name: string;
-  status: "draft" | "in_progress" | "generated";
+  status: "draft" | "in_progress" | "generated" | "voided";
   created_at: string;
   updated_at: string;
   expires_at: string | null;
@@ -22,6 +22,8 @@ interface PortalSession {
   pdf_stored: boolean;
   generated_pdf_url: string | null;
   link_email_recipient: string | null;
+  voided_at: string | null;
+  voided_reason: string | null;
 }
 
 type SortField = "updated_at" | "created_at" | "status" | "package_name" | "signed_at";
@@ -31,6 +33,7 @@ const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   draft:       { label: "Draft",       cls: "bg-gray-100 text-gray-600" },
   in_progress: { label: "In Progress", cls: "bg-blue-50 text-blue-700" },
   generated:   { label: "Signed",      cls: "bg-green-50 text-green-700" },
+  voided:      { label: "Voided",      cls: "bg-red-50 text-red-700" },
 };
 
 function fmtDate(iso: string | null) {
@@ -63,6 +66,177 @@ function SortIcon({ field, sortField, sortDir }: { field: SortField; sortField: 
     : <svg className="w-3 h-3 text-gray-600 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" /></svg>;
 }
 
+interface VoidModalProps {
+  session: PortalSession;
+  getAuthHeaders: () => HeadersInit;
+  onClose: () => void;
+  onVoided: () => void;
+}
+
+function VoidSessionModal({ session, getAuthHeaders, onClose, onVoided }: VoidModalProps) {
+  const [reason, setReason] = useState("");
+  const [notifySigner, setNotifySigner] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const canSubmit = reason.trim().length > 0 && !submitting;
+  const hasSigner = !!(session.signer_email);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmit) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/v1/product/docufill/sessions/${session.token}/void`,
+        {
+          method: "POST",
+          headers: { ...(getAuthHeaders() as Record<string, string>), "Content-Type": "application/json" },
+          body: JSON.stringify({ reason: reason.trim(), notifySigner }),
+        },
+      );
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? `HTTP ${res.status}`);
+      }
+      onVoided();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to void session");
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-xl shadow-xl w-full max-w-md"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="px-6 pt-5 pb-4 border-b border-gray-100">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex-shrink-0 w-8 h-8 rounded-full bg-red-50 flex items-center justify-center">
+              <svg className="w-4 h-4 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-base font-semibold text-gray-900">Void signed session</h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                {session.signer_name
+                  ? `${session.signer_name} · ${session.package_name}`
+                  : session.package_name}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1.5">
+              Void reason <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-red-300 resize-none"
+              rows={3}
+              placeholder="e.g. Data error, wrong client, changed terms…"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              disabled={submitting}
+              autoFocus
+            />
+          </div>
+
+          {hasSigner && (
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={notifySigner}
+                onChange={(e) => setNotifySigner(e.target.checked)}
+                disabled={submitting}
+                className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-300"
+              />
+              <span className="text-sm text-gray-700">
+                Notify signer{session.signer_email ? ` (${session.signer_email})` : ""} by email
+              </span>
+            </label>
+          )}
+
+          {error && (
+            <p className="text-sm text-red-600">{error}</p>
+          )}
+
+          <div className="flex items-center justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              disabled={submitting}
+              className="px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={!canSubmit}
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+            >
+              {submitting ? "Voiding…" : "Void session"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+interface RowMenuProps {
+  session: PortalSession;
+  onVoid: () => void;
+}
+
+function RowMenu({ session, onVoid }: RowMenuProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  if (session.status !== "generated") return null;
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+        title="Actions"
+      >
+        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute right-0 z-20 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+          <button
+            onClick={() => { setOpen(false); onVoid(); }}
+            className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+            Void session
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
   const [sessions, setSessions] = useState<PortalSession[]>([]);
   const [total, setTotal] = useState(0);
@@ -74,6 +248,8 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
   const [page, setPage]             = useState(0);
   const [sortField, setSortField]   = useState<SortField>("updated_at");
   const [sortDir, setSortDir]       = useState<SortDir>("desc");
+
+  const [voidTarget, setVoidTarget] = useState<PortalSession | null>(null);
 
   const LIMIT = 25;
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -99,7 +275,6 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as { sessions: PortalSession[]; total: number };
       let rows = data.sessions ?? [];
-      // client-side sort (server returns updated_at DESC by default)
       rows = [...rows].sort((a, b) => {
         const av = a[sortField] ?? "";
         const bv = b[sortField] ?? "";
@@ -174,6 +349,7 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
           <option value="draft">Draft</option>
           <option value="in_progress">In Progress</option>
           <option value="generated">Signed</option>
+          <option value="voided">Voided</option>
         </select>
       </div>
 
@@ -203,6 +379,7 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
                   <Th field="updated_at" label="Updated" />
                   <Th field="created_at" label="Created" />
                   <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">PDF</th>
+                  <th scope="col" className="px-4 py-3 w-10" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50 bg-white">
@@ -211,10 +388,16 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
                   const recipient = s.signer_name || s.signer_email || s.link_email_recipient || "—";
                   const recipientSub = s.signer_name && s.signer_email ? s.signer_email : null;
                   const pdfHref = `${API_BASE}/api/v1/public/docufill/sessions/${s.token}/packet.pdf`;
+                  const isVoided = s.status === "voided";
                   return (
-                    <tr key={s.token} className="hover:bg-gray-50 transition-colors">
+                    <tr key={s.token} className={`hover:bg-gray-50 transition-colors ${isVoided ? "opacity-60" : ""}`}>
                       <td className="px-4 py-3">
                         <span className="text-sm font-medium text-gray-800 line-clamp-1">{s.package_name}</span>
+                        {isVoided && s.voided_reason && (
+                          <div className="text-xs text-red-500 mt-0.5 line-clamp-1" title={s.voided_reason}>
+                            {s.voided_reason}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="text-sm text-gray-800 truncate max-w-[180px]">{recipient}</div>
@@ -242,9 +425,14 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
                             </svg>
                             {s.pdf_stored ? "Stored" : "Generate"}
                           </a>
+                        ) : isVoided && s.voided_at ? (
+                          <span className="text-xs text-red-400 whitespace-nowrap">{fmtDate(s.voided_at)}</span>
                         ) : (
                           <span className="text-gray-300 text-xs">—</span>
                         )}
+                      </td>
+                      <td className="px-2 py-3">
+                        <RowMenu session={s} onVoid={() => setVoidTarget(s)} />
                       </td>
                     </tr>
                   );
@@ -284,6 +472,15 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
       <p className="mt-3 text-xs text-gray-400">
         Showing {sessions.length} session{sessions.length !== 1 ? "s" : ""} · Total {total}
       </p>
+
+      {voidTarget && (
+        <VoidSessionModal
+          session={voidTarget}
+          getAuthHeaders={getAuthHeaders}
+          onClose={() => setVoidTarget(null)}
+          onVoided={() => { setVoidTarget(null); fetchSessions(); }}
+        />
+      )}
     </div>
   );
 }

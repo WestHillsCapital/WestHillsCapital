@@ -25,6 +25,7 @@ import {
   sendEsignOtpEmail,
   getOrgEmailSettings,
   sendSignerConfirmationEmail,
+  sendSignerVoidedEmail,
 } from "../lib/email";
 import {
   generateOtp,
@@ -2859,7 +2860,7 @@ router.get("/sessions", async (req, res) => {
     const limit        = Math.min(Math.max(Number(req.query.limit ?? 50), 1), 200);
     const offset       = Math.max(Number(req.query.offset ?? 0), 0);
 
-    const validStatuses = ["draft", "in_progress", "generated"];
+    const validStatuses = ["draft", "in_progress", "generated", "voided"];
     if (status && !validStatuses.includes(status)) {
       res.status(400).json({ error: `status must be one of: ${validStatuses.join(", ")}` });
       return;
@@ -2978,6 +2979,7 @@ router.get("/sessions/portal-list", async (req, res) => {
                 (s.generated_pdf_storage_key IS NOT NULL) AS pdf_stored,
                 s.generated_pdf_url,
                 s.link_email_recipient,
+                s.voided_at, s.voided_reason,
                 p.name AS package_name
            FROM docufill_interview_sessions s
            JOIN docufill_packages p ON p.id = s.package_id
@@ -2992,6 +2994,75 @@ router.get("/sessions/portal-list", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to list portal sessions");
     res.status(500).json({ error: "Failed to list sessions" });
+  }
+});
+
+/** POST /sessions/:token/void — admin-only; voids a signed session */
+router.post("/sessions/:token/void", requireAdminRole, async (req, res) => {
+  try {
+    const reason      = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+    const notifySigner = req.body?.notifySigner === true;
+
+    if (!reason) {
+      res.status(400).json({ error: "A void reason is required" });
+      return;
+    }
+
+    const token = String(req.params.token);
+    const db = getDb();
+    const session = await getSession(token, db, acctId(req));
+    if (!session) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+    if (session.status !== "generated") {
+      res.status(409).json({
+        error: `Cannot void a session with status '${session.status}'. Only signed (generated) sessions can be voided.`,
+      });
+      return;
+    }
+
+    await db.query(
+      `UPDATE docufill_interview_sessions
+          SET status        = 'voided',
+              voided_at     = NOW(),
+              voided_reason = $1,
+              updated_at    = NOW()
+        WHERE token      = $2
+          AND account_id = $3`,
+      [reason, token, acctId(req)],
+    );
+
+    // Append-only audit event (fire-and-forget)
+    const actorEmail = req.internalEmail ?? null;
+    db.query(
+      `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, metadata)
+       VALUES ($1, $2, 'voided', $3, $4, $5::jsonb)`,
+      [token, acctId(req), actorEmail, req.ip ?? null,
+       JSON.stringify({ reason, voidedBy: actorEmail })],
+    ).catch(() => {});
+
+    // Optionally notify the signer via email
+    if (notifySigner && typeof session.signer_email === "string" && session.signer_email) {
+      sendSignerVoidedEmail({
+        signerEmail:  session.signer_email as string,
+        signerName:   typeof session.signer_name === "string" ? session.signer_name : null,
+        packageName:  String(session.package_name ?? "Document Package"),
+        reason,
+        voidedBy:     actorEmail,
+        orgName:      typeof session.org_name === "string" ? session.org_name : null,
+      }).then(() => {
+        logger.info({ to: session.signer_email, token }, "[Void] Notification email sent to signer");
+      }).catch((err: unknown) => {
+        logger.warn({ err, to: session.signer_email, token }, "[Void] Notification email failed (non-fatal)");
+      });
+    }
+
+    logger.info({ token, actor: actorEmail }, "[Void] Session voided");
+    res.json({ ok: true, token, voidedAt: new Date().toISOString() });
+  } catch (err) {
+    logger.error({ err }, "[Void] Failed to void session");
+    res.status(500).json({ error: "Failed to void session" });
   }
 });
 
@@ -3628,6 +3699,14 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
     const session = await getSession(req.params.token, db, acctId(req));
     if (!session) {
       res.status(404).json({ error: "Interview session not found" });
+      return;
+    }
+    if (session.status === "voided") {
+      res.status(410).json({
+        error: "This document has been voided",
+        reason: typeof session.voided_reason === "string" ? session.voided_reason : undefined,
+        voidedAt: session.voided_at ?? undefined,
+      });
       return;
     }
     const storageKey = typeof session.generated_pdf_storage_key === "string" ? session.generated_pdf_storage_key : null;
@@ -4410,8 +4489,9 @@ publicDocufillRouter.get("/sessions/:token/verify", async (req, res) => {
   try {
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT s.token, s.signer_name, s.signer_email, s.signed_at,
+      `SELECT s.token, s.status, s.signer_name, s.signer_email, s.signed_at,
               s.pdf_sha256, s.tsa_url, (s.tsa_token_b64 IS NOT NULL) AS tsa_obtained,
+              s.voided_at, s.voided_reason,
               p.name AS package_name
          FROM docufill_interview_sessions s
          JOIN docufill_packages p ON p.id = s.package_id
@@ -4421,6 +4501,14 @@ publicDocufillRouter.get("/sessions/:token/verify", async (req, res) => {
     const session = rows[0] as Record<string, unknown> | undefined;
     if (!session) {
       res.status(404).json({ error: "Session not found" });
+      return;
+    }
+    if (session.status === "voided") {
+      res.status(410).json({
+        error: "This document has been voided",
+        reason: typeof session.voided_reason === "string" ? session.voided_reason : undefined,
+        voidedAt: session.voided_at ?? undefined,
+      });
       return;
     }
     if (!session.signed_at) {
@@ -4474,6 +4562,14 @@ publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
     const session = await getSession(req.params.token, db);
     if (!session) {
       res.status(404).json({ error: "Interview session not found" });
+      return;
+    }
+    if (session.status === "voided") {
+      res.status(410).json({
+        error: "This document has been voided",
+        reason: typeof session.voided_reason === "string" ? session.voided_reason : undefined,
+        voidedAt: session.voided_at ?? undefined,
+      });
       return;
     }
     const storageKey = typeof session.generated_pdf_storage_key === "string" ? session.generated_pdf_storage_key : null;
