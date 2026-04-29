@@ -17,6 +17,7 @@ import { insertAuditLog, getActorEmail } from "../lib/auditLog";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { sendOrgAlertEmails } from "../lib/email";
 import { isGDriveConfigured, generateGDriveAuthUrl, exchangeGDriveCode, parseFolderIdFromInput, verifyFolderAccess } from "../lib/google-drive-account";
+import { isHubSpotConfigured, generateHubSpotAuthUrl, exchangeHubSpotCode } from "../lib/hubspot-account";
 import archiver from "archiver";
 import { PassThrough } from "node:stream";
 import { generateSecret as totpGenerateSecret, generateURI as totpGenerateURI, verifySync as totpVerifySync } from "otplib";
@@ -1373,10 +1374,14 @@ router.get("/integrations", requireAdminRole, async (req, res) => {
         gdrive_folder_name: string | null;
         gdrive_connected_at: Date | null;
         gdrive_refresh_token: string | null;
+        hubspot_refresh_token: string | null;
+        hubspot_hub_domain: string | null;
+        hubspot_connected_at: Date | null;
       }>(
         `SELECT slack_webhook_url, slack_channel_name, slack_connected_at,
                 gdrive_connected_email, gdrive_folder_name, gdrive_connected_at,
-                gdrive_refresh_token
+                gdrive_refresh_token,
+                hubspot_refresh_token, hubspot_hub_domain, hubspot_connected_at
            FROM accounts WHERE id = $1`,
         [accountId],
       ),
@@ -1409,6 +1414,12 @@ router.get("/integrations", requireAdminRole, async (req, res) => {
           folder_name: acct?.gdrive_folder_name ?? null,
           connected_at: acct?.gdrive_connected_at?.toISOString() ?? null,
           available: !!(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET),
+        },
+        hubspot: {
+          connected: !!acct?.hubspot_refresh_token,
+          hub_domain: acct?.hubspot_hub_domain ?? null,
+          connected_at: acct?.hubspot_connected_at?.toISOString() ?? null,
+          available: isHubSpotConfigured(),
         },
       },
     });
@@ -1682,6 +1693,80 @@ router.delete("/integrations/gdrive", requireAdminRole, async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Integrations] Failed to disconnect Google Drive");
     res.status(500).json({ error: "Failed to disconnect Google Drive" });
+  }
+});
+
+// ── HubSpot OAuth ─────────────────────────────────────────────────────────────
+
+/** POST /integrations/hubspot/connect — initiates HubSpot OAuth flow */
+router.post("/integrations/hubspot/connect", requireAdminRole, async (req, res) => {
+  try {
+    const body = req.body as { redirectUri?: string };
+    if (!body.redirectUri || typeof body.redirectUri !== "string") {
+      res.status(400).json({ error: "redirectUri is required" }); return;
+    }
+    if (!isHubSpotConfigured()) {
+      res.status(503).json({ error: "HubSpot integration is not configured on this server." }); return;
+    }
+    const state = randomBytes(16).toString("hex");
+    const accountId = req.internalAccountId ?? 1;
+    await getDb().query(`UPDATE accounts SET hubspot_oauth_state=$1 WHERE id=$2`, [state, accountId]);
+    const url = generateHubSpotAuthUrl(state, body.redirectUri);
+    if (!url) { res.status(503).json({ error: "Could not generate HubSpot auth URL." }); return; }
+    res.json({ url });
+  } catch (err) {
+    logger.error({ err }, "[HubSpot] connect error");
+    res.status(500).json({ error: "Failed to initiate HubSpot connection." });
+  }
+});
+
+/** POST /integrations/hubspot/exchange — exchanges OAuth code for tokens */
+router.post("/integrations/hubspot/exchange", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    const body = req.body as { code?: string; state?: string; redirectUri?: string };
+    if (!body.code || !body.state || !body.redirectUri) {
+      res.status(400).json({ error: "code, state, and redirectUri are required" }); return;
+    }
+    const { rows } = await db.query<{ hubspot_oauth_state: string | null }>(
+      `SELECT hubspot_oauth_state FROM accounts WHERE id=$1`, [accountId],
+    );
+    if (!rows[0]?.hubspot_oauth_state || rows[0].hubspot_oauth_state !== body.state) {
+      res.status(400).json({ error: "Invalid OAuth state. Please try connecting again." }); return;
+    }
+    const result = await exchangeHubSpotCode(body.code, body.redirectUri);
+    await db.query(
+      `UPDATE accounts SET
+          hubspot_access_token=$1, hubspot_refresh_token=$2,
+          hubspot_hub_id=$3, hubspot_hub_domain=$4,
+          hubspot_connected_at=NOW(), hubspot_oauth_state=NULL
+        WHERE id=$5`,
+      [result.accessToken, result.refreshToken, String(result.hubId), result.hubDomain, accountId],
+    );
+    res.json({ success: true, hub_domain: result.hubDomain });
+  } catch (err) {
+    logger.error({ err }, "[HubSpot] exchange error");
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to connect HubSpot." });
+  }
+});
+
+/** DELETE /integrations/hubspot — clears stored HubSpot credentials */
+router.delete("/integrations/hubspot", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    await getDb().query(
+      `UPDATE accounts SET
+          hubspot_access_token=NULL, hubspot_refresh_token=NULL,
+          hubspot_hub_id=NULL, hubspot_hub_domain=NULL,
+          hubspot_connected_at=NULL, hubspot_oauth_state=NULL
+        WHERE id=$1`,
+      [accountId],
+    );
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[HubSpot] disconnect error");
+    res.status(500).json({ error: "Failed to disconnect HubSpot." });
   }
 });
 

@@ -925,6 +925,7 @@ interface IntegrationsStatus {
   zapier: { api_key_count: number; first_key_prefix: string | null; available: boolean };
   slack: { connected: boolean; channel_name: string | null; connected_at: string | null; available: boolean };
   gdrive: { connected: boolean; email: string | null; folder_name: string | null; connected_at: string | null; available: boolean };
+  hubspot: { connected: boolean; hub_domain: string | null; connected_at: string | null; available: boolean };
 }
 
 function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
@@ -949,6 +950,11 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
   const [gdriveFolderInput, setGdriveFolderInput] = useState("");
   const [gdriveUpdatingFolder, setGdriveUpdatingFolder] = useState(false);
 
+  const [hubspotConnecting, setHubspotConnecting] = useState(false);
+  const [hubspotDisconnecting, setHubspotDisconnecting] = useState(false);
+  const [hubspotError, setHubspotError] = useState<string | null>(null);
+  const [hubspotSuccess, setHubspotSuccess] = useState<string | null>(null);
+
   function loadStatus() {
     setIsLoading(true);
     fetch(`${SETTINGS_BASE}/integrations`, { headers: authHeaders() })
@@ -969,10 +975,11 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
     const code = params.get("code");
     const state = params.get("state");
     const oauthError = params.get("error");
-    const isGdrive = params.get("gdrive") === "1";
+    const isGdrive   = params.get("gdrive")   === "1";
+    const isHubSpot  = params.get("hubspot")  === "1";
 
     // Clean the URL immediately so params don't linger on refresh
-    if (code || state || oauthError || isGdrive) {
+    if (code || state || oauthError || isGdrive || isHubSpot) {
       window.history.replaceState({}, "", window.location.pathname);
     }
 
@@ -1000,6 +1007,34 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
           })
           .catch(() => setGdriveError("Failed to connect Google Drive."))
           .finally(() => setGdriveConnecting(false));
+      }
+      return;
+    }
+
+    if (isHubSpot) {
+      // HubSpot OAuth callback
+      if (oauthError === "access_denied") {
+        setHubspotError("HubSpot connection was cancelled.");
+        return;
+      }
+      if (code && state) {
+        const redirectUri = window.location.origin + window.location.pathname + "?hubspot=1";
+        setHubspotConnecting(true);
+        const headers = new Headers(getAuthHeaders());
+        headers.set("Content-Type", "application/json");
+        fetch(`${SETTINGS_BASE}/integrations/hubspot/exchange`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ code, state, redirectUri }),
+        })
+          .then(async (r) => {
+            const data = await r.json() as { success?: boolean; hub_domain?: string; error?: string };
+            if (!r.ok) { setHubspotError(data.error ?? "Failed to connect HubSpot."); return; }
+            setHubspotSuccess(`Connected to HubSpot portal${data.hub_domain ? ` (${data.hub_domain})` : ""}.`);
+            loadStatus();
+          })
+          .catch(() => setHubspotError("Failed to connect HubSpot."))
+          .finally(() => setHubspotConnecting(false));
       }
       return;
     }
@@ -1102,6 +1137,44 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
       setGdriveError("Failed to disconnect Google Drive.");
     } finally {
       setGdriveDisconnecting(false);
+    }
+  }
+
+  async function handleHubSpotConnect() {
+    setHubspotError(null);
+    setHubspotSuccess(null);
+    setHubspotConnecting(true);
+    try {
+      const redirectUri = window.location.origin + window.location.pathname + "?hubspot=1";
+      const res = await fetch(`${SETTINGS_BASE}/integrations/hubspot/connect`, {
+        method: "POST",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({ redirectUri }),
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) { setHubspotError(data.error ?? "Failed to initiate HubSpot connection."); setHubspotConnecting(false); return; }
+      window.location.href = data.url;
+    } catch {
+      setHubspotError("Failed to initiate HubSpot connection.");
+      setHubspotConnecting(false);
+    }
+  }
+
+  async function handleHubSpotDisconnect() {
+    setHubspotDisconnecting(true);
+    setHubspotError(null);
+    setHubspotSuccess(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/integrations/hubspot`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (!res.ok) { setHubspotError("Failed to disconnect HubSpot."); return; }
+      loadStatus();
+    } catch {
+      setHubspotError("Failed to disconnect HubSpot.");
+    } finally {
+      setHubspotDisconnecting(false);
     }
   }
 
@@ -1340,6 +1413,73 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
               )}
             </div>
 
+            {/* ── HubSpot card ─────────────────────────────────────────────── */}
+            <div className="rounded-xl border border-gray-200 p-5 flex flex-col gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#FF7A59] flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M16.5 8.25V5.87A2.25 2.25 0 0 0 15 3.75H15a2.25 2.25 0 0 0-2.25 2.25v2.37a4.5 4.5 0 0 0-1.31.73L8.1 7.2A3.75 3.75 0 1 0 6.75 9.9l3.26 1.9a4.47 4.47 0 0 0 0 2.44L6.75 16.1A3.75 3.75 0 1 0 8.1 18.8l3.34-1.85a4.5 4.5 0 1 0 5.06-8.7ZM6.75 11.25a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm9-5.25a2.25 2.25 0 1 1 0-4.5 2.25 2.25 0 0 1 0 4.5Z" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">HubSpot CRM</p>
+                  <p className="text-[10px] text-gray-400">Create contacts on submission</p>
+                </div>
+                {status?.hubspot?.connected
+                  ? <span className="ml-auto inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Connected</span>
+                  : <span className="ml-auto inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">Not connected</span>
+                }
+              </div>
+
+              {hubspotConnecting && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin shrink-0" />
+                  Connecting to HubSpot…
+                </div>
+              )}
+              {hubspotError   && <p className="text-xs text-red-600">{hubspotError}</p>}
+              {hubspotSuccess && <p className="text-xs text-green-700">{hubspotSuccess}</p>}
+
+              {status?.hubspot?.connected ? (
+                <>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Connected to HubSpot portal
+                    {status.hubspot.hub_domain ? <> — <span className="font-medium text-gray-700">{status.hubspot.hub_domain}</span></> : ""}.
+                    Submitting a DocuFill packet with HubSpot enabled will create or update a contact.
+                  </p>
+                  <button
+                    type="button"
+                    disabled={hubspotDisconnecting}
+                    onClick={() => { void handleHubSpotDisconnect(); }}
+                    className="mt-auto pt-1 text-xs text-gray-400 hover:text-red-600 transition-colors text-left disabled:opacity-60"
+                  >
+                    {hubspotDisconnecting ? "Disconnecting…" : "Disconnect HubSpot"}
+                  </button>
+                </>
+              ) : !status?.hubspot?.available ? (
+                <p className="text-xs text-gray-400 leading-relaxed">
+                  HubSpot integration is not enabled on this server. Contact your administrator to configure <code className="font-mono">HUBSPOT_CLIENT_ID</code>.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500 leading-relaxed">
+                    Automatically create or update a HubSpot CRM contact whenever a DocuFill packet is submitted.
+                    Enable the HubSpot channel on any DocuFill package to activate.
+                  </p>
+                  <div className="mt-auto pt-1">
+                    <button
+                      type="button"
+                      disabled={hubspotConnecting}
+                      onClick={() => { void handleHubSpotConnect(); }}
+                      className="rounded-lg bg-[#FF7A59] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#e8603f] disabled:opacity-60 transition-colors"
+                    >
+                      Connect HubSpot
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+
             {/* ── Coming soon placeholder ─────────────────────────────────── */}
             <div className="rounded-xl border border-dashed border-gray-200 p-5 flex flex-col gap-3 opacity-50">
               <div className="flex items-center gap-3">
@@ -1350,10 +1490,10 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                 </div>
                 <div>
                   <p className="text-sm font-medium text-gray-400">More coming soon</p>
-                  <p className="text-[10px] text-gray-300">HubSpot, Salesforce, and more</p>
+                  <p className="text-[10px] text-gray-300">Salesforce and more</p>
                 </div>
               </div>
-              <p className="text-xs text-gray-300 leading-relaxed">CRM integrations are on the roadmap.</p>
+              <p className="text-xs text-gray-300 leading-relaxed">More CRM integrations are on the roadmap.</p>
             </div>
           </div>
         </div>

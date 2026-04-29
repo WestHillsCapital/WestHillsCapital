@@ -1144,6 +1144,15 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gdrive_oauth_state TEXT`);
   await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS enable_gdrive BOOLEAN NOT NULL DEFAULT false`);
 
+  // ── HubSpot — per-account OAuth credentials ───────────────────────────────────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS hubspot_access_token TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS hubspot_refresh_token TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS hubspot_hub_id TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS hubspot_hub_domain TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS hubspot_connected_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS hubspot_oauth_state TEXT`);
+  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS enable_hubspot BOOLEAN NOT NULL DEFAULT false`);
+
   // ── Per-user notification preferences ────────────────────────────────────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS user_notification_prefs (

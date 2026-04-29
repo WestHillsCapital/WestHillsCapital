@@ -136,7 +136,8 @@ ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS group_id integer REFERENC
 | Google OAuth | Internal portal authentication |
 | Stripe + `stripe-replit-sync` | Subscription billing |
 | Resend | Client recap emails |
-| Google Drive API | PDF invoice + packet uploads |
+| Google Drive API | PDF invoice + packet uploads (per-account OAuth, DocuFill channel) |
+| HubSpot CRM API | Per-account OAuth, contact create/update on DocuFill submission |
 | Google Sheets API | Admin notifications / deal records |
 | FedEx API | Shipping location search |
 | `geoip-lite` | IP → City/Country resolution (in-process, LRU-cached) |
