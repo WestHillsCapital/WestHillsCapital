@@ -1086,7 +1086,11 @@ function validateSessionAnswers(session: Record<string, unknown>): { valid: bool
   return { valid: missingFields.length === 0 && errors.length === 0, missingFields, errors };
 }
 
-async function buildPacketPdfBuffer(session: Record<string, unknown>, client: QueryClient = getDb()): Promise<Buffer> {
+async function buildPacketPdfBuffer(
+  session: Record<string, unknown>,
+  client: QueryClient = getDb(),
+  opts: { signatureImage?: string; signerName?: string } = {},
+): Promise<Buffer> {
   const answers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
   const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
   const fields = parseFields(session.fields);
@@ -1120,22 +1124,54 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
       const copiedPages = await merged.copyPages(sourcePdf, sourcePdf.getPageIndices());
       copiedPages.forEach((page) => merged.addPage(page));
       const documentMappings = mappingsByDocument.get(sourceDoc.id) ?? [];
-      documentMappings.forEach((mapping) => {
+      for (const mapping of documentMappings) {
         const field = mapping.fieldId ? fieldsById.get(mapping.fieldId) : undefined;
-        if (!field) return;
-        if (!evaluateFieldCondition(field.condition, answers) || !evaluateFieldCondition(field.condition2, answers)) return;
-        const value = fieldAnswerValue(field, answers, prefill);
-        const mappedValue = formatDocuFillMappedValue(value, mapping);
-        if (!mappedValue) return;
+        if (!field) continue;
+        if (!evaluateFieldCondition(field.condition, answers) || !evaluateFieldCondition(field.condition2, answers)) continue;
         const pageIndex = Math.max(Number(mapping.page ?? 1) - 1, 0);
         const page = merged.getPages()[merged.getPageCount() - copiedPages.length + pageIndex];
-        if (!page) return;
+        if (!page) continue;
         const { width, height } = page.getSize();
         const x = Math.max(0, Math.min(width - 12, (Number(mapping.x ?? 0) / 100) * width));
         const yTop = height - (Number(mapping.y ?? 0) / 100) * height;
-        const fontSize = clampNumber(mapping.fontSize, 11, 5, 24);
-        const boxHeight = Math.max(fontSize + 2, (clampNumber(mapping.h, 10, 1, 100) / 100) * height);
+        const boxHeight = Math.max(14, (clampNumber(mapping.h, 10, 1, 100) / 100) * height);
         const maxWidth = Math.max(18, (clampNumber(mapping.w, 26, 2, 100) / 100) * width);
+
+        // Signature field: overlay drawn PNG or italic typed name
+        if (mapping.format === "signature") {
+          if (opts.signatureImage) {
+            try {
+              const base64Data = opts.signatureImage.replace(/^data:image\/png;base64,/, "");
+              const imgBytes = Buffer.from(base64Data, "base64");
+              const embeddedImg = await merged.embedPng(imgBytes);
+              const imgDims = embeddedImg.scaleToFit(maxWidth, boxHeight);
+              page.drawImage(embeddedImg, {
+                x,
+                y: yTop - boxHeight + (boxHeight - imgDims.height) / 2,
+                width: imgDims.width,
+                height: imgDims.height,
+              });
+            } catch {
+              // fallback to typed name if PNG embedding fails
+              const fallbackName = opts.signerName ?? "";
+              if (fallbackName) {
+                const fontSize = clampNumber(mapping.fontSize, 14, 8, 28);
+                const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize * 0.2 + 2));
+                drawWrappedText(page, fallbackName, x, yDraw, fontSize, font, maxWidth, "left");
+              }
+            }
+          } else if (opts.signerName) {
+            const fontSize = clampNumber(mapping.fontSize, 14, 8, 28);
+            const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize * 0.2 + 2));
+            drawWrappedText(page, opts.signerName, x, yDraw, fontSize, font, maxWidth, "left");
+          }
+          continue;
+        }
+
+        const value = fieldAnswerValue(field, answers, prefill);
+        const mappedValue = formatDocuFillMappedValue(value, mapping);
+        if (!mappedValue) continue;
+        const fontSize = clampNumber(mapping.fontSize, 11, 5, 24);
         const align = mapping.align === "center" || mapping.align === "right" ? mapping.align : "left";
         // yDraw is the pdf-lib baseline y for the first line of printed text.
         // pdf-lib uses a bottom-left origin; yTop is the top edge of the mapping box.
@@ -1154,7 +1190,7 @@ async function buildPacketPdfBuffer(session: Record<string, unknown>, client: Qu
           : yTop - boxHeight + fontSize * 0.2 + 2;
         const yDraw = Math.max(fontSize + 2, Math.min(height - 2, rawYDraw));
         drawWrappedText(page, mappedValue, x, yDraw, fontSize, font, maxWidth, align);
-      });
+      }
     }
     const sessionToken = typeof session.token === "string" ? session.token : "";
     await stampPdfAuditFooter(merged, sessionToken, new Date());
@@ -1202,6 +1238,7 @@ async function appendSigningCertificatePage(
     signedAt: Date;
     tsaUrl?: string | null;
     sessionToken?: string | null;
+    signatureImage?: string | null;
   },
 ): Promise<Buffer> {
   const existing = await PdfLibDocument.load(pdfBytes, { ignoreEncryption: true });
@@ -1232,6 +1269,33 @@ async function appendSigningCertificatePage(
   const verifyUrl = params.sessionToken
     ? `${verifyOrigin}/verify?token=${params.sessionToken}`
     : null;
+  // Signature box on the cert page
+  const sigBoxWidth = width - margin * 2;
+  const sigBoxHeight = 80;
+  y -= 12;
+  page.drawRectangle({ x: margin, y, width: sigBoxWidth, height: sigBoxHeight, borderColor: gold, borderWidth: 0.5, color: rgb(0.99, 0.98, 0.96) });
+  page.drawText("Signature", { x: margin + 8, y: y + sigBoxHeight - 14, font: helvB, size: 8, color: gray });
+  if (params.signatureImage) {
+    try {
+      const base64Data = params.signatureImage.replace(/^data:image\/png;base64,/, "");
+      const imgBytes = Buffer.from(base64Data, "base64");
+      const embeddedImg = await cert.embedPng(imgBytes);
+      const imgMaxW = sigBoxWidth - 16;
+      const imgMaxH = sigBoxHeight - 22;
+      const imgDims = embeddedImg.scaleToFit(imgMaxW, imgMaxH);
+      page.drawImage(embeddedImg, {
+        x: margin + 8,
+        y: y + (sigBoxHeight - 22 - imgDims.height) / 2 + 4,
+        width: imgDims.width,
+        height: imgDims.height,
+      });
+    } catch {
+      page.drawText(params.signerName, { x: margin + 8, y: y + sigBoxHeight / 2 - 10, font: helv, size: 16, color: navy });
+    }
+  } else {
+    page.drawText(params.signerName, { x: margin + 8, y: y + sigBoxHeight / 2 - 10, font: helv, size: 16, color: navy });
+  }
+  y -= 20;
   const rows: Array<{ label: string; value: string }> = [
     { label: "Signer Name",  value: params.signerName },
     { label: "Signer Email", value: params.signerEmail },
@@ -3998,13 +4062,26 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
       esignEmail = identity.email;
       esignSignerName = signerName;
     }
+    // Accept optional drawn signature image (base64 PNG data URL, ≤200 KB)
+    let esignSignatureImage: string | null = null;
+    const rawSigImage = req.body?.signatureImage;
+    if (typeof rawSigImage === "string" && rawSigImage.startsWith("data:image/png;base64,")) {
+      const base64Part = rawSigImage.slice("data:image/png;base64,".length);
+      const byteLength = Math.ceil(base64Part.length * 0.75);
+      if (byteLength <= 200 * 1024) {
+        esignSignatureImage = rawSigImage;
+      }
+    }
     const validation = validateSessionAnswers(session);
     if (!validation.valid) {
       res.status(400).json({ error: "Packet is missing required or valid fields", ...validation });
       return;
     }
     const generated = buildDocuFillPacketSummary(session);
-    let pdfBuffer = await buildPacketPdfBuffer(session, db);
+    let pdfBuffer = await buildPacketPdfBuffer(session, db, {
+      signatureImage: esignSignatureImage ?? undefined,
+      signerName: esignSignerName ?? undefined,
+    });
     const generatedAt = new Date().toISOString();
     let driveResult: { fileId: string; webViewLink: string } | null = null;
     let driveWarning: string | null = null;
@@ -4090,6 +4167,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
           signedAt: signedAt!,
           tsaUrl: intendedTsaUrl,
           sessionToken: req.params.token,
+          signatureImage: esignSignatureImage,
         });
       } catch (certErr) {
         logger.warn({ certErr }, "[E-sign] Failed to append certificate page — using base PDF");
