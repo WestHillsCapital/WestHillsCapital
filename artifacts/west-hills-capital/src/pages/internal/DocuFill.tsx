@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getDocuFillPrefillDisplayValue, ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE, isSystemEsignFieldId } from "@/lib/docufill-redaction";
 import { sessionToCsv, packageTemplateToCsv, downloadCsv, parseCsvString, batchResultsToCsv } from "@/lib/docufill-csv";
+import JSZip from "jszip";
 import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
 import * as pdfjsLib from "pdfjs-dist";
 
@@ -27,6 +28,7 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.mi
 const API_BASE = import.meta.env.DEV
   ? ""
   : ((import.meta.env.VITE_API_URL as string | undefined) ?? "");
+const CSV_BATCH_MAX = 100;
 const DOCUFILL_TRANSACTION_TYPES = [
   { value: "ira_transfer", label: "IRA transfer / rollover" },
   { value: "ira_contribution", label: "IRA contribution" },
@@ -1276,6 +1278,26 @@ export default function DocuFill() {
   const [csvInviteMessage, setCsvInviteMessage] = useState("");
   const [csvInviteSending, setCsvInviteSending] = useState(false);
   const [csvInviteResults, setCsvInviteResults] = useState<Record<string, { status: "sent" | "error"; sentTo?: string; error?: string }>>({});
+  const [csvZipDownloading, setCsvZipDownloading] = useState(false);
+  const [csvZipProgress, setCsvZipProgress] = useState<{ done: number; total: number } | null>(null);
+  const [csvDashboardTab, setCsvDashboardTab] = useState<"import" | "dashboard">("import");
+  const [csvDashBatchRuns, setCsvDashBatchRuns] = useState<Array<{ batch_run_id: string; run_started_at: string; package_name: string; package_id: number; total: string; generated: string; submitted: string; emailed: string }>>([]);
+  const [csvDashLoading, setCsvDashLoading] = useState(false);
+  const [csvDashError, setCsvDashError] = useState<string | null>(null);
+  const [csvDashExpanded, setCsvDashExpanded] = useState<string | null>(null);
+  const [csvDashRunSessions, setCsvDashRunSessions] = useState<Record<string, Array<{ token: string; status: string; submitted_at: string | null; link_emailed_at: string | null; link_email_recipient: string | null; signer_name: string | null }>>>({});
+  const [csvDashRunLoading, setCsvDashRunLoading] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (tab !== "csv" || csvDashboardTab !== "dashboard") return;
+    setCsvDashLoading(true);
+    setCsvDashError(null);
+    fetch(`${API_BASE}${docufillApiPath}/batch-runs?limit=50`, { headers: getAuthHeaders() })
+      .then((r) => r.json())
+      .then((d: { runs: typeof csvDashBatchRuns }) => setCsvDashBatchRuns(d.runs ?? []))
+      .catch((e) => setCsvDashError(e instanceof Error ? e.message : "Failed to load batch runs"))
+      .finally(() => setCsvDashLoading(false));
+  }, [tab, csvDashboardTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setCsvBreakdownHighlightedField(null);
@@ -3290,26 +3312,51 @@ export default function DocuFill() {
     reader.readAsText(file);
   }
 
-  async function handleCsvBatchImport() {
+  async function handleCsvBatchImport(retryRowIndices?: number[]) {
     const pkgId = Number(csvBatchPackageId);
     if (!pkgId || csvBatchRows.length === 0) return;
+    const isRetry = Array.isArray(retryRowIndices) && retryRowIndices.length > 0;
+    const rowsToSend = isRetry ? retryRowIndices.map((i) => csvBatchRows[i]) : csvBatchRows;
     setCsvBatchIsImporting(true);
     setCsvBatchError(null);
-    setCsvInviteOpen(false);
-    setCsvInviteResults({});
-    setCsvBatchResults(csvBatchRows.map((_, i) => ({ rowIndex: i, token: null, status: "processing" as const })));
+    if (!isRetry) {
+      setCsvInviteOpen(false);
+      setCsvInviteResults({});
+      setCsvBatchResults(csvBatchRows.map((_, i) => ({ rowIndex: i, token: null, status: "processing" as const })));
+    } else {
+      setCsvBatchResults((prev) =>
+        (prev ?? []).map((r) =>
+          retryRowIndices.includes(r.rowIndex) ? { ...r, token: null, status: "processing" as const, error: undefined } : r,
+        ),
+      );
+    }
     try {
       const res = await fetch(`${API_BASE}${docufillApiPath}/csv-batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ packageId: pkgId, rows: csvBatchRows }),
+        body: JSON.stringify({ packageId: pkgId, rows: rowsToSend }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Batch import failed");
-      setCsvBatchResults(data.results);
+      if (isRetry) {
+        const newByLocalIdx = new Map<number, (typeof data.results)[0]>();
+        for (const r of data.results as Array<{ rowIndex: number; token: string | null; status: string; pdfUrl?: string; error?: string }>) {
+          newByLocalIdx.set(r.rowIndex, r);
+        }
+        setCsvBatchResults((prev) =>
+          (prev ?? []).map((r) => {
+            const localIdx = retryRowIndices.indexOf(r.rowIndex);
+            if (localIdx === -1) return r;
+            const fresh = newByLocalIdx.get(localIdx);
+            return fresh ? { ...fresh, rowIndex: r.rowIndex } : r;
+          }),
+        );
+      } else {
+        setCsvBatchResults(data.results);
+      }
     } catch (err) {
       setCsvBatchError(err instanceof Error ? err.message : "Batch import failed");
-      setCsvBatchResults(null);
+      if (!isRetry) setCsvBatchResults(null);
     } finally {
       setCsvBatchIsImporting(false);
     }
@@ -5689,7 +5736,164 @@ export default function DocuFill() {
       )}
 
       {!isPublicSession && tab === "csv" && (
-        <section className="bg-white border border-[#DDD5C4] rounded-lg p-5 max-w-4xl mx-auto space-y-5">
+        <section className="bg-white border border-[#DDD5C4] rounded-lg max-w-4xl mx-auto overflow-hidden">
+          {/* Sub-tab bar */}
+          <div className="flex border-b border-[#DDD5C4]">
+            {(["import", "dashboard"] as const).map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setCsvDashboardTab(t)}
+                className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+                  csvDashboardTab === t
+                    ? "border-[#0F1C3F] text-[#0F1C3F]"
+                    : "border-transparent text-[#8A9BB8] hover:text-[#0F1C3F] hover:border-[#DDD5C4]"
+                }`}
+              >
+                {t === "import" ? "Import" : "Batch Dashboard"}
+              </button>
+            ))}
+          </div>
+
+          {/* ── Batch Dashboard ── */}
+          {csvDashboardTab === "dashboard" && (
+            <div className="p-5 space-y-4">
+              <div>
+                <h2 className="text-base font-semibold">Batch Run History</h2>
+                <p className="text-xs text-[#8A9BB8] mt-0.5">All past CSV batch runs. Expand a run to see per-row status and PDF links.</p>
+              </div>
+              {csvDashLoading && (
+                <div className="flex justify-center py-10">
+                  <div className="w-5 h-5 border-2 border-[#0F1C3F] border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              {csvDashError && <div className="text-sm text-red-600">{csvDashError}</div>}
+              {!csvDashLoading && !csvDashError && csvDashBatchRuns.length === 0 && (
+                <div className="text-center py-10 text-sm text-[#8A9BB8]">No batch runs yet — switch to Import to upload your first CSV.</div>
+              )}
+              {!csvDashLoading && csvDashBatchRuns.length > 0 && (
+                <div className="space-y-2">
+                  {csvDashBatchRuns.map((run) => {
+                    const total     = Number(run.total);
+                    const generated = Number(run.generated);
+                    const submitted = Number(run.submitted);
+                    const emailed   = Number(run.emailed);
+                    const pct = total > 0 ? Math.round((submitted / total) * 100) : 0;
+                    const isExpanded = csvDashExpanded === run.batch_run_id;
+                    const rowSessions = csvDashRunSessions[run.batch_run_id] ?? [];
+                    const rowLoading  = csvDashRunLoading[run.batch_run_id] ?? false;
+                    return (
+                      <div key={run.batch_run_id} className="border border-[#DDD5C4] rounded-lg overflow-hidden">
+                        <button
+                          type="button"
+                          className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#F8F6F0] transition-colors"
+                          onClick={() => {
+                            const next = isExpanded ? null : run.batch_run_id;
+                            setCsvDashExpanded(next);
+                            if (next && !csvDashRunSessions[run.batch_run_id]) {
+                              setCsvDashRunLoading((p) => ({ ...p, [run.batch_run_id]: true }));
+                              fetch(`${API_BASE}${docufillApiPath}/batch-runs/${run.batch_run_id}`, { headers: getAuthHeaders() })
+                                .then((r) => r.json())
+                                .then((d: { sessions: typeof rowSessions }) => setCsvDashRunSessions((p) => ({ ...p, [run.batch_run_id]: d.sessions ?? [] })))
+                                .catch(() => {})
+                                .finally(() => setCsvDashRunLoading((p) => ({ ...p, [run.batch_run_id]: false })));
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-3 min-w-0">
+                            <svg className={`w-3.5 h-3.5 shrink-0 text-[#8A9BB8] transition-transform ${isExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                            </svg>
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-[#0F1C3F] truncate">{run.package_name}</div>
+                              <div className="text-xs text-[#8A9BB8]">
+                                {new Date(run.run_started_at).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-5 shrink-0 ml-4 text-center">
+                            <div><div className="text-sm font-semibold text-[#0F1C3F]">{total}</div><div className="text-xs text-[#8A9BB8]">Rows</div></div>
+                            <div><div className="text-sm font-semibold text-emerald-700">{generated}</div><div className="text-xs text-[#8A9BB8]">PDFs</div></div>
+                            <div><div className="text-sm font-semibold text-blue-700">{emailed}</div><div className="text-xs text-[#8A9BB8]">Emailed</div></div>
+                            <div><div className="text-sm font-semibold text-violet-700">{submitted}</div><div className="text-xs text-[#8A9BB8]">Submitted</div></div>
+                            <div>
+                              <div className={`text-sm font-bold ${pct >= 75 ? "text-emerald-600" : pct >= 40 ? "text-amber-600" : "text-[#8A9BB8]"}`}>{pct}%</div>
+                              <div className="text-xs text-[#8A9BB8]">Done</div>
+                            </div>
+                          </div>
+                        </button>
+                        {isExpanded && (
+                          <div className="border-t border-[#DDD5C4]">
+                            {rowLoading && (
+                              <div className="flex justify-center py-5">
+                                <div className="w-4 h-4 border-2 border-[#0F1C3F] border-t-transparent rounded-full animate-spin" />
+                              </div>
+                            )}
+                            {!rowLoading && rowSessions.length > 0 && (
+                              <div className="overflow-x-auto">
+                                <table className="min-w-full divide-y divide-[#F0EDE6]">
+                                  <thead className="bg-[#F8F6F0]">
+                                    <tr>
+                                      <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">#</th>
+                                      <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Recipient</th>
+                                      <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Status</th>
+                                      <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">PDF</th>
+                                      <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Emailed</th>
+                                      <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Submitted</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody className="divide-y divide-[#F0EDE6] bg-white">
+                                    {rowSessions.map((s, idx) => {
+                                      const recipient = s.signer_name || s.link_email_recipient || "—";
+                                      const statusMap: Record<string, { label: string; cls: string }> = {
+                                        generated: { label: "Generated", cls: "bg-emerald-50 text-emerald-700" },
+                                        draft:     { label: "Pending",   cls: "bg-gray-100 text-gray-500" },
+                                        submitted: { label: "Submitted", cls: "bg-blue-50 text-blue-700" },
+                                        voided:    { label: "Voided",    cls: "bg-red-50 text-red-600" },
+                                      };
+                                      const statusInfo = statusMap[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-500" };
+                                      const pdfUrl = `${API_BASE}${docufillApiPath}/sessions/${s.token}/packet.pdf`;
+                                      return (
+                                        <tr key={s.token} className="hover:bg-[#FAFAF8]">
+                                          <td className="px-4 py-2 text-xs text-[#8A9BB8]">{idx + 1}</td>
+                                          <td className="px-4 py-2 text-sm text-[#0F1C3F] max-w-[200px] truncate" title={recipient}>{recipient}</td>
+                                          <td className="px-4 py-2">
+                                            <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>{statusInfo.label}</span>
+                                          </td>
+                                          <td className="px-4 py-2">
+                                            <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#0F1C3F] underline underline-offset-2 hover:text-[#C49A38]">
+                                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                              PDF
+                                            </a>
+                                          </td>
+                                          <td className="px-4 py-2 text-xs text-[#8A9BB8]">{s.link_emailed_at ? new Date(s.link_emailed_at).toLocaleDateString() : "—"}</td>
+                                          <td className="px-4 py-2 text-xs">
+                                            {s.submitted_at
+                                              ? <span className="text-violet-700 font-medium">{new Date(s.submitted_at).toLocaleDateString()}</span>
+                                              : <span className="text-[#C0CBDA]">Pending</span>}
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            )}
+                            {!rowLoading && rowSessions.length === 0 && (
+                              <div className="text-center py-5 text-sm text-[#8A9BB8]">No sessions found.</div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Import tab ── */}
+          {csvDashboardTab === "import" && <div className="p-5 space-y-5">
           <div>
             <h2 className="text-lg font-semibold">Batch CSV Import</h2>
             <p className="text-sm text-[#6B7A99] mt-1">Select a package, upload a filled CSV, and generate one packet per row.</p>
@@ -6347,10 +6551,16 @@ export default function DocuFill() {
             <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{csvBatchError}</div>
           )}
 
+          {csvBatchRows.length > CSV_BATCH_MAX && (
+            <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+              This file has {csvBatchRows.length} rows — the limit is {CSV_BATCH_MAX} per batch. Please split the file and upload separately.
+            </div>
+          )}
+
           <div className="flex items-center gap-3 flex-wrap">
             <Button
-              onClick={handleCsvBatchImport}
-              disabled={!csvBatchPackageId || csvBatchRows.length === 0 || csvBatchIsImporting}
+              onClick={() => handleCsvBatchImport()}
+              disabled={!csvBatchPackageId || csvBatchRows.length === 0 || csvBatchIsImporting || csvBatchRows.length > CSV_BATCH_MAX}
               className="bg-[#0F1C3F] hover:bg-[#182B5F] disabled:opacity-60"
             >
               {csvBatchIsImporting ? "Importing…" : `Import & Generate ${csvBatchRows.length > 0 ? csvBatchRows.length : ""} row${csvBatchRows.length === 1 ? "" : "s"}`}
@@ -6573,24 +6783,95 @@ export default function DocuFill() {
                         )}
                       </div>
                     )}
-                    <div className="mt-3 flex justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          const dateStr = new Date().toISOString().slice(0, 10);
-                          downloadCsv(batchResultsToCsv(csvBatchResults, API_BASE, csvBatchHeaders, csvBatchRows), `docufill-batch-results-${dateStr}.csv`);
-                        }}
-                        className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
-                      >
-                        Download Results CSV
-                      </Button>
-                    </div>
+                    {(() => {
+                      const failedRows = (csvBatchResults ?? []).filter((r) => r.status === "error").map((r) => r.rowIndex);
+                      const successRows = (csvBatchResults ?? []).filter((r) => r.status === "generated" && r.pdfUrl);
+                      return (
+                        <div className="mt-3 flex items-center gap-2 flex-wrap justify-end">
+                          {failedRows.length > 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={csvBatchIsImporting}
+                              onClick={() => handleCsvBatchImport(failedRows)}
+                              className="border-amber-300 text-amber-800 hover:bg-amber-50"
+                            >
+                              {csvBatchIsImporting ? "Retrying…" : `↺ Retry ${failedRows.length} failed row${failedRows.length === 1 ? "" : "s"}`}
+                            </Button>
+                          )}
+                          {successRows.length > 1 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={csvZipDownloading}
+                              onClick={async () => {
+                                setCsvZipDownloading(true);
+                                setCsvZipProgress({ done: 0, total: successRows.length });
+                                try {
+                                  const zip = new JSZip();
+                                  let done = 0;
+                                  await Promise.all(
+                                    successRows.map(async (r) => {
+                                      try {
+                                        const resp = await fetch(`${API_BASE}${r.pdfUrl}`, { headers: getAuthHeaders() });
+                                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+                                        const buf = await resp.arrayBuffer();
+                                        const rowNum = r.rowIndex + 1;
+                                        const rowData = csvBatchRows[r.rowIndex];
+                                        const nameCol = csvBatchHeaders.find((h) => h.toLowerCase().includes("name"));
+                                        const namePart = nameCol && rowData?.[nameCol] ? `-${String(rowData[nameCol]).replace(/[^a-zA-Z0-9]/g, "_").slice(0, 30)}` : "";
+                                        zip.file(`row-${rowNum}${namePart}.pdf`, buf);
+                                      } finally {
+                                        done++;
+                                        setCsvZipProgress({ done, total: successRows.length });
+                                      }
+                                    }),
+                                  );
+                                  const blob = await zip.generateAsync({ type: "blob" });
+                                  const dateStr = new Date().toISOString().slice(0, 10);
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement("a");
+                                  a.href = url;
+                                  a.download = `docufill-batch-pdfs-${dateStr}.zip`;
+                                  a.click();
+                                  URL.revokeObjectURL(url);
+                                } catch (err) {
+                                  console.error("[ZIP download]", err);
+                                } finally {
+                                  setCsvZipDownloading(false);
+                                  setCsvZipProgress(null);
+                                }
+                              }}
+                              className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
+                            >
+                              {csvZipDownloading
+                                ? csvZipProgress
+                                  ? `Packaging ${csvZipProgress.done}/${csvZipProgress.total}…`
+                                  : "Packaging…"
+                                : `⬇ Download all ${successRows.length} PDFs (.zip)`
+                              }
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const dateStr = new Date().toISOString().slice(0, 10);
+                              downloadCsv(batchResultsToCsv(csvBatchResults, API_BASE, csvBatchHeaders, csvBatchRows), `docufill-batch-results-${dateStr}.csv`);
+                            }}
+                            className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
+                          >
+                            Download Results CSV
+                          </Button>
+                        </div>
+                      );
+                    })()}
                   </>
                 );
               })()}
             </div>
           )}
+          </div>}
         </section>
       )}
 

@@ -2869,6 +2869,11 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
       res.status(400).json({ error: "rows array is required and must not be empty" });
       return;
     }
+    const CSV_BATCH_MAX = 100;
+    if (body.rows.length > CSV_BATCH_MAX) {
+      res.status(400).json({ error: `Batch size limit is ${CSV_BATCH_MAX} rows. This request contains ${body.rows.length} rows — please split into smaller batches.` });
+      return;
+    }
     const db = getDb();
     const pkg = await getPackage(packageId, db, true, acctId(req));
     if (!pkg) {
@@ -2896,6 +2901,7 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
     const packageVersion = Number(pkg.version ?? 1);
     type BatchResult = { rowIndex: number; token: string | null; status: "generated" | "error"; pdfUrl?: string; error?: string };
     const results: BatchResult[] = [];
+    const batchRunId = randomBytes(16).toString("hex");
     const csvBatchDek = isEncryptionEnabled()
       ? await getOrCreateAccountDek(acctId(req), db)
       : null;
@@ -2915,9 +2921,9 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
         const csvCiphertext = csvBatchDek ? encryptAnswers(answers, csvBatchDek) : null;
         await db.query(
           `INSERT INTO docufill_interview_sessions
-             (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers, answers_ciphertext, expires_at, account_id)
-           VALUES ($1,$2,$3,$4,NULL,'csv_batch','draft',false,'{}'::jsonb,$5::jsonb,$6,NOW() + INTERVAL '90 days',$7)`,
-          [token, packageId, packageVersion, transactionScope, csvBatchDek ? jsonParam({}) : jsonParam(answers), csvCiphertext, acctId(req)],
+             (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers, answers_ciphertext, expires_at, account_id, batch_run_id)
+           VALUES ($1,$2,$3,$4,NULL,'csv_batch','draft',false,'{}'::jsonb,$5::jsonb,$6,NOW() + INTERVAL '90 days',$7,$8)`,
+          [token, packageId, packageVersion, transactionScope, csvBatchDek ? jsonParam({}) : jsonParam(answers), csvCiphertext, acctId(req), batchRunId],
         );
         insertedToken = token;
         const session: Record<string, unknown> = {
@@ -2977,10 +2983,87 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
         results.push({ rowIndex: i, token: null, status: "error", error: err instanceof Error ? err.message : "Unknown error" });
       }
     }
-    res.json({ results });
+    res.json({ results, batchRunId });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to process CSV batch");
     res.status(500).json({ error: "Failed to process CSV batch" });
+  }
+});
+
+/** GET /batch-runs — list all batch runs for the account, grouped by batch_run_id */
+router.get("/batch-runs", requireMemberRole, async (req, res) => {
+  try {
+    const db = getDb();
+    const accountId = acctId(req);
+    const limit = Math.min(Math.max(Number(req.query.limit ?? 50), 1), 200);
+    const offset = Math.max(Number(req.query.offset ?? 0), 0);
+
+    const { rows } = await db.query(
+      `SELECT
+         s.batch_run_id,
+         MIN(s.created_at) AS run_started_at,
+         MAX(s.created_at) AS run_ended_at,
+         p.name AS package_name,
+         p.id AS package_id,
+         COUNT(*) AS total,
+         COUNT(*) FILTER (WHERE s.status = 'generated') AS generated,
+         COUNT(*) FILTER (WHERE s.submitted_at IS NOT NULL) AS submitted,
+         COUNT(*) FILTER (WHERE s.link_emailed_at IS NOT NULL) AS emailed
+       FROM docufill_interview_sessions s
+       JOIN docufill_packages p ON p.id = s.package_id
+       WHERE s.account_id = $1
+         AND s.batch_run_id IS NOT NULL
+       GROUP BY s.batch_run_id, p.name, p.id
+       ORDER BY MIN(s.created_at) DESC
+       LIMIT $2 OFFSET $3`,
+      [accountId, limit, offset],
+    );
+
+    const { rows: countRows } = await db.query(
+      `SELECT COUNT(DISTINCT batch_run_id) AS count FROM docufill_interview_sessions WHERE account_id = $1 AND batch_run_id IS NOT NULL`,
+      [accountId],
+    );
+
+    res.json({ runs: rows, total: Number(countRows[0]?.count ?? 0) });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to list batch runs");
+    res.status(500).json({ error: "Failed to list batch runs" });
+  }
+});
+
+/** GET /batch-runs/:runId — sessions for a specific batch run */
+router.get("/batch-runs/:runId", requireMemberRole, async (req, res) => {
+  try {
+    const db = getDb();
+    const accountId = acctId(req);
+    const { runId } = req.params;
+
+    const { rows } = await db.query(
+      `SELECT
+         s.token, s.status, s.source,
+         s.created_at, s.updated_at, s.submitted_at, s.link_emailed_at,
+         s.link_email_recipient,
+         s.signer_name, s.signer_email,
+         s.batch_run_id,
+         p.name AS package_name,
+         p.id AS package_id
+       FROM docufill_interview_sessions s
+       JOIN docufill_packages p ON p.id = s.package_id
+       WHERE s.account_id = $1
+         AND s.batch_run_id = $2
+       ORDER BY s.id ASC`,
+      [accountId, runId],
+    );
+
+    if (rows.length === 0) {
+      res.status(404).json({ error: "Batch run not found" });
+      return;
+    }
+
+    res.json({ sessions: rows });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to fetch batch run sessions");
+    res.status(500).json({ error: "Failed to fetch batch run sessions" });
   }
 });
 
@@ -3204,17 +3287,21 @@ router.get("/sessions", async (req, res) => {
 router.get("/sessions/portal-list", async (req, res) => {
   try {
     const db = getDb();
-    const packageId = req.query.packageId ? Number(req.query.packageId) : null;
-    const status    = typeof req.query.status === "string" ? req.query.status : null;
-    const search    = typeof req.query.search === "string" ? req.query.search.trim() : null;
-    const limit     = Math.min(Math.max(Number(req.query.limit ?? 50), 1), 200);
-    const offset    = Math.max(Number(req.query.offset ?? 0), 0);
+    const packageId    = req.query.packageId ? Number(req.query.packageId) : null;
+    const status       = typeof req.query.status === "string" ? req.query.status : null;
+    const search       = typeof req.query.search === "string" ? req.query.search.trim() : null;
+    const sourceFilter = typeof req.query.source === "string" ? req.query.source : null;
+    const excludeSource = typeof req.query.excludeSource === "string" ? req.query.excludeSource : null;
+    const limit        = Math.min(Math.max(Number(req.query.limit ?? 50), 1), 200);
+    const offset       = Math.max(Number(req.query.offset ?? 0), 0);
 
     const params: (number | string | null)[] = [acctId(req)];
     const conditions: string[] = ["s.account_id = $1"];
 
-    if (packageId) { params.push(packageId); conditions.push(`s.package_id = $${params.length}`); }
-    if (status)    { params.push(status);    conditions.push(`s.status = $${params.length}`); }
+    if (packageId)     { params.push(packageId);     conditions.push(`s.package_id = $${params.length}`); }
+    if (status)        { params.push(status);        conditions.push(`s.status = $${params.length}`); }
+    if (sourceFilter)  { params.push(sourceFilter);  conditions.push(`s.source = $${params.length}`); }
+    if (excludeSource) { params.push(excludeSource); conditions.push(`s.source != $${params.length}`); }
     if (search) {
       params.push(`%${search}%`);
       const idx = params.length;
@@ -3225,15 +3312,17 @@ router.get("/sessions/portal-list", async (req, res) => {
     const [countRes, { rows }] = await Promise.all([
       db.query<{ count: string }>(`SELECT COUNT(*) AS count FROM docufill_interview_sessions s JOIN docufill_packages p ON p.id = s.package_id WHERE ${where}`, [...params]),
       db.query(
-        `SELECT s.token, s.id, s.package_id, s.status,
+        `SELECT s.token, s.id, s.package_id, s.status, s.source,
                 s.created_at, s.updated_at, s.expires_at,
                 s.signer_name, s.signer_email, s.signed_at,
+                s.submitted_at, s.link_emailed_at,
                 s.pdf_sha256, s.tsa_url,
                 (s.tsa_token_b64 IS NOT NULL) AS tsa_obtained,
                 (s.generated_pdf_storage_key IS NOT NULL) AS pdf_stored,
                 s.generated_pdf_url,
                 s.link_email_recipient,
                 s.voided_at, s.voided_reason,
+                s.batch_run_id,
                 p.name AS package_name
            FROM docufill_interview_sessions s
            JOIN docufill_packages p ON p.id = s.package_id
@@ -4234,7 +4323,8 @@ publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
     }
     const { rows } = await db.query(
       `UPDATE docufill_interview_sessions SET
-          answers=$1::jsonb, answers_ciphertext=$4, status=COALESCE($2, status), updated_at=NOW()
+          answers=$1::jsonb, answers_ciphertext=$4, status=COALESCE($2, status), updated_at=NOW(),
+          submitted_at=CASE WHEN $2 IN ('submitted','signed') AND submitted_at IS NULL THEN NOW() ELSE submitted_at END
         WHERE token=$3
           AND expires_at > NOW()
         RETURNING id`,
