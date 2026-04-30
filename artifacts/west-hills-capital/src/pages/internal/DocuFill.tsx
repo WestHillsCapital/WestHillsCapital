@@ -6695,6 +6695,10 @@ export default function DocuFill() {
                   : [];
                 const sentCount = Object.values(csvInviteResults).filter((r) => r.status === "sent").length;
                 const errCount  = Object.values(csvInviteResults).filter((r) => r.status === "error").length;
+                const failedTokenSet = new Set(
+                  Object.entries(csvInviteResults).filter(([, v]) => v.status === "error").map(([k]) => k),
+                );
+                const retryableRows = inviteableRows.filter((r) => r.token && failedTokenSet.has(r.token!));
 
                 return (
                   <>
@@ -6736,7 +6740,7 @@ export default function DocuFill() {
                                     disabled={csvInviteSending}
                                   />
                                 </div>
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-3 flex-wrap">
                                   <Button
                                     size="sm"
                                     disabled={csvInviteSending || inviteableRows.length === 0}
@@ -6775,8 +6779,61 @@ export default function DocuFill() {
                                     }
                                   </Button>
                                   {sentCount > 0 && <span className="text-xs text-green-700">{sentCount} sent</span>}
-                                  {errCount  > 0 && <span className="text-xs text-red-600">{errCount} failed</span>}
+                                  {errCount  > 0 && (
+                                    <span className="text-xs text-red-600 flex items-center gap-2">
+                                      {errCount} failed
+                                      <button
+                                        type="button"
+                                        disabled={csvInviteSending || retryableRows.length === 0}
+                                        onClick={async () => {
+                                          if (!csvEmailHeader) return;
+                                          setCsvInviteSending(true);
+                                          const retryInvitations = retryableRows.map((r) => ({
+                                            token: r.token!,
+                                            recipientEmail: (csvBatchRows[r.rowIndex]?.[csvEmailHeader!] ?? "").trim(),
+                                            recipientName: csvNameHeader ? (csvBatchRows[r.rowIndex]?.[csvNameHeader] ?? "").trim() : "",
+                                          }));
+                                          try {
+                                            const res = await fetch(`${API_BASE}${docufillApiPath}/batch/send-links`, {
+                                              method: "POST",
+                                              headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+                                              body: JSON.stringify({ invitations: retryInvitations, customMessage: csvInviteMessage || null }),
+                                            });
+                                            const data = await res.json();
+                                            if (!res.ok) throw new Error(data.error ?? "Failed to retry");
+                                            const retryResultMap: typeof csvInviteResults = { ...csvInviteResults };
+                                            for (const r of (data.results as Array<{ token: string; status: "sent" | "error"; sentTo?: string; error?: string }>)) {
+                                              retryResultMap[r.token] = { status: r.status, sentTo: r.sentTo, error: r.error };
+                                            }
+                                            setCsvInviteResults(retryResultMap);
+                                          } catch (err) {
+                                            console.error("[Batch invite retry]", err);
+                                          } finally {
+                                            setCsvInviteSending(false);
+                                          }
+                                        }}
+                                        className="text-xs font-medium text-red-700 underline underline-offset-2 hover:text-red-900 disabled:opacity-40 disabled:no-underline"
+                                      >
+                                        {csvInviteSending ? "Retrying…" : `Retry ${retryableRows.length}`}
+                                      </button>
+                                    </span>
+                                  )}
                                 </div>
+                                {errCount > 0 && Object.entries(csvInviteResults).some(([, v]) => v.status === "error" && v.error) && (
+                                  <div className="mt-1 space-y-0.5">
+                                    {Object.entries(csvInviteResults)
+                                      .filter(([, v]) => v.status === "error" && v.error)
+                                      .map(([token, v]) => {
+                                        const row = inviteableRows.find((r) => r.token === token);
+                                        const email = row && csvEmailHeader ? (csvBatchRows[row.rowIndex]?.[csvEmailHeader] ?? "") : token.slice(0, 12) + "…";
+                                        return (
+                                          <p key={token} className="text-xs text-red-600">
+                                            <span className="font-medium">{email}</span>: {v.error}
+                                          </p>
+                                        );
+                                      })}
+                                  </div>
+                                )}
                               </>
                             )}
                           </div>
