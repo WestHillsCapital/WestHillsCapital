@@ -2393,6 +2393,7 @@ export default function DocuFill() {
   function openFieldEditorForEdit(fieldId: string) {
     const field = selectedPackage?.fields.find((f) => f.id === fieldId);
     if (!field) return;
+    if (isSystemEsignFieldId(fieldId)) return; // system e-sign fields are read-only
     setFieldEditorDraft({
       name: field.name, color: field.color, type: field.type,
       options: field.options ?? [],
@@ -3916,9 +3917,14 @@ export default function DocuFill() {
                             <summary className="text-xs font-semibold text-[#6B7A99] cursor-pointer select-none">{packageFixedOrHiddenFields.length} field{packageFixedOrHiddenFields.length !== 1 ? "s" : ""} hidden from interview</summary>
                             <div className="space-y-1 mt-2 text-xs">
                               {packageFixedOrHiddenFields.map((field) => (
-                                <div key={field.id} className="rounded border border-[#EFE8D8] px-2 py-1">
-                                  <div className="font-medium">{field.name}</div>
-                                  <div className="text-[#6B7A99]">Omitted{field.defaultValue ? " · has default value" : " · no default"}{field.sensitive ? " · masked" : ""}</div>
+                                <div key={field.id} className={`rounded border px-2 py-1 ${isSystemEsignFieldId(field.id) ? "border-indigo-200 bg-indigo-50" : "border-[#EFE8D8]"}`}>
+                                  <div className="font-medium flex items-center gap-1.5">
+                                    {field.name}
+                                    {isSystemEsignFieldId(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-indigo-100 text-indigo-600 border border-indigo-200 px-1 py-0.5 font-semibold">E-Sign</span>}
+                                  </div>
+                                  <div className="text-[#6B7A99]">
+                                    {isSystemEsignFieldId(field.id) ? "System field — always omitted" : `Omitted${field.defaultValue ? " · has default value" : " · no default"}${field.sensitive ? " · masked" : ""}`}
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -4968,12 +4974,16 @@ export default function DocuFill() {
 
                       {field && (
                         <div>
-                          <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1">Field Name</div>
+                          <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1 flex items-center gap-1.5">
+                            Field Name
+                            {isSystemEsignFieldId(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-indigo-50 text-indigo-600 border border-indigo-200 px-1 py-0.5 font-semibold">E-Sign</span>}
+                          </div>
                           <input
                             type="text"
                             value={field.name}
-                            onChange={(e) => updateFieldInPackage(field.id, { name: e.target.value })}
-                            className="w-full border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-[#C49A38] focus:border-[#C49A38]"
+                            onChange={(e) => { if (!isSystemEsignFieldId(field.id)) updateFieldInPackage(field.id, { name: e.target.value }); }}
+                            readOnly={isSystemEsignFieldId(field.id)}
+                            className={`w-full border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none ${isSystemEsignFieldId(field.id) ? "bg-[#F8F6F0] text-[#6B7A99] cursor-default" : "focus:ring-1 focus:ring-[#C49A38] focus:border-[#C49A38]"}`}
                             placeholder="Field name"
                           />
                         </div>
@@ -5009,21 +5019,30 @@ export default function DocuFill() {
                       {field && (
                         <div>
                           <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1.5">Interview</div>
-                          <div className="flex rounded overflow-hidden border border-[#D4C9B5]">
-                            {interviewModes.map((m) => (
-                              <button
-                                key={m.value}
-                                type="button"
-                                onClick={() => setPanelInterviewMode(m.value)}
-                                className={`flex-1 py-1.5 text-[10px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors leading-tight ${fieldInterviewMode === m.value ? `${m.textClass} bg-white` : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
-                                style={fieldInterviewMode === m.value ? { boxShadow: `inset 0 0 0 2px ${m.color}` } : undefined}
-                              >
-                                {m.label}
-                              </button>
-                            ))}
-                          </div>
-                          {fieldInterviewMode === "omitted" && (
-                            <p className="mt-1 text-[10px] text-[#6B7A99]">Prints on PDF but won't appear as a question — needs a default value or prefill.</p>
+                          {isSystemEsignFieldId(field.id) ? (
+                            <div className="rounded border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[10px] text-indigo-700 flex items-center gap-1.5">
+                              <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 018 0v4" /></svg>
+                              Always omitted — E-Sign system field
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex rounded overflow-hidden border border-[#D4C9B5]">
+                                {interviewModes.map((m) => (
+                                  <button
+                                    key={m.value}
+                                    type="button"
+                                    onClick={() => setPanelInterviewMode(m.value)}
+                                    className={`flex-1 py-1.5 text-[10px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors leading-tight ${fieldInterviewMode === m.value ? `${m.textClass} bg-white` : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                                    style={fieldInterviewMode === m.value ? { boxShadow: `inset 0 0 0 2px ${m.color}` } : undefined}
+                                  >
+                                    {m.label}
+                                  </button>
+                                ))}
+                              </div>
+                              {fieldInterviewMode === "omitted" && (
+                                <p className="mt-1 text-[10px] text-[#6B7A99]">Prints on PDF but won't appear as a question — needs a default value or prefill.</p>
+                              )}
+                            </>
                           )}
                         </div>
                       )}
@@ -6382,13 +6401,17 @@ export default function DocuFill() {
               <div className="px-4 py-3 space-y-3">
 
                 {field && (
-                  <input
-                    type="text"
-                    value={field.name}
-                    onChange={(e) => updateFieldInPackage(field.id, { name: e.target.value })}
-                    className="w-full border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-[#C49A38] focus:border-[#C49A38]"
-                    placeholder="Field name"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="text"
+                      value={field.name}
+                      onChange={(e) => { if (!isSystemEsignFieldId(field.id)) updateFieldInPackage(field.id, { name: e.target.value }); }}
+                      readOnly={isSystemEsignFieldId(field.id)}
+                      className={`flex-1 border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#0F1C3F] focus:outline-none ${isSystemEsignFieldId(field.id) ? "bg-[#F8F6F0] text-[#6B7A99] cursor-default" : "focus:ring-1 focus:ring-[#C49A38] focus:border-[#C49A38]"}`}
+                      placeholder="Field name"
+                    />
+                    {isSystemEsignFieldId(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-indigo-50 text-indigo-600 border border-indigo-200 px-1 py-0.5 font-semibold flex-shrink-0">E-Sign</span>}
+                  </div>
                 )}
 
                 {(selectedPackage.recipients ?? []).length > 0 && (
@@ -6421,21 +6444,30 @@ export default function DocuFill() {
                 {field && (
                   <div>
                     <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1">Interview</div>
-                    <div className="flex rounded overflow-hidden border border-[#D4C9B5]">
-                      {interviewModes.map((m) => (
-                        <button
-                          key={m.value}
-                          type="button"
-                          onClick={() => setInterviewMode(m.value)}
-                          className={`flex-1 py-1.5 text-[11px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors ${fieldInterviewMode === m.value ? `${m.textClass} bg-white` : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
-                          style={fieldInterviewMode === m.value ? { boxShadow: `inset 0 0 0 2px ${m.color}` } : undefined}
-                        >
-                          {m.label}
-                        </button>
-                      ))}
-                    </div>
-                    {fieldInterviewMode === "omitted" && (
-                      <p className="mt-1 text-[10px] text-[#6B7A99]">Field prints on the PDF but won't appear as a question — needs a default value or prefill.</p>
+                    {isSystemEsignFieldId(field.id) ? (
+                      <div className="rounded border border-indigo-200 bg-indigo-50 px-2.5 py-1.5 text-[10px] text-indigo-700 flex items-center gap-1.5">
+                        <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><rect x="5" y="11" width="14" height="10" rx="2" /><path d="M8 11V7a4 4 0 018 0v4" /></svg>
+                        Always omitted — E-Sign system field
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex rounded overflow-hidden border border-[#D4C9B5]">
+                          {interviewModes.map((m) => (
+                            <button
+                              key={m.value}
+                              type="button"
+                              onClick={() => setInterviewMode(m.value)}
+                              className={`flex-1 py-1.5 text-[11px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors ${fieldInterviewMode === m.value ? `${m.textClass} bg-white` : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                              style={fieldInterviewMode === m.value ? { boxShadow: `inset 0 0 0 2px ${m.color}` } : undefined}
+                            >
+                              {m.label}
+                            </button>
+                          ))}
+                        </div>
+                        {fieldInterviewMode === "omitted" && (
+                          <p className="mt-1 text-[10px] text-[#6B7A99]">Field prints on the PDF but won't appear as a question — needs a default value or prefill.</p>
+                        )}
+                      </>
                     )}
                   </div>
                 )}

@@ -1014,6 +1014,17 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
   if (!session) return undefined;
   const hydratedPackage = (await hydratePackages([{ id: session.package_id, documents: session.documents, fields: session.fields }], client))[0];
   const result: Record<string, unknown> = { ...session, documents: hydratedPackage.documents, fields: hydratedPackage.fields };
+  // Inject system e-sign fields for email_otp packages if not already present.
+  // This ensures older packages gain them automatically without manual admin action.
+  if (result.auth_level === "email_otp") {
+    const fields = Array.isArray(result.fields) ? result.fields as Record<string, unknown>[] : [];
+    const presentIds = new Set(fields.map((f) => String(f.id ?? "")));
+    const toInject: Record<string, unknown>[] = [];
+    if (!presentIds.has("__signature__")) toInject.push({ id: "__signature__", name: "Signature", type: "text", interviewMode: "omitted", source: "esign-system", sensitive: false });
+    if (!presentIds.has("__initials__")) toInject.push({ id: "__initials__", name: "Initials", type: "initials", interviewMode: "omitted", source: "esign-system", sensitive: false });
+    if (!presentIds.has("__signer_date__")) toInject.push({ id: "__signer_date__", name: "Signer Date", type: "date", interviewMode: "omitted", source: "esign-system", sensitive: false });
+    if (toInject.length > 0) result.fields = [...toInject, ...fields];
+  }
   if (isEncryptionEnabled() && result.answers_ciphertext) {
     try {
       const dek = await getOrCreateAccountDek(result.account_id as number, getDb());
@@ -1093,10 +1104,27 @@ async function buildPacketPdfBuffer(
   client: QueryClient = getDb(),
   opts: { signatureImage?: string; signerName?: string } = {},
 ): Promise<Buffer> {
-  const answers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
+  const rawAnswers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
+  // Ensure __signer_date__ is always set to today (server-side fallback for older sessions)
+  const answers: Record<string, unknown> = rawAnswers["__signer_date__"] ? rawAnswers : {
+    ...rawAnswers,
+    "__signer_date__": (() => {
+      const d = new Date();
+      return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
+    })(),
+  };
   const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
   const fields = parseFields(session.fields);
   const fieldsById = new Map(fields.map((field) => [field.id, field]));
+  // Ensure system e-sign fields are resolvable even for older packages
+  const SYSTEM_ESIGN_FIELD_DEFAULTS: Record<string, Pick<DocuFillFieldItem, "id" | "name" | "type" | "interviewMode">> = {
+    "__signature__": { id: "__signature__", name: "Signature", type: "text", interviewMode: "omitted" },
+    "__initials__":  { id: "__initials__",  name: "Initials",  type: "initials", interviewMode: "omitted" },
+    "__signer_date__": { id: "__signer_date__", name: "Signer Date", type: "date", interviewMode: "omitted" },
+  };
+  for (const [id, def] of Object.entries(SYSTEM_ESIGN_FIELD_DEFAULTS)) {
+    if (!fieldsById.has(id)) fieldsById.set(id, def as DocuFillFieldItem);
+  }
   const packageId = Number(session.package_id);
   const storedDocuments = parseDocuments(session.documents).filter((sourceDoc) => sourceDoc.pdfStored);
   const storedRowsResult = Number.isInteger(packageId) && storedDocuments.length > 0
