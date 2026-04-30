@@ -1584,6 +1584,15 @@ export async function initDb(): Promise<void> {
     CREATE INDEX IF NOT EXISTS docufill_signing_events_session_idx
       ON docufill_signing_events (session_token, created_at)
   `);
+
+  // ── Batch run tracking ──────────────────────────────────────────────────────
+  // batch_run_id: UUID shared by all sessions from the same CSV upload run.
+  // submitted_at: when the client completed/submitted their interview.
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS batch_run_id TEXT`);
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ`);
+  await db.query(`CREATE INDEX IF NOT EXISTS dis_batch_run_idx ON docufill_interview_sessions (batch_run_id) WHERE batch_run_id IS NOT NULL`);
+  // Back-fill submitted_at for sessions already in a terminal state
+  await db.query(`UPDATE docufill_interview_sessions SET submitted_at = updated_at WHERE submitted_at IS NULL AND status IN ('submitted', 'signed', 'generated') AND source NOT IN ('csv_batch', 'deal_builder')`);
 }
 
 /**
