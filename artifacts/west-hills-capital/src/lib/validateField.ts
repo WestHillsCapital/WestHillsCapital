@@ -133,7 +133,13 @@ export function validateFieldValue(field: ValidatableField, value: string): stri
       : field.validationMessage || `${label} must be a percent between 0 and 100.`;
   }
   if (vt === "date") {
-    return !Number.isNaN(new Date(trimmed).getTime())
+    // Strict MM/DD/YYYY check — new Date() is far too permissive (e.g. accepts ".........-")
+    if (!/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed)) {
+      return field.validationMessage || `${label} must be a valid date.`;
+    }
+    const [m, d, y] = trimmed.split("/").map(Number);
+    const dt = new Date(y, m - 1, d);
+    return (dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d)
       ? null
       : field.validationMessage || `${label} must be a valid date.`;
   }
