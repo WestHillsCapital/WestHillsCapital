@@ -8,6 +8,10 @@
       "destination": "https://workspaceapi-server-production-987b.up.railway.app/api/$1"
     },
     {
+      "source": "/email-signature.html",
+      "destination": "/email-signature.html"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
