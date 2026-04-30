@@ -53,6 +53,7 @@ type SessionData = {
   org_logo_url?: string | null;
   org_form_logo_url?: string | null;
   org_brand_color?: string | null;
+  org_logo_on_white?: boolean | null;
   auth_level?: "none" | "email_otp";
   signed_at?: string | null;
   signer_name?: string | null;
@@ -734,10 +735,11 @@ export default function DocuFillCustomer() {
               const rawLogoUrl = session!.org_form_logo_url ?? session!.org_logo_url ?? null;
               const logoSrc = rawLogoUrl ? `${API_BASE}${rawLogoUrl}` : null;
               const bColor = session!.org_brand_color ?? "#C49A38";
+              const logoOnWhite = session!.org_logo_on_white !== false;
               const initial = orgName.charAt(0).toUpperCase();
               return (
                 <>
-                  <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden" style={{ backgroundColor: logoSrc ? "#ffffff" : bColor }}>
+                  <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden" style={{ backgroundColor: logoSrc && logoOnWhite ? "#ffffff" : bColor }}>
                     {logoSrc ? <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" /> : <span className="text-white text-xs font-bold">{initial}</span>}
                   </div>
                   <div>
@@ -1135,12 +1137,13 @@ export default function DocuFillCustomer() {
             const rawLogoUrl2 = session!.org_form_logo_url ?? session!.org_logo_url ?? null;
             const logoSrc = rawLogoUrl2 ? `${API_BASE}${rawLogoUrl2}` : null;
             const brandColor = session!.org_brand_color ?? "#C49A38";
+            const logoOnWhite2 = session!.org_logo_on_white !== false;
             const initial = orgName.charAt(0).toUpperCase();
             return (
               <>
                 <div
                   className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden"
-                  style={{ backgroundColor: logoSrc ? "#ffffff" : brandColor }}
+                  style={{ backgroundColor: logoSrc && logoOnWhite2 ? "#ffffff" : brandColor }}
                 >
                   {logoSrc ? (
                     <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" />
