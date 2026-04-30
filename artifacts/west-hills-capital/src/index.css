@@ -84,8 +84,8 @@
 
   --radius: 0.5rem;
 
-  --tooltip: 40 18% 72%;
-  --tooltip-foreground: 222 47% 11%;
+  --tooltip: 42 42% 89%;
+  --tooltip-foreground: 42 51% 24%;
 }
 
 @layer base {
