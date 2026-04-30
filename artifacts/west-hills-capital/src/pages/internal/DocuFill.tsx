@@ -3134,7 +3134,7 @@ export default function DocuFill() {
             {planLimitError.message}{" "}
             <a
               href="/app/settings#billing-section"
-              onClick={(e) => { e.preventDefault(); window.location.href = "/app/settings"; setTimeout(() => document.getElementById("billing-section")?.scrollIntoView({ behavior: "smooth" }), 500); }}
+              onClick={(e) => { e.preventDefault(); navigate("/app/settings"); setTimeout(() => document.getElementById("billing-section")?.scrollIntoView({ behavior: "smooth" }), 500); }}
               className="underline font-semibold hover:text-amber-950"
             >
               Upgrade your plan
