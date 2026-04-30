@@ -184,11 +184,24 @@ export function sensitivePrefillKeys(fields: DocuFillFieldItem[], prefill: Recor
 
 export function fieldAnswerValue(field: DocuFillFieldItem, answers: Record<string, unknown>, prefill: Record<string, unknown>): string {
   const synthesizedName = field.source === "clientName" || field.source === "fullName" || field.source === "name" ? combineNameParts(prefill) : "";
+  // Case-insensitive prefill lookup mirrors the frontend currentValue() behaviour so that
+  // a prefill key like "email" resolves correctly for a field whose name is "Email".
+  // Without this, a customer who sees a pre-filled field (shown by the frontend via CI match)
+  // and leaves it untouched will end up with a blank value in the generated PDF.
+  const prefillKeys = Object.keys(prefill);
+  const ciLookup = (key: string | undefined): unknown => {
+    if (!key) return undefined;
+    const lower = key.toLowerCase();
+    const match = prefillKeys.find((k) => k.toLowerCase() === lower);
+    return match ? prefill[match] : undefined;
+  };
   const candidates = [
     answers[field.id],
     field.source ? prefill[field.source] : undefined,
     field.name ? prefill[field.name] : undefined,
     field.label ? prefill[field.label] : undefined,
+    ciLookup(field.name),
+    ciLookup(field.label),
     synthesizedName,
     field.defaultValue,
   ];
