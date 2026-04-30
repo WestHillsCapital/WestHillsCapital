@@ -54,7 +54,8 @@ export function sessionToCsv(session: CsvSession): string {
 export function packageTemplateToCsv(packageId: number | string, packageName: string, fields: CsvField[]): string {
   const visibleFields = fields.filter(fieldInInterview);
   const headers = ["__package_id__", "__package_name__", ...visibleFields.map((f) => f.name)];
-  return headers.map(csvQuote).join(",") + "\n";
+  const sampleRow = [String(packageId), packageName, ...visibleFields.map(() => "")];
+  return [headers.map(csvQuote).join(","), sampleRow.map(csvQuote).join(",")].join("\n") + "\n";
 }
 
 type BatchResult = {
