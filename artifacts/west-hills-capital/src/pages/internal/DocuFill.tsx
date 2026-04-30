@@ -12,7 +12,7 @@ import { formatOrgTime } from "@/lib/orgDateFormat";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getDocuFillPrefillDisplayValue } from "@/lib/docufill-redaction";
+import { getDocuFillPrefillDisplayValue, ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE, isSystemEsignFieldId } from "@/lib/docufill-redaction";
 import { sessionToCsv, packageTemplateToCsv, downloadCsv, parseCsvString, batchResultsToCsv } from "@/lib/docufill-csv";
 import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
 import * as pdfjsLib from "pdfjs-dist";
@@ -171,20 +171,12 @@ type MappingItem = {
   rotation?: 0 | 90 | 180 | 270;
 };
 
-// ─── E-Sign system field IDs ────────────────────────────────────────────────
-const ESIGN_FIELD_ID_SIGNATURE = "__signature__";
-const ESIGN_FIELD_ID_INITIALS  = "__initials__";
-const ESIGN_FIELD_ID_DATE      = "__signer_date__";
-
+// ─── E-Sign system field sidebar definitions (IDs imported from shared lib) ──
 const SYSTEM_ESIGN_FIELDS: Array<{ id: string; name: string; type: FieldItem["type"]; description: string }> = [
   { id: ESIGN_FIELD_ID_SIGNATURE, name: "Signature",   type: "text",     description: "Drawn or typed signature" },
   { id: ESIGN_FIELD_ID_INITIALS,  name: "Initials",    type: "initials", description: "Drawn or typed initials" },
   { id: ESIGN_FIELD_ID_DATE,      name: "Signer Date", type: "date",     description: "Auto-filled with today's date" },
 ];
-
-function isSystemEsignFieldId(id: string): boolean {
-  return id === ESIGN_FIELD_ID_SIGNATURE || id === ESIGN_FIELD_ID_INITIALS || id === ESIGN_FIELD_ID_DATE;
-}
 
 function makeSystemEsignFieldItem(id: string, usedColors: string[]): FieldItem {
   const def = SYSTEM_ESIGN_FIELDS.find((f) => f.id === id);

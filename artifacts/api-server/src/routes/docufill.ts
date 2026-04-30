@@ -12,6 +12,10 @@ import {
   formatDocuFillMappedValue,
   hydratePackageFields,
   parseDocuFillFields as parseFields,
+  isSystemEsignFieldId,
+  ESIGN_FIELD_ID_SIGNATURE,
+  ESIGN_FIELD_ID_INITIALS,
+  ESIGN_FIELD_ID_DATE,
   type DocuFillFieldCondition,
   type DocuFillFieldItem,
 } from "../lib/docufill-redaction";
@@ -284,6 +288,40 @@ function jsonParam(value: unknown): string {
 function parseId(value: unknown): number | null {
   const n = Number(value);
   return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+// System e-sign field definitions injected into email_otp packages
+const SYSTEM_ESIGN_FIELD_DEFS: DocuFillFieldItem[] = [
+  { id: ESIGN_FIELD_ID_SIGNATURE,  name: "Signature",   type: "text",     format: "signature", interviewMode: "omitted" } as DocuFillFieldItem & { format?: string },
+  { id: ESIGN_FIELD_ID_INITIALS,   name: "Initials",    type: "initials", interviewMode: "omitted" },
+  { id: ESIGN_FIELD_ID_DATE,       name: "Signer Date", type: "date",     interviewMode: "omitted" },
+] as DocuFillFieldItem[];
+
+/**
+ * For email_otp packages ensure the three e-sign system fields are present in the
+ * fields array and have interviewMode:"omitted" enforced (they cannot be mutated by
+ * callers). For non-email_otp packages, strips system fields entirely so they don't
+ * pollute the schema.
+ */
+function normalizeEsignFields(fields: unknown, authLevel: string): DocuFillFieldItem[] {
+  const parsed = parseFields(fields);
+  if (authLevel !== "email_otp") {
+    // Strip any stray system fields from non-e-sign packages
+    return parsed.filter((f) => !isSystemEsignFieldId(f.id));
+  }
+  // Enforce interviewMode on any existing system fields and inject missing ones
+  const byId = new Map(parsed.map((f) => [f.id, f]));
+  for (const def of SYSTEM_ESIGN_FIELD_DEFS) {
+    const existing = byId.get(def.id);
+    if (existing) {
+      // Force interviewMode to omitted regardless of what the client submitted
+      byId.set(def.id, { ...existing, interviewMode: "omitted" });
+    } else {
+      // Prepend missing system fields
+      parsed.unshift({ ...def });
+    }
+  }
+  return parsed.map((f) => byId.get(f.id) ?? f);
 }
 
 function getRecord(value: unknown): Record<string, unknown> {
@@ -2177,7 +2215,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
         nullableText(body.description),
         cleanText(body.status) || "draft",
         jsonParam(body.documents),
-        jsonParam(body.fields),
+        JSON.stringify(normalizeEsignFields(body.fields, defaultAuthLevel)),
         jsonParam(body.mappings),
         jsonParam(body.recipients),
         accountId,
@@ -2302,7 +2340,13 @@ router.patch("/packages/:id", async (req, res) => {
         body.description === undefined ? existing.description : nullableText(body.description),
         body.status === undefined ? existing.status : cleanText(body.status),
         nextDocumentsJson,
-        body.fields === undefined ? JSON.stringify(existing.fields ?? []) : jsonParam(body.fields),
+        (() => {
+          const nextAuthLevel = body.authLevel === undefined
+            ? (existing.auth_level as string ?? "none")
+            : (body.authLevel === "email_otp" ? "email_otp" : "none");
+          const rawFields = body.fields === undefined ? existing.fields : body.fields;
+          return JSON.stringify(normalizeEsignFields(rawFields, nextAuthLevel));
+        })(),
         body.mappings === undefined ? JSON.stringify(existing.mappings ?? []) : jsonParam(body.mappings),
         body.recipients === undefined ? JSON.stringify(existing.recipients ?? []) : jsonParam(body.recipients),
         body.enableInterview === undefined ? (existing.enable_interview ?? true) : Boolean(body.enableInterview),
