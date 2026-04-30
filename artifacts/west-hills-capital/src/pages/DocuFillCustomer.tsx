@@ -80,11 +80,27 @@ function evaluateCondition(
 function currentValue(field: FieldItem, answers: Record<string, string>, prefill: Record<string, string>): string {
   const ans = answers[field.id];
   if (ans !== undefined) return ans;
+
+  // Check prefill for all field modes (not just readonly)
+  const fieldNameLower = field.name.toLowerCase();
+  const prefillKey = Object.keys(prefill).find((k) => k.toLowerCase() === fieldNameLower);
+  if (prefillKey) return String(prefill[prefillKey] ?? "");
+
+  // Name-combination fallback: if the field looks like a full-name field
+  // (contains "name" but not "first" or "last"), join firstName + lastName
+  if (
+    fieldNameLower.includes("name") &&
+    !fieldNameLower.includes("first") &&
+    !fieldNameLower.includes("last") &&
+    (prefill.firstName || prefill.lastName)
+  ) {
+    return [prefill.firstName, prefill.lastName].filter(Boolean).join(" ");
+  }
+
   if (field.interviewMode === "readonly") {
-    const prefillKey = Object.keys(prefill).find((k) => k.toLowerCase() === field.name.toLowerCase());
-    if (prefillKey) return String(prefill[prefillKey] ?? "");
     return String(field.defaultValue ?? "");
   }
+
   return "";
 }
 
