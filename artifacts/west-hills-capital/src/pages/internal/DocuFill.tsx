@@ -180,13 +180,11 @@ const SYSTEM_ESIGN_FIELDS: Array<{ id: string; name: string; type: FieldItem["ty
 
 function makeSystemEsignFieldItem(id: string, usedColors: string[]): FieldItem {
   const def = SYSTEM_ESIGN_FIELDS.find((f) => f.id === id);
-  const color = id === ESIGN_FIELD_ID_SIGNATURE ? "#6366F1"
-    : id === ESIGN_FIELD_ID_INITIALS ? "#8B5CF6"
-    : "#06B6D4";
+  const color = "#9CA3AF";
   return {
     id,
     name: def?.name ?? id,
-    color: usedColors.includes(color) ? pickFieldColor(usedColors, false) : color,
+    color,
     type: def?.type ?? "text",
     interviewMode: "omitted",
     defaultValue: "",
@@ -276,6 +274,7 @@ function clampPercent(value: number, min: number, max: number) {
 }
 
 function defaultMappingFormat(field: FieldItem): MappingItem["format"] {
+  if (field.id === ESIGN_FIELD_ID_INITIALS || field.type === "initials") return "initials";
   if (field.id === ESIGN_FIELD_ID_SIGNATURE) return "signature";
   if (inferFieldCategory(field) === "signature") return "signature";
   if (field.validationType === "currency") return "currency";
@@ -2739,23 +2738,30 @@ export default function DocuFill() {
       const mappingId = newId("map");
       const targetPage = pageOverride ?? selectedPage;
       mappingUndoStack.current = [...mappingUndoStack.current, [...selectedPackage.mappings]].slice(-20);
-      updateSelectedPackage((pkg) => ({
-        ...pkg,
-        fields: pkg.fields.find((f) => f.id === capturedField.id) ? pkg.fields : [...pkg.fields, capturedField],
-        mappings: [...pkg.mappings, {
-          id: mappingId,
-          fieldId: capturedField.id,
-          documentId: selectedDocument!.id,
-          page: targetPage,
-          x: clampPercent(x, 0, 74),
-          y: clampPercent(y, 0, 94),
-          w: capturedField.id === ESIGN_FIELD_ID_SIGNATURE ? 30 : 22,
-          h: capturedField.id === ESIGN_FIELD_ID_SIGNATURE ? 8 : 6,
-          fontSize: 11,
-          align: "left" as const,
-          format: defaultMappingFormat(capturedField),
-        }],
-      }));
+      const needsAutoDate = (fieldId === ESIGN_FIELD_ID_SIGNATURE || fieldId === ESIGN_FIELD_ID_INITIALS);
+      updateSelectedPackage((pkg) => {
+        let fields = pkg.fields.find((f) => f.id === capturedField.id) ? pkg.fields : [...pkg.fields, capturedField];
+        if (needsAutoDate && !fields.find((f) => f.id === ESIGN_FIELD_ID_DATE)) {
+          fields = [...fields, makeSystemEsignFieldItem(ESIGN_FIELD_ID_DATE, fields.map((f) => f.color))];
+        }
+        return {
+          ...pkg,
+          fields,
+          mappings: [...pkg.mappings, {
+            id: mappingId,
+            fieldId: capturedField.id,
+            documentId: selectedDocument!.id,
+            page: targetPage,
+            x: clampPercent(x, 0, 74),
+            y: clampPercent(y, 0, 94),
+            w: capturedField.id === ESIGN_FIELD_ID_SIGNATURE ? 30 : 22,
+            h: capturedField.id === ESIGN_FIELD_ID_SIGNATURE ? 8 : 6,
+            fontSize: 11,
+            align: "left" as const,
+            format: defaultMappingFormat(capturedField),
+          }],
+        };
+      });
       setSelectedMappingId(mappingId);
       setSelectedFieldId(capturedField.id);
       setPlacementModal(null);
@@ -5124,48 +5130,50 @@ export default function DocuFill() {
                   {(() => {
                     const usedLibraryIds = new Set(selectedPackage.fields.map((f) => f.libraryFieldId).filter(Boolean));
                     const availableLibraryFields = fieldLibrary.filter((item) => item.active && !usedLibraryIds.has(item.id));
-                    if (availableLibraryFields.length === 0) return null;
+                    const esignPkgIds = new Set(selectedPackage.fields.filter((f) => f.source === "esign-system").map((f) => f.id));
+                    const availableEsignFields = SYSTEM_ESIGN_FIELDS.filter((sf) => !esignPkgIds.has(sf.id));
+                    if (availableLibraryFields.length === 0 && availableEsignFields.length === 0) return null;
                     return (
                       <label className="block mb-2 flex-shrink-0">
                         <span className="block text-[11px] text-[#6B7A99] mb-1">Add from shared library</span>
                         <select
                           value=""
                           onChange={(e) => {
-                            const libraryField = fieldLibrary.find((item) => item.id === e.target.value);
-                            if (libraryField) addLibraryFieldToPackage(libraryField);
+                            const val = e.target.value;
+                            if (!val) return;
+                            if (isSystemEsignFieldId(val)) {
+                              updateSelectedPackage((pkg) => {
+                                if (pkg.fields.find((f) => f.id === val)) return pkg;
+                                const newField = makeSystemEsignFieldItem(val, pkg.fields.map((f) => f.color));
+                                let fields = [...pkg.fields, newField];
+                                const needsAutoDate = (val === ESIGN_FIELD_ID_SIGNATURE || val === ESIGN_FIELD_ID_INITIALS);
+                                if (needsAutoDate && !fields.find((f) => f.id === ESIGN_FIELD_ID_DATE)) {
+                                  fields = [...fields, makeSystemEsignFieldItem(ESIGN_FIELD_ID_DATE, fields.map((f) => f.color))];
+                                }
+                                return { ...pkg, fields };
+                              });
+                            } else {
+                              const libraryField = fieldLibrary.find((item) => item.id === val);
+                              if (libraryField) addLibraryFieldToPackage(libraryField);
+                            }
                           }}
                           className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
                         >
                           <option value="">Select reusable field</option>
-                          {availableLibraryFields.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
+                          {availableLibraryFields.length > 0 && (
+                            <optgroup label="Shared Library">
+                              {availableLibraryFields.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
+                            </optgroup>
+                          )}
+                          {availableEsignFields.length > 0 && (
+                            <optgroup label="E-Sign Fields">
+                              {availableEsignFields.map((sf) => <option key={sf.id} value={sf.id}>{sf.name}</option>)}
+                            </optgroup>
+                          )}
                         </select>
                       </label>
                     );
                   })()}
-                  {/* E-Sign system fields — draggable, never in interview */}
-                  <div className="mb-2 flex-shrink-0">
-                    <div className="text-[10px] text-[#6B7A99] font-semibold uppercase tracking-wide mb-1">E-Sign Fields</div>
-                    <div className="space-y-1">
-                      {SYSTEM_ESIGN_FIELDS.map((sf) => {
-                        const alreadyInPkg = selectedPackage.fields.some((f) => f.id === sf.id);
-                        return (
-                          <div
-                            key={sf.id}
-                            draggable
-                            onDragStart={(e) => { e.dataTransfer.setData("text/field", sf.id); }}
-                            className="flex items-center gap-2 px-2.5 py-1.5 rounded border border-[#DDD5C4] bg-white cursor-alias hover:border-[#C49A38] hover:bg-[#FEFCF7] transition-colors select-none"
-                          >
-                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sf.id === ESIGN_FIELD_ID_SIGNATURE ? "#6366F1" : sf.id === ESIGN_FIELD_ID_INITIALS ? "#8B5CF6" : "#06B6D4" }} />
-                            <div className="flex-1 min-w-0">
-                              <div className="text-[12px] font-medium text-[#0F1C3F]">{sf.name}</div>
-                              <div className="text-[10px] text-[#8A9BB8] truncate">{sf.description}</div>
-                            </div>
-                            {alreadyInPkg && <span className="text-[9px] uppercase tracking-wide text-[#6B7A99] bg-[#F0F0F0] border border-[#DDD5C4] px-1 py-0.5 rounded">placed</span>}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
                   {inspectorMode === "panel" && selectedPackage.mappings.length > 0 && (
                     <p className="mb-2 text-[10px] text-[#8A9BB8] italic flex-shrink-0">Click a placement on the document to inspect it.</p>
                   )}

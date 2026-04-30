@@ -971,11 +971,11 @@ router.patch("/team/:id/role", requireAdminRole, async (req, res) => {
     );
     if (!targets[0]) return void res.status(404).json({ error: "Team member not found." });
 
-    // Guard: cannot demote if they are the last admin
+    // Guard: cannot demote if they are the last admin (count all admin-role users, active or pending)
     if (targets[0].role === "admin" && newRole !== "admin") {
       const { rows: adminCount } = await db.query<{ count: string }>(
         `SELECT COUNT(*) AS count FROM account_users
-          WHERE account_id = $1 AND role = 'admin' AND status = 'active'`,
+          WHERE account_id = $1 AND role = 'admin'`,
         [accountId],
       );
       if (parseInt(adminCount[0].count, 10) <= 1) {
@@ -1029,11 +1029,11 @@ router.delete("/team/:id", requireAdminRole, async (req, res) => {
     );
     if (!targets[0]) return void res.status(404).json({ error: "Team member not found." });
 
-    // Guard: cannot remove the last admin
+    // Guard: cannot remove the last admin (count all admin-role users, active or pending)
     if (targets[0].role === "admin") {
       const { rows: adminCount } = await db.query<{ count: string }>(
         `SELECT COUNT(*) AS count FROM account_users
-          WHERE account_id = $1 AND role = 'admin' AND status = 'active'`,
+          WHERE account_id = $1 AND role = 'admin'`,
         [accountId],
       );
       if (parseInt(adminCount[0].count, 10) <= 1) {
