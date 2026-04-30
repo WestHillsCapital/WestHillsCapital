@@ -1137,6 +1137,91 @@ function validateSessionAnswers(session: Record<string, unknown>): { valid: bool
   return { valid: missingFields.length === 0 && errors.length === 0, missingFields, errors };
 }
 
+/**
+ * Compute the rotation-adjusted anchor (x, y) for a pdf-lib drawText call.
+ *
+ * pdf-lib always rotates text around its draw-origin (x, y).  For 0° the
+ * text extends rightward and the anchor can sit at the box baseline.  For
+ * other angles the text advances in a different direction, so the same anchor
+ * would place text entirely outside the field box.  The offsets below keep
+ * the text visually inside the mapping box for the four allowed rotation steps.
+ *
+ * @param rotationDeg  0 | 90 | 180 | 270 (CCW in pdf-lib convention)
+ * @param x            Left edge of field box in page coords
+ * @param yDraw        Baseline y for 0° text (already clamped)
+ * @param yTop         Top edge of field box in page coords
+ * @param boxHeight    Box height in pts
+ * @param maxWidth     Box width in pts
+ * @param fontSize     Font size in pts
+ */
+function resolveRotatedTextAnchor(
+  rotationDeg: number,
+  x: number,
+  yDraw: number,
+  yTop: number,
+  boxHeight: number,
+  maxWidth: number,
+  fontSize: number,
+): { x: number; y: number } {
+  switch (rotationDeg) {
+    case 90:
+      // Text advances upward from anchor; character body extends leftward by ~fontSize.
+      // Place anchor at (x + fontSize, bottom of box) so characters stay in [x, x+fontSize].
+      return { x: x + Math.min(fontSize * 0.95, maxWidth), y: yTop - boxHeight };
+    case 180:
+      // Text advances leftward (upside-down); body extends downward by ~fontSize.
+      // Place anchor at right edge, near top so reversed text fits in the box.
+      return { x: x + maxWidth, y: yTop - fontSize * 0.2 - 2 };
+    case 270:
+      // Text advances downward from anchor; body extends rightward by ~fontSize.
+      // Place anchor at top-left so text descends within the box height.
+      return { x: x, y: yTop };
+    default:
+      return { x, y: yDraw };
+  }
+}
+
+/**
+ * Compute the rotation-adjusted anchor (x, y) for a pdf-lib drawImage call.
+ *
+ * pdf-lib rotates images around their bottom-left corner.  After a 90° CCW
+ * rotation an image of (w × h) occupies [anchor.x − h, anchor.x] × [anchor.y,
+ * anchor.y + w] in page coords.  The formulas below shift the anchor so the
+ * rotated image lands inside the mapping box.
+ *
+ * @param rotationDeg  0 | 90 | 180 | 270
+ * @param x            Left edge of the field box
+ * @param yTop         Top edge of the field box
+ * @param boxHeight    Box height in pts
+ * @param imgW         Image width after scaleToFit (pts)
+ * @param imgH         Image height after scaleToFit (pts)
+ */
+function resolveRotatedImageAnchor(
+  rotationDeg: number,
+  x: number,
+  yTop: number,
+  boxHeight: number,
+  imgW: number,
+  imgH: number,
+): { x: number; y: number } {
+  switch (rotationDeg) {
+    case 90:
+      // Rotated image occupies [anchor.x − imgH, anchor.x] × [anchor.y, anchor.y + imgW]
+      // Want that to equal [x, x + imgH] × [yTop − boxHeight, yTop − boxHeight + imgW]
+      return { x: x + imgH, y: yTop - boxHeight };
+    case 180:
+      // Rotated image occupies [anchor.x − imgW, anchor.x] × [anchor.y − imgH, anchor.y]
+      // Centre vertically in box, start from right edge.
+      return { x: x + imgW, y: yTop - (boxHeight - imgH) / 2 };
+    case 270:
+      // Rotated image occupies [anchor.x, anchor.x + imgH] × [anchor.y − imgW, anchor.y]
+      return { x: x, y: yTop - boxHeight + imgW };
+    default:
+      // 0°: vertically centred in box, left-aligned.
+      return { x, y: yTop - boxHeight + (boxHeight - imgH) / 2 };
+  }
+}
+
 async function buildPacketPdfBuffer(
   session: Record<string, unknown>,
   client: QueryClient = getDb(),
@@ -1206,7 +1291,12 @@ async function buildPacketPdfBuffer(
         const boxHeight = Math.max(14, (clampNumber(mapping.h, 10, 1, 100) / 100) * height);
         const maxWidth = Math.max(18, (clampNumber(mapping.w, 26, 2, 100) / 100) * width);
 
-        const mappingRotation = degrees(mapping.rotation ?? 0);
+        const rotationDeg = (mapping.rotation ?? 0) as number;
+        const mappingRotation = degrees(rotationDeg);
+        // For 90°/270° the image's visual width and height are swapped relative to
+        // the field box, so we need to swap the scaleToFit constraints.
+        const imgFitW = (rotationDeg === 90 || rotationDeg === 270) ? boxHeight : maxWidth;
+        const imgFitH = (rotationDeg === 90 || rotationDeg === 270) ? maxWidth : boxHeight;
 
         // Initials field: overlay drawn PNG or typed italic initials.
         // Prefer opts.initialsImage (sent separately in generate body, parallel to signatureImage).
@@ -1222,10 +1312,11 @@ async function buildPacketPdfBuffer(
               const base64Data = pngSrc.replace(/^data:image\/png;base64,/, "");
               const imgBytes = Buffer.from(base64Data, "base64");
               const embeddedImg = await merged.embedPng(imgBytes);
-              const imgDims = embeddedImg.scaleToFit(maxWidth, boxHeight);
+              const imgDims = embeddedImg.scaleToFit(imgFitW, imgFitH);
+              const imgAnchor = resolveRotatedImageAnchor(rotationDeg, x, yTop, boxHeight, imgDims.width, imgDims.height);
               page.drawImage(embeddedImg, {
-                x,
-                y: yTop - boxHeight + (boxHeight - imgDims.height) / 2,
+                x: imgAnchor.x,
+                y: imgAnchor.y,
                 width: imgDims.width,
                 height: imgDims.height,
                 rotate: mappingRotation,
@@ -1235,16 +1326,20 @@ async function buildPacketPdfBuffer(
               const text = rawValue.slice(0, 6).trim() || (opts.signerName ?? "").split(/\s+/).map((p) => p[0] ?? "").join("").slice(0, 4);
               if (text) {
                 const fontSize = clampNumber(mapping.fontSize, 11, 6, 18);
-                const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize * 0.2 + 2));
-                page.drawText(text, { x, y: yDraw, size: fontSize, font: italicFont, color: rgb(0, 0, 0), rotate: mappingRotation });
+                const rawYDraw = yTop - boxHeight + fontSize * 0.2 + 2;
+                const yDraw = Math.max(fontSize + 2, Math.min(height - 2, rawYDraw));
+                const anchor = resolveRotatedTextAnchor(rotationDeg, x, yDraw, yTop, boxHeight, maxWidth, fontSize);
+                page.drawText(text, { x: anchor.x, y: anchor.y, size: fontSize, font: italicFont, color: rgb(0, 0, 0), rotate: mappingRotation });
               }
             }
           } else if (rawValue.trim()) {
             // Typed initials — render as oblique text
             const text = rawValue.trim().slice(0, 6);
             const fontSize = clampNumber(mapping.fontSize, 11, 6, 18);
-            const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize * 0.2 + 2));
-            page.drawText(text, { x, y: yDraw, size: fontSize, font: italicFont, color: rgb(0, 0, 0), rotate: mappingRotation });
+            const rawYDraw = yTop - boxHeight + fontSize * 0.2 + 2;
+            const yDraw = Math.max(fontSize + 2, Math.min(height - 2, rawYDraw));
+            const anchor = resolveRotatedTextAnchor(rotationDeg, x, yDraw, yTop, boxHeight, maxWidth, fontSize);
+            page.drawText(text, { x: anchor.x, y: anchor.y, size: fontSize, font: italicFont, color: rgb(0, 0, 0), rotate: mappingRotation });
           }
           continue;
         }
@@ -1256,10 +1351,11 @@ async function buildPacketPdfBuffer(
               const base64Data = opts.signatureImage.replace(/^data:image\/png;base64,/, "");
               const imgBytes = Buffer.from(base64Data, "base64");
               const embeddedImg = await merged.embedPng(imgBytes);
-              const imgDims = embeddedImg.scaleToFit(maxWidth, boxHeight);
+              const imgDims = embeddedImg.scaleToFit(imgFitW, imgFitH);
+              const imgAnchor = resolveRotatedImageAnchor(rotationDeg, x, yTop, boxHeight, imgDims.width, imgDims.height);
               page.drawImage(embeddedImg, {
-                x,
-                y: yTop - boxHeight + (boxHeight - imgDims.height) / 2,
+                x: imgAnchor.x,
+                y: imgAnchor.y,
                 width: imgDims.width,
                 height: imgDims.height,
                 rotate: mappingRotation,
@@ -1269,14 +1365,18 @@ async function buildPacketPdfBuffer(
               const fallbackName = opts.signerName ?? "";
               if (fallbackName) {
                 const fontSize = clampNumber(mapping.fontSize, 14, 8, 28);
-                const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize * 0.2 + 2));
-                drawWrappedText(page, fallbackName, x, yDraw, fontSize, font, maxWidth, "left", mappingRotation);
+                const rawYDraw = yTop - boxHeight + fontSize * 0.2 + 2;
+                const yDraw = Math.max(fontSize + 2, Math.min(height - 2, rawYDraw));
+                const anchor = resolveRotatedTextAnchor(rotationDeg, x, yDraw, yTop, boxHeight, maxWidth, fontSize);
+                drawWrappedText(page, fallbackName, anchor.x, anchor.y, fontSize, font, maxWidth, "left", mappingRotation);
               }
             }
           } else if (opts.signerName) {
             const fontSize = clampNumber(mapping.fontSize, 14, 8, 28);
-            const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize * 0.2 + 2));
-            drawWrappedText(page, opts.signerName, x, yDraw, fontSize, font, maxWidth, "left", mappingRotation);
+            const rawYDraw = yTop - boxHeight + fontSize * 0.2 + 2;
+            const yDraw = Math.max(fontSize + 2, Math.min(height - 2, rawYDraw));
+            const anchor = resolveRotatedTextAnchor(rotationDeg, x, yDraw, yTop, boxHeight, maxWidth, fontSize);
+            drawWrappedText(page, opts.signerName, anchor.x, anchor.y, fontSize, font, maxWidth, "left", mappingRotation);
           }
           continue;
         }
@@ -1302,7 +1402,8 @@ async function buildPacketPdfBuffer(
           ? yTop - boxHeight / 2 - fontSize * 0.35
           : yTop - boxHeight + fontSize * 0.2 + 2;
         const yDraw = Math.max(fontSize + 2, Math.min(height - 2, rawYDraw));
-        drawWrappedText(page, mappedValue, x, yDraw, fontSize, font, maxWidth, align, mappingRotation);
+        const anchor = resolveRotatedTextAnchor(rotationDeg, x, yDraw, yTop, boxHeight, maxWidth, fontSize);
+        drawWrappedText(page, mappedValue, anchor.x, anchor.y, fontSize, font, maxWidth, align, mappingRotation);
       }
     }
     const sessionToken = typeof session.token === "string" ? session.token : "";

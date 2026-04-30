@@ -484,6 +484,14 @@ export default function DocuFillCustomer() {
       for (const f of initialsFields) { next[f.id] = textFallback; }
       setAnswers(next);
       scheduleAutoSave(next);
+      if (hasSignatureStep) {
+        setEsignStep("consent");
+      } else {
+        // Initials done, no signature needed — pass dataUrl directly to avoid the async
+        // state update race: initialsImageDataUrl may still be null in handleSubmit if we
+        // read it from state immediately after the setInitialsImageDataUrl call above.
+        void handleSubmit({ skipSigningSteps: true, initialsImageOverride: dataUrl });
+      }
     } else {
       const text = typedInitials.trim();
       if (text.length < 2) return;
@@ -492,16 +500,15 @@ export default function DocuFillCustomer() {
       for (const f of initialsFields) { next[f.id] = text; }
       setAnswers(next);
       scheduleAutoSave(next);
-    }
-    if (hasSignatureStep) {
-      setEsignStep("consent");
-    } else {
-      // Initials done, no signature needed — go straight to generate
-      void handleSubmit({ skipSigningSteps: true });
+      if (hasSignatureStep) {
+        setEsignStep("consent");
+      } else {
+        void handleSubmit({ skipSigningSteps: true });
+      }
     }
   }
 
-  async function handleSubmit(opts?: { skipSigningSteps?: boolean }) {
+  async function handleSubmit(opts?: { skipSigningSteps?: boolean; initialsImageOverride?: string }) {
     if (!validate()) {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
@@ -549,8 +556,11 @@ export default function DocuFillCustomer() {
         const dataUrl = sigPadRef.current?.getDataUrl();
         if (dataUrl) genBody.signatureImage = dataUrl;
       }
-      // Send drawn initials as a separate image (not embedded in session answers)
-      if (initialsImageDataUrl) genBody.initialsImage = initialsImageDataUrl;
+      // Send drawn initials as a separate image (not embedded in session answers).
+      // Prefer initialsImageOverride (passed directly to avoid async state read race)
+      // over the state value which may not have updated yet in initials-only packages.
+      const initialsImageToSend = opts?.initialsImageOverride ?? initialsImageDataUrl;
+      if (initialsImageToSend) genBody.initialsImage = initialsImageToSend;
       const genRes = await fetch(`${SESSION_BASE}/${token}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
