@@ -2869,6 +2869,11 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
       res.status(400).json({ error: "rows array is required and must not be empty" });
       return;
     }
+    const CSV_BATCH_MAX = 100;
+    if (body.rows.length > CSV_BATCH_MAX) {
+      res.status(400).json({ error: `Batch size limit is ${CSV_BATCH_MAX} rows. This request contains ${body.rows.length} rows — please split into smaller batches.` });
+      return;
+    }
     const db = getDb();
     const pkg = await getPackage(packageId, db, true, acctId(req));
     if (!pkg) {
