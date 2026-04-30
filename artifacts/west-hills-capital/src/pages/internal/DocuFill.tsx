@@ -5666,9 +5666,7 @@ export default function DocuFill() {
                             <thead className="bg-[#EFE8D8]">
                               <tr>
                                 <th className="px-3 py-2 text-left font-medium text-[#6B7A99] whitespace-nowrap">Field Name (CSV column header)</th>
-                                <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Required?</th>
-                                <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Type</th>
-                                <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Accepted Values</th>
+                                <th colSpan={3}></th>
                               </tr>
                             </thead>
                             <tbody>
@@ -5682,7 +5680,13 @@ export default function DocuFill() {
                                     <td className="px-3 py-2 text-[#6B7A99] font-medium whitespace-nowrap">Package ID</td>
                                     <td className="px-3 py-2 font-mono text-[#0F1C3F]" colSpan={3}>{selectedPkg.id}</td>
                                   </tr>
-                                  <tr className="border-t-2 border-[#DDD5C4]">
+                                  <tr className="bg-[#EFE8D8] border-t-2 border-[#DDD5C4]">
+                                    <td className="px-3 py-2 text-left font-medium text-[#6B7A99] whitespace-nowrap"></td>
+                                    <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Required?</td>
+                                    <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Type</td>
+                                    <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Accepted Values</td>
+                                  </tr>
+                                  <tr className="border-t border-[#DDD5C4]">
                                     <td colSpan={4} className="px-3 py-1 text-[10px] text-[#6B7A99] uppercase tracking-wide font-medium bg-[#EFE8D8]">Fields</td>
                                   </tr>
                                 </>
