@@ -2960,6 +2960,17 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
             logger.error({ driveErr, token }, "[DocuFill] Batch: Drive save failed for row");
           }
         }
+        // Store PDF in object storage so the public download endpoint can serve it without regenerating
+        let batchPdfStorageKey: string | null = null;
+        try {
+          batchPdfStorageKey = await objectStorage.uploadBuffer(
+            `batch-pdfs/${token}.pdf`,
+            pdfBuffer,
+            "application/pdf",
+          );
+        } catch (storageErr) {
+          logger.warn({ storageErr, token }, "[DocuFill] Batch: Object storage upload failed — download will regenerate from answers");
+        }
         const generated = buildDocuFillPacketSummary(session);
         await db.query(
           `UPDATE docufill_interview_sessions
@@ -2968,10 +2979,11 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
                   generated_pdf_drive_id=$2,
                   generated_pdf_url=$3,
                   generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
+                  generated_pdf_storage_key=$6,
                   updated_at=NOW()
             WHERE token=$4
               AND package_id=$5`,
-          [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, token, packageId],
+          [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, token, packageId, batchPdfStorageKey],
         );
         insertedToken = null;
         results.push({ rowIndex: i, token, status: "generated", pdfUrl: `/api/internal/docufill/sessions/${token}/packet.pdf` });
@@ -3932,12 +3944,11 @@ router.post("/batch/send-links", requireMemberRole, async (req, res) => {
       }
     } catch { /* non-fatal */ }
 
-    const orgRow = await db.query<{ name: string; logo_on_white: string | null; brand_color: string | null }>(
-      `SELECT name, logo_on_white, brand_color FROM accounts WHERE id = $1`, [aId],
+    const orgRow = await db.query<{ name: string; logo_url: string | null; brand_color: string | null }>(
+      `SELECT name, logo_url, brand_color FROM accounts WHERE id = $1`, [aId],
     );
     const orgName       = orgRow.rows[0]?.name ?? "Docuplete";
-    const rawLogo       = orgRow.rows[0]?.logo_on_white ?? null;
-    const orgLogoUrl    = rawLogo ? `${interviewOrigin}${rawLogo}` : null;
+    const orgLogoUrl    = orgRow.rows[0]?.logo_url ? `${interviewOrigin}/api/storage/org-logo/${aId}` : null;
     const orgBrandColor = orgRow.rows[0]?.brand_color ?? null;
     const emailSettings = await getOrgEmailSettings(aId);
     const customMessage = typeof body.customMessage === "string" ? body.customMessage.trim() || null : null;
@@ -3971,7 +3982,10 @@ router.post("/batch/send-links", requireMemberRole, async (req, res) => {
           orgBrandColor,
           customMessage,
           emailSettings,
+          mode: "document",
         });
+        // Small delay to avoid transactional email provider rate-limits on bulk sends
+        await new Promise((r) => setTimeout(r, 150));
         await db.query(
           `UPDATE docufill_interview_sessions
               SET link_emailed_at=NOW(), link_email_recipient=$1, updated_at=NOW()
