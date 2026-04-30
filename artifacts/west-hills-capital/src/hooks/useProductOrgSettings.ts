@@ -17,6 +17,7 @@ export type ProductOrgSettings = {
   pkg_default_customer_link: boolean;
   pkg_default_notify_staff:  boolean;
   pkg_default_notify_client: boolean;
+  pkg_default_esign:         boolean;
 };
 
 let cachedProductOrg: ProductOrgSettings | null = null;

@@ -2113,7 +2113,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
     // Read org-level package channel defaults so new packages inherit them.
     const { rows: orgRows } = await db.query(
       `SELECT pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
-              pkg_default_notify_staff, pkg_default_notify_client
+              pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign
          FROM accounts WHERE id = $1`,
       [accountId],
     );
@@ -2123,6 +2123,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
     const defaultCustomerLink  = orgDefaults?.pkg_default_customer_link !== false;
     const defaultNotifyStaff   = orgDefaults?.pkg_default_notify_staff  !== false;
     const defaultNotifyClient  = orgDefaults?.pkg_default_notify_client === true;
+    const defaultAuthLevel     = orgDefaults?.pkg_default_esign         === true ? "email_otp" : "none";
 
     const incomingGroupIds = parseGroupIds(body.groupIds, body.groupId);
     const groupValidationError = await validateGroupIds(db, incomingGroupIds, accountId);
@@ -2131,8 +2132,8 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
     const { rows } = await db.query(
       `INSERT INTO docufill_packages
          (name, group_id, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id, tags, webhook_enabled, webhook_url, webhook_secret,
-          enable_interview, enable_csv, enable_customer_link, notify_staff_on_submit, notify_client_on_submit)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21)
+          enable_interview, enable_csv, enable_customer_link, notify_staff_on_submit, notify_client_on_submit, auth_level)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21,$22)
        RETURNING *`,
       [
         name,
@@ -2156,6 +2157,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
         defaultCustomerLink,
         defaultNotifyStaff,
         defaultNotifyClient,
+        defaultAuthLevel,
       ],
     );
     const newPkgId = (rows[0] as PackageRow).id as number;

@@ -2437,6 +2437,7 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
   const [pkgDefaultCustomerLink, setPkgDefaultCustomerLink] = useState(true);
   const [pkgDefaultNotifyStaff,  setPkgDefaultNotifyStaff]  = useState(true);
   const [pkgDefaultNotifyClient, setPkgDefaultNotifyClient] = useState(false);
+  const [pkgDefaultEsign,        setPkgDefaultEsign]        = useState(false);
   const [pkgDefaultsSaving, setPkgDefaultsSaving] = useState(false);
   const [pkgDefaultsSaved,  setPkgDefaultsSaved]  = useState(false);
   const [pkgDefaultsError,  setPkgDefaultsError]  = useState<string | null>(null);
@@ -2461,13 +2462,14 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
     const orgFetch = fetch(`${SETTINGS_BASE}/org`, { headers: authHeaders() })
       .then(async (r) => {
         if (!r.ok) return;
-        const data = await r.json() as { org?: { pkg_default_interview?: boolean; pkg_default_csv?: boolean; pkg_default_customer_link?: boolean; pkg_default_notify_staff?: boolean; pkg_default_notify_client?: boolean } };
+        const data = await r.json() as { org?: { pkg_default_interview?: boolean; pkg_default_csv?: boolean; pkg_default_customer_link?: boolean; pkg_default_notify_staff?: boolean; pkg_default_notify_client?: boolean; pkg_default_esign?: boolean } };
         if (data.org) {
           setPkgDefaultInterview(data.org.pkg_default_interview !== false);
           setPkgDefaultCsv(data.org.pkg_default_csv !== false);
           setPkgDefaultCustomerLink(data.org.pkg_default_customer_link !== false);
           setPkgDefaultNotifyStaff(data.org.pkg_default_notify_staff !== false);
           setPkgDefaultNotifyClient(data.org.pkg_default_notify_client === true);
+          setPkgDefaultEsign(data.org.pkg_default_esign === true);
         }
       });
     Promise.all([interviewDefaultsFetch, orgFetch])
@@ -2559,9 +2561,10 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
           pkgDefaultCustomerLink: pkgDefaultCustomerLink,
           pkgDefaultNotifyStaff:  pkgDefaultNotifyStaff,
           pkgDefaultNotifyClient: pkgDefaultNotifyClient,
+          pkgDefaultEsign:        pkgDefaultEsign,
         }),
       });
-      const data = await res.json() as { org?: { pkg_default_interview?: boolean; pkg_default_csv?: boolean; pkg_default_customer_link?: boolean; pkg_default_notify_staff?: boolean; pkg_default_notify_client?: boolean }; error?: string };
+      const data = await res.json() as { org?: { pkg_default_interview?: boolean; pkg_default_csv?: boolean; pkg_default_customer_link?: boolean; pkg_default_notify_staff?: boolean; pkg_default_notify_client?: boolean; pkg_default_esign?: boolean }; error?: string };
       if (!res.ok) { setPkgDefaultsError(data.error ?? "Failed to save defaults"); return; }
       if (data.org) {
         setPkgDefaultInterview(data.org.pkg_default_interview !== false);
@@ -2569,6 +2572,7 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
         setPkgDefaultCustomerLink(data.org.pkg_default_customer_link !== false);
         setPkgDefaultNotifyStaff(data.org.pkg_default_notify_staff !== false);
         setPkgDefaultNotifyClient(data.org.pkg_default_notify_client === true);
+        setPkgDefaultEsign(data.org.pkg_default_esign === true);
       }
       setPkgDefaultsSaved(true);
       if (pkgSavedTimerRef.current) clearTimeout(pkgSavedTimerRef.current);
@@ -2761,11 +2765,12 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
             )}
             {(
               [
-                { label: "Staff Interview",    desc: "Staff can launch guided interviews from the dashboard.", value: pkgDefaultInterview,    set: setPkgDefaultInterview },
-                { label: "Batch CSV",          desc: "Staff can fill many packets at once by uploading a CSV.", value: pkgDefaultCsv,          set: setPkgDefaultCsv },
-                { label: "Customer Link",      desc: "Send a branded link so customers can self-fill on their own device.", value: pkgDefaultCustomerLink, set: setPkgDefaultCustomerLink },
-                { label: "Staff Notification", desc: "Email all staff when a client submits.", value: pkgDefaultNotifyStaff,   set: setPkgDefaultNotifyStaff },
-                { label: "Client Confirmation",desc: "Send the client a branded receipt after they submit.", value: pkgDefaultNotifyClient, set: setPkgDefaultNotifyClient },
+                { label: "Staff Interview",       desc: "Staff can launch guided interviews from the dashboard.", value: pkgDefaultInterview,    set: setPkgDefaultInterview },
+                { label: "Batch CSV",             desc: "Staff can fill many packets at once by uploading a CSV.", value: pkgDefaultCsv,          set: setPkgDefaultCsv },
+                { label: "Customer Link",         desc: "Send a branded link so customers can self-fill on their own device.", value: pkgDefaultCustomerLink, set: setPkgDefaultCustomerLink },
+                { label: "E-sign — Email Verify", desc: "Require customers to verify their email before submitting.", value: pkgDefaultEsign,        set: setPkgDefaultEsign },
+                { label: "Staff Notification",    desc: "Email all staff when a client submits.", value: pkgDefaultNotifyStaff,   set: setPkgDefaultNotifyStaff },
+                { label: "Client Confirmation",   desc: "Send the client a branded receipt after they submit.", value: pkgDefaultNotifyClient, set: setPkgDefaultNotifyClient },
               ] as Array<{ label: string; desc: string; value: boolean; set: (v: boolean) => void }>
             ).map(({ label, desc, value, set }) => (
               <div key={label} className="flex items-start justify-between gap-4">
