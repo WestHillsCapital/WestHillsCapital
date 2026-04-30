@@ -1140,7 +1140,7 @@ function validateSessionAnswers(session: Record<string, unknown>): { valid: bool
 async function buildPacketPdfBuffer(
   session: Record<string, unknown>,
   client: QueryClient = getDb(),
-  opts: { signatureImage?: string; signerName?: string } = {},
+  opts: { signatureImage?: string; signerName?: string; initialsImage?: string } = {},
 ): Promise<Buffer> {
   const rawAnswers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
   // Ensure __signer_date__ is always set to today (server-side fallback for older sessions)
@@ -1208,12 +1208,18 @@ async function buildPacketPdfBuffer(
 
         const mappingRotation = degrees(mapping.rotation ?? 0);
 
-        // Initials field: overlay drawn PNG or typed italic initials
+        // Initials field: overlay drawn PNG or typed italic initials.
+        // Prefer opts.initialsImage (sent separately in generate body, parallel to signatureImage).
+        // Fall back to the raw answer value (typed text or legacy data-URL stored in answers).
         if (field.type === "initials") {
+          const initialsImageSrc = opts.initialsImage ?? null;
           const rawValue = fieldAnswerValue(field, answers, prefill);
-          if (rawValue.startsWith("data:image/png;base64,")) {
+          const pngSrc = initialsImageSrc?.startsWith("data:image/png;base64,")
+            ? initialsImageSrc
+            : (rawValue.startsWith("data:image/png;base64,") ? rawValue : null);
+          if (pngSrc) {
             try {
-              const base64Data = rawValue.replace(/^data:image\/png;base64,/, "");
+              const base64Data = pngSrc.replace(/^data:image\/png;base64,/, "");
               const imgBytes = Buffer.from(base64Data, "base64");
               const embeddedImg = await merged.embedPng(imgBytes);
               const imgDims = embeddedImg.scaleToFit(maxWidth, boxHeight);
@@ -1226,11 +1232,11 @@ async function buildPacketPdfBuffer(
               });
             } catch {
               // fallback: draw the first few chars as italic text
-              const text = rawValue.slice(0, 6);
-              if (text.trim()) {
+              const text = rawValue.slice(0, 6).trim() || (opts.signerName ?? "").split(/\s+/).map((p) => p[0] ?? "").join("").slice(0, 4);
+              if (text) {
                 const fontSize = clampNumber(mapping.fontSize, 11, 6, 18);
                 const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize * 0.2 + 2));
-                page.drawText(text.trim(), { x, y: yDraw, size: fontSize, font: italicFont, color: rgb(0, 0, 0), rotate: mappingRotation });
+                page.drawText(text, { x, y: yDraw, size: fontSize, font: italicFont, color: rgb(0, 0, 0), rotate: mappingRotation });
               }
             }
           } else if (rawValue.trim()) {
@@ -4300,6 +4306,16 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
         esignSignatureImage = rawSigImage;
       }
     }
+    // Accept optional drawn initials image (base64 PNG data URL, ≤100 KB)
+    let esignInitialsImage: string | null = null;
+    const rawInitialsImage = req.body?.initialsImage;
+    if (typeof rawInitialsImage === "string" && rawInitialsImage.startsWith("data:image/png;base64,")) {
+      const base64Part = rawInitialsImage.slice("data:image/png;base64,".length);
+      const byteLength = Math.ceil(base64Part.length * 0.75);
+      if (byteLength <= 100 * 1024) {
+        esignInitialsImage = rawInitialsImage;
+      }
+    }
     const validation = validateSessionAnswers(session);
     if (!validation.valid) {
       res.status(400).json({ error: "Packet is missing required or valid fields", ...validation });
@@ -4309,6 +4325,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
     let pdfBuffer = await buildPacketPdfBuffer(session, db, {
       signatureImage: esignSignatureImage ?? undefined,
       signerName: esignSignerName ?? undefined,
+      initialsImage: esignInitialsImage ?? undefined,
     });
     const generatedAt = new Date().toISOString();
     let driveResult: { fileId: string; webViewLink: string } | null = null;

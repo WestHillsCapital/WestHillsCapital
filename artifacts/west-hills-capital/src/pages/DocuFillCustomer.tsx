@@ -258,6 +258,8 @@ export default function DocuFillCustomer() {
   const [typedInitials, setTypedInitials] = useState("");
   const [initPadHasContent, setInitPadHasContent] = useState(false);
   const initPadRef = useRef<SignaturePadRef>(null);
+  // Drawn initials PNG data URL — sent separately in the generate request (not stored in session answers)
+  const [initialsImageDataUrl, setInitialsImageDataUrl] = useState<string | null>(null);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpError, setOtpError] = useState("");
   const [otpExpiresAt, setOtpExpiresAt] = useState<Date | null>(null);
@@ -469,16 +471,28 @@ export default function DocuFillCustomer() {
   }
 
   function handleInitialsContinue() {
-    const value = initialsMode === "draw"
-      ? (initPadRef.current?.getDataUrl() ?? "")
-      : typedInitials.trim();
-    if (initialsMode === "draw" ? !value : value.length < 2) return;
-    const next = { ...answers };
-    for (const f of initialsFields) {
-      next[f.id] = value;
+    if (initialsMode === "draw") {
+      const dataUrl = initPadRef.current?.getDataUrl() ?? "";
+      if (!dataUrl) return;
+      // Store drawn image URL separately — sent as initialsImage in the generate body.
+      // Put the signer's name-initials (or a placeholder) in answers as text fallback.
+      setInitialsImageDataUrl(dataUrl);
+      const textFallback = signerName.trim()
+        ? signerName.trim().split(/\s+/).map((p) => p[0]?.toUpperCase() ?? "").filter(Boolean).join("")
+        : "AI";
+      const next = { ...answers };
+      for (const f of initialsFields) { next[f.id] = textFallback; }
+      setAnswers(next);
+      scheduleAutoSave(next);
+    } else {
+      const text = typedInitials.trim();
+      if (text.length < 2) return;
+      setInitialsImageDataUrl(null); // no drawn image — typed text is the canonical value
+      const next = { ...answers };
+      for (const f of initialsFields) { next[f.id] = text; }
+      setAnswers(next);
+      scheduleAutoSave(next);
     }
-    setAnswers(next);
-    scheduleAutoSave(next);
     if (hasSignatureStep) {
       setEsignStep("consent");
     } else {
@@ -535,6 +549,8 @@ export default function DocuFillCustomer() {
         const dataUrl = sigPadRef.current?.getDataUrl();
         if (dataUrl) genBody.signatureImage = dataUrl;
       }
+      // Send drawn initials as a separate image (not embedded in session answers)
+      if (initialsImageDataUrl) genBody.initialsImage = initialsImageDataUrl;
       const genRes = await fetch(`${SESSION_BASE}/${token}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
