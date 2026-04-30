@@ -365,6 +365,9 @@ export default function DocuFillCustomer() {
     (f) => f.type === "initials" && f.interviewMode !== "omitted",
   );
   const hasInitialsStep = initialsFields.length > 0 && session?.auth_level === "email_otp";
+  // Consent step only runs when at least one signature field exists in the package
+  const hasSignatureStep = session?.auth_level === "email_otp" &&
+    (session?.fields ?? []).some((f) => isEsignSignatureField(f));
 
   // Exclude initials from the interview form only when the dedicated e-sign initials step is active;
   // for non-email_otp sessions, initials are collected as regular text fields in the interview.
@@ -470,19 +473,25 @@ export default function DocuFillCustomer() {
     }
     setAnswers(next);
     scheduleAutoSave(next);
-    setEsignStep("consent");
+    if (hasSignatureStep) {
+      setEsignStep("consent");
+    } else {
+      // Initials done, no signature needed — go straight to generate
+      void handleSubmit({ skipSigningSteps: true });
+    }
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(opts?: { skipSigningSteps?: boolean }) {
     if (!validate()) {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    // Identity was verified at page load — move to signing steps
-    if (session?.auth_level === "email_otp") {
+    // Identity was verified at page load — move to signing steps only if needed
+    if (!opts?.skipSigningSteps && session?.auth_level === "email_otp" && (hasInitialsStep || hasSignatureStep)) {
       setEsignStep(hasInitialsStep ? "initials" : "consent");
       return;
     }
+    // email_otp with no signature/initials fields (or called post-initials) falls through to generate
     setPageStatus("submitting");
     setErrorMsg("");
     try {
@@ -649,9 +658,13 @@ export default function DocuFillCustomer() {
         <main className={`max-w-2xl mx-auto px-4 space-y-6 ${isEmbed ? "py-6" : "py-8"}`}>
           {/* Progress stepper */}
           <div className="flex items-center gap-2 text-xs text-[#6B7A99]">
-            {(hasInitialsStep
+            {(hasInitialsStep && hasSignatureStep
               ? ["email", "code", "initials", "consent"]
-              : ["email", "code", "consent"] as EsignStep[]
+              : hasInitialsStep
+              ? ["email", "code", "initials"]
+              : hasSignatureStep
+              ? ["email", "code", "consent"]
+              : ["email", "code"] as EsignStep[]
             ).map((s, i, arr) => {
               const labels: Record<EsignStep, string> = { email: "Identity", code: "Verify", initials: "Initials", consent: "Sign" };
               const stepIdx = arr.indexOf(esignStep!);
@@ -1257,12 +1270,14 @@ export default function DocuFillCustomer() {
         {/* Submit */}
         <div className="bg-white rounded-lg border border-[#DDD5C4] p-5 space-y-3">
           <div className="text-sm text-[#6B7A99]">
-            {session!.auth_level === "email_otp"
-              ? "Once you complete your form, you'll verify your identity by email and type your legal name as an electronic signature."
+            {session!.auth_level === "email_otp" && hasSignatureStep
+              ? "Your identity has been verified. Complete the form, then you'll provide your legal name and signature to finalize the documents."
+              : session!.auth_level === "email_otp"
+              ? "Your identity has been verified. Complete the form and submit — your documents will be generated immediately."
               : "By submitting, you confirm the information above is accurate. Your completed documents will be generated immediately and sent to your advisor."}
           </div>
           <Button
-            onClick={handleSubmit}
+            onClick={() => void handleSubmit()}
             disabled={pageStatus === "submitting" || hasErrors || missingRequiredCount > 0}
             style={{ backgroundColor: brandColor, color: brandTextColor }}
             className="w-full disabled:opacity-60 py-3 hover:opacity-90"
