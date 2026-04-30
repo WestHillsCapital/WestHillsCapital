@@ -797,7 +797,7 @@ export default function Settings() {
             <div className="flex items-center gap-3">
               <div
                 className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden"
-                style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38" }}
+                style={{ backgroundColor: displayLogoUrl ? "#ffffff" : (/^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38") }}
               >
                 {displayLogoUrl ? (
                   <img src={displayLogoUrl} alt="Logo" className="w-full h-full object-contain" />
