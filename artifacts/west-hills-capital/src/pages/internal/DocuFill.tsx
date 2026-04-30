@@ -5650,6 +5650,7 @@ export default function DocuFill() {
                 {/* Field Reference Key */}
                 {(() => {
                   const keyFields = [...csvBatchFieldMap.values()];
+                  const selectedPkg = packages.find((p) => String(p.id) === csvBatchPackageId);
                   return (
                     <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0]">
                       <button
@@ -5671,6 +5672,21 @@ export default function DocuFill() {
                               </tr>
                             </thead>
                             <tbody>
+                              {selectedPkg && (
+                                <>
+                                  <tr className="bg-[#F0EDE5]">
+                                    <td className="px-3 py-2 text-[#6B7A99] font-medium whitespace-nowrap">Package Name</td>
+                                    <td className="px-3 py-2 text-[#0F1C3F] font-medium" colSpan={3}>{selectedPkg.name}</td>
+                                  </tr>
+                                  <tr className="bg-[#F0EDE5] border-t border-[#DDD5C4]">
+                                    <td className="px-3 py-2 text-[#6B7A99] font-medium whitespace-nowrap">Package ID</td>
+                                    <td className="px-3 py-2 font-mono text-[#0F1C3F]" colSpan={3}>{selectedPkg.id}</td>
+                                  </tr>
+                                  <tr className="border-t-2 border-[#DDD5C4]">
+                                    <td colSpan={4} className="px-3 py-1 text-[10px] text-[#6B7A99] uppercase tracking-wide font-medium bg-[#EFE8D8]">Fields</td>
+                                  </tr>
+                                </>
+                              )}
                               {keyFields.map((f) => (
                                 <tr key={f.id} className="border-t border-[#EFE8D8]">
                                   <td className="px-3 py-2 font-mono text-[#0F1C3F] whitespace-nowrap">
