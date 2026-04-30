@@ -6809,6 +6809,8 @@ function DocumentPreviewTile({
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [failed, setFailed] = useState(false);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   const getAuthHeadersRef = useRef(getAuthHeaders);
   getAuthHeadersRef.current = getAuthHeaders;
@@ -6853,8 +6855,43 @@ function DocumentPreviewTile({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packageId, doc.id, doc.pdfStored, previewCache, previewCacheOrder]);
 
+  useEffect(() => {
+    if (!previewUrl) return;
+    let cancelled = false;
+    let pdfDoc: pdfjsLib.PDFDocumentProxy | null = null;
+    const loadingTask = pdfjsLib.getDocument(previewUrl);
+    (async () => {
+      try {
+        pdfDoc = await loadingTask.promise;
+        if (cancelled) return;
+        const page = await pdfDoc.getPage(1);
+        if (cancelled) return;
+        const canvas = canvasRef.current;
+        const container = containerRef.current;
+        if (!canvas || !container) return;
+        const containerWidth = container.clientWidth || 160;
+        const nativeViewport = page.getViewport({ scale: 1.0 });
+        const scale = containerWidth / nativeViewport.width;
+        const viewport = page.getViewport({ scale });
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
+        const ctx = canvas.getContext("2d");
+        if (!ctx || cancelled) return;
+        await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+      } catch {
+        if (!cancelled) setFailed(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      loadingTask.destroy().catch(() => {});
+      pdfDoc?.destroy().catch(() => {});
+    };
+  }, [previewUrl]);
+
   return (
     <div
+      ref={containerRef}
       role="button"
       tabIndex={0}
       onClick={onSelect}
@@ -6863,12 +6900,11 @@ function DocumentPreviewTile({
       }}
       className={`relative w-full ${previewHeight} overflow-hidden rounded border bg-[#F8F6F0] text-left focus:outline-none focus:ring-2 focus:ring-[#C49A38]/40 ${selected ? "border-[#C49A38]" : "border-[#DDD5C4]"}`}
     >
-      {previewUrl ? (
-        <iframe
-          title={`${doc.title} preview`}
-          src={`${previewUrl}#page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
-          className="absolute inset-0 h-[170%] w-full origin-top pointer-events-none bg-white"
-          loading="lazy"
+      {previewUrl && !failed ? (
+        <canvas
+          ref={canvasRef}
+          className="absolute top-0 left-0 w-full pointer-events-none bg-white"
+          style={{ height: "auto" }}
         />
       ) : (
         <div className="absolute inset-0 flex flex-col items-center justify-center px-2 text-center text-xs text-[#6B7A99]">
