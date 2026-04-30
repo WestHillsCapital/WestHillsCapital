@@ -1623,10 +1623,13 @@ export async function sendInterviewLinkEmail(params: {
   orgBrandColor?:   string | null;
   customMessage?:   string | null;
   emailSettings?:   OrgEmailSettings | null;
+  /** "interview" (default) = form to fill; "document" = pre-generated PDF ready to view */
+  mode?:            "interview" | "document";
 }): Promise<void> {
   const brandColor = params.orgBrandColor ?? "#0F1C3F";
   const orgName    = params.orgName || "Docuplete";
   const firstName  = params.recipientName.split(" ")[0] || params.recipientName;
+  const isDocument = params.mode === "document";
 
   const logoBlock = params.orgLogoUrl
     ? `<tr>
@@ -1658,7 +1661,7 @@ export async function sendInterviewLinkEmail(params: {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0">
-  <title>Your document interview is ready</title>
+  <title>${isDocument ? "Your documents are ready to view" : "Your document interview is ready"}</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
 </head>
 <body style="margin:0;padding:0;background:#ece8dc;font-family:Arial,sans-serif;">
@@ -1674,10 +1677,12 @@ export async function sendInterviewLinkEmail(params: {
         <tr>
           <td style="padding:32px 40px 20px;">
             <p style="margin:0 0 8px;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:#1a1a1a;line-height:1.3;">
-              ${firstName ? `Hi ${firstName}, y` : "Y"}our document interview is ready.
+              ${firstName ? `Hi ${firstName}, y` : "Y"}our ${isDocument ? "documents are ready to view" : "document interview is ready"}.
             </p>
             <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#6b7280;line-height:1.65;">
-              ${orgName} has sent you a secure link to complete your paperwork online. It only takes a few minutes and no login is required.
+              ${isDocument
+                ? `${orgName} has prepared your documents. Use the link below to view and download them — no login is required.`
+                : `${orgName} has sent you a secure link to complete your paperwork online. It only takes a few minutes and no login is required.`}
             </p>
           </td>
         </tr>
@@ -1692,7 +1697,7 @@ export async function sendInterviewLinkEmail(params: {
                 <td style="border-radius:4px;background:${brandColor};">
                   <a href="${params.interviewUrl}" target="_blank"
                      style="display:inline-block;padding:13px 28px;font-family:Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:4px;">
-                    Start My Interview &rarr;
+                    ${isDocument ? "View My Documents" : "Start My Interview"} &rarr;
                   </a>
                 </td>
               </tr>
@@ -1730,7 +1735,7 @@ export async function sendInterviewLinkEmail(params: {
 
   await sendEmail({
     to:       params.recipientEmail,
-    subject:  `${orgName} sent you documents to review`,
+    subject:  isDocument ? `Your documents from ${orgName} are ready` : `${orgName} sent you documents to review`,
     html,
     fromName: params.emailSettings?.senderName ?? undefined,
     replyTo:  params.emailSettings?.replyTo    ?? undefined,
