@@ -868,9 +868,19 @@ export default function DocuFill() {
   const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv" | "groups">(() => {
     if (sessionToken) return "interview";
     if (_initSp.get("tab") === "sessions") return "interview";
+    try {
+      const saved = sessionStorage.getItem("docufill:tab");
+      if (saved === "packages" || saved === "mapper" || saved === "csv" || saved === "groups") return saved;
+    } catch { /* sessionStorage unavailable */ }
     return "packages";
   });
-  const [builderStep, setBuilderStep] = useState<BuilderStep>("documents");
+  const [builderStep, setBuilderStep] = useState<BuilderStep>(() => {
+    try {
+      const saved = sessionStorage.getItem("docufill:builderStep");
+      if (saved === "documents" || saved === "mapping" || saved === "interview") return saved;
+    } catch { /* sessionStorage unavailable */ }
+    return "documents";
+  });
   const [groups, setGroups] = useState<Entity[]>([]);
   const [custodians, setCustodians] = useState<Entity[]>([]);
   const [depositories, setDepositories] = useState<Entity[]>([]);
@@ -891,7 +901,13 @@ export default function DocuFill() {
   const pkgDropdownRef = useRef<HTMLDivElement>(null);
   const [fieldLibrary, setFieldLibrary] = useState<FieldLibraryItem[]>([]);
   const [packages, setPackages] = useState<PackageItem[]>([]);
-  const [selectedPackageId, setSelectedPackageId] = useState<number | null>(null);
+  const [selectedPackageId, setSelectedPackageId] = useState<number | null>(() => {
+    try {
+      const saved = sessionStorage.getItem("docufill:selectedPackageId");
+      if (saved) { const n = Number(saved); if (!isNaN(n) && n > 0) return n; }
+    } catch { /* sessionStorage unavailable */ }
+    return null;
+  });
   const [standalonePackageId, setStandalonePackageId] = useState("");
   const [customerLinkPackageId, setCustomerLinkPackageId] = useState("");
   const [customerLinkFirstName, setCustomerLinkFirstName] = useState("");
@@ -1276,7 +1292,12 @@ export default function DocuFill() {
       setTransactionTypes(Array.isArray(data.transactionTypes) && data.transactionTypes.length ? data.transactionTypes : DOCUFILL_TRANSACTION_TYPES.map((item, index) => ({ scope: item.value, label: item.label, active: true, sort_order: (index + 1) * 10 })));
       setFieldLibrary(normalizeFieldLibrary(data.fieldLibrary ?? []));
       setPackages(loadedPackages);
-      setSelectedPackageId((current) => current ?? loadedPackages[0]?.id ?? null);
+      setSelectedPackageId((current) => {
+        // Keep the current selection if it still exists in the freshly loaded packages.
+        // Otherwise fall back to the first package (handles deleted package edge case).
+        if (current !== null && loadedPackages.some((p) => p.id === current)) return current;
+        return loadedPackages[0]?.id ?? null;
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load Docuplete data");
     }
@@ -1296,6 +1317,21 @@ export default function DocuFill() {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
+
+  // Persist builder UI state to sessionStorage so it survives remounts.
+  useEffect(() => {
+    try { sessionStorage.setItem("docufill:builderStep", builderStep); } catch { /* ignore */ }
+  }, [builderStep]);
+
+  useEffect(() => {
+    try { sessionStorage.setItem("docufill:tab", tab); } catch { /* ignore */ }
+  }, [tab]);
+
+  useEffect(() => {
+    try {
+      if (selectedPackageId !== null) sessionStorage.setItem("docufill:selectedPackageId", String(selectedPackageId));
+    } catch { /* ignore */ }
+  }, [selectedPackageId]);
 
   // After packages have loaded, apply any packageId deep-link param.
   // We use a ref flag to ensure this only runs once.
