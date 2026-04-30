@@ -241,7 +241,7 @@ function VerifyCell({ token }: { token: string }) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const verifyUrl = `${window.location.origin}/verify?token=df_${token}`;
+  const verifyUrl = `${window.location.origin}/verify?token=${token}`;
 
   const handleCopy = () => {
     void navigator.clipboard.writeText(verifyUrl).then(() => {
