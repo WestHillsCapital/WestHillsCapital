@@ -469,11 +469,24 @@ export default function DocuFillCustomer() {
     setPageStatus("submitting");
     setErrorMsg("");
     try {
-      // Auto-populate signature and date fields from the e-sign flow before final submit
+      // Auto-populate signature and date fields from the e-sign flow before final submit.
+      // For signature fields: use signerName (the text representation of what was signed —
+      // drawn signatures are overlaid separately by the PDF generator via signatureImage).
+      // Fall back to any "full name" field from the interview if signerName wasn't collected.
       const finalAnswers = { ...answers };
+      const fullNameFallback = (() => {
+        if (signerName.trim()) return signerName.trim();
+        const nameField = (session?.fields ?? []).find(
+          (f) => f.validationType === "name" ||
+                 f.name.toLowerCase() === "full name" ||
+                 f.name.toLowerCase() === "name" ||
+                 (f.name.toLowerCase().includes("name") && !f.name.toLowerCase().includes("company") && !f.name.toLowerCase().includes("business")),
+        );
+        return nameField ? (finalAnswers[nameField.id] ?? "").trim() : "";
+      })();
       (session?.fields ?? []).forEach((f) => {
-        if (isEsignSignatureField(f) && signerName.trim()) {
-          finalAnswers[f.id] = signerName.trim();
+        if (isEsignSignatureField(f) && fullNameFallback) {
+          finalAnswers[f.id] = fullNameFallback;
         } else if (isEsignDateField(f) && !finalAnswers[f.id]) {
           finalAnswers[f.id] = todayFormatted();
         }
