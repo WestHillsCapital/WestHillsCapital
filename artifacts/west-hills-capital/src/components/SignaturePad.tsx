@@ -133,9 +133,12 @@ const SignaturePad = forwardRef<SignaturePadRef, Props>(function SignaturePad(
     isEmpty() { return !hasStrokes; },
     clear() {
       const canvas = canvasRef.current;
-      const ctx = canvas?.getContext("2d");
-      if (canvas && ctx) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+      if (canvas) {
+        const dpr = window.devicePixelRatio || 1;
+        // Reassigning canvas.width resets ALL pixels and transforms (guaranteed clear)
+        canvas.width = canvas.width;
+        const ctx = canvas.getContext("2d");
+        if (ctx) ctx.scale(dpr, dpr);
       }
       setHasStrokes(false);
       onChange?.(false);

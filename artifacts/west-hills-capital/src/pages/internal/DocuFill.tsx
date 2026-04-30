@@ -3876,13 +3876,13 @@ export default function DocuFill() {
                             collisionDetection={closestCenter}
                             onDragEnd={(event: DragEndEvent) => {
                               const { active, over } = event;
-                              if (!over || active.id === over.id) return;
-                              updateSelectedPackage((pkg) => {
-                                const oldIdx = pkg.fields.findIndex((f) => f.id === active.id);
-                                const newIdx = pkg.fields.findIndex((f) => f.id === over.id);
-                                if (oldIdx < 0 || newIdx < 0) return pkg;
-                                return { ...pkg, fields: arrayMove(pkg.fields, oldIdx, newIdx) };
-                              });
+                              if (!over || active.id === over.id || !selectedPackage) return;
+                              const oldIdx = selectedPackage.fields.findIndex((f) => f.id === active.id);
+                              const newIdx = selectedPackage.fields.findIndex((f) => f.id === over.id);
+                              if (oldIdx < 0 || newIdx < 0) return;
+                              const reordered = { ...selectedPackage, fields: arrayMove(selectedPackage.fields, oldIdx, newIdx) };
+                              setPackages((prev) => prev.map((pkg) => pkg.id === reordered.id ? reordered : pkg));
+                              void savePackage(reordered);
                             }}
                           >
                             <SortableContext items={packageInterviewFields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
@@ -4681,7 +4681,7 @@ export default function DocuFill() {
                                 const isSelected = selectedMapping?.id === m.id;
                                 const mFontSize = m.fontSize ?? 11;
                                 const recipient = m.recipientId ? (selectedPackage?.recipients ?? []).find((r) => r.id === m.recipientId) : undefined;
-                                const fieldColor = recipient?.color ?? field?.color ?? "#C49A38";
+                                const fieldColor = recipient?.color ?? (isSystemEsignFieldId(m.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
                                 const isCheckboxMark = m.format === "checkbox-yes" || String(m.format ?? "").startsWith("checkbox-option:");
                                 const flexJustify = isCheckboxMark ? "justify-center" : "justify-end";
                                 return (
@@ -4837,7 +4837,7 @@ export default function DocuFill() {
                     const mFontSize = m.fontSize ?? 11;
                     const isCheckboxMark = m.format === "checkbox-yes" || String(m.format ?? "").startsWith("checkbox-option:");
                     const recipient = m.recipientId ? (selectedPackage.recipients ?? []).find((r) => r.id === m.recipientId) : undefined;
-                    const fieldColor = recipient?.color ?? field?.color ?? "#C49A38";
+                    const fieldColor = recipient?.color ?? (isSystemEsignFieldId(m.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
                     const isFullyDefined = Boolean(field?.name && !field.name.match(/^Field \d+$/i) && (field.libraryFieldId || field.interviewMode));
                     const flexJustify = isCheckboxMark ? "justify-center" : "justify-end";
                     return (
