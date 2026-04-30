@@ -203,14 +203,21 @@ function getBrandTextColor(hex: string): string {
   } catch { return "#ffffff"; }
 }
 
+// System e-sign field IDs (match the builder constants)
+const ESIGN_FIELD_ID_SIGNATURE = "__signature__";
+const ESIGN_FIELD_ID_INITIALS  = "__initials__";
+const ESIGN_FIELD_ID_DATE      = "__signer_date__";
+
 /** True if the field represents the signer's hand-written/typed signature. */
 function isEsignSignatureField(field: FieldItem): boolean {
+  if (field.id === ESIGN_FIELD_ID_SIGNATURE) return true;
   const n = field.name.toLowerCase().trim();
   return n === "signature" || n.startsWith("signature ") || n.endsWith(" signature") || n.includes("signatur");
 }
 
 /** True if the field represents the date the document was signed. */
 function isEsignDateField(field: FieldItem): boolean {
+  if (field.id === ESIGN_FIELD_ID_DATE) return true;
   const n = field.name.toLowerCase().trim();
   return (
     n === "signer date" || n === "date signed" || n === "signing date" || n === "signature date" ||
@@ -362,7 +369,7 @@ export default function DocuFillCustomer() {
 
   // Initials fields are collected in their own e-sign step, not the interview form
   const initialsFields = (session?.fields ?? []).filter(
-    (f) => f.type === "initials" && f.interviewMode !== "omitted",
+    (f) => (f.type === "initials" || f.id === ESIGN_FIELD_ID_INITIALS) && f.interviewMode !== "omitted",
   );
   const hasInitialsStep = initialsFields.length > 0 && session?.auth_level === "email_otp";
   // Consent step only runs when at least one signature field exists in the package
@@ -374,7 +381,7 @@ export default function DocuFillCustomer() {
   const visibleFields = (session?.fields ?? []).filter(
     (f) =>
       f.interviewMode !== "omitted" &&
-      !(hasInitialsStep && f.type === "initials") &&
+      !(hasInitialsStep && (f.type === "initials" || f.id === ESIGN_FIELD_ID_INITIALS)) &&
       // Signature fields are collected in the e-sign consent step — hide from interview
       !(session?.auth_level === "email_otp" && isEsignSignatureField(f)) &&
       evaluateCondition(f.condition, answers),
