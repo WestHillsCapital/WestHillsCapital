@@ -357,6 +357,41 @@ function validateCellValue(field: FieldItem, value: string): "ok" | "empty-requi
   return "ok";
 }
 
+function tryReformatDate(value: string): string | null {
+  const v = value.trim();
+  if (!v) return null;
+  // M/D/YYYY or MM/DD/YYYY — already slash-style, just zero-pad
+  const slashMatch = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (slashMatch) {
+    const m = slashMatch[1].padStart(2, "0");
+    const d = slashMatch[2].padStart(2, "0");
+    return `${m}/${d}/${slashMatch[3]}`;
+  }
+  // M/D/YY — two-digit year
+  const slashShortMatch = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+  if (slashShortMatch) {
+    const m = slashShortMatch[1].padStart(2, "0");
+    const d = slashShortMatch[2].padStart(2, "0");
+    const yr = parseInt(slashShortMatch[3], 10);
+    const y = yr <= 30 ? `20${slashShortMatch[3].padStart(2, "0")}` : `19${slashShortMatch[3].padStart(2, "0")}`;
+    return `${m}/${d}/${y}`;
+  }
+  // YYYY-MM-DD (ISO)
+  const isoMatch = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) return `${isoMatch[2]}/${isoMatch[3]}/${isoMatch[1]}`;
+  // M-D-YYYY or MM-DD-YYYY (dashes)
+  const dashMatch = v.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+  if (dashMatch) {
+    const m = dashMatch[1].padStart(2, "0");
+    const d = dashMatch[2].padStart(2, "0");
+    return `${m}/${d}/${dashMatch[3]}`;
+  }
+  // YYYY/MM/DD
+  const isoSlashMatch = v.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
+  if (isoSlashMatch) return `${isoSlashMatch[2]}/${isoSlashMatch[3]}/${isoSlashMatch[1]}`;
+  return null;
+}
+
 const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string; group: string }> = [
   { value: "first-name", label: "First", group: "Name" },
   { value: "middle-name", label: "Middle", group: "Name" },
@@ -6077,6 +6112,28 @@ export default function DocuFill() {
                                 </Tooltip>
                               )}
                             </span>
+                            {matchedField?.type === "date" && invalidCount > 0 && (
+                              <button
+                                type="button"
+                                className="mt-1 block text-[10px] text-[#C49A38] hover:text-[#b58c31] underline whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-[#C49A38] rounded"
+                                title="Auto-convert all invalid dates in this column to MM/DD/YYYY"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCsvBatchRows((prev) => {
+                                    const updated = prev.map((row) => {
+                                      const val = row[h] ?? "";
+                                      if (validateCellValue(matchedField, val) !== "invalid") return row;
+                                      const fixed = tryReformatDate(val);
+                                      return fixed ? { ...row, [h]: fixed } : row;
+                                    });
+                                    return updated;
+                                  });
+                                  setCsvBatchHasEdits(true);
+                                }}
+                              >
+                                → MM/DD/YYYY
+                              </button>
+                            )}
                           </th>
                         );
                       })}
