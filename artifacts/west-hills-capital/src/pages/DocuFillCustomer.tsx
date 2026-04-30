@@ -309,6 +309,22 @@ export default function DocuFillCustomer() {
       .catch(() => setPageStatus("error"));
   }, [token]);
 
+  // For email_otp packages: gate the interview behind identity verification.
+  // Runs once when the session finishes loading — before the customer sees the form.
+  useEffect(() => {
+    if (pageStatus !== "ready" || !session || session.auth_level !== "email_otp" || identityToken) return;
+    const prefillEmail = Object.entries(session.prefill ?? {})
+      .find(([k]) => k.toLowerCase().includes("email"))?.[1]?.trim() ?? "";
+    if (prefillEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(prefillEmail)) {
+      setSignerEmail(prefillEmail);
+      setEsignStep("code");
+      void handleRequestOtp(prefillEmail);
+    } else {
+      setEsignStep("email");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageStatus]);
+
   function scheduleAutoSave(nextAnswers: Record<string, string>) {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
@@ -435,7 +451,7 @@ export default function DocuFillCustomer() {
         return;
       }
       setIdentityToken(data.identityToken as string);
-      setEsignStep(hasInitialsStep ? "initials" : "consent");
+      setEsignStep(null); // identity confirmed — show the interview form
     } catch {
       setOtpError("A network error occurred. Please try again.");
     } finally {
@@ -462,24 +478,9 @@ export default function DocuFillCustomer() {
       window.scrollTo({ top: 0, behavior: "smooth" });
       return;
     }
-    // If email OTP required and identity not yet verified, start the esign flow
-    if (session?.auth_level === "email_otp" && !identityToken) {
-      // Look for an email the user already entered in the interview form
-      const emailField = session.fields.find(
-        (f) => f.validationType === "email" || f.name.toLowerCase().includes("email"),
-      );
-      const foundEmail =
-        (emailField ? (answers[emailField.id] ?? "").trim() : "") ||
-        Object.entries(session.prefill ?? {}).find(([k]) => k.toLowerCase().includes("email"))?.[1]?.trim() ||
-        "";
-      if (foundEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(foundEmail)) {
-        // Skip the email-entry screen — send the OTP automatically
-        setSignerEmail(foundEmail);
-        setEsignStep("code"); // show code-entry step (briefly loading)
-        void handleRequestOtp(foundEmail);
-      } else {
-        setEsignStep("email");
-      }
+    // Identity was verified at page load — move to signing steps
+    if (session?.auth_level === "email_otp") {
+      setEsignStep(hasInitialsStep ? "initials" : "consent");
       return;
     }
     setPageStatus("submitting");
@@ -652,7 +653,7 @@ export default function DocuFillCustomer() {
               ? ["email", "code", "initials", "consent"]
               : ["email", "code", "consent"] as EsignStep[]
             ).map((s, i, arr) => {
-              const labels: Record<EsignStep, string> = { email: "Email", code: "Verify", initials: "Initials", consent: "Sign" };
+              const labels: Record<EsignStep, string> = { email: "Identity", code: "Verify", initials: "Initials", consent: "Sign" };
               const stepIdx = arr.indexOf(esignStep!);
               const done = i < stepIdx;
               const active = i === stepIdx;
@@ -676,7 +677,7 @@ export default function DocuFillCustomer() {
               <div>
                 <h2 className="text-lg font-semibold text-[#0F1C3F]">Verify your identity</h2>
                 <p className="text-sm text-[#6B7A99] mt-1">
-                  This document requires identity verification. Enter your email address and we'll send you a one-time code.
+                  We need to confirm who you are before showing you this form. Enter your email address and we'll send you a one-time code.
                 </p>
               </div>
               <div className="space-y-2">
