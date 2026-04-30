@@ -1585,6 +1585,8 @@ interface AuditLogMetadataMap {
   "branding.update_color":     { from: string; to: string };
   "branding.upload_logo":      Record<string, never>;
   "branding.remove_logo":      Record<string, never>;
+  "branding.upload_form_logo": Record<string, never>;
+  "branding.remove_form_logo": Record<string, never>;
   "plan.checkout_initiated":   { plan: string };
   "plan.change":               { from_plan: string; to_plan: string; status: string; event_type: string };
 }
@@ -1616,6 +1618,8 @@ const ACTION_LABELS: Record<string, string> = {
   "branding.update_color":     "Updated brand color",
   "branding.upload_logo":      "Uploaded logo",
   "branding.remove_logo":      "Removed logo",
+  "branding.upload_form_logo": "Uploaded form logo",
+  "branding.remove_form_logo": "Removed form logo",
   "plan.checkout_initiated":   "Initiated plan upgrade",
   "plan.change":               "Plan changed",
 };
@@ -4706,6 +4710,12 @@ export default function AppSettings() {
   const [logoSaved, setLogoSaved] = useState(false);
   const [colorSaved, setColorSaved] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [displayFormLogoUrl, setDisplayFormLogoUrl] = useState<string | null>(null);
+  const [isUploadingFormLogo, setIsUploadingFormLogo] = useState(false);
+  const [isDraggingFormLogo, setIsDraggingFormLogo] = useState(false);
+  const [formLogoSaved, setFormLogoSaved] = useState(false);
+  const formLogoInputRef = useRef<HTMLInputElement>(null);
+  const formLogoSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameEdited = useRef(false);
   const nameSaveSeq = useRef(0);
@@ -4776,7 +4786,7 @@ export default function AppSettings() {
     setActiveSection(id);
   }
 
-  function flashFieldSaved(field: "name" | "logo" | "color") {
+  function flashFieldSaved(field: "name" | "logo" | "form-logo" | "color") {
     if (field === "name") {
       setNameSaved(true);
       if (nameSavedTimer.current) clearTimeout(nameSavedTimer.current);
@@ -4785,6 +4795,10 @@ export default function AppSettings() {
       setLogoSaved(true);
       if (logoSavedTimer.current) clearTimeout(logoSavedTimer.current);
       logoSavedTimer.current = setTimeout(() => setLogoSaved(false), 3000);
+    } else if (field === "form-logo") {
+      setFormLogoSaved(true);
+      if (formLogoSavedTimer.current) clearTimeout(formLogoSavedTimer.current);
+      formLogoSavedTimer.current = setTimeout(() => setFormLogoSaved(false), 3000);
     } else {
       setColorSaved(true);
       if (colorSavedTimer.current) clearTimeout(colorSavedTimer.current);
@@ -4799,6 +4813,7 @@ export default function AppSettings() {
     // Append a timestamp so the browser re-fetches the logo after every upload
     // rather than serving the stale cached version (same URL, new content).
     setDisplayLogoUrl(data.logo_url ? `${API_BASE}${data.logo_url}?t=${Date.now()}` : null);
+    setDisplayFormLogoUrl(data.form_logo_url ? `${API_BASE}${data.form_logo_url}?t=${Date.now()}` : null);
     updateProductOrgCache(data);
   }
 
@@ -4950,6 +4965,54 @@ export default function AppSettings() {
       flashFieldSaved("logo");
     } catch {
       setErrorMsg("Failed to remove logo.");
+    }
+  }
+
+  async function uploadFormLogoFile(file: File) {
+    if (!["image/png", "image/jpeg", "image/jpg", "image/webp"].includes(file.type)) {
+      setErrorMsg("Please upload a PNG, JPG, or WebP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setErrorMsg("Form logo must be under 5 MB.");
+      return;
+    }
+    setErrorMsg(null);
+    setIsUploadingFormLogo(true);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/org/form-logo`, {
+        method: "POST",
+        headers: { "Content-Type": file.type, ...getAuthHeaders() },
+        body: file,
+      });
+      const data = await res.json() as { org?: ProductOrgSettings; error?: string };
+      if (!res.ok) { setErrorMsg(data.error ?? "Form logo upload failed."); return; }
+      if (data.org?.form_logo_url) {
+        setDisplayFormLogoUrl(`${API_BASE}${data.org.form_logo_url}?t=${Date.now()}`);
+      }
+      flashFieldSaved("form-logo");
+    } catch {
+      setErrorMsg("Form logo upload failed. Please try again.");
+    } finally {
+      setIsUploadingFormLogo(false);
+      if (formLogoInputRef.current) formLogoInputRef.current.value = "";
+    }
+  }
+
+  async function handleRemoveFormLogo() {
+    setErrorMsg(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/org`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ clearFormLogo: true }),
+      });
+      const data = await res.json() as { org?: ProductOrgSettings; error?: string };
+      if (!res.ok) { setErrorMsg(data.error ?? "Failed to remove form logo"); return; }
+      if (data.org) applyOrg(data.org);
+      flashFieldSaved("form-logo");
+    } catch {
+      setErrorMsg("Failed to remove form logo.");
     }
   }
 
@@ -5236,6 +5299,96 @@ export default function AppSettings() {
                 <p className="text-xs text-gray-400 italic">Contact your admin to change the logo.</p>
               )}
               {logoSaved && (
+                <span className="text-[11px] text-green-600 font-medium">✓ Saved</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Form logo */}
+        <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-start gap-4">
+          <div className="w-44 shrink-0 pt-0.5">
+            <label className="text-sm font-medium text-gray-900">Form logo</label>
+            <p className="text-xs text-gray-400 mt-0.5">Shown in customer-facing forms. Falls back to your main logo if not set.</p>
+          </div>
+          <div className="flex-1 flex flex-col gap-2">
+            <input
+              ref={formLogoInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/jpg,image/webp"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) void uploadFormLogoFile(f); }}
+            />
+            <div
+              role={isAdmin ? "button" : undefined}
+              tabIndex={isAdmin ? 0 : undefined}
+              aria-label={isAdmin ? (displayFormLogoUrl ? "Click or drop to replace form logo" : "Click or drop to upload form logo") : undefined}
+              onClick={() => isAdmin && !isUploadingFormLogo && formLogoInputRef.current?.click()}
+              onKeyDown={(e) => { if (isAdmin && (e.key === "Enter" || e.key === " ") && !isUploadingFormLogo) formLogoInputRef.current?.click(); }}
+              onDragOver={(e) => { if (!isAdmin) return; e.preventDefault(); setIsDraggingFormLogo(true); }}
+              onDragLeave={() => setIsDraggingFormLogo(false)}
+              onDrop={(e) => { if (!isAdmin) return; e.preventDefault(); setIsDraggingFormLogo(false); const f = e.dataTransfer.files?.[0]; if (f) void uploadFormLogoFile(f); }}
+              className={[
+                "relative flex items-center justify-center rounded-xl border-2 transition-colors overflow-hidden",
+                isAdmin ? "cursor-pointer select-none" : "cursor-default opacity-60",
+                "bg-white",
+                isDraggingFormLogo
+                  ? "border-gray-900 bg-gray-50"
+                  : displayFormLogoUrl
+                    ? "border-gray-200 hover:border-gray-300"
+                    : "border-dashed border-gray-200 hover:border-gray-400",
+              ].join(" ")}
+              style={{ minHeight: "80px", minWidth: "160px" }}
+            >
+              {isUploadingFormLogo ? (
+                <div className="flex items-center gap-2 px-4 py-4">
+                  <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin shrink-0" />
+                  <span className="text-xs text-gray-500">Uploading…</span>
+                </div>
+              ) : displayFormLogoUrl ? (
+                <img
+                  src={displayFormLogoUrl}
+                  alt="Form logo"
+                  className="object-contain p-3"
+                  style={{ maxHeight: "80px", maxWidth: "220px" }}
+                />
+              ) : (
+                <div className="flex flex-col items-center gap-1.5 px-4 py-4 text-center pointer-events-none">
+                  <svg className="w-7 h-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                  <span className="text-xs font-medium text-gray-500">Click or drag to upload</span>
+                  <span className="text-[10px] text-gray-400">PNG, JPG, WebP · max 5 MB</span>
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-3">
+              {isAdmin ? (
+                <>
+                  {displayFormLogoUrl && (
+                    <button
+                      type="button"
+                      disabled={isUploadingFormLogo}
+                      onClick={() => formLogoInputRef.current?.click()}
+                      className="text-xs rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
+                    >
+                      Replace
+                    </button>
+                  )}
+                  {displayFormLogoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => { void handleRemoveFormLogo(); }}
+                      className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </>
+              ) : (
+                <p className="text-xs text-gray-400 italic">Contact your admin to change the form logo.</p>
+              )}
+              {formLogoSaved && (
                 <span className="text-[11px] text-green-600 font-medium">✓ Saved</span>
               )}
             </div>

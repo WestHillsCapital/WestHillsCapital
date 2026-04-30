@@ -88,6 +88,10 @@ function buildLogoServingUrl(accountId: number): string {
   return `/api/storage/org-logo/${accountId}`;
 }
 
+function buildFormLogoServingUrl(accountId: number): string {
+  return `/api/storage/org-form-logo/${accountId}`;
+}
+
 // UUID v4 pattern — logo paths must always be non-guessable (/objects/<uuid>).
 // This shape is intentional: the org-logo route is unauthenticated, so the
 // backing object path must never be predictable or sequential.
@@ -186,7 +190,7 @@ router.get("/org", async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT id, name, slug, logo_url, brand_color, timezone, date_format,
+      `SELECT id, name, slug, logo_url, form_logo_url, brand_color, timezone, date_format,
               pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
               pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign
          FROM accounts WHERE id = $1`,
@@ -203,6 +207,7 @@ router.get("/org", async (req, res) => {
         name: row.name,
         slug: row.slug,
         logo_url: row.logo_url ? buildLogoServingUrl(accountId) : null,
+        form_logo_url: row.form_logo_url ? buildFormLogoServingUrl(accountId) : null,
         brand_color: row.brand_color ?? "#C49A38",
         timezone:    (row.timezone    as string) || "America/New_York",
         date_format: (row.date_format as string) || "MM/DD/YYYY",
@@ -315,7 +320,7 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     const db = getDb();
 
     const { rows: existing } = await db.query(
-      `SELECT id, name, logo_url, brand_color, timezone, date_format,
+      `SELECT id, name, logo_url, form_logo_url, brand_color, timezone, date_format,
               pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
               pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign
          FROM accounts WHERE id = $1`,
@@ -340,6 +345,11 @@ router.patch("/org", requireAdminRole, async (req, res) => {
       rawLogoPath = null;
     }
 
+    let rawFormLogoPath = current.form_logo_url as string | null;
+    if ("clearFormLogo" in body && body.clearFormLogo === true) {
+      rawFormLogoPath = null;
+    }
+
     // Package channel defaults — accept optional boolean overrides
     const pkgDefaultInterview     = "pkgDefaultInterview"    in body ? body.pkgDefaultInterview    !== false : (current.pkg_default_interview    !== false);
     const pkgDefaultCsv           = "pkgDefaultCsv"          in body ? body.pkgDefaultCsv          !== false : (current.pkg_default_csv          !== false);
@@ -350,17 +360,17 @@ router.patch("/org", requireAdminRole, async (req, res) => {
 
     const { rows } = await db.query(
       `UPDATE accounts
-          SET name=$1, logo_url=$2, brand_color=$3,
+          SET name=$1, logo_url=$2, brand_color=$3, form_logo_url=$11,
               pkg_default_interview=$5, pkg_default_csv=$6,
               pkg_default_customer_link=$7, pkg_default_notify_staff=$8, pkg_default_notify_client=$9,
               pkg_default_esign=$10
         WHERE id=$4
-        RETURNING id, name, slug, logo_url, brand_color, timezone, date_format,
+        RETURNING id, name, slug, logo_url, form_logo_url, brand_color, timezone, date_format,
                   pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
                   pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign`,
       [name, rawLogoPath, brandColor, accountId,
        pkgDefaultInterview, pkgDefaultCsv, pkgDefaultCustomerLink, pkgDefaultNotifyStaff, pkgDefaultNotifyClient,
-       pkgDefaultEsign],
+       pkgDefaultEsign, rawFormLogoPath],
     );
     const row = rows[0] as Record<string, unknown>;
 
@@ -376,6 +386,9 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     if ("clearLogo" in body && body.clearLogo === true) {
       void insertAuditLog({ ...auditBase, action: "branding.remove_logo", resourceType: "org" });
     }
+    if ("clearFormLogo" in body && body.clearFormLogo === true) {
+      void insertAuditLog({ ...auditBase, action: "branding.remove_form_logo", resourceType: "org" });
+    }
 
     res.json({
       org: {
@@ -383,6 +396,7 @@ router.patch("/org", requireAdminRole, async (req, res) => {
         name: row.name,
         slug: row.slug,
         logo_url: row.logo_url ? buildLogoServingUrl(accountId) : null,
+        form_logo_url: row.form_logo_url ? buildFormLogoServingUrl(accountId) : null,
         brand_color: row.brand_color ?? "#C49A38",
         timezone:    (row.timezone    as string) || "America/New_York",
         date_format: (row.date_format as string) || "MM/DD/YYYY",
@@ -571,6 +585,76 @@ router.post(
       });
     } catch (err) {
       logger.error({ err }, "[Settings] Unexpected error during logo upload");
+      res.status(500).json({ error: "An unexpected error occurred. Please try again." });
+    }
+  },
+);
+
+router.post(
+  "/org/form-logo",
+  requireAdminRole,
+  express.raw({ type: ALLOWED_IMAGE_TYPES as unknown as string[], limit: "5mb" }),
+  async (req, res) => {
+    try {
+      const accountId = req.internalAccountId ?? 1;
+      const contentType = (req.headers["content-type"] ?? "").split(";")[0].trim() as ImageContentType;
+      if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(contentType)) {
+        res.status(400).json({ error: "Only PNG, JPG, and WebP images are accepted" });
+        return;
+      }
+      const buffer = req.body as Buffer;
+      if (!Buffer.isBuffer(buffer) || buffer.length === 0) {
+        res.status(400).json({ error: "Empty image body" });
+        return;
+      }
+      if (buffer.length > 5 * 1024 * 1024) {
+        res.status(400).json({ error: "Form logo must be under 5 MB" });
+        return;
+      }
+      const db = getDb();
+      let rawFormLogoPath: string;
+      try {
+        rawFormLogoPath = await uploadLogoBuffer(buffer, contentType);
+      } catch (uploadErr) {
+        logger.error({ err: uploadErr }, "[Settings] Form logo upload failed");
+        if (uploadErr instanceof StorageMisconfigError) {
+          res.status(503).json({ error: (uploadErr as Error).message });
+        } else {
+          const detail = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
+          res.status(500).json({ error: `Form logo upload failed: ${detail}` });
+        }
+        return;
+      }
+      const { rows } = await db.query(
+        `UPDATE accounts SET form_logo_url=$1 WHERE id=$2 RETURNING id, name, slug, form_logo_url, brand_color, timezone, date_format`,
+        [rawFormLogoPath, accountId],
+      );
+      if (!rows[0]) {
+        res.status(404).json({ error: "Account not found" });
+        return;
+      }
+      const row = rows[0] as Record<string, unknown>;
+      const clerkUserId = getAuth(req)?.userId ?? null;
+      void insertAuditLog({
+        accountId,
+        actorEmail: await getActorEmail(accountId, clerkUserId),
+        actorUserId: clerkUserId,
+        action: "branding.upload_form_logo",
+        resourceType: "org",
+      });
+      res.json({
+        org: {
+          id: row.id,
+          name: row.name,
+          slug: row.slug,
+          form_logo_url: buildFormLogoServingUrl(accountId),
+          brand_color: row.brand_color ?? "#C49A38",
+          timezone:    (row.timezone    as string) || "America/New_York",
+          date_format: (row.date_format as string) || "MM/DD/YYYY",
+        },
+      });
+    } catch (err) {
+      logger.error({ err }, "[Settings] Unexpected error during form logo upload");
       res.status(500).json({ error: "An unexpected error occurred. Please try again." });
     }
   },

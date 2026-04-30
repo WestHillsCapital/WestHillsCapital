@@ -51,6 +51,7 @@ type SessionData = {
   status: string;
   org_name?: string | null;
   org_logo_url?: string | null;
+  org_form_logo_url?: string | null;
   org_brand_color?: string | null;
   auth_level?: "none" | "email_otp";
   signed_at?: string | null;
@@ -61,6 +62,38 @@ type EsignStep = "email" | "code" | "initials" | "consent";
 
 function fieldIsRequired(field: FieldItem): boolean {
   return field.interviewMode === "required";
+}
+
+/**
+ * Augments a field's effective validationType based on its name when no explicit
+ * validationType is set. Lets state/ZIP fields be validated even when the package
+ * admin did not configure the validationType explicitly.
+ */
+function augmentField(field: FieldItem): FieldItem {
+  if (field.validationType) return field;
+  const name = field.name.toLowerCase();
+  if (/\bstate\b/.test(name) && !name.includes("statement")) {
+    return { ...field, validationType: "state" };
+  }
+  return field;
+}
+
+/** True when a field is a US state entry (by explicit type or name heuristic). */
+function isStateField(field: FieldItem): boolean {
+  if (field.validationType === "state") return true;
+  const name = field.name.toLowerCase();
+  return /\bstate\b/.test(name) && !name.includes("statement");
+}
+
+/** True when a field is a ZIP code entry. */
+function isZipField(field: FieldItem): boolean {
+  if (field.validationType === "zip" || field.validationType === "zip4") return true;
+  return /\bzip\b/i.test(field.name);
+}
+
+/** True when a field is a city entry. */
+function isCityField(field: FieldItem): boolean {
+  return /\bcity\b/i.test(field.name);
 }
 
 function evaluateCondition(
@@ -269,6 +302,8 @@ export default function DocuFillCustomer() {
   const { secondsLeft: expirySecondsLeft, isExpired: otpExpired } = useCountdown(otpExpiresAt);
   const { secondsLeft: cooldownSecondsLeft, isExpired: cooldownExpired } = useCountdown(otpCooldownUntil);
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
+  // ZIP → city soft-check: maps a valid ZIP to the list of place names returned by zippopotam.us
+  const [zipCityLookup, setZipCityLookup] = useState<Record<string, string[]>>({});
 
   useLayoutEffect(() => {
     if (!isEmbed) return;
@@ -330,6 +365,19 @@ export default function DocuFillCustomer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageStatus]);
 
+  function lookupZip(zip: string) {
+    if (zipCityLookup[zip] !== undefined) return; // already cached
+    fetch(`https://api.zippopotam.us/us/${zip}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data) return;
+        const places = (data.places ?? []) as Array<{ "place name": string }>;
+        const cities = places.map((p) => (p["place name"] ?? "").toLowerCase()).filter(Boolean);
+        setZipCityLookup((prev) => ({ ...prev, [zip]: cities }));
+      })
+      .catch(() => {});
+  }
+
   function scheduleAutoSave(nextAnswers: Record<string, string>) {
     if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
     autoSaveTimer.current = setTimeout(() => {
@@ -349,10 +397,16 @@ export default function DocuFillCustomer() {
       return next;
     });
     setMissingFields((prev) => prev.filter((n) => n !== fieldId));
+    // Trigger ZIP → city lookup when a valid 5-digit ZIP is entered
+    const field = (session?.fields ?? []).find((f) => f.id === fieldId);
+    if (field && isZipField(field) && /^\d{5}$/.test(value.trim())) {
+      lookupZip(value.trim());
+    }
   }
 
   function handleFieldBlur(field: FieldItem, value: string) {
-    const error = validateFieldValue(field, value);
+    const effective = augmentField(field);
+    const error = validateFieldValue(effective, value);
     setFieldErrors((prev) => {
       if (!error) {
         if (!prev[field.id]) return prev;
@@ -396,7 +450,7 @@ export default function DocuFillCustomer() {
       if (f.interviewMode === "readonly") continue;
       if (isEsignDateField(f)) continue; // auto-filled — skip required check
       const val = currentValue(f, answers, session.prefill);
-      const error = validateFieldValue(f, val);
+      const error = validateFieldValue(augmentField(f), val);
       if (error) {
         newErrors[f.id] = error;
         if (fieldIsRequired(f) && !val.trim()) missing.push(f.id);
@@ -658,6 +712,13 @@ export default function DocuFillCustomer() {
   const requiredCount = visibleFields.filter((f) => fieldIsRequired(f) && f.interviewMode !== "readonly").length;
   const answeredCount = visibleFields.filter((f) => fieldIsRequired(f) && f.interviewMode !== "readonly" && currentValue(f, answers, session!.prefill).trim()).length;
   const hasErrors = Object.keys(fieldErrors).length > 0;
+  // Determine the most recently entered valid 5-digit ZIP (used for city soft-check)
+  const activeZip = (() => {
+    const zipField = visibleFields.find((f) => isZipField(f));
+    if (!zipField) return null;
+    const v = currentValue(zipField, answers, session!.prefill).trim();
+    return /^\d{5}$/.test(v) ? v : null;
+  })();
   const missingRequiredCount = requiredCount - answeredCount;
   const progressPct = requiredCount > 0 ? Math.round((answeredCount / requiredCount) * 100) : 100;
   const ringStyle = { "--tw-ring-color": `${brandColor}66` } as React.CSSProperties;
@@ -670,7 +731,8 @@ export default function DocuFillCustomer() {
           <div className="max-w-2xl mx-auto flex items-center gap-3">
             {(() => {
               const orgName = session!.org_name ?? "West Hills Capital";
-              const logoSrc = session!.org_logo_url ? `${API_BASE}${session!.org_logo_url}` : null;
+              const rawLogoUrl = session!.org_form_logo_url ?? session!.org_logo_url ?? null;
+              const logoSrc = rawLogoUrl ? `${API_BASE}${rawLogoUrl}` : null;
               const bColor = session!.org_brand_color ?? "#C49A38";
               const initial = orgName.charAt(0).toUpperCase();
               return (
@@ -1041,7 +1103,7 @@ export default function DocuFillCustomer() {
                 </Button>
                 <Button
                   type="button"
-                  onClick={() => { void handleSubmit(); }}
+                  onClick={() => { void handleSubmit({ skipSigningSteps: true }); }}
                   disabled={
                     pageStatus === "submitting" ||
                     !signerName.trim() ||
@@ -1070,7 +1132,8 @@ export default function DocuFillCustomer() {
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           {(() => {
             const orgName = session!.org_name ?? "West Hills Capital";
-            const logoSrc = session!.org_logo_url ? `${API_BASE}${session!.org_logo_url}` : null;
+            const rawLogoUrl2 = session!.org_form_logo_url ?? session!.org_logo_url ?? null;
+            const logoSrc = rawLogoUrl2 ? `${API_BASE}${rawLogoUrl2}` : null;
             const brandColor = session!.org_brand_color ?? "#C49A38";
             const initial = orgName.charAt(0).toUpperCase();
             return (
@@ -1145,15 +1208,22 @@ export default function DocuFillCustomer() {
 
         {/* Prefill context — show what was pre-filled on this session */}
         {Object.keys(session!.prefill ?? {}).filter((k) => String(session!.prefill[k] ?? "").trim()).length > 0 && (
-          <div className="rounded-lg border border-[#DDD5C4] bg-[#FAFAF8] px-4 py-3">
-            <div className="text-[11px] font-semibold text-[#8A9BB8] uppercase tracking-wider mb-2">Information on file</div>
-            <div className="grid sm:grid-cols-2 gap-x-8 gap-y-1.5 text-sm">
-              {Object.entries(session!.prefill).filter(([, v]) => String(v ?? "").trim()).map(([key, value]) => (
-                <div key={key} className="flex gap-2 min-w-0">
-                  <span className="text-[#8A9BB8] shrink-0 w-24 truncate">{humanizeKey(key)}</span>
-                  <span className="text-[#0F1C3F] font-medium truncate">{String(value)}</span>
-                </div>
-              ))}
+          <div className="rounded-lg border border-[#C8D7E8] bg-[#EFF5FB] px-4 py-3.5 flex gap-3">
+            <div className="shrink-0 mt-0.5">
+              <svg className="w-5 h-5 text-[#4A7FB5]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.75}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-[#2E5A8A] mb-2">We already have some information on file for you</p>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(session!.prefill).filter(([, v]) => String(v ?? "").trim()).map(([key, value]) => (
+                  <div key={key} className="inline-flex items-center gap-1.5 bg-white border border-[#C8D7E8] rounded-full px-3 py-1">
+                    <span className="text-[10px] text-[#4A7FB5] font-medium uppercase tracking-wide">{humanizeKey(key)}</span>
+                    <span className="text-xs text-[#0F1C3F] font-semibold">{String(value)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
         )}
@@ -1280,6 +1350,14 @@ export default function DocuFillCustomer() {
                 )}
 
                 {fieldError && <p className="mt-1.5 text-xs text-red-600">{fieldError}</p>}
+                {/* City soft-check: warn when entered city doesn't match the ZIP lookup */}
+                {!fieldError && isCityField(field) && val.trim() && activeZip && zipCityLookup[activeZip] && !zipCityLookup[activeZip].some((c) => val.trim().toLowerCase().includes(c) || c.includes(val.trim().toLowerCase())) && (
+                  <p className="mt-1.5 text-xs text-amber-600">The city you entered may not match ZIP {activeZip}. Please double-check.</p>
+                )}
+                {/* State hint: show expected format when field has no error yet but is empty or invalid */}
+                {!fieldError && isStateField(field) && val.trim() && validateFieldValue(augmentField(field), val) !== null && (
+                  <p className="mt-1.5 text-xs text-red-600">Please enter a 2-letter state code (e.g. KS, TX, CA).</p>
+                )}
                 {(() => {
                   const hint = fieldFormatHint(field.validationType, field.validationMessage ?? undefined);
                   const hasValidValue = val.trim() !== "" && validateFieldValue(field, val) === null;
