@@ -559,7 +559,7 @@ router.post(
         return;
       }
       const { rows } = await db.query(
-        `UPDATE accounts SET logo_url=$1 WHERE id=$2 RETURNING id, name, slug, logo_url, brand_color, timezone, date_format`,
+        `UPDATE accounts SET logo_url=$1 WHERE id=$2 RETURNING id, name, slug, logo_url, brand_color, logo_on_white, timezone, date_format`,
         [rawLogoPath, accountId],
       );
       if (!rows[0]) {
@@ -582,6 +582,7 @@ router.post(
           slug: row.slug,
           logo_url: buildLogoServingUrl(accountId),
           brand_color: row.brand_color ?? "#C49A38",
+          logo_on_white: row.logo_on_white !== false,
           timezone:    (row.timezone    as string) || "America/New_York",
           date_format: (row.date_format as string) || "MM/DD/YYYY",
         },
@@ -629,7 +630,7 @@ router.post(
         return;
       }
       const { rows } = await db.query(
-        `UPDATE accounts SET form_logo_url=$1 WHERE id=$2 RETURNING id, name, slug, form_logo_url, brand_color, timezone, date_format`,
+        `UPDATE accounts SET form_logo_url=$1 WHERE id=$2 RETURNING id, name, slug, form_logo_url, brand_color, logo_on_white, timezone, date_format`,
         [rawFormLogoPath, accountId],
       );
       if (!rows[0]) {
@@ -652,6 +653,7 @@ router.post(
           slug: row.slug,
           form_logo_url: buildFormLogoServingUrl(accountId),
           brand_color: row.brand_color ?? "#C49A38",
+          logo_on_white: row.logo_on_white !== false,
           timezone:    (row.timezone    as string) || "America/New_York",
           date_format: (row.date_format as string) || "MM/DD/YYYY",
         },
