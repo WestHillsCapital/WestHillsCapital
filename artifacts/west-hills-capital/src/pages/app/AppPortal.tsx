@@ -112,8 +112,12 @@ export default function AppPortal() {
       <Suspense fallback={<Spinner />}>
         <Switch>
           <Route path="/app/settings" component={AppSettings} />
-          <Route path="/app/sessions" component={() => <AppSessionsPage getAuthHeaders={getAuthHeaders} />} />
-          <Route component={() => <DocuFillWrapper getAuthHeaders={getAuthHeaders} />} />
+          <Route path="/app/sessions">
+            <AppSessionsPage getAuthHeaders={getAuthHeaders} />
+          </Route>
+          <Route>
+            <DocuFillWrapper getAuthHeaders={getAuthHeaders} />
+          </Route>
         </Switch>
       </Suspense>
     </AppLayout>
