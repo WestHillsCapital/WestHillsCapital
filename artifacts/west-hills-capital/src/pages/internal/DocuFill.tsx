@@ -101,7 +101,7 @@ type FieldItem = {
   libraryFieldId?: string;
   name: string;
   color: string;
-  type: "text" | "radio" | "checkbox" | "dropdown" | "date";
+  type: "text" | "radio" | "checkbox" | "dropdown" | "date" | "initials";
   options?: string[];
   optionsMode?: "inherit" | "override";
   interviewMode: FieldInterviewMode;
@@ -168,7 +168,42 @@ type MappingItem = {
   format?: MappingFormat | string;
   recipientId?: string;
   multiLine?: boolean;
+  rotation?: 0 | 90 | 180 | 270;
 };
+
+// ─── E-Sign system field IDs ────────────────────────────────────────────────
+const ESIGN_FIELD_ID_SIGNATURE = "__signature__";
+const ESIGN_FIELD_ID_INITIALS  = "__initials__";
+const ESIGN_FIELD_ID_DATE      = "__signer_date__";
+
+const SYSTEM_ESIGN_FIELDS: Array<{ id: string; name: string; type: FieldItem["type"]; description: string }> = [
+  { id: ESIGN_FIELD_ID_SIGNATURE, name: "Signature",   type: "text",     description: "Drawn or typed signature" },
+  { id: ESIGN_FIELD_ID_INITIALS,  name: "Initials",    type: "initials", description: "Drawn or typed initials" },
+  { id: ESIGN_FIELD_ID_DATE,      name: "Signer Date", type: "date",     description: "Auto-filled with today's date" },
+];
+
+function isSystemEsignFieldId(id: string): boolean {
+  return id === ESIGN_FIELD_ID_SIGNATURE || id === ESIGN_FIELD_ID_INITIALS || id === ESIGN_FIELD_ID_DATE;
+}
+
+function makeSystemEsignFieldItem(id: string, usedColors: string[]): FieldItem {
+  const def = SYSTEM_ESIGN_FIELDS.find((f) => f.id === id);
+  const color = id === ESIGN_FIELD_ID_SIGNATURE ? "#6366F1"
+    : id === ESIGN_FIELD_ID_INITIALS ? "#8B5CF6"
+    : "#06B6D4";
+  return {
+    id,
+    name: def?.name ?? id,
+    color: usedColors.includes(color) ? pickFieldColor(usedColors, false) : color,
+    type: def?.type ?? "text",
+    interviewMode: "omitted",
+    defaultValue: "",
+    source: "esign-system",
+    sensitive: false,
+    validationType: "none",
+  };
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 type RecipientItem = {
   id: string;
@@ -249,6 +284,7 @@ function clampPercent(value: number, min: number, max: number) {
 }
 
 function defaultMappingFormat(field: FieldItem): MappingItem["format"] {
+  if (field.id === ESIGN_FIELD_ID_SIGNATURE) return "signature";
   if (inferFieldCategory(field) === "signature") return "signature";
   if (field.validationType === "currency") return "currency";
   if (field.validationType === "number") return "digits-only";
@@ -2696,12 +2732,42 @@ export default function DocuFill() {
     e.preventDefault();
     if (!selectedPackage || !selectedDocument) return;
     const fieldId = e.dataTransfer.getData("text/field");
-    const field = selectedPackage.fields.find((item) => item.id === fieldId);
     const frame = frameEl ?? pageFrameRef.current;
-    if (!field || !frame) return;
+    if (!fieldId || !frame) return;
     const rect = frame.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 100;
     const y = ((e.clientY - rect.top) / rect.height) * 100;
+    let field = selectedPackage.fields.find((item) => item.id === fieldId);
+    // System e-sign fields are auto-created in the package on first drop
+    if (!field && isSystemEsignFieldId(fieldId)) {
+      field = makeSystemEsignFieldItem(fieldId, selectedPackage.fields.map((f) => f.color));
+      const capturedField = field;
+      const mappingId = newId("map");
+      const targetPage = pageOverride ?? selectedPage;
+      mappingUndoStack.current = [...mappingUndoStack.current, [...selectedPackage.mappings]].slice(-20);
+      updateSelectedPackage((pkg) => ({
+        ...pkg,
+        fields: pkg.fields.find((f) => f.id === capturedField.id) ? pkg.fields : [...pkg.fields, capturedField],
+        mappings: [...pkg.mappings, {
+          id: mappingId,
+          fieldId: capturedField.id,
+          documentId: selectedDocument!.id,
+          page: targetPage,
+          x: clampPercent(x, 0, 74),
+          y: clampPercent(y, 0, 94),
+          w: capturedField.id === ESIGN_FIELD_ID_SIGNATURE ? 30 : 22,
+          h: capturedField.id === ESIGN_FIELD_ID_SIGNATURE ? 8 : 6,
+          fontSize: 11,
+          align: "left" as const,
+          format: defaultMappingFormat(capturedField),
+        }],
+      }));
+      setSelectedMappingId(mappingId);
+      setSelectedFieldId(capturedField.id);
+      setPlacementModal(null);
+      return;
+    }
+    if (!field) return;
     addMappingForField(field, x, y, pageOverride);
   }
 
@@ -4651,6 +4717,7 @@ export default function DocuFill() {
                                       paddingLeft: "2px",
                                       paddingRight: "2px",
                                       zIndex: 2,
+                                      transform: m.rotation ? `rotate(${m.rotation}deg)` : undefined,
                                     }}
                                   >
                                     {mapperTextMode ? (
@@ -4808,6 +4875,7 @@ export default function DocuFill() {
                           paddingLeft: "2px",
                           paddingRight: "2px",
                           zIndex: 2,
+                          transform: m.rotation ? `rotate(${m.rotation}deg)` : undefined,
                         }}
                       >
                         {mapperTextMode ? (
@@ -4872,9 +4940,11 @@ export default function DocuFill() {
                 const fieldInterviewMode: FieldInterviewMode = field?.interviewMode ?? "optional";
                 const isMasked = field?.sensitive === true;
                 const isMultiLine = mapping.multiLine === true;
+                const panelRotation = (mapping.rotation ?? 0) as 0 | 90 | 180 | 270;
                 function setPanelInterviewMode(mode: FieldInterviewMode) { if (field) updateFieldInPackage(field.id, { interviewMode: mode }); }
                 function togglePanelMask() { if (field) updateFieldInPackage(field.id, { sensitive: !isMasked }); }
                 function togglePanelMultiLine() { updateSelectedMapping({ multiLine: !isMultiLine }); }
+                function setPanelRotation(deg: 0 | 90 | 180 | 270) { updateSelectedMapping({ rotation: deg }); }
                 const interviewModes: { value: FieldInterviewMode; label: string; color: string; textClass: string }[] = [
                   { value: "optional",  label: "Optional",  color: "#0F1C3F", textClass: "text-[#0F1C3F]" },
                   { value: "required",  label: "Required",  color: "#dc2626", textClass: "text-red-600" },
@@ -4971,6 +5041,17 @@ export default function DocuFill() {
                         </div>
                       )}
 
+                      <div>
+                        <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1.5">Rotation</div>
+                        <div className="flex rounded overflow-hidden border border-[#D4C9B5]">
+                          {([0, 90, 180, 270] as const).map((deg) => (
+                            <button key={deg} type="button" onClick={() => setPanelRotation(deg)}
+                              className={`flex-1 py-1 text-[11px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors ${panelRotation === deg ? "bg-[#0F1C3F] text-white" : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                            >{deg}°</button>
+                          ))}
+                        </div>
+                      </div>
+
                       {formatOptions.length > 0 && (
                         <div>
                           <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1.5">Orientation</div>
@@ -5047,6 +5128,30 @@ export default function DocuFill() {
                       </label>
                     );
                   })()}
+                  {/* E-Sign system fields — draggable, never in interview */}
+                  <div className="mb-2 flex-shrink-0">
+                    <div className="text-[10px] text-[#6B7A99] font-semibold uppercase tracking-wide mb-1">E-Sign Fields</div>
+                    <div className="space-y-1">
+                      {SYSTEM_ESIGN_FIELDS.map((sf) => {
+                        const alreadyInPkg = selectedPackage.fields.some((f) => f.id === sf.id);
+                        return (
+                          <div
+                            key={sf.id}
+                            draggable
+                            onDragStart={(e) => { e.dataTransfer.setData("text/field", sf.id); }}
+                            className="flex items-center gap-2 px-2.5 py-1.5 rounded border border-[#DDD5C4] bg-white cursor-alias hover:border-[#C49A38] hover:bg-[#FEFCF7] transition-colors select-none"
+                          >
+                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: sf.id === ESIGN_FIELD_ID_SIGNATURE ? "#6366F1" : sf.id === ESIGN_FIELD_ID_INITIALS ? "#8B5CF6" : "#06B6D4" }} />
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[12px] font-medium text-[#0F1C3F]">{sf.name}</div>
+                              <div className="text-[10px] text-[#8A9BB8] truncate">{sf.description}</div>
+                            </div>
+                            {alreadyInPkg && <span className="text-[9px] uppercase tracking-wide text-[#6B7A99] bg-[#F0F0F0] border border-[#DDD5C4] px-1 py-0.5 rounded">placed</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
                   {inspectorMode === "panel" && selectedPackage.mappings.length > 0 && (
                     <p className="mb-2 text-[10px] text-[#8A9BB8] italic flex-shrink-0">Click a placement on the document to inspect it.</p>
                   )}
@@ -5108,7 +5213,8 @@ export default function DocuFill() {
                                     <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1 min-w-0">
                                       <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
                                         <span>{field.name}</span>
-                                        {field.libraryFieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>}
+                                        {isSystemEsignFieldId(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5">E-Sign</span>}
+                                        {!isSystemEsignFieldId(field.id) && field.libraryFieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>}
                                         {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
                                         {(field.condition?.fieldId || field.condition2?.fieldId) && <span className="text-[10px] uppercase tracking-wide rounded bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5">Conditional</span>}
                                         {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
@@ -5116,12 +5222,12 @@ export default function DocuFill() {
                                       <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
                                     </button>
                                   </div>
-                                  <button
+                                  {!isSystemEsignFieldId(field.id) && <button
                                     type="button"
                                     onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
                                     className="rounded border border-red-200 px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50 hover:border-red-300 flex-shrink-0"
                                     title="Remove field"
-                                  >✕</button>
+                                  >✕</button>}
                                 </div>
                               </div>
                             )}
@@ -6210,6 +6316,7 @@ export default function DocuFill() {
         const fieldInterviewMode: FieldInterviewMode = field?.interviewMode ?? "optional";
         const isMasked = field?.sensitive === true;
         const isMultiLine = mapping.multiLine === true;
+        const modalRotation = (mapping.rotation ?? 0) as 0 | 90 | 180 | 270;
 
         function setInterviewMode(mode: FieldInterviewMode) {
           if (!field) return;
@@ -6221,6 +6328,9 @@ export default function DocuFill() {
         }
         function toggleMultiLine() {
           updateSelectedMapping({ multiLine: !isMultiLine });
+        }
+        function setModalRotation(deg: 0 | 90 | 180 | 270) {
+          updateSelectedMapping({ rotation: deg });
         }
 
         const interviewModes: { value: FieldInterviewMode; label: string; color: string; textClass: string }[] = [
@@ -6342,6 +6452,17 @@ export default function DocuFill() {
                     </label>
                   </div>
                 )}
+
+                <div>
+                  <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1">Rotation</div>
+                  <div className="flex rounded overflow-hidden border border-[#D4C9B5]">
+                    {([0, 90, 180, 270] as const).map((deg) => (
+                      <button key={deg} type="button" onClick={() => setModalRotation(deg)}
+                        className={`flex-1 py-1 text-[11px] font-medium border-r last:border-r-0 border-[#D4C9B5] transition-colors ${modalRotation === deg ? "bg-[#0F1C3F] text-white" : "text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                      >{deg}°</button>
+                    ))}
+                  </div>
+                </div>
 
                 {formatOptions.length > 0 && (
                   <div>

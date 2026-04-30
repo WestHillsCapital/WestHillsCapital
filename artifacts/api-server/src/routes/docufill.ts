@@ -1,7 +1,7 @@
 import { Router, type IRouter, type Request, type Response } from "express";
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
-import { PDFDocument as PdfLibDocument, StandardFonts, rgb, type PDFFont, type PDFPage } from "pdf-lib";
+import { PDFDocument as PdfLibDocument, StandardFonts, rgb, degrees, type PDFFont, type PDFPage } from "pdf-lib";
 import PDFDocument from "pdfkit";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
@@ -166,6 +166,7 @@ type MappingItem = {
   fontSize?: number;
   align?: "left" | "center" | "right";
   format?: string;
+  rotation?: number;
 };
 
 type StoredDocumentRow = {
@@ -929,7 +930,7 @@ async function stampPdfAuditFooter(
   }
 }
 
-function drawWrappedText(page: PDFPage, text: string, x: number, y: number, size: number, font: PDFFont, maxWidth = 180, align: "left" | "center" | "right" = "left") {
+function drawWrappedText(page: PDFPage, text: string, x: number, y: number, size: number, font: PDFFont, maxWidth = 180, align: "left" | "center" | "right" = "left", rotate?: ReturnType<typeof degrees>) {
   const words = text.split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = "";
@@ -946,7 +947,7 @@ function drawWrappedText(page: PDFPage, text: string, x: number, y: number, size
   lines.forEach((textLine, index) => {
     const lineWidth = font.widthOfTextAtSize(textLine, size);
     const offset = align === "center" ? Math.max(0, (maxWidth - lineWidth) / 2) : align === "right" ? Math.max(0, maxWidth - lineWidth) : 0;
-    page.drawText(textLine, { x: x + offset, y: y - index * (size + 2), size, font, color: rgb(0, 0, 0) });
+    page.drawText(textLine, { x: x + offset, y: y - index * (size + 2), size, font, color: rgb(0, 0, 0), ...(rotate ? { rotate } : {}) });
   });
 }
 
@@ -1139,6 +1140,8 @@ async function buildPacketPdfBuffer(
         const boxHeight = Math.max(14, (clampNumber(mapping.h, 10, 1, 100) / 100) * height);
         const maxWidth = Math.max(18, (clampNumber(mapping.w, 26, 2, 100) / 100) * width);
 
+        const mappingRotation = degrees(mapping.rotation ?? 0);
+
         // Initials field: overlay drawn PNG or typed italic initials
         if (field.type === "initials") {
           const rawValue = fieldAnswerValue(field, answers, prefill);
@@ -1153,6 +1156,7 @@ async function buildPacketPdfBuffer(
                 y: yTop - boxHeight + (boxHeight - imgDims.height) / 2,
                 width: imgDims.width,
                 height: imgDims.height,
+                rotate: mappingRotation,
               });
             } catch {
               // fallback: draw the first few chars as italic text
@@ -1160,7 +1164,7 @@ async function buildPacketPdfBuffer(
               if (text.trim()) {
                 const fontSize = clampNumber(mapping.fontSize, 11, 6, 18);
                 const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize * 0.2 + 2));
-                page.drawText(text.trim(), { x, y: yDraw, size: fontSize, font: italicFont, color: rgb(0, 0, 0) });
+                page.drawText(text.trim(), { x, y: yDraw, size: fontSize, font: italicFont, color: rgb(0, 0, 0), rotate: mappingRotation });
               }
             }
           } else if (rawValue.trim()) {
@@ -1168,7 +1172,7 @@ async function buildPacketPdfBuffer(
             const text = rawValue.trim().slice(0, 6);
             const fontSize = clampNumber(mapping.fontSize, 11, 6, 18);
             const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize * 0.2 + 2));
-            page.drawText(text, { x, y: yDraw, size: fontSize, font: italicFont, color: rgb(0, 0, 0) });
+            page.drawText(text, { x, y: yDraw, size: fontSize, font: italicFont, color: rgb(0, 0, 0), rotate: mappingRotation });
           }
           continue;
         }
@@ -1186,6 +1190,7 @@ async function buildPacketPdfBuffer(
                 y: yTop - boxHeight + (boxHeight - imgDims.height) / 2,
                 width: imgDims.width,
                 height: imgDims.height,
+                rotate: mappingRotation,
               });
             } catch {
               // fallback to typed name if PNG embedding fails
@@ -1193,13 +1198,13 @@ async function buildPacketPdfBuffer(
               if (fallbackName) {
                 const fontSize = clampNumber(mapping.fontSize, 14, 8, 28);
                 const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize * 0.2 + 2));
-                drawWrappedText(page, fallbackName, x, yDraw, fontSize, font, maxWidth, "left");
+                drawWrappedText(page, fallbackName, x, yDraw, fontSize, font, maxWidth, "left", mappingRotation);
               }
             }
           } else if (opts.signerName) {
             const fontSize = clampNumber(mapping.fontSize, 14, 8, 28);
             const yDraw = Math.max(fontSize + 2, Math.min(height - 2, yTop - boxHeight + fontSize * 0.2 + 2));
-            drawWrappedText(page, opts.signerName, x, yDraw, fontSize, font, maxWidth, "left");
+            drawWrappedText(page, opts.signerName, x, yDraw, fontSize, font, maxWidth, "left", mappingRotation);
           }
           continue;
         }
@@ -1225,7 +1230,7 @@ async function buildPacketPdfBuffer(
           ? yTop - boxHeight / 2 - fontSize * 0.35
           : yTop - boxHeight + fontSize * 0.2 + 2;
         const yDraw = Math.max(fontSize + 2, Math.min(height - 2, rawYDraw));
-        drawWrappedText(page, mappedValue, x, yDraw, fontSize, font, maxWidth, align);
+        drawWrappedText(page, mappedValue, x, yDraw, fontSize, font, maxWidth, align, mappingRotation);
       }
     }
     const sessionToken = typeof session.token === "string" ? session.token : "";
