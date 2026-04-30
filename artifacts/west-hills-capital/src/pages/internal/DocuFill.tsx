@@ -357,8 +357,7 @@ function validateCellValue(field: FieldItem, value: string): "ok" | "empty-requi
   return "ok";
 }
 
-function tryReformatDate(value: string): string | null {
-  const v = value.trim();
+function tryReformatDate(v: string): string | null {
   if (!v) return null;
   // M/D/YYYY or MM/DD/YYYY — already slash-style, just zero-pad
   const slashMatch = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
@@ -389,6 +388,69 @@ function tryReformatDate(value: string): string | null {
   // YYYY/MM/DD
   const isoSlashMatch = v.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
   if (isoSlashMatch) return `${isoSlashMatch[2]}/${isoSlashMatch[3]}/${isoSlashMatch[1]}`;
+  return null;
+}
+
+function tryAutoFix(field: FieldItem, value: string): string | null {
+  const v = value.trim();
+  if (!v) return null;
+  if (field.type === "date") return tryReformatDate(v);
+  const vt = field.validationType;
+  if (vt === "date") return tryReformatDate(v);
+  if (vt === "phone") {
+    const digits = v.replace(/\D/g, "");
+    if (digits.length === 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+    if (digits.length === 11 && digits[0] === "1") return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+    return null;
+  }
+  if (vt === "ssn") {
+    const digits = v.replace(/\D/g, "");
+    if (digits.length === 9) return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+    return null;
+  }
+  if (vt === "zip") {
+    const digits = v.replace(/\D/g, "");
+    if (digits.length === 5) return digits;
+    if (digits.length >= 5) return digits.slice(0, 5);
+    return null;
+  }
+  if (vt === "zip4") {
+    const digits = v.replace(/\D/g, "");
+    if (digits.length === 9) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+    return null;
+  }
+  if (vt === "currency") {
+    const cleaned = v.replace(/[$,\s]/g, "");
+    const num = parseFloat(cleaned);
+    if (!isNaN(num)) return num.toFixed(2);
+    return null;
+  }
+  if (vt === "number") {
+    const cleaned = v.replace(/[^0-9.]/g, "");
+    const num = parseFloat(cleaned);
+    if (!isNaN(num)) return String(num);
+    return null;
+  }
+  if (vt === "percent") {
+    const cleaned = v.replace(/[%\s]/g, "");
+    const num = parseFloat(cleaned);
+    if (!isNaN(num) && num >= 0 && num <= 100) return String(num);
+    return null;
+  }
+  return null;
+}
+
+function autoFixLabel(field: FieldItem): string | null {
+  if (field.type === "date") return "→ MM/DD/YYYY";
+  const vt = field.validationType;
+  if (vt === "date")     return "→ MM/DD/YYYY";
+  if (vt === "phone")    return "→ (XXX) XXX-XXXX";
+  if (vt === "ssn")      return "→ XXX-XX-XXXX";
+  if (vt === "zip")      return "→ 5-digit ZIP";
+  if (vt === "zip4")     return "→ XXXXX-XXXX";
+  if (vt === "currency") return "→ 0.00";
+  if (vt === "number")   return "→ number";
+  if (vt === "percent")  return "→ 0–100";
   return null;
 }
 
@@ -6118,26 +6180,25 @@ export default function DocuFill() {
                                 </Tooltip>
                               )}
                             </span>
-                            {matchedField?.type === "date" && invalidCount > 0 && (
+                            {matchedField && invalidCount > 0 && autoFixLabel(matchedField) && (
                               <button
                                 type="button"
                                 className="mt-1 block text-[10px] text-[#C49A38] hover:text-[#b58c31] underline whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-[#C49A38] rounded"
-                                title="Auto-convert all invalid dates in this column to MM/DD/YYYY"
+                                title={`Auto-convert all invalid values in this column to the expected format`}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  setCsvBatchRows((prev) => {
-                                    const updated = prev.map((row) => {
+                                  setCsvBatchRows((prev) =>
+                                    prev.map((row) => {
                                       const val = row[h] ?? "";
                                       if (validateCellValue(matchedField, val) !== "invalid") return row;
-                                      const fixed = tryReformatDate(val);
+                                      const fixed = tryAutoFix(matchedField, val);
                                       return fixed ? { ...row, [h]: fixed } : row;
-                                    });
-                                    return updated;
-                                  });
+                                    })
+                                  );
                                   setCsvBatchHasEdits(true);
                                 }}
                               >
-                                → MM/DD/YYYY
+                                {autoFixLabel(matchedField)}
                               </button>
                             )}
                           </th>
