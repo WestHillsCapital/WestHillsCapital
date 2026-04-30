@@ -1,3 +1,18 @@
+// E-Sign system field IDs (fixed, permanent — must match API server constants)
+export const ESIGN_FIELD_ID_SIGNATURE  = "__signature__" as const;
+export const ESIGN_FIELD_ID_INITIALS   = "__initials__" as const;
+export const ESIGN_FIELD_ID_DATE       = "__signer_date__" as const;
+
+export const SYSTEM_ESIGN_FIELD_IDS = [
+  ESIGN_FIELD_ID_SIGNATURE,
+  ESIGN_FIELD_ID_INITIALS,
+  ESIGN_FIELD_ID_DATE,
+] as const;
+
+export function isSystemEsignFieldId(id: string): boolean {
+  return (SYSTEM_ESIGN_FIELD_IDS as readonly string[]).includes(id);
+}
+
 export type DocuFillRedactionField = {
   name: string;
   source: string;

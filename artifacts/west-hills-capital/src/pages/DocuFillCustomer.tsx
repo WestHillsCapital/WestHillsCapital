@@ -3,6 +3,7 @@ import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { validateFieldValue, fieldFormatHint, buildSensitiveMask } from "@/lib/validateField";
+import { ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE } from "@/lib/docufill-redaction";
 import SignaturePad, { type SignaturePadRef } from "@/components/SignaturePad";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -203,11 +204,6 @@ function getBrandTextColor(hex: string): string {
   } catch { return "#ffffff"; }
 }
 
-// System e-sign field IDs (match the builder constants)
-const ESIGN_FIELD_ID_SIGNATURE = "__signature__";
-const ESIGN_FIELD_ID_INITIALS  = "__initials__";
-const ESIGN_FIELD_ID_DATE      = "__signer_date__";
-
 /** True if the field represents the signer's hand-written/typed signature. */
 function isEsignSignatureField(field: FieldItem): boolean {
   if (field.id === ESIGN_FIELD_ID_SIGNATURE) return true;
@@ -369,7 +365,10 @@ export default function DocuFillCustomer() {
 
   // Initials fields are collected in their own e-sign step, not the interview form
   const initialsFields = (session?.fields ?? []).filter(
-    (f) => (f.type === "initials" || f.id === ESIGN_FIELD_ID_INITIALS) && f.interviewMode !== "omitted",
+    // System __initials__ is always omitted from the interview form but must still trigger
+    // the initials capture step. Legacy name-based initials fields are only included when
+    // not explicitly omitted (preserving existing behaviour for non-e-sign packages).
+    (f) => f.id === ESIGN_FIELD_ID_INITIALS || (f.type === "initials" && f.interviewMode !== "omitted"),
   );
   const hasInitialsStep = initialsFields.length > 0 && session?.auth_level === "email_otp";
   // Consent step only runs when at least one signature field exists in the package
