@@ -241,6 +241,12 @@ function VerifyCell({ token }: { token: string }) {
   const [copied, setCopied] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  }, []);
+
   const verifyUrl = `${window.location.origin}/verify?token=${token}`;
 
   const handleCopy = () => {
@@ -248,7 +254,7 @@ function VerifyCell({ token }: { token: string }) {
       setCopied(true);
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => setCopied(false), 2000);
-    });
+    }).catch(console.error);
   };
 
   return (
