@@ -1035,6 +1035,7 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
             c.name AS custodian_name, d.name AS depository_name, g.name AS group_name,
             a.name AS org_name,
             CASE WHEN a.logo_url IS NOT NULL THEN '/api/storage/org-logo/' || a.id::text ELSE NULL END AS org_logo_url,
+            CASE WHEN a.form_logo_url IS NOT NULL THEN '/api/storage/org-form-logo/' || a.id::text ELSE NULL END AS org_form_logo_url,
             a.brand_color AS org_brand_color,
             a.gdrive_access_token, a.gdrive_refresh_token, a.gdrive_folder_id,
             a.hubspot_access_token, a.hubspot_refresh_token
@@ -1057,11 +1058,21 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
   if (result.auth_level === "email_otp") {
     const fields = Array.isArray(result.fields) ? result.fields as Record<string, unknown>[] : [];
     const presentIds = new Set(fields.map((f) => String(f.id ?? "")));
+    // Determine which system field IDs have at least one placement in the package mappings.
+    // __initials__ is only included when at least one mapping references it — this prevents
+    // the "Add your initials" step from appearing when no initials fields are placed in any doc.
+    const mappedFieldIds = new Set(parseMappings(result.mappings).map((m) => m.fieldId).filter(Boolean));
     const toInject: Record<string, unknown>[] = [];
     if (!presentIds.has("__signature__")) toInject.push({ id: "__signature__", name: "Signature", type: "text", interviewMode: "omitted", source: "esign-system", sensitive: false });
-    if (!presentIds.has("__initials__")) toInject.push({ id: "__initials__", name: "Initials", type: "initials", interviewMode: "omitted", source: "esign-system", sensitive: false });
+    if (!presentIds.has("__initials__") && mappedFieldIds.has("__initials__")) toInject.push({ id: "__initials__", name: "Initials", type: "initials", interviewMode: "omitted", source: "esign-system", sensitive: false });
     if (!presentIds.has("__signer_date__")) toInject.push({ id: "__signer_date__", name: "Signer Date", type: "date", interviewMode: "omitted", source: "esign-system", sensitive: false });
-    if (toInject.length > 0) result.fields = [...toInject, ...fields];
+    let merged = toInject.length > 0 ? [...toInject, ...fields] : fields;
+    // Remove __initials__ if already present in fields but has no placements in this package.
+    // This handles packages saved before this guard was introduced.
+    if (!mappedFieldIds.has("__initials__")) {
+      merged = merged.filter((f) => String(f.id ?? "") !== "__initials__");
+    }
+    result.fields = merged;
   }
   if (isEncryptionEnabled() && result.answers_ciphertext) {
     try {

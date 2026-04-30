@@ -320,6 +320,7 @@ export async function initDb(): Promise<void> {
 
   // ── Account branding columns ─────────────────────────────────────────────────
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS logo_url TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS form_logo_url TEXT`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS brand_color TEXT NOT NULL DEFAULT '#C49A38'`);
 
   // Seat limit — max active team members (default 10; updated when plan changes)

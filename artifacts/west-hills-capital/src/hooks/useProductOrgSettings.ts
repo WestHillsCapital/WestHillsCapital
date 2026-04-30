@@ -8,6 +8,7 @@ export type ProductOrgSettings = {
   name: string;
   slug: string;
   logo_url: string | null;
+  form_logo_url: string | null;
   brand_color: string;
   timezone:    string;
   date_format: string;

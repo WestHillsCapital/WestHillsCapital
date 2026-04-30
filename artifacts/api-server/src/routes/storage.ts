@@ -153,6 +153,47 @@ router.get("/storage/org-logo/:accountId", async (req: Request, res: Response) =
   }
 });
 
+router.get("/storage/org-form-logo/:accountId", async (req: Request, res: Response) => {
+  try {
+    const accountId = parseInt(String(req.params.accountId), 10);
+    if (isNaN(accountId) || accountId <= 0) {
+      res.status(400).json({ error: "Invalid account ID" });
+      return;
+    }
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT form_logo_url FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Account not found" });
+      return;
+    }
+    const formLogoUrl = (rows[0] as Record<string, unknown>).form_logo_url as string | null;
+    if (!formLogoUrl) {
+      res.status(404).json({ error: "No form logo configured" });
+      return;
+    }
+    const objectFile = await objectStorageService.getObjectEntityFile(formLogoUrl);
+    const response = await objectStorageService.downloadObject(objectFile);
+    res.status(response.status);
+    response.headers.forEach((value, key) => res.setHeader(key, value));
+    if (response.body) {
+      const nodeStream = Readable.fromWeb(response.body as ReadableStream<Uint8Array>);
+      nodeStream.pipe(res);
+    } else {
+      res.end();
+    }
+  } catch (err) {
+    if (err instanceof ObjectNotFoundError) {
+      res.status(404).json({ error: "Form logo not found" });
+      return;
+    }
+    logger.error({ err }, "Error serving org form logo");
+    res.status(500).json({ error: "Failed to serve form logo" });
+  }
+});
+
 /**
  * GET /storage/user-avatar/:avatarToken
  *

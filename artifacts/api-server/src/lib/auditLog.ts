@@ -21,6 +21,8 @@ export interface AuditLogMetadataMap {
   "branding.update_color":     { from: string; to: string };
   "branding.upload_logo":      Record<string, never>;
   "branding.remove_logo":      Record<string, never>;
+  "branding.upload_form_logo": Record<string, never>;
+  "branding.remove_form_logo": Record<string, never>;
   "plan.checkout_initiated":   { plan: string };
   "plan.change":               { from_plan: string; to_plan: string; status: string; event_type: string };
   "email_settings.update":     { senderName: string | null; replyTo: string | null; footerLength: number };

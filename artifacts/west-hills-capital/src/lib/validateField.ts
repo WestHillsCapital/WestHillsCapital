@@ -147,6 +147,19 @@ export function validateFieldValue(field: ValidatableField, value: string): stri
       ? null
       : field.validationMessage || `${label} must be a 5-digit ZIP code.`;
   }
+  if (vt === "state") {
+    const US_STATE_CODES = new Set([
+      "AL","AK","AZ","AR","CA","CO","CT","DE","FL","GA",
+      "HI","ID","IL","IN","IA","KS","KY","LA","ME","MD",
+      "MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ",
+      "NM","NY","NC","ND","OH","OK","OR","PA","RI","SC",
+      "SD","TN","TX","UT","VT","VA","WA","WV","WI","WY",
+      "DC","PR","GU","VI","AS","MP",
+    ]);
+    return US_STATE_CODES.has(trimmed.toUpperCase())
+      ? null
+      : field.validationMessage || `${label} must be a 2-letter US state code (e.g. KS, TX).`;
+  }
   if (vt === "zip4") {
     return /^\d{5}-\d{4}$/.test(trimmed.replace(/\s/g, ""))
       ? null
