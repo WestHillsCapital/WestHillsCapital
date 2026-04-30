@@ -1529,6 +1529,7 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pkg_default_customer_link BOOLEAN NOT NULL DEFAULT true`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pkg_default_notify_staff BOOLEAN NOT NULL DEFAULT true`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pkg_default_notify_client BOOLEAN NOT NULL DEFAULT false`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pkg_default_esign BOOLEAN NOT NULL DEFAULT false`);
   // Encrypted JSONB answers column; plaintext `answers` kept as fallback during
   // dual-mode migration period then cleared after all rows are migrated.
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS answers_ciphertext TEXT`);

@@ -188,7 +188,7 @@ router.get("/org", async (req, res) => {
     const { rows } = await db.query(
       `SELECT id, name, slug, logo_url, brand_color, timezone, date_format,
               pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
-              pkg_default_notify_staff, pkg_default_notify_client
+              pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign
          FROM accounts WHERE id = $1`,
       [accountId],
     );
@@ -211,6 +211,7 @@ router.get("/org", async (req, res) => {
         pkg_default_customer_link:  row.pkg_default_customer_link  !== false,
         pkg_default_notify_staff:   row.pkg_default_notify_staff   !== false,
         pkg_default_notify_client:  row.pkg_default_notify_client  === true,
+        pkg_default_esign:          row.pkg_default_esign          === true,
       },
     });
   } catch (err) {
@@ -316,7 +317,7 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     const { rows: existing } = await db.query(
       `SELECT id, name, logo_url, brand_color, timezone, date_format,
               pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
-              pkg_default_notify_staff, pkg_default_notify_client
+              pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign
          FROM accounts WHERE id = $1`,
       [accountId],
     );
@@ -345,18 +346,21 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     const pkgDefaultCustomerLink  = "pkgDefaultCustomerLink" in body ? body.pkgDefaultCustomerLink !== false : (current.pkg_default_customer_link !== false);
     const pkgDefaultNotifyStaff   = "pkgDefaultNotifyStaff"  in body ? body.pkgDefaultNotifyStaff  !== false : (current.pkg_default_notify_staff  !== false);
     const pkgDefaultNotifyClient  = "pkgDefaultNotifyClient" in body ? body.pkgDefaultNotifyClient === true  : (current.pkg_default_notify_client  === true);
+    const pkgDefaultEsign         = "pkgDefaultEsign"        in body ? body.pkgDefaultEsign        === true  : (current.pkg_default_esign         === true);
 
     const { rows } = await db.query(
       `UPDATE accounts
           SET name=$1, logo_url=$2, brand_color=$3,
               pkg_default_interview=$5, pkg_default_csv=$6,
-              pkg_default_customer_link=$7, pkg_default_notify_staff=$8, pkg_default_notify_client=$9
+              pkg_default_customer_link=$7, pkg_default_notify_staff=$8, pkg_default_notify_client=$9,
+              pkg_default_esign=$10
         WHERE id=$4
         RETURNING id, name, slug, logo_url, brand_color, timezone, date_format,
                   pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
-                  pkg_default_notify_staff, pkg_default_notify_client`,
+                  pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign`,
       [name, rawLogoPath, brandColor, accountId,
-       pkgDefaultInterview, pkgDefaultCsv, pkgDefaultCustomerLink, pkgDefaultNotifyStaff, pkgDefaultNotifyClient],
+       pkgDefaultInterview, pkgDefaultCsv, pkgDefaultCustomerLink, pkgDefaultNotifyStaff, pkgDefaultNotifyClient,
+       pkgDefaultEsign],
     );
     const row = rows[0] as Record<string, unknown>;
 
@@ -387,6 +391,7 @@ router.patch("/org", requireAdminRole, async (req, res) => {
         pkg_default_customer_link:  row.pkg_default_customer_link  !== false,
         pkg_default_notify_staff:   row.pkg_default_notify_staff   !== false,
         pkg_default_notify_client:  row.pkg_default_notify_client  === true,
+        pkg_default_esign:          row.pkg_default_esign          === true,
       },
     });
   } catch (err) {
