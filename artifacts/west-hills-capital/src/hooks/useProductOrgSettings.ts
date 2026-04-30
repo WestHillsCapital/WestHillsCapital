@@ -10,6 +10,7 @@ export type ProductOrgSettings = {
   logo_url: string | null;
   form_logo_url: string | null;
   brand_color: string;
+  logo_on_white: boolean;
   timezone:    string;
   date_format: string;
   // Package channel defaults — inherited by newly created packages

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useUser } from "@clerk/react";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { useProductRole } from "@/hooks/useProductRole";
-import { updateProductOrgCache, getCachedProductOrg, type ProductOrgSettings } from "@/hooks/useProductOrgSettings";
+import { useProductOrgSettings, updateProductOrgCache, getCachedProductOrg, type ProductOrgSettings } from "@/hooks/useProductOrgSettings";
 import { formatOrgDate, formatOrgRelative } from "@/lib/orgDateFormat";
 import { BrandColorSection } from "@/components/settings/BrandColorSection";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -127,12 +127,26 @@ function formatDate(iso: string | null): string {
   return formatOrgDate(iso, getCachedProductOrg());
 }
 
+function useBrandColor(): string {
+  const org = useProductOrgSettings();
+  return org?.brand_color ?? "#C49A38";
+}
+
+function getTextForBg(hex: string): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? "#111827" : "#ffffff";
+}
+
 function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
   function authHeaders(contentType?: string): HeadersInit {
     const h = new Headers(getAuthHeaders());
     if (contentType) h.set("Content-Type", contentType);
     return h;
   }
+  const bc = useBrandColor();
 
   const [billing, setBilling] = useState<BillingInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -277,7 +291,8 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     type="button"
                     disabled={isUpgrading}
                     onClick={() => { void handleUpgrade(); }}
-                    className="rounded-lg bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors whitespace-nowrap"
+                    className="rounded-lg px-4 py-1.5 text-sm font-medium text-white transition-colors whitespace-nowrap brand-btn-hover"
+                    style={{ backgroundColor: bc }}
                   >
                     {isUpgrading ? "Opening…" : "Upgrade"}
                   </button>
@@ -363,6 +378,7 @@ function CustomDomainSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () =
     if (contentType) h.set("Content-Type", contentType);
     return h;
   }
+  const bc = useBrandColor();
 
   const [info, setInfo] = useState<CustomDomainInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -516,7 +532,8 @@ function CustomDomainSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () =
                       type="button"
                       disabled={isSaving || !domainDirty}
                       onClick={() => { void handleSave(); }}
-                      className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 transition-colors whitespace-nowrap"
+                      className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors whitespace-nowrap brand-btn-hover"
+                      style={{ backgroundColor: bc }}
                     >
                       {isSaving ? "Saving…" : "Save"}
                     </button>
@@ -629,6 +646,7 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
     if (contentType) h.set("Content-Type", contentType);
     return h;
   }
+  const bc = useBrandColor();
 
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [seatCount, setSeatCount] = useState(0);
@@ -794,7 +812,8 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
               type="button"
               disabled={isInviting}
               onClick={() => { void handleInvite(); }}
-              className="shrink-0 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+              className="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors brand-btn-hover"
+              style={{ backgroundColor: bc }}
             >
               {isInviting ? "Sending…" : "Send invite"}
             </button>
@@ -929,6 +948,7 @@ interface IntegrationsStatus {
 }
 
 function DeveloperSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
+  const bc = useBrandColor();
   const [zapier, setZapier] = useState<{ api_key_count: number; first_key_prefix: string | null } | null>(null);
 
   useEffect(() => {
@@ -958,7 +978,7 @@ function DeveloperSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersIni
           {/* ── SDK & API card ────────────────────────────────────────── */}
           <div className="rounded-xl border border-gray-200 p-5 flex flex-col gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-lg bg-gray-900 flex items-center justify-center shrink-0">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0" style={{ backgroundColor: bc }}>
                 <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" />
                 </svg>
@@ -987,7 +1007,8 @@ function DeveloperSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersIni
               <button
                 type="button"
                 onClick={() => document.getElementById("api-keys-section")?.scrollIntoView({ behavior: "smooth" })}
-                className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
+                className="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors brand-btn-hover"
+                style={{ backgroundColor: bc }}
               >
                 Get API key
               </button>
@@ -1033,7 +1054,8 @@ function DeveloperSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersIni
               <button
                 type="button"
                 onClick={() => document.getElementById("api-keys-section")?.scrollIntoView({ behavior: "smooth" })}
-                className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
+                className="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors brand-btn-hover"
+                style={{ backgroundColor: bc }}
               >
                 {(zapier?.api_key_count ?? 0) === 0 ? "Create API key" : "Manage keys"}
               </button>
@@ -1052,6 +1074,7 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
     if (contentType) h.set("Content-Type", contentType);
     return h;
   }
+  const bc = useBrandColor();
 
   const [status, setStatus] = useState<IntegrationsStatus | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -1447,7 +1470,8 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                       type="button"
                       disabled={gdriveUpdatingFolder || !gdriveFolderInput.trim()}
                       onClick={() => { void handleGdriveUpdateFolder(); }}
-                      className="rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-700 disabled:opacity-40 transition-colors shrink-0"
+                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors shrink-0 brand-btn-hover"
+                      style={{ backgroundColor: bc }}
                     >
                       {gdriveUpdatingFolder ? "Updating…" : "Update"}
                     </button>
@@ -1697,6 +1721,7 @@ function NotificationsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
     if (contentType) h.set("Content-Type", contentType);
     return h;
   }
+  const bc = useBrandColor();
 
   const [prefs, setPrefs] = useState<Map<string, NotifPref>>(new Map());
   const [isLoading, setIsLoading] = useState(true);
@@ -1806,10 +1831,8 @@ function NotificationsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
                           role="switch"
                           aria-checked={pref.email_enabled}
                           onClick={() => handleToggle(event.key, "email_enabled", !pref.email_enabled)}
-                          className={[
-                            "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2",
-                            pref.email_enabled ? "bg-gray-900" : "bg-gray-200",
-                          ].join(" ")}
+                          className="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                          style={{ backgroundColor: pref.email_enabled ? bc : "#e5e7eb" }}
                         >
                           <span
                             className={[
@@ -1825,10 +1848,8 @@ function NotificationsSection({ getAuthHeaders }: { getAuthHeaders: () => Header
                           role="switch"
                           aria-checked={pref.in_app_enabled}
                           onClick={() => handleToggle(event.key, "in_app_enabled", !pref.in_app_enabled)}
-                          className={[
-                            "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-gray-900 focus:ring-offset-2",
-                            pref.in_app_enabled ? "bg-gray-900" : "bg-gray-200",
-                          ].join(" ")}
+                          className="relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2"
+                          style={{ backgroundColor: pref.in_app_enabled ? bc : "#e5e7eb" }}
                         >
                           <span
                             className={[
@@ -2034,6 +2055,7 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
     if (contentType) h.set("Content-Type", contentType);
     return h;
   }
+  const bc = useBrandColor();
   const [keys, setKeys] = useState<ApiKey[]>([]);
   const [isLoadingKeys, setIsLoadingKeys] = useState(true);
   const [keysError, setKeysError] = useState<string | null>(null);
@@ -2224,7 +2246,8 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
             type="button"
             disabled={isCreating}
             onClick={() => { void handleCreate(); }}
-            className="shrink-0 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+            className="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors brand-btn-hover"
+            style={{ backgroundColor: bc }}
           >
             {isCreating ? "Creating…" : "Create"}
           </button>
@@ -2269,7 +2292,8 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                         type="button"
                         disabled={isSavingRename}
                         onClick={() => { void handleRename(key.id); }}
-                        className="shrink-0 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                        className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors brand-btn-hover"
+                        style={{ backgroundColor: bc }}
                       >
                         {isSavingRename ? "Saving…" : "Save"}
                       </button>
@@ -2421,6 +2445,7 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
     if (contentType) h.set("Content-Type", contentType);
     return h;
   }
+  const bc = useBrandColor();
 
   const [linkExpiryDays, setLinkExpiryDays] = useState<number | null>(null);
   const [expiryPreset, setExpiryPreset] = useState<string>("never");
@@ -2669,13 +2694,14 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
                   role="switch"
                   aria-checked={reminderEnabled}
                   onClick={() => setReminderEnabled((v) => !v)}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:ring-offset-1 ${reminderEnabled ? "bg-gray-900" : "bg-gray-200"}`}
+                  className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1"
+                  style={{ backgroundColor: reminderEnabled ? bc : "#e5e7eb" }}
                 >
                   <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${reminderEnabled ? "translate-x-4" : "translate-x-0"}`} />
                 </button>
               )}
               {!isAdmin && (
-                <div className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent opacity-60 ${reminderEnabled ? "bg-gray-900" : "bg-gray-200"}`}>
+                <div className="relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent opacity-60" style={{ backgroundColor: reminderEnabled ? bc : "#e5e7eb" }}>
                   <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${reminderEnabled ? "translate-x-4" : "translate-x-0"}`} />
                 </div>
               )}
@@ -2749,7 +2775,8 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
                 type="button"
                 disabled={isSaving}
                 onClick={() => { void handleSave(); }}
-                className="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                className="rounded-lg px-5 py-2 text-sm font-medium text-white transition-colors brand-btn-hover"
+                style={{ backgroundColor: bc }}
               >
                 {isSaving ? "Saving…" : "Save changes"}
               </button>
@@ -2788,12 +2815,13 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
                     role="switch"
                     aria-checked={value}
                     onClick={() => set(!value)}
-                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:ring-offset-1 ${value ? "bg-gray-900" : "bg-gray-200"}`}
+                    className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1"
+                    style={{ backgroundColor: value ? bc : "#e5e7eb" }}
                   >
                     <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${value ? "translate-x-4" : "translate-x-0"}`} />
                   </button>
                 ) : (
-                  <div className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent opacity-60 ${value ? "bg-gray-900" : "bg-gray-200"}`}>
+                  <div className="relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent opacity-60" style={{ backgroundColor: value ? bc : "#e5e7eb" }}>
                     <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${value ? "translate-x-4" : "translate-x-0"}`} />
                   </div>
                 )}
@@ -2808,7 +2836,8 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
                   type="button"
                   disabled={pkgDefaultsSaving}
                   onClick={() => { void handlePkgDefaultsSave(); }}
-                  className="rounded-lg bg-gray-900 px-5 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                  className="rounded-lg px-5 py-2 text-sm font-medium text-white transition-colors brand-btn-hover"
+                  style={{ backgroundColor: bc }}
                 >
                   {pkgDefaultsSaving ? "Saving…" : "Save defaults"}
                 </button>
@@ -2836,6 +2865,7 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
     if (contentType) h.set("Content-Type", contentType);
     return h;
   }
+  const bc = useBrandColor();
 
   const [senderName, setSenderName] = useState("");
   const [replyTo, setReplyTo] = useState("");
@@ -3025,7 +3055,8 @@ function EmailCustomizationSection({ getAuthHeaders, isAdmin }: { getAuthHeaders
                 type="button"
                 disabled={isSaving}
                 onClick={() => { void handleSave(); }}
-                className="rounded-lg bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                className="rounded-lg px-4 py-1.5 text-sm font-medium text-white transition-colors brand-btn-hover"
+                style={{ backgroundColor: bc }}
               >
                 {isSaving ? "Saving…" : "Save"}
               </button>
@@ -3064,6 +3095,7 @@ function TimezoneLocaleSection({
   getAuthHeaders: () => HeadersInit;
   isAdmin: boolean;
 }) {
+  const bc = useBrandColor();
   const [timezone,   setTimezone]   = useState("America/New_York");
   const [dateFormat, setDateFormat] = useState("MM/DD/YYYY");
   const [tzSearch,   setTzSearch]   = useState("");
@@ -3155,7 +3187,8 @@ function TimezoneLocaleSection({
                 aria-selected={timezone === tz}
                 disabled={!isAdmin}
                 onClick={() => { setTimezone(tz); setDirty(true); setSaveMsg(null); }}
-                className={`w-full text-left px-3 py-1 text-sm transition-colors ${timezone === tz ? "bg-gray-900 text-white font-medium" : "text-gray-800 hover:bg-gray-100"}`}
+                className={`w-full text-left px-3 py-1 text-sm transition-colors ${timezone === tz ? "font-medium" : "text-gray-800 hover:bg-gray-100"}`}
+                style={timezone === tz ? { backgroundColor: bc, color: getTextForBg(bc) } : undefined}
               >
                 {tz.replace(/_/g, " ")}
               </button>
@@ -3202,7 +3235,8 @@ function TimezoneLocaleSection({
             type="button"
             disabled={isSaving || !dirty}
             onClick={() => { void handleSave(); }}
-            className="rounded-lg bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 transition-colors"
+            className="rounded-lg px-4 py-1.5 text-sm font-medium text-white transition-colors brand-btn-hover"
+            style={{ backgroundColor: bc }}
           >
             {isSaving ? "Saving…" : "Save changes"}
           </button>
@@ -3226,6 +3260,7 @@ function DataPrivacySection({
   isAdmin: boolean;
   orgName: string;
 }) {
+  const bc = useBrandColor();
   function authHeaders(contentType?: string): HeadersInit {
     const h = new Headers(getAuthHeaders());
     if (contentType) h.set("Content-Type", contentType);
@@ -3445,7 +3480,8 @@ function DataPrivacySection({
                     type="button"
                     disabled={isSavingRetention}
                     onClick={() => { void handleSaveRetention(); }}
-                    className="rounded-lg bg-gray-900 px-4 py-1.5 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                    className="rounded-lg px-4 py-1.5 text-sm font-medium text-white transition-colors brand-btn-hover"
+                    style={{ backgroundColor: bc }}
                   >
                     {isSavingRetention ? "Saving…" : "Save"}
                   </button>
@@ -3600,6 +3636,7 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
     if (contentType) h.set("Content-Type", contentType);
     return h;
   }
+  const bc = useBrandColor();
 
   const { user } = useUser();
 
@@ -3885,7 +3922,8 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
                   type="button"
                   disabled={setupBusy || setupStep !== "idle"}
                   onClick={() => { void handleStartSetup(); }}
-                  className="shrink-0 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                  className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors brand-btn-hover"
+                  style={{ backgroundColor: bc }}
                 >
                   {setupBusy ? "Loading…" : "Enable 2FA"}
                 </button>
@@ -3910,7 +3948,8 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
                   <button
                     type="button"
                     onClick={() => setSetupStep("verify")}
-                    className="rounded-lg bg-gray-900 px-4 py-1.5 text-xs font-medium text-white hover:bg-gray-800 transition-colors"
+                    className="rounded-lg px-4 py-1.5 text-xs font-medium text-white transition-colors brand-btn-hover"
+                    style={{ backgroundColor: bc }}
                   >
                     Next — Enter code
                   </button>
@@ -3946,7 +3985,8 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
                     type="button"
                     disabled={setupBusy}
                     onClick={() => { void handleVerifyEnable(); }}
-                    className="rounded-lg bg-gray-900 px-4 py-2 text-xs font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+                    className="rounded-lg px-4 py-2 text-xs font-medium text-white transition-colors brand-btn-hover"
+                    style={{ backgroundColor: bc }}
                   >
                     {setupBusy ? "Verifying…" : "Enable 2FA"}
                   </button>
@@ -4156,7 +4196,8 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
                   type="button"
                   disabled={isSettingPassword || !spNew || !spConfirm}
                   onClick={() => { void handleSetPassword(); }}
-                  className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                  className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors brand-btn-hover"
+                  style={{ backgroundColor: bc }}
                 >
                   {isSettingPassword ? "Setting…" : "Set password"}
                 </button>
@@ -4214,7 +4255,8 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
                     type="button"
                     disabled={isSavingPassword || !currentPassword || !newPassword || !confirmPassword}
                     onClick={() => { void handlePasswordChange(); }}
-                    className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-40 transition-colors"
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors brand-btn-hover"
+                    style={{ backgroundColor: bc }}
                   >
                     {isSavingPassword ? "Updating…" : "Update password"}
                   </button>
@@ -4236,6 +4278,7 @@ function ProfileSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
     if (contentType) h.set("Content-Type", contentType);
     return h;
   }
+  const bc = useBrandColor();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -4715,6 +4758,7 @@ export default function AppSettings() {
   const [isDraggingFormLogo, setIsDraggingFormLogo] = useState(false);
   const [formLogoSaved, setFormLogoSaved] = useState(false);
   const formLogoInputRef = useRef<HTMLInputElement>(null);
+  const [logoOnWhite, setLogoOnWhite] = useState(true);
   const formLogoSavedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nameEdited = useRef(false);
@@ -4810,6 +4854,7 @@ export default function AppSettings() {
     setOrg(data);
     setName(data.name);
     setBrandColor(data.brand_color);
+    setLogoOnWhite(data.logo_on_white !== false);
     // Append a timestamp so the browser re-fetches the logo after every upload
     // rather than serving the stale cached version (same URL, new content).
     setDisplayLogoUrl(data.logo_url ? `${API_BASE}${data.logo_url}?t=${Date.now()}` : null);
@@ -5016,6 +5061,22 @@ export default function AppSettings() {
     }
   }
 
+  async function handleLogoOnWhiteToggle(value: boolean) {
+    setLogoOnWhite(value);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/org`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ logoOnWhite: value }),
+      });
+      const data = await res.json() as { org?: ProductOrgSettings; error?: string };
+      if (!res.ok) { setErrorMsg(data.error ?? "Failed to save logo background setting"); return; }
+      if (data.org) applyOrg(data.org);
+    } catch {
+      setErrorMsg("Failed to save logo background setting.");
+    }
+  }
+
   async function handleAutoSaveColor(newColor: string) {
     if (!org) return;
     // Clear the flag immediately so the debounced color effect skips this save
@@ -5074,7 +5135,10 @@ export default function AppSettings() {
                 return (
                   <div key={item.id}>
                     {showHeader && (
-                      <p className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400 first:pt-1">
+                      <p
+                        className="px-3 pt-4 pb-1 text-[10px] font-semibold uppercase tracking-wider first:pt-1"
+                        style={{ color: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38" }}
+                      >
                         {item.group}
                       </p>
                     )}
@@ -5084,9 +5148,13 @@ export default function AppSettings() {
                       className={[
                         "w-full text-left rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
                         activeSection === item.id
-                          ? "bg-gray-900 text-white"
+                          ? ""
                           : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
                       ].join(" ")}
+                      style={activeSection === item.id ? {
+                        backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38",
+                        color: getTextForBg(/^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38"),
+                      } : undefined}
                     >
                       {item.label}
                     </button>
@@ -5118,9 +5186,13 @@ export default function AppSettings() {
                     className={[
                       "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors whitespace-nowrap",
                       activeSection === item.id
-                        ? "bg-gray-900 text-white"
+                        ? ""
                         : "text-gray-500 hover:text-gray-900 hover:bg-gray-100",
                     ].join(" ")}
+                    style={activeSection === item.id ? {
+                      backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38",
+                      color: getTextForBg(/^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38"),
+                    } : undefined}
                   >
                     {item.label}
                   </button>
@@ -5395,6 +5467,37 @@ export default function AppSettings() {
           </div>
         </div>
 
+        {/* Logo background toggle */}
+        <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-start gap-4 border-t border-gray-100">
+          <div className="w-44 shrink-0 pt-0.5">
+            <label className="text-sm font-medium text-gray-900">Logo background</label>
+            <p className="text-xs text-gray-400 mt-0.5">Show logo on a white background in forms</p>
+          </div>
+          <div className="flex-1 flex items-center gap-3">
+            <button
+              type="button"
+              role="switch"
+              aria-checked={logoOnWhite}
+              disabled={!isAdmin}
+              onClick={() => { if (isAdmin) void handleLogoOnWhiteToggle(!logoOnWhite); }}
+              className={[
+                "relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-1 disabled:opacity-50 brand-btn-hover",
+                isAdmin ? "" : "cursor-not-allowed",
+              ].join(" ")}
+              style={{ backgroundColor: logoOnWhite ? (/^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38") : "#D1D5DB" }}
+            >
+              <span
+                aria-hidden="true"
+                className={[
+                  "pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out",
+                  logoOnWhite ? "translate-x-4" : "translate-x-0",
+                ].join(" ")}
+              />
+            </button>
+            <span className="text-sm text-gray-700">{logoOnWhite ? "White background" : "Brand color background"}</span>
+          </div>
+        </div>
+
         {/* Brand color */}
         <div className="px-6 py-5 flex flex-col sm:flex-row sm:items-start gap-4">
           <div className="w-44 shrink-0 pt-0.5">
@@ -5443,16 +5546,24 @@ export default function AppSettings() {
             {/* Form header — matches the actual customer interview header exactly */}
             <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
               <div className="flex items-center gap-3">
-                <div
-                  className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden"
-                  style={{ backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38" }}
-                >
-                  {displayLogoUrl ? (
-                    <img src={displayLogoUrl} alt={name || "Logo"} className="w-full h-full object-contain" />
-                  ) : (
-                    <span className="text-white text-xs font-bold">{(name || "?").charAt(0).toUpperCase()}</span>
-                  )}
-                </div>
+                {(() => {
+                  const previewLogoUrl = displayFormLogoUrl || displayLogoUrl;
+                  const bc = /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38";
+                  const bgColor = previewLogoUrl && logoOnWhite ? "#ffffff" : bc;
+                  const textColor = getTextForBg(bgColor);
+                  return (
+                    <div
+                      className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden"
+                      style={{ backgroundColor: bgColor }}
+                    >
+                      {previewLogoUrl ? (
+                        <img src={previewLogoUrl} alt={name || "Logo"} className="w-full h-full object-contain" />
+                      ) : (
+                        <span className="text-xs font-bold" style={{ color: textColor }}>{(name || "?").charAt(0).toUpperCase()}</span>
+                      )}
+                    </div>
+                  );
+                })()}
                 <div>
                   <div className="text-sm font-semibold text-[#0F1C3F]">{name || "Your company name"}</div>
                   <div className="text-[11px] text-[#6B7A99]">Secure document collection</div>

@@ -4,6 +4,8 @@
 @import '@clerk/themes/shadcn.css';
 
 .cl-formFieldInput::placeholder { color: #9ca3af; opacity: 1; }
+.brand-btn-hover:hover:not(:disabled) { filter: brightness(0.88); }
+.brand-btn-hover:disabled { opacity: 0.6; }
 
 @theme inline {
   --font-sans: 'DM Sans', sans-serif;

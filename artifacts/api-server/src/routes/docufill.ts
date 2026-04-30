@@ -1037,6 +1037,7 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
             CASE WHEN a.logo_url IS NOT NULL THEN '/api/storage/org-logo/' || a.id::text ELSE NULL END AS org_logo_url,
             CASE WHEN a.form_logo_url IS NOT NULL THEN '/api/storage/org-form-logo/' || a.id::text ELSE NULL END AS org_form_logo_url,
             a.brand_color AS org_brand_color,
+            a.logo_on_white AS org_logo_on_white,
             a.gdrive_access_token, a.gdrive_refresh_token, a.gdrive_folder_id,
             a.hubspot_access_token, a.hubspot_refresh_token
        FROM docufill_interview_sessions s

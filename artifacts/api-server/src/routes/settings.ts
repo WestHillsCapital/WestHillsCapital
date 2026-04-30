@@ -190,7 +190,7 @@ router.get("/org", async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT id, name, slug, logo_url, form_logo_url, brand_color, timezone, date_format,
+      `SELECT id, name, slug, logo_url, form_logo_url, brand_color, logo_on_white, timezone, date_format,
               pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
               pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign
          FROM accounts WHERE id = $1`,
@@ -209,6 +209,7 @@ router.get("/org", async (req, res) => {
         logo_url: row.logo_url ? buildLogoServingUrl(accountId) : null,
         form_logo_url: row.form_logo_url ? buildFormLogoServingUrl(accountId) : null,
         brand_color: row.brand_color ?? "#C49A38",
+        logo_on_white: row.logo_on_white !== false,
         timezone:    (row.timezone    as string) || "America/New_York",
         date_format: (row.date_format as string) || "MM/DD/YYYY",
         pkg_default_interview:      row.pkg_default_interview      !== false,
@@ -320,7 +321,7 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     const db = getDb();
 
     const { rows: existing } = await db.query(
-      `SELECT id, name, logo_url, form_logo_url, brand_color, timezone, date_format,
+      `SELECT id, name, logo_url, form_logo_url, brand_color, logo_on_white, timezone, date_format,
               pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
               pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign
          FROM accounts WHERE id = $1`,
@@ -357,20 +358,21 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     const pkgDefaultNotifyStaff   = "pkgDefaultNotifyStaff"  in body ? body.pkgDefaultNotifyStaff  !== false : (current.pkg_default_notify_staff  !== false);
     const pkgDefaultNotifyClient  = "pkgDefaultNotifyClient" in body ? body.pkgDefaultNotifyClient === true  : (current.pkg_default_notify_client  === true);
     const pkgDefaultEsign         = "pkgDefaultEsign"        in body ? body.pkgDefaultEsign        === true  : (current.pkg_default_esign         === true);
+    const logoOnWhite             = "logoOnWhite"             in body ? body.logoOnWhite            !== false : (current.logo_on_white              !== false);
 
     const { rows } = await db.query(
       `UPDATE accounts
           SET name=$1, logo_url=$2, brand_color=$3, form_logo_url=$11,
               pkg_default_interview=$5, pkg_default_csv=$6,
               pkg_default_customer_link=$7, pkg_default_notify_staff=$8, pkg_default_notify_client=$9,
-              pkg_default_esign=$10
+              pkg_default_esign=$10, logo_on_white=$12
         WHERE id=$4
-        RETURNING id, name, slug, logo_url, form_logo_url, brand_color, timezone, date_format,
+        RETURNING id, name, slug, logo_url, form_logo_url, brand_color, logo_on_white, timezone, date_format,
                   pkg_default_interview, pkg_default_csv, pkg_default_customer_link,
                   pkg_default_notify_staff, pkg_default_notify_client, pkg_default_esign`,
       [name, rawLogoPath, brandColor, accountId,
        pkgDefaultInterview, pkgDefaultCsv, pkgDefaultCustomerLink, pkgDefaultNotifyStaff, pkgDefaultNotifyClient,
-       pkgDefaultEsign, rawFormLogoPath],
+       pkgDefaultEsign, rawFormLogoPath, logoOnWhite],
     );
     const row = rows[0] as Record<string, unknown>;
 
@@ -398,6 +400,7 @@ router.patch("/org", requireAdminRole, async (req, res) => {
         logo_url: row.logo_url ? buildLogoServingUrl(accountId) : null,
         form_logo_url: row.form_logo_url ? buildFormLogoServingUrl(accountId) : null,
         brand_color: row.brand_color ?? "#C49A38",
+        logo_on_white: row.logo_on_white !== false,
         timezone:    (row.timezone    as string) || "America/New_York",
         date_format: (row.date_format as string) || "MM/DD/YYYY",
         pkg_default_interview:      row.pkg_default_interview      !== false,
