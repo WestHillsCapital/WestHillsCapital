@@ -176,6 +176,38 @@ function formatCountdown(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+/** Returns a foreground color (dark or white) that stays readable on any brand background hex. */
+function getBrandTextColor(hex: string): string {
+  try {
+    const h = hex.replace("#", "");
+    const r = parseInt(h.slice(0, 2), 16) / 255;
+    const g = parseInt(h.slice(2, 4), 16) / 255;
+    const b = parseInt(h.slice(4, 6), 16) / 255;
+    return 0.299 * r + 0.587 * g + 0.114 * b > 0.6 ? "#0F1C3F" : "#ffffff";
+  } catch { return "#ffffff"; }
+}
+
+/** True if the field represents the signer's hand-written/typed signature. */
+function isEsignSignatureField(field: FieldItem): boolean {
+  const n = field.name.toLowerCase().trim();
+  return n === "signature" || n.startsWith("signature ") || n.endsWith(" signature") || n.includes("signatur");
+}
+
+/** True if the field represents the date the document was signed. */
+function isEsignDateField(field: FieldItem): boolean {
+  const n = field.name.toLowerCase().trim();
+  return (
+    n === "signer date" || n === "date signed" || n === "signing date" || n === "signature date" ||
+    ((n.includes("signer") || n.includes("signed") || n.includes("signing") || n.includes("signature")) && n.includes("date"))
+  );
+}
+
+/** Today's date formatted as MM/DD/YYYY (matches the standard Docuplete date format). */
+function todayFormatted(): string {
+  const d = new Date();
+  return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
+}
+
 export default function DocuFillCustomer() {
   const params = useParams<{ token: string }>();
   const token = params.token ?? "";
@@ -248,7 +280,14 @@ export default function DocuFillCustomer() {
           return;
         }
         setSession(s);
-        setAnswers(s.answers ?? {});
+        // Auto-populate signer-date fields with today's date if not already answered
+        const initialAnswers: Record<string, string> = { ...(s.answers ?? {}) };
+        (s.fields ?? []).forEach((f) => {
+          if (isEsignDateField(f) && !initialAnswers[f.id]) {
+            initialAnswers[f.id] = todayFormatted();
+          }
+        });
+        setAnswers(initialAnswers);
         setPageStatus("ready");
       })
       .catch(() => setPageStatus("error"));
@@ -301,6 +340,8 @@ export default function DocuFillCustomer() {
     (f) =>
       f.interviewMode !== "omitted" &&
       !(hasInitialsStep && f.type === "initials") &&
+      // Signature fields are collected in the e-sign consent step — hide from interview
+      !(session?.auth_level === "email_otp" && isEsignSignatureField(f)) &&
       evaluateCondition(f.condition, answers),
   );
 
@@ -310,6 +351,7 @@ export default function DocuFillCustomer() {
     const missing: string[] = [];
     for (const f of visibleFields) {
       if (f.interviewMode === "readonly") continue;
+      if (isEsignDateField(f)) continue; // auto-filled — skip required check
       const val = currentValue(f, answers, session.prefill);
       const error = validateFieldValue(f, val);
       if (error) {
@@ -322,10 +364,11 @@ export default function DocuFillCustomer() {
     return Object.keys(newErrors).length === 0;
   }
 
-  async function handleRequestOtp() {
-    const email = signerEmail.trim();
+  async function handleRequestOtp(emailOverride?: string) {
+    const email = (emailOverride !== undefined ? emailOverride : signerEmail).trim();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setOtpError("Please enter a valid email address.");
+      if (!emailOverride) setEsignStep("email"); // fall back to email entry if auto-send failed
       return;
     }
     setOtpLoading(true);
@@ -339,6 +382,7 @@ export default function DocuFillCustomer() {
       const data = await res.json();
       if (!res.ok) {
         setOtpError(data.error ?? "Could not send verification code. Please try again.");
+        setEsignStep("email"); // let them correct the email on failure
         return;
       }
       if (data.expiresAt)    setOtpExpiresAt(new Date(data.expiresAt as string));
@@ -347,6 +391,7 @@ export default function DocuFillCustomer() {
       setEsignStep("code");
     } catch {
       setOtpError("A network error occurred. Please try again.");
+      setEsignStep("email");
     } finally {
       setOtpLoading(false);
     }
@@ -403,16 +448,40 @@ export default function DocuFillCustomer() {
     }
     // If email OTP required and identity not yet verified, start the esign flow
     if (session?.auth_level === "email_otp" && !identityToken) {
-      setEsignStep("email");
+      // Look for an email the user already entered in the interview form
+      const emailField = session.fields.find(
+        (f) => f.validationType === "email" || f.name.toLowerCase().includes("email"),
+      );
+      const foundEmail =
+        (emailField ? (answers[emailField.id] ?? "").trim() : "") ||
+        Object.entries(session.prefill ?? {}).find(([k]) => k.toLowerCase().includes("email"))?.[1]?.trim() ||
+        "";
+      if (foundEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(foundEmail)) {
+        // Skip the email-entry screen — send the OTP automatically
+        setSignerEmail(foundEmail);
+        setEsignStep("code"); // show code-entry step (briefly loading)
+        void handleRequestOtp(foundEmail);
+      } else {
+        setEsignStep("email");
+      }
       return;
     }
     setPageStatus("submitting");
     setErrorMsg("");
     try {
+      // Auto-populate signature and date fields from the e-sign flow before final submit
+      const finalAnswers = { ...answers };
+      (session?.fields ?? []).forEach((f) => {
+        if (isEsignSignatureField(f) && signerName.trim()) {
+          finalAnswers[f.id] = signerName.trim();
+        } else if (isEsignDateField(f) && !finalAnswers[f.id]) {
+          finalAnswers[f.id] = todayFormatted();
+        }
+      });
       await fetch(`${SESSION_BASE}/${token}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ answers }),
+        body: JSON.stringify({ answers: finalAnswers }),
       });
       const genBody: Record<string, unknown> = {};
       if (identityToken) genBody.esignToken = identityToken;
@@ -514,6 +583,7 @@ export default function DocuFillCustomer() {
   }
 
   const brandColor = session!.org_brand_color ?? "#C49A38";
+  const brandTextColor = getBrandTextColor(brandColor);
   const requiredCount = visibleFields.filter((f) => fieldIsRequired(f) && f.interviewMode !== "readonly").length;
   const answeredCount = visibleFields.filter((f) => fieldIsRequired(f) && f.interviewMode !== "readonly" && currentValue(f, answers, session!.prefill).trim()).length;
   const hasErrors = Object.keys(fieldErrors).length > 0;
@@ -621,9 +691,14 @@ export default function DocuFillCustomer() {
           {esignStep === "code" && (
             <div className="bg-white rounded-xl border border-[#DDD5C4] p-6 space-y-4">
               <div>
-                <h2 className="text-lg font-semibold text-[#0F1C3F]">Enter your code</h2>
+                <h2 className="text-lg font-semibold text-[#0F1C3F]">
+                  {otpLoading && !otpExpiresAt ? "Sending code…" : "Enter your code"}
+                </h2>
                 <p className="text-sm text-[#6B7A99] mt-1">
-                  We sent a 6-digit code to <strong className="text-[#0F1C3F]">{signerEmail}</strong>.
+                  {otpLoading && !otpExpiresAt
+                    ? <>Sending a 6-digit code to <strong className="text-[#0F1C3F]">{signerEmail}</strong>…</>
+                    : <>We sent a 6-digit code to <strong className="text-[#0F1C3F]">{signerEmail}</strong>.</>
+                  }
                 </p>
               </div>
               <div className="space-y-2">
@@ -1159,7 +1234,7 @@ export default function DocuFillCustomer() {
           <Button
             onClick={handleSubmit}
             disabled={pageStatus === "submitting" || hasErrors || missingRequiredCount > 0}
-            style={{ backgroundColor: brandColor }}
+            style={{ backgroundColor: brandColor, color: brandTextColor }}
             className="w-full disabled:opacity-60 py-3 hover:opacity-90"
           >
             {pageStatus === "submitting"
