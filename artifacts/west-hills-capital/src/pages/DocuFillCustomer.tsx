@@ -534,7 +534,7 @@ export default function DocuFillCustomer() {
               const initial = orgName.charAt(0).toUpperCase();
               return (
                 <>
-                  <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden" style={{ backgroundColor: bColor }}>
+                  <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden" style={{ backgroundColor: logoSrc ? "#ffffff" : bColor }}>
                     {logoSrc ? <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" /> : <span className="text-white text-xs font-bold">{initial}</span>}
                   </div>
                   <div>
@@ -927,7 +927,7 @@ export default function DocuFillCustomer() {
               <>
                 <div
                   className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden"
-                  style={{ backgroundColor: brandColor }}
+                  style={{ backgroundColor: logoSrc ? "#ffffff" : brandColor }}
                 >
                   {logoSrc ? (
                     <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" />

@@ -3342,20 +3342,17 @@ export default function DocuFill() {
                 {builderStep === "documents" && (
                   <div className="space-y-4">
                     <div className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-                      <div className="max-w-xl">
-                        <LabeledInput
-                          label="Package name"
-                          value={selectedPackage.name}
-                          onChange={(value) => updateSelectedPackage((pkg) => ({ ...pkg, name: value }))}
-                        />
-                        <p className="mt-2 text-xs text-[#8A9BB8]">This is the reusable package name staff will choose later when launching a customer interview.</p>
-                      </div>
+                      <LabeledInput
+                        label="Package name"
+                        value={selectedPackage.name}
+                        onChange={(value) => updateSelectedPackage((pkg) => ({ ...pkg, name: value }))}
+                      />
+                      <p className="mt-2 text-xs text-[#8A9BB8]">This is the reusable package name staff will choose later when launching a customer interview.</p>
                     </div>
                     <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
                       <summary className="cursor-pointer text-sm font-semibold">Optional settings and notes</summary>
                       <p className="mt-1 text-xs text-[#8A9BB8]">Set status, assign optional groupings, and add any notes that staff should see before starting an interview.</p>
-                      <div className="mt-4 max-w-2xl">
-                      <div className="grid grid-cols-2 gap-4 items-start">
+                      <div className="mt-4">
                         <label className="block text-sm">
                           <span className="block text-xs text-[#6B7A99] mb-1">Status</span>
                           <select value={selectedPackage.status} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, status: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
@@ -3364,7 +3361,7 @@ export default function DocuFill() {
                             <option value="inactive">Inactive</option>
                           </select>
                         </label>
-                        <div>
+                      </div>
                       {/* One dropdown per distinct group category */}
                       {(() => {
                         const activeGroups = groups.filter((g) => g.active !== false);
@@ -3459,8 +3456,6 @@ export default function DocuFill() {
                           })}
                         </>);
                       })()}
-                        </div>
-                      </div>
                       <div className="mt-4 text-sm">
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-xs text-[#6B7A99]">Type <span className="text-[#8A9BB8] font-normal">(optional)</span></span>
@@ -3585,7 +3580,6 @@ export default function DocuFill() {
                           tags={selectedPackage.tags ?? []}
                           onChange={(tags) => updateSelectedPackage((pkg) => ({ ...pkg, tags }))}
                         />
-                      </div>
                       </div>
                     </details>
                     <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
