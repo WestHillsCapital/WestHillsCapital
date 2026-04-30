@@ -3892,6 +3892,8 @@ router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) =>
     const orgName       = typeof session.org_name === "string" && session.org_name ? session.org_name : "Docuplete";
 
     const emailSettings = await getOrgEmailSettings(acctId(req));
+    // Use "document" mode when the session is already generated (e.g. CSV batch pre-built PDF)
+    const emailMode = (session.status === "generated" || session.source === "csv_batch") ? "document" : "interview";
     await sendInterviewLinkEmail({
       recipientEmail,
       recipientName,
@@ -3901,6 +3903,7 @@ router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) =>
       orgBrandColor,
       customMessage: typeof body.customMessage === "string" ? body.customMessage.trim() || null : null,
       emailSettings,
+      mode: emailMode,
     });
 
     await db.query(
