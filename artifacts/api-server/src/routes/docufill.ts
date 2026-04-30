@@ -3817,6 +3817,90 @@ router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) =>
   }
 });
 
+router.post("/batch/send-links", requireMemberRole, async (req, res) => {
+  try {
+    const body = req.body as {
+      invitations?: Array<{ token: string; recipientEmail: string; recipientName?: string }>;
+      customMessage?: string;
+    };
+    if (!Array.isArray(body.invitations) || body.invitations.length === 0) {
+      res.status(400).json({ error: "invitations array is required" });
+      return;
+    }
+    const db = getDb();
+    const aId = acctId(req);
+
+    const appOrigin = process.env.APP_ORIGIN
+      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://docuplete.com");
+    let interviewOrigin = appOrigin;
+    try {
+      const dr = await db.query<{ custom_domain: string | null; custom_domain_status: string }>(
+        `SELECT custom_domain, custom_domain_status FROM accounts WHERE id = $1`, [aId],
+      );
+      const r = dr.rows[0];
+      if (r?.custom_domain && r.custom_domain_status === "active") {
+        interviewOrigin = `https://${r.custom_domain}`;
+      }
+    } catch { /* non-fatal */ }
+
+    const orgRow = await db.query<{ name: string; logo_on_white: string | null; brand_color: string | null }>(
+      `SELECT name, logo_on_white, brand_color FROM accounts WHERE id = $1`, [aId],
+    );
+    const orgName       = orgRow.rows[0]?.name ?? "Docuplete";
+    const rawLogo       = orgRow.rows[0]?.logo_on_white ?? null;
+    const orgLogoUrl    = rawLogo ? `${interviewOrigin}${rawLogo}` : null;
+    const orgBrandColor = orgRow.rows[0]?.brand_color ?? null;
+    const emailSettings = await getOrgEmailSettings(aId);
+    const customMessage = typeof body.customMessage === "string" ? body.customMessage.trim() || null : null;
+
+    const tokens = body.invitations.map((inv) => inv.token);
+    const validRes = await db.query<{ token: string }>(
+      `SELECT token FROM docufill_interview_sessions WHERE token = ANY($1) AND account_id = $2`,
+      [tokens, aId],
+    );
+    const validTokenSet = new Set(validRes.rows.map((r) => r.token));
+
+    type InviteResult = { token: string; status: "sent" | "error"; sentTo?: string; error?: string };
+    const results: InviteResult[] = [];
+    for (const inv of body.invitations) {
+      if (!validTokenSet.has(inv.token)) {
+        results.push({ token: inv.token, status: "error", error: "Session not found" });
+        continue;
+      }
+      if (!inv.recipientEmail) {
+        results.push({ token: inv.token, status: "error", error: "No email address" });
+        continue;
+      }
+      try {
+        const interviewUrl = `${interviewOrigin}/docufill/public/${inv.token}`;
+        await sendInterviewLinkEmail({
+          recipientEmail: inv.recipientEmail,
+          recipientName:  inv.recipientName ?? "",
+          interviewUrl,
+          orgName,
+          orgLogoUrl,
+          orgBrandColor,
+          customMessage,
+          emailSettings,
+        });
+        await db.query(
+          `UPDATE docufill_interview_sessions
+              SET link_emailed_at=NOW(), link_email_recipient=$1, updated_at=NOW()
+            WHERE token=$2`,
+          [inv.recipientEmail, inv.token],
+        );
+        results.push({ token: inv.token, status: "sent", sentTo: inv.recipientEmail });
+      } catch (err) {
+        results.push({ token: inv.token, status: "error", error: err instanceof Error ? err.message : "Failed to send" });
+      }
+    }
+    res.json({ results });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to send batch interview links");
+    res.status(500).json({ error: "Failed to send batch invitations" });
+  }
+});
+
 router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => {
   try {
     const db = getDb();

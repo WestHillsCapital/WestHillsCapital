@@ -1210,6 +1210,10 @@ export default function DocuFill() {
     try { localStorage.setItem("csvColumnsExpanded", csvColumnsExpanded ? "true" : "false"); } catch { /* ignore */ }
   }, [csvColumnsExpanded]);
   const [csvEditingCell, setCsvEditingCell] = useState<{ rowIdx: number; header: string } | null>(null);
+  const [csvInviteOpen, setCsvInviteOpen] = useState(false);
+  const [csvInviteMessage, setCsvInviteMessage] = useState("");
+  const [csvInviteSending, setCsvInviteSending] = useState(false);
+  const [csvInviteResults, setCsvInviteResults] = useState<Record<string, { status: "sent" | "error"; sentTo?: string; error?: string }>>({});
 
   useEffect(() => {
     setCsvBreakdownHighlightedField(null);
@@ -3229,6 +3233,8 @@ export default function DocuFill() {
     if (!pkgId || csvBatchRows.length === 0) return;
     setCsvBatchIsImporting(true);
     setCsvBatchError(null);
+    setCsvInviteOpen(false);
+    setCsvInviteResults({});
     setCsvBatchResults(csvBatchRows.map((_, i) => ({ rowIndex: i, token: null, status: "processing" as const })));
     try {
       const res = await fetch(`${API_BASE}${docufillApiPath}/csv-batch`, {
@@ -6403,21 +6409,125 @@ export default function DocuFill() {
                   </tbody>
                 </table>
               </div>
-              {!csvBatchIsImporting && (
-                <div className="mt-3 flex justify-end">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      const dateStr = new Date().toISOString().slice(0, 10);
-                      downloadCsv(batchResultsToCsv(csvBatchResults, API_BASE, csvBatchHeaders, csvBatchRows), `docufill-batch-results-${dateStr}.csv`);
-                    }}
-                    className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
-                  >
-                    Download Results CSV
-                  </Button>
-                </div>
-              )}
+              {!csvBatchIsImporting && (() => {
+                const generatedResults = csvBatchResults!.filter((r) => r.status === "generated" && r.token);
+                const csvEmailHeader = csvBatchHeaders.find((h) => {
+                  const f = csvBatchFieldMap.get(h.toLowerCase().trim());
+                  return f && (f.validationType === "email" || h.toLowerCase().trim() === "email");
+                });
+                const csvNameHeader = csvBatchHeaders.find((h) => {
+                  const f = csvBatchFieldMap.get(h.toLowerCase().trim());
+                  return f && (f.validationType === "name" || h.toLowerCase().trim() === "name" || h.toLowerCase().trim().includes("full name"));
+                });
+                const inviteableRows = csvEmailHeader
+                  ? generatedResults.filter((r) => (csvBatchRows[r.rowIndex]?.[csvEmailHeader!] ?? "").trim() !== "")
+                  : [];
+                const sentCount = Object.values(csvInviteResults).filter((r) => r.status === "sent").length;
+                const errCount  = Object.values(csvInviteResults).filter((r) => r.status === "error").length;
+
+                return (
+                  <>
+                    {generatedResults.length > 0 && (
+                      <div className="mt-4 border border-[#DDD5C4] rounded bg-[#F8F6F0]">
+                        <button
+                          type="button"
+                          className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-[#0F1C3F] hover:bg-[#EFE8D8] rounded"
+                          onClick={() => setCsvInviteOpen((v) => !v)}
+                        >
+                          <span>📨 Send interview invitations</span>
+                          <span className="text-[#6B7A99] text-xs">
+                            {Object.keys(csvInviteResults).length > 0
+                              ? `${sentCount} sent · ${errCount} failed`
+                              : csvEmailHeader
+                                ? `${inviteableRows.length} of ${generatedResults.length} rows have an email`
+                                : "No email column detected"
+                            }
+                          </span>
+                        </button>
+                        {csvInviteOpen && (
+                          <div className="border-t border-[#DDD5C4] px-4 py-3 space-y-3">
+                            {!csvEmailHeader ? (
+                              <p className="text-xs text-[#6B7A99]">No email field found in this CSV. Make sure your package has a field with email validation and that column is present in the uploaded file.</p>
+                            ) : (
+                              <>
+                                <p className="text-xs text-[#6B7A99]">
+                                  Each client will receive their personal interview link at the address in the <span className="font-mono text-[#0F1C3F]">{csvEmailHeader}</span> column.
+                                  {csvNameHeader && <> Their name will be taken from <span className="font-mono text-[#0F1C3F]">{csvNameHeader}</span>.</>}
+                                </p>
+                                <div>
+                                  <label className="block text-xs font-medium text-[#6B7A99] mb-1">Custom message (optional)</label>
+                                  <textarea
+                                    rows={2}
+                                    className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-xs bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#C49A38]"
+                                    placeholder="Add a personal note to include in the email…"
+                                    value={csvInviteMessage}
+                                    onChange={(e) => setCsvInviteMessage(e.target.value)}
+                                    disabled={csvInviteSending}
+                                  />
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <Button
+                                    size="sm"
+                                    disabled={csvInviteSending || inviteableRows.length === 0}
+                                    onClick={async () => {
+                                      if (!csvEmailHeader) return;
+                                      setCsvInviteSending(true);
+                                      const invitations = inviteableRows.map((r) => ({
+                                        token: r.token!,
+                                        recipientEmail: (csvBatchRows[r.rowIndex]?.[csvEmailHeader!] ?? "").trim(),
+                                        recipientName: csvNameHeader ? (csvBatchRows[r.rowIndex]?.[csvNameHeader] ?? "").trim() : "",
+                                      }));
+                                      try {
+                                        const res = await fetch(`${API_BASE}${docufillApiPath}/batch/send-links`, {
+                                          method: "POST",
+                                          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+                                          body: JSON.stringify({ invitations, customMessage: csvInviteMessage || null }),
+                                        });
+                                        const data = await res.json();
+                                        if (!res.ok) throw new Error(data.error ?? "Failed to send invitations");
+                                        const resultMap: typeof csvInviteResults = {};
+                                        for (const r of (data.results as Array<{ token: string; status: "sent" | "error"; sentTo?: string; error?: string }>)) {
+                                          resultMap[r.token] = { status: r.status, sentTo: r.sentTo, error: r.error };
+                                        }
+                                        setCsvInviteResults(resultMap);
+                                      } catch (err) {
+                                        console.error("[Batch invite]", err);
+                                      } finally {
+                                        setCsvInviteSending(false);
+                                      }
+                                    }}
+                                    className="bg-[#0F1C3F] text-white hover:bg-[#1a2f5e]"
+                                  >
+                                    {csvInviteSending
+                                      ? "Sending…"
+                                      : `Send ${inviteableRows.length} invitation${inviteableRows.length === 1 ? "" : "s"}`
+                                    }
+                                  </Button>
+                                  {sentCount > 0 && <span className="text-xs text-green-700">{sentCount} sent</span>}
+                                  {errCount  > 0 && <span className="text-xs text-red-600">{errCount} failed</span>}
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="mt-3 flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const dateStr = new Date().toISOString().slice(0, 10);
+                          downloadCsv(batchResultsToCsv(csvBatchResults, API_BASE, csvBatchHeaders, csvBatchRows), `docufill-batch-results-${dateStr}.csv`);
+                        }}
+                        className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
+                      >
+                        Download Results CSV
+                      </Button>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           )}
         </section>
