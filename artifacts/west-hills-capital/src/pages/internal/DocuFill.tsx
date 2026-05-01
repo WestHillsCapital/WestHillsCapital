@@ -7729,7 +7729,7 @@ function EntityPanel({
         </button>
       </div>
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
-      <div className="space-y-2 max-h-64 overflow-y-auto text-sm">
+      <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto text-sm">
         {items.map((item) => (
           <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
             <Input value={item.name} onChange={(e) => onChange(item.id, { name: e.target.value })} className="h-8 text-xs bg-white" />
