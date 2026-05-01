@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/docuplete/"
+title = "Docuplete — Marketing Site"
+version = "1.0.0"
+id = "artifacts/docuplete"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/docuplete/" ]
+localPort = 19648
+
+[services.development]
+run = "pnpm --filter @workspace/docuplete run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/docuplete", "run", "build" ]
+publicDir = "artifacts/docuplete/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19648"
+BASE_PATH = "/docuplete/"
