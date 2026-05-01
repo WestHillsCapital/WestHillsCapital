@@ -3363,20 +3363,22 @@ export default function DocuFill() {
     <div className="max-w-screen-2xl mx-auto px-4 py-6 text-[#0F1C3F]">
       <div className="flex flex-wrap items-start gap-3 mb-5">
         {isPublicSession && <p className="text-sm text-[#6B7A99]">Complete your secure paperwork interview.</p>}
-        {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
+        {!isPublicSession && <div className="flex items-stretch">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={() => goBuilderStep(builderStep)} className={`px-3 py-2 text-sm ${tab === "packages" || tab === "mapper" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
+              <button onClick={() => goBuilderStep(builderStep)} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "packages" || tab === "mapper" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
             </TooltipTrigger>
             <TooltipContent side="bottom">A Package bundles multiple PDF forms into one guided interview session. Configure documents, fields, and automation here.</TooltipContent>
           </Tooltip>
+          <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={() => setTab("interview")} className={`px-3 py-2 text-sm ${tab === "interview" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Interviews</button>
+              <button onClick={() => setTab("interview")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "interview" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Interviews</button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Launch a single interview session for one package at a time — staff-guided or via a customer self-service link.</TooltipContent>
           </Tooltip>
-          <button onClick={() => setTab("csv")} className={`px-3 py-2 text-sm ${tab === "csv" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch CSV</button>
+          <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
+          <button onClick={() => setTab("csv")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "csv" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch CSV</button>
         </div>}
       </div>
       {planLimitError && (
