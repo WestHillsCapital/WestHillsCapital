@@ -303,8 +303,8 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     onChange={(e) => setSelectedPlan(e.target.value as "starter" | "pro" | "enterprise")}
                     className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20"
                   >
-                    <option value="starter">Starter — 2 seats · 100 subs/mo</option>
-                    <option value="pro">Pro — 10 seats · 500 subs/mo</option>
+                    <option value="starter">Starter — 2 seats · 50 subs/seat ($49/mo)</option>
+                    <option value="pro">Pro — 10 seats · 50 subs/seat ($249/mo)</option>
                     <option value="enterprise">Enterprise — 25 seats · Unlimited subs</option>
                   </select>
                   <button
@@ -347,8 +347,8 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                   <tbody className="divide-y divide-gray-100">
                     <tr>
                       <td className="px-4 py-2.5 text-gray-700">Price / mo</td>
-                      <td className="px-4 py-2.5 text-center text-gray-600">$5</td>
-                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">$100</td>
+                      <td className="px-4 py-2.5 text-center text-gray-600">$49</td>
+                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">$249</td>
                       <td className="px-4 py-2.5 text-center text-amber-700 font-medium">$3,000</td>
                     </tr>
                     <tr className="bg-gray-50/50">
@@ -359,8 +359,8 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     </tr>
                     <tr>
                       <td className="px-4 py-2.5 text-gray-700">Submissions / mo</td>
-                      <td className="px-4 py-2.5 text-center text-gray-600">100</td>
-                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">500</td>
+                      <td className="px-4 py-2.5 text-center text-gray-600">50 / seat</td>
+                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">50 / seat</td>
                       <td className="px-4 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
                     </tr>
                     <tr className="bg-gray-50/50">

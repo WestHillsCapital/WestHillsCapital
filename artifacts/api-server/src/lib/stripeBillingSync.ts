@@ -107,9 +107,7 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
     const planTier   = resolveSubscriptionPlanTier(sub.status, metadataTier);
     const limits     = getPlanLimits(planTier);
     const extraSeats = resolveExtraSeats(sub.items);
-    const seatLimit  = limits.maxSeats === 999
-      ? 999
-      : limits.maxSeats + extraSeats;
+    const seatLimit  = limits.maxSeats + extraSeats;
 
     const periodStart = sub.current_period_start
       ? new Date(sub.current_period_start * 1000)

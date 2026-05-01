@@ -10,7 +10,7 @@ import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
 import { requirePlanFeature } from "../middleware/requirePlanFeature";
 import { brandColorRateLimit } from "../middleware/brandColorRateLimit";
 import { sendTeamInvitationEmail, sendDataExportEmail, sendEmailVerificationEmail } from "../lib/email";
-import { getPlanLimits } from "../lib/plans";
+import { getPlanLimits, getEffectiveSubmissionLimit } from "../lib/plans";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { isIpAllowed } from "../lib/cidr";
 import express from "express";
@@ -1188,6 +1188,7 @@ router.get("/billing", async (req, res) => {
     const pkgCount  = parseInt(pkgResult.rows[0]?.count ?? "0", 10);
     const subCount  = parseInt(usageResult.rows[0]?.count ?? "0", 10);
     const seatCount = parseInt(seatResult.rows[0]?.count ?? "0", 10);
+    const effectiveSubLimit = getEffectiveSubmissionLimit(acct.plan_tier, acct.seat_limit);
 
     // Try to pull next renewal date from the stripe.subscriptions table if synced
     let nextRenewalAt: string | null = null;
@@ -1215,8 +1216,8 @@ router.get("/billing", async (req, res) => {
         has_stripe_subscription: !!acct.stripe_subscription_id,
         limits: {
           max_packages:              limits.maxPackages,
-          max_submissions_per_month: limits.maxSubmissionsPerMonth,
-          max_seats:                 limits.maxSeats,
+          max_submissions_per_month: effectiveSubLimit,
+          max_seats:                 acct.seat_limit,
         },
         usage: {
           packages:    pkgCount,
