@@ -3836,7 +3836,7 @@ export default function DocuFill() {
                     <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
                       <summary className="cursor-pointer text-sm font-semibold">Advanced lists and reusable fields</summary>
                       <p className="mt-1 text-xs text-[#8A9BB8]">Manage groups, types, and the shared field library.</p>
-                      <div className="mt-4 grid md:grid-cols-2 gap-4">
+                      <div className="mt-4 space-y-4">
                         <EntityPanel
                           title="Groups"
                           items={groups}
@@ -7729,7 +7729,7 @@ function EntityPanel({
         </button>
       </div>
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
-      <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto text-sm">
+      <div className="grid md:grid-cols-2 gap-2 text-sm">
         {items.map((item) => (
           <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
             <Input value={item.name} onChange={(e) => onChange(item.id, { name: e.target.value })} className="h-8 text-xs bg-white" />
