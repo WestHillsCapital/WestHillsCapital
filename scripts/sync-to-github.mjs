@@ -23,6 +23,7 @@ const WATCH_DIRS = [
 ];
 
 const WATCH_ROOT_FILES = [
+  "artifacts/west-hills-capital/index.html",
   "artifacts/west-hills-capital/package.json",
   "artifacts/west-hills-capital/vitest.config.ts",
   "artifacts/west-hills-capital/vite.config.ts",
