@@ -3,6 +3,7 @@ export type PlanTier = "starter" | "pro" | "enterprise";
 export interface PlanLimits {
   maxPackages:            number | null;
   maxSubmissionsPerMonth: number | null;
+  submissionsPerSeat:     number | null;
   maxSeats:               number;
 }
 
@@ -23,16 +24,19 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
   starter: {
     maxPackages:            5,
     maxSubmissionsPerMonth: 100,
+    submissionsPerSeat:     50,
     maxSeats:               2,
   },
   pro: {
     maxPackages:            null,
     maxSubmissionsPerMonth: 500,
+    submissionsPerSeat:     50,
     maxSeats:               10,
   },
   enterprise: {
     maxPackages:            null,
     maxSubmissionsPerMonth: null,
+    submissionsPerSeat:     null,
     maxSeats:               25,
   },
 };
@@ -88,6 +92,17 @@ function normalizeTier(tier: string): PlanTier {
 
 export function getPlanLimits(tier: string): PlanLimits {
   return PLAN_LIMITS[normalizeTier(tier)];
+}
+
+/**
+ * Returns the effective monthly submission limit for an account, factoring
+ * in the actual number of seats (base plan seats + any purchased extra seats).
+ * Returns null for Enterprise (unlimited).
+ */
+export function getEffectiveSubmissionLimit(tier: string, actualSeatLimit: number): number | null {
+  const limits = getPlanLimits(tier);
+  if (limits.submissionsPerSeat === null) return null;
+  return actualSeatLimit * limits.submissionsPerSeat;
 }
 
 export function getPlanFeatures(tier: string): PlanFeatures {

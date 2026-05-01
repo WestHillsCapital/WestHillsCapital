@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from "express";
 import { getDb } from "../db";
-import { getPlanLimits } from "../lib/plans";
+import { getPlanLimits, getEffectiveSubmissionLimit } from "../lib/plans";
 import { logger } from "../lib/logger";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { sendOrgAlertEmails } from "../lib/email";
@@ -118,7 +118,8 @@ export function requireWithinPlanLimits(resource: LimitedResource) {
       }
 
       if (resource === "submission") {
-        if (limits.maxSubmissionsPerMonth === null) {
+        const effectiveSubLimit = getEffectiveSubmissionLimit(account.plan_tier, account.seat_limit);
+        if (effectiveSubLimit === null) {
           next();
           return;
         }
@@ -132,13 +133,13 @@ export function requireWithinPlanLimits(resource: LimitedResource) {
           [accountId, period],
         );
         const current = parseInt(rows[0]?.count ?? "0", 10);
-        if (current >= limits.maxSubmissionsPerMonth) {
+        if (current >= effectiveSubLimit) {
           res.status(402).json({
-            error: `Your plan allows up to ${limits.maxSubmissionsPerMonth} submissions per billing period. Upgrade to continue.`,
+            error: `Your plan allows up to ${effectiveSubLimit} submissions per billing period. Upgrade or add a seat to continue.`,
             upgrade_required: true,
             limit_type: "submissions",
             current,
-            limit: limits.maxSubmissionsPerMonth,
+            limit: effectiveSubLimit,
           });
           return;
         }
@@ -151,13 +152,14 @@ export function requireWithinPlanLimits(resource: LimitedResource) {
           [accountId],
         );
         const current = parseInt(rows[0]?.count ?? "0", 10);
-        if (current >= limits.maxSeats) {
+        const effectiveSeatLimit = account.seat_limit;
+        if (current >= effectiveSeatLimit) {
           res.status(402).json({
-            error: `Your plan allows up to ${limits.maxSeats} active seat${limits.maxSeats !== 1 ? "s" : ""}. Upgrade to add more team members.`,
+            error: `Your plan allows up to ${effectiveSeatLimit} active seat${effectiveSeatLimit !== 1 ? "s" : ""}. Upgrade or add extra seats to add more team members.`,
             upgrade_required: true,
             limit_type: "seats",
             current,
-            limit: limits.maxSeats,
+            limit: effectiveSeatLimit,
           });
           return;
         }
@@ -228,16 +230,16 @@ export async function recordSubmissionEvent(accountId: number): Promise<void> {
       const { rows: acctRows } = await db.query<{
         plan_tier: string;
         name: string;
+        seat_limit: number;
         billing_period_start: Date | null;
       }>(
-        `SELECT plan_tier, name, billing_period_start FROM accounts WHERE id = $1`,
+        `SELECT plan_tier, name, seat_limit, billing_period_start FROM accounts WHERE id = $1`,
         [accountId],
       );
       const acct = acctRows[0];
       if (!acct) return;
 
-      const limits = getPlanLimits(acct.plan_tier);
-      const maxSubs = limits.maxSubmissionsPerMonth;
+      const maxSubs = getEffectiveSubmissionLimit(acct.plan_tier, acct.seat_limit);
       if (maxSubs === null) return; // unlimited plan
 
       const period = billingPeriodStart(acct.billing_period_start);
