@@ -1593,6 +1593,48 @@ export async function initDb(): Promise<void> {
   await db.query(`CREATE INDEX IF NOT EXISTS dis_batch_run_idx ON docufill_interview_sessions (batch_run_id) WHERE batch_run_id IS NOT NULL`);
   // Back-fill submitted_at for sessions already in a terminal state
   await db.query(`UPDATE docufill_interview_sessions SET submitted_at = updated_at WHERE submitted_at IS NULL AND status IN ('submitted', 'signed', 'generated') AND source NOT IN ('csv_batch', 'deal_builder')`);
+
+  // ── Submission bank ──────────────────────────────────────────────────────────
+  // Each row is a deposit of submissions into an account's bank.
+  // Entries are drawn down oldest-first. Plan submissions are use-or-lose (not
+  // stored here); only purchased pack submissions are banked here.
+  // source: 'one_off' | 'monthly_pack' | 'annual_pack'
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS submission_bank (
+      id           SERIAL PRIMARY KEY,
+      account_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      amount       INTEGER NOT NULL,
+      remaining    INTEGER NOT NULL,
+      source       TEXT    NOT NULL,
+      pack_size    INTEGER NOT NULL,
+      stripe_ref   TEXT,
+      deposited_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at   TIMESTAMPTZ NOT NULL
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS submission_bank_account_expiry_idx
+      ON submission_bank (account_id, expires_at)
+     WHERE remaining > 0
+  `);
+
+  // ── Pack subscriptions ───────────────────────────────────────────────────────
+  // Tracks recurring pack subscriptions so invoice.paid can deposit the right
+  // amount without an extra Stripe API call.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS pack_subscriptions (
+      id                      SERIAL PRIMARY KEY,
+      account_id              INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      stripe_subscription_id  TEXT    NOT NULL UNIQUE,
+      pack_size               INTEGER NOT NULL,
+      pack_type               TEXT    NOT NULL,
+      created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS pack_subscriptions_stripe_idx
+      ON pack_subscriptions (stripe_subscription_id)
+  `);
 }
 
 /**

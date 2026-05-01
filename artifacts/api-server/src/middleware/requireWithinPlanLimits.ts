@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import { getDb } from "../db";
 import { getPlanLimits, getEffectiveSubmissionLimit } from "../lib/plans";
+import { getBankBalance, drawOneFromBank } from "../lib/submissionBank";
 import { logger } from "../lib/logger";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { sendOrgAlertEmails } from "../lib/email";
@@ -119,11 +120,14 @@ export function requireWithinPlanLimits(resource: LimitedResource) {
 
       if (resource === "submission") {
         const effectiveSubLimit = getEffectiveSubmissionLimit(account.plan_tier, account.seat_limit);
+
+        // Enterprise (unlimited plan pool) — always allow
         if (effectiveSubLimit === null) {
           next();
           return;
         }
-        // Use the account's billing-period window (not a fixed calendar month)
+
+        // Check plan pool (use-or-lose, resets each billing period)
         const period = billingPeriodStart(account.billing_period_start);
         const { rows } = await db.query<{ count: string }>(
           `SELECT COUNT(*) AS count FROM usage_events
@@ -133,16 +137,32 @@ export function requireWithinPlanLimits(resource: LimitedResource) {
           [accountId, period],
         );
         const current = parseInt(rows[0]?.count ?? "0", 10);
-        if (current >= effectiveSubLimit) {
-          res.status(402).json({
-            error: `Your plan allows up to ${effectiveSubLimit} submissions per billing period. Upgrade or add a seat to continue.`,
-            upgrade_required: true,
-            limit_type: "submissions",
-            current,
-            limit: effectiveSubLimit,
-          });
+        if (current < effectiveSubLimit) {
+          // Plan pool has room — proceed normally
+          next();
           return;
         }
+
+        // Plan pool exhausted — try drawing one from the bank
+        const drew = await drawOneFromBank(accountId);
+        if (drew) {
+          // Bank draw succeeded — mark req so recordSubmissionEvent skips usage_event
+          (req as unknown as Record<string, unknown>)._bankDrawn = true;
+          next();
+          return;
+        }
+
+        // Both plan pool and bank exhausted
+        const bank = await getBankBalance(accountId);
+        res.status(402).json({
+          error: `Your plan allows up to ${effectiveSubLimit} submissions per billing period and your submission bank is empty. Upgrade, add a seat, or purchase a submission pack to continue.`,
+          upgrade_required: true,
+          limit_type:       "submissions",
+          current,
+          limit:            effectiveSubLimit,
+          bank_balance:     bank.total,
+        });
+        return;
       }
 
       if (resource === "seat") {

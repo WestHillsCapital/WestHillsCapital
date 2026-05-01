@@ -112,3 +112,27 @@ export function getPlanFeatures(tier: string): PlanFeatures {
 export function isPlanTier(value: unknown): value is PlanTier {
   return value === "starter" || value === "free" || value === "pro" || value === "enterprise";
 }
+
+export interface SubmissionPackTier {
+  size:        number;
+  monthly:     number;
+  annual:      number;
+  annualPerMo: number;
+}
+
+/**
+ * Available submission pack sizes and their prices.
+ * One-off price equals the monthly price.
+ * Annual = monthly * 12 * 0.8 (20% off), frontloaded on purchase.
+ */
+export const SUBMISSION_PACKS: SubmissionPackTier[] = [
+  { size:    50, monthly:  25, annual:   240, annualPerMo:  20 },
+  { size:   100, monthly:  45, annual:   432, annualPerMo:  36 },
+  { size:   300, monthly: 120, annual:  1152, annualPerMo:  96 },
+  { size:   500, monthly: 185, annual:  1776, annualPerMo: 148 },
+  { size:  1000, monthly: 349, annual:  3348, annualPerMo: 279 },
+];
+
+export function getPackTier(size: number): SubmissionPackTier | undefined {
+  return SUBMISSION_PACKS.find((p) => p.size === size);
+}

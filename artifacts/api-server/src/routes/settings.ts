@@ -10,7 +10,8 @@ import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
 import { requirePlanFeature } from "../middleware/requirePlanFeature";
 import { brandColorRateLimit } from "../middleware/brandColorRateLimit";
 import { sendTeamInvitationEmail, sendDataExportEmail, sendEmailVerificationEmail } from "../lib/email";
-import { getPlanLimits, getEffectiveSubmissionLimit } from "../lib/plans";
+import { getPlanLimits, getEffectiveSubmissionLimit, SUBMISSION_PACKS, getPackTier } from "../lib/plans";
+import { getBankBalance } from "../lib/submissionBank";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { isIpAllowed } from "../lib/cidr";
 import express from "express";
@@ -1435,6 +1436,107 @@ router.post("/billing/portal", requireAdminRole, async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Billing] Failed to create portal session");
     res.status(500).json({ error: "Failed to create billing portal session" });
+  }
+});
+
+/** GET /billing/bank — returns the submission bank balance and pack tiers */
+router.get("/billing/bank", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const bank = await getBankBalance(accountId);
+    res.json({ bank, packs: SUBMISSION_PACKS });
+  } catch (err) {
+    logger.error({ err }, "[Billing] Failed to get bank balance");
+    res.status(500).json({ error: "Failed to get bank balance" });
+  }
+});
+
+/** POST /billing/pack/checkout — create a Stripe Checkout session for a submission pack */
+router.post("/billing/pack/checkout", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as { packSize?: unknown; packType?: unknown };
+    const packSize = typeof body.packSize === "number" ? body.packSize : null;
+    const packType = typeof body.packType === "string" ? body.packType : null;
+
+    if (!packSize || !packType) {
+      res.status(400).json({ error: "packSize and packType are required." });
+      return;
+    }
+    if (!["one_off", "monthly", "annual"].includes(packType)) {
+      res.status(400).json({ error: "packType must be one_off, monthly, or annual." });
+      return;
+    }
+    const pack = getPackTier(packSize);
+    if (!pack) {
+      res.status(400).json({ error: `Invalid packSize. Choose from: ${SUBMISSION_PACKS.map((p) => p.size).join(", ")}.` });
+      return;
+    }
+
+    const db = getDb();
+    const { rows } = await db.query<{ stripe_customer_id: string | null }>(
+      `SELECT stripe_customer_id FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    const customerId = rows[0]?.stripe_customer_id ?? null;
+
+    const stripe = await getUncachableStripeClient();
+    const origin = process.env.APP_ORIGIN
+      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://app.docuplete.com");
+
+    const meta: Record<string, string> = {
+      type:       packType === "one_off" ? "pack_purchase" : "pack_subscription",
+      pack_size:  String(pack.size),
+      pack_type:  packType,
+      account_id: String(accountId),
+    };
+
+    let session;
+    if (packType === "one_off") {
+      session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        ...(customerId ? { customer: customerId } : {}),
+        line_items: [{
+          quantity: 1,
+          price_data: {
+            currency:     "usd",
+            unit_amount:  pack.monthly * 100,
+            product_data: { name: `${pack.size} Submission Pack (One-time)` },
+          },
+        }],
+        metadata:       meta,
+        success_url:    `${origin}/app/settings?tab=billing&pack_success=1`,
+        cancel_url:     `${origin}/app/settings?tab=billing`,
+        payment_intent_data: { metadata: meta },
+      });
+    } else {
+      const isAnnual  = packType === "annual";
+      const unitPrice = isAnnual ? pack.annual * 100 : pack.monthly * 100;
+      const interval  = isAnnual ? "year" : "month";
+      const label     = isAnnual ? "Annual" : "Monthly";
+      session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        ...(customerId ? { customer: customerId } : {}),
+        line_items: [{
+          quantity: 1,
+          price_data: {
+            currency:     "usd",
+            unit_amount:  unitPrice,
+            recurring:    { interval },
+            product_data: { name: `${pack.size} Submission Pack (${label})` },
+          },
+        }],
+        metadata:          meta,
+        subscription_data: { metadata: meta },
+        success_url:       `${origin}/app/settings?tab=billing&pack_success=1`,
+        cancel_url:        `${origin}/app/settings?tab=billing`,
+      });
+    }
+
+    res.json({ url: session.url });
+  } catch (err) {
+    logger.error({ err }, "[Billing] Failed to create pack checkout session");
+    res.status(500).json({ error: "Failed to create checkout session" });
   }
 });
 
