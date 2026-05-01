@@ -3285,7 +3285,7 @@ export default function DocuFill() {
       answers,
       prefill: session.prefill,
     });
-    downloadCsv(csv, `docufill-${safeName}-${date}.csv`);
+    downloadCsv(csv, `docuplete-${safeName}-${date}.csv`);
   }
 
   function handleCsvBatchFileChange(file: File | null) {
@@ -6081,7 +6081,7 @@ export default function DocuFill() {
                     const date = new Date().toISOString().slice(0, 10);
                     const safeName = pkg.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
                     const csv = packageTemplateToCsv(pkg.id, pkg.name, pkg.fields);
-                    downloadCsv(csv, `docufill-template-${safeName}-${date}.csv`);
+                    downloadCsv(csv, `docuplete-template-${safeName}-${date}.csv`);
                   }}
                   className="text-sm text-[#C49A38] underline hover:text-[#b58c31]"
                 >
@@ -6987,7 +6987,7 @@ export default function DocuFill() {
                             size="sm"
                             onClick={() => {
                               const dateStr = new Date().toISOString().slice(0, 10);
-                              downloadCsv(batchResultsToCsv(csvBatchResults, API_BASE, csvBatchHeaders, csvBatchRows), `docufill-batch-results-${dateStr}.csv`);
+                              downloadCsv(batchResultsToCsv(csvBatchResults, API_BASE, csvBatchHeaders, csvBatchRows), `docuplete-batch-results-${dateStr}.csv`);
                             }}
                             className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
                           >

@@ -55,14 +55,14 @@ export function DocuFillPackagesSection({
   useEffect(() => {
     setIsLoading(true);
     fetch(`${API_BASE}/api/internal/docufill/bootstrap`, { headers: { ...getAuthHeadersRef.current() } })
-      .then((res) => res.ok ? res.json() : Promise.reject(new Error("Could not load DocuFill packages")))
+      .then((res) => res.ok ? res.json() : Promise.reject(new Error("Could not load packages")))
       .then((data: { custodians: DocuFillEntity[]; depositories: DocuFillEntity[]; transactionTypes?: DocuFillTransactionType[]; packages: DocuFillPackage[] }) => {
         setCustodians(data.custodians ?? []);
         setDepositories(data.depositories ?? []);
         setTransactionTypes(data.transactionTypes?.length ? data.transactionTypes : DOCUFILL_TRANSACTION_TYPES.map((item) => ({ scope: item.value, label: item.label, active: true })));
         setPackages(data.packages ?? []);
       })
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not load DocuFill packages"))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not load packages"))
       .finally(() => setIsLoading(false));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

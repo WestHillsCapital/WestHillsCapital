@@ -1493,7 +1493,7 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                 <>
                   <p className="text-xs text-gray-500 leading-relaxed">
                     Automatically save a copy of every completed PDF packet to a folder in your Google Drive.
-                    Enable the Google Drive channel on any DocuFill package to activate.
+                    Enable the Google Drive channel on any Docuplete package to activate.
                   </p>
                   <div className="mt-auto pt-1">
                     <button
@@ -1541,7 +1541,7 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                   <p className="text-xs text-gray-500 leading-relaxed">
                     Connected to HubSpot portal
                     {status.hubspot.hub_domain ? <> — <span className="font-medium text-gray-700">{status.hubspot.hub_domain}</span></> : ""}.
-                    Submitting a DocuFill packet with HubSpot enabled will create or update a contact.
+                    Submitting a Docuplete packet with HubSpot enabled will create or update a contact.
                   </p>
                   <button
                     type="button"
@@ -1559,8 +1559,8 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
               ) : (
                 <>
                   <p className="text-xs text-gray-500 leading-relaxed">
-                    Automatically create or update a HubSpot CRM contact whenever a DocuFill packet is submitted.
-                    Enable the HubSpot channel on any DocuFill package to activate.
+                    Automatically create or update a HubSpot CRM contact whenever a Docuplete packet is submitted.
+                    Enable the HubSpot channel on any Docuplete package to activate.
                   </p>
                   <div className="mt-auto pt-1">
                     <button
@@ -2319,7 +2319,7 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                           <TooltipTrigger asChild>
                             <span className="shrink-0 rounded-full bg-blue-50 border border-blue-200 px-2 py-0.5 text-[10px] font-medium text-blue-700 cursor-default">Full Access</span>
                           </TooltipTrigger>
-                          <TooltipContent side="top" className="max-w-xs">Grants full API access: read live pricing data, submit interview sessions, and manage DocuFill packages programmatically.</TooltipContent>
+                          <TooltipContent side="top" className="max-w-xs">Grants full API access: read live pricing data, submit interview sessions, and manage Docuplete packages programmatically.</TooltipContent>
                         </Tooltip>
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5">
@@ -4726,7 +4726,7 @@ const ALL_SETTINGS_NAV: Array<{ id: string; label: string; adminOnly?: boolean; 
   { id: "custom-domain-section",      label: "Custom domain",  adminOnly: true },
   { id: "team-section",               label: "Team" },
   // DocuFill — how the interview product behaves
-  { id: "interview-defaults-section", label: "Interview",      group: "DocuFill" },
+  { id: "interview-defaults-section", label: "Interview",      group: "Docuplete" },
   { id: "email-section",              label: "Email" },
   // Connect — external tools and developer APIs
   { id: "integrations-section",       label: "Integrations",   group: "Connect" },
