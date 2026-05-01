@@ -61,8 +61,7 @@ export function packageTemplateToCsv(packageId: number | string, packageName: st
 type BatchResult = {
   rowIndex: number;
   token: string | null;
-  status: "generated" | "error" | "processing";
-  pdfUrl?: string;
+  status: "created" | "error" | "processing";
   error?: string;
 };
 
@@ -72,7 +71,7 @@ export function batchResultsToCsv(
   inputHeaders?: string[],
   inputRows?: Record<string, string>[],
 ): string {
-  const statusHeaders = ["Row #", "Status", "Token", "PDF URL", "Error"];
+  const statusHeaders = ["Row #", "Status", "Token", "Error"];
   const extraHeaders = inputHeaders ?? [];
   const allHeaders = [...statusHeaders, ...extraHeaders];
   const rows = results.map((r) => {
@@ -80,7 +79,6 @@ export function batchResultsToCsv(
       String(r.rowIndex + 1),
       r.status,
       r.token ?? "",
-      r.pdfUrl ? `${apiBase}${r.pdfUrl}` : "",
       r.error ?? "",
     ];
     const inputRow = inputRows?.[r.rowIndex] ?? {};

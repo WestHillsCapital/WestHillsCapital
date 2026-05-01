@@ -2895,11 +2895,13 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
       res.status(400).json({ error: "No CSV columns match any field names in this package" });
       return;
     }
-    const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID ?? null;
     const packageName = String(pkg.name ?? "Docuplete");
     const transactionScope = pkg.transaction_scope ?? "";
     const packageVersion = Number(pkg.version ?? 1);
-    type BatchResult = { rowIndex: number; token: string | null; status: "generated" | "error"; pdfUrl?: string; error?: string };
+    // Sessions are created as drafts — the client completes the interview (pre-populated with CSV
+    // values), then the PDF is generated on submission.  We no longer generate PDFs server-side
+    // during the batch import so that clients always review and confirm their own information.
+    type BatchResult = { rowIndex: number; token: string | null; status: "created" | "error"; error?: string };
     const results: BatchResult[] = [];
     const batchRunId = randomBytes(16).toString("hex");
     const csvBatchDek = isEncryptionEnabled()
@@ -2907,91 +2909,26 @@ router.post("/csv-batch", requireMemberRole, async (req, res) => {
       : null;
     for (let i = 0; i < body.rows.length; i++) {
       const row = body.rows[i] as Record<string, string>;
-      let insertedToken: string | null = null;
       try {
-        const answers: Record<string, string> = {};
+        const prefill: Record<string, string> = {};
         for (const [col, val] of Object.entries(row)) {
           const normalized = col.toLowerCase().trim();
           if (normalized === "__package_id__" || normalized === "__package_name__") continue;
           const fieldId = fieldLookup.get(normalized);
           if (!fieldId) continue;
-          answers[fieldId] = String(val ?? "");
+          prefill[fieldId] = String(val ?? "");
         }
         const token = createSessionToken();
-        const csvCiphertext = csvBatchDek ? encryptAnswers(answers, csvBatchDek) : null;
+        const csvCiphertext = csvBatchDek ? encryptAnswers(prefill, csvBatchDek) : null;
         await db.query(
           `INSERT INTO docufill_interview_sessions
              (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers, answers_ciphertext, expires_at, account_id, batch_run_id)
-           VALUES ($1,$2,$3,$4,NULL,'csv_batch','draft',false,'{}'::jsonb,$5::jsonb,$6,NOW() + INTERVAL '90 days',$7,$8)`,
-          [token, packageId, packageVersion, transactionScope, csvBatchDek ? jsonParam({}) : jsonParam(answers), csvCiphertext, acctId(req), batchRunId],
+           VALUES ($1,$2,$3,$4,NULL,'csv_batch','draft',false,$5::jsonb,'{}'::jsonb,$6,NOW() + INTERVAL '90 days',$7,$8)`,
+          [token, packageId, packageVersion, transactionScope, csvBatchDek ? jsonParam({}) : jsonParam(prefill), csvCiphertext, acctId(req), batchRunId],
         );
-        insertedToken = token;
-        const session: Record<string, unknown> = {
-          token,
-          package_id: packageId,
-          package_name: packageName,
-          documents: pkg.documents,
-          fields: pkg.fields,
-          mappings: pkg.mappings,
-          prefill: {},
-          answers,
-        };
-        const validation = validateSessionAnswers(session);
-        if (!validation.valid) {
-          const messages = [...validation.missingFields.map((f) => `Missing required: ${f}`), ...validation.errors];
-          results.push({ rowIndex: i, token: null, status: "error", error: messages.join("; ") });
-          await db.query(`DELETE FROM docufill_interview_sessions WHERE token=$1`, [token]);
-          insertedToken = null;
-          continue;
-        }
-        const pdfBuffer = await buildPacketPdfBuffer(session, db);
-        const generatedAt = new Date().toISOString();
-        let driveResult: { fileId: string; webViewLink: string } | null = null;
-        if (rootFolderId) {
-          try {
-            driveResult = await saveDocuFillPacketToDrive(pdfBuffer, {
-              dealId: null,
-              firstName: "",
-              lastName: "",
-              packageName,
-              generatedAt,
-            }, rootFolderId);
-          } catch (driveErr) {
-            logger.error({ driveErr, token }, "[DocuFill] Batch: Drive save failed for row");
-          }
-        }
-        // Store PDF in object storage so the public download endpoint can serve it without regenerating
-        let batchPdfStorageKey: string | null = null;
-        try {
-          batchPdfStorageKey = await objectStorage.uploadBuffer(
-            `batch-pdfs/${token}.pdf`,
-            pdfBuffer,
-            "application/pdf",
-          );
-        } catch (storageErr) {
-          logger.warn({ storageErr, token }, "[DocuFill] Batch: Object storage upload failed — download will regenerate from answers");
-        }
-        const generated = buildDocuFillPacketSummary(session);
-        await db.query(
-          `UPDATE docufill_interview_sessions
-              SET status='generated',
-                  generated_packet=$1::jsonb,
-                  generated_pdf_drive_id=$2,
-                  generated_pdf_url=$3,
-                  generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
-                  generated_pdf_storage_key=$6,
-                  updated_at=NOW()
-            WHERE token=$4
-              AND package_id=$5`,
-          [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, token, packageId, batchPdfStorageKey],
-        );
-        insertedToken = null;
-        results.push({ rowIndex: i, token, status: "generated", pdfUrl: `/api/internal/docufill/sessions/${token}/packet.pdf` });
+        results.push({ rowIndex: i, token, status: "created" });
       } catch (err) {
         logger.error({ err, rowIndex: i }, "[DocuFill] Batch row processing failed");
-        if (insertedToken) {
-          await db.query(`DELETE FROM docufill_interview_sessions WHERE token=$1`, [insertedToken]).catch(() => {});
-        }
         results.push({ rowIndex: i, token: null, status: "error", error: err instanceof Error ? err.message : "Unknown error" });
       }
     }
@@ -3018,8 +2955,8 @@ router.get("/batch-runs", requireMemberRole, async (req, res) => {
          p.name AS package_name,
          p.id AS package_id,
          COUNT(*) AS total,
-         COUNT(*) FILTER (WHERE s.status = 'generated') AS generated,
-         COUNT(*) FILTER (WHERE s.submitted_at IS NOT NULL) AS submitted,
+         COUNT(*) FILTER (WHERE s.status IN ('draft','in_progress')) AS pending,
+         COUNT(*) FILTER (WHERE s.status IN ('submitted','signed','generated')) AS completed,
          COUNT(*) FILTER (WHERE s.link_emailed_at IS NOT NULL) AS emailed
        FROM docufill_interview_sessions s
        JOIN docufill_packages p ON p.id = s.package_id
@@ -3892,8 +3829,8 @@ router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) =>
     const orgName       = typeof session.org_name === "string" && session.org_name ? session.org_name : "Docuplete";
 
     const emailSettings = await getOrgEmailSettings(acctId(req));
-    // Use "document" mode when the session is already generated (e.g. CSV batch pre-built PDF)
-    const emailMode = (session.status === "generated" || session.source === "csv_batch") ? "document" : "interview";
+    // Use "document" mode only when the PDF has already been generated (e.g. advisor-generated packet)
+    const emailMode = session.status === "generated" ? "document" : "interview";
     await sendInterviewLinkEmail({
       recipientEmail,
       recipientName,
@@ -3985,7 +3922,7 @@ router.post("/batch/send-links", requireMemberRole, async (req, res) => {
           orgBrandColor,
           customMessage,
           emailSettings,
-          mode: "document",
+          mode: "interview",
         });
         // Small delay to avoid transactional email provider rate-limits on bulk sends
         await new Promise((r) => setTimeout(r, 150));
