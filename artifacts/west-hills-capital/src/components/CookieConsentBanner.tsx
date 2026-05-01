@@ -1,17 +1,9 @@
 import { useState, useEffect } from "react";
 
-const GA_ID = "G-T4W23SEQCN";
 const COOKIE_NAME = "whc_cookie_consent";
 const COOKIE_MAX_AGE = 365 * 24 * 60 * 60; // 1 year in seconds
 
 type ConsentValue = "granted" | "denied";
-
-declare global {
-  interface Window {
-    dataLayer?: unknown[];
-    gtag?: (...args: unknown[]) => void;
-  }
-}
 
 function getStoredConsent(): ConsentValue | null {
   try {
@@ -30,38 +22,18 @@ function setStoredConsent(value: ConsentValue): void {
   document.cookie = `${COOKIE_NAME}=${value}; max-age=${COOKIE_MAX_AGE}; path=/; SameSite=Lax`;
 }
 
-function loadGoogleAnalytics() {
-  if (document.getElementById("ga-script")) return;
-
-  window.dataLayer = window.dataLayer || [];
-  window.gtag = function (...args: unknown[]) {
-    window.dataLayer!.push(args);
-  };
-  window.gtag("js", new Date());
-  window.gtag("config", GA_ID);
-
-  const script = document.createElement("script");
-  script.id = "ga-script";
-  script.async = true;
-  script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
-  document.head.appendChild(script);
-}
-
 export function CookieConsentBanner() {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
     const existing = getStoredConsent();
-    if (existing === "granted") {
-      loadGoogleAnalytics();
-    } else if (existing === null) {
+    if (existing === null) {
       setVisible(true);
     }
   }, []);
 
   function handleAccept() {
     setStoredConsent("granted");
-    loadGoogleAnalytics();
     setVisible(false);
   }
 
