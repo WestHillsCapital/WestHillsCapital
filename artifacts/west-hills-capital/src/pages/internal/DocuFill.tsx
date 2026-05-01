@@ -5867,7 +5867,9 @@ export default function DocuFill() {
                                           <td className="px-4 py-2 text-xs">
                                             {s.submitted_at
                                               ? <span className="text-violet-700 font-medium">{new Date(s.submitted_at).toLocaleDateString()}</span>
-                                              : <span className="text-[#C0CBDA]">Pending</span>}
+                                              : (s.status === "generated" || s.status === "signed")
+                                                ? <span className="text-emerald-600 font-medium">Submitted</span>
+                                                : <span className="text-[#C0CBDA]">Pending</span>}
                                           </td>
                                         </tr>
                                       );

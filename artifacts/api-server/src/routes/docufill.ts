@@ -4687,6 +4687,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
               generated_pdf_drive_id=$2,
               generated_pdf_url=$3,
               generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
+              submitted_at=CASE WHEN submitted_at IS NULL THEN NOW() ELSE submitted_at END,
               signer_email=$5,
               signer_name=$6,
               signed_at=$7,
