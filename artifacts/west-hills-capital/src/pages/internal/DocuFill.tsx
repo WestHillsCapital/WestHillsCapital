@@ -1284,6 +1284,12 @@ export default function DocuFill() {
   const [csvDashExpanded, setCsvDashExpanded] = useState<string | null>(null);
   const [csvDashRunSessions, setCsvDashRunSessions] = useState<Record<string, Array<{ token: string; status: string; submitted_at: string | null; link_emailed_at: string | null; link_email_recipient: string | null; signer_name: string | null }>>>({});
   const [csvDashRunLoading, setCsvDashRunLoading] = useState<Record<string, boolean>>({});
+  const [interviewSubTab, setInterviewSubTab] = useState<"interviews" | "dashboard">("interviews");
+  type PortalSession = { token: string; package_id: number; package_name: string; status: string; source: string; created_at: string; signer_name: string | null; signer_email: string | null; signed_at: string | null; submitted_at: string | null; link_emailed_at: string | null; link_email_recipient: string | null; };
+  const [portalSessions, setPortalSessions] = useState<PortalSession[]>([]);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalError, setPortalError] = useState<string | null>(null);
+  const [portalTotal, setPortalTotal] = useState(0);
 
   useEffect(() => {
     if (tab !== "csv" || csvDashboardTab !== "dashboard") return;
@@ -1295,6 +1301,17 @@ export default function DocuFill() {
       .catch((e) => setCsvDashError(e instanceof Error ? e.message : "Failed to load batch runs"))
       .finally(() => setCsvDashLoading(false));
   }, [tab, csvDashboardTab]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (tab !== "interview" || isPublicSession) return;
+    setPortalLoading(true);
+    setPortalError(null);
+    fetch(`${API_BASE}${docufillApiPath}/sessions/portal-list?excludeSource=csv_batch&limit=100`, { headers: getAuthHeaders() })
+      .then((r) => r.json())
+      .then((d: { sessions: PortalSession[]; total: number }) => { setPortalSessions(d.sessions ?? []); setPortalTotal(d.total ?? 0); })
+      .catch((e) => setPortalError(e instanceof Error ? e.message : "Failed to load sessions"))
+      .finally(() => setPortalLoading(false));
+  }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     setCsvBreakdownHighlightedField(null);
@@ -3363,20 +3380,22 @@ export default function DocuFill() {
     <div className="max-w-screen-2xl mx-auto px-4 py-6 text-[#0F1C3F]">
       <div className="flex flex-wrap items-start gap-3 mb-5">
         {isPublicSession && <p className="text-sm text-[#6B7A99]">Complete your secure paperwork interview.</p>}
-        {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
+        {!isPublicSession && <div className="flex items-stretch">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={() => goBuilderStep(builderStep)} className={`px-3 py-2 text-sm ${tab === "packages" || tab === "mapper" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
+              <button onClick={() => goBuilderStep(builderStep)} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "packages" || tab === "mapper" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
             </TooltipTrigger>
             <TooltipContent side="bottom">A Package bundles multiple PDF forms into one guided interview session. Configure documents, fields, and automation here.</TooltipContent>
           </Tooltip>
+          <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={() => setTab("interview")} className={`px-3 py-2 text-sm ${tab === "interview" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Interviews</button>
+              <button onClick={() => setTab("interview")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "interview" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Interviews</button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Launch a single interview session for one package at a time — staff-guided or via a customer self-service link.</TooltipContent>
           </Tooltip>
-          <button onClick={() => setTab("csv")} className={`px-3 py-2 text-sm ${tab === "csv" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch CSV</button>
+          <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
+          <button onClick={() => setTab("csv")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "csv" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch CSV</button>
         </div>}
       </div>
       {planLimitError && (
@@ -5415,10 +5434,27 @@ export default function DocuFill() {
       )}
 
       {tab === "interview" && (
-        <section className="bg-white border border-[#DDD5C4] rounded-lg p-5 max-w-4xl mx-auto">
+        <section className="bg-white border border-[#DDD5C4] rounded-lg max-w-4xl mx-auto overflow-hidden">
           {!session ? (
-            isPublicSession ? <EmptyState message="This interview link is invalid or expired." /> : (
-              <div className="space-y-6">
+            isPublicSession ? <div className="p-5"><EmptyState message="This interview link is invalid or expired." /></div> : (
+              <>
+              <div className="flex border-b border-[#DDD5C4]">
+                {(["interviews", "dashboard"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setInterviewSubTab(t)}
+                    className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
+                      interviewSubTab === t
+                        ? "border-[#0F1C3F] text-[#0F1C3F]"
+                        : "border-transparent text-[#8A9BB8] hover:text-[#0F1C3F] hover:border-[#DDD5C4]"
+                    }`}
+                  >
+                    {t === "interviews" ? "Interviews" : "Interview Dashboard"}
+                  </button>
+                ))}
+              </div>
+              {interviewSubTab === "interviews" && <div className="p-5 space-y-6">
                 {(() => {
                   const hasStaff = activePackages.some((p) => p.enable_interview);
                   const hasCustomerLink = activePackages.some((p) => p.enable_customer_link);
@@ -5570,10 +5606,108 @@ export default function DocuFill() {
                     </div>
                   );
                 })()}
-              </div>
+              </div>}
+              {interviewSubTab === "dashboard" && (
+                <div className="p-5 space-y-4">
+                  <div>
+                    <h2 className="text-base font-semibold">Interview Session History</h2>
+                    <p className="text-xs text-[#8A9BB8] mt-0.5">All customer-link and staff interview sessions. CSV batch sessions are tracked separately in the Batch CSV tab.</p>
+                  </div>
+                  {(() => {
+                    const total  = portalSessions.length;
+                    const sent   = portalSessions.filter((s) => s.link_emailed_at).length;
+                    const submitted = portalSessions.filter((s) => s.submitted_at || s.status === "generated" || s.status === "signed").length;
+                    const signed = portalSessions.filter((s) => s.status === "signed" || s.status === "generated").length;
+                    return (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {[
+                          { label: "Total", value: total,     cls: "text-[#0F1C3F]" },
+                          { label: "Link Sent", value: sent,  cls: "text-blue-700" },
+                          { label: "Submitted", value: submitted, cls: "text-violet-700" },
+                          { label: "Completed", value: signed, cls: "text-emerald-700" },
+                        ].map(({ label, value, cls }) => (
+                          <div key={label} className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-3 text-center">
+                            <div className={`text-2xl font-bold ${cls}`}>{value}</div>
+                            <div className="text-xs text-[#8A9BB8] mt-0.5">{label}</div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                  {portalLoading && (
+                    <div className="flex justify-center py-10">
+                      <div className="w-5 h-5 border-2 border-[#0F1C3F] border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                  {portalError && <div className="text-sm text-red-600">{portalError}</div>}
+                  {!portalLoading && !portalError && portalSessions.length === 0 && (
+                    <div className="text-center py-10 text-sm text-[#8A9BB8]">No interview sessions yet — start one from the Interviews tab.</div>
+                  )}
+                  {!portalLoading && portalSessions.length > 0 && (
+                    <div className="overflow-x-auto rounded-lg border border-[#DDD5C4]">
+                      <table className="min-w-full divide-y divide-[#F0EDE6]">
+                        <thead className="bg-[#F8F6F0]">
+                          <tr>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Package</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Recipient</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Status</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">PDF</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Sent</th>
+                            <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Submitted</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#F0EDE6] bg-white">
+                          {portalSessions.map((s) => {
+                            const recipient = s.signer_name || s.link_email_recipient || s.signer_email || "—";
+                            const statusMap: Record<string, { label: string; cls: string }> = {
+                              draft:     { label: "Draft",     cls: "bg-gray-100 text-gray-500" },
+                              generated: { label: "Completed", cls: "bg-emerald-50 text-emerald-700" },
+                              signed:    { label: "Signed",    cls: "bg-emerald-50 text-emerald-700" },
+                              submitted: { label: "Submitted", cls: "bg-violet-50 text-violet-700" },
+                              voided:    { label: "Voided",    cls: "bg-red-50 text-red-600" },
+                            };
+                            const statusInfo = statusMap[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-500" };
+                            const pdfUrl = `${API_BASE}${docufillApiPath}/sessions/${s.token}/packet.pdf`;
+                            const isCompleted = s.status === "generated" || s.status === "signed";
+                            return (
+                              <tr key={s.token} className="hover:bg-[#FAFAF8]">
+                                <td className="px-4 py-2 text-xs text-[#0F1C3F] max-w-[160px] truncate" title={s.package_name}>{s.package_name}</td>
+                                <td className="px-4 py-2 text-sm text-[#0F1C3F] max-w-[180px] truncate" title={recipient}>{recipient}</td>
+                                <td className="px-4 py-2">
+                                  <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>{statusInfo.label}</span>
+                                </td>
+                                <td className="px-4 py-2">
+                                  {isCompleted ? (
+                                    <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#0F1C3F] underline underline-offset-2 hover:text-[#C49A38]">
+                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                      PDF
+                                    </a>
+                                  ) : <span className="text-xs text-[#C0CBDA]">—</span>}
+                                </td>
+                                <td className="px-4 py-2 text-xs text-[#8A9BB8]">{s.link_emailed_at ? new Date(s.link_emailed_at).toLocaleDateString() : "—"}</td>
+                                <td className="px-4 py-2 text-xs">
+                                  {s.submitted_at
+                                    ? <span className="text-violet-700 font-medium">{new Date(s.submitted_at).toLocaleDateString()}</span>
+                                    : isCompleted
+                                      ? <span className="text-emerald-600 font-medium">Submitted</span>
+                                      : <span className="text-[#C0CBDA]">Pending</span>}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                      {portalTotal > portalSessions.length && (
+                        <div className="px-4 py-2 text-xs text-[#8A9BB8] text-center border-t border-[#F0EDE6]">Showing {portalSessions.length} of {portalTotal} sessions</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+              </>
             )
           ) : (
-            <div className="space-y-5">
+            <div className="p-5 space-y-5">
               <div>
                 <h2 className="text-xl font-semibold">{session.package_name}</h2>
                 <p className="text-sm text-[#6B7A99]">
