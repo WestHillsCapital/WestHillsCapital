@@ -19,10 +19,10 @@ export function InternalLayout({ children }: InternalLayoutProps) {
     { href: "/internal/prospecting-pipeline", label: "Prospecting Pipeline" },
     { href: "/internal/scheduled-calls",      label: "Scheduled Calls" },
     { href: "/internal/deal-builder",         label: "Deal Builder" },
-    { href: "/internal/docufill",             label: "Docuplete" },
     { href: "/internal/content",              label: "Content" },
-    { href: "/internal/settings",             label: "Settings" },
+    { href: "/internal/docufill",             label: "Docuplete" },
     { href: "/internal/super-admin",          label: "Super Admin" },
+    { href: "/internal/settings",             label: "Settings" },
   ];
 
   return (

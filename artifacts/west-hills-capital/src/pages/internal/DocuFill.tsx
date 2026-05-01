@@ -3363,7 +3363,7 @@ export default function DocuFill() {
     <div className="max-w-screen-2xl mx-auto px-4 py-6 text-[#0F1C3F]">
       <div className="flex flex-wrap items-start gap-3 mb-5">
         {isPublicSession && <p className="text-sm text-[#6B7A99]">Complete your secure paperwork interview.</p>}
-        {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white ml-auto">
+        {!isPublicSession && <div className="flex rounded border border-[#DDD5C4] overflow-hidden bg-white">
           <Tooltip>
             <TooltipTrigger asChild>
               <button onClick={() => goBuilderStep(builderStep)} className={`px-3 py-2 text-sm ${tab === "packages" || tab === "mapper" ? "bg-[#C49A38] text-black" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
@@ -3432,6 +3432,7 @@ export default function DocuFill() {
 
           {/* Package switcher row */}
           <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-[#6B7A99] shrink-0">Package</span>
             {(() => {
               const visiblePackages = tagFilter.length === 0
                 ? packages
@@ -3836,7 +3837,7 @@ export default function DocuFill() {
                     <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
                       <summary className="cursor-pointer text-sm font-semibold">Advanced lists and reusable fields</summary>
                       <p className="mt-1 text-xs text-[#8A9BB8]">Manage groups, types, and the shared field library.</p>
-                      <div className="mt-4 grid md:grid-cols-2 gap-4">
+                      <div className="mt-4 space-y-4">
                         <EntityPanel
                           title="Groups"
                           items={groups}
@@ -3845,8 +3846,6 @@ export default function DocuFill() {
                           onSave={saveGroup}
                           onDelete={deleteGroup}
                         />
-                      </div>
-                      <div className="mt-4 space-y-4">
                         <TransactionTypesPanel
                           items={transactionTypes}
                           onAdd={createTransactionType}
@@ -3854,6 +3853,8 @@ export default function DocuFill() {
                           onSave={saveTransactionType}
                           onDelete={deleteTransactionType}
                         />
+                      </div>
+                      <div className="mt-4">
                         <FieldLibraryPanel
                           items={fieldLibrary}
                           onAdd={createFieldLibraryItem}
@@ -7729,7 +7730,7 @@ function EntityPanel({
         </button>
       </div>
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
-      <div className="space-y-2 max-h-64 overflow-y-auto text-sm">
+      <div className="grid md:grid-cols-2 gap-2 text-sm">
         {items.map((item) => (
           <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
             <Input value={item.name} onChange={(e) => onChange(item.id, { name: e.target.value })} className="h-8 text-xs bg-white" />
