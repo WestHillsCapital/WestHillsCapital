@@ -14,7 +14,6 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getDocuFillPrefillDisplayValue, ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE, isSystemEsignFieldId } from "@/lib/docufill-redaction";
 import { sessionToCsv, packageTemplateToCsv, downloadCsv, parseCsvString, batchResultsToCsv } from "@/lib/docufill-csv";
-import JSZip from "jszip";
 import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
 import * as pdfjsLib from "pdfjs-dist";
 
@@ -1251,7 +1250,7 @@ export default function DocuFill() {
   const [csvBatchIsImporting, setCsvBatchIsImporting] = useState(false);
   const [csvBatchHasEdits, setCsvBatchHasEdits] = useState(false);
   const [csvCorrectedDownloaded, setCsvCorrectedDownloaded] = useState(false);
-  type BatchResult = { rowIndex: number; token: string | null; status: "generated" | "error" | "processing"; pdfUrl?: string; error?: string };
+  type BatchResult = { rowIndex: number; token: string | null; status: "created" | "error" | "processing"; error?: string };
   const [csvBatchResults, setCsvBatchResults] = useState<BatchResult[] | null>(null);
   const [csvBatchError, setCsvBatchError] = useState<string | null>(null);
   const csvBatchFileInputRef = useRef<HTMLInputElement | null>(null);
@@ -1278,10 +1277,8 @@ export default function DocuFill() {
   const [csvInviteMessage, setCsvInviteMessage] = useState("");
   const [csvInviteSending, setCsvInviteSending] = useState(false);
   const [csvInviteResults, setCsvInviteResults] = useState<Record<string, { status: "sent" | "error"; sentTo?: string; error?: string }>>({});
-  const [csvZipDownloading, setCsvZipDownloading] = useState(false);
-  const [csvZipProgress, setCsvZipProgress] = useState<{ done: number; total: number } | null>(null);
   const [csvDashboardTab, setCsvDashboardTab] = useState<"import" | "dashboard">("import");
-  const [csvDashBatchRuns, setCsvDashBatchRuns] = useState<Array<{ batch_run_id: string; run_started_at: string; package_name: string; package_id: number; total: string; generated: string; submitted: string; emailed: string }>>([]);
+  const [csvDashBatchRuns, setCsvDashBatchRuns] = useState<Array<{ batch_run_id: string; run_started_at: string; package_name: string; package_id: number; total: string; pending: string; completed: string; emailed: string }>>([]);
   const [csvDashLoading, setCsvDashLoading] = useState(false);
   const [csvDashError, setCsvDashError] = useState<string | null>(null);
   const [csvDashExpanded, setCsvDashExpanded] = useState<string | null>(null);
@@ -3340,7 +3337,7 @@ export default function DocuFill() {
       if (!res.ok) throw new Error(data.error ?? "Batch import failed");
       if (isRetry) {
         const newByLocalIdx = new Map<number, (typeof data.results)[0]>();
-        for (const r of data.results as Array<{ rowIndex: number; token: string | null; status: string; pdfUrl?: string; error?: string }>) {
+        for (const r of data.results as Array<{ rowIndex: number; token: string | null; status: string; error?: string }>) {
           newByLocalIdx.set(r.rowIndex, r);
         }
         setCsvBatchResults((prev) =>
@@ -5775,10 +5772,10 @@ export default function DocuFill() {
                 <div className="space-y-2">
                   {csvDashBatchRuns.map((run) => {
                     const total     = Number(run.total);
-                    const generated = Number(run.generated);
-                    const submitted = Number(run.submitted);
+                    const pending   = Number(run.pending);
+                    const completed = Number(run.completed);
                     const emailed   = Number(run.emailed);
-                    const pct = total > 0 ? Math.round((submitted / total) * 100) : 0;
+                    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
                     const isExpanded = csvDashExpanded === run.batch_run_id;
                     const rowSessions = csvDashRunSessions[run.batch_run_id] ?? [];
                     const rowLoading  = csvDashRunLoading[run.batch_run_id] ?? false;
@@ -5813,9 +5810,9 @@ export default function DocuFill() {
                           </div>
                           <div className="flex items-center gap-5 shrink-0 ml-4 text-center">
                             <div><div className="text-sm font-semibold text-[#0F1C3F]">{total}</div><div className="text-xs text-[#8A9BB8]">Rows</div></div>
-                            <div><div className="text-sm font-semibold text-emerald-700">{generated}</div><div className="text-xs text-[#8A9BB8]">PDFs</div></div>
                             <div><div className="text-sm font-semibold text-blue-700">{emailed}</div><div className="text-xs text-[#8A9BB8]">Emailed</div></div>
-                            <div><div className="text-sm font-semibold text-violet-700">{submitted}</div><div className="text-xs text-[#8A9BB8]">Submitted</div></div>
+                            <div><div className="text-sm font-semibold text-amber-600">{pending}</div><div className="text-xs text-[#8A9BB8]">Pending</div></div>
+                            <div><div className="text-sm font-semibold text-emerald-700">{completed}</div><div className="text-xs text-[#8A9BB8]">Completed</div></div>
                             <div>
                               <div className={`text-sm font-bold ${pct >= 75 ? "text-emerald-600" : pct >= 40 ? "text-amber-600" : "text-[#8A9BB8]"}`}>{pct}%</div>
                               <div className="text-xs text-[#8A9BB8]">Done</div>
@@ -6634,7 +6631,7 @@ export default function DocuFill() {
               <h3 className="text-sm font-semibold mb-2">
                 {csvBatchIsImporting
                   ? `Processing ${csvBatchResults.length} row${csvBatchResults.length === 1 ? "" : "s"}…`
-                  : `Results — ${csvBatchResults.filter((r) => r.status === "generated").length} generated · ${csvBatchResults.filter((r) => r.status === "error").length} failed`
+                  : `Results — ${csvBatchResults.filter((r) => r.status === "created").length} created · ${csvBatchResults.filter((r) => r.status === "error").length} failed`
                 }
               </h3>
               <div className="overflow-x-auto rounded border border-[#DDD5C4]">
@@ -6645,7 +6642,6 @@ export default function DocuFill() {
                       <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Status</th>
                       <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Token</th>
                       <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Session</th>
-                      <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">PDF</th>
                       <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Error</th>
                     </tr>
                   </thead>
@@ -6656,21 +6652,15 @@ export default function DocuFill() {
                         <td className="px-3 py-2">
                           {result.status === "processing"
                             ? <span className="flex items-center gap-1.5 text-[#6B7A99]"><span className="inline-block w-3 h-3 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />Processing</span>
-                            : result.status === "generated"
-                              ? <span className="text-green-700 font-medium">Generated</span>
+                            : result.status === "created"
+                              ? <span className="text-green-700 font-medium">Created</span>
                               : <span className="text-red-700 font-medium">Error</span>
                           }
                         </td>
                         <td className="px-3 py-2 text-[#6B7A99] font-mono text-[10px] max-w-[160px] truncate">{result.token ?? "—"}</td>
                         <td className="px-3 py-2">
-                          {result.status === "generated" && result.token
+                          {result.status === "created" && result.token
                             ? <a href={`/internal/docufill?session=${result.token}`} target="_blank" rel="noreferrer" className="text-[#C49A38] underline">Open session</a>
-                            : <span className="text-[#8A9BB8]">—</span>
-                          }
-                        </td>
-                        <td className="px-3 py-2">
-                          {result.pdfUrl
-                            ? <a href={`${API_BASE}${result.pdfUrl}`} target="_blank" rel="noreferrer" className="text-[#C49A38] underline">Download PDF</a>
                             : <span className="text-[#8A9BB8]">—</span>
                           }
                         </td>
@@ -6681,7 +6671,7 @@ export default function DocuFill() {
                 </table>
               </div>
               {!csvBatchIsImporting && (() => {
-                const generatedResults = csvBatchResults!.filter((r) => r.status === "generated" && r.token);
+                const generatedResults = csvBatchResults!.filter((r) => r.status === "created" && r.token);
                 const csvEmailHeader = csvBatchHeaders.find((h) => {
                   const f = csvBatchFieldMap.get(h.toLowerCase().trim());
                   return f && (f.validationType === "email" || h.toLowerCase().trim() === "email");
@@ -6842,7 +6832,6 @@ export default function DocuFill() {
                     )}
                     {(() => {
                       const failedRows = (csvBatchResults ?? []).filter((r) => r.status === "error").map((r) => r.rowIndex);
-                      const successRows = (csvBatchResults ?? []).filter((r) => r.status === "generated" && r.pdfUrl);
                       return (
                         <div className="mt-3 flex items-center gap-2 flex-wrap justify-end">
                           {failedRows.length > 0 && (
@@ -6854,59 +6843,6 @@ export default function DocuFill() {
                               className="border-amber-300 text-amber-800 hover:bg-amber-50"
                             >
                               {csvBatchIsImporting ? "Retrying…" : `↺ Retry ${failedRows.length} failed row${failedRows.length === 1 ? "" : "s"}`}
-                            </Button>
-                          )}
-                          {successRows.length > 1 && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={csvZipDownloading}
-                              onClick={async () => {
-                                setCsvZipDownloading(true);
-                                setCsvZipProgress({ done: 0, total: successRows.length });
-                                try {
-                                  const zip = new JSZip();
-                                  let done = 0;
-                                  await Promise.all(
-                                    successRows.map(async (r) => {
-                                      try {
-                                        const resp = await fetch(`${API_BASE}${r.pdfUrl}`, { headers: getAuthHeaders() });
-                                        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-                                        const buf = await resp.arrayBuffer();
-                                        const rowNum = r.rowIndex + 1;
-                                        const rowData = csvBatchRows[r.rowIndex];
-                                        const nameCol = csvBatchHeaders.find((h) => h.toLowerCase().includes("name"));
-                                        const namePart = nameCol && rowData?.[nameCol] ? `-${String(rowData[nameCol]).replace(/[^a-zA-Z0-9]/g, "_").slice(0, 30)}` : "";
-                                        zip.file(`row-${rowNum}${namePart}.pdf`, buf);
-                                      } finally {
-                                        done++;
-                                        setCsvZipProgress({ done, total: successRows.length });
-                                      }
-                                    }),
-                                  );
-                                  const blob = await zip.generateAsync({ type: "blob" });
-                                  const dateStr = new Date().toISOString().slice(0, 10);
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement("a");
-                                  a.href = url;
-                                  a.download = `docufill-batch-pdfs-${dateStr}.zip`;
-                                  a.click();
-                                  URL.revokeObjectURL(url);
-                                } catch (err) {
-                                  console.error("[ZIP download]", err);
-                                } finally {
-                                  setCsvZipDownloading(false);
-                                  setCsvZipProgress(null);
-                                }
-                              }}
-                              className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
-                            >
-                              {csvZipDownloading
-                                ? csvZipProgress
-                                  ? `Packaging ${csvZipProgress.done}/${csvZipProgress.total}…`
-                                  : "Packaging…"
-                                : `⬇ Download all ${successRows.length} PDFs (.zip)`
-                              }
                             </Button>
                           )}
                           <Button
