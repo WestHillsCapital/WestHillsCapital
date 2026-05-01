@@ -6,6 +6,7 @@ import { logger } from "../lib/logger";
 import { hashApiKey } from "../middleware/requireApiKeyAuth";
 import { requireProductAuth } from "../middleware/requireProductAuth";
 import { requireAdminRole } from "../middleware/requireRole";
+import { requirePlanFeature } from "../middleware/requirePlanFeature";
 import { linkPendingInvitation } from "../lib/auth-utils";
 import { seedDemoPackage } from "../lib/demoPackage";
 import { seedIndustryFields } from "../lib/industryFieldSeeds";
@@ -494,7 +495,7 @@ router.post("/verify-2fa", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post("/api-keys", requireProductAuth, requireAdminRole, async (req, res) => {
+router.post("/api-keys", requireProductAuth, requireAdminRole, requirePlanFeature("apiAccess"), async (req, res) => {
   const accountId = req.internalAccountId!;
   const name = ((req.body as { name?: string }).name ?? "").trim();
 

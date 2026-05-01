@@ -1,7 +1,7 @@
 import { getDb } from "../db";
 import { logger } from "./logger";
 import { insertAuditLog } from "./auditLog";
-import { PLAN_LIMITS } from "./plans";
+import { getPlanLimits } from "./plans";
 import { getUserEmailsToNotify, sendInAppNotifications } from "./notificationPrefs";
 import { sendOrgAlertEmails } from "./email";
 
@@ -82,7 +82,7 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
     }
 
     const planTier = resolveSubscriptionPlanTier(sub.status, metadataTier);
-    const limits   = PLAN_LIMITS[planTier as keyof typeof PLAN_LIMITS] ?? PLAN_LIMITS.free;
+    const limits   = getPlanLimits(planTier);
 
     const periodStart = sub.current_period_start
       ? new Date(sub.current_period_start * 1000)
