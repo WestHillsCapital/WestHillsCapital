@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useUser } from "@clerk/react";
+import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { useProductRole } from "@/hooks/useProductRole";
 import { useProductOrgSettings, updateProductOrgCache, getCachedProductOrg, type ProductOrgSettings } from "@/hooks/useProductOrgSettings";
@@ -77,12 +78,12 @@ interface BillingInfo {
   };
 }
 
-const PLAN_LABELS: Record<string, string> = { free: "Free", pro: "Pro", enterprise: "Enterprise" };
+const PLAN_LABELS: Record<string, string> = { free: "Starter", starter: "Starter", pro: "Pro", enterprise: "Enterprise" };
 
 function planBadge(tier: string) {
   if (tier === "enterprise") return <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Enterprise</span>;
   if (tier === "pro")        return <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">Pro</span>;
-  return <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2.5 py-0.5 text-xs font-semibold text-gray-600">Free</span>;
+  return <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2.5 py-0.5 text-xs font-semibold text-gray-600">Starter</span>;
 }
 
 function statusBadge(status: string | null) {
@@ -154,7 +155,8 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [isPortaling, setIsPortaling] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<"pro" | "enterprise">("pro");
+  const [selectedPlan, setSelectedPlan] = useState<"starter" | "pro" | "enterprise">("pro");
+  const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">("monthly");
 
   useEffect(() => {
     setIsLoading(true);
@@ -175,7 +177,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
       const res = await fetch(`${SETTINGS_BASE}/billing/checkout`, {
         method: "POST",
         headers: authHeaders("application/json"),
-        body: JSON.stringify({ plan: selectedPlan }),
+        body: JSON.stringify({ plan: selectedPlan, interval: billingInterval }),
       });
       const data = await res.json() as { url?: string; error?: string; setup_required?: boolean };
       if (!res.ok) {
@@ -269,7 +271,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     Renews {formatDate(billing.next_renewal_at)}
                   </p>
                 )}
-                {billing.plan_tier === "free" && (
+                {(billing.plan_tier === "free" || billing.plan_tier === "starter") && (
                   <p className="text-xs text-gray-500 mt-0.5">
                     Upgrade to unlock more packages, submissions, and seats.
                   </p>
@@ -277,14 +279,32 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
               </div>
 
               {/* CTA */}
-              {billing.plan_tier === "free" ? (
+              {(billing.plan_tier === "free" || billing.plan_tier === "starter") ? (
                 <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1 p-0.5 bg-gray-100 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setBillingInterval("monthly")}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${billingInterval === "monthly" ? "bg-white shadow text-gray-900" : "text-gray-500"}`}
+                    >
+                      Monthly
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBillingInterval("annual")}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${billingInterval === "annual" ? "bg-white shadow text-gray-900" : "text-gray-500"}`}
+                    >
+                      Annual
+                      <span className="text-[10px] font-semibold text-green-700">–20%</span>
+                    </button>
+                  </div>
                   <select
                     value={selectedPlan}
-                    onChange={(e) => setSelectedPlan(e.target.value as "pro" | "enterprise")}
+                    onChange={(e) => setSelectedPlan(e.target.value as "starter" | "pro" | "enterprise")}
                     className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20"
                   >
-                    <option value="pro">Pro — 5 seats · 500 submissions/mo</option>
+                    <option value="starter">Starter — 2 seats · 100 subs/mo</option>
+                    <option value="pro">Pro — 10 seats · 500 subs/mo</option>
                     <option value="enterprise">Enterprise — unlimited</option>
                   </select>
                   <button
@@ -311,37 +331,61 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
           </div>
 
           {/* Plan comparison table */}
-          {billing.plan_tier === "free" && (
+          {(billing.plan_tier === "free" || billing.plan_tier === "starter") && (
             <div className="px-6 py-4">
               <p className="text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">Compare plans</p>
               <div className="rounded-lg border border-gray-100 overflow-hidden text-xs">
                 <table className="w-full">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2.5 text-left font-medium text-gray-700 w-1/2">Feature</th>
-                      <th className="px-4 py-2.5 text-center font-medium text-gray-700">Free</th>
+                      <th className="px-4 py-2.5 text-left font-medium text-gray-700 w-2/5">Feature</th>
+                      <th className="px-4 py-2.5 text-center font-medium text-gray-600">Starter</th>
                       <th className="px-4 py-2.5 text-center font-medium text-indigo-700">Pro</th>
                       <th className="px-4 py-2.5 text-center font-medium text-amber-700">Enterprise</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     <tr>
+                      <td className="px-4 py-2.5 text-gray-700">Price / mo</td>
+                      <td className="px-4 py-2.5 text-center text-gray-600">$5</td>
+                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">$100</td>
+                      <td className="px-4 py-2.5 text-center text-amber-700 font-medium">$300</td>
+                    </tr>
+                    <tr className="bg-gray-50/50">
                       <td className="px-4 py-2.5 text-gray-700">Packages</td>
-                      <td className="px-4 py-2.5 text-center text-gray-600">3</td>
+                      <td className="px-4 py-2.5 text-center text-gray-600">5</td>
                       <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">Unlimited</td>
                       <td className="px-4 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
                     </tr>
-                    <tr className="bg-gray-50/50">
-                      <td className="px-4 py-2.5 text-gray-700">Submissions / month</td>
-                      <td className="px-4 py-2.5 text-center text-gray-600">50</td>
+                    <tr>
+                      <td className="px-4 py-2.5 text-gray-700">Submissions / mo</td>
+                      <td className="px-4 py-2.5 text-center text-gray-600">100</td>
                       <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">500</td>
                       <td className="px-4 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
                     </tr>
-                    <tr>
+                    <tr className="bg-gray-50/50">
                       <td className="px-4 py-2.5 text-gray-700">Team seats</td>
-                      <td className="px-4 py-2.5 text-center text-gray-600">1</td>
-                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">5</td>
+                      <td className="px-4 py-2.5 text-center text-gray-600">2</td>
+                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">10</td>
                       <td className="px-4 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-2.5 text-gray-700">Client links &amp; CSV batch</td>
+                      <td className="px-4 py-2.5 text-center text-gray-400">—</td>
+                      <td className="px-4 py-2.5 text-center text-indigo-600">✓</td>
+                      <td className="px-4 py-2.5 text-center text-amber-600">✓</td>
+                    </tr>
+                    <tr className="bg-gray-50/50">
+                      <td className="px-4 py-2.5 text-gray-700">Google Drive &amp; HubSpot</td>
+                      <td className="px-4 py-2.5 text-center text-gray-400">—</td>
+                      <td className="px-4 py-2.5 text-center text-indigo-600">✓</td>
+                      <td className="px-4 py-2.5 text-center text-amber-600">✓</td>
+                    </tr>
+                    <tr>
+                      <td className="px-4 py-2.5 text-gray-700">Webhooks &amp; API</td>
+                      <td className="px-4 py-2.5 text-center text-gray-400">—</td>
+                      <td className="px-4 py-2.5 text-center text-gray-400">—</td>
+                      <td className="px-4 py-2.5 text-center text-amber-600">✓</td>
                     </tr>
                   </tbody>
                 </table>
@@ -647,6 +691,7 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
     return h;
   }
   const bc = useBrandColor();
+  const { show: showUpgrade } = useUpgradeModal();
 
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [seatCount, setSeatCount] = useState(0);
@@ -660,7 +705,6 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
   const [isInviting, setIsInviting] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = useState<string | null>(null);
-  const [seatLimitReached, setSeatLimitReached] = useState(false);
 
   const [changingRoleId, setChangingRoleId] = useState<number | null>(null);
   const [removingId, setRemovingId] = useState<number | null>(null);
@@ -689,7 +733,6 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
     if (!inviteEmail.trim()) { setInviteError("Email is required."); return; }
     setInviteError(null);
     setInviteSuccess(null);
-    setSeatLimitReached(false);
     setIsInviting(true);
     try {
       const res = await fetch(`${SETTINGS_BASE}/team/invite`, {
@@ -697,8 +740,11 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
         headers: authHeaders("application/json"),
         body: JSON.stringify({ email: inviteEmail.trim(), role: inviteRole }),
       });
-      const data = await res.json() as { member?: TeamMember; emailSent?: boolean; error?: string; upgrade_required?: boolean };
-      if (res.status === 402 && data.upgrade_required) { setSeatLimitReached(true); return; }
+      const data = await res.json() as { member?: TeamMember; emailSent?: boolean; error?: string; upgrade_required?: boolean; required_plan?: string };
+      if (res.status === 402 && data.upgrade_required) {
+        showUpgrade({ limitType: "seats", requiredPlan: (data.required_plan as "pro" | "enterprise") ?? "pro" });
+        return;
+      }
       if (!res.ok) { setInviteError(data.error ?? "Failed to send invitation."); return; }
       setInviteEmail("");
       setInviteSuccess(
@@ -770,22 +816,6 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
       {isAdmin && (
         <div className="px-6 py-5">
           <p className="text-sm font-medium text-gray-900 mb-3">Invite a team member</p>
-          {seatLimitReached && (
-            <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 flex items-start justify-between gap-2">
-              <span>
-                Your plan&apos;s seat limit has been reached.{" "}
-                <button
-                  type="button"
-                  className="underline font-semibold hover:text-amber-900"
-                  onClick={() => document.getElementById("billing-section")?.scrollIntoView({ behavior: "smooth" })}
-                >
-                  Upgrade your plan
-                </button>{" "}
-                to invite more team members.
-              </span>
-              <button type="button" onClick={() => setSeatLimitReached(false)} className="text-amber-500 hover:text-amber-800 shrink-0 leading-none">&times;</button>
-            </div>
-          )}
           {inviteError && (
             <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{inviteError}</div>
           )}

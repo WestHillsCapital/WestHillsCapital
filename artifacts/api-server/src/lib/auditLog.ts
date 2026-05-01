@@ -23,7 +23,7 @@ export interface AuditLogMetadataMap {
   "branding.remove_logo":      Record<string, never>;
   "branding.upload_form_logo": Record<string, never>;
   "branding.remove_form_logo": Record<string, never>;
-  "plan.checkout_initiated":   { plan: string };
+  "plan.checkout_initiated":   { plan: string; interval: string; extra_seats: string; extra_submission_packs: string };
   "plan.change":               { from_plan: string; to_plan: string; status: string; event_type: string };
   "email_settings.update":     { senderName: string | null; replyTo: string | null; footerLength: number };
   "interview_defaults.update": { linkExpiryDays: number | null; reminderEnabled: boolean; reminderDays: number; defaultLocale: string };
