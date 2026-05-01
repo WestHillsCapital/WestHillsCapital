@@ -1,0 +1,44 @@
+{
+  "name": "@docuplete/mcp-server",
+  "version": "0.1.0",
+  "description": "Official Docuplete MCP server — control document automation from Claude Desktop, Cursor, and any MCP-compatible AI client",
+  "type": "module",
+  "main": "./dist/index.js",
+  "bin": {
+    "docuplete-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "tsc -p tsconfig.build.json --watch",
+    "typecheck": "tsc --noEmit"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "docuplete",
+    "mcp",
+    "model-context-protocol",
+    "document",
+    "pdf",
+    "ai",
+    "claude",
+    "cursor"
+  ],
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "@docuplete/sdk": "workspace:*",
+    "@modelcontextprotocol/sdk": "1.10.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.5.0"
+  }
+}
