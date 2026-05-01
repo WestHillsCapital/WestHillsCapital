@@ -3845,8 +3845,6 @@ export default function DocuFill() {
                           onSave={saveGroup}
                           onDelete={deleteGroup}
                         />
-                      </div>
-                      <div className="mt-4 space-y-4">
                         <TransactionTypesPanel
                           items={transactionTypes}
                           onAdd={createTransactionType}
@@ -3854,6 +3852,8 @@ export default function DocuFill() {
                           onSave={saveTransactionType}
                           onDelete={deleteTransactionType}
                         />
+                      </div>
+                      <div className="mt-4">
                         <FieldLibraryPanel
                           items={fieldLibrary}
                           onAdd={createFieldLibraryItem}
