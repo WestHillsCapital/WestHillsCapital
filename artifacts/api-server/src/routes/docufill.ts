@@ -43,6 +43,8 @@ import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage"
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { requireAdminRole, requireRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits, recordSubmissionEvent, recordPdfGenerationEvent } from "../middleware/requireWithinPlanLimits";
+import { requirePlanFeature, planFeatureError } from "../middleware/requirePlanFeature";
+import { getPlanFeatures } from "../lib/plans";
 import { recordPdfAuditEvent, actorContextFromRequest } from "../lib/pdf-audit";
 import {
   getOrCreateAccountDek,
@@ -2410,6 +2412,29 @@ router.patch("/packages/:id", async (req, res) => {
       }
     }
 
+    // ── Plan feature gates for package settings ───────────────────────────────
+    // Only check when the caller is explicitly enabling a gated feature.
+    // Internal users (req.internalEmail) bypass all gates.
+    if (!req.internalEmail) {
+      const needsGdriveGate    = body.enableGdrive    === true;
+      const needsHubspotGate   = body.enableHubspot   === true;
+      const needsEsignGate     = body.authLevel       === "email_otp";
+      const needsWebhookGate   = body.webhookEnabled  === true || (typeof body.webhookUrl === "string" && body.webhookUrl.trim().length > 0);
+      const needsEmbedGate     = body.enableEmbed     === true;
+      if (needsGdriveGate || needsHubspotGate || needsEsignGate || needsWebhookGate || needsEmbedGate) {
+        const { rows: planRows } = await db.query<{ plan_tier: string }>(
+          `SELECT plan_tier FROM accounts WHERE id = $1`,
+          [accountId],
+        );
+        const features = getPlanFeatures(planRows[0]?.plan_tier ?? "starter");
+        if (needsGdriveGate    && !features.googleDrive)          { res.status(402).json(planFeatureError("googleDrive"));        return; }
+        if (needsHubspotGate   && !features.hubspot)              { res.status(402).json(planFeatureError("hubspot"));            return; }
+        if (needsEsignGate     && !features.eSign)                { res.status(402).json(planFeatureError("eSign"));              return; }
+        if (needsWebhookGate   && !features.webhooks)             { res.status(402).json(planFeatureError("webhooks"));           return; }
+        if (needsEmbedGate     && !features.embeddedInterviews)   { res.status(402).json(planFeatureError("embeddedInterviews")); return; }
+      }
+    }
+
     const incomingDocuments = body.documents === undefined ? null : parseDocuments(body.documents);
     const removedStoredDocumentIds = incomingDocuments
       ? parseDocuments(existing.documents)
@@ -2857,7 +2882,7 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
   }
 });
 
-router.post("/csv-batch", requireMemberRole, async (req, res) => {
+router.post("/csv-batch", requireMemberRole, requirePlanFeature("csvBatch"), async (req, res) => {
   try {
     const body = req.body as { packageId?: unknown; rows?: unknown };
     const packageId = parseId(body.packageId);
@@ -3791,7 +3816,7 @@ router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
 });
 
 // ── Task #194: Send interview link by email ───────────────────────────────────
-router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) => {
+router.post("/sessions/:token/send-link", requireMemberRole, requirePlanFeature("clientLinks"), async (req, res) => {
   try {
     const db = getDb();
     const session = await getSession(String(req.params.token), db, acctId(req));
@@ -3858,7 +3883,7 @@ router.post("/sessions/:token/send-link", requireMemberRole, async (req, res) =>
   }
 });
 
-router.post("/batch/send-links", requireMemberRole, async (req, res) => {
+router.post("/batch/send-links", requireMemberRole, requirePlanFeature("clientLinks"), async (req, res) => {
   try {
     const body = req.body as {
       invitations?: Array<{ token: string; recipientEmail: string; recipientName?: string }>;

@@ -7,6 +7,7 @@ import { ObjectStorageService, objectStorageClient, StorageMisconfigError, asser
 import { extractBrandColors, isSafeUrl } from "../lib/brandColorExtractor";
 import { requireAdminRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
+import { requirePlanFeature } from "../middleware/requirePlanFeature";
 import { brandColorRateLimit } from "../middleware/brandColorRateLimit";
 import { sendTeamInvitationEmail, sendDataExportEmail, sendEmailVerificationEmail } from "../lib/email";
 import { getPlanLimits } from "../lib/plans";
@@ -1690,7 +1691,7 @@ router.delete("/integrations/slack", requireAdminRole, async (req, res) => {
  * to the redirectUri (the frontend settings page with ?gdrive=1) with
  * ?code=...&state=..., which the client exchanges via /exchange.
  */
-router.post("/integrations/gdrive/connect", requireAdminRole, async (req, res) => {
+router.post("/integrations/gdrive/connect", requireAdminRole, requirePlanFeature("googleDrive"), async (req, res) => {
   if (!isGDriveConfigured()) {
     res.status(503).json({ error: "Google Drive integration is not configured on this server." });
     return;
@@ -1721,7 +1722,7 @@ router.post("/integrations/gdrive/connect", requireAdminRole, async (req, res) =
  * POST /integrations/gdrive/exchange — exchanges the OAuth code for tokens.
  * Called by the frontend after Google redirects back with ?code=...&state=...
  */
-router.post("/integrations/gdrive/exchange", requireAdminRole, async (req, res) => {
+router.post("/integrations/gdrive/exchange", requireAdminRole, requirePlanFeature("googleDrive"), async (req, res) => {
   if (!isGDriveConfigured()) {
     res.status(503).json({ error: "Google Drive integration is not configured." });
     return;
@@ -1825,7 +1826,7 @@ router.delete("/integrations/gdrive", requireAdminRole, async (req, res) => {
 // ── HubSpot OAuth ─────────────────────────────────────────────────────────────
 
 /** POST /integrations/hubspot/connect — initiates HubSpot OAuth flow */
-router.post("/integrations/hubspot/connect", requireAdminRole, async (req, res) => {
+router.post("/integrations/hubspot/connect", requireAdminRole, requirePlanFeature("hubspot"), async (req, res) => {
   try {
     const body = req.body as { redirectUri?: string };
     if (!body.redirectUri || typeof body.redirectUri !== "string") {
@@ -1847,7 +1848,7 @@ router.post("/integrations/hubspot/connect", requireAdminRole, async (req, res) 
 });
 
 /** POST /integrations/hubspot/exchange — exchanges OAuth code for tokens */
-router.post("/integrations/hubspot/exchange", requireAdminRole, async (req, res) => {
+router.post("/integrations/hubspot/exchange", requireAdminRole, requirePlanFeature("hubspot"), async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
@@ -2734,7 +2735,7 @@ router.get("/email", async (req, res) => {
   }
 });
 
-router.patch("/email", requireAdminRole, async (req, res) => {
+router.patch("/email", requireAdminRole, requirePlanFeature("emailBranding"), async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
     const body = req.body as Record<string, unknown>;
@@ -4124,7 +4125,7 @@ router.get("/custom-domain", async (req, res) => {
 });
 
 /** PUT /custom-domain — save (or remove) a custom domain; sets status to unverified */
-router.put("/custom-domain", requireAdminRole, async (req, res) => {
+router.put("/custom-domain", requireAdminRole, requirePlanFeature("customDomain"), async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
     const body = req.body as Record<string, unknown>;
