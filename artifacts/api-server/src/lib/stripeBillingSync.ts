@@ -13,7 +13,9 @@ type StripeSubscriptionObject = {
   current_period_end?: number;
   items?: {
     data?: Array<{
+      quantity?: number;
       price?: {
+        id?: string;
         product?: string;
       };
     }>;
@@ -44,10 +46,31 @@ function resolveSubscriptionPlanTier(
   if (status !== "active" && status !== "trialing") {
     return "free";
   }
-  if (metadataTier === "pro" || metadataTier === "enterprise") {
+  if (metadataTier === "starter" || metadataTier === "pro" || metadataTier === "enterprise") {
     return metadataTier;
   }
-  return "pro"; // default paid tier
+  return "starter"; // default paid tier
+}
+
+/**
+ * Returns the total number of extra seats purchased as add-ons in this subscription.
+ * Checks subscription items against STRIPE_EXTRA_SEAT_*_PRICE_ID env vars.
+ */
+function resolveExtraSeats(items: StripeSubscriptionObject["items"]): number {
+  const seatPriceIds = new Set(
+    [
+      process.env.STRIPE_EXTRA_SEAT_MONTHLY_PRICE_ID,
+      process.env.STRIPE_EXTRA_SEAT_ANNUAL_PRICE_ID,
+    ].filter(Boolean) as string[],
+  );
+  if (seatPriceIds.size === 0) return 0;
+  let total = 0;
+  for (const item of items?.data ?? []) {
+    if (item.price?.id && seatPriceIds.has(item.price.id)) {
+      total += item.quantity ?? 0;
+    }
+  }
+  return total;
 }
 
 /**
@@ -81,8 +104,12 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
       // stripe schema not available yet — skip product lookup
     }
 
-    const planTier = resolveSubscriptionPlanTier(sub.status, metadataTier);
-    const limits   = getPlanLimits(planTier);
+    const planTier   = resolveSubscriptionPlanTier(sub.status, metadataTier);
+    const limits     = getPlanLimits(planTier);
+    const extraSeats = resolveExtraSeats(sub.items);
+    const seatLimit  = limits.maxSeats === 999
+      ? 999
+      : limits.maxSeats + extraSeats;
 
     const periodStart = sub.current_period_start
       ? new Date(sub.current_period_start * 1000)
@@ -103,7 +130,7 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
               billing_period_start   = $4,
               seat_limit             = $5
         WHERE stripe_customer_id    = $6`,
-      [planTier, sub.id, sub.status, periodStart, limits.maxSeats, customerId],
+      [planTier, sub.id, sub.status, periodStart, seatLimit, customerId],
     );
 
     logger.info(

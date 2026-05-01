@@ -6,6 +6,7 @@ import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, r
 import { CSS as DndCSS } from "@dnd-kit/utilities";
 import { useLocation, useParams, useSearch } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
+import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 import { useDocuFillConfig } from "@/hooks/useDocuFillConfig";
 import { getCachedOrg } from "@/hooks/useOrgSettings";
 import { formatOrgTime } from "@/lib/orgDateFormat";
@@ -974,6 +975,7 @@ export default function DocuFill() {
   const sessionToken = publicSessionToken ?? new URLSearchParams(search).get("session");
   const isPublicSession = Boolean(publicSessionToken);
   const { getAuthHeaders: defaultGetAuthHeaders } = useInternalAuth();
+  const { show: showUpgrade } = useUpgradeModal();
   const docufillConfig = useDocuFillConfig();
   const getAuthHeaders = docufillConfig?.getAuthHeaders ?? defaultGetAuthHeaders;
   const getAuthHeadersRef = useRef(getAuthHeaders);
@@ -1179,7 +1181,6 @@ export default function DocuFill() {
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [planLimitError, setPlanLimitError] = useState<{ limitType: string; message: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [webhookTestStatus, setWebhookTestStatus] = useState<null | { ok: boolean; message: string }>(null);
   const [webhookSecret, setWebhookSecret] = useState<string | null>(null);
@@ -1931,7 +1932,6 @@ export default function DocuFill() {
     }
     setIsSaving(true);
     setError(null);
-    setPlanLimitError(null);
     try {
       const res = await fetch(`${API_BASE}${docufillApiPath}/packages`, {
         method: "POST",
@@ -1946,14 +1946,14 @@ export default function DocuFill() {
           mappings: [],
         }),
       });
-      const data = await res.json();
+      const data = await res.json() as { error?: string; upgrade_required?: boolean; limit_type?: string; required_plan?: string; package?: { id: number } };
       if (res.status === 402 && data.upgrade_required) {
-        setPlanLimitError({ limitType: data.limit_type ?? "package", message: data.error ?? "Package limit reached." });
+        showUpgrade({ limitType: (data.limit_type as "packages" | "submissions" | "seats") ?? "packages", requiredPlan: (data.required_plan as "pro" | "enterprise") ?? "pro" });
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Could not create package");
       await loadBootstrap();
-      setSelectedPackageId(data.package.id);
+      if (data.package) setSelectedPackageId(data.package.id);
       setNewPackageName("");
       setNewPackageGroupId("");
       setAddingPackage(false);
@@ -3167,7 +3167,6 @@ export default function DocuFill() {
     }
     setIsSaving(true);
     setError(null);
-    setPlanLimitError(null);
     try {
       const res = await fetch(`${API_BASE}${docufillApiPath}/sessions`, {
         method: "POST",
@@ -3179,9 +3178,9 @@ export default function DocuFill() {
           prefill: {},
         }),
       });
-      const data = await res.json();
+      const data = await res.json() as { error?: string; upgrade_required?: boolean; limit_type?: string; required_plan?: string; token?: string };
       if (res.status === 402 && data.upgrade_required) {
-        setPlanLimitError({ limitType: data.limit_type ?? "submission", message: data.error ?? "Submission limit reached." });
+        showUpgrade({ limitType: (data.limit_type as "packages" | "submissions" | "seats") ?? "submissions", requiredPlan: (data.required_plan as "pro" | "enterprise") ?? "pro" });
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Could not launch interview");
@@ -3201,7 +3200,6 @@ export default function DocuFill() {
     setGeneratedCustomerLink(null);
     setLinkCopied(false);
     setError(null);
-    setPlanLimitError(null);
     setShowSendLinkForm(false);
     setLinkEmailSent(null);
     setLinkEmailError(null);
@@ -3221,9 +3219,9 @@ export default function DocuFill() {
           prefill,
         }),
       });
-      const data = await res.json();
+      const data = await res.json() as { error?: string; upgrade_required?: boolean; limit_type?: string; required_plan?: string; token?: string; feature?: string };
       if (res.status === 402 && data.upgrade_required) {
-        setPlanLimitError({ limitType: data.limit_type ?? "submission", message: data.error ?? "Submission limit reached." });
+        showUpgrade({ feature: data.feature, limitType: (data.limit_type as "packages" | "submissions" | "seats") ?? "submissions", requiredPlan: (data.required_plan as "pro" | "enterprise") ?? "pro" });
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Could not generate customer link");
@@ -3398,22 +3396,6 @@ export default function DocuFill() {
           <button onClick={() => setTab("csv")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "csv" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch CSV</button>
         </div>}
       </div>
-      {planLimitError && (
-        <div className="mb-4 rounded border border-amber-200 bg-amber-50 text-amber-900 px-3 py-2 text-sm flex items-start justify-between gap-2">
-          <span>
-            {planLimitError.message}{" "}
-            <a
-              href="/app/settings#billing-section"
-              onClick={(e) => { e.preventDefault(); navigate("/app/settings"); setTimeout(() => document.getElementById("billing-section")?.scrollIntoView({ behavior: "smooth" }), 500); }}
-              className="underline font-semibold hover:text-amber-950"
-            >
-              Upgrade your plan
-            </a>{" "}
-            to continue.
-          </span>
-          <button type="button" onClick={() => setPlanLimitError(null)} className="text-amber-500 hover:text-amber-900 shrink-0 leading-none">&times;</button>
-        </div>
-      )}
       {error && <div className="mb-4 rounded border border-red-200 bg-red-50 text-red-800 px-3 py-2 text-sm">{error}</div>}
       {status && <div className="mb-4 rounded border border-green-200 bg-green-50 text-green-800 px-3 py-2 text-sm">{status}</div>}
 

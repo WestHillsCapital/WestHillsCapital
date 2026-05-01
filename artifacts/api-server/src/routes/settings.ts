@@ -1236,21 +1236,28 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
     const body = req.body as Record<string, unknown>;
-    const planTier = typeof body.plan === "string" ? body.plan : "";
-    if (planTier !== "pro" && planTier !== "enterprise") {
-      res.status(400).json({ error: "Invalid plan. Must be 'pro' or 'enterprise'." });
+
+    const planTier = typeof body.plan === "string" ? body.plan.toLowerCase() : "";
+    if (planTier !== "starter" && planTier !== "pro" && planTier !== "enterprise") {
+      res.status(400).json({ error: "Invalid plan. Must be 'starter', 'pro', or 'enterprise'." });
       return;
     }
+
+    const interval: "monthly" | "annual" = body.interval === "annual" ? "annual" : "monthly";
+    const extraSeats          = Math.max(0, Math.min(50, Number(body.extraSeats          ?? 0)));
+    const extraSubmissionPacks = Math.max(0, Math.min(50, Number(body.extraSubmissionPacks ?? 0)));
 
     const db     = getDb();
     const stripe = await getUncachableStripeClient();
 
-    // Resolve account name + email for customer creation
+    // Resolve account + check for existing subscription (determines trial eligibility)
     const { rows: acctRows } = await db.query<{
       name: string;
       stripe_customer_id: string | null;
+      stripe_subscription_id: string | null;
+      subscription_status: string | null;
     }>(
-      `SELECT name, stripe_customer_id FROM accounts WHERE id = $1`,
+      `SELECT name, stripe_customer_id, stripe_subscription_id, subscription_status FROM accounts WHERE id = $1`,
       [accountId],
     );
     const acct = acctRows[0];
@@ -1273,15 +1280,18 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
       );
     }
 
-    // Look up matching price via the Stripe API (primary) or env var (fallback)
-    let priceId: string | null = null;
+    // ── Resolve plan price ID ──────────────────────────────────────────────────
+    // Priority: env var shortcut → live Stripe API lookup → synced DB fallback
+    const stripeInterval = interval === "annual" ? "year" : "month";
+    const envKey = `STRIPE_${planTier.toUpperCase()}_${interval.toUpperCase()}_PRICE_ID`;
+    let priceId: string | null = process.env[envKey] ?? null;
 
-    // Env var shortcut (set after running seed-stripe-products)
-    priceId = planTier === "pro"
-      ? (process.env.STRIPE_PRO_PRICE_ID ?? null)
-      : (process.env.STRIPE_ENTERPRISE_PRICE_ID ?? null);
+    // Legacy env var fallback (old naming convention)
+    if (!priceId && interval === "monthly") {
+      if (planTier === "pro")        priceId = process.env.STRIPE_PRO_PRICE_ID        ?? null;
+      if (planTier === "enterprise") priceId = process.env.STRIPE_ENTERPRISE_PRICE_ID ?? null;
+    }
 
-    // Live Stripe API lookup by product metadata if env vars not set
     if (!priceId) {
       try {
         const products = await stripe.products.list({ active: true, limit: 100 });
@@ -1289,22 +1299,15 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
           (p) => p.metadata?.plan_tier?.toLowerCase() === planTier,
         );
         if (product) {
-          const prices = await stripe.prices.list({
-            product: product.id,
-            active:  true,
-            type:    "recurring",
-            limit:   10,
-          });
-          // Prefer the lowest unit_amount (most accessible price)
-          const sorted = prices.data.sort((a, b) => (a.unit_amount ?? 0) - (b.unit_amount ?? 0));
-          priceId = sorted[0]?.id ?? null;
+          const prices = await stripe.prices.list({ product: product.id, active: true, type: "recurring", limit: 20 });
+          const match = prices.data.find((p) => p.recurring?.interval === stripeInterval);
+          priceId = match?.id ?? prices.data[0]?.id ?? null;
         }
       } catch {
-        // Stripe API unavailable — fall through
+        // Stripe API unavailable
       }
     }
 
-    // Stripe-replit-sync DB fallback (when synced tables are available)
     if (!priceId) {
       try {
         const { rows: priceRows } = await db.query<{ id: string }>(
@@ -1314,10 +1317,10 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
             WHERE pr.active = true
               AND p.active = true
               AND lower(p.metadata->>'plan_tier') = $1
-              AND pr.recurring IS NOT NULL
+              AND pr.recurring->>'interval' = $2
             ORDER BY pr.unit_amount ASC
             LIMIT 1`,
-          [planTier],
+          [planTier, stripeInterval],
         );
         priceId = priceRows[0]?.id ?? null;
       } catch {
@@ -1327,10 +1330,48 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
 
     if (!priceId) {
       res.status(503).json({
-        error: "Stripe products have not been seeded yet. Run the seed-products script first.",
+        error: "Plan prices have not been configured yet. Please contact support.",
         setup_required: true,
       });
       return;
+    }
+
+    // ── Build line items ───────────────────────────────────────────────────────
+    const lineItems: { price: string; quantity: number }[] = [
+      { price: priceId, quantity: 1 },
+    ];
+
+    if (extraSeats > 0) {
+      const seatPriceId =
+        process.env[`STRIPE_EXTRA_SEAT_${interval.toUpperCase()}_PRICE_ID`] ??
+        process.env.STRIPE_EXTRA_SEAT_MONTHLY_PRICE_ID ??
+        null;
+      if (seatPriceId) lineItems.push({ price: seatPriceId, quantity: extraSeats });
+    }
+
+    if (extraSubmissionPacks > 0) {
+      const packPriceId =
+        process.env[`STRIPE_EXTRA_SUBMISSION_${interval.toUpperCase()}_PRICE_ID`] ??
+        process.env.STRIPE_EXTRA_SUBMISSION_MONTHLY_PRICE_ID ??
+        null;
+      if (packPriceId) lineItems.push({ price: packPriceId, quantity: extraSubmissionPacks });
+    }
+
+    // ── Subscription options (trial only for brand-new subscribers) ────────────
+    const isNewSubscriber =
+      !acct.stripe_subscription_id ||
+      acct.subscription_status === null ||
+      acct.subscription_status === "canceled" ||
+      acct.subscription_status === "cancelled";
+
+    const subscriptionData: {
+      trial_period_days?: number;
+      metadata: Record<string, string>;
+    } = {
+      metadata: { account_id: String(accountId) },
+    };
+    if (isNewSubscriber) {
+      subscriptionData.trial_period_days = 14;
     }
 
     const origin = process.env.APP_ORIGIN
@@ -1339,11 +1380,11 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       customer:             customerId,
       payment_method_types: ["card"],
-      line_items:           [{ price: priceId, quantity: 1 }],
+      line_items:           lineItems,
       mode:                 "subscription",
       success_url:          `${origin}/app/settings?billing=success`,
       cancel_url:           `${origin}/app/settings?billing=cancel`,
-      subscription_data:    { metadata: { account_id: String(accountId) } },
+      subscription_data:    subscriptionData,
     });
 
     const clerkUserId = getAuth(req)?.userId ?? null;
@@ -1354,7 +1395,7 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
       action: "plan.checkout_initiated",
       resourceType: "subscription",
       resourceLabel: planTier,
-      metadata: { plan: planTier },
+      metadata: { plan: planTier, interval, extra_seats: String(extraSeats), extra_submission_packs: String(extraSubmissionPacks) },
     });
 
     res.json({ url: session.url });

@@ -6,6 +6,8 @@ import { useEffect, lazy, Suspense } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { ClerkProvider } from "@clerk/react";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
+import { UpgradeModalProvider } from "@/hooks/useUpgradeModal";
+import { UpgradeModal } from "@/components/UpgradeModal";
 
 // Public layout
 import { Layout } from "@/components/layout/Layout";
@@ -211,9 +213,12 @@ function App() {
         <TooltipProvider delayDuration={400}>
           <WouterRouter base={basePath}>
             <ClerkProviderWithRouter>
-              <InternalAuthProvider>
-                <Router />
-              </InternalAuthProvider>
+              <UpgradeModalProvider>
+                <InternalAuthProvider>
+                  <Router />
+                </InternalAuthProvider>
+                <UpgradeModal />
+              </UpgradeModalProvider>
             </ClerkProviderWithRouter>
           </WouterRouter>
           <Toaster />
