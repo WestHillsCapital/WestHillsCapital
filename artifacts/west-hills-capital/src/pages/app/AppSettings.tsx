@@ -305,7 +305,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                   >
                     <option value="starter">Starter — 2 seats · 100 subs/mo</option>
                     <option value="pro">Pro — 10 seats · 500 subs/mo</option>
-                    <option value="enterprise">Enterprise — unlimited</option>
+                    <option value="enterprise">Enterprise — 25 seats · Unlimited subs</option>
                   </select>
                   <button
                     type="button"
@@ -349,7 +349,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                       <td className="px-4 py-2.5 text-gray-700">Price / mo</td>
                       <td className="px-4 py-2.5 text-center text-gray-600">$5</td>
                       <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">$100</td>
-                      <td className="px-4 py-2.5 text-center text-amber-700 font-medium">$300</td>
+                      <td className="px-4 py-2.5 text-center text-amber-700 font-medium">$3,000</td>
                     </tr>
                     <tr className="bg-gray-50/50">
                       <td className="px-4 py-2.5 text-gray-700">Packages</td>
@@ -367,7 +367,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                       <td className="px-4 py-2.5 text-gray-700">Team seats</td>
                       <td className="px-4 py-2.5 text-center text-gray-600">2</td>
                       <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">10</td>
-                      <td className="px-4 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
+                      <td className="px-4 py-2.5 text-center text-amber-700 font-medium">25 + $15/ea</td>
                     </tr>
                     <tr>
                       <td className="px-4 py-2.5 text-gray-700">Client links &amp; CSV batch</td>

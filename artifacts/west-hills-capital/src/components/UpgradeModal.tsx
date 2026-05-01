@@ -18,17 +18,17 @@ const PLAN_INFO = {
   },
   enterprise: {
     label:       "Enterprise",
-    monthly:     300,
-    annual:      2880,
-    annualPerMo: 240,
+    monthly:     3000,
+    annual:      28800,
+    annualPerMo: 2400,
     packages:    "Unlimited packages",
     subs:        "Unlimited submissions",
-    seats:       "Unlimited seats",
+    seats:       "25 seats included",
     color:       "amber",
   },
 } as const;
 
-const EXTRA_SEAT = { monthly: 35, annual: 336, annualPerMo: 28 };
+const EXTRA_SEAT = { monthly: 15, annual: 144, annualPerMo: 12 };
 const EXTRA_PACK = { monthly: 25, annual: 240, annualPerMo: 20 };
 
 const FEATURE_LABELS: Record<string, string> = {
@@ -110,7 +110,7 @@ export function UpgradeModal() {
   const featureKey = state.feature ?? state.limitType ?? "";
   const featureLabel = state.featureLabel ?? FEATURE_LABELS[featureKey] ?? "this feature";
 
-  const showSeatAddon = targetPlan === "pro";
+  const showSeatAddon = true;
   const showPackAddon = targetPlan === "pro";
 
   async function handleUpgrade(planChoice: "pro" | "enterprise") {
@@ -131,7 +131,7 @@ export function UpgradeModal() {
         body: JSON.stringify({
           plan:                 planChoice,
           interval,
-          extraSeats:           planChoice === "pro" ? extraSeats : 0,
+          extraSeats:           extraSeats,
           extraSubmissionPacks: planChoice === "pro" ? extraPacks : 0,
         }),
       });
@@ -308,7 +308,7 @@ export function UpgradeModal() {
               onClick={() => void handleUpgrade("enterprise")}
               className="w-full py-2.5 rounded-xl text-xs font-medium text-amber-700 border border-amber-200 bg-amber-50 hover:bg-amber-100 transition-colors disabled:opacity-60"
             >
-              Or upgrade to Enterprise — unlimited everything ($300/mo)
+              Or upgrade to Enterprise — 25 seats · unlimited everything ($3,000/mo)
             </button>
           )}
 

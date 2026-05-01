@@ -33,7 +33,7 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
   enterprise: {
     maxPackages:            null,
     maxSubmissionsPerMonth: null,
-    maxSeats:               999,
+    maxSeats:               25,
   },
 };
 
