@@ -1380,13 +1380,15 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
       ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://app.docuplete.com");
 
     const session = await stripe.checkout.sessions.create({
-      customer:             customerId,
-      payment_method_types: ["card"],
-      line_items:           lineItems,
-      mode:                 "subscription",
-      success_url:          `${origin}/app/settings?billing=success`,
-      cancel_url:           `${origin}/app/settings?billing=cancel`,
-      subscription_data:    subscriptionData,
+      customer:                  customerId,
+      payment_method_types:      ["card"],
+      line_items:                lineItems,
+      mode:                      "subscription",
+      success_url:               `${origin}/app/settings?billing=success`,
+      cancel_url:                `${origin}/app/settings?billing=cancel`,
+      subscription_data:         subscriptionData,
+      // No card required during trial — card is collected before trial ends
+      payment_method_collection: isNewSubscriber ? "if_required" : "always",
     });
 
     const clerkUserId = getAuth(req)?.userId ?? null;
