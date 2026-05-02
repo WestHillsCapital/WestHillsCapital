@@ -1,6 +1,6 @@
 # Overview
 
-**Docuplete** is a SaaS platform for custodial paperwork automation, evolved from the West Hills Capital internal tool. It lets organizations build reusable document packages, map interview fields to PDF overlays, and have clients complete forms via tokenized public links. The project also retains the original West Hills Capital public-facing website (live pricing, appointment scheduling, IRA allocation, Insights Hub, Deal Builder) as a separate product under the same monorepo.
+Docuplete is a SaaS platform designed for custodial paperwork automation, enabling organizations to create reusable document packages, map interview fields to PDF overlays, and facilitate client form completion via tokenized public links. This project also incorporates the public-facing website for West Hills Capital, offering live pricing, appointment scheduling, IRA allocation, an Insights Hub, and a Deal Builder, all within the same monorepo.
 
 # User Preferences
 
@@ -8,195 +8,68 @@ I prefer iterative development. I want to be asked before making major changes.
 
 # System Architecture
 
-pnpm monorepo (TypeScript) with two primary artifacts:
-- `artifacts/api-server` — Express 5 backend
-- `artifacts/west-hills-capital` — React + Vite + Tailwind + shadcn frontend
-
-Shared packages: `packages/api-zod` (Zod schemas), `packages/db` (database client).
+The project is structured as a pnpm monorepo using TypeScript, comprising two main artifacts: `artifacts/api-server` (Express 5 backend) and `artifacts/west-hills-capital` (React + Vite + Tailwind + shadcn frontend). Shared packages include `packages/api-zod` for Zod schemas and `packages/db` for the database client.
 
 **Frontend (React + Vite + Tailwind + shadcn):**
-- **Public pages:** Home, Live Pricing, Schedule Allocation Call, IRA Allocation, About, Disclosures, Terms, Insights Hub, individual Insight Articles.
-- **Internal portal** (`/internal/*`): Google-auth-gated. Deal Builder, DocuFill manager, prospecting pipeline, scheduled calls.
-- **Product portal** (`/app/*`): Clerk-auth-gated. Docuplete SaaS interface for tenant organizations. AppPortal → AppSettings (multi-section Settings page), DocuFill editor, etc.
-- **Routing:** React Router with dynamic slug-based routing and token-scoped public interview pages.
-- **Design:** Off-white, navy, and gold color scheme. Fixed header with live spot ticker.
+- **User Interfaces:** Includes public pages (Home, Live Pricing, etc.), an internal Google-authenticated portal (`/internal/*`) for tools like Deal Builder and DocuFill manager, and a Clerk-authenticated product portal (`/app/*`) for Docuplete SaaS features such as the AppPortal and DocuFill editor.
+- **Routing:** Implemented using React Router, supporting dynamic slug-based routing and token-scoped public interview pages.
+- **Design System:** Utilizes an off-white, navy, and gold color scheme with a fixed header displaying a live spot ticker.
 
 **Backend (Express 5 + PostgreSQL):**
-- **API:** RESTful, mounted at `/api`. Endpoints for pricing, scheduling, lead capture, internal settings, product (tenant) settings, DocuFill admin CRUD, DocuFill public session flow, storage assets, deal builder, security/audit.
-- **Authentication:**
-  - Internal portal: Google OAuth (session-based).
-  - Product portal: Clerk (`@clerk/express`). `requireProductAuth` middleware gates all `/api/v1/product/*` routes and enforces TOTP 2FA.
-- **Database:** PostgreSQL — all tables created/migrated via `initializeDatabase()` in `db.ts` (no separate migration framework; `CREATE TABLE IF NOT EXISTS` / `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` pattern).
-- **Pricing Logic:** Dillon Gage Fiztrade API. Spreads: gold +2%, silver +5%, buyback gold -1%, silver -3%.
-- **Deal Builder:** Lock & Execute pipeline — DB save, Dillon Gage API call, pdfkit invoice, Google Drive upload, Resend email, Google Sheets sync.
+- **API:** A RESTful API mounted at `/api`, providing endpoints for various functionalities including pricing, scheduling, lead capture, settings management, DocuFill operations, storage, deal building, and security.
+- **Authentication:** Internal portal uses Google OAuth (session-based), while the product portal uses Clerk with `requireProductAuth` middleware enforcing TOTP 2FA for `/api/v1/product/*` routes.
+- **Database:** PostgreSQL is used, with all tables created and managed via `initializeDatabase()` using a `CREATE TABLE IF NOT EXISTS` pattern.
+- **Pricing Logic:** Integrates with the Dillon Gage Fiztrade API, applying defined spreads for gold and silver.
+- **Deal Builder:** Features a Lock & Execute pipeline that handles database saves, API calls, PDF invoice generation (pdfkit), Google Drive uploads, email sending (Resend), and Google Sheets synchronization.
+- **API Documentation:** OpenAPI 3.1 spec available at `GET /api/docs/openapi.json` and Swagger UI at `GET /api/docs`.
 
-**API Documentation:**
-- OpenAPI 3.1 spec at `GET /api/docs/openapi.json`
-- Swagger UI at `GET /api/docs`
+**Key Features:**
 
-# Key Features
+*   **Docuplete (Document Automation):**
+    *   **Core Functionality:** Enables staff to configure reusable document packages, clients to complete interviews via tokenized public links, and server-side generation of filled PDFs.
+    *   **Components:** Manages Groups, Transaction Types, a Shared Field Library for reusable field definitions, and Packages that enforce plan limits.
+    *   **Interview Sessions:** Token-scoped public interviews with monthly submission limits and usage tracking.
+    *   **PDF Processing:** Uses `pdf-lib` for parsing and overlay, and `pdfkit` for generation. The DocuFill mapper UI is a 3-column grid.
+    *   **E-sign v1:** Incorporates email OTP verification, SHA-256 PDF hashing, signing certificate appending, and an append-only audit trail.
+    *   **RFC 3161 Trusted Timestamp (TSA):** Integrates with public TSAs (DigiCert, Sectigo, FreeTSA) for timestamping signed PDFs, storing raw DER `TimeStampResp` and the responding endpoint.
 
-## Docuplete (Document Automation)
-Custodial paperwork engine. Staff configure reusable document packages; clients complete interviews via tokenized public links; filled PDFs are generated server-side.
+*   **Settings Page (Product Portal):** A multi-section settings page at `/app/settings` with navigation for Account, Profile, Security (2FA + Trusted Devices), Billing, and Custom Domain management.
 
-- **Groups:** Unified concept (replaced legacy Custodians/Depositories). Full CRUD + delete. Each package belongs to a Group.
-- **Transaction Types:** Normalized, full CRUD + delete.
-- **Shared Field Library:** Reusable field definitions (label, type, validation, options) shared across packages. Full CRUD + delete.
-- **Packages:** Collections of documents + field mappings. POST /packages enforces plan limits via `requireWithinPlanLimits`.
-- **Field Types (editor):** Text box, Radio, Checkbox, Dropdown. **Date is not a field type** — it is a Validation Rule applied to a Text box field.
-- **Sessions (public interview):** Token-scoped. Monthly submission count enforced + `usage_events` recorded.
-- **PDF Overlay:** `pdf-lib` for parsing and overlay; `pdfkit` for generation.
-- **DocuFill mapper UI:** 3-column grid `[190px_1fr_260px]` in the document editor.
-- **E-sign v1:** Email OTP identity verification, SHA-256 PDF hash, signing certificate appended as final PDF page, append-only audit trail in `docufill_signing_events`. Toggle per package via `auth_level` column.
-- **RFC 3161 Trusted Timestamp (TSA):** After cert page is appended and PDF hash is computed, the SHA-256 is submitted to a chain of public TSAs (DigiCert → Sectigo → FreeTSA). The raw DER `TimeStampResp` is stored in `tsa_token_b64` (verifiable with `openssl ts -verify`) and the responding endpoint in `tsa_url`. TSA failure is non-blocking — signing proceeds and a warning is logged. Cert page shows the intended primary TSA URL; actual responder stored in DB. Client: `artifacts/api-server/src/lib/tsa.ts`.
+*   **Two-Factor Authentication (2FA):** TOTP-based 2FA enforced by middleware. Includes a "Trusted Devices" feature using signed HttpOnly cookies to bypass TOTP for recognized devices, with management capabilities in security settings. Rate limiting is applied to TOTP attempts.
 
-## Settings Page (Product Portal)
-Multi-section settings page at `/app/settings`. Desktop: left sidebar navigation (sticky, `top-[72px]`). Mobile: horizontal pill nav.
+*   **Audit Log:** Displays actions, resources, metadata, timestamps, IP addresses, and geographic locations (resolved via `geoip-lite` with an LRU cache) for audit events in Settings.
 
-Sections (defined in `ALL_SETTINGS_NAV` array in `AppSettings.tsx`):
-- Account, Profile, Password, Security (2FA + Trusted Devices), Sessions, Login History, Audit Log, Team, Billing, Custom Domain.
+*   **Custom Domain:** Allows Pro/Enterprise accounts to configure custom subdomains for customer-facing links, with DNS CNAME verification and status tracking.
 
-## Two-Factor Authentication (2FA)
-- TOTP-based 2FA enforced by `requireProductAuth` middleware for all product API routes and the `TwoFAGate` component on the frontend.
-- **Trusted Devices ("Remember this device for 30 days"):**
-  - `POST /verify-2fa` accepts `trustDevice: boolean`. When true, generates a 32-byte random token, stores its SHA-256 hash in `trusted_devices` table, sets a 30-day signed HttpOnly cookie (`td_token`).
-  - `requireProductAuth` checks `td_token` signed cookie before returning `TOTP_REQUIRED`. Hashes it, looks up `trusted_devices` by user + expiry. If valid, updates `last_used_at`, stamps the Clerk session `totp_verified`, grants access — no TOTP prompt.
-  - Frontend `TwoFAGate.tsx`: "Remember this device for 30 days" checkbox.
-  - `useProductAuth.tsx`: `verify2FA(code, trustDevice?)` sends `trustDevice` in body; all `/me` and `/verify-2fa` fetches use `credentials: "include"` for cross-origin cookie flow.
-  - **Security Settings** in AppSettings shows the trusted devices list (label, IP, trust date, expiry) with a Revoke button per device.
-  - API routes: `GET /api/v1/product/settings/security/trusted-devices`, `DELETE /api/v1/product/settings/security/trusted-devices/:id`.
-  - Revoking a device records `security.trusted_device_revoked` in the audit log.
-  - **Production requirement:** `COOKIE_SECRET` env var must be set in Railway. The server throws at startup if it is absent in production.
-- **2FA Rate Limiting:** Combined IP+user key with strict threshold response to limit TOTP guessing.
+*   **Billing (Stripe):** Manages plan tiers (Starter, Pro, Enterprise) and submission-based quotas. Integrates with Stripe for product seeding, checkout, and portal flows, displaying current plan and usage.
 
-## Audit Log
-- Displayed in Settings → Audit Log section.
-- Each entry shows: action, resource, metadata, timestamp, **IP address**, and **geographic location** (City, Country · x.x.x.x with a map-pin icon).
-- Location resolved via `geoip-lite` in `settings.ts` (`lookupIpLocation` function).
-- **LRU cache:** In-process `Map` capped at 1000 entries (delete+set on hit for true recency refresh). Avoids repeated geoip lookups for the same IP within a session.
-- `AuditLogMetadataMap` in `auditLog.ts` provides typed metadata for every audit action.
+*   **Submission Bank:** Enables accounts to purchase extra submission packs (one-off, monthly, annual). Bank credits roll over for 12 months. Enforces usage limits by drawing from the plan pool then the submission bank. Stripe webhooks handle deposits for purchases.
 
-## Custom Domain (Pro/Enterprise)
-Organizations on Pro or Enterprise plans can configure a custom subdomain (e.g. `forms.acme.com`) for customer-facing interview links.
-- DNS CNAME instructions, Verify button (real DNS lookup via Node `dns.promises.resolveCname`), status badges (Unverified / Verifying / Active / Error).
-- Stored in `accounts.custom_domain` + `custom_domain_status` + `custom_domain_verified_at`.
-- API: `GET/PUT /api/v1/product/settings/custom-domain`, `POST /api/v1/product/settings/custom-domain/verify`.
-- Active custom domain is used as origin for new interview links and send-link emails.
+*   **Merlin (AI Assistant):** A Claude-powered assistant. Internal Merlin (staff) provides a floating chat widget with tool access for session/package management and billing. Customer Merlin (Phase 2) offers conversational interview guidance, extracting field values to auto-fill forms.
 
-## Billing (Stripe)
-- Plan tiers: Starter ($49/mo, 100 subs), Pro ($249/mo, 500 subs), Enterprise ($3k/mo, unlimited). Seat-based: plan quota = seats × submissionsPerSeat.
-- WHC account (id=1) is permanently on Enterprise.
-- Stripe products seeded via `scripts/seed-stripe-products.ts`.
-- Checkout/portal flow in `/api/v1/product/settings/billing` routes.
-- `BillingSection` + `SubmissionBankSection` in `AppSettings.tsx` shows current plan, usage, submission bank balance, and upgrade/manage links.
+*   **Multi-Tenancy:** Achieved through `accounts` and `account_users` tables, ensuring data isolation via `account_id` scoping.
 
-## Submission Bank
-- Accounts can purchase extra submission packs: 50/100/300/500/1000 subs.
-- Purchase modes: one-off (single payment, expires 1 year), monthly (recurring, deposits each billing cycle), annual (front-loaded, 20% off).
-- Plan pool is use-or-lose (resets each billing period). Bank credits roll over for 12 months.
-- Enforcement: `requireWithinPlanLimits("submission")` checks plan pool first; if exhausted, draws 1 from bank (`drawOneFromBank`); if bank also empty, returns 402.
-- Bank tables: `submission_bank` (per-deposit rows with `remaining` counter), `pack_subscriptions` (links Stripe subscription → pack size/type for invoice.paid deposits).
-- Webhook handling in `stripeBillingSync.ts`: `checkout.session.completed` (mode=payment → deposit immediately; mode=subscription → register), `invoice.paid` → deposit for recurring packs.
-- API: `GET /api/v1/product/settings/billing/bank`, `POST /api/v1/product/settings/billing/pack/checkout`.
-- Lib: `artifacts/api-server/src/lib/submissionBank.ts` (depositSubmissions, drawOneFromBank, getBankBalance, registerPackSubscription, getPackSubscription, removePackSubscription).
+*   **West Hills Capital Public Site:** Features Live Pricing, a 2-step Appointment Scheduling process, IRA Allocation, an Insights Hub (CMS), Deal Builder, and FedEx Location Search.
 
-## Merlin (AI Assistant)
-- Claude-powered wizard persona assistant for Docuplete.
-- **Internal Merlin** (staff): floating chat widget (`MerlinWidget.tsx`) on InternalLayout + AppLayout. Agentic tool loop (up to 5 rounds) with 6 DB-backed tools: search_sessions, get_session_detail, search_packages, get_package_detail, get_submission_stats, get_billing_summary. Route: `POST /api/v1/product/merlin/chat` (requireProductAuth + requireAccountId).
-- **Customer Merlin** (Phase 2): conversational interview guide on DocuFillCustomer.tsx. Toggle button ("Ask Merlin") switches between form view and chat mode. Merlin extracts field values from answers and returns `field_updates` JSON to auto-fill the form. Route: `POST /api/v1/docufill/public/sessions/:token/merlin` (public, token-scoped).
-- Model: `claude-sonnet-4-6` via AI_INTEGRATIONS_ANTHROPIC_* env vars (same pattern as content.ts).
-- Files: `artifacts/api-server/src/routes/merlin.ts`, `artifacts/west-hills-capital/src/components/MerlinWidget.tsx`, `artifacts/west-hills-capital/src/components/MerlinCustomerChat.tsx`.
-
-## Multi-Tenancy
-`accounts` and `account_users` tables provide tenant isolation. `account_id` scopes all relevant data. Internal portal uses Google auth; product portal uses Clerk, reusing Docuplete components under different API paths.
-
-## West Hills Capital Public Site
-- Live Pricing (Dillon Gage integration), 2-step Appointment Scheduling, IRA Allocation, Insights Hub (CMS), Deal Builder (Lock & Execute pipeline), FedEx Location Search.
-
-# Database Tables (Key)
-All tables are auto-created on startup via `initializeDatabase()` in `db.ts`.
-
-| Table | Purpose |
-|---|---|
-| `accounts` | Tenant organizations |
-| `account_users` | Users scoped to tenants |
-| `trusted_devices` | 2FA trusted device tokens (SHA-256 hash, expiry, IP, label) |
-| `user_login_history` | Login events with IP + geoip location |
-| `audit_log` | Typed audit events with `ip_address` field |
-| `docufill_packages` | Document packages per account |
-| `docufill_groups` | Custodian/depository groups |
-| `docufill_shared_fields` | Reusable field definitions |
-| `docufill_sessions` | Public interview sessions |
-| `docufill_interview_sessions` | Interview sessions with e-sign fields: `signer_email`, `signer_name`, `signed_at`, `pdf_sha256`, `tsa_token_b64` (raw DER RFC 3161 token, base64), `tsa_url` (TSA endpoint that responded) |
-| `docufill_signing_events` | Append-only audit trail for signing events (signed, OTP sent, etc.) |
-| `usage_events` | Submission usage tracking for plan limits |
-| `stripe_subscriptions` | Billing subscription records |
-| `leads`, `appointments` | WHC scheduling/sales data |
-
-**Pending Railway DB migration (if not yet applied):**
-```sql
-CREATE TABLE IF NOT EXISTS docufill_groups (
-  id serial PRIMARY KEY,
-  name text NOT NULL DEFAULT '',
-  phone text, email text, notes text,
-  active boolean NOT NULL DEFAULT true,
-  sort_order integer NOT NULL DEFAULT 100,
-  created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS group_id integer REFERENCES docufill_groups(id) ON DELETE SET NULL;
-```
-
-## Encryption at Rest (PII)
-
-**Status:** Implemented. Requires `ENCRYPTION_MASTER_KEY` set in Railway.
-
-**Architecture:** Envelope encryption (AES-256-GCM).
-- `ENCRYPTION_MASTER_KEY` (32-byte hex env var) → wraps per-account DEKs stored in `accounts.encrypted_dek TEXT`
-- Each DEK encrypts the session `answers` JSONB → stored as `answers_ciphertext TEXT` in `docufill_interview_sessions`
-- Format: `hex(iv):hex(authTag):hex(ciphertext)` (12-byte IV, 16-byte GCM auth tag)
-- Dual-mode reads: decrypt `answers_ciphertext` if present, fall back to plaintext `answers` (migration period)
-- In-process DEK cache (cleared on server restart) to avoid per-request DB roundtrips
-- PII fields protected: `client_ssn`, `client_dob`, `ira_account_number`, all other session answers
-
-**Files:**
-- `artifacts/api-server/src/lib/encryption.ts` — crypto primitives + DEK cache
-- `scripts/migrate-pii-encryption.mjs` — one-time migration for existing rows
-
-**Production setup:**
-1. Set `ENCRYPTION_MASTER_KEY=<64 hex chars>` in Railway environment
-2. Deploy (DB migration runs automatically via `initDb()`)
-3. Run `node scripts/migrate-pii-encryption.mjs` once to encrypt existing rows (use `--dry-run` first)
+*   **Encryption at Rest (PII):** Implemented using envelope encryption (AES-256-GCM). `ENCRYPTION_MASTER_KEY` (environment variable) wraps per-account Data Encryption Keys (DEKs), which then encrypt sensitive session answers (JSONB) in `docufill_interview_sessions`. This uses a `hex(iv):hex(authTag):hex(ciphertext)` format and includes an in-process DEK cache.
 
 # External Dependencies
 
-| Dependency | Purpose |
-|---|---|
-| Dillon Gage Fiztrade API | Live spot prices + trade execution |
-| PostgreSQL | Primary database |
-| Clerk (`@clerk/express`) | Product portal authentication |
-| Google OAuth | Internal portal authentication |
-| Stripe + `stripe-replit-sync` | Subscription billing |
-| Resend | Client recap emails |
-| Google Drive API | PDF invoice + packet uploads (per-account OAuth, DocuFill channel) |
-| HubSpot CRM API | Per-account OAuth, contact create/update on DocuFill submission |
-| Google Sheets API | Admin notifications / deal records |
-| FedEx API | Shipping location search |
-| `geoip-lite` | IP → City/Country resolution (in-process, LRU-cached) |
-| DigiCert TSA (`timestamp.digicert.com`) | RFC 3161 trusted timestamp authority (primary) |
-| Sectigo TSA (`timestamp.sectigo.com`) | RFC 3161 TSA fallback #1 |
-| FreeTSA (`freetsa.org/tsr`) | RFC 3161 TSA fallback #2 |
-| `pdfkit` / `pdf-lib` | PDF generation and overlay |
-| `otplib` | TOTP 2FA secret generation + verification |
-| `cookie-parser` | Signed HttpOnly cookies for trusted device tokens |
-| pnpm workspaces | Monorepo management |
-| TypeScript, React, Vite, Tailwind, shadcn/ui | Frontend stack |
-| Express 5, Zod | Backend framework + validation |
-
-# Deployment
-
-- **CI/CD:** Railway (API server) and Vercel (frontend) auto-deploy from `WestHillsCapital/WestHillsCapital` GitHub `main` branch.
-- **Sync script:** `node scripts/sync-to-github.mjs --dry-run` shows stale files. `node scripts/push-to-github.mjs "message" file1 file2 ...` pushes specific files.
-- **Important:** After task agent merges, always run `--dry-run` and explicitly push ALL stale/missing files. The sync script may not catch every file; use `push-to-github.mjs` directly for any file shown as MISSING.
-- **Required Railway env vars:** `DATABASE_URL`, `COOKIE_SECRET` (throws at startup if absent), `CORS_ALLOWED_ORIGINS` (fails closed in production if unset), `SENTRY_DSN` (optional), `ENCRYPTION_MASTER_KEY` (warns at startup if absent — PII stored in plaintext without it; must be 64 hex chars = 32 bytes).
-- Vercel handles API rewrites to proxy requests to the Railway-hosted API.
+*   **Dillon Gage Fiztrade API:** For live spot prices and trade execution.
+*   **PostgreSQL:** The primary database.
+*   **Clerk (`@clerk/express`):** For product portal authentication.
+*   **Google OAuth:** For internal portal authentication.
+*   **Stripe + `stripe-replit-sync`:** For subscription billing.
+*   **Resend:** For sending client recap emails.
+*   **Google Drive API:** For PDF invoice and packet uploads.
+*   **HubSpot CRM API:** For contact creation/updates on DocuFill submissions.
+*   **Google Sheets API:** For admin notifications and deal records.
+*   **FedEx API:** For shipping location search.
+*   **`geoip-lite`:** For IP address to city/country resolution.
+*   **DigiCert TSA, Sectigo TSA, FreeTSA:** RFC 3161 trusted timestamp authorities.
+*   **`pdfkit` / `pdf-lib`:** For PDF generation and overlay.
+*   **`otplib`:** For TOTP 2FA secret generation and verification.
+*   **`cookie-parser`:** For signed HttpOnly cookies for trusted device tokens.
+*   **pnpm workspaces:** For monorepo management.
+*   **TypeScript, React, Vite, Tailwind, shadcn/ui:** Frontend development stack.
+*   **Express 5, Zod:** Backend framework and validation.
