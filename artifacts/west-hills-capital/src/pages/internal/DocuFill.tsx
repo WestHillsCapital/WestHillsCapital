@@ -1221,6 +1221,25 @@ export default function DocuFill() {
   const [snapGrid, setSnapGrid] = useState<boolean>(() => {
     try { return localStorage.getItem("docufill-snap-grid") === "true"; } catch { return false; }
   });
+  const [showShortcutsPopover, setShowShortcutsPopover] = useState(false);
+  const shortcutsPopoverRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!showShortcutsPopover) return;
+    const handleClick = (e: MouseEvent) => {
+      if (shortcutsPopoverRef.current && !shortcutsPopoverRef.current.contains(e.target as Node)) {
+        setShowShortcutsPopover(false);
+      }
+    };
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowShortcutsPopover(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, [showShortcutsPopover]);
   useEffect(() => {
     try { localStorage.setItem("docufill-snap-grid", snapGrid ? "true" : "false"); } catch { /* ignore */ }
   }, [snapGrid]);
@@ -4794,6 +4813,43 @@ export default function DocuFill() {
                     </>
                   )}
                 </button>
+
+                <div className="w-px h-4 bg-black/[0.12] shrink-0" />
+
+                {/* Group 5 — Keyboard shortcuts */}
+                <div ref={shortcutsPopoverRef} className="relative">
+                  <button
+                    type="button"
+                    title="Keyboard shortcuts"
+                    onClick={() => setShowShortcutsPopover((v) => !v)}
+                    className={`w-6 h-6 flex items-center justify-center rounded-full text-[11px] font-semibold transition-all duration-150 ${showShortcutsPopover ? "bg-white shadow-sm text-[#3A2E1A]" : "text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-black/[0.06]"}`}
+                  >
+                    ?
+                  </button>
+                  {showShortcutsPopover && (
+                    <div className="absolute right-0 top-full mt-2 z-50 w-64 bg-white border border-[#DDD5C4] rounded-xl shadow-lg p-3 text-[11px]">
+                      <div className="font-semibold text-[#3A2E1A] mb-2 pb-1.5 border-b border-[#EAE3D8]">Keyboard Shortcuts</div>
+                      <div className="flex flex-col gap-1.5">
+                        {[
+                          { keys: ["←", "→"], label: "Previous / next page" },
+                          { keys: ["+", "−"], label: "Zoom in / out" },
+                          { keys: ["S"], label: "Toggle snap to grid" },
+                          { keys: ["Esc"], label: "Close popover / deselect" },
+                          { keys: ["Delete", "Backspace"], label: "Remove selected field" },
+                        ].map(({ keys, label }) => (
+                          <div key={label} className="flex items-center justify-between gap-2">
+                            <span className="text-[#6B7A99]">{label}</span>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {keys.map((k) => (
+                                <kbd key={k} className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded bg-[#F0EDE6] border border-[#DDD5C4] text-[#3A2E1A] font-mono text-[10px] leading-none">{k}</kbd>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
 
               </div>
               {isUploadingDocument && <div className="mb-2 text-xs text-[#6B7A99]">Uploading PDF…</div>}
