@@ -4730,12 +4730,12 @@ export default function DocuFill() {
 
                 {/* Group 2 — Single / Scroll toggle */}
                 <div className="flex items-center border border-[#DDD5C4] rounded-md overflow-hidden shrink-0 text-[11px] font-medium" title="Toggle between viewing one page at a time or all pages stacked">
-                  <button type="button" onClick={() => setMapperScrollMode(false)} className={`flex items-center gap-1 px-2.5 h-[26px] leading-none transition-colors ${!mapperScrollMode ? "bg-[#F0EBE4] text-[#1C2B4A]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
+                  <button type="button" onClick={() => setMapperScrollMode(false)} className={`flex items-center gap-1 px-2.5 h-[26px] leading-none transition-all ${!mapperScrollMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
                     <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="2" width="12" height="12" rx="1.5" /></svg>
                     Single
                   </button>
                   <div className="w-px h-full bg-[#DDD5C4] shrink-0" />
-                  <button type="button" onClick={() => setMapperScrollMode(true)} className={`flex items-center gap-1 px-2.5 h-[26px] leading-none transition-colors ${mapperScrollMode ? "bg-[#F0EBE4] text-[#1C2B4A]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
+                  <button type="button" onClick={() => setMapperScrollMode(true)} className={`flex items-center gap-1 px-2.5 h-[26px] leading-none transition-all ${mapperScrollMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
                     <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="1" width="12" height="5" rx="1" /><rect x="2" y="10" width="12" height="5" rx="1" /></svg>
                     Scroll
                   </button>
@@ -4750,9 +4750,9 @@ export default function DocuFill() {
 
                 {/* Group 4 — Text / Labels toggle */}
                 <div className="flex items-center border border-[#DDD5C4] rounded-md overflow-hidden shrink-0 text-[11px] font-medium">
-                  <button type="button" onClick={() => setMapperTextMode(true)} className={`px-2.5 h-[26px] leading-none transition-colors ${mapperTextMode ? "bg-[#F0EBE4] text-[#1C2B4A]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>Text</button>
+                  <button type="button" onClick={() => setMapperTextMode(true)} className={`px-2.5 h-[26px] leading-none transition-all ${mapperTextMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>Text</button>
                   <div className="w-px h-full bg-[#DDD5C4] shrink-0" />
-                  <button type="button" onClick={() => setMapperTextMode(false)} className={`px-2.5 h-[26px] leading-none transition-colors ${!mapperTextMode ? "bg-[#F0EBE4] text-[#1C2B4A]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>Labels</button>
+                  <button type="button" onClick={() => setMapperTextMode(false)} className={`px-2.5 h-[26px] leading-none transition-all ${!mapperTextMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>Labels</button>
                 </div>
 
                 {/* Group 5 — Snap toggle */}
@@ -4760,7 +4760,7 @@ export default function DocuFill() {
                   type="button"
                   title={snapGrid ? "Snap to grid on — click to turn off [S]" : "Snap to grid off — click to turn on (4 pt grid) [S]"}
                   onClick={() => setSnapGrid((v) => !v)}
-                  className={`flex items-center gap-1.5 text-[11px] font-medium border rounded-md px-2.5 h-[26px] leading-none transition-colors shrink-0 ${snapGrid ? "bg-[#F0EBE4] border-[#C8B898] text-[#1C2B4A]" : "bg-white border-[#DDD5C4] text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}
+                  className={`flex items-center gap-1.5 text-[11px] font-medium border border-[#DDD5C4] rounded-md px-2.5 h-[26px] leading-none transition-all shrink-0 ${snapGrid ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}
                 >
                   <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
                     <line x1="4" y1="0" x2="4" y2="16"/><line x1="8" y1="0" x2="8" y2="16"/><line x1="12" y1="0" x2="12" y2="16"/>
@@ -4772,7 +4772,7 @@ export default function DocuFill() {
                 {/* Conditional — PDF annotations */}
                 {documentPreviewUrl && acroAnnotations.length > 0 && (
                   <>
-                    <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-[11px] font-medium border rounded-md px-2.5 h-[26px] leading-none transition-colors shrink-0 ${showAcroLayer ? "bg-[#EEF2FF] border-[#93C5FD] text-[#1D4ED8]" : "bg-white border-[#DDD5C4] text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
+                    <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-[11px] font-medium border border-[#DDD5C4] rounded-md px-2.5 h-[26px] leading-none transition-all shrink-0 ${showAcroLayer ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
                       PDF Fields
                     </button>
                     <button
@@ -4822,7 +4822,7 @@ export default function DocuFill() {
                     type="button"
                     title="Keyboard shortcuts"
                     onClick={() => setShowShortcutsPopover((v) => !v)}
-                    className={`w-[26px] h-[26px] flex items-center justify-center rounded-md text-[11px] font-semibold border transition-colors ${showShortcutsPopover ? "bg-[#F0EBE4] border-[#C8B898] text-[#1C2B4A]" : "bg-white border-[#DDD5C4] text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}
+                    className={`w-[26px] h-[26px] flex items-center justify-center rounded-md text-[11px] font-semibold border border-[#DDD5C4] transition-all ${showShortcutsPopover ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}
                   >
                     ?
                   </button>
