@@ -7,16 +7,20 @@ const router: IRouter = Router();
 export const publicMerlinRouter: IRouter = Router();
 
 function getAnthropicClient(): Anthropic {
-  if (!process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL) {
-    throw new Error("AI_INTEGRATIONS_ANTHROPIC_BASE_URL is not set");
+  // Prefer Replit AI integrations proxy when available (Replit / dev env)
+  if (process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL && process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY) {
+    return new Anthropic({
+      apiKey:  process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+      baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+    });
   }
-  if (!process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY) {
-    throw new Error("AI_INTEGRATIONS_ANTHROPIC_API_KEY is not set");
+  // Fall back to direct Anthropic API key (Railway / production env)
+  if (process.env.ANTHROPIC_API_KEY) {
+    return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   }
-  return new Anthropic({
-    apiKey:   process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-    baseURL:  process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
-  });
+  throw new Error(
+    "No Anthropic credentials configured. Set AI_INTEGRATIONS_ANTHROPIC_BASE_URL + AI_INTEGRATIONS_ANTHROPIC_API_KEY (Replit env) or ANTHROPIC_API_KEY (production).",
+  );
 }
 
 // ─── SSE helpers ─────────────────────────────────────────────────────────────

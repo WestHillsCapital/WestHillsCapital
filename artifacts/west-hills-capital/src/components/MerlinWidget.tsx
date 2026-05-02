@@ -21,12 +21,12 @@ interface MerlinWidgetProps {
 function WizardHatIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-      {/* Hat cone — tip leans left, fabric slouch curves on both sides */}
-      <path d="M9 2.5C8 6 7.5 10 7 13C6.8 14.5 6.5 16 6.5 17H17.5C17 15 16 12.5 15 9.5C13.5 6.5 11.5 4 9 2.5Z" />
-      {/* Wide wavy brim */}
+      {/* Hat body — lower cone + upper section bent hard left so tip sits at x=8 */}
+      <path d="M8 2.5C9 5 10 8 10 10C9 12 7.5 14.5 7 17H18C17.5 14.5 15.5 12 15 10C15 7 13 4 8 2.5Z" />
+      {/* Wide brim */}
       <path d="M1 17Q3.5 21.5 12 22Q20.5 21.5 23 17H1Z" />
-      {/* Bow knot at brim junction */}
-      <path d="M11 17L8.5 15.5L10 14.5L12 16L14 14.5L15.5 15.5L13 17L12.5 16.5H11.5L11 17Z" fillOpacity={0.55} />
+      {/* Bow knot */}
+      <path d="M11 17L8.5 15.5L10 14.5L12 16L14 14.5L15.5 15.5L13 17L12.5 16.5H11.5L11 17Z" fillOpacity={0.5} />
     </svg>
   );
 }
