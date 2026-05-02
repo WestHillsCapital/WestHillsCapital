@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-const API_BASE   = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-const MERLIN_URL = `${API_BASE}/api/v1/product/merlin/chat`;
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 const SESSION_STORAGE_KEY = "merlin_widget_history";
 
@@ -15,6 +14,8 @@ type Message = {
 interface MerlinWidgetProps {
   getAuthHeaders: () => HeadersInit;
   brandColor?: string;
+  /** Override the chat endpoint URL. Defaults to the product (Clerk-auth) endpoint. */
+  chatUrl?: string;
 }
 
 function WandIcon() {
@@ -119,7 +120,8 @@ async function* parseSSE(response: Response): AsyncGenerator<Record<string, unkn
   }
 }
 
-export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F" }: MerlinWidgetProps) {
+export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }: MerlinWidgetProps) {
+  const merlinUrl = chatUrl ?? `${API_BASE}/api/v1/product/merlin/chat`;
   const [open, setOpen]         = useState(false);
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
@@ -195,7 +197,7 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F" }: MerlinW
     abortRef.current = abort;
 
     try {
-      const res = await fetch(MERLIN_URL, {
+      const res = await fetch(merlinUrl, {
         method:  "POST",
         headers: { "Content-Type": "application/json", ...(getAuthHeaders() as Record<string, string>) },
         body:    JSON.stringify({ messages: history }),
