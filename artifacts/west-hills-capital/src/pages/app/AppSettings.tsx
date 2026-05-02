@@ -849,34 +849,76 @@ function CustomDomainSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () =
             </div>
 
             {/* DNS instructions */}
-            {hasDomain && (
-              <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 space-y-3">
-                <p className="text-xs font-semibold text-gray-800">DNS configuration required</p>
-                <p className="text-xs text-gray-600">
-                  At your domain registrar or DNS provider, add the following CNAME record for{" "}
-                  <span className="font-mono font-medium">{info?.custom_domain}</span>:
-                </p>
-                <div className="overflow-x-auto">
-                  <table className="text-xs w-full">
-                    <thead>
-                      <tr className="text-gray-500 text-left">
-                        <th className="pr-6 pb-1.5 font-medium">Type</th>
-                        <th className="pr-6 pb-1.5 font-medium">Name&nbsp;/&nbsp;Host</th>
-                        <th className="pb-1.5 font-medium">Value&nbsp;/&nbsp;Points to</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr>
-                        <td className="pr-6 py-1 font-mono text-gray-700">CNAME</td>
-                        <td className="pr-6 py-1 font-mono text-gray-700">{info?.custom_domain ?? "@"}</td>
-                        <td className="py-1 font-mono text-gray-700">{cnameTarget}</td>
-                      </tr>
-                    </tbody>
-                  </table>
+            {hasDomain && (() => {
+              const fullDomain = info?.custom_domain ?? "";
+              // The subdomain prefix — e.g. "forms" from "forms.acme.com"
+              // Some providers want just the prefix; some want the full hostname.
+              const dotIndex = fullDomain.indexOf(".");
+              const subPrefix = dotIndex > -1 ? fullDomain.slice(0, dotIndex) : fullDomain;
+              const rootDomain = dotIndex > -1 ? fullDomain.slice(dotIndex + 1) : "";
+              return (
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-4 space-y-4">
+                  <div>
+                    <p className="text-xs font-semibold text-gray-800 mb-1">Step 1 — Log in to your DNS provider</p>
+                    <p className="text-xs text-gray-600">
+                      Go to the DNS settings for <span className="font-mono font-medium">{rootDomain || fullDomain}</span> at your domain registrar (GoDaddy, Namecheap, Cloudflare, Route 53, etc.).
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold text-gray-800 mb-2">Step 2 — Add a new CNAME record</p>
+                    <p className="text-xs text-gray-600 mb-2">Create a new record with these exact values:</p>
+                    <div className="rounded-md border border-gray-200 bg-white overflow-hidden">
+                      <table className="text-xs w-full">
+                        <thead className="bg-gray-100 border-b border-gray-200">
+                          <tr className="text-gray-500 text-left">
+                            <th className="px-3 py-2 font-medium">Field</th>
+                            <th className="px-3 py-2 font-medium">Value to enter</th>
+                            <th className="px-3 py-2 font-medium text-gray-400">Also called</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          <tr>
+                            <td className="px-3 py-2 text-gray-600 font-medium">Type</td>
+                            <td className="px-3 py-2 font-mono font-semibold text-gray-900">CNAME</td>
+                            <td className="px-3 py-2 text-gray-400">Record type</td>
+                          </tr>
+                          <tr className="bg-amber-50/40">
+                            <td className="px-3 py-2 text-gray-600 font-medium">Name / Host</td>
+                            <td className="px-3 py-2">
+                              <span className="font-mono font-semibold text-gray-900">{subPrefix}</span>
+                              <span className="ml-2 text-gray-400 text-[11px]">(some providers want <span className="font-mono">{fullDomain}</span>)</span>
+                            </td>
+                            <td className="px-3 py-2 text-gray-400">Host, Subdomain, Alias</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 text-gray-600 font-medium">Value / Points to</td>
+                            <td className="px-3 py-2 font-mono font-semibold text-gray-900">{cnameTarget}</td>
+                            <td className="px-3 py-2 text-gray-400">Target, Destination, Answer</td>
+                          </tr>
+                          <tr>
+                            <td className="px-3 py-2 text-gray-600 font-medium">TTL</td>
+                            <td className="px-3 py-2 font-mono text-gray-700">3600</td>
+                            <td className="px-3 py-2 text-gray-400">Leave as default if unsure</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-3 py-2 mt-2">
+                      <strong>GoDaddy / Namecheap tip:</strong> Use just <span className="font-mono">{subPrefix}</span> in the Name field — they automatically append your root domain.<br/>
+                      <strong>Cloudflare tip:</strong> Enter the full hostname <span className="font-mono">{fullDomain}</span> and make sure the proxy (orange cloud) is <strong>turned OFF</strong> (grey cloud / DNS only).
+                    </p>
+                  </div>
+
+                  <div>
+                    <p className="text-xs font-semibold text-gray-800 mb-1">Step 3 — Save and click Verify below</p>
+                    <p className="text-xs text-gray-600">
+                      DNS changes usually propagate within a few minutes, but can take up to 48 hours. If Verify fails, wait 5 minutes and try again.
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs text-gray-500">DNS changes can take up to 48 hours to propagate globally, though most complete within minutes.</p>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Status guidance */}
             {hasDomain && (
