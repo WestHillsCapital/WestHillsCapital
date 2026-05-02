@@ -4238,7 +4238,7 @@ router.delete("/security/trusted-devices/:deviceId", async (req, res) => {
 
 // ─── Custom Domain ────────────────────────────────────────────────────────────
 
-const CNAME_TARGET = "interview.docuplete.com";
+const CNAME_TARGET = "cname.vercel-dns.com";
 
 /** GET /custom-domain — return the org's current custom domain info */
 router.get("/custom-domain", async (req, res) => {
