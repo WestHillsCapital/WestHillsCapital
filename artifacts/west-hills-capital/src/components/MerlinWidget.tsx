@@ -18,10 +18,12 @@ interface MerlinWidgetProps {
   chatUrl?: string;
 }
 
-function WandIcon() {
+function WizardHatIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
-      <path d="M15 4V2m0 13v-2M8 9H2m13.5-1.5L14 9M3 3l18 18M8.5 14.5 3 20m9-9 7.5-7.5" />
+      <path d="M7.5 19L12 3l4.5 16" />
+      <path d="M2 19h20" />
+      <path d="M2 19q5 2 10 2t10-2" />
     </svg>
   );
 }
@@ -41,7 +43,7 @@ function MerlinAvatar({ brandColor }: { brandColor: string }) {
       style={{ backgroundColor: brandColor }}
       title="Merlin"
     >
-      <WandIcon />
+      <WizardHatIcon />
     </div>
   );
 }
@@ -293,7 +295,7 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
         ) : (
-          <WandIcon />
+          <WizardHatIcon />
         )}
       </button>
 
@@ -309,7 +311,7 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
             style={{ backgroundColor: brandColor, color: textColor }}
           >
             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
-              <WandIcon />
+              <WizardHatIcon />
             </div>
             <div className="min-w-0">
               <div className="font-semibold text-sm leading-tight">Merlin</div>

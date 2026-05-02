@@ -3219,13 +3219,13 @@ export default function DocuFill() {
           prefill,
         }),
       });
-      const data = await res.json() as { error?: string; upgrade_required?: boolean; limit_type?: string; required_plan?: string; token?: string; feature?: string };
+      const data = await res.json() as { error?: string; upgrade_required?: boolean; limit_type?: string; required_plan?: string; token?: string; feature?: string; interviewUrl?: string };
       if (res.status === 402 && data.upgrade_required) {
         showUpgrade({ feature: data.feature, limitType: (data.limit_type as "packages" | "submissions" | "seats") ?? "submissions", requiredPlan: (data.required_plan as "pro" | "enterprise") ?? "pro" });
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Could not generate customer link");
-      const link = `${window.location.origin}/docufill/public/${data.token}`;
+      const link = data.interviewUrl ?? `${window.location.origin}/docufill/public/${data.token}`;
       setGeneratedCustomerLink(link);
       setGeneratedCustomerLinkToken(data.token as string);
       setSendLinkEmail(customerLinkEmail.trim());

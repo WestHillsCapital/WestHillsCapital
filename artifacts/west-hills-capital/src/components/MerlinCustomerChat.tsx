@@ -28,10 +28,12 @@ interface MerlinCustomerChatProps {
   onSwitchToForm: () => void;
 }
 
-function WandIcon({ className = "w-5 h-5" }: { className?: string }) {
+function WizardHatIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M15 4V2m0 13v-2M8 9H2m13.5-1.5L14 9M3 3l18 18M8.5 14.5 3 20m9-9 7.5-7.5" />
+      <path d="M7.5 19L12 3l4.5 16" />
+      <path d="M2 19h20" />
+      <path d="M2 19q5 2 10 2t10-2" />
     </svg>
   );
 }
@@ -237,7 +239,7 @@ export function MerlinCustomerChat({
         style={{ backgroundColor: brandColor, color: brandTextColor }}
       >
         <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center shrink-0">
-          <WandIcon className="w-5 h-5" />
+          <WizardHatIcon className="w-5 h-5" />
         </div>
         <div className="min-w-0">
           <div className="font-semibold text-sm leading-tight">Merlin</div>
@@ -292,7 +294,7 @@ export function MerlinCustomerChat({
                 className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5 text-white"
                 style={{ backgroundColor: brandColor }}
               >
-                <WandIcon className="w-3.5 h-3.5" />
+                <WizardHatIcon className="w-3.5 h-3.5" />
               </div>
               <div className="max-w-[82%] rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm bg-[#F0EDE8] text-[#0F1C3F]">
                 {msg.thinking ? (
