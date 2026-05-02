@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useLocation, Link } from "wouter";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { OnboardingChecklist } from "@/components/OnboardingChecklist";
+import { MerlinWidget } from "@/components/MerlinWidget";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SETTINGS_BASE = `${API_BASE}/api/v1/product/settings`;
@@ -235,6 +236,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <main className="flex-1">
         {children}
       </main>
+
+      <MerlinWidget getAuthHeaders={getAuthHeaders} brandColor="#111827" />
     </div>
   );
 }

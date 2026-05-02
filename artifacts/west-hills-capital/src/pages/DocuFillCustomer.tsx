@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { validateFieldValue, fieldFormatHint, buildSensitiveMask } from "@/lib/validateField";
 import { ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE } from "@/lib/docufill-redaction";
 import SignaturePad, { type SignaturePadRef } from "@/components/SignaturePad";
+import { MerlinCustomerChat } from "@/components/MerlinCustomerChat";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SESSION_BASE = `${API_BASE}/api/v1/docufill/public/sessions`;
@@ -305,6 +306,8 @@ export default function DocuFillCustomer() {
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
   // ZIP → city soft-check: maps a valid ZIP to the list of place names returned by zippopotam.us
   const [zipCityLookup, setZipCityLookup] = useState<Record<string, string[]>>({});
+  // Merlin chat mode: when true, show the AI interview assistant instead of the raw form
+  const [merlinMode, setMerlinMode] = useState(false);
 
   useLayoutEffect(() => {
     if (!isEmbed) return;
@@ -1162,16 +1165,51 @@ export default function DocuFillCustomer() {
       </header>}
 
       <main className={`max-w-2xl mx-auto px-4 space-y-6 ${isEmbed ? "py-6" : "py-8"}`}>
-        {/* Title */}
-        <div>
-          <h1 className="text-2xl font-semibold text-[#0F1C3F]">{session!.package_name}</h1>
-          <p className="text-sm text-[#6B7A99] mt-1">
-            Please complete the form below. Your answers are saved automatically as you type.
-            {requiredCount > 0 && ` ${answeredCount} of ${requiredCount} required fields answered.`}
-          </p>
+        {/* Title + Merlin toggle */}
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-semibold text-[#0F1C3F]">{session!.package_name}</h1>
+            <p className="text-sm text-[#6B7A99] mt-1">
+              {merlinMode
+                ? "Answer questions with Merlin — your form fills in automatically."
+                : `Please complete the form below. Your answers are saved automatically as you type.${requiredCount > 0 ? ` ${answeredCount} of ${requiredCount} required fields answered.` : ""}`}
+            </p>
+          </div>
+          <button
+            onClick={() => setMerlinMode((m) => !m)}
+            className="shrink-0 flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors"
+            style={merlinMode
+              ? { backgroundColor: brandColor, color: brandTextColor, borderColor: brandColor }
+              : { backgroundColor: "white", color: "#4A5B7A", borderColor: "#DDD5C4" }}
+            title={merlinMode ? "Switch to self-fill form" : "Let Merlin guide you"}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <path d="M15 4V2m0 13v-2M8 9H2m13.5-1.5L14 9M3 3l18 18M8.5 14.5 3 20m9-9 7.5-7.5" />
+            </svg>
+            {merlinMode ? "Form view" : "Ask Merlin"}
+          </button>
         </div>
 
-        {/* Progress bar */}
+        {/* Merlin chat — full-width, replaces fields when in chat mode */}
+        {merlinMode && (
+          <MerlinCustomerChat
+            token={token}
+            fields={session!.fields}
+            answers={answers}
+            brandColor={brandColor}
+            packageName={session!.package_name}
+            onFieldUpdate={(updates) => {
+              setAnswers((prev) => {
+                const next = { ...prev, ...updates };
+                scheduleAutoSave(next);
+                return next;
+              });
+            }}
+            onSwitchToForm={() => setMerlinMode(false)}
+          />
+        )}
+
+        {/* Progress bar — shown in both modes */}
         {requiredCount > 0 && (
           <div className="space-y-1">
             <div className="h-1.5 w-full bg-[#EFE8D8] rounded-full overflow-hidden">
@@ -1231,8 +1269,8 @@ export default function DocuFillCustomer() {
           </div>
         )}
 
-        {/* Form fields */}
-        <div className="space-y-4">
+        {/* Form fields — hidden when Merlin is guiding */}
+        <div className="space-y-4" style={{ display: merlinMode ? "none" : undefined }}>
           {visibleFields.map((field) => {
             const val = currentValue(field, answers, session!.prefill);
             const isReadonly = field.interviewMode === "readonly";
