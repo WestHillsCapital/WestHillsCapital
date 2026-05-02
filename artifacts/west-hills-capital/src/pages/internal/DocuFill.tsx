@@ -4673,60 +4673,60 @@ export default function DocuFill() {
               </div>
 
               {/* ── Toolbar ─────────────────────────────────────────── */}
-              <div className="flex items-center gap-2 flex-wrap bg-[#FAF8F4] border border-[#EAE2D4] rounded-md px-3 py-1.5 mb-3">
+              <div className="flex items-center gap-0.5 flex-wrap bg-[#FAF8F4] border border-[#EAE2D4] rounded-md px-2 py-1 mb-3 min-h-[34px]">
 
                 {/* Group 1 — Page Navigation */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-semibold text-[#B0BAC8] uppercase tracking-wider border-l-2 border-[#DDD5C4] pl-1.5 leading-none">Nav</span>
+                <div className="flex items-center">
+                  <span className="text-[9px] font-semibold text-[#C5BEAF] uppercase tracking-wider px-2 leading-none select-none whitespace-nowrap">Nav</span>
                   {!mapperScrollMode ? (
-                    <>
-                      <button type="button" onClick={() => setSelectedPage((p) => Math.max(1, p - 1))} disabled={!selectedDocument || selectedPage <= 1} className="text-xs border border-[#D4C9B5] rounded px-2 py-1 leading-none disabled:opacity-40 hover:bg-[#F0EDE6] text-[#6B7A99] transition-colors">← Prev</button>
-                      <span className="text-xs text-[#6B7A99] tabular-nums whitespace-nowrap px-1">Page {selectedPage} of {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
-                      <button type="button" onClick={() => setSelectedPage((p) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), p + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument?.pages ?? 1, 1)} className="text-xs border border-[#D4C9B5] rounded px-2 py-1 leading-none disabled:opacity-40 hover:bg-[#F0EDE6] text-[#6B7A99] transition-colors">Next →</button>
-                    </>
+                    <div className="flex items-center">
+                      <button type="button" onClick={() => setSelectedPage((p) => Math.max(1, p - 1))} disabled={!selectedDocument || selectedPage <= 1} className="px-2 py-1.5 text-xs leading-none text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-white/70 rounded transition-colors disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap">← Prev</button>
+                      <span className="text-xs text-[#8A9BB8] tabular-nums whitespace-nowrap px-2 select-none">Page {selectedPage} of {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
+                      <button type="button" onClick={() => setSelectedPage((p) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), p + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument?.pages ?? 1, 1)} className="px-2 py-1.5 text-xs leading-none text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-white/70 rounded transition-colors disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap">Next →</button>
+                    </div>
                   ) : (
-                    <span className="text-xs text-[#6B7A99] whitespace-nowrap">{Math.max(selectedDocument?.pages ?? 1, 1)} pages</span>
+                    <span className="text-xs text-[#8A9BB8] whitespace-nowrap px-1 select-none">{Math.max(selectedDocument?.pages ?? 1, 1)} pages</span>
                   )}
                 </div>
 
-                <div className="w-px h-4 bg-[#DDD5C4]" />
+                <div className="w-px h-4 bg-[#E0D8CC] mx-1 shrink-0" />
 
                 {/* Group 2 — Canvas View (layout + zoom) */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-semibold text-[#B0BAC8] uppercase tracking-wider border-l-2 border-[#DDD5C4] pl-1.5 leading-none">View</span>
-                  <div className="flex rounded border border-[#D4C9B5] overflow-hidden text-xs" title="Toggle between viewing one page at a time or all pages stacked">
-                    <button type="button" onClick={() => setMapperScrollMode(false)} className={`flex items-center gap-1 px-2 py-1 leading-none transition-colors ${!mapperScrollMode ? "bg-[#A8821E] shadow-inner text-white font-medium" : "text-[#6B7A99] hover:bg-[#F0EDE6]"}`}>
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="2" width="12" height="12" rx="1" /></svg>
+                <div className="flex items-center">
+                  <span className="text-[9px] font-semibold text-[#C5BEAF] uppercase tracking-wider px-2 leading-none select-none">View</span>
+                  <div className="flex items-center rounded bg-white/60 border border-[#E8E0D0] p-0.5 gap-px text-xs" title="Toggle between viewing one page at a time or all pages stacked">
+                    <button type="button" onClick={() => setMapperScrollMode(false)} className={`flex items-center gap-1 px-2.5 py-1 rounded-[3px] leading-none transition-all duration-150 ${!mapperScrollMode ? "bg-white shadow-sm text-[#6B5520] font-medium" : "text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80"}`}>
+                      <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="2" width="12" height="12" rx="1" /></svg>
                       Single
                     </button>
-                    <button type="button" onClick={() => setMapperScrollMode(true)} className={`flex items-center gap-1 px-2 py-1 leading-none transition-colors ${mapperScrollMode ? "bg-[#A8821E] shadow-inner text-white font-medium" : "text-[#6B7A99] hover:bg-[#F0EDE6]"}`}>
-                      <svg className="w-3 h-3" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="1" width="12" height="5" rx="1" /><rect x="2" y="10" width="12" height="5" rx="1" /></svg>
+                    <button type="button" onClick={() => setMapperScrollMode(true)} className={`flex items-center gap-1 px-2.5 py-1 rounded-[3px] leading-none transition-all duration-150 ${mapperScrollMode ? "bg-white shadow-sm text-[#6B5520] font-medium" : "text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80"}`}>
+                      <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="1" width="12" height="5" rx="1" /><rect x="2" y="10" width="12" height="5" rx="1" /></svg>
                       Scroll
                     </button>
                   </div>
-                  <div className="flex items-center rounded-full border border-[#D4C9B5] overflow-hidden text-xs bg-white">
-                    <button type="button" onClick={() => setUserZoom((z) => Math.max(0.25, parseFloat((z - 0.25).toFixed(2))))} className="px-2 py-1 leading-none text-[#6B7A99] hover:bg-[#F0EDE6] transition-colors" title="Zoom out">−</button>
-                    <button type="button" onClick={() => setUserZoom(1)} className="px-2 py-1 leading-none text-[#6B7A99] hover:bg-[#F0EDE6] transition-colors tabular-nums min-w-[3rem] text-center" title="Reset zoom">{Math.round(userZoom * 100)}%</button>
-                    <button type="button" onClick={() => setUserZoom((z) => Math.min(4, parseFloat((z + 0.25).toFixed(2))))} className="px-2 py-1 leading-none text-[#6B7A99] hover:bg-[#F0EDE6] transition-colors" title="Zoom in">+</button>
+                  <div className="flex items-center ml-1 rounded bg-white/60 border border-[#E8E0D0] p-0.5 gap-px text-xs">
+                    <button type="button" onClick={() => setUserZoom((z) => Math.max(0.25, parseFloat((z - 0.25).toFixed(2))))} className="w-6 h-6 flex items-center justify-center rounded-[3px] leading-none text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80 transition-colors" title="Zoom out">−</button>
+                    <button type="button" onClick={() => setUserZoom(1)} className="px-1.5 h-6 flex items-center justify-center rounded-[3px] leading-none text-[#6B7A80] hover:text-[#4A5B7A] hover:bg-white/80 transition-colors tabular-nums min-w-[2.6rem] text-center text-[11px]" title="Reset zoom">{Math.round(userZoom * 100)}%</button>
+                    <button type="button" onClick={() => setUserZoom((z) => Math.min(4, parseFloat((z + 0.25).toFixed(2))))} className="w-6 h-6 flex items-center justify-center rounded-[3px] leading-none text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80 transition-colors" title="Zoom in">+</button>
                   </div>
                 </div>
 
-                <div className="w-px h-4 bg-[#DDD5C4]" />
+                <div className="w-px h-4 bg-[#E0D8CC] mx-1 shrink-0" />
 
                 {/* Group 3 — Field Display (text mode + snap + PDF annotations) */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-semibold text-[#B0BAC8] uppercase tracking-wider border-l-2 border-[#DDD5C4] pl-1.5 leading-none">Fields</span>
-                  <div className="flex rounded border border-[#D4C9B5] overflow-hidden text-xs">
-                    <button type="button" onClick={() => setMapperTextMode(true)} className={`px-2 py-1 leading-none transition-colors ${mapperTextMode ? "bg-[#A8821E] shadow-inner text-white font-medium" : "text-[#6B7A99] hover:bg-[#F0EDE6]"}`}>Text</button>
-                    <button type="button" onClick={() => setMapperTextMode(false)} className={`px-2 py-1 leading-none transition-colors ${!mapperTextMode ? "bg-[#A8821E] shadow-inner text-white font-medium" : "text-[#6B7A99] hover:bg-[#F0EDE6]"}`}>Labels</button>
+                <div className="flex items-center gap-1">
+                  <span className="text-[9px] font-semibold text-[#C5BEAF] uppercase tracking-wider px-1 leading-none select-none">Fields</span>
+                  <div className="flex items-center rounded bg-white/60 border border-[#E8E0D0] p-0.5 gap-px text-xs">
+                    <button type="button" onClick={() => setMapperTextMode(true)} className={`px-2.5 py-1 rounded-[3px] leading-none transition-all duration-150 ${mapperTextMode ? "bg-white shadow-sm text-[#6B5520] font-medium" : "text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80"}`}>Text</button>
+                    <button type="button" onClick={() => setMapperTextMode(false)} className={`px-2.5 py-1 rounded-[3px] leading-none transition-all duration-150 ${!mapperTextMode ? "bg-white shadow-sm text-[#6B5520] font-medium" : "text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80"}`}>Labels</button>
                   </div>
                   <button
                     type="button"
                     title={snapGrid ? "Snap to grid on — click to turn off" : "Snap to grid off — click to turn on (4 pt grid)"}
                     onClick={() => setSnapGrid((v) => !v)}
-                    className={`flex items-center gap-1 text-xs border rounded px-2 py-1 leading-none transition-colors ${snapGrid ? "border-[#A8821E] bg-[#A8821E] shadow-inner text-white font-medium" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F0EDE6]"}`}
+                    className={`flex items-center gap-1 text-xs rounded px-2.5 py-1 leading-none transition-all duration-150 border ${snapGrid ? "bg-white shadow-sm border-[#E8E0D0] text-[#6B5520] font-medium" : "border-[#E8E0D0] bg-white/60 text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80"}`}
                   >
-                    <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                    <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
                       <line x1="4" y1="0" x2="4" y2="16"/><line x1="8" y1="0" x2="8" y2="16"/><line x1="12" y1="0" x2="12" y2="16"/>
                       <line x1="0" y1="4" x2="16" y2="4"/><line x1="0" y1="8" x2="16" y2="8"/><line x1="0" y1="12" x2="16" y2="12"/>
                     </svg>
@@ -4734,16 +4734,16 @@ export default function DocuFill() {
                   </button>
                   {documentPreviewUrl && acroAnnotations.length > 0 && (
                     <>
-                      <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-xs border rounded px-2 py-1 leading-none transition-colors ${showAcroLayer ? "border-blue-500 bg-blue-500 shadow-inner text-white font-medium" : "border-[#D4C9B5] text-[#6B7A99] hover:bg-[#F0EDE6]"}`}>
-                        PDF Fields {showAcroLayer ? "on" : "off"}
+                      <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-xs rounded px-2.5 py-1 leading-none transition-all duration-150 border ${showAcroLayer ? "bg-white shadow-sm border-[#93C5FD]/60 text-[#1D4ED8] font-medium" : "border-[#E8E0D0] bg-white/60 text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80"}`}>
+                        PDF Fields
                       </button>
                       <button
                         type="button"
                         title={`Auto-create mappings from ${acroAnnotations.length} detected PDF form field${acroAnnotations.length === 1 ? "" : "s"} on this page`}
                         onClick={autoMapFromPdfFields}
-                        className="flex items-center gap-1 text-xs border border-[#C49A38] bg-[#FDF8EE] text-[#8A6A20] rounded px-2 py-1 leading-none hover:bg-[#F7EDD0] transition-colors"
+                        className="flex items-center gap-1 text-xs border border-[#D4C9B5] bg-[#FDF8EE] text-[#8A6A20] rounded px-2.5 py-1 leading-none hover:bg-[#F7EDD0] transition-colors"
                       >
-                        <svg className="w-3 h-3" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                        <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6}>
                           <path d="M2 8h5M10 8h4M7 5l3 3-3 3" strokeLinecap="round" strokeLinejoin="round"/>
                         </svg>
                         Auto-map
@@ -4752,11 +4752,11 @@ export default function DocuFill() {
                   )}
                 </div>
 
-                <div className="w-px h-4 bg-[#DDD5C4]" />
+                <div className="w-px h-4 bg-[#E0D8CC] mx-1 shrink-0" />
 
                 {/* Group 4 — Inspector mode */}
-                <div className="flex items-center gap-1.5">
-                  <span className="text-[9px] font-semibold text-[#B0BAC8] uppercase tracking-wider border-l-2 border-[#DDD5C4] pl-1.5 leading-none">Inspector</span>
+                <div className="flex items-center">
+                  <span className="text-[9px] font-semibold text-[#C5BEAF] uppercase tracking-wider px-2 leading-none select-none">Inspector</span>
                   <button
                     type="button"
                     title={inspectorMode === "panel" ? "Switch to floating popup" : "Switch to side panel"}
@@ -4766,16 +4766,16 @@ export default function DocuFill() {
                       localStorage.setItem("docufill-inspector-mode", next);
                       setPlacementModal(null);
                     }}
-                    className="flex items-center gap-1.5 text-xs border border-[#D4C9B5] rounded px-2 py-1 leading-none text-[#6B7A99] hover:bg-[#F0EDE6] transition-colors"
+                    className="flex items-center gap-1.5 text-xs border border-[#E8E0D0] bg-white/60 rounded px-2.5 py-1 leading-none text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-white/80 transition-colors"
                   >
                     {inspectorMode === "panel" ? (
                       <>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M15 3v18" /></svg>
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M15 3v18" /></svg>
                         <span>Panel</span>
                       </>
                     ) : (
                       <>
-                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="5" y="5" width="14" height="14" rx="2" /><path strokeLinecap="round" d="M5 9h14" /></svg>
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="5" y="5" width="14" height="14" rx="2" /><path strokeLinecap="round" d="M5 9h14" /></svg>
                         <span>Popup</span>
                       </>
                     )}
