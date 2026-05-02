@@ -60,13 +60,15 @@ const DOCUPLETE_CONCEPTS = `Docuplete concepts you understand deeply:
 const INTERNAL_TOOLS: Anthropic.Tool[] = [
   {
     name: "search_sessions",
-    description: "Search for interview sessions on this account. Use to find sessions by customer name, email, package, or status. Returns a list of matching sessions with key details.",
+    description: "Search for interview sessions on this account. Use to find sessions by customer name, email, package, status, or date range. Returns a list of matching sessions with key details.",
     input_schema: {
       type: "object" as const,
       properties: {
         query:      { type: "string", description: "Search term (customer name, email, or package name). Leave empty to list recent sessions." },
         status:     { type: "string", enum: ["draft", "in_progress", "generated", "all"], description: "Filter by session status. Default: all." },
         package_id: { type: "number", description: "Filter by specific package ID." },
+        date_from:  { type: "string", description: "ISO 8601 date string (e.g. 2025-01-01) — only return sessions created on or after this date." },
+        date_to:    { type: "string", description: "ISO 8601 date string (e.g. 2025-03-31) — only return sessions created on or before this date." },
         limit:      { type: "number", description: "Maximum results to return (1-50). Default: 20." },
       },
       required: [],
@@ -153,10 +155,12 @@ async function executeInternalTool(
 
   try {
     if (toolName === "search_sessions") {
-      const query   = typeof toolInput.query    === "string" ? toolInput.query.trim() : "";
-      const status  = typeof toolInput.status   === "string" ? toolInput.status : "all";
-      const pkgId   = typeof toolInput.package_id === "number" ? toolInput.package_id : null;
-      const limit   = typeof toolInput.limit    === "number" ? Math.min(toolInput.limit, 50) : 20;
+      const query    = typeof toolInput.query      === "string" ? toolInput.query.trim() : "";
+      const status   = typeof toolInput.status     === "string" ? toolInput.status : "all";
+      const pkgId    = typeof toolInput.package_id === "number" ? toolInput.package_id : null;
+      const dateFrom = typeof toolInput.date_from  === "string" ? toolInput.date_from.trim() : "";
+      const dateTo   = typeof toolInput.date_to    === "string" ? toolInput.date_to.trim() : "";
+      const limit    = typeof toolInput.limit      === "number" ? Math.min(toolInput.limit, 50) : 20;
 
       const conditions: string[] = ["s.account_id = $1"];
       const params: unknown[] = [accountId];
@@ -164,16 +168,18 @@ async function executeInternalTool(
 
       if (status && status !== "all") { conditions.push(`s.status = $${idx++}`); params.push(status); }
       if (pkgId) { conditions.push(`s.package_id = $${idx++}`); params.push(pkgId); }
+      if (dateFrom) { conditions.push(`s.created_at >= $${idx++}::date`); params.push(dateFrom); }
+      if (dateTo)   { conditions.push(`s.created_at <  ($${idx++}::date + INTERVAL '1 day')`); params.push(dateTo); }
       if (query) {
-        conditions.push(`(s.token ILIKE $${idx} OR p.name ILIKE $${idx} OR s.prefill::text ILIKE $${idx})`);
+        conditions.push(`(s.token ILIKE $${idx} OR p.name ILIKE $${idx} OR s.prefill::text ILIKE $${idx} OR s.signer_name ILIKE $${idx} OR s.signer_email ILIKE $${idx})`);
         params.push(`%${query}%`);
         idx++;
       }
       params.push(limit);
 
       const { rows } = await db.query(
-        `SELECT s.token, s.status, s.created_at, p.name AS package_name, s.prefill
-           FROM docufill_sessions s
+        `SELECT s.token, s.status, s.created_at, p.name AS package_name, s.prefill, s.signer_name, s.signer_email
+           FROM docufill_interview_sessions s
            LEFT JOIN docufill_packages p ON p.id = s.package_id
           WHERE ${conditions.join(" AND ")}
           ORDER BY s.created_at DESC
@@ -197,8 +203,8 @@ async function executeInternalTool(
       const { rows } = await db.query(
         `SELECT s.token, s.status, s.created_at, s.expires_at, s.answers,
                 s.prefill, p.name AS package_name, p.fields AS package_fields,
-                s.signer_name, s.signed_at
-           FROM docufill_sessions s
+                s.signer_name, s.signer_email, s.signed_at
+           FROM docufill_interview_sessions s
            LEFT JOIN docufill_packages p ON p.id = s.package_id
           WHERE s.token = $1 AND s.account_id = $2
           LIMIT 1`,
@@ -303,7 +309,7 @@ async function executeInternalTool(
 
       const { rows: countRows } = await db.query(
         `SELECT COUNT(*) AS total
-           FROM docufill_sessions
+           FROM docufill_interview_sessions
           WHERE account_id = $1 AND status = 'generated'
             AND created_at >= ${since} AND created_at < ${until}`,
         [accountId],
@@ -311,7 +317,7 @@ async function executeInternalTool(
 
       const { rows: byPkg } = await db.query(
         `SELECT p.name, COUNT(*) AS cnt
-           FROM docufill_sessions s
+           FROM docufill_interview_sessions s
            LEFT JOIN docufill_packages p ON p.id = s.package_id
           WHERE s.account_id = $1 AND s.status = 'generated'
             AND s.created_at >= ${since} AND s.created_at < ${until}
@@ -341,7 +347,7 @@ async function executeInternalTool(
 
       const { rows: monthRows } = await db.query(
         `SELECT COUNT(*) AS used
-           FROM docufill_sessions
+           FROM docufill_interview_sessions
           WHERE account_id = $1 AND status = 'generated'
             AND created_at >= DATE_TRUNC('month', NOW())`,
         [accountId],
@@ -566,7 +572,7 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
     const { rows } = await db.query(
       `SELECT s.token, s.status, s.prefill, p.name AS package_name,
               p.fields AS package_fields, p.description AS package_description
-         FROM docufill_sessions s
+         FROM docufill_interview_sessions s
          LEFT JOIN docufill_packages p ON p.id = s.package_id
         WHERE s.token = $1 LIMIT 1`,
       [token],
