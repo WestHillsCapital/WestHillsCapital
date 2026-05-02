@@ -1,12 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 
-const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+const API_BASE   = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const MERLIN_URL = `${API_BASE}/api/v1/product/merlin/chat`;
 
+const SESSION_STORAGE_KEY = "merlin_widget_history";
+
 type Message = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
+  id:       string;
+  role:     "user" | "assistant";
+  content:  string;
   thinking?: boolean;
 };
 
@@ -53,6 +55,15 @@ function ThinkingDots() {
   );
 }
 
+function ToolCallBadge({ names }: { names: string[] }) {
+  const label = names.map((n) => n.replace(/_/g, " ")).join(", ");
+  return (
+    <div className="text-[10px] text-[#8A9BB8] italic px-3 py-1">
+      ✦ Looking up {label}…
+    </div>
+  );
+}
+
 function MessageBubble({ message, brandColor }: { message: Message; brandColor: string }) {
   const isUser = message.role === "user";
   if (isUser) {
@@ -85,14 +96,46 @@ const SUGGESTED_PROMPTS = [
   "Find me the Gold IRA package",
 ];
 
+// Parse SSE stream and collect chunks/events
+async function* parseSSE(response: Response): AsyncGenerator<Record<string, unknown>> {
+  const reader  = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer    = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+
+    for (const part of parts) {
+      const line = part.trim();
+      if (line.startsWith("data: ")) {
+        try { yield JSON.parse(line.slice(6)) as Record<string, unknown>; } catch { /* ignore */ }
+      }
+    }
+  }
+}
+
 export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F" }: MerlinWidgetProps) {
-  const [open, setOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [hasGreeted, setHasGreeted] = useState(false);
+  const [open, setOpen]         = useState(false);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const stored = sessionStorage.getItem(SESSION_STORAGE_KEY);
+      return stored ? (JSON.parse(stored) as Message[]) : [];
+    } catch { return []; }
+  });
+  const [input,        setInput]       = useState("");
+  const [isLoading,    setIsLoading]   = useState(false);
+  const [activeTools,  setActiveTools] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef       = useRef<HTMLInputElement | null>(null);
+  const abortRef       = useRef<AbortController | null>(null);
+
+  // Derived: has the user ever seen the greeting?
+  const hasGreeted = messages.length > 0;
 
   const textColor = (() => {
     try {
@@ -104,66 +147,133 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F" }: MerlinW
     } catch { return "#ffffff"; }
   })();
 
+  // Persist conversation to sessionStorage
+  useEffect(() => {
+    const filtered = messages.filter((m) => !m.thinking);
+    if (filtered.length > 0) {
+      try { sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(filtered)); } catch { /* ignore */ }
+    }
+  }, [messages]);
+
+  // Show greeting on first open
   useEffect(() => {
     if (open && !hasGreeted) {
-      setHasGreeted(true);
       setMessages([{
-        id: "greeting",
-        role: "assistant",
+        id:      "greeting",
+        role:    "assistant",
         content: "I'm Merlin — your Docuplete assistant. Ask me anything about your packages, sessions, submissions, or account. A little wizardry goes a long way.",
       }]);
     }
   }, [open, hasGreeted]);
 
   useEffect(() => {
-    if (open) {
-      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
-    }
+    if (open) setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   }, [messages, open]);
 
   useEffect(() => {
-    if (open) {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
+    if (open) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
 
   async function sendMessage(text?: string) {
     const userText = (text ?? input).trim();
     if (!userText || isLoading) return;
     setInput("");
+    setActiveTools([]);
 
-    const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: userText };
-    const thinkingMsg: Message = { id: "thinking", role: "assistant", content: "", thinking: true };
+    const userMsg: Message     = { id: crypto.randomUUID(), role: "user",      content: userText };
+    const thinkingMsg: Message = { id: "thinking",         role: "assistant",  content: "", thinking: true };
 
-    setMessages((prev) => [...prev, userMsg, thinkingMsg]);
+    setMessages((prev) => [...prev.filter((m) => !m.thinking), userMsg, thinkingMsg]);
     setIsLoading(true);
 
-    const history = [...messages.filter((m) => !m.thinking), userMsg].map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
+    const history = [
+      ...messages.filter((m) => !m.thinking),
+      userMsg,
+    ].map((m) => ({ role: m.role, content: m.content }));
+
+    const abort = new AbortController();
+    abortRef.current = abort;
 
     try {
       const res = await fetch(MERLIN_URL, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json", ...(getAuthHeaders() as Record<string, string>) },
-        body: JSON.stringify({ messages: history }),
+        body:    JSON.stringify({ messages: history }),
+        signal:  abort.signal,
       });
-      const data = await res.json() as { reply?: string; error?: string };
-      const reply = data.reply ?? data.error ?? "Something went wrong. Please try again.";
 
-      setMessages((prev) => [
-        ...prev.filter((m) => m.id !== "thinking"),
-        { id: crypto.randomUUID(), role: "assistant", content: reply },
-      ]);
-    } catch {
-      setMessages((prev) => [
-        ...prev.filter((m) => m.id !== "thinking"),
-        { id: crypto.randomUUID(), role: "assistant", content: "I couldn't reach the server. Please check your connection and try again." },
-      ]);
+      if (!res.ok || !res.body) {
+        throw new Error("Request failed");
+      }
+
+      // Streaming ID for the assistant reply
+      const replyId = crypto.randomUUID();
+      let replyText = "";
+      let started   = false;
+
+      for await (const event of parseSSE(res)) {
+        if (abort.signal.aborted) break;
+
+        if (event.type === "tool" && Array.isArray(event.names)) {
+          setActiveTools(event.names as string[]);
+          // Replace the thinking bubble with a tool-call indicator
+          setMessages((prev) => [
+            ...prev.filter((m) => m.id !== "thinking"),
+            { id: "thinking", role: "assistant", content: "", thinking: true },
+          ]);
+        }
+
+        if (event.type === "chunk" && typeof event.text === "string") {
+          setActiveTools([]);
+          replyText += event.text;
+          if (!started) {
+            started = true;
+            setMessages((prev) => [
+              ...prev.filter((m) => m.id !== "thinking"),
+              { id: replyId, role: "assistant", content: replyText },
+            ]);
+          } else {
+            setMessages((prev) =>
+              prev.map((m) => m.id === replyId ? { ...m, content: replyText } : m),
+            );
+          }
+        }
+
+        if (event.type === "error" && typeof event.message === "string") {
+          setMessages((prev) => [
+            ...prev.filter((m) => m.id !== "thinking"),
+            { id: crypto.randomUUID(), role: "assistant", content: event.message as string },
+          ]);
+        }
+
+        if (event.type === "done") break;
+      }
+
+      if (!started) {
+        setMessages((prev) => prev.filter((m) => m.id !== "thinking"));
+      }
+    } catch (err) {
+      if ((err as { name?: string }).name !== "AbortError") {
+        setMessages((prev) => [
+          ...prev.filter((m) => m.id !== "thinking"),
+          { id: crypto.randomUUID(), role: "assistant", content: "I couldn't reach the server. Please check your connection and try again." },
+        ]);
+      }
     } finally {
       setIsLoading(false);
+      setActiveTools([]);
+      abortRef.current = null;
     }
+  }
+
+  function clearConversation() {
+    abortRef.current?.abort();
+    setMessages([]);
+    setIsLoading(false);
+    setActiveTools([]);
+    setInput("");
+    try { sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* ignore */ }
+    setOpen(false);
   }
 
   return (
@@ -204,11 +314,7 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F" }: MerlinW
               <div className="text-[11px] opacity-70 leading-tight">Docuplete assistant</div>
             </div>
             <button
-              onClick={() => {
-                setMessages([]);
-                setHasGreeted(false);
-                setOpen(false);
-              }}
+              onClick={clearConversation}
               className="ml-auto opacity-60 hover:opacity-100 transition-opacity p-1 rounded"
               title="Clear conversation"
               aria-label="Clear and close"
@@ -219,13 +325,17 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F" }: MerlinW
             </button>
           </div>
 
+          {/* Active tool call indicator */}
+          {activeTools.length > 0 && <ToolCallBadge names={activeTools} />}
+
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0">
             {messages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} brandColor={brandColor} />
             ))}
+
             {/* Suggested prompts — shown only before first user message */}
-            {messages.length === 1 && (
+            {messages.length === 1 && messages[0].role === "assistant" && (
               <div className="space-y-1.5 pt-1">
                 {SUGGESTED_PROMPTS.map((p) => (
                   <button

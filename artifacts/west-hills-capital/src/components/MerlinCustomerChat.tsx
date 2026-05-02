@@ -3,27 +3,28 @@ import { useEffect, useRef, useState } from "react";
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 type Message = {
-  id: string;
-  role: "user" | "assistant";
-  content: string;
+  id:       string;
+  role:     "user" | "assistant";
+  content:  string;
   thinking?: boolean;
 };
 
 type FieldItem = {
-  id: string;
-  name: string;
-  type: string;
+  id:            string;
+  name:          string;
+  type:          string;
   interviewMode: "required" | "optional" | "readonly" | "omitted";
-  options?: string[];
+  options?:      string[];
+  condition?:    { fieldId: string; operator: string; value?: string } | null;
 };
 
 interface MerlinCustomerChatProps {
-  token: string;
-  fields: FieldItem[];
-  answers: Record<string, string>;
-  brandColor: string;
-  packageName: string;
-  onFieldUpdate: (updates: Record<string, string>) => void;
+  token:          string;
+  fields:         FieldItem[];
+  answers:        Record<string, string>;
+  brandColor:     string;
+  packageName:    string;
+  onFieldUpdate:  (updates: Record<string, string>) => void;
   onSwitchToForm: () => void;
 }
 
@@ -53,28 +54,6 @@ function ThinkingDots() {
   );
 }
 
-/** Animated typewriter effect for a text string */
-function TypewriterText({ text }: { text: string }) {
-  const [displayed, setDisplayed] = useState("");
-  const indexRef = useRef(0);
-
-  useEffect(() => {
-    indexRef.current = 0;
-    setDisplayed("");
-    if (!text) return;
-
-    const interval = setInterval(() => {
-      indexRef.current += 1;
-      setDisplayed(text.slice(0, indexRef.current));
-      if (indexRef.current >= text.length) clearInterval(interval);
-    }, 12);
-
-    return () => clearInterval(interval);
-  }, [text]);
-
-  return <span style={{ whiteSpace: "pre-wrap" }}>{displayed}</span>;
-}
-
 function getBrandTextColor(hex: string): string {
   try {
     const h = hex.replace("#", "");
@@ -83,6 +62,29 @@ function getBrandTextColor(hex: string): string {
     const b = parseInt(h.slice(4, 6), 16) / 255;
     return 0.299 * r + 0.587 * g + 0.114 * b > 0.6 ? "#0F1C3F" : "#ffffff";
   } catch { return "#ffffff"; }
+}
+
+// Parse SSE stream from a ReadableBody response
+async function* parseSSE(response: Response): AsyncGenerator<Record<string, unknown>> {
+  const reader  = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer    = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+
+    for (const part of parts) {
+      const line = part.trim();
+      if (line.startsWith("data: ")) {
+        try { yield JSON.parse(line.slice(6)) as Record<string, unknown>; } catch { /* ignore */ }
+      }
+    }
+  }
 }
 
 export function MerlinCustomerChat({
@@ -95,19 +97,20 @@ export function MerlinCustomerChat({
   onSwitchToForm,
 }: MerlinCustomerChatProps) {
   const brandTextColor = getBrandTextColor(brandColor);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [messages,   setMessages]   = useState<Message[]>([]);
+  const [input,      setInput]      = useState("");
+  const [isLoading,  setIsLoading]  = useState(false);
+  const [reviewShown, setReviewShown] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const hasInitedRef = useRef(false);
+  const inputRef       = useRef<HTMLInputElement | null>(null);
+  const hasInitedRef   = useRef(false);
 
   const interviewFields = fields.filter((f) => f.interviewMode !== "omitted" && f.interviewMode !== "readonly");
-  const requiredFields = interviewFields.filter((f) => f.interviewMode === "required");
-  const answeredCount = requiredFields.filter((f) => answers[f.id]?.trim()).length;
+  const requiredFields  = interviewFields.filter((f) => f.interviewMode === "required");
+  const answeredCount   = requiredFields.filter((f) => answers[f.id]?.trim()).length;
   const allRequiredAnswered = answeredCount === requiredFields.length && requiredFields.length > 0;
 
-  // Initial greeting from Merlin when the component mounts
+  // Initial greeting
   useEffect(() => {
     if (hasInitedRef.current) return;
     hasInitedRef.current = true;
@@ -120,6 +123,32 @@ export function MerlinCustomerChat({
     setMessages([{ id: "greeting", role: "assistant", content: greeting }]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Auto-show review step when all required fields answered (only once)
+  useEffect(() => {
+    if (!allRequiredAnswered || reviewShown || messages.length === 0 || isLoading) return;
+    setReviewShown(true);
+
+    // Build a review summary message
+    const lines = interviewFields
+      .filter((f) => answers[f.id]?.trim())
+      .map((f) => {
+        const val = answers[f.id];
+        return `  • **${f.name}**: ${val}`;
+      });
+
+    const reviewContent = [
+      `All required fields are answered — consider it handled! Here's what I've recorded:\n`,
+      ...lines,
+      `\nEverything look right? You can confirm below to review the form and submit, or keep chatting if you'd like to make any changes.`,
+    ].join("\n");
+
+    setMessages((prev) => [
+      ...prev,
+      { id: "review-summary", role: "assistant", content: reviewContent },
+    ]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allRequiredAnswered]);
 
   useEffect(() => {
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
@@ -134,34 +163,61 @@ export function MerlinCustomerChat({
     if (!userText || isLoading) return;
     setInput("");
 
-    const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: userText };
-    const thinkingMsg: Message = { id: "thinking", role: "assistant", content: "", thinking: true };
+    const userMsg: Message     = { id: crypto.randomUUID(), role: "user",     content: userText };
+    const thinkingMsg: Message = { id: "thinking",         role: "assistant", content: "", thinking: true };
     setMessages((prev) => [...prev, userMsg, thinkingMsg]);
     setIsLoading(true);
 
-    const history = [...messages.filter((m) => !m.thinking), userMsg].map((m) => ({
-      role: m.role,
-      content: m.content,
-    }));
+    const history = [
+      ...messages.filter((m) => !m.thinking),
+      userMsg,
+    ].map((m) => ({ role: m.role, content: m.content }));
 
     try {
       const res = await fetch(`${API_BASE}/api/v1/docufill/public/sessions/${token}/merlin`, {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: history, answers }),
+        body:    JSON.stringify({ messages: history, answers }),
       });
 
-      const data = await res.json() as { reply?: string; field_updates?: Record<string, string>; error?: string };
-      const reply = data.reply ?? data.error ?? "Something went wrong. Please try again.";
-      const fieldUpdates = data.field_updates ?? {};
+      if (!res.ok || !res.body) throw new Error("Request failed");
 
-      setMessages((prev) => [
-        ...prev.filter((m) => m.id !== "thinking"),
-        { id: crypto.randomUUID(), role: "assistant", content: reply },
-      ]);
+      const replyId = crypto.randomUUID();
+      let replyText = "";
+      let started   = false;
 
-      if (Object.keys(fieldUpdates).length > 0) {
-        onFieldUpdate(fieldUpdates);
+      for await (const event of parseSSE(res)) {
+        if (event.type === "chunk" && typeof event.text === "string") {
+          replyText += event.text;
+          if (!started) {
+            started = true;
+            setMessages((prev) => [
+              ...prev.filter((m) => m.id !== "thinking"),
+              { id: replyId, role: "assistant", content: replyText },
+            ]);
+          } else {
+            setMessages((prev) =>
+              prev.map((m) => m.id === replyId ? { ...m, content: replyText } : m),
+            );
+          }
+        }
+
+        if (event.type === "field_updates" && event.updates && typeof event.updates === "object") {
+          onFieldUpdate(event.updates as Record<string, string>);
+        }
+
+        if (event.type === "error" && typeof event.message === "string") {
+          setMessages((prev) => [
+            ...prev.filter((m) => m.id !== "thinking"),
+            { id: crypto.randomUUID(), role: "assistant", content: event.message as string },
+          ]);
+        }
+
+        if (event.type === "done") break;
+      }
+
+      if (!started) {
+        setMessages((prev) => prev.filter((m) => m.id !== "thinking"));
       }
     } catch {
       setMessages((prev) => [
@@ -187,6 +243,7 @@ export function MerlinCustomerChat({
           <div className="font-semibold text-sm leading-tight">Merlin</div>
           <div className="text-[11px] opacity-70 leading-tight">Your document guide</div>
         </div>
+
         {/* Progress indicator */}
         {requiredFields.length > 0 && (
           <div className="ml-auto flex items-center gap-2 shrink-0">
@@ -201,6 +258,7 @@ export function MerlinCustomerChat({
             </div>
           </div>
         )}
+
         <button
           onClick={onSwitchToForm}
           className="ml-2 text-[11px] opacity-70 hover:opacity-100 transition-opacity border border-white/30 rounded-lg px-2 py-1 whitespace-nowrap shrink-0"
@@ -212,9 +270,8 @@ export function MerlinCustomerChat({
 
       {/* Messages area */}
       <div className="flex-1 overflow-y-auto space-y-3 pb-2 min-h-0">
-        {messages.map((msg, idx) => {
+        {messages.map((msg) => {
           const isUser = msg.role === "user";
-          const isLatestAssistant = !isUser && idx === messages.length - 1 && !msg.thinking;
 
           if (isUser) {
             return (
@@ -240,8 +297,6 @@ export function MerlinCustomerChat({
               <div className="max-w-[82%] rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm bg-[#F0EDE8] text-[#0F1C3F]">
                 {msg.thinking ? (
                   <ThinkingDots />
-                ) : isLatestAssistant ? (
-                  <TypewriterText text={msg.content} />
                 ) : (
                   <span style={{ whiteSpace: "pre-wrap" }}>{msg.content}</span>
                 )}
@@ -252,14 +307,17 @@ export function MerlinCustomerChat({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* All done prompt */}
-      {allRequiredAnswered && (
+      {/* Review gate — shown after Merlin summary when all required fields are done */}
+      {allRequiredAnswered && reviewShown && (
         <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 shrink-0">
-          <p className="text-sm font-medium text-green-800 mb-1">All required fields are answered.</p>
-          <p className="text-xs text-green-700">Switch to the form to review your answers before submitting.</p>
+          <p className="text-sm font-medium text-green-800 mb-1">All required fields complete.</p>
+          <p className="text-xs text-green-700 mb-2">
+            Switch to the form to do a final review of your answers before submitting. Any changes Merlin made are already filled in.
+          </p>
           <button
             onClick={onSwitchToForm}
-            className="mt-2 text-xs font-medium text-green-900 underline hover:no-underline"
+            className="text-sm font-semibold text-white px-4 py-1.5 rounded-lg transition-opacity hover:opacity-90"
+            style={{ backgroundColor: brandColor }}
           >
             Review and submit →
           </button>
