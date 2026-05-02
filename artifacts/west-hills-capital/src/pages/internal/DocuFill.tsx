@@ -4712,10 +4712,10 @@ export default function DocuFill() {
               </div>
 
               {/* ── Toolbar ─────────────────────────────────────────── */}
-              <div className="sticky top-0 z-20 flex items-center gap-2 flex-wrap bg-white border border-[#E0D8CC] rounded-lg px-2.5 py-1.5 mb-3 shadow-sm">
+              <div className="sticky top-0 z-20 flex items-center bg-white border border-[#E0D8CC] rounded-lg px-2.5 py-1.5 mb-3 shadow-sm">
 
-                {/* Group 1 — Page Navigation */}
-                <div className="flex items-center border border-[#DDD5C4] rounded-md overflow-hidden shrink-0">
+                {/* Left — Page Navigation (fixed, anchors left edge) */}
+                <div className="shrink-0 flex items-center border border-[#DDD5C4] rounded-md overflow-hidden">
                   <button type="button" title="Prev page [←]" onClick={() => setSelectedPage((p) => Math.max(1, p - 1))} disabled={!selectedDocument || selectedPage <= 1} className={`w-7 h-[26px] flex items-center justify-center text-[#6B7A8A] bg-white hover:bg-[#F8F5F0] transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${mapperScrollMode ? "invisible" : ""}`}>
                     <ChevronLeft className="w-3.5 h-3.5" />
                   </button>
@@ -4724,6 +4724,9 @@ export default function DocuFill() {
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
+
+                {/* Center — all controls, truly centered between the two fixed ends */}
+                <div className="flex-1 flex items-center justify-center gap-2 flex-wrap">
 
                 {/* Group 2 — Single / Scroll toggle */}
                 <div className="flex items-center border border-[#DDD5C4] rounded-md overflow-hidden shrink-0 text-[11px] font-medium" title="Toggle between viewing one page at a time or all pages stacked">
@@ -4786,8 +4789,10 @@ export default function DocuFill() {
                   </>
                 )}
 
-                {/* Inspector + shortcuts — grouped at far right, never wraps */}
-                <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                </div>{/* end center */}
+
+                {/* Right — Inspector + shortcuts (fixed, anchors right edge) */}
+                <div className="shrink-0 flex items-center gap-1.5">
                   <button
                     type="button"
                     title={inspectorMode === "panel" ? "Switch to floating popup" : "Switch to side panel"}
