@@ -165,6 +165,9 @@ function SubmissionBankSection({ getAuthHeaders }: { getAuthHeaders: () => Heade
     return h;
   }
 
+  const brandColor = useBrandColor();
+  const textColor  = getTextForBg(brandColor);
+
   const [bank,       setBank]       = useState<{ total: number; entries: BankEntry[] } | null>(null);
   const [packs,      setPacks]      = useState<PackTier[]>([]);
   const [isLoading,  setIsLoading]  = useState(true);
@@ -291,8 +294,9 @@ function SubmissionBankSection({ getAuthHeaders }: { getAuthHeaders: () => Heade
                   key={t}
                   type="button"
                   onClick={() => setPackType(t)}
-                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
-                    packType === t ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
+                  style={packType === t ? { backgroundColor: brandColor, color: textColor } : {}}
+              className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                    packType === t ? "shadow" : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
                   {t === "one_off" ? "One-time" : t === "annual" ? "Annual −20%" : "Monthly"}
@@ -308,7 +312,8 @@ function SubmissionBankSection({ getAuthHeaders }: { getAuthHeaders: () => Heade
               type="button"
               disabled={isBuying || !selectedPack}
               onClick={() => void handleBuy()}
-              className="rounded-lg px-4 py-1.5 text-xs font-medium text-white bg-gray-900 hover:bg-gray-700 disabled:opacity-60 transition-colors whitespace-nowrap"
+              style={{ backgroundColor: brandColor, color: textColor }}
+              className="rounded-lg px-4 py-1.5 text-xs font-medium disabled:opacity-60 transition-opacity whitespace-nowrap"
             >
               {isBuying ? "Opening…" : `Buy — ${displayPrice ?? "…"}`}
             </button>
