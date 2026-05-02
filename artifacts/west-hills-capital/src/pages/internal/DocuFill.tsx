@@ -3225,7 +3225,8 @@ export default function DocuFill() {
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Could not generate customer link");
-      const link = data.interviewUrl ?? `${window.location.origin}/docufill/public/${data.token}`;
+      if (!data.interviewUrl) throw new Error("Server did not return an interview URL — please contact support.");
+      const link = data.interviewUrl;
       setGeneratedCustomerLink(link);
       setGeneratedCustomerLinkToken(data.token as string);
       setSendLinkEmail(customerLinkEmail.trim());
