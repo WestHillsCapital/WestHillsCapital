@@ -4692,7 +4692,7 @@ export default function DocuFill() {
               </div>
 
               {/* ── Toolbar ─────────────────────────────────────────── */}
-              <div className="flex items-center gap-1.5 flex-wrap bg-[#EAE3D8] rounded-lg px-2.5 py-1.5 mb-3 min-h-[38px]">
+              <div className="sticky top-0 z-20 flex items-center gap-1.5 flex-wrap bg-[#EAE3D8] rounded-lg px-2.5 py-1.5 mb-3 min-h-[38px] shadow-sm">
 
                 {/* Group 1 — Page Navigation */}
                 {!mapperScrollMode ? (
