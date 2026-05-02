@@ -62,12 +62,21 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const getAuthHeadersRef = useRef(getAuthHeaders);
   getAuthHeadersRef.current = getAuthHeaders;
 
+  const [orgBrandColor, setOrgBrandColor] = useState<string>("#111827");
+
   const fetchProfile = useRef(() => {
     fetch(`${SETTINGS_BASE}/profile`, { headers: getAuthHeadersRef.current() })
       .then(async (r) => {
         if (!r.ok) return;
         const data = await r.json() as { profile?: UserProfileData };
         if (data.profile) setProfileData(data.profile);
+      })
+      .catch(() => {});
+    fetch(`${SETTINGS_BASE}/org`, { headers: getAuthHeadersRef.current() })
+      .then(async (r) => {
+        if (!r.ok) return;
+        const data = await r.json() as { org?: { brand_color?: string } };
+        if (data.org?.brand_color) setOrgBrandColor(data.org.brand_color);
       })
       .catch(() => {});
   });
@@ -237,7 +246,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
         {children}
       </main>
 
-      <MerlinWidget getAuthHeaders={getAuthHeaders} brandColor="#111827" />
+      <MerlinWidget getAuthHeaders={getAuthHeaders} brandColor={orgBrandColor} />
     </div>
   );
 }
