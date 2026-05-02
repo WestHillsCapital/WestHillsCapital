@@ -676,15 +676,35 @@ function CustomDomainSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () =
 
   useEffect(() => { loadInfo(); }, []);
 
+  function isApexDomain(domain: string): boolean {
+    const clean = domain.trim().toLowerCase().replace(/^https?:\/\//, "").split("/")[0];
+    const parts = clean.split(".");
+    // Common two-part TLDs (co.uk, com.au, etc.)
+    const twoPartTlds = ["co.uk","co.nz","co.za","com.au","com.br","com.mx","net.au","org.au"];
+    const twoPartTld = twoPartTlds.some((t) => clean.endsWith(`.${t}`));
+    const minParts = twoPartTld ? 3 : 2;
+    return parts.length <= minParts;
+  }
+
   async function handleSave() {
     setSaveError(null);
     setVerifyResult(null);
+
+    const trimmed = domainInput.trim();
+    if (trimmed && isApexDomain(trimmed)) {
+      setSaveError(
+        `"${trimmed}" is a root domain — DNS doesn't allow CNAME records on root domains. ` +
+        `Use a subdomain instead, e.g. "www.${trimmed}" or "forms.${trimmed}".`
+      );
+      return;
+    }
+
     setIsSaving(true);
     try {
       const res = await fetch(`${SETTINGS_BASE}/custom-domain`, {
         method: "PUT",
         headers: authHeaders("application/json"),
-        body: JSON.stringify({ domain: domainInput.trim() }),
+        body: JSON.stringify({ domain: trimmed }),
       });
       const data = await res.json() as { custom_domain?: string | null; status?: string; error?: string };
       if (!res.ok) { setSaveError(data.error ?? "Failed to save domain."); return; }
@@ -787,7 +807,7 @@ function CustomDomainSection({ getAuthHeaders, isAdmin }: { getAuthHeaders: () =
           {/* Domain input */}
           <div className="px-6 py-5 space-y-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">Custom subdomain</label>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Custom subdomain <span className="text-gray-400 font-normal">(e.g. forms.yourcompany.com — root domains not supported)</span></label>
               {isAdmin ? (
                 <>
                   <div className="flex gap-2 items-center flex-wrap">
