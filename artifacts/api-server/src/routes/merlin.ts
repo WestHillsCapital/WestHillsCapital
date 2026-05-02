@@ -570,16 +570,18 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
   try {
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT s.token, s.status, s.prefill, p.name AS package_name,
+      `SELECT s.token, s.status, s.prefill, s.expires_at, p.name AS package_name,
               p.fields AS package_fields, p.description AS package_description
          FROM docufill_interview_sessions s
          LEFT JOIN docufill_packages p ON p.id = s.package_id
-        WHERE s.token = $1 LIMIT 1`,
+        WHERE s.token = $1
+          AND s.expires_at > NOW()
+        LIMIT 1`,
       [token],
     );
 
     if (!rows[0]) {
-      sseWrite(res, { type: "error", message: "Session not found." });
+      sseWrite(res, { type: "error", message: "Session not found or has expired." });
       res.end();
       return;
     }
