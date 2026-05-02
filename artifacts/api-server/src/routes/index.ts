@@ -55,6 +55,10 @@ router.use("/fedex", requireInternalAuth, fedexRouter);
 // guard: if account resolution somehow fails, reject rather than fall through.
 router.use("/internal/docufill", requireInternalAuth, requireAccountId, docufillRouter);
 
+// ── Merlin: WHC internal (session token) ──────────────────────────────────────
+// Same auth chain as internal docufill: internal session token + account guard.
+router.use("/internal/merlin", requireInternalAuth, requireAccountId, merlinRouter);
+
 // ── Content engine (internal tool — also require auth) ────────────────────────
 router.use("/internal/content", requireInternalAuth, contentRouter);
 

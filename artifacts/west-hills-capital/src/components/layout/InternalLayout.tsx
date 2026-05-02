@@ -106,7 +106,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
         {children}
       </main>
 
-      <MerlinWidget getAuthHeaders={getAuthHeaders} brandColor="#0F1C3F" />
+      <MerlinWidget getAuthHeaders={getAuthHeaders} brandColor="#0F1C3F" chatUrl={`${import.meta.env.VITE_API_URL ?? ""}/api/internal/merlin/chat`} />
     </div>
   );
 }

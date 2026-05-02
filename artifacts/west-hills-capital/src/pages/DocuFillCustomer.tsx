@@ -307,7 +307,10 @@ export default function DocuFillCustomer() {
   // ZIP → city soft-check: maps a valid ZIP to the list of place names returned by zippopotam.us
   const [zipCityLookup, setZipCityLookup] = useState<Record<string, string[]>>({});
   // Merlin chat mode: when true, show the AI interview assistant instead of the raw form
-  const [merlinMode, setMerlinMode] = useState(false);
+  const [merlinMode, setMerlinMode]                 = useState(false);
+  // Tracks whether Merlin was ever used — used to enforce a review gate before submit
+  const [merlinWasUsed, setMerlinWasUsed]           = useState(false);
+  const [merlinReviewConfirmed, setMerlinReviewConfirmed] = useState(false);
 
   useLayoutEffect(() => {
     if (!isEmbed) return;
@@ -1112,7 +1115,8 @@ export default function DocuFillCustomer() {
                   disabled={
                     pageStatus === "submitting" ||
                     !signerName.trim() ||
-                    (sigMode === "draw" && !sigPadHasContent)
+                    (sigMode === "draw" && !sigPadHasContent) ||
+                    (merlinWasUsed && !merlinReviewConfirmed)
                   }
                   className="flex-1 bg-[#0F1C3F] hover:bg-[#182B5F]"
                 >
@@ -1176,7 +1180,12 @@ export default function DocuFillCustomer() {
             </p>
           </div>
           <button
-            onClick={() => setMerlinMode((m) => !m)}
+            onClick={() => {
+              setMerlinMode((m) => {
+                if (!m) { setMerlinWasUsed(true); setMerlinReviewConfirmed(false); }
+                return !m;
+              });
+            }}
             className="shrink-0 flex items-center gap-1.5 text-xs font-medium px-3 py-2 rounded-lg border transition-colors"
             style={merlinMode
               ? { backgroundColor: brandColor, color: brandTextColor, borderColor: brandColor }
@@ -1228,6 +1237,25 @@ export default function DocuFillCustomer() {
             }}
             onSwitchToForm={() => setMerlinMode(false)}
           />
+        )}
+
+        {/* Merlin review gate — shown when switching back to form view after Merlin was used */}
+        {!merlinMode && merlinWasUsed && (
+          <div className="rounded-lg border border-[#DDD5C4] bg-[#FBF9F5] px-4 py-3">
+            <p className="text-sm font-semibold text-[#0F1C3F] mb-0.5">Merlin has pre-filled your answers</p>
+            <p className="text-xs text-[#6B7A99] mb-3">
+              Please review each field carefully before submitting. Merlin's answers are saved automatically — you can edit any field below.
+            </p>
+            <label className="flex items-start gap-2.5 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                className="mt-0.5 accent-[#0F1C3F]"
+                checked={merlinReviewConfirmed}
+                onChange={(e) => setMerlinReviewConfirmed(e.target.checked)}
+              />
+              <span className="text-sm text-[#0F1C3F]">I've reviewed my answers and they are correct</span>
+            </label>
+          </div>
         )}
 
         {/* Progress bar — shown in both modes */}
@@ -1450,7 +1478,7 @@ export default function DocuFillCustomer() {
           </div>
           <Button
             onClick={() => void handleSubmit()}
-            disabled={pageStatus === "submitting" || hasErrors || missingRequiredCount > 0}
+            disabled={pageStatus === "submitting" || hasErrors || missingRequiredCount > 0 || (merlinWasUsed && !merlinReviewConfirmed)}
             style={{ backgroundColor: brandColor, color: brandTextColor }}
             className="w-full disabled:opacity-60 py-3 hover:opacity-90"
           >
