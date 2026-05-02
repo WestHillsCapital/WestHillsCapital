@@ -4858,8 +4858,8 @@ export default function DocuFill() {
                   onScroll={(e) => {
                     const container = e.currentTarget;
                     const scaledPageH = Math.round(nativePageH * effectiveScale);
-                    // Each page group: 16px label + 4px inner-gap + scaledPageH, plus 16px flex-gap between groups
-                    const itemH = 36 + scaledPageH;
+                    // Each page group: scaledPageH + 16px flex-gap between groups (label removed)
+                    const itemH = scaledPageH + 16;
                     const topPad = 16;
                     // Use the midpoint of the visible viewport to determine current page
                     const scrollMid = container.scrollTop + container.clientHeight / 2;
@@ -4875,7 +4875,6 @@ export default function DocuFill() {
                       );
                       return (
                         <div key={pageNum} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          <div className="text-[10px] text-[#8A9BB8] select-none pl-1">Page {pageNum}</div>
                           <div
                             style={{ width: Math.round(nativePageW * effectiveScale), height: Math.round(nativePageH * effectiveScale), position: "relative", flexShrink: 0 }}
                           >
