@@ -1223,6 +1223,7 @@ export default function DocuFill() {
   });
   const [showShortcutsPopover, setShowShortcutsPopover] = useState(false);
   const shortcutsPopoverRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!showShortcutsPopover) return;
     const handleClick = (e: MouseEvent) => {
@@ -4713,20 +4714,16 @@ export default function DocuFill() {
               {/* ── Toolbar ─────────────────────────────────────────── */}
               <div className="sticky top-0 z-20 flex items-center gap-1.5 flex-wrap bg-white border border-[#E4DDD2] rounded-lg px-2.5 py-1.5 mb-3 min-h-[38px] shadow-sm">
 
-                {/* Group 1 — Page Navigation */}
-                {!mapperScrollMode ? (
-                  <div className="flex items-center gap-0.5">
-                    <button type="button" title="Prev page [←]" onClick={() => setSelectedPage((p) => Math.max(1, p - 1))} disabled={!selectedDocument || selectedPage <= 1} className="w-7 h-7 flex items-center justify-center rounded-full text-[#A0AABB] hover:text-[#1C2B4A] hover:bg-[#F0EBE4] transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed">
-                      <ChevronLeft className="w-3.5 h-3.5" />
-                    </button>
-                    <span className="text-[11px] text-[#8A9BB8] tabular-nums whitespace-nowrap select-none min-w-[5rem] text-center">{selectedPage} / {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
-                    <button type="button" title="Next page [→]" onClick={() => setSelectedPage((p) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), p + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument?.pages ?? 1, 1)} className="w-7 h-7 flex items-center justify-center rounded-full text-[#A0AABB] hover:text-[#1C2B4A] hover:bg-[#F0EBE4] transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed">
-                      <ChevronRight className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ) : (
-                  <span className="text-[11px] text-[#8A9BB8] whitespace-nowrap select-none px-1">{Math.max(selectedDocument?.pages ?? 1, 1)} pages</span>
-                )}
+                {/* Group 1 — Page Navigation: chevrons invisible in scroll mode so counter stays anchored */}
+                <div className="flex items-center gap-0">
+                  <button type="button" title="Prev page [←]" onClick={() => setSelectedPage((p) => Math.max(1, p - 1))} disabled={!selectedDocument || selectedPage <= 1} className={`w-6 h-6 flex items-center justify-center rounded-full text-[#A0AABB] hover:text-[#1C2B4A] hover:bg-[#F0EBE4] transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed ${mapperScrollMode ? "invisible" : ""}`}>
+                    <ChevronLeft className="w-3.5 h-3.5" />
+                  </button>
+                  <span className="text-[11px] text-[#8A9BB8] tabular-nums whitespace-nowrap select-none min-w-[3.5rem] text-center">{selectedPage} / {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
+                  <button type="button" title="Next page [→]" onClick={() => setSelectedPage((p) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), p + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument?.pages ?? 1, 1)} className={`w-6 h-6 flex items-center justify-center rounded-full text-[#A0AABB] hover:text-[#1C2B4A] hover:bg-[#F0EBE4] transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed ${mapperScrollMode ? "invisible" : ""}`}>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
 
                 <div className="w-px h-4 bg-[#E4DDD2] shrink-0" />
 
@@ -4855,8 +4852,21 @@ export default function DocuFill() {
               {isUploadingDocument && <div className="mb-2 text-xs text-[#6B7A99]">Uploading PDF…</div>}
               {mapperScrollMode && selectedDocument && documentPreviewUrl && (
                 <div
+                  ref={scrollContainerRef}
                   className="bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-y-auto"
                   style={{ width: mapperViewW, height: mapperViewH }}
+                  onScroll={(e) => {
+                    const container = e.currentTarget;
+                    const scaledPageH = Math.round(nativePageH * effectiveScale);
+                    // Each page group: 16px label + 4px inner-gap + scaledPageH, plus 16px flex-gap between groups
+                    const itemH = 36 + scaledPageH;
+                    const topPad = 16;
+                    // Use the midpoint of the visible viewport to determine current page
+                    const scrollMid = container.scrollTop + container.clientHeight / 2;
+                    const idx = Math.floor((scrollMid - topPad) / itemH);
+                    const totalPages = Math.max(selectedDocument.pages ?? 1, 1);
+                    setSelectedPage(Math.max(1, Math.min(totalPages, idx + 1)));
+                  }}
                 >
                   <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "16px 0", alignItems: "flex-start" }}>
                     {Array.from({ length: Math.max(selectedDocument.pages ?? 1, 1) }, (_, i) => i + 1).map((pageNum) => {
