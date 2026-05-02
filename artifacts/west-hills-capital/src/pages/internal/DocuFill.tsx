@@ -4589,7 +4589,7 @@ export default function DocuFill() {
 
       {tab === "mapper" && (
         !selectedPackage ? <EmptyState message="Create or select a package first." /> : (
-          <div className="grid lg:grid-cols-[190px_1fr_260px] gap-4 min-h-[720px]">
+          <div className="grid lg:grid-cols-[190px_1fr_260px] gap-4 min-h-[720px] items-start">
             <section className="bg-white border border-[#DDD5C4] rounded-lg p-3 flex flex-col gap-3">
               <div>
                 <div className="flex items-center justify-between mb-1.5">
@@ -4786,35 +4786,35 @@ export default function DocuFill() {
                   )}
                 </div>
 
-                {/* Inspector mode — pushed to far right */}
-                <button
-                  type="button"
-                  title={inspectorMode === "panel" ? "Switch to floating popup" : "Switch to side panel"}
-                  onClick={() => {
-                    const next = inspectorMode === "panel" ? "modal" : "panel";
-                    setInspectorMode(next);
-                    localStorage.setItem("docufill-inspector-mode", next);
-                    setPlacementModal(null);
-                  }}
-                  className="ml-auto flex items-center gap-1.5 text-[11px] rounded-full px-3 py-1 leading-none text-[#A0AABB] hover:text-[#1C2B4A] hover:bg-[#F0EBE4] transition-all duration-150"
-                >
-                  {inspectorMode === "panel" ? (
-                    <>
-                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M15 3v18" /></svg>
-                      <span>Panel</span>
-                    </>
-                  ) : (
-                    <>
-                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="5" y="5" width="14" height="14" rx="2" /><path strokeLinecap="round" d="M5 9h14" /></svg>
-                      <span>Popup</span>
-                    </>
-                  )}
-                </button>
+                {/* Inspector + shortcuts — grouped at far right, never wraps */}
+                <div className="ml-auto flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    title={inspectorMode === "panel" ? "Switch to floating popup" : "Switch to side panel"}
+                    onClick={() => {
+                      const next = inspectorMode === "panel" ? "modal" : "panel";
+                      setInspectorMode(next);
+                      localStorage.setItem("docufill-inspector-mode", next);
+                      setPlacementModal(null);
+                    }}
+                    className="flex items-center gap-1.5 text-[11px] rounded-full px-3 py-1 leading-none text-[#A0AABB] hover:text-[#1C2B4A] hover:bg-[#F0EBE4] transition-all duration-150"
+                  >
+                    {inspectorMode === "panel" ? (
+                      <>
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M15 3v18" /></svg>
+                        <span>Panel</span>
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="5" y="5" width="14" height="14" rx="2" /><path strokeLinecap="round" d="M5 9h14" /></svg>
+                        <span>Popup</span>
+                      </>
+                    )}
+                  </button>
 
-                <div className="w-px h-4 bg-black/[0.12] shrink-0" />
+                  <div className="w-px h-4 bg-[#E4DDD2] shrink-0" />
 
-                {/* Group 5 — Keyboard shortcuts */}
-                <div ref={shortcutsPopoverRef} className="relative">
+                  <div ref={shortcutsPopoverRef} className="relative">
                   <button
                     type="button"
                     title="Keyboard shortcuts"
@@ -4846,6 +4846,7 @@ export default function DocuFill() {
                       </div>
                     </div>
                   )}
+                  </div>
                 </div>
 
               </div>
