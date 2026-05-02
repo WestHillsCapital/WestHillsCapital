@@ -1,4 +1,4 @@
-import { Router, type IRouter } from "express";
+import { Router, type IRouter, type Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
@@ -14,12 +14,26 @@ function getAnthropicClient(): Anthropic {
     throw new Error("AI_INTEGRATIONS_ANTHROPIC_API_KEY is not set");
   }
   return new Anthropic({
-    apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+    apiKey:   process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+    baseURL:  process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
   });
 }
 
-// ─── Merlin's identity prompt ────────────────────────────────────────────────
+// ─── SSE helpers ─────────────────────────────────────────────────────────────
+
+function startSSE(res: Response): void {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no"); // disable nginx / Railway buffering
+  res.flushHeaders();
+}
+
+function sseWrite(res: Response, data: object): void {
+  res.write(`data: ${JSON.stringify(data)}\n\n`);
+}
+
+// ─── Merlin identity ──────────────────────────────────────────────────────────
 
 const MERLIN_IDENTITY = `You are Merlin, the AI assistant for Docuplete — a document automation platform for financial advisors and wealth management firms.
 
@@ -41,7 +55,7 @@ const DOCUPLETE_CONCEPTS = `Docuplete concepts you understand deeply:
 - HubSpot: contact upsert with extracted field data on session completion.
 - API keys: sk_live_… tokens for programmatic session creation via the Docuplete REST API.`;
 
-// ─── Tool definitions for internal Merlin ────────────────────────────────────
+// ─── Internal tools ───────────────────────────────────────────────────────────
 
 const INTERNAL_TOOLS: Anthropic.Tool[] = [
   {
@@ -50,10 +64,10 @@ const INTERNAL_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object" as const,
       properties: {
-        query: { type: "string", description: "Search term (customer name, email, or package name). Leave empty to list recent sessions." },
-        status: { type: "string", enum: ["draft", "in_progress", "generated", "all"], description: "Filter by session status. Default: all." },
+        query:      { type: "string", description: "Search term (customer name, email, or package name). Leave empty to list recent sessions." },
+        status:     { type: "string", enum: ["draft", "in_progress", "generated", "all"], description: "Filter by session status. Default: all." },
         package_id: { type: "number", description: "Filter by specific package ID." },
-        limit: { type: "number", description: "Maximum results to return (1-50). Default: 20." },
+        limit:      { type: "number", description: "Maximum results to return (1-50). Default: 20." },
       },
       required: [],
     },
@@ -75,9 +89,9 @@ const INTERNAL_TOOLS: Anthropic.Tool[] = [
     input_schema: {
       type: "object" as const,
       properties: {
-        query: { type: "string", description: "Search term to filter packages by name. Leave empty to list all." },
+        query:  { type: "string", description: "Search term to filter packages by name. Leave empty to list all." },
         status: { type: "string", enum: ["active", "draft", "all"], description: "Filter by package status. Default: active." },
-        limit: { type: "number", description: "Maximum results (1-50). Default: 20." },
+        limit:  { type: "number", description: "Maximum results (1-50). Default: 20." },
       },
       required: [],
     },
@@ -113,9 +127,22 @@ const INTERNAL_TOOLS: Anthropic.Tool[] = [
       required: [],
     },
   },
+  {
+    name: "search_accounts",
+    description: "Look up team members on this account. Returns users, their roles, and seat usage. Useful for understanding who has access and how many seats are in use.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query:  { type: "string", description: "Search by email address. Leave empty to list all members." },
+        role:   { type: "string", enum: ["admin", "member", "all"], description: "Filter by role. Default: all." },
+        status: { type: "string", enum: ["active", "pending", "all"], description: "Filter by status. Default: all." },
+      },
+      required: [],
+    },
+  },
 ];
 
-// ─── Tool execution (account-scoped) ─────────────────────────────────────────
+// ─── Tool execution ───────────────────────────────────────────────────────────
 
 async function executeInternalTool(
   toolName: string,
@@ -126,37 +153,26 @@ async function executeInternalTool(
 
   try {
     if (toolName === "search_sessions") {
-      const query = typeof toolInput.query === "string" ? toolInput.query.trim() : "";
-      const status = typeof toolInput.status === "string" ? toolInput.status : "all";
-      const pkgId = typeof toolInput.package_id === "number" ? toolInput.package_id : null;
-      const limit = typeof toolInput.limit === "number" ? Math.min(toolInput.limit, 50) : 20;
+      const query   = typeof toolInput.query    === "string" ? toolInput.query.trim() : "";
+      const status  = typeof toolInput.status   === "string" ? toolInput.status : "all";
+      const pkgId   = typeof toolInput.package_id === "number" ? toolInput.package_id : null;
+      const limit   = typeof toolInput.limit    === "number" ? Math.min(toolInput.limit, 50) : 20;
 
       const conditions: string[] = ["s.account_id = $1"];
       const params: unknown[] = [accountId];
       let idx = 2;
 
-      if (status && status !== "all") {
-        conditions.push(`s.status = $${idx++}`);
-        params.push(status);
-      }
-      if (pkgId) {
-        conditions.push(`s.package_id = $${idx++}`);
-        params.push(pkgId);
-      }
+      if (status && status !== "all") { conditions.push(`s.status = $${idx++}`); params.push(status); }
+      if (pkgId) { conditions.push(`s.package_id = $${idx++}`); params.push(pkgId); }
       if (query) {
-        conditions.push(`(
-          s.token ILIKE $${idx}
-          OR p.name ILIKE $${idx}
-          OR s.prefill::text ILIKE $${idx}
-        )`);
+        conditions.push(`(s.token ILIKE $${idx} OR p.name ILIKE $${idx} OR s.prefill::text ILIKE $${idx})`);
         params.push(`%${query}%`);
         idx++;
       }
-
       params.push(limit);
+
       const { rows } = await db.query(
-        `SELECT s.token, s.status, s.created_at, s.expires_at, p.name AS package_name,
-                s.prefill
+        `SELECT s.token, s.status, s.created_at, p.name AS package_name, s.prefill
            FROM docufill_sessions s
            LEFT JOIN docufill_packages p ON p.id = s.package_id
           WHERE ${conditions.join(" AND ")}
@@ -169,11 +185,10 @@ async function executeInternalTool(
 
       const lines = rows.map((r) => {
         const prefill = typeof r.prefill === "object" && r.prefill ? r.prefill as Record<string, unknown> : {};
-        const name = [prefill.firstName, prefill.lastName].filter(Boolean).join(" ") || prefill.name || "—";
+        const name  = [prefill.firstName, prefill.lastName].filter(Boolean).join(" ") || prefill.name || "—";
         const email = prefill.email || "—";
         return `• Token: ${String(r.token).slice(0, 20)}… | Status: ${r.status} | Package: ${r.package_name ?? "?"} | Customer: ${name} (${email}) | Created: ${new Date(r.created_at as string).toLocaleDateString()}`;
       });
-
       return `Found ${rows.length} session(s):\n\n${lines.join("\n")}`;
     }
 
@@ -195,7 +210,6 @@ async function executeInternalTool(
       const answers = typeof s.answers === "object" && s.answers ? s.answers as Record<string, unknown> : {};
       const prefill = typeof s.prefill === "object" && s.prefill ? s.prefill as Record<string, unknown> : {};
       const name = [prefill.firstName, prefill.lastName].filter(Boolean).join(" ") || prefill.name || "Unknown";
-
       const answerLines = Object.entries(answers).slice(0, 30).map(([k, v]) => `  ${k}: ${v}`);
       return [
         `Session: ${s.token}`,
@@ -209,16 +223,16 @@ async function executeInternalTool(
     }
 
     if (toolName === "search_packages") {
-      const query = typeof toolInput.query === "string" ? toolInput.query.trim() : "";
+      const query  = typeof toolInput.query  === "string" ? toolInput.query.trim() : "";
       const status = typeof toolInput.status === "string" && toolInput.status !== "all" ? toolInput.status : null;
-      const limit = typeof toolInput.limit === "number" ? Math.min(toolInput.limit, 50) : 20;
+      const limit  = typeof toolInput.limit  === "number" ? Math.min(toolInput.limit, 50) : 20;
 
       const conditions: string[] = ["account_id = $1"];
       const params: unknown[] = [accountId];
       let idx = 2;
 
       if (status) { conditions.push(`status = $${idx++}`); params.push(status); }
-      if (query) { conditions.push(`name ILIKE $${idx++}`); params.push(`%${query}%`); }
+      if (query)  { conditions.push(`name ILIKE $${idx++}`); params.push(`%${query}%`); }
       params.push(limit);
 
       const { rows } = await db.query(
@@ -258,7 +272,9 @@ async function executeInternalTool(
       const fields = Array.isArray(p.fields) ? p.fields as Array<Record<string, unknown>> : [];
 
       const fieldLines = fields.map((f) => {
-        const cond = f.condition ? ` [shown when ${(f.condition as Record<string, unknown>).fieldId} ${(f.condition as Record<string, unknown>).operator} "${(f.condition as Record<string, unknown>).value ?? ""}"]` : "";
+        const cond = f.condition
+          ? ` [shown when field "${(f.condition as Record<string, unknown>).fieldId}" ${(f.condition as Record<string, unknown>).operator} "${(f.condition as Record<string, unknown>).value ?? ""}"]`
+          : "";
         return `  • ${f.name} (${f.type}) — ${f.interviewMode}${f.sensitive ? " [sensitive]" : ""}${cond}`;
       });
 
@@ -275,11 +291,11 @@ async function executeInternalTool(
       const period = typeof toolInput.period === "string" ? toolInput.period : "this_month";
 
       const intervalMap: Record<string, string> = {
-        today: "NOW() - INTERVAL '1 day'",
-        this_week: "DATE_TRUNC('week', NOW())",
-        this_month: "DATE_TRUNC('month', NOW())",
-        last_month: "DATE_TRUNC('month', NOW()) - INTERVAL '1 month'",
-        all_time: "'1970-01-01'::timestamptz",
+        today:       "NOW() - INTERVAL '1 day'",
+        this_week:   "DATE_TRUNC('week', NOW())",
+        this_month:  "DATE_TRUNC('month', NOW())",
+        last_month:  "DATE_TRUNC('month', NOW()) - INTERVAL '1 month'",
+        all_time:    "'1970-01-01'::timestamptz",
       };
 
       const since = intervalMap[period] ?? intervalMap["this_month"];
@@ -307,7 +323,6 @@ async function executeInternalTool(
 
       const total = countRows[0]?.total ?? "0";
       const byPkgLines = byPkg.map((r) => `  • ${r.name ?? "Unknown package"}: ${r.cnt}`);
-
       return [
         `Submissions ${period.replace(/_/g, " ")}: ${total}`,
         byPkgLines.length ? `\nBy package:\n${byPkgLines.join("\n")}` : "",
@@ -316,8 +331,7 @@ async function executeInternalTool(
 
     if (toolName === "get_billing_summary") {
       const { rows } = await db.query(
-        `SELECT plan_tier, seat_limit, submission_bank_balance, bank_expires_at,
-                subscription_status, current_period_end
+        `SELECT plan_tier, seat_limit, subscription_status, current_period_end
            FROM accounts
           WHERE id = $1 LIMIT 1`,
         [accountId],
@@ -332,7 +346,17 @@ async function executeInternalTool(
             AND created_at >= DATE_TRUNC('month', NOW())`,
         [accountId],
       );
-      const used = monthRows[0]?.used ?? 0;
+
+      // Bank balance from submission_bank table
+      const { rows: bankRows } = await db.query(
+        `SELECT COALESCE(SUM(remaining), 0) AS total
+           FROM submission_bank
+          WHERE account_id = $1 AND remaining > 0 AND expires_at > NOW()`,
+        [accountId],
+      );
+
+      const used  = monthRows[0]?.used ?? 0;
+      const bank  = bankRows[0]?.total ?? 0;
 
       return [
         `Plan: ${String(a.plan_tier ?? "starter").toUpperCase()}`,
@@ -340,10 +364,50 @@ async function executeInternalTool(
         `Subscription: ${a.subscription_status ?? "inactive"}`,
         a.current_period_end ? `Renews: ${new Date(a.current_period_end as string).toLocaleDateString()}` : "",
         `Submissions this month: ${used}`,
-        a.submission_bank_balance && Number(a.submission_bank_balance) > 0
-          ? `Submission bank: ${a.submission_bank_balance} credits (expires ${a.bank_expires_at ? new Date(a.bank_expires_at as string).toLocaleDateString() : "N/A"})`
-          : "Submission bank: 0 credits",
+        Number(bank) > 0 ? `Submission bank: ${bank} credits banked` : "Submission bank: 0 credits",
       ].filter(Boolean).join("\n");
+    }
+
+    if (toolName === "search_accounts") {
+      const query  = typeof toolInput.query  === "string" ? toolInput.query.trim() : "";
+      const role   = typeof toolInput.role   === "string" && toolInput.role   !== "all" ? toolInput.role   : null;
+      const status = typeof toolInput.status === "string" && toolInput.status !== "all" ? toolInput.status : null;
+
+      const conditions: string[] = ["account_id = $1"];
+      const params: unknown[] = [accountId];
+      let idx = 2;
+
+      if (role) { conditions.push(`role = $${idx++}`); params.push(role); }
+      if (status === "pending") {
+        conditions.push(`status = 'pending'`);
+      } else if (status === "active") {
+        conditions.push(`status != 'pending'`);
+      }
+      if (query) { conditions.push(`email ILIKE $${idx++}`); params.push(`%${query}%`); }
+
+      const { rows } = await db.query(
+        `SELECT email, role, status, created_at
+           FROM account_users
+          WHERE ${conditions.join(" AND ")}
+          ORDER BY created_at DESC
+          LIMIT 50`,
+        params,
+      );
+
+      const { rows: seatRows } = await db.query(
+        `SELECT seat_limit FROM accounts WHERE id = $1`,
+        [accountId],
+      );
+
+      const activeCount = rows.filter((r) => r.status !== "pending").length;
+      const seatLimit   = seatRows[0]?.seat_limit ?? "?";
+
+      if (rows.length === 0) return "No team members found.";
+      const lines = rows.map((r) => `• ${r.email} — ${r.role} · ${r.status}`);
+      return [
+        `Seats used: ${activeCount} of ${seatLimit}`,
+        `\nTeam members (${rows.length}):\n${lines.join("\n")}`,
+      ].join("\n");
     }
 
     return `Unknown tool: ${toolName}`;
@@ -353,9 +417,8 @@ async function executeInternalTool(
   }
 }
 
-// ─── Internal Merlin chat endpoint ────────────────────────────────────────────
+// ─── Internal Merlin chat endpoint (SSE streaming) ────────────────────────────
 // POST /api/v1/product/merlin/chat
-// Requires requireProductAuth + requireAccountId
 
 router.post("/chat", async (req, res): Promise<void> => {
   const { messages } = req.body as {
@@ -373,6 +436,8 @@ router.post("/chat", async (req, res): Promise<void> => {
     return;
   }
 
+  startSSE(res);
+
   try {
     const client = getAnthropicClient();
 
@@ -386,81 +451,101 @@ router.post("/chat", async (req, res): Promise<void> => {
       "This is the internal staff interface. You can look up anything on this account. If you don't know something, say so — do not invent data.",
     ].join("\n");
 
-    const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
+    let loopMessages: Anthropic.MessageParam[] = messages.map((m) => ({
       role: m.role,
       content: m.content,
     }));
 
-    // Agentic loop: Claude may call tools multiple times before replying
-    let finalText = "";
-    let loopMessages = [...anthropicMessages];
-    const MAX_TOOL_ROUNDS = 5;
-
+    // Tool rounds (non-streaming) — send SSE tool events so the UI can show activity
+    const MAX_TOOL_ROUNDS = 4;
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const response = await client.messages.create({
-        model: "claude-sonnet-4-6",
+        model:      "claude-sonnet-4-6",
         max_tokens: 2048,
-        system: systemPrompt,
-        tools: INTERNAL_TOOLS,
-        messages: loopMessages,
+        system:     systemPrompt,
+        tools:      INTERNAL_TOOLS,
+        messages:   loopMessages,
       });
 
-      if (response.stop_reason === "end_turn") {
-        finalText = response.content
-          .filter((b) => b.type === "text")
-          .map((b) => (b as { type: "text"; text: string }).text)
-          .join("");
+      if (response.stop_reason !== "tool_use") {
+        // No more tools needed — move on to the streaming final response
         break;
       }
 
-      if (response.stop_reason === "tool_use") {
-        const toolUseBlocks = response.content.filter((b) => b.type === "tool_use") as Anthropic.ToolUseBlock[];
-        const assistantMsg: Anthropic.MessageParam = {
-          role: "assistant",
-          content: response.content,
-        };
-        loopMessages.push(assistantMsg);
+      const toolUseBlocks = response.content.filter(
+        (b) => b.type === "tool_use",
+      ) as Anthropic.ToolUseBlock[];
 
-        const toolResults: Anthropic.ToolResultBlockParam[] = await Promise.all(
-          toolUseBlocks.map(async (block) => {
-            const result = await executeInternalTool(
-              block.name,
-              block.input as Record<string, unknown>,
-              accountId,
-            );
-            return {
-              type: "tool_result" as const,
-              tool_use_id: block.id,
-              content: result,
-            };
-          }),
-        );
+      // Notify the client which tools are being called
+      sseWrite(res, {
+        type: "tool",
+        names: toolUseBlocks.map((b) => b.name),
+      });
 
-        loopMessages.push({
-          role: "user",
-          content: toolResults,
-        });
-        continue;
-      }
+      loopMessages.push({ role: "assistant", content: response.content });
 
-      // Unexpected stop reason
-      finalText = response.content
-        .filter((b) => b.type === "text")
-        .map((b) => (b as { type: "text"; text: string }).text)
-        .join("");
-      break;
+      const toolResults: Anthropic.ToolResultBlockParam[] = await Promise.all(
+        toolUseBlocks.map(async (block) => {
+          const result = await executeInternalTool(
+            block.name,
+            block.input as Record<string, unknown>,
+            accountId,
+          );
+          return {
+            type:        "tool_result" as const,
+            tool_use_id: block.id,
+            content:     result,
+          };
+        }),
+      );
+
+      loopMessages.push({ role: "user", content: toolResults });
     }
 
-    res.json({ reply: finalText || "I'm not sure how to help with that. Could you rephrase?" });
+    // Final streaming response
+    const finalStream = client.messages.stream({
+      model:      "claude-sonnet-4-6",
+      max_tokens: 2048,
+      system:     systemPrompt,
+      tools:      INTERNAL_TOOLS,
+      messages:   loopMessages,
+    });
+
+    finalStream.on("text", (chunk) => {
+      sseWrite(res, { type: "chunk", text: chunk });
+    });
+
+    await finalStream.finalMessage();
+
+    sseWrite(res, { type: "done" });
+    res.end();
   } catch (err) {
     logger.error({ err }, "[Merlin] Internal chat failed");
-    res.status(500).json({ error: "Merlin is temporarily unavailable. Please try again." });
+    sseWrite(res, { type: "error", message: "Merlin is temporarily unavailable. Please try again." });
+    res.end();
   }
 });
 
-// ─── Customer Merlin chat endpoint ────────────────────────────────────────────
+// ─── Customer Merlin — tool definition ───────────────────────────────────────
+
+const CUSTOMER_FIELD_UPDATE_TOOL: Anthropic.Tool = {
+  name: "update_form_fields",
+  description: "Record field values extracted from the customer's answer. Call this whenever you have confirmed one or more field values from the conversation. Values must match the field type and allowed options exactly.",
+  input_schema: {
+    type: "object" as const,
+    properties: {
+      updates: {
+        type: "object" as const,
+        description: "Map of field IDs (strings) to values (strings). Use only field IDs listed in the form context.",
+        additionalProperties: { type: "string" },
+      },
+    },
+    required: ["updates"],
+  },
+};
+
+// ─── Customer Merlin chat endpoint (SSE streaming) ────────────────────────────
 // POST /api/v1/docufill/public/sessions/:token/merlin
-// Public — scoped to the session token
 
 publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<void> => {
   const { token } = req.params;
@@ -474,6 +559,8 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
     return;
   }
 
+  startSSE(res);
+
   try {
     const db = getDb();
     const { rows } = await db.query(
@@ -486,35 +573,48 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
     );
 
     if (!rows[0]) {
-      res.status(404).json({ error: "Session not found" });
+      sseWrite(res, { type: "error", message: "Session not found." });
+      res.end();
       return;
     }
 
     if (rows[0].status === "generated") {
-      res.status(400).json({ error: "This session is already complete." });
+      sseWrite(res, { type: "error", message: "This session is already complete." });
+      res.end();
       return;
     }
 
-    const session = rows[0] as Record<string, unknown>;
-    const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-    const fields = Array.isArray(session.package_fields) ? session.package_fields as Array<Record<string, unknown>> : [];
+    const session       = rows[0] as Record<string, unknown>;
+    const prefill       = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+    const fields        = Array.isArray(session.package_fields) ? session.package_fields as Array<Record<string, unknown>> : [];
     const currentAnswers = answers ?? {};
 
-    // Build field summary for system prompt
+    // Build field summary including conditional logic so Merlin can reason about visibility
     const interviewFields = fields.filter((f) => f.interviewMode !== "omitted" && f.interviewMode !== "readonly");
-    const answeredIds = new Set(Object.keys(currentAnswers).filter((k) => currentAnswers[k]?.trim()));
-    const pendingFields = interviewFields.filter((f) => !answeredIds.has(String(f.id)));
-    const answeredFields = interviewFields.filter((f) => answeredIds.has(String(f.id)));
+    const answeredIds     = new Set(Object.keys(currentAnswers).filter((k) => currentAnswers[k]?.trim()));
+    const pendingFields   = interviewFields.filter((f) => !answeredIds.has(String(f.id)));
+    const answeredFields  = interviewFields.filter((f) => answeredIds.has(String(f.id)));
 
     const fieldSummary = interviewFields.map((f) => {
-      const val = currentAnswers[String(f.id)];
+      const val      = currentAnswers[String(f.id)];
       const answered = val ? `[answered: "${val}"]` : "[pending]";
       const required = f.interviewMode === "required" ? "required" : "optional";
+
       let optionStr = "";
       if (Array.isArray(f.options) && f.options.length > 0) {
         optionStr = ` | options: ${(f.options as string[]).join(", ")}`;
       }
-      return `  - ${f.name} (id: ${f.id}, type: ${f.type}, ${required}${optionStr}) ${answered}`;
+
+      // Include conditional logic so Merlin knows when to ask/skip this field
+      let condStr = "";
+      const cond = f.condition as Record<string, unknown> | null | undefined;
+      if (cond?.fieldId) {
+        const triggerField = fields.find((tf) => String(tf.id) === String(cond.fieldId));
+        const triggerName  = triggerField ? String(triggerField.name) : String(cond.fieldId);
+        condStr = ` | CONDITIONAL: only shown when "${triggerName}" ${cond.operator} "${cond.value ?? ""}"`;
+      }
+
+      return `  - ${f.name} (id: ${f.id}, type: ${f.type}, ${required}${optionStr}${condStr}) ${answered}`;
     }).join("\n");
 
     const prefillSummary = Object.entries(prefill)
@@ -525,70 +625,67 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
     const systemPrompt = [
       MERLIN_IDENTITY,
       "",
-      `You are currently helping a customer complete their "${session.package_name}" form. Your role is to guide them through the interview conversationally, asking about one topic at a time. As they answer, you extract the information and return structured field updates so their form fills in automatically.`,
+      `You are guiding a customer through the "${String(session.package_name)}" form. Your role is to ask about one topic at a time, extract their answers, and call update_form_fields to record them. The form auto-fills as you go.`,
       "",
       `Context about this customer (pre-filled by their advisor):`,
       prefillSummary || "  (no pre-filled data)",
       "",
-      `Form fields status (${answeredFields.length} of ${interviewFields.length} answered):`,
+      `Form fields (${answeredFields.length} of ${interviewFields.length} answered):`,
       fieldSummary || "  (no fields)",
       "",
       `Pending fields: ${pendingFields.map((f) => f.name).join(", ") || "All fields answered — ready to review."}`,
       "",
       "INTERVIEW RULES:",
-      "1. Ask about one field (or related group of fields, like address components) at a time.",
-      "2. Be conversational and warm, not robotic or list-driven.",
-      "3. When the customer answers, confirm and move to the next pending field.",
-      "4. Respect conditional logic — if a field depends on another answer, only ask it when appropriate.",
-      "5. If asked why a field is needed, give a plain, honest answer appropriate for financial document contexts.",
-      "6. If asked what happens after submission, explain: their documents are generated and sent to their advisor.",
-      "7. If there is a question you cannot answer, say so plainly and stay focused on completing the form.",
-      "8. If all required fields are answered, let the customer know they are ready to review and submit.",
-      "",
-      "FIELD UPDATES FORMAT:",
-      "After your conversational reply, if you have extracted any field values from this conversation turn, include them on a new line in this exact format:",
-      '```field_updates',
-      '{"fieldId": "value", "anotherFieldId": "another value"}',
-      '```',
-      "Only include field IDs that appear in the field list above. Match the value to the expected format for the field type (e.g. date: MM/DD/YYYY, state: 2-letter abbreviation). Do not include field_updates if no new values were extracted.",
-      "",
-      "For radio/checkbox/dropdown fields, the value must exactly match one of the listed options.",
-      "For date fields: use MM/DD/YYYY format.",
-      "For state fields: use 2-letter state code (e.g. KS, TX, CA).",
-      "For ZIP fields: 5 digits.",
+      "1. Ask about one field (or one natural group, like address components) at a time.",
+      "2. Be warm and conversational, not robotic or list-driven.",
+      "3. When the customer answers, call update_form_fields immediately with the extracted value, then confirm and move to the next pending field.",
+      "4. Respect conditional logic — only ask conditional fields when the triggering condition is met based on already-answered fields.",
+      "5. For radio/dropdown/checkbox fields, the value in update_form_fields must exactly match one of the listed options (case-sensitive).",
+      "6. For date fields: use MM/DD/YYYY format in update_form_fields.",
+      "7. For state fields: use 2-letter state code (e.g. KS, TX, CA) in update_form_fields.",
+      "8. For ZIP fields: 5 digits.",
+      "9. If a customer seems unsure, offer clarification without making them feel judged.",
+      "10. When all required fields are answered, say so and let them know they can switch to the form to review and submit.",
     ].join("\n");
 
     const client = getAnthropicClient();
-    const response = await client.messages.create({
-      model: "claude-sonnet-4-6",
-      max_tokens: 1024,
-      system: systemPrompt,
-      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+
+    const stream = client.messages.stream({
+      model:       "claude-sonnet-4-6",
+      max_tokens:  1024,
+      system:      systemPrompt,
+      tools:       [CUSTOMER_FIELD_UPDATE_TOOL],
+      tool_choice: { type: "auto" },
+      messages:    messages.map((m) => ({ role: m.role, content: m.content })),
     });
 
-    const fullText = response.content
-      .filter((b) => b.type === "text")
-      .map((b) => (b as { type: "text"; text: string }).text)
-      .join("");
+    stream.on("text", (chunk) => {
+      sseWrite(res, { type: "chunk", text: chunk });
+    });
 
-    // Extract field_updates from the response
-    let replyText = fullText;
-    let fieldUpdates: Record<string, string> = {};
+    const finalMsg = await stream.finalMessage();
 
-    const fieldUpdatesMatch = fullText.match(/```field_updates\s*([\s\S]*?)```/);
-    if (fieldUpdatesMatch) {
-      try {
-        fieldUpdates = JSON.parse(fieldUpdatesMatch[1].trim()) as Record<string, string>;
-      } catch {
-        // ignore parse failure — no field updates
+    // Extract field_updates from tool calls
+    const fieldUpdates: Record<string, string> = {};
+    for (const block of finalMsg.content) {
+      if (block.type === "tool_use" && block.name === "update_form_fields") {
+        const input = block.input as { updates?: Record<string, string> };
+        if (input.updates && typeof input.updates === "object") {
+          Object.assign(fieldUpdates, input.updates);
+        }
       }
-      replyText = fullText.replace(/```field_updates[\s\S]*?```/, "").trim();
     }
 
-    res.json({ reply: replyText, field_updates: fieldUpdates });
+    if (Object.keys(fieldUpdates).length > 0) {
+      sseWrite(res, { type: "field_updates", updates: fieldUpdates });
+    }
+
+    sseWrite(res, { type: "done" });
+    res.end();
   } catch (err) {
     logger.error({ err }, "[Merlin] Customer chat failed");
-    res.status(500).json({ error: "Merlin is temporarily unavailable. Please try again." });
+    sseWrite(res, { type: "error", message: "Merlin is temporarily unavailable. Please try again." });
+    res.end();
   }
 });
 

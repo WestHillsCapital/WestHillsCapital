@@ -1199,8 +1199,29 @@ export default function DocuFillCustomer() {
             brandColor={brandColor}
             packageName={session!.package_name}
             onFieldUpdate={(updates) => {
+              if (!session) return;
+              const fieldMap = new Map(session.fields.map((f) => [f.id, f]));
+              const validated: Record<string, string> = {};
+              for (const [id, rawVal] of Object.entries(updates)) {
+                const field = fieldMap.get(id);
+                if (!field) continue;
+                if (field.interviewMode === "readonly" || field.interviewMode === "omitted") continue;
+                const val = String(rawVal ?? "");
+                if ((field.type === "radio" || field.type === "dropdown") && Array.isArray(field.options)) {
+                  const match = field.options.find(
+                    (o) => o.toLowerCase() === val.toLowerCase(),
+                  );
+                  if (!match) continue;
+                  validated[id] = match;
+                } else if (field.type === "checkbox") {
+                  validated[id] = val.toLowerCase() === "true" || val.toLowerCase() === "yes" ? "true" : "false";
+                } else {
+                  validated[id] = val;
+                }
+              }
+              if (Object.keys(validated).length === 0) return;
               setAnswers((prev) => {
-                const next = { ...prev, ...updates };
+                const next = { ...prev, ...validated };
                 scheduleAutoSave(next);
                 return next;
               });
