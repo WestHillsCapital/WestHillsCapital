@@ -30,10 +30,13 @@ interface MerlinCustomerChatProps {
 
 function WizardHatIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className={className}>
-      <path d="M7.5 19L12 3l4.5 16" />
-      <path d="M2 19h20" />
-      <path d="M2 19q5 2 10 2t10-2" />
+    <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
+      {/* Hat cone — tip leans left, fabric slouch curves on both sides */}
+      <path d="M9 2.5C8 6 7.5 10 7 13C6.8 14.5 6.5 16 6.5 17H17.5C17 15 16 12.5 15 9.5C13.5 6.5 11.5 4 9 2.5Z" />
+      {/* Wide wavy brim */}
+      <path d="M1 17Q3.5 21.5 12 22Q20.5 21.5 23 17H1Z" />
+      {/* Bow knot at brim junction */}
+      <path d="M11 17L8.5 15.5L10 14.5L12 16L14 14.5L15.5 15.5L13 17L12.5 16.5H11.5L11 17Z" fillOpacity={0.55} />
     </svg>
   );
 }
