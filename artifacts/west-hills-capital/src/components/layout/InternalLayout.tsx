@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { useOrgSettings } from "@/hooks/useOrgSettings";
+import { MerlinWidget } from "@/components/MerlinWidget";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -12,7 +13,7 @@ interface InternalLayoutProps {
 export function InternalLayout({ children }: InternalLayoutProps) {
   const [location] = useLocation();
   useEffect(() => { window.scrollTo(0, 0); }, [location]);
-  const { user, signOut } = useInternalAuth();
+  const { user, signOut, getAuthHeaders } = useInternalAuth();
   const org = useOrgSettings();
 
   const navLinks = [
@@ -104,6 +105,8 @@ export function InternalLayout({ children }: InternalLayoutProps) {
       <main className="flex-1">
         {children}
       </main>
+
+      <MerlinWidget getAuthHeaders={getAuthHeaders} brandColor="#0F1C3F" />
     </div>
   );
 }

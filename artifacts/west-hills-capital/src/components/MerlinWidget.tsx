@@ -1,0 +1,277 @@
+import { useEffect, useRef, useState } from "react";
+
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
+const MERLIN_URL = `${API_BASE}/api/v1/product/merlin/chat`;
+
+type Message = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  thinking?: boolean;
+};
+
+interface MerlinWidgetProps {
+  getAuthHeaders: () => HeadersInit;
+  brandColor?: string;
+}
+
+function WandIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+      <path d="M15 4V2m0 13v-2M8 9H2m13.5-1.5L14 9M3 3l18 18M8.5 14.5 3 20m9-9 7.5-7.5" />
+    </svg>
+  );
+}
+
+function SendIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+      <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" />
+    </svg>
+  );
+}
+
+function MerlinAvatar({ brandColor }: { brandColor: string }) {
+  return (
+    <div
+      className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-white"
+      style={{ backgroundColor: brandColor }}
+      title="Merlin"
+    >
+      <WandIcon />
+    </div>
+  );
+}
+
+function ThinkingDots() {
+  return (
+    <span className="inline-flex items-center gap-0.5 h-4">
+      <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: "0ms" }} />
+      <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: "150ms" }} />
+      <span className="w-1.5 h-1.5 rounded-full bg-current animate-bounce" style={{ animationDelay: "300ms" }} />
+    </span>
+  );
+}
+
+function MessageBubble({ message, brandColor }: { message: Message; brandColor: string }) {
+  const isUser = message.role === "user";
+  if (isUser) {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[80%] rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-sm text-white" style={{ backgroundColor: brandColor }}>
+          {message.content}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="flex items-start gap-2">
+      <MerlinAvatar brandColor={brandColor} />
+      <div className="max-w-[80%] rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm bg-[#F0EDE8] text-[#0F1C3F]">
+        {message.thinking ? (
+          <span className="text-[#6B7A99]"><ThinkingDots /></span>
+        ) : (
+          <span style={{ whiteSpace: "pre-wrap" }}>{message.content}</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const SUGGESTED_PROMPTS = [
+  "What sessions came in today?",
+  "Show me sessions that are still in progress",
+  "How many submissions this month?",
+  "Find me the Gold IRA package",
+];
+
+export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F" }: MerlinWidgetProps) {
+  const [open, setOpen] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasGreeted, setHasGreeted] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const textColor = (() => {
+    try {
+      const h = brandColor.replace("#", "");
+      const r = parseInt(h.slice(0, 2), 16) / 255;
+      const g = parseInt(h.slice(2, 4), 16) / 255;
+      const b = parseInt(h.slice(4, 6), 16) / 255;
+      return 0.299 * r + 0.587 * g + 0.114 * b > 0.6 ? "#0F1C3F" : "#ffffff";
+    } catch { return "#ffffff"; }
+  })();
+
+  useEffect(() => {
+    if (open && !hasGreeted) {
+      setHasGreeted(true);
+      setMessages([{
+        id: "greeting",
+        role: "assistant",
+        content: "I'm Merlin — your Docuplete assistant. Ask me anything about your packages, sessions, submissions, or account. A little wizardry goes a long way.",
+      }]);
+    }
+  }, [open, hasGreeted]);
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    }
+  }, [messages, open]);
+
+  useEffect(() => {
+    if (open) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [open]);
+
+  async function sendMessage(text?: string) {
+    const userText = (text ?? input).trim();
+    if (!userText || isLoading) return;
+    setInput("");
+
+    const userMsg: Message = { id: crypto.randomUUID(), role: "user", content: userText };
+    const thinkingMsg: Message = { id: "thinking", role: "assistant", content: "", thinking: true };
+
+    setMessages((prev) => [...prev, userMsg, thinkingMsg]);
+    setIsLoading(true);
+
+    const history = [...messages.filter((m) => !m.thinking), userMsg].map((m) => ({
+      role: m.role,
+      content: m.content,
+    }));
+
+    try {
+      const res = await fetch(MERLIN_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(getAuthHeaders() as Record<string, string>) },
+        body: JSON.stringify({ messages: history }),
+      });
+      const data = await res.json() as { reply?: string; error?: string };
+      const reply = data.reply ?? data.error ?? "Something went wrong. Please try again.";
+
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== "thinking"),
+        { id: crypto.randomUUID(), role: "assistant", content: reply },
+      ]);
+    } catch {
+      setMessages((prev) => [
+        ...prev.filter((m) => m.id !== "thinking"),
+        { id: crypto.randomUUID(), role: "assistant", content: "I couldn't reach the server. Please check your connection and try again." },
+      ]);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  return (
+    <>
+      {/* Floating button */}
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="fixed bottom-5 right-5 z-50 w-12 h-12 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95"
+        style={{ backgroundColor: brandColor, color: textColor }}
+        title="Chat with Merlin"
+        aria-label="Open Merlin assistant"
+      >
+        {open ? (
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        ) : (
+          <WandIcon />
+        )}
+      </button>
+
+      {/* Chat panel */}
+      {open && (
+        <div
+          className="fixed bottom-20 right-5 z-50 w-[360px] rounded-2xl shadow-2xl border border-[#DDD5C4] bg-white flex flex-col overflow-hidden"
+          style={{ maxHeight: "min(520px, calc(100vh - 120px))" }}
+        >
+          {/* Header */}
+          <div
+            className="px-4 py-3 flex items-center gap-2.5 shrink-0"
+            style={{ backgroundColor: brandColor, color: textColor }}
+          >
+            <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
+              <WandIcon />
+            </div>
+            <div className="min-w-0">
+              <div className="font-semibold text-sm leading-tight">Merlin</div>
+              <div className="text-[11px] opacity-70 leading-tight">Docuplete assistant</div>
+            </div>
+            <button
+              onClick={() => {
+                setMessages([]);
+                setHasGreeted(false);
+                setOpen(false);
+              }}
+              className="ml-auto opacity-60 hover:opacity-100 transition-opacity p-1 rounded"
+              title="Clear conversation"
+              aria-label="Clear and close"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0">
+            {messages.map((msg) => (
+              <MessageBubble key={msg.id} message={msg} brandColor={brandColor} />
+            ))}
+            {/* Suggested prompts — shown only before first user message */}
+            {messages.length === 1 && (
+              <div className="space-y-1.5 pt-1">
+                {SUGGESTED_PROMPTS.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => void sendMessage(p)}
+                    className="w-full text-left text-xs px-3 py-2 rounded-lg border border-[#DDD5C4] bg-[#FAFAF8] text-[#4A5B7A] hover:bg-[#F0EDE8] transition-colors"
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="px-3 pb-3 pt-2 border-t border-[#EFE8D8] shrink-0">
+            <div className="flex items-center gap-2 bg-[#F8F6F0] rounded-xl px-3 py-2 border border-[#DDD5C4] focus-within:border-[#8A9BB8] transition-colors">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    void sendMessage();
+                  }
+                }}
+                placeholder="Ask Merlin anything…"
+                disabled={isLoading}
+                className="flex-1 bg-transparent text-sm text-[#0F1C3F] placeholder-[#8A9BB8] outline-none min-w-0"
+              />
+              <button
+                onClick={() => void sendMessage()}
+                disabled={!input.trim() || isLoading}
+                className="shrink-0 disabled:opacity-40 transition-opacity"
+                style={{ color: brandColor }}
+                aria-label="Send message"
+              >
+                <SendIcon />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}

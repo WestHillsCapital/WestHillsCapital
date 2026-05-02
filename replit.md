@@ -84,11 +84,28 @@ Organizations on Pro or Enterprise plans can configure a custom subdomain (e.g. 
 - Active custom domain is used as origin for new interview links and send-link emails.
 
 ## Billing (Stripe)
-- Plan tiers: Free (3 packages, 50 submissions/mo, 1 seat), Pro ($99/mo — unlimited packages, 500 submissions/mo, 5 seats), Enterprise ($299/mo — unlimited).
+- Plan tiers: Starter ($49/mo, 100 subs), Pro ($249/mo, 500 subs), Enterprise ($3k/mo, unlimited). Seat-based: plan quota = seats × submissionsPerSeat.
 - WHC account (id=1) is permanently on Enterprise.
 - Stripe products seeded via `scripts/seed-stripe-products.ts`.
-- Checkout/portal flow in `/api/internal/settings/billing` routes.
-- `BillingSection` in `AppSettings.tsx` shows current plan, usage, and upgrade/manage links.
+- Checkout/portal flow in `/api/v1/product/settings/billing` routes.
+- `BillingSection` + `SubmissionBankSection` in `AppSettings.tsx` shows current plan, usage, submission bank balance, and upgrade/manage links.
+
+## Submission Bank
+- Accounts can purchase extra submission packs: 50/100/300/500/1000 subs.
+- Purchase modes: one-off (single payment, expires 1 year), monthly (recurring, deposits each billing cycle), annual (front-loaded, 20% off).
+- Plan pool is use-or-lose (resets each billing period). Bank credits roll over for 12 months.
+- Enforcement: `requireWithinPlanLimits("submission")` checks plan pool first; if exhausted, draws 1 from bank (`drawOneFromBank`); if bank also empty, returns 402.
+- Bank tables: `submission_bank` (per-deposit rows with `remaining` counter), `pack_subscriptions` (links Stripe subscription → pack size/type for invoice.paid deposits).
+- Webhook handling in `stripeBillingSync.ts`: `checkout.session.completed` (mode=payment → deposit immediately; mode=subscription → register), `invoice.paid` → deposit for recurring packs.
+- API: `GET /api/v1/product/settings/billing/bank`, `POST /api/v1/product/settings/billing/pack/checkout`.
+- Lib: `artifacts/api-server/src/lib/submissionBank.ts` (depositSubmissions, drawOneFromBank, getBankBalance, registerPackSubscription, getPackSubscription, removePackSubscription).
+
+## Merlin (AI Assistant)
+- Claude-powered wizard persona assistant for Docuplete.
+- **Internal Merlin** (staff): floating chat widget (`MerlinWidget.tsx`) on InternalLayout + AppLayout. Agentic tool loop (up to 5 rounds) with 6 DB-backed tools: search_sessions, get_session_detail, search_packages, get_package_detail, get_submission_stats, get_billing_summary. Route: `POST /api/v1/product/merlin/chat` (requireProductAuth + requireAccountId).
+- **Customer Merlin** (Phase 2): conversational interview guide on DocuFillCustomer.tsx. Toggle button ("Ask Merlin") switches between form view and chat mode. Merlin extracts field values from answers and returns `field_updates` JSON to auto-fill the form. Route: `POST /api/v1/docufill/public/sessions/:token/merlin` (public, token-scoped).
+- Model: `claude-sonnet-4-6` via AI_INTEGRATIONS_ANTHROPIC_* env vars (same pattern as content.ts).
+- Files: `artifacts/api-server/src/routes/merlin.ts`, `artifacts/west-hills-capital/src/components/MerlinWidget.tsx`, `artifacts/west-hills-capital/src/components/MerlinCustomerChat.tsx`.
 
 ## Multi-Tenancy
 `accounts` and `account_users` tables provide tenant isolation. `account_id` scopes all relevant data. Internal portal uses Google auth; product portal uses Clerk, reusing Docuplete components under different API paths.

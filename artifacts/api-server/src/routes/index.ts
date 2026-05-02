@@ -15,6 +15,7 @@ import productAuthRouter   from "./product-auth";
 import storageRouter       from "./storage";
 import settingsRouter      from "./settings";
 import docsRouter          from "./docs";
+import merlinRouter, { publicMerlinRouter } from "./merlin";
 import { requireInternalAuth } from "../middleware/requireInternalAuth";
 import { requireProductAuth } from "../middleware/requireProductAuth";
 import { requireAccountId } from "../middleware/requireAccountId";
@@ -66,9 +67,11 @@ router.use("/internal/settings", requireInternalAuth, settingsRouter);
 const v1Router: IRouter = Router();
 
 v1Router.use("/docufill/public",   publicDocufillRouter);
+v1Router.use("/docufill/public",   publicMerlinRouter);
 v1Router.use("/product/docufill",  requireProductAuth, requireAccountId, docufillRouter);
 v1Router.use("/product/auth",      productAuthRouter);
 v1Router.use("/product/settings",  requireProductAuth, settingsRouter);
+v1Router.use("/product/merlin",    requireProductAuth, requireAccountId, merlinRouter);
 v1Router.use("/packages",          requireApiKeyAuth,  requireAccountId, apiKeyDocufillRouter);
 
 router.use("/v1", v1Router);
