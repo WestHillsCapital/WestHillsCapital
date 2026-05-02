@@ -1684,6 +1684,25 @@ export default function DocuFill() {
       }
     }
 
+    // +/= zoom in, - zoom out, S snap toggle (mapper only)
+    if (isMapperVisible) {
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        setUserZoom((z) => Math.min(4, parseFloat((z + 0.25).toFixed(2))));
+        return;
+      }
+      if (e.key === "-") {
+        e.preventDefault();
+        setUserZoom((z) => Math.max(0.25, parseFloat((z - 0.25).toFixed(2))));
+        return;
+      }
+      if (e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        setSnapGrid((v) => !v);
+        return;
+      }
+    }
+
     // 1–3: jump to builder step
     if ((tab === "packages" || tab === "mapper") && ["1", "2", "3"].includes(e.key)) {
       const step = BUILDER_STEPS[parseInt(e.key, 10) - 1];
@@ -4680,9 +4699,9 @@ export default function DocuFill() {
                   <span className="text-[9px] font-semibold text-[#C5BEAF] uppercase tracking-wider px-2 leading-none select-none whitespace-nowrap">Nav</span>
                   {!mapperScrollMode ? (
                     <div className="flex items-center">
-                      <button type="button" onClick={() => setSelectedPage((p) => Math.max(1, p - 1))} disabled={!selectedDocument || selectedPage <= 1} className="px-2 py-1.5 text-xs leading-none text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-white/70 rounded transition-colors disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap">← Prev</button>
+                      <button type="button" title="Prev page [←]" onClick={() => setSelectedPage((p) => Math.max(1, p - 1))} disabled={!selectedDocument || selectedPage <= 1} className="px-2 py-1.5 text-xs leading-none text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-white/70 rounded transition-colors disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap">← Prev</button>
                       <span className="text-xs text-[#8A9BB8] tabular-nums whitespace-nowrap px-2 select-none">Page {selectedPage} of {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
-                      <button type="button" onClick={() => setSelectedPage((p) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), p + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument?.pages ?? 1, 1)} className="px-2 py-1.5 text-xs leading-none text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-white/70 rounded transition-colors disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap">Next →</button>
+                      <button type="button" title="Next page [→]" onClick={() => setSelectedPage((p) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), p + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument?.pages ?? 1, 1)} className="px-2 py-1.5 text-xs leading-none text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-white/70 rounded transition-colors disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap">Next →</button>
                     </div>
                   ) : (
                     <span className="text-xs text-[#8A9BB8] whitespace-nowrap px-1 select-none">{Math.max(selectedDocument?.pages ?? 1, 1)} pages</span>
@@ -4705,9 +4724,9 @@ export default function DocuFill() {
                     </button>
                   </div>
                   <div className="flex items-center ml-1 rounded bg-white/60 border border-[#E8E0D0] p-0.5 gap-px text-xs">
-                    <button type="button" onClick={() => setUserZoom((z) => Math.max(0.25, parseFloat((z - 0.25).toFixed(2))))} className="w-6 h-6 flex items-center justify-center rounded-[3px] leading-none text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80 transition-colors" title="Zoom out">−</button>
+                    <button type="button" onClick={() => setUserZoom((z) => Math.max(0.25, parseFloat((z - 0.25).toFixed(2))))} className="w-6 h-6 flex items-center justify-center rounded-[3px] leading-none text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80 transition-colors" title="Zoom out [−]">−</button>
                     <button type="button" onClick={() => setUserZoom(1)} className="px-1.5 h-6 flex items-center justify-center rounded-[3px] leading-none text-[#6B7A80] hover:text-[#4A5B7A] hover:bg-white/80 transition-colors tabular-nums min-w-[2.6rem] text-center text-[11px]" title="Reset zoom">{Math.round(userZoom * 100)}%</button>
-                    <button type="button" onClick={() => setUserZoom((z) => Math.min(4, parseFloat((z + 0.25).toFixed(2))))} className="w-6 h-6 flex items-center justify-center rounded-[3px] leading-none text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80 transition-colors" title="Zoom in">+</button>
+                    <button type="button" onClick={() => setUserZoom((z) => Math.min(4, parseFloat((z + 0.25).toFixed(2))))} className="w-6 h-6 flex items-center justify-center rounded-[3px] leading-none text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80 transition-colors" title="Zoom in [+]">+</button>
                   </div>
                 </div>
 
@@ -4722,7 +4741,7 @@ export default function DocuFill() {
                   </div>
                   <button
                     type="button"
-                    title={snapGrid ? "Snap to grid on — click to turn off" : "Snap to grid off — click to turn on (4 pt grid)"}
+                    title={snapGrid ? "Snap to grid on — click to turn off [S]" : "Snap to grid off — click to turn on (4 pt grid) [S]"}
                     onClick={() => setSnapGrid((v) => !v)}
                     className={`flex items-center gap-1 text-xs rounded px-2.5 py-1 leading-none transition-all duration-150 border ${snapGrid ? "bg-white shadow-sm border-[#E8E0D0] text-[#6B5520] font-medium" : "border-[#E8E0D0] bg-white/60 text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80"}`}
                   >
