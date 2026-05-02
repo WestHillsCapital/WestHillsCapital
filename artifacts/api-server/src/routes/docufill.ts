@@ -46,6 +46,7 @@ import { requireWithinPlanLimits, recordSubmissionEvent, recordPdfGenerationEven
 import { requirePlanFeature, planFeatureError } from "../middleware/requirePlanFeature";
 import { getPlanFeatures } from "../lib/plans";
 import { recordPdfAuditEvent, actorContextFromRequest } from "../lib/pdf-audit";
+import { seedDemoPackage } from "../lib/demoPackage";
 import {
   getOrCreateAccountDek,
   encryptAnswers,
@@ -1642,6 +1643,22 @@ async function upsertPackageDocument(params: {
     client.release();
   }
 }
+
+/**
+ * POST /seed-demo
+ * Re-seeds the demo package for the current account (idempotent).
+ * Useful for accounts that bypassed onboarding or whose initial seeding failed.
+ */
+router.post("/seed-demo", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = acctId(req);
+    await seedDemoPackage(getDb(), accountId);
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] seed-demo failed");
+    res.status(500).json({ error: "Failed to load sample package." });
+  }
+});
 
 router.get("/bootstrap", async (req, res) => {
   try {
