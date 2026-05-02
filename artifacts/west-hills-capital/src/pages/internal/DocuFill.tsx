@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
-import { Info } from "lucide-react";
+import { Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy, rectSortingStrategy } from "@dnd-kit/sortable";
@@ -4692,58 +4692,57 @@ export default function DocuFill() {
               </div>
 
               {/* ── Toolbar ─────────────────────────────────────────── */}
-              <div className="flex items-center gap-0.5 flex-wrap bg-[#FAF8F4] border border-[#EAE2D4] rounded-md px-2 py-1 mb-3 min-h-[34px]">
+              <div className="flex items-center gap-1.5 flex-wrap bg-[#EAE3D8] rounded-lg px-2.5 py-1.5 mb-3 min-h-[38px]">
 
                 {/* Group 1 — Page Navigation */}
-                <div className="flex items-center">
-                  <span className="text-[9px] font-semibold text-[#C5BEAF] uppercase tracking-wider px-2 leading-none select-none whitespace-nowrap">Nav</span>
-                  {!mapperScrollMode ? (
-                    <div className="flex items-center">
-                      <button type="button" title="Prev page [←]" onClick={() => setSelectedPage((p) => Math.max(1, p - 1))} disabled={!selectedDocument || selectedPage <= 1} className="px-2 py-1.5 text-xs leading-none text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-white/70 rounded transition-colors disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap">← Prev</button>
-                      <span className="text-xs text-[#8A9BB8] tabular-nums whitespace-nowrap px-2 select-none">Page {selectedPage} of {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
-                      <button type="button" title="Next page [→]" onClick={() => setSelectedPage((p) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), p + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument?.pages ?? 1, 1)} className="px-2 py-1.5 text-xs leading-none text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-white/70 rounded transition-colors disabled:opacity-35 disabled:cursor-not-allowed whitespace-nowrap">Next →</button>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-[#8A9BB8] whitespace-nowrap px-1 select-none">{Math.max(selectedDocument?.pages ?? 1, 1)} pages</span>
-                  )}
-                </div>
+                {!mapperScrollMode ? (
+                  <div className="flex items-center gap-0.5">
+                    <button type="button" title="Prev page [←]" onClick={() => setSelectedPage((p) => Math.max(1, p - 1))} disabled={!selectedDocument || selectedPage <= 1} className="w-7 h-7 flex items-center justify-center rounded-full text-[#8A9BB8] hover:text-[#3A4B6A] hover:bg-black/[0.06] transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed">
+                      <ChevronLeft className="w-3.5 h-3.5" />
+                    </button>
+                    <span className="text-[11px] text-[#7A8898] tabular-nums whitespace-nowrap select-none min-w-[5rem] text-center">{selectedPage} / {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
+                    <button type="button" title="Next page [→]" onClick={() => setSelectedPage((p) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), p + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument?.pages ?? 1, 1)} className="w-7 h-7 flex items-center justify-center rounded-full text-[#8A9BB8] hover:text-[#3A4B6A] hover:bg-black/[0.06] transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed">
+                      <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <span className="text-[11px] text-[#7A8898] whitespace-nowrap select-none px-1">{Math.max(selectedDocument?.pages ?? 1, 1)} pages</span>
+                )}
 
-                <div className="w-px h-4 bg-[#E0D8CC] mx-1 shrink-0" />
+                <div className="w-px h-4 bg-black/[0.12] shrink-0" />
 
                 {/* Group 2 — Canvas View (layout + zoom) */}
-                <div className="flex items-center">
-                  <span className="text-[9px] font-semibold text-[#C5BEAF] uppercase tracking-wider px-2 leading-none select-none">View</span>
-                  <div className="flex items-center rounded bg-white/60 border border-[#E8E0D0] p-0.5 gap-px text-xs" title="Toggle between viewing one page at a time or all pages stacked">
-                    <button type="button" onClick={() => setMapperScrollMode(false)} className={`flex items-center gap-1 px-2.5 py-1 rounded-[3px] leading-none transition-all duration-150 ${!mapperScrollMode ? "bg-white shadow-sm text-[#6B5520] font-medium" : "text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80"}`}>
-                      <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="2" width="12" height="12" rx="1" /></svg>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center rounded-full bg-black/[0.08] p-0.5 gap-0.5 text-[11px]" title="Toggle between viewing one page at a time or all pages stacked">
+                    <button type="button" onClick={() => setMapperScrollMode(false)} className={`flex items-center gap-1 px-3 py-1 rounded-full leading-none transition-all duration-150 ${!mapperScrollMode ? "bg-white shadow-sm text-[#3A2E1A] font-medium" : "text-[#8A9BB8] hover:text-[#4A5B7A]"}`}>
+                      <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="2" width="12" height="12" rx="1.5" /></svg>
                       Single
                     </button>
-                    <button type="button" onClick={() => setMapperScrollMode(true)} className={`flex items-center gap-1 px-2.5 py-1 rounded-[3px] leading-none transition-all duration-150 ${mapperScrollMode ? "bg-white shadow-sm text-[#6B5520] font-medium" : "text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80"}`}>
+                    <button type="button" onClick={() => setMapperScrollMode(true)} className={`flex items-center gap-1 px-3 py-1 rounded-full leading-none transition-all duration-150 ${mapperScrollMode ? "bg-white shadow-sm text-[#3A2E1A] font-medium" : "text-[#8A9BB8] hover:text-[#4A5B7A]"}`}>
                       <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="1" width="12" height="5" rx="1" /><rect x="2" y="10" width="12" height="5" rx="1" /></svg>
                       Scroll
                     </button>
                   </div>
-                  <div className="flex items-center ml-1 rounded bg-white/60 border border-[#E8E0D0] p-0.5 gap-px text-xs">
-                    <button type="button" onClick={() => setUserZoom((z) => Math.max(0.25, parseFloat((z - 0.25).toFixed(2))))} className="w-6 h-6 flex items-center justify-center rounded-[3px] leading-none text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80 transition-colors" title="Zoom out [−]">−</button>
-                    <button type="button" onClick={() => setUserZoom(1)} className="px-1.5 h-6 flex items-center justify-center rounded-[3px] leading-none text-[#6B7A80] hover:text-[#4A5B7A] hover:bg-white/80 transition-colors tabular-nums min-w-[2.6rem] text-center text-[11px]" title="Reset zoom">{Math.round(userZoom * 100)}%</button>
-                    <button type="button" onClick={() => setUserZoom((z) => Math.min(4, parseFloat((z + 0.25).toFixed(2))))} className="w-6 h-6 flex items-center justify-center rounded-[3px] leading-none text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80 transition-colors" title="Zoom in [+]">+</button>
+                  <div className="flex items-center rounded-full bg-black/[0.08] p-0.5 text-[11px]">
+                    <button type="button" onClick={() => setUserZoom((z) => Math.max(0.25, parseFloat((z - 0.25).toFixed(2))))} className="w-7 h-7 flex items-center justify-center rounded-full text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-black/[0.06] transition-all duration-150" title="Zoom out [−]">−</button>
+                    <button type="button" onClick={() => setUserZoom(1)} className="px-2 h-7 flex items-center justify-center rounded-full text-[#5A6B7A] hover:text-[#3A4B6A] hover:bg-black/[0.06] transition-all duration-150 tabular-nums min-w-[2.8rem] text-center" title="Reset zoom">{Math.round(userZoom * 100)}%</button>
+                    <button type="button" onClick={() => setUserZoom((z) => Math.min(4, parseFloat((z + 0.25).toFixed(2))))} className="w-7 h-7 flex items-center justify-center rounded-full text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-black/[0.06] transition-all duration-150" title="Zoom in [+]">+</button>
                   </div>
                 </div>
 
-                <div className="w-px h-4 bg-[#E0D8CC] mx-1 shrink-0" />
+                <div className="w-px h-4 bg-black/[0.12] shrink-0" />
 
                 {/* Group 3 — Field Display (text mode + snap + PDF annotations) */}
-                <div className="flex items-center gap-1">
-                  <span className="text-[9px] font-semibold text-[#C5BEAF] uppercase tracking-wider px-1 leading-none select-none">Fields</span>
-                  <div className="flex items-center rounded bg-white/60 border border-[#E8E0D0] p-0.5 gap-px text-xs">
-                    <button type="button" onClick={() => setMapperTextMode(true)} className={`px-2.5 py-1 rounded-[3px] leading-none transition-all duration-150 ${mapperTextMode ? "bg-white shadow-sm text-[#6B5520] font-medium" : "text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80"}`}>Text</button>
-                    <button type="button" onClick={() => setMapperTextMode(false)} className={`px-2.5 py-1 rounded-[3px] leading-none transition-all duration-150 ${!mapperTextMode ? "bg-white shadow-sm text-[#6B5520] font-medium" : "text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80"}`}>Labels</button>
+                <div className="flex items-center gap-1.5">
+                  <div className="flex items-center rounded-full bg-black/[0.08] p-0.5 gap-0.5 text-[11px]">
+                    <button type="button" onClick={() => setMapperTextMode(true)} className={`px-3 py-1 rounded-full leading-none transition-all duration-150 ${mapperTextMode ? "bg-white shadow-sm text-[#3A2E1A] font-medium" : "text-[#8A9BB8] hover:text-[#4A5B7A]"}`}>Text</button>
+                    <button type="button" onClick={() => setMapperTextMode(false)} className={`px-3 py-1 rounded-full leading-none transition-all duration-150 ${!mapperTextMode ? "bg-white shadow-sm text-[#3A2E1A] font-medium" : "text-[#8A9BB8] hover:text-[#4A5B7A]"}`}>Labels</button>
                   </div>
                   <button
                     type="button"
                     title={snapGrid ? "Snap to grid on — click to turn off [S]" : "Snap to grid off — click to turn on (4 pt grid) [S]"}
                     onClick={() => setSnapGrid((v) => !v)}
-                    className={`flex items-center gap-1 text-xs rounded px-2.5 py-1 leading-none transition-all duration-150 border ${snapGrid ? "bg-white shadow-sm border-[#E8E0D0] text-[#6B5520] font-medium" : "border-[#E8E0D0] bg-white/60 text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80"}`}
+                    className={`flex items-center gap-1.5 text-[11px] rounded-full px-3 py-1 leading-none transition-all duration-150 ${snapGrid ? "bg-white shadow-sm text-[#3A2E1A] font-medium" : "text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-black/[0.06]"}`}
                   >
                     <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
                       <line x1="4" y1="0" x2="4" y2="16"/><line x1="8" y1="0" x2="8" y2="16"/><line x1="12" y1="0" x2="12" y2="16"/>
@@ -4753,14 +4752,14 @@ export default function DocuFill() {
                   </button>
                   {documentPreviewUrl && acroAnnotations.length > 0 && (
                     <>
-                      <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-xs rounded px-2.5 py-1 leading-none transition-all duration-150 border ${showAcroLayer ? "bg-white shadow-sm border-[#93C5FD]/60 text-[#1D4ED8] font-medium" : "border-[#E8E0D0] bg-white/60 text-[#9DAAB8] hover:text-[#5A6A7A] hover:bg-white/80"}`}>
+                      <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-[11px] rounded-full px-3 py-1 leading-none transition-all duration-150 ${showAcroLayer ? "bg-white shadow-sm text-[#1D4ED8] font-medium" : "text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-black/[0.06]"}`}>
                         PDF Fields
                       </button>
                       <button
                         type="button"
                         title={`Auto-create mappings from ${acroAnnotations.length} detected PDF form field${acroAnnotations.length === 1 ? "" : "s"} on this page`}
                         onClick={autoMapFromPdfFields}
-                        className="flex items-center gap-1 text-xs border border-[#D4C9B5] bg-[#FDF8EE] text-[#8A6A20] rounded px-2.5 py-1 leading-none hover:bg-[#F7EDD0] transition-colors"
+                        className="flex items-center gap-1.5 text-[11px] rounded-full px-3 py-1 leading-none bg-[#C49A38]/20 text-[#7A5A18] hover:bg-[#C49A38]/30 transition-all duration-150"
                       >
                         <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6}>
                           <path d="M2 8h5M10 8h4M7 5l3 3-3 3" strokeLinecap="round" strokeLinejoin="round"/>
@@ -4771,35 +4770,32 @@ export default function DocuFill() {
                   )}
                 </div>
 
-                <div className="w-px h-4 bg-[#E0D8CC] mx-1 shrink-0" />
+                <div className="w-px h-4 bg-black/[0.12] shrink-0" />
 
                 {/* Group 4 — Inspector mode */}
-                <div className="flex items-center">
-                  <span className="text-[9px] font-semibold text-[#C5BEAF] uppercase tracking-wider px-2 leading-none select-none">Inspector</span>
-                  <button
-                    type="button"
-                    title={inspectorMode === "panel" ? "Switch to floating popup" : "Switch to side panel"}
-                    onClick={() => {
-                      const next = inspectorMode === "panel" ? "modal" : "panel";
-                      setInspectorMode(next);
-                      localStorage.setItem("docufill-inspector-mode", next);
-                      setPlacementModal(null);
-                    }}
-                    className="flex items-center gap-1.5 text-xs border border-[#E8E0D0] bg-white/60 rounded px-2.5 py-1 leading-none text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-white/80 transition-colors"
-                  >
-                    {inspectorMode === "panel" ? (
-                      <>
-                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M15 3v18" /></svg>
-                        <span>Panel</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="5" y="5" width="14" height="14" rx="2" /><path strokeLinecap="round" d="M5 9h14" /></svg>
-                        <span>Popup</span>
-                      </>
-                    )}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  title={inspectorMode === "panel" ? "Switch to floating popup" : "Switch to side panel"}
+                  onClick={() => {
+                    const next = inspectorMode === "panel" ? "modal" : "panel";
+                    setInspectorMode(next);
+                    localStorage.setItem("docufill-inspector-mode", next);
+                    setPlacementModal(null);
+                  }}
+                  className="flex items-center gap-1.5 text-[11px] rounded-full px-3 py-1 leading-none text-[#8A9BB8] hover:text-[#4A5B7A] hover:bg-black/[0.06] transition-all duration-150"
+                >
+                  {inspectorMode === "panel" ? (
+                    <>
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M15 3v18" /></svg>
+                      <span>Panel</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="5" y="5" width="14" height="14" rx="2" /><path strokeLinecap="round" d="M5 9h14" /></svg>
+                      <span>Popup</span>
+                    </>
+                  )}
+                </button>
 
               </div>
               {isUploadingDocument && <div className="mb-2 text-xs text-[#6B7A99]">Uploading PDF…</div>}
