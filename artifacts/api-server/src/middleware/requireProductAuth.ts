@@ -82,7 +82,7 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
     if (result.rows[0]) {
       const uid       = result.rows[0].id;
       const sessionId = auth?.sessionId ?? null;
-      const ip        = req.ip ?? req.socket?.remoteAddress ?? null;
+      const ip        = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? req.socket?.remoteAddress ?? null;
       const ua        = req.headers["user-agent"] ?? null;
 
       // Check if this Clerk session has been revoked in our DB

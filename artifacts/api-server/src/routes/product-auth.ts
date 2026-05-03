@@ -272,7 +272,7 @@ router.get("/me", requireProductAuth, async (req, res) => {
 router.post("/verify-2fa", async (req, res) => {
   const auth = getAuth(req);
   const clerkUserId = auth?.userId;
-  const ip = req.ip ?? req.socket?.remoteAddress ?? null;
+  const ip = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? req.socket?.remoteAddress ?? null;
 
   if (!clerkUserId) {
     return void res.status(401).json({ error: "Authentication required." });
