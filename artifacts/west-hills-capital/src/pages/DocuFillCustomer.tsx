@@ -29,6 +29,7 @@ type FieldCondition = {
 type FieldItem = {
   id: string;
   name: string;
+  source?: string;
   color: string;
   type: "text" | "date" | "radio" | "checkbox" | "dropdown" | "initials";
   interviewMode: FieldInterviewMode;
@@ -121,6 +122,14 @@ function currentValue(field: FieldItem, answers: Record<string, string>, prefill
   const fieldNameLower = field.name.toLowerCase();
   const prefillKey = Object.keys(prefill).find((k) => k.toLowerCase() === fieldNameLower);
   if (prefillKey) return String(prefill[prefillKey] ?? "");
+
+  // Also check by field.source (e.g. source="email" matches prefill.email even when
+  // the field name is "Client email" or similar)
+  if (field.source) {
+    const sourceLower = field.source.toLowerCase();
+    const sourceKey = Object.keys(prefill).find((k) => k.toLowerCase() === sourceLower);
+    if (sourceKey) return String(prefill[sourceKey] ?? "");
+  }
 
   // Name-combination fallback: if the field looks like a full-name field
   // (contains "name" but not "first" or "last"), join firstName + lastName
@@ -523,6 +532,8 @@ export default function DocuFillCustomer() {
         return;
       }
       setIdentityToken(data.identityToken as string);
+      // Merge verified email into session prefill so the email form field is pre-populated
+      setSession((prev) => prev ? { ...prev, prefill: { ...prev.prefill, email: signerEmail.trim() } } : prev);
       setEsignStep(null); // identity confirmed — show the interview form
     } catch {
       setOtpError("A network error occurred. Please try again.");
@@ -701,7 +712,7 @@ export default function DocuFillCustomer() {
           <div className="flex justify-center"><CheckIcon /></div>
           <div>
             <h1 className="text-xl font-semibold text-[#0F1C3F]">You're all set!</h1>
-            <p className="text-sm text-[#6B7A99] mt-1">Your paperwork is complete. Your advisor has been notified.</p>
+            <p className="text-sm text-[#6B7A99] mt-1">Your paperwork is complete. Your advisor has been notified.{signerEmail ? ` A copy has been sent to ${signerEmail}.` : ""}</p>
           </div>
           {downloadUrl && (
             <Button onClick={handleDownload} disabled={isDownloading} className="bg-[#0F1C3F] hover:bg-[#182B5F] w-full">
