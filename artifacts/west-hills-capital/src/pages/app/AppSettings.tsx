@@ -385,6 +385,19 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
   const [selectedPlan, setSelectedPlan] = useState<"starter" | "pro" | "enterprise">("pro");
   const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">("monthly");
 
+  const PLAN_MONTHLY = { starter: 49, pro: 249, enterprise: null } as const;
+  const planPrice = (key: "starter" | "pro" | "enterprise") => {
+    const mo = PLAN_MONTHLY[key];
+    if (!mo) return null;
+    return billingInterval === "annual" ? Math.round(mo * 0.8) : mo;
+  };
+  const planLabel = (key: "starter" | "pro" | "enterprise", seats: string, subs: string) => {
+    const price = planPrice(key);
+    if (!price) return `${key.charAt(0).toUpperCase() + key.slice(1)} — ${seats} · ${subs}`;
+    const suffix = billingInterval === "annual" ? `/mo (billed $${Math.round(price * 12)}/yr)` : "/mo";
+    return `${key.charAt(0).toUpperCase() + key.slice(1)} — ${seats} · ${subs} ($${price}${suffix})`;
+  };
+
   useEffect(() => {
     setIsLoading(true);
     fetch(`${SETTINGS_BASE}/billing`, { headers: authHeaders() })
@@ -530,9 +543,9 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     onChange={(e) => setSelectedPlan(e.target.value as "starter" | "pro" | "enterprise")}
                     className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20"
                   >
-                    <option value="starter">Starter — 2 seats · 50 subs/seat ($49/mo)</option>
-                    <option value="pro">Pro — 10 seats · 50 subs/seat ($249/mo)</option>
-                    <option value="enterprise">Enterprise — 25 seats · Unlimited subs</option>
+                    <option value="starter">{planLabel("starter", "2 seats", "50 subs/seat")}</option>
+                    <option value="pro">{planLabel("pro", "10 seats", "50 subs/seat")}</option>
+                    <option value="enterprise">{planLabel("enterprise", "25 seats", "Unlimited subs")}</option>
                   </select>
                   <button
                     type="button"
