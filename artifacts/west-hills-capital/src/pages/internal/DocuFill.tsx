@@ -1645,6 +1645,12 @@ export default function DocuFill() {
     setSelectedMappingId(null);
     setPlacementModal(null);
     setPlacementModalPos(null);
+    // Reset page to 1 — the previous package may have been on a higher page that
+    // doesn't exist in the new package's documents, which causes PDF.js to throw
+    // and leaves pdfRenderError set. Clear both together so the canvas starts clean.
+    setSelectedPage(1);
+    setPdfRenderError(null);
+    setIsPdfRendering(false);
     setWebhookTestStatus(null);
     setWebhookSecret(null);
     setWebhookSecretLoading(false);
