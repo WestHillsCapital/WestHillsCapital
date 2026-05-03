@@ -182,6 +182,18 @@ export function sensitivePrefillKeys(fields: DocuFillFieldItem[], prefill: Recor
   return keys;
 }
 
+const SEMANTIC_PREFILL_LABELS: Record<string, string> = {
+  "email": "email", "email address": "email", "client email": "email", "e-mail": "email", "e-mail address": "email",
+  "first name": "firstName", "client first name": "firstName", "given name": "firstName",
+  "last name": "lastName", "client last name": "lastName", "surname": "lastName", "family name": "lastName",
+  "full name": "fullName", "name": "fullName", "client name": "fullName",
+  "date of birth": "dateOfBirth", "client date of birth": "dateOfBirth", "dob": "dateOfBirth", "birth date": "dateOfBirth", "birthday": "dateOfBirth",
+  "phone": "phone", "phone number": "phone", "mobile": "phone", "mobile number": "phone", "cell phone": "phone", "telephone": "phone",
+  "address": "addressLine1", "street address": "addressLine1", "address line 1": "addressLine1", "address 1": "addressLine1", "client address": "addressLine1",
+  "city": "city", "state": "state",
+  "zip": "zip", "zip code": "zip", "postal code": "zip",
+};
+
 export function fieldAnswerValue(field: DocuFillFieldItem, answers: Record<string, unknown>, prefill: Record<string, unknown>): string {
   const synthesizedName = field.source === "clientName" || field.source === "fullName" || field.source === "name" ? combineNameParts(prefill) : "";
   // Case-insensitive prefill lookup mirrors the frontend currentValue() behaviour so that
@@ -195,6 +207,7 @@ export function fieldAnswerValue(field: DocuFillFieldItem, answers: Record<strin
     const match = prefillKeys.find((k) => k.toLowerCase() === lower);
     return match ? prefill[match] : undefined;
   };
+  const labelKey = SEMANTIC_PREFILL_LABELS[(field.label ?? "").toLowerCase().trim()];
   const candidates = [
     answers[field.id],
     field.source ? prefill[field.source] : undefined,
@@ -202,6 +215,7 @@ export function fieldAnswerValue(field: DocuFillFieldItem, answers: Record<strin
     field.label ? prefill[field.label] : undefined,
     ciLookup(field.name),
     ciLookup(field.label),
+    labelKey ? prefill[labelKey] : undefined,
     synthesizedName,
     field.defaultValue,
   ];
