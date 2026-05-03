@@ -3685,6 +3685,7 @@ export default function DocuFill() {
                   ref={newPackageInputRef}
                   value={newPackageName}
                   onChange={(e) => setNewPackageName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && newPackageName.trim() && !isSaving) createPackage(); }}
                   placeholder="e.g. Youth Soccer Registration"
                   className="mt-1 h-9 bg-white text-sm"
                 />
@@ -4629,6 +4630,7 @@ export default function DocuFill() {
                                         placeholder="https://your-endpoint.com/webhook"
                                         value={selectedPackage.webhook_url ?? ""}
                                         onChange={(e) => { updateSelectedPackage((pkg) => ({ ...pkg, webhook_url: e.target.value || null })); setWebhookTestStatus(null); }}
+                                        onKeyDown={(e) => { if (e.key === "Enter" && selectedPackage.webhook_url) void sendTestWebhook(selectedPackage.id); }}
                                         className="flex-1 min-w-0 text-xs rounded border border-[#DDD5C4] bg-white px-2 py-1.5 text-[#0F1C3F] placeholder:text-[#B0A898] focus:outline-none focus:ring-1 focus:ring-[#0F1C3F]"
                                       />
                                     </TooltipTrigger>
@@ -5843,9 +5845,9 @@ export default function DocuFill() {
                               </div>
                             )}
                             <div className="grid sm:grid-cols-3 gap-2">
-                              <Input placeholder="First name (optional)" value={customerLinkFirstName} onChange={(e) => setCustomerLinkFirstName(e.target.value)} className="text-sm" />
-                              <Input placeholder="Last name (optional)" value={customerLinkLastName} onChange={(e) => setCustomerLinkLastName(e.target.value)} className="text-sm" />
-                              <Input placeholder="Email (optional)" value={customerLinkEmail} onChange={(e) => setCustomerLinkEmail(e.target.value)} className="text-sm" />
+                              <Input placeholder="First name (optional)" value={customerLinkFirstName} onChange={(e) => setCustomerLinkFirstName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm" />
+                              <Input placeholder="Last name (optional)" value={customerLinkLastName} onChange={(e) => setCustomerLinkLastName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm" />
+                              <Input placeholder="Email (optional)" value={customerLinkEmail} onChange={(e) => setCustomerLinkEmail(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm" />
                             </div>
                             <Button onClick={generateCustomerLink} disabled={!customerLinkPackageId || isGeneratingLink} className="bg-[#0F1C3F] hover:bg-[#182B5F]">
                               {isGeneratingLink ? "Generating…" : "Generate Link"}
@@ -5896,12 +5898,14 @@ export default function DocuFill() {
                                           type="email"
                                           value={sendLinkEmail}
                                           onChange={(e) => setSendLinkEmail(e.target.value)}
+                                          onKeyDown={(e) => { if (e.key === "Enter" && sendLinkEmail.trim() && !isSendingLink) void handleSendLinkByEmail(); }}
                                           className="text-sm"
                                         />
                                         <Input
                                           placeholder="Client name (optional)"
                                           value={sendLinkName}
                                           onChange={(e) => setSendLinkName(e.target.value)}
+                                          onKeyDown={(e) => { if (e.key === "Enter" && sendLinkEmail.trim() && !isSendingLink) void handleSendLinkByEmail(); }}
                                           className="text-sm"
                                         />
                                       </div>
@@ -7615,7 +7619,7 @@ export default function DocuFill() {
             <div className="px-5 py-4 space-y-4">
               <div>
                 <label className="block text-xs font-medium text-[#6B7A99] mb-1">Field Name</label>
-                <Input value={fieldEditorDraft.name} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, name: e.target.value }))} placeholder="e.g. Borrower Full Name" />
+                <Input value={fieldEditorDraft.name} onChange={(e) => setFieldEditorDraft((d) => ({ ...d, name: e.target.value }))} onKeyDown={(e) => { if (e.key === "Enter" && fieldEditorDraft.name.trim() && !fieldModalSaving) void saveFieldFromModal(); }} placeholder="e.g. Borrower Full Name" />
               </div>
               <div>
                 <label className="block text-xs font-medium text-[#6B7A99] mb-1.5">Field Color</label>
