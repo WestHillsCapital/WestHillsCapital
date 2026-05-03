@@ -1410,7 +1410,10 @@ export default function DocuFill() {
   const mapperViewH = Math.min(Math.round(nativePageH * effectiveScale), mapperMaxH);
   const pageMappings = useMemo(() => {
     if (!selectedPackage || !selectedDocument) return [];
-    return selectedPackage.mappings.filter((m) => m.documentId === selectedDocument.id && (m.page ?? 1) === selectedPage);
+    const knownFieldIds = new Set(selectedPackage.fields.map((f) => f.id));
+    return selectedPackage.mappings.filter(
+      (m) => m.documentId === selectedDocument.id && (m.page ?? 1) === selectedPage && knownFieldIds.has(m.fieldId)
+    );
   }, [selectedPackage, selectedDocument, selectedPage]);
   const fieldInInterview = (f: { interviewMode?: string; interviewVisible?: boolean }) =>
     f.interviewMode ? f.interviewMode !== "omitted" : f.interviewVisible !== false;
@@ -5155,8 +5158,9 @@ export default function DocuFill() {
                 >
                   <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "16px 0", alignItems: "flex-start" }}>
                     {Array.from({ length: Math.max(selectedDocument.pages ?? 1, 1) }, (_, i) => i + 1).map((pageNum) => {
+                      const _knownFieldIds = new Set((selectedPackage?.fields ?? []).map((f) => f.id));
                       const pageMs = (selectedPackage?.mappings ?? []).filter(
-                        (m) => m.documentId === selectedDocument.id && m.page === pageNum
+                        (m) => m.documentId === selectedDocument.id && m.page === pageNum && _knownFieldIds.has(m.fieldId)
                       );
                       return (
                         <div key={pageNum} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
