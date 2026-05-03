@@ -1273,8 +1273,21 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
       return;
     }
 
-    // Find or create Stripe customer
+    // Find or create Stripe customer — self-heal stale IDs (e.g. created with
+    // a revoked key or in test mode) by catching resource_missing and retrying.
     let customerId = acct.stripe_customer_id;
+    if (customerId) {
+      try {
+        await stripe.customers.retrieve(customerId);
+      } catch (stripeErr: unknown) {
+        if ((stripeErr as { code?: string }).code === "resource_missing") {
+          await db.query(`UPDATE accounts SET stripe_customer_id = NULL WHERE id = $1`, [accountId]);
+          customerId = null;
+        } else {
+          throw stripeErr;
+        }
+      }
+    }
     if (!customerId) {
       const customer = await stripe.customers.create({
         name:     acct.name,

@@ -1635,6 +1635,16 @@ export async function initDb(): Promise<void> {
     CREATE INDEX IF NOT EXISTS pack_subscriptions_stripe_idx
       ON pack_subscriptions (stripe_subscription_id)
   `);
+
+  // ── Ensure all demo packages use email_otp auth (e-sign + OTP required) ────
+  // Packages seeded before this migration defaulted to 'none'. Idempotent.
+  await db.query(`
+    UPDATE docufill_packages
+       SET auth_level = 'email_otp'
+     WHERE name LIKE 'Demo%'
+       AND auth_level != 'email_otp'
+       AND status = 'active'
+  `);
 }
 
 /**
