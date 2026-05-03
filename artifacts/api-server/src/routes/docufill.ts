@@ -2508,7 +2508,17 @@ router.patch("/packages/:id", async (req, res) => {
         const features = getPlanFeatures(planRows[0]?.plan_tier ?? "starter");
         if (needsGdriveGate    && !features.googleDrive)          { res.status(402).json(planFeatureError("googleDrive"));        return; }
         if (needsHubspotGate   && !features.hubspot)              { res.status(402).json(planFeatureError("hubspot"));            return; }
-        if (needsEsignGate     && !features.eSign)                { res.status(402).json(planFeatureError("eSign"));              return; }
+        if (needsEsignGate     && !features.eSign)                {
+          // Plan no longer includes eSign — silently downgrade rather than blocking the save.
+          // Reset auth_level to "none" and prune any eSign mappings from the payload so the
+          // DB stays consistent (normalizeEsignFields will strip the field definitions).
+          body.authLevel = "none";
+          if (Array.isArray(body.mappings)) {
+            body.mappings = (body.mappings as Array<Record<string, unknown>>).filter(
+              (m) => !isSystemEsignFieldId(String(m.fieldId ?? ""))
+            );
+          }
+        }
         if (needsWebhookGate   && !features.webhooks)             { res.status(402).json(planFeatureError("webhooks"));           return; }
         if (needsEmbedGate     && !features.embeddedInterviews)   { res.status(402).json(planFeatureError("embeddedInterviews")); return; }
       }
