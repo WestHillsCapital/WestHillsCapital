@@ -1381,12 +1381,15 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
 
     const session = await stripe.checkout.sessions.create({
       customer:                  customerId,
-      payment_method_types:      ["card"],
+      // Omit payment_method_types so Stripe auto-selects the right methods for
+      // the account's country. Specifying ["card"] can conflict with
+      // payment_method_collection on newer API versions.
       line_items:                lineItems,
       mode:                      "subscription",
       success_url:               `${origin}/app/settings?billing=success`,
       cancel_url:                `${origin}/app/settings?billing=cancel`,
       subscription_data:         subscriptionData,
+      allow_promotion_codes:     true,
       // No card required during trial — card is collected before trial ends
       payment_method_collection: isNewSubscriber ? "if_required" : "always",
     });
@@ -1405,7 +1408,13 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
     res.json({ url: session.url });
   } catch (err) {
     logger.error({ err }, "[Billing] Failed to create checkout session");
-    res.status(500).json({ error: "Failed to create checkout session" });
+    // Surface the Stripe error message so operators can diagnose configuration issues.
+    const stripeMsg = err instanceof Error ? err.message : null;
+    res.status(500).json({
+      error: stripeMsg
+        ? `Stripe error: ${stripeMsg}`
+        : "Failed to create checkout session. Please contact support.",
+    });
   }
 });
 

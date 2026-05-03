@@ -331,30 +331,40 @@ export default function Home() {
           <div className="flex items-center justify-center gap-3 mb-12">
             <span className={`text-sm font-medium ${!annual ? "text-[#0B1220]" : "text-[#4B5A7A]"}`}>Monthly</span>
             <button
+              type="button"
               onClick={() => setAnnual(!annual)}
-              className={`relative w-11 h-6 rounded-full transition-colors ${annual ? "bg-[#1B4FD8]" : "bg-[#D0D9EC]"}`}
+              className={`relative w-11 h-6 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4FD8] ${annual ? "bg-[#1B4FD8]" : "bg-[#D0D9EC]"}`}
+              aria-pressed={annual}
+              aria-label="Toggle annual billing"
             >
               <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${annual ? "translate-x-6" : "translate-x-1"}`} />
             </button>
             <span className={`text-sm font-medium ${annual ? "text-[#0B1220]" : "text-[#4B5A7A]"}`}>
-              Annual <span className="text-[#1B4FD8] font-semibold">Save 20%</span>
+              Annual{" "}
+              <span className="inline-flex items-center gap-1 bg-[#EEF3FF] text-[#1B4FD8] text-xs font-bold px-2 py-0.5 rounded-full">
+                Save 20%
+              </span>
             </span>
           </div>
 
-          <div className="grid sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {PLANS.map((plan) => {
-              const displayPrice = annual ? Math.round(plan.price * 0.8) : plan.price;
+              const monthlyPrice = plan.price;
+              const annualPerMo = Math.round(monthlyPrice * 0.8);
+              const displayPrice = annual ? annualPerMo : monthlyPrice;
+              const annualTotal = annualPerMo * 12;
+              const annualSavings = (monthlyPrice - annualPerMo) * 12;
               return (
                 <div
                   key={plan.name}
-                  className={`relative rounded-2xl border p-8 flex flex-col ${
+                  className={`relative rounded-2xl border p-6 sm:p-8 flex flex-col ${
                     plan.highlight
                       ? "bg-[#0B1220] text-white border-[#1B4FD8] shadow-xl shadow-[#1B4FD8]/10"
                       : "bg-white text-[#0B1220] border-[#E8EDF5]"
                   }`}
                 >
                   {plan.highlight && (
-                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#1B4FD8] text-white text-xs font-bold px-4 py-1 rounded-full uppercase tracking-widest">
+                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-[#1B4FD8] text-white text-xs font-bold px-4 py-1 rounded-full uppercase tracking-widest whitespace-nowrap">
                       Most popular
                     </div>
                   )}
@@ -362,13 +372,22 @@ export default function Home() {
                     <p className={`text-xs font-bold uppercase tracking-widest mb-2 ${plan.highlight ? "text-[#5B8DEF]" : "text-[#1B4FD8]"}`}>
                       {plan.name}
                     </p>
-                    <div className="flex items-end gap-1 mb-2">
+                    <div className="flex items-end gap-1.5 mb-1">
+                      {annual && (
+                        <span className={`text-lg font-semibold line-through pb-1 ${plan.highlight ? "text-white/30" : "text-[#B0BCCE]"}`}>
+                          ${monthlyPrice}
+                        </span>
+                      )}
                       <span className="text-4xl font-black">${displayPrice}</span>
                       <span className={`text-sm pb-1.5 ${plan.highlight ? "text-white/60" : "text-[#4B5A7A]"}`}>/mo</span>
                     </div>
-                    {annual && (
-                      <p className={`text-xs mb-2 ${plan.highlight ? "text-white/50" : "text-[#4B5A7A]"}`}>
-                        billed annually (${plan.price}/mo otherwise)
+                    {annual ? (
+                      <p className={`text-xs mb-2 font-medium ${plan.highlight ? "text-[#5B8DEF]" : "text-[#1B4FD8]"}`}>
+                        Billed ${annualTotal}/yr &mdash; you save ${annualSavings}
+                      </p>
+                    ) : (
+                      <p className={`text-xs mb-2 ${plan.highlight ? "text-white/40" : "text-[#B0BCCE]"}`}>
+                        or ${annualPerMo}/mo billed annually
                       </p>
                     )}
                     <p className={`text-sm ${plan.highlight ? "text-white/70" : "text-[#4B5A7A]"}`}>{plan.description}</p>
