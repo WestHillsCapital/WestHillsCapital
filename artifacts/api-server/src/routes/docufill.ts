@@ -3,7 +3,7 @@ import { createHash, createHmac, randomBytes } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { PDFDocument as PdfLibDocument, StandardFonts, rgb, degrees, type PDFFont, type PDFPage } from "pdf-lib";
 import PDFDocument from "pdfkit";
-import { getDb } from "../db";
+import { getDb, seedDefaultTransactionTypes } from "../db";
 import { logger } from "../lib/logger";
 import {
   buildDocuFillFallbackSummaryRows,
@@ -1714,7 +1714,7 @@ router.get("/bootstrap", async (req, res) => {
     const db = getDb();
     const [groups, transactionTypes, fieldLibrary, packages, packageGroupRows] = await Promise.all([
       db.query("SELECT * FROM docufill_groups WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, name ASC", [accountId]),
-      db.query("SELECT * FROM docufill_transaction_types ORDER BY active DESC, sort_order ASC, label ASC"),
+      db.query("SELECT * FROM docufill_transaction_types WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, label ASC", [accountId]),
       getFieldLibrary(db, accountId),
       db.query(`SELECT p.*, g.name AS group_name
                   FROM docufill_packages p
@@ -1735,8 +1735,18 @@ router.get("/bootstrap", async (req, res) => {
       ...pkg,
       group_ids: groupIdsMap.get(pkg.id as number) ?? (pkg.group_id ? [pkg.group_id as number] : []),
     }));
+    // Seed default types for this account if none exist yet
+    let transactionTypeRows = transactionTypes.rows;
+    if (transactionTypeRows.length === 0) {
+      await seedDefaultTransactionTypes(db, accountId);
+      const seeded = await db.query(
+        "SELECT * FROM docufill_transaction_types WHERE account_id = $1 ORDER BY sort_order ASC, label ASC",
+        [accountId],
+      );
+      transactionTypeRows = seeded.rows;
+    }
     const hydratedPackages = await hydratePackages(packagesWithGroupIds as PackageRow[], db, fieldLibrary);
-    res.json({ groups: groups.rows, transactionTypes: transactionTypes.rows, fieldLibrary, packages: hydratedPackages.map(sanitizePackageForClient) });
+    res.json({ groups: groups.rows, transactionTypes: transactionTypeRows, fieldLibrary, packages: hydratedPackages.map(sanitizePackageForClient) });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load bootstrap data");
     res.status(500).json({ error: "Failed to load Docuplete data" });
@@ -2017,19 +2027,21 @@ router.delete("/groups/:id", requireAdminRole, async (req, res) => {
 
 router.post("/transaction-types", requireAdminRole, async (req, res) => {
   try {
+    const accountId = acctId(req);
     const body = req.body as TransactionTypeInput;
     const label = cleanText(body.label);
     if (!label) {
       res.status(400).json({ error: "Transaction type label is required" });
       return;
     }
-    const scope = cleanText(body.scope) || transactionScopeFromLabel(label);
+    const slug = cleanText(body.scope) || transactionScopeFromLabel(label);
+    const scope = `a${accountId}_${slug}`;
     const db = getDb();
     const { rows } = await db.query(
-      `INSERT INTO docufill_transaction_types (scope, label, active, sort_order)
-       VALUES ($1,$2,$3,$4)
+      `INSERT INTO docufill_transaction_types (scope, account_id, label, active, sort_order)
+       VALUES ($1,$2,$3,$4,$5)
        RETURNING *`,
-      [scope, label, body.active !== false, Number(body.sortOrder ?? 100)],
+      [scope, accountId, label, body.active !== false, Number(body.sortOrder ?? 100)],
     );
     res.status(201).json({ transactionType: rows[0] });
   } catch (err) {
@@ -2040,6 +2052,7 @@ router.post("/transaction-types", requireAdminRole, async (req, res) => {
 
 router.patch("/transaction-types/:scope", requireAdminRole, async (req, res) => {
   try {
+    const accountId = acctId(req);
     const scope = cleanText(req.params.scope);
     const body = req.body as TransactionTypeInput;
     const label = cleanText(body.label);
@@ -2051,9 +2064,9 @@ router.patch("/transaction-types/:scope", requireAdminRole, async (req, res) => 
     const { rows } = await db.query(
       `UPDATE docufill_transaction_types SET
           label=$1, active=$2, sort_order=$3, updated_at=NOW()
-        WHERE scope=$4
+        WHERE scope=$4 AND account_id=$5
         RETURNING *`,
-      [label, body.active !== false, Number(body.sortOrder ?? 100), scope],
+      [label, body.active !== false, Number(body.sortOrder ?? 100), scope, accountId],
     );
     if (!rows[0]) {
       res.status(404).json({ error: "Transaction type not found" });
@@ -2068,6 +2081,7 @@ router.patch("/transaction-types/:scope", requireAdminRole, async (req, res) => 
 
 router.delete("/transaction-types/:scope", requireAdminRole, async (req, res) => {
   try {
+    const accountId = acctId(req);
     const scope = cleanText(req.params.scope);
     if (!scope) {
       res.status(400).json({ error: "Scope is required" });
@@ -2075,8 +2089,8 @@ router.delete("/transaction-types/:scope", requireAdminRole, async (req, res) =>
     }
     const db = getDb();
     const { rowCount } = await db.query(
-      `DELETE FROM docufill_transaction_types WHERE scope=$1`,
-      [scope],
+      `DELETE FROM docufill_transaction_types WHERE scope=$1 AND account_id=$2`,
+      [scope, accountId],
     );
     if (!rowCount) {
       res.status(404).json({ error: "Transaction type not found" });

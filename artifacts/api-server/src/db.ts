@@ -415,20 +415,17 @@ export async function initDb(): Promise<void> {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
+  // Migration: add per-org isolation — each account manages its own types
   await db.query(`
-    INSERT INTO docufill_transaction_types (scope, label, active, sort_order)
-    VALUES
-      ('ira_transfer', 'IRA transfer / rollover', TRUE, 10),
-      ('ira_contribution', 'IRA contribution', TRUE, 20),
-      ('ira_distribution', 'IRA distribution', TRUE, 30),
-      ('cash_purchase', 'Cash purchase', TRUE, 40),
-      ('storage_change', 'Storage change', TRUE, 50),
-      ('beneficiary_update', 'Beneficiary update', TRUE, 60),
-      ('liquidation', 'Liquidation', TRUE, 70),
-      ('buy_sell_direction', 'Buy / sell direction', TRUE, 80),
-      ('address_change', 'Address change', TRUE, 90)
-    ON CONFLICT (scope) DO NOTHING
+    ALTER TABLE docufill_transaction_types
+      ADD COLUMN IF NOT EXISTS account_id INT REFERENCES accounts(id) ON DELETE CASCADE
   `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS docufill_transaction_types_account_idx
+      ON docufill_transaction_types(account_id)
+  `);
+  // Seed default types for account 1 (West Hills Capital) using prefixed scopes
+  await seedDefaultTransactionTypes(db, 1);
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_fields (
@@ -1694,5 +1691,30 @@ export async function recordBookingAttempt(params: {
     }
   } catch (err) {
     logger.error({ err }, "[Audit] Failed to write booking_attempt row");
+  }
+}
+
+// ── Per-account transaction type seeding ──────────────────────────────────────
+
+const DEFAULT_TRANSACTION_TYPES = [
+  { slug: "ira_transfer",       label: "IRA transfer / rollover", sortOrder: 10 },
+  { slug: "ira_contribution",   label: "IRA contribution",        sortOrder: 20 },
+  { slug: "ira_distribution",   label: "IRA distribution",        sortOrder: 30 },
+  { slug: "cash_purchase",      label: "Cash purchase",           sortOrder: 40 },
+  { slug: "storage_change",     label: "Storage change",          sortOrder: 50 },
+  { slug: "beneficiary_update", label: "Beneficiary update",      sortOrder: 60 },
+  { slug: "liquidation",        label: "Liquidation",             sortOrder: 70 },
+  { slug: "buy_sell_direction", label: "Buy / sell direction",    sortOrder: 80 },
+  { slug: "address_change",     label: "Address change",          sortOrder: 90 },
+];
+
+export async function seedDefaultTransactionTypes(db: Pool, accountId: number): Promise<void> {
+  for (const t of DEFAULT_TRANSACTION_TYPES) {
+    await db.query(
+      `INSERT INTO docufill_transaction_types (scope, account_id, label, active, sort_order)
+       VALUES ($1, $2, $3, TRUE, $4)
+       ON CONFLICT (scope) DO NOTHING`,
+      [`a${accountId}_${t.slug}`, accountId, t.label, t.sortOrder],
+    );
   }
 }
