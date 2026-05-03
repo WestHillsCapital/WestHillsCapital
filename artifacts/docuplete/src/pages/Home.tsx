@@ -36,11 +36,11 @@ function CheckIcon() {
 const PLANS = [
   {
     name: "Starter",
-    price: 5,
+    price: 49,
     description: "For solo practitioners getting started.",
-    submissions: "50 submissions / mo",
-    seats: "1 seat included",
-    overage: "$0.35 per extra submission",
+    submissions: "50 submissions / seat / mo",
+    seats: "2 seats included",
+    overage: "$15 / extra seat",
     features: [
       "Upload any PDF template",
       "Shareable client link",
@@ -53,35 +53,35 @@ const PLANS = [
   },
   {
     name: "Pro",
-    price: 100,
+    price: 249,
     description: "For growing teams handling real volume.",
-    submissions: "500 submissions / mo",
-    seats: "5 seats included",
-    overage: "$0.20 per extra submission · $35 / extra seat",
+    submissions: "50 submissions / seat / mo",
+    seats: "10 seats included",
+    overage: "$15 / extra seat",
     features: [
       "Everything in Starter",
       "Team seats",
       "Batch CSV import",
+      "Client links & custom branding",
+      "Google Drive & HubSpot",
       "Priority support",
-      "Custom branding",
-      "Advanced analytics",
     ],
     cta: "Start free trial",
     highlight: true,
   },
   {
     name: "Enterprise",
-    price: 300,
+    price: 3000,
     description: "For firms that run high-volume intake.",
     submissions: "Unlimited submissions",
-    seats: "20 seats included",
-    overage: "$25 / extra seat",
+    seats: "25 seats included",
+    overage: "$15 / extra seat",
     features: [
       "Everything in Pro",
+      "Webhooks & API access",
       "Dedicated account manager",
       "SLA guarantee",
       "SSO / SAML",
-      "Custom integrations",
       "Audit logs",
     ],
     cta: "Start free trial",
@@ -333,15 +333,17 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setAnnual(!annual)}
-              className={`relative w-11 h-6 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4FD8] ${annual ? "bg-[#1B4FD8]" : "bg-[#D0D9EC]"}`}
+              className={`relative w-12 h-7 rounded-full overflow-hidden transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4FD8] focus-visible:ring-offset-2 ${annual ? "bg-[#1B4FD8]" : "bg-[#D0D9EC]"}`}
               aria-pressed={annual}
               aria-label="Toggle annual billing"
             >
-              <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${annual ? "translate-x-6" : "translate-x-1"}`} />
+              <span
+                className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-200 ${annual ? "left-6" : "left-1"}`}
+              />
             </button>
             <span className={`text-sm font-medium ${annual ? "text-[#0B1220]" : "text-[#4B5A7A]"}`}>
               Annual{" "}
-              <span className="inline-flex items-center gap-1 bg-[#EEF3FF] text-[#1B4FD8] text-xs font-bold px-2 py-0.5 rounded-full">
+              <span className="inline-flex items-center bg-[#EEF3FF] text-[#1B4FD8] text-xs font-bold px-2 py-0.5 rounded-full">
                 Save 20%
               </span>
             </span>
