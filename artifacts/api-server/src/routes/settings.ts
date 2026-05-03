@@ -1191,16 +1191,20 @@ router.get("/billing", async (req, res) => {
     const seatCount = parseInt(seatResult.rows[0]?.count ?? "0", 10);
     const effectiveSubLimit = getEffectiveSubmissionLimit(acct.plan_tier, acct.seat_limit);
 
-    // Try to pull next renewal date from the stripe.subscriptions table if synced
+    // Try to pull next renewal date and trial end from the stripe.subscriptions table if synced
     let nextRenewalAt: string | null = null;
+    let trialEnd: string | null = null;
     if (acct.stripe_subscription_id) {
       try {
-        const { rows: subRows } = await db.query<{ current_period_end: Date | null }>(
-          `SELECT current_period_end FROM stripe.subscriptions WHERE id = $1`,
+        const { rows: subRows } = await db.query<{ current_period_end: Date | null; trial_end: Date | null }>(
+          `SELECT current_period_end, trial_end FROM stripe.subscriptions WHERE id = $1`,
           [acct.stripe_subscription_id],
         );
         if (subRows[0]?.current_period_end) {
           nextRenewalAt = new Date(subRows[0].current_period_end).toISOString();
+        }
+        if (subRows[0]?.trial_end) {
+          trialEnd = new Date(subRows[0].trial_end).toISOString();
         }
       } catch {
         // stripe schema not yet initialized — skip silently
@@ -1213,6 +1217,7 @@ router.get("/billing", async (req, res) => {
         subscription_status:     acct.subscription_status ?? null,
         billing_period_start:    acct.billing_period_start?.toISOString() ?? null,
         next_renewal_at:         nextRenewalAt,
+        trial_end:               trialEnd,
         has_stripe_customer:     !!acct.stripe_customer_id,
         has_stripe_subscription: !!acct.stripe_subscription_id,
         limits: {

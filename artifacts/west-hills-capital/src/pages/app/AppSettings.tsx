@@ -64,6 +64,7 @@ interface BillingInfo {
   subscription_status: string | null;
   billing_period_start: string | null;
   next_renewal_at: string | null;
+  trial_end: string | null;
   has_stripe_customer: boolean;
   has_stripe_subscription: boolean;
   limits: {
@@ -88,7 +89,9 @@ function planBadge(tier: string) {
 
 function statusBadge(status: string | null) {
   if (!status) return null;
-  if (status === "active" || status === "trialing")
+  if (status === "trialing")
+    return <span className="text-[11px] font-medium text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-2 py-0.5">Trial</span>;
+  if (status === "active")
     return <span className="text-[11px] font-medium text-green-700 bg-green-50 border border-green-200 rounded-full px-2 py-0.5">Active</span>;
   if (status === "past_due")
     return <span className="text-[11px] font-medium text-red-700 bg-red-50 border border-red-200 rounded-full px-2 py-0.5">Past due</span>;
@@ -499,19 +502,42 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
             />
           </div>
 
+          {/* Trial banner */}
+          {billing.subscription_status === "trialing" && (
+            <div className="mx-6 my-3 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+              <svg className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-semibold text-blue-800">
+                  You&apos;re on a 14-day free trial
+                  {billing.trial_end && (
+                    <> &mdash; ends {formatDate(billing.trial_end)}</>
+                  )}
+                </p>
+                <p className="text-xs text-blue-600 mt-0.5">
+                  No charge until your trial ends. Add a payment method at any time to continue without interruption.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Plan details */}
           <div className="px-6 py-4 bg-gray-50">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-gray-800">
                   {PLAN_LABELS[billing.plan_tier] ?? billing.plan_tier} plan
+                  {billing.subscription_status === "trialing" && (
+                    <span className="ml-2 text-xs font-normal text-blue-600">(trial)</span>
+                  )}
                 </p>
-                {billing.next_renewal_at && (
+                {billing.next_renewal_at && billing.subscription_status !== "trialing" && (
                   <p className="text-xs text-gray-500 mt-0.5">
                     Renews {formatDate(billing.next_renewal_at)}
                   </p>
                 )}
-                {(billing.plan_tier === "free" || billing.plan_tier === "starter") && (
+                {(billing.plan_tier === "free" || billing.plan_tier === "starter") && billing.subscription_status !== "trialing" && (
                   <p className="text-xs text-gray-500 mt-0.5">
                     Upgrade to unlock more packages, submissions, and seats.
                   </p>
