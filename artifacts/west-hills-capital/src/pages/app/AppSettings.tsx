@@ -482,7 +482,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
       ) : billing ? (
         <>
           {/* Usage bars */}
-          <div className="px-6 py-5">
+          <div className="px-3 sm:px-6 py-5">
             <p className="text-sm font-medium text-gray-900 mb-4">Usage this billing period</p>
             <UsageBar
               label="Packages"
@@ -504,7 +504,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
 
           {/* Trial banner */}
           {billing.subscription_status === "trialing" && (
-            <div className="mx-6 my-3 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+            <div className="mx-3 sm:mx-6 my-3 flex items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
               <svg className="w-4 h-4 text-blue-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
               </svg>
@@ -523,7 +523,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
           )}
 
           {/* Plan details */}
-          <div className="px-6 py-4 bg-gray-50">
+          <div className="px-3 sm:px-6 py-4 bg-gray-50">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-gray-800">
@@ -598,60 +598,60 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
 
           {/* Plan comparison table */}
           {(billing.plan_tier === "free" || billing.plan_tier === "starter") && (
-            <div className="px-6 py-4">
+            <div className="px-3 sm:px-6 py-4">
               <p className="text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">Compare plans</p>
-              <div className="rounded-lg border border-gray-100 overflow-hidden text-xs">
-                <table className="w-full">
+              <div className="rounded-lg border border-gray-100 overflow-x-auto text-xs">
+                <table className="w-full min-w-[480px]">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2.5 text-left font-medium text-gray-700 w-2/5">Feature</th>
-                      <th className="px-4 py-2.5 text-center font-medium text-gray-600">Starter</th>
-                      <th className="px-4 py-2.5 text-center font-medium text-indigo-700">Pro</th>
-                      <th className="px-4 py-2.5 text-center font-medium text-amber-700">Enterprise</th>
+                      <th className="px-3 sm:px-4 py-2.5 text-left font-medium text-gray-700 w-2/5">Feature</th>
+                      <th className="px-3 sm:px-4 py-2.5 text-center font-medium text-gray-600">Starter</th>
+                      <th className="px-3 sm:px-4 py-2.5 text-center font-medium text-indigo-700">Pro</th>
+                      <th className="px-3 sm:px-4 py-2.5 text-center font-medium text-amber-700">Enterprise</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     <tr>
-                      <td className="px-4 py-2.5 text-gray-700">Price / mo</td>
-                      <td className="px-4 py-2.5 text-center text-gray-600">$49</td>
-                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">$249</td>
-                      <td className="px-4 py-2.5 text-center text-amber-700 font-medium">$3,000</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-gray-700">Price / mo</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-gray-600">$49</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-indigo-700 font-medium">$249</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-amber-700 font-medium">$3,000</td>
                     </tr>
                     <tr className="bg-gray-50/50">
-                      <td className="px-4 py-2.5 text-gray-700">Packages</td>
-                      <td className="px-4 py-2.5 text-center text-gray-600">5</td>
-                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">Unlimited</td>
-                      <td className="px-4 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-gray-700">Packages</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-gray-600">5</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-indigo-700 font-medium">Unlimited</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2.5 text-gray-700">Submissions / mo</td>
-                      <td className="px-4 py-2.5 text-center text-gray-600">50 / seat</td>
-                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">50 / seat</td>
-                      <td className="px-4 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-gray-700">Submissions / mo</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-gray-600">50 / seat</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-indigo-700 font-medium">50 / seat</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
                     </tr>
                     <tr className="bg-gray-50/50">
-                      <td className="px-4 py-2.5 text-gray-700">Team seats</td>
-                      <td className="px-4 py-2.5 text-center text-gray-600">2</td>
-                      <td className="px-4 py-2.5 text-center text-indigo-700 font-medium">10</td>
-                      <td className="px-4 py-2.5 text-center text-amber-700 font-medium">25 + $15/ea</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-gray-700">Team seats</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-gray-600">2</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-indigo-700 font-medium">10</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-amber-700 font-medium">25 + $15/ea</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2.5 text-gray-700">Client links &amp; CSV batch</td>
-                      <td className="px-4 py-2.5 text-center text-gray-400">—</td>
-                      <td className="px-4 py-2.5 text-center text-indigo-600">✓</td>
-                      <td className="px-4 py-2.5 text-center text-amber-600">✓</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-gray-700">Client links &amp; CSV batch</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-gray-400">—</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-indigo-600">✓</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-amber-600">✓</td>
                     </tr>
                     <tr className="bg-gray-50/50">
-                      <td className="px-4 py-2.5 text-gray-700">Google Drive &amp; HubSpot</td>
-                      <td className="px-4 py-2.5 text-center text-gray-400">—</td>
-                      <td className="px-4 py-2.5 text-center text-indigo-600">✓</td>
-                      <td className="px-4 py-2.5 text-center text-amber-600">✓</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-gray-700">Google Drive &amp; HubSpot</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-gray-400">—</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-indigo-600">✓</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-amber-600">✓</td>
                     </tr>
                     <tr>
-                      <td className="px-4 py-2.5 text-gray-700">Webhooks &amp; API</td>
-                      <td className="px-4 py-2.5 text-center text-gray-400">—</td>
-                      <td className="px-4 py-2.5 text-center text-gray-400">—</td>
-                      <td className="px-4 py-2.5 text-center text-amber-600">✓</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-gray-700">Webhooks &amp; API</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-gray-400">—</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-gray-400">—</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-amber-600">✓</td>
                     </tr>
                   </tbody>
                 </table>
