@@ -1087,6 +1087,7 @@ export default function DocuFill() {
   const [newPackageName, setNewPackageName] = useState("");
   const [newPackageGroupId, setNewPackageGroupId] = useState("");
   const [addingPackage, setAddingPackage] = useState(() => initialUrlAction.current === "new-package");
+  const newPackageInputRef = useRef<HTMLInputElement | null>(null);
   const [interviewOutputTab, setInterviewOutputTab] = useState<"staff" | "customerLink">("staff");
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
@@ -1585,6 +1586,27 @@ export default function DocuFill() {
       window.history.replaceState({}, "", window.location.pathname);
     }
   }, []);
+
+  // React to action=new-package even when the component is already mounted
+  // (wouter navigation changes `search` without unmounting the route component).
+  useEffect(() => {
+    const sp = new URLSearchParams(search);
+    if (sp.get("action") === "new-package") {
+      setTab("packages");
+      setAddingPackage(true);
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, [search]);
+
+  // When the new-package form opens, focus the name input and scroll it into view.
+  useEffect(() => {
+    if (!addingPackage) return;
+    const t = setTimeout(() => {
+      newPackageInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      newPackageInputRef.current?.focus();
+    }, 80);
+    return () => clearTimeout(t);
+  }, [addingPackage]);
 
   // Persist builder UI state to sessionStorage so it survives remounts.
   useEffect(() => {
@@ -3660,6 +3682,7 @@ export default function DocuFill() {
               <label className="block text-xs text-[#6B7A99]">
                 Package name
                 <Input
+                  ref={newPackageInputRef}
                   value={newPackageName}
                   onChange={(e) => setNewPackageName(e.target.value)}
                   placeholder="e.g. Youth Soccer Registration"
