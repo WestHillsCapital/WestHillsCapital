@@ -612,10 +612,21 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     <tr>
-                      <td className="px-3 sm:px-4 py-2.5 text-gray-700">Price / mo</td>
-                      <td className="px-3 sm:px-4 py-2.5 text-center text-gray-600">$49</td>
-                      <td className="px-3 sm:px-4 py-2.5 text-center text-indigo-700 font-medium">$249</td>
-                      <td className="px-3 sm:px-4 py-2.5 text-center text-amber-700 font-medium">$3,000</td>
+                      <td className="px-3 sm:px-4 py-2.5 text-gray-700">
+                        Price / mo
+                        {billingInterval === "annual" && (
+                          <span className="ml-1 text-gray-400">(billed annually)</span>
+                        )}
+                      </td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-gray-600">
+                        ${planPrice("starter")}
+                      </td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-indigo-700 font-medium">
+                        ${planPrice("pro")}
+                      </td>
+                      <td className="px-3 sm:px-4 py-2.5 text-center text-amber-700 font-medium">
+                        ${(planPrice("enterprise") ?? 0).toLocaleString()}
+                      </td>
                     </tr>
                     <tr className="bg-gray-50/50">
                       <td className="px-3 sm:px-4 py-2.5 text-gray-700">Packages</td>
