@@ -1504,8 +1504,10 @@ export default function DocuFill() {
     try {
       setError(null);
       const res = await fetch(`${API_BASE}${docufillApiPath}/bootstrap`, { headers: { ...getAuthHeaders() } });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Could not load Docuplete data");
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let data: any = {};
+      try { data = await res.json(); } catch { /* non-JSON body (e.g. 401 HTML redirect) */ }
+      if (!res.ok) throw new Error((data?.error as string | undefined) ?? `Could not load Docuplete data (${res.status})`);
       const loadedPackages = normalizePackages(data.packages ?? []);
       setGroups(data.groups ?? []);
       setCustodians(data.custodians ?? []);

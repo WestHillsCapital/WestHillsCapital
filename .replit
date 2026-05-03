@@ -42,6 +42,14 @@ args = "test-west-hills-chart"
 task = "workflow.run"
 args = "workspace-typecheck"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "typecheck"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "e2e-mapper"
+
 [[workflows.workflow]]
 name = "docufill-redaction"
 author = "agent"
@@ -96,6 +104,28 @@ args = "pnpm typecheck"
 
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow]]
+name = "typecheck"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/west-hills-capital typecheck"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "e2e-mapper"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/west-hills-capital test"
 
 [agent]
 stack = "PNPM_WORKSPACE"
