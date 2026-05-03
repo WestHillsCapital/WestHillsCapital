@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useUser } from "@clerk/react";
+import { isClerkAPIResponseError } from "@clerk/react/errors";
 import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { useProductRole } from "@/hooks/useProductRole";
@@ -4008,7 +4009,6 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
   const bc = useBrandColor();
 
   const { user } = useUser();
-
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -4054,6 +4054,10 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
       if (spSavedTimer.current) clearTimeout(spSavedTimer.current);
       spSavedTimer.current = setTimeout(() => setSpSaved(false), 4000);
     } catch (err: unknown) {
+      if (isClerkAPIResponseError(err) && err.errors.some(e => e.code === "session_step_up_verification_required")) {
+        window.location.href = `/app/sign-in?redirect_url=${encodeURIComponent("/app/settings")}`;
+        return;
+      }
       const msg = err instanceof Error ? err.message : "Failed to set password.";
       setSpError(msg);
     } finally {
@@ -4084,6 +4088,10 @@ function SecuritySection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
       if (passwordSavedTimer.current) clearTimeout(passwordSavedTimer.current);
       passwordSavedTimer.current = setTimeout(() => setPasswordSaved(false), 4000);
     } catch (err: unknown) {
+      if (isClerkAPIResponseError(err) && err.errors.some(e => e.code === "session_step_up_verification_required")) {
+        window.location.href = `/app/sign-in?redirect_url=${encodeURIComponent("/app/settings")}`;
+        return;
+      }
       const msg = err instanceof Error ? err.message : "Failed to update password.";
       setPasswordError(msg);
     } finally {

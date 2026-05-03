@@ -675,7 +675,7 @@ const SEMANTIC_PREFILL_LABELS: Record<string, string> = {
 };
 
 function interviewFieldValue(field: FieldItem, answers: Record<string, string>, prefill: Record<string, string> | undefined) {
-  const labelKey = SEMANTIC_PREFILL_LABELS[(field.label ?? "").toLowerCase().trim()];
+  const labelKey = SEMANTIC_PREFILL_LABELS[(field.name ?? "").toLowerCase().trim()];
   const ciLookup = (key: string | undefined) => {
     if (!key || !prefill) return undefined;
     const lower = key.toLowerCase();
@@ -687,7 +687,7 @@ function interviewFieldValue(field: FieldItem, answers: Record<string, string>, 
     ?? (field.source ? prefill?.[field.source] : undefined)
     ?? prefill?.[field.name]
     ?? ciLookup(field.name)
-    ?? ciLookup(field.label)
+    ?? ciLookup(field.name)
     ?? (labelKey ? prefill?.[labelKey] : undefined)
     ?? field.defaultValue
     ?? "",
