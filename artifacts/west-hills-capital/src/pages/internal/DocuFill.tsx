@@ -897,25 +897,22 @@ function PackagePickerWithTags({
 
 const ScrollPageCanvas = memo(function ScrollPageCanvas({
   pageNum,
-  documentPreviewUrl,
-  pdfDocRef,
+  pdfDoc,
   nativeW,
   nativeH,
 }: {
   pageNum: number;
-  documentPreviewUrl: string;
-  pdfDocRef: React.MutableRefObject<pdfjsLib.PDFDocumentProxy | null>;
+  pdfDoc: pdfjsLib.PDFDocumentProxy | null;
   nativeW: number;
   nativeH: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   useEffect(() => {
+    if (!pdfDoc) return;
     let cancelled = false;
-    const doc = pdfDocRef.current;
-    if (!doc) return;
     (async () => {
       try {
-        const page = await doc.getPage(pageNum);
+        const page = await pdfDoc.getPage(pageNum);
         if (cancelled) return;
         const canvas = canvasRef.current;
         if (!canvas) return;
@@ -928,7 +925,7 @@ const ScrollPageCanvas = memo(function ScrollPageCanvas({
       } catch { /* rendering failure is non-fatal in scroll mode */ }
     })();
     return () => { cancelled = true; };
-  }, [pageNum, documentPreviewUrl, pdfDocRef]);
+  }, [pageNum, pdfDoc]);
   return (
     <canvas
       ref={canvasRef}
@@ -1243,6 +1240,8 @@ export default function DocuFill() {
   const pdfDocRef = useRef<pdfjsLib.PDFDocumentProxy | null>(null);
   const pdfUrlRef = useRef<string | null>(null);
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
+  // Scroll-mode PDF doc as React state so ScrollPageCanvas re-renders when it's ready.
+  const [scrollPdfDoc, setScrollPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
   const mappingUndoStack = useRef<MappingItem[][]>([]);
   const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   const mapperContainerRef = useRef<HTMLElement | null>(null);
@@ -1896,8 +1895,7 @@ export default function DocuFill() {
 
   const isMapperVisible = tab === "mapper";
   useEffect(() => {
-    if (!isMapperVisible || !documentPreviewUrl) { setAcroAnnotations([]); return; }
-    if (mapperScrollMode) return;
+    if (!isMapperVisible || !documentPreviewUrl) { setAcroAnnotations([]); setScrollPdfDoc(null); return; }
     let cancelled = false;
     if (renderTaskRef.current) {
       renderTaskRef.current.cancel();
@@ -1907,6 +1905,7 @@ export default function DocuFill() {
     setPdfRenderError(null);
     (async () => {
       try {
+        // Always load the PDF document — needed by both single-page canvas and ScrollPageCanvas.
         let doc = pdfDocRef.current;
         if (!doc || pdfUrlRef.current !== documentPreviewUrl) {
           if (doc) { doc.destroy().catch(() => {}); pdfDocRef.current = null; }
@@ -1916,6 +1915,14 @@ export default function DocuFill() {
           pdfDocRef.current = doc;
           pdfUrlRef.current = documentPreviewUrl;
         }
+        // Scroll mode: expose the loaded doc as React state so ScrollPageCanvas
+        // re-renders and renders each page. No canvas rendering needed here.
+        if (mapperScrollMode) {
+          if (!cancelled) { setScrollPdfDoc(doc); setIsPdfRendering(false); }
+          return;
+        }
+        // Single-page mode: render the selected page to the main canvas.
+        setScrollPdfDoc(null);
         const page = await doc.getPage(selectedPage);
         if (cancelled) return;
         const canvas = canvasRef.current;
@@ -5187,8 +5194,7 @@ export default function DocuFill() {
                             >
                               <ScrollPageCanvas
                                 pageNum={pageNum}
-                                documentPreviewUrl={documentPreviewUrl}
-                                pdfDocRef={pdfDocRef}
+                                pdfDoc={scrollPdfDoc}
                                 nativeW={nativePageW}
                                 nativeH={nativePageH}
                               />
