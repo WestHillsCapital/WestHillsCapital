@@ -1635,6 +1635,13 @@ export default function DocuFill() {
   }, [packages]);
 
   useEffect(() => {
+    // Reset all per-document/field/mapping selection when switching packages so
+    // stale IDs from the previous package never bleed onto the new one.
+    setSelectedDocumentId(null);
+    setSelectedFieldId(null);
+    setSelectedMappingId(null);
+    setPlacementModal(null);
+    setPlacementModalPos(null);
     setWebhookTestStatus(null);
     setWebhookSecret(null);
     setWebhookSecretLoading(false);
@@ -2455,8 +2462,12 @@ export default function DocuFill() {
   }
 
   function updateSelectedPackage(updater: (pkg: PackageItem) => PackageItem) {
-    if (!selectedPackage) return;
-    setPackages((prev) => prev.map((pkg) => pkg.id === selectedPackage.id ? updater(pkg) : pkg));
+    // Capture the ID at call-time (not inside the setPackages updater) so that
+    // if this function is called from an async callback, we always target the
+    // package that was selected when the action was initiated.
+    const targetId = selectedPackage?.id;
+    if (targetId === undefined || targetId === null) return;
+    setPackages((prev) => prev.map((pkg) => pkg.id === targetId ? updater(pkg) : pkg));
   }
 
   function evictDocumentPreview(packageId: number, docId: string) {
