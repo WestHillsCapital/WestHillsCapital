@@ -1645,6 +1645,54 @@ async function upsertPackageDocument(params: {
 }
 
 /**
+ * POST /demo-session
+ * Creates a test interview session for this account's demo package.
+ * Returns the session token so the frontend can open the customer interview link.
+ * Uses test_mode so the submission does not count against plan limits.
+ */
+router.post("/demo-session", requireMemberRole, async (req, res) => {
+  try {
+    const accountId = acctId(req);
+    const db = getDb();
+
+    // Find the demo package (active, name starts with "Demo —")
+    const pkgResult = await db.query<{ id: number; version: number }>(
+      `SELECT id, version FROM docufill_packages
+       WHERE account_id = $1 AND name LIKE 'Demo%' AND status = 'active'
+       ORDER BY id LIMIT 1`,
+      [accountId],
+    );
+    if (!pkgResult.rows[0]) {
+      return void res.status(404).json({ error: "Demo package not found. Try reloading." });
+    }
+    const pkg = pkgResult.rows[0];
+
+    // Pre-fill with the signed-in user's name and email so the form has realistic data.
+    const userResult = await db.query<{ email: string }>(
+      `SELECT email FROM account_users WHERE account_id = $1 LIMIT 1`,
+      [accountId],
+    );
+    const prefill: Record<string, string> = {};
+    if (userResult.rows[0]?.email) prefill.email = userResult.rows[0].email;
+
+    const token = createSessionToken();
+    await db.query(
+      `INSERT INTO docufill_interview_sessions
+         (token, package_id, package_version, transaction_scope, deal_id, source,
+          status, test_mode, prefill, answers, expires_at, account_id, locale)
+       VALUES ($1,$2,$3,NULL,NULL,'demo','draft',true,$4::jsonb,'{}'::jsonb,
+               NOW() + INTERVAL '7 days',$5,'en')`,
+      [token, pkg.id, pkg.version ?? 1, JSON.stringify(prefill), accountId],
+    );
+
+    return void res.json({ token });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] demo-session creation failed");
+    return void res.status(500).json({ error: "Failed to create demo session." });
+  }
+});
+
+/**
  * POST /seed-demo
  * Re-seeds the demo package for the current account (idempotent).
  * Useful for accounts that bypassed onboarding or whose initial seeding failed.
