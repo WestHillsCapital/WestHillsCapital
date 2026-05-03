@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Redirect, Switch, Route } from "wouter";
+import { Switch, Route } from "wouter";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { useProductRole } from "@/hooks/useProductRole";
 import { DocuFillConfigProvider } from "@/hooks/useDocuFillConfig";
@@ -63,8 +63,11 @@ export default function AppPortal() {
     return <Spinner />;
   }
 
+  // Not signed in — Clerk's afterSignOutUrl handles the navigation.
+  // Rendering a Redirect here races with Clerk's own routerPush and can
+  // produce a white screen. Return a spinner instead and let Clerk route.
   if (!isSignedIn) {
-    return <Redirect to="/app/sign-in" />;
+    return <Spinner />;
   }
 
   if (needs2FA) {

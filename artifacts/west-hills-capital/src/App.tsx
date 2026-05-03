@@ -198,6 +198,7 @@ function ClerkProviderWithRouter({ children }: { children: React.ReactNode }) {
       proxyUrl={CLERK_PROXY_URL}
       signInUrl={`${basePath}/app/sign-in`}
       signUpUrl={`${basePath}/app/sign-up`}
+      afterSignOutUrl={`${basePath}/app/sign-in`}
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >

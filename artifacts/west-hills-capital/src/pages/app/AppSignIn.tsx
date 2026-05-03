@@ -63,7 +63,7 @@ export default function AppSignIn() {
         routing="path"
         path={`${basePath}/app/sign-in`}
         signUpUrl={`${basePath}/app/sign-up`}
-        forceRedirectUrl={`${basePath}/app`}
+        fallbackRedirectUrl={`${basePath}/app`}
         appearance={appearance}
       />
     </div>
