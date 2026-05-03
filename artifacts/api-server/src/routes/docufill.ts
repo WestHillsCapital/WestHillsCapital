@@ -1680,7 +1680,7 @@ router.post("/demo-session", requireMemberRole, async (req, res) => {
       `INSERT INTO docufill_interview_sessions
          (token, package_id, package_version, transaction_scope, deal_id, source,
           status, test_mode, prefill, answers, expires_at, account_id, locale)
-       VALUES ($1,$2,$3,NULL,NULL,'demo','draft',true,$4::jsonb,'{}'::jsonb,
+       VALUES ($1,$2,$3,'',NULL,'demo','draft',true,$4::jsonb,'{}'::jsonb,
                NOW() + INTERVAL '7 days',$5,'en')`,
       [token, pkg.id, pkg.version ?? 1, JSON.stringify(prefill), accountId],
     );
