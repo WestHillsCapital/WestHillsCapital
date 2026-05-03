@@ -388,7 +388,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
   const [selectedPlan, setSelectedPlan] = useState<"starter" | "pro" | "enterprise">("pro");
   const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">("monthly");
 
-  const PLAN_MONTHLY = { starter: 49, pro: 249, enterprise: null } as const;
+  const PLAN_MONTHLY = { starter: 49, pro: 249, enterprise: 3000 } as const;
   const planPrice = (key: "starter" | "pro" | "enterprise") => {
     const mo = PLAN_MONTHLY[key];
     if (!mo) return null;
