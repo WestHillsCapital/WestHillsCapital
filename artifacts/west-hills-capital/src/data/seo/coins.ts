@@ -132,10 +132,9 @@ export const COINS: CoinProduct[] = [
     whyBullion:
       "Silver Eagles command the widest recognition and the strongest buyback market of any silver coin. When it comes time to sell, dealers know exactly what they are buying. Proof Silver Eagles exist but carry premiums of 50–200% over spot that evaporate in the secondary market. Bullion Silver Eagles trade at modest, fair premiums over spot — keeping more of your money in actual metal.",
     reporting: {
-      isReportable: true,
-      threshold: "1,000 or more 1 oz coins in a single transaction",
+      isReportable: false,
       notes:
-        "When you sell 1,000 or more 1 oz American Silver Eagles to a dealer in a single transaction, the dealer is required to file IRS Form 1099-B. This threshold is significantly higher than for gold coins — most individual investors will never trigger this requirement. Transactions below 1,000 oz are not subject to dealer reporting, though you remain responsible for reporting capital gains on your own return.",
+        "The American Silver Eagle is not subject to IRS Form 1099-B dealer reporting requirements. As U.S. legal tender issued by the United States Mint, Silver Eagles are not on the IRS list of reportable precious metals, regardless of quantity sold. You remain personally responsible for reporting any capital gains on your own tax return — the absence of dealer reporting does not affect your individual filing obligations.",
     },
     specs: [
       { label: "Purity", value: ".999 fine" },
