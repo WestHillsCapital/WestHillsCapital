@@ -270,13 +270,19 @@ test("Docuplete — full e2e suite", async ({ page, context }) => {
   await expect(tzSearchInput).toBeVisible();
 
   const tzListbox = tzSection.locator("[role='listbox']").first();
+
+  // The listbox renders synchronously from Intl.supportedValuesOf but the
+  // component needs to mount first — wait for the first option to appear.
+  await expect(tzListbox.locator("button[role='option']").first())
+    .toBeVisible({ timeout: 8000 });
+
   const tzOptionCount = await tzListbox.locator("button[role='option']").count();
   expect(tzOptionCount).toBeGreaterThan(0);
   console.log(`✅ [4.4] Timezone section — listbox has ${tzOptionCount} options`);
 
   // Filter listbox by typing, verify it narrows results
   await tzSearchInput.fill("New York");
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(400);
   const filteredCount = await tzListbox.locator("button[role='option']").count();
   expect(filteredCount).toBeGreaterThan(0);
   expect(filteredCount).toBeLessThan(tzOptionCount);
