@@ -262,8 +262,21 @@ router.post("/draft", async (req, res): Promise<void> => {
     const draft = JSON.parse(jsonMatch[0]);
     res.json({ draft });
   } catch (err) {
-    logger.error({ err }, "[Content] Draft generation failed");
-    res.status(500).json({ error: "Draft generation failed" });
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("AI_INTEGRATIONS_ANTHROPIC_BASE_URL") || msg.includes("AI_INTEGRATIONS_ANTHROPIC_API_KEY")) {
+      logger.error({ err }, "[Content] Anthropic AI integration not configured — draft generation will fail");
+      res.status(500).json({ error: "AI integration is not configured on this server. Ask your administrator to set AI_INTEGRATIONS_ANTHROPIC_BASE_URL and AI_INTEGRATIONS_ANTHROPIC_API_KEY." });
+      return;
+    }
+    // Check for Anthropic API errors (they carry a status property)
+    const status = (err as Record<string, unknown>)["status"];
+    if (typeof status === "number") {
+      logger.error({ err, status }, "[Content] Anthropic API error");
+      res.status(500).json({ error: `Anthropic API error (HTTP ${status}) — check server logs for details.` });
+      return;
+    }
+    logger.error({ err }, "[Content] Draft generation failed (unexpected error)");
+    res.status(500).json({ error: "Draft generation failed — check server logs for details." });
   }
 });
 
