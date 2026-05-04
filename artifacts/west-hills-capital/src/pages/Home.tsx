@@ -55,7 +55,7 @@ export default function Home() {
       <section className="relative pt-16 pb-0 overflow-hidden bg-background">
         <div className="absolute inset-0 z-0">
           <img
-            src={`${import.meta.env.BASE_URL}images/hero-bg.jpg`}
+            src={`${import.meta.env.BASE_URL}images/hero-bg.webp`}
             alt=""
             fetchPriority="high"
             className="w-full h-full object-cover opacity-30"
@@ -287,7 +287,7 @@ export default function Home() {
             <div className="relative">
               <div className="aspect-[4/5] rounded-2xl overflow-hidden shadow-2xl relative">
                 <img
-                  src={`${import.meta.env.BASE_URL}images/coins-hero.jpg`}
+                  src={`${import.meta.env.BASE_URL}images/coins-hero.webp`}
                   alt="Gold and silver coins"
                   loading="lazy"
                   className="w-full h-full object-cover"

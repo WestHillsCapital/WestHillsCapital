@@ -51,7 +51,10 @@ const IraRolloverPage     = lazy(() => import("@/pages/seo/IraRolloverPage"));
 const CoinYearPage        = lazy(() => import("@/pages/seo/CoinYearPage"));
 const StateGoldIraPage    = lazy(() => import("@/pages/seo/StateGoldIraPage"));
 const CustodianPage       = lazy(() => import("@/pages/seo/CustodianPage"));
-const ComparisonPage      = lazy(() => import("@/pages/seo/ComparisonPage"));
+const ComparisonPage        = lazy(() => import("@/pages/seo/ComparisonPage"));
+const LearnHubPage          = lazy(() => import("@/pages/seo/LearnHubPage"));
+const DepositoriesHubPage   = lazy(() => import("@/pages/seo/DepositoriesHubPage"));
+const DepositoryPage        = lazy(() => import("@/pages/seo/DepositoryPage"));
 
 // ── Internal pages (lazy-loaded — never sent to public visitors) ──────────────
 const InternalProspectingPipeline = lazy(() => import("@/pages/internal/Leads"));
@@ -187,11 +190,14 @@ function Router() {
           <Route path="/ira/rollover/:accountType" component={IraRolloverPage} />
           <Route path="/ira/custodians"            component={CustodiansHubPage} />
           <Route path="/ira/custodians/:custodianSlug" component={CustodianPage} />
+          <Route path="/ira/depositories"          component={DepositoriesHubPage} />
+          <Route path="/ira/depositories/:depositorySlug" component={DepositoryPage} />
           <Route path="/products"                  component={CoinsHubPage} />
           <Route path="/products/:coinSlug/:year"  component={CoinYearPage} />
           <Route path="/products/:coinSlug"        component={CoinYearPage} />
           <Route path="/gold-ira"                  component={StatesHubPage} />
           <Route path="/gold-ira/:stateSlug"       component={StateGoldIraPage} />
+          <Route path="/learn"                     component={LearnHubPage} />
           <Route path="/learn/:comparisonSlug"     component={ComparisonPage} />
           <Route component={NotFound} />
         </Switch>

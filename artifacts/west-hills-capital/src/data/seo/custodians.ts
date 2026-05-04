@@ -299,6 +299,65 @@ export const CUSTODIANS: Custodian[] = [
       },
     ],
   },
+  {
+    slug: "advanta-ira",
+    name: "Advanta IRA",
+    shortName: "Advanta IRA",
+    location: "Lake Mary, Florida",
+    founded: 2004,
+    description:
+      "Advanta IRA is a self-directed IRA administrator headquartered in Lake Mary, Florida, with additional offices serving clients nationwide. They specialize in self-directed retirement accounts holding alternative assets — including physical precious metals — and are known for their educational resources and client-focused approach to account administration.",
+    howWeWork:
+      "West Hills Capital coordinates precious metals purchases for clients who use Advanta IRA as their administrator. Once your account is funded and Advanta IRA issues a direction of investment, we confirm current pricing and execute the purchase. Metal ships directly to the IRS-approved depository designated by your account — Advanta IRA handles all administrative and reporting functions.",
+    accountTypes: [
+      "Traditional Self-Directed IRA",
+      "Roth Self-Directed IRA",
+      "SEP IRA",
+      "SIMPLE IRA",
+      "Solo 401(k)",
+      "Health Savings Account (HSA)",
+    ],
+    setupSteps: [
+      {
+        step: 1,
+        title: "Open Your Advanta IRA Account",
+        description:
+          "Complete Advanta IRA's account application for a self-directed IRA. They offer Traditional, Roth, SEP, and other account types — choose based on your current tax situation and goals.",
+      },
+      {
+        step: 2,
+        title: "Fund via Transfer or Rollover",
+        description:
+          "Initiate a direct transfer from your existing IRA or a rollover from a 401(k) or other qualified plan. Advanta IRA manages the incoming transfer process and coordinates with your current custodian.",
+      },
+      {
+        step: 3,
+        title: "Issue Direction of Investment",
+        description:
+          "Once funds are cleared, Advanta IRA issues a direction of investment to West Hills Capital authorizing your purchase. We confirm current pricing and execute the trade.",
+      },
+      {
+        step: 4,
+        title: "Metal Delivered to Depository",
+        description:
+          "We ship the metal directly to your designated IRS-approved depository. The depository confirms receipt and Advanta IRA updates your account statement.",
+      },
+    ],
+    faqs: [
+      {
+        q: "Is Advanta IRA a custodian or an administrator?",
+        a: "Advanta IRA operates as a self-directed IRA administrator working under an IRS-approved custodian. This structure is common in the self-directed IRA industry and does not affect the IRS approval status of your account or the metals held within it.",
+      },
+      {
+        q: "Does Advanta IRA have educational resources for new investors?",
+        a: "Yes. Advanta IRA is known for providing educational materials and events about self-directed IRAs and alternative asset investing. For precious metals specifically, West Hills Capital provides guidance on eligible metals, pricing, and the purchase process.",
+      },
+      {
+        q: "What depositories does Advanta IRA work with for precious metals?",
+        a: "Advanta IRA coordinates with IRS-approved depositories for precious metals storage. Common options include Delaware Depository and International Depository Services. Confirm current depository options when setting up your account.",
+      },
+    ],
+  },
 ];
 
 export function getCustodianBySlug(slug: string): Custodian | undefined {

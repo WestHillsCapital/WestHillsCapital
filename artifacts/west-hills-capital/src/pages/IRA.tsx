@@ -69,7 +69,7 @@ export default function IRA() {
       {/* HEADER */}
       <section className="relative bg-foreground text-white py-24 overflow-hidden">
         <img
-          src={`${import.meta.env.BASE_URL}images/ira-banner.jpg`}
+          src={`${import.meta.env.BASE_URL}images/ira-banner.webp`}
           alt=""
           aria-hidden="true"
           fetchPriority="high"
