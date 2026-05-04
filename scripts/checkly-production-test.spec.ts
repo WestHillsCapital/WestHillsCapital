@@ -136,8 +136,8 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   await scrollToSection(page, "profile-section");
   const profileSection = page.locator("#profile-section").first();
   await expect(profileSection).toBeVisible({ timeout: 8000 });
-  // Display name text input (file input for avatar is hidden — skip it)
-  const profileNameInput = profileSection.locator("input[type='text'], input:not([type='file']):not([type='hidden'])").first();
+  // Display name field — target by id to skip hidden file inputs
+  const profileNameInput = page.locator("#profile-display-name");
   await expect(profileNameInput).toBeVisible();
   console.log("✅ [4.1] Profile section — name input visible");
 
@@ -298,7 +298,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.15 Audit log ──────────────────────────────────────────────────────────
   await clickNavItem(page, "Audit log");
   await scrollToSection(page, "audit-log-section");
-  const auditSection = page.locator("#audit-log-section").first();
+  const auditSection = page.locator("#audit-log-section");
   const hasAudit = await auditSection.isVisible().catch(() => false);
   if (hasAudit) {
     // Filter dropdown + log table/list
