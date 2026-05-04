@@ -298,7 +298,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.15 Audit log ──────────────────────────────────────────────────────────
   await clickNavItem(page, "Audit log");
   await scrollToSection(page, "audit-log-section");
-  const auditSection = page.locator("#audit-log-section");
+  const auditSection = page.locator("#audit-log-section").first();
   const hasAudit = await auditSection.isVisible().catch(() => false);
   if (hasAudit) {
     // Filter dropdown + log table/list
