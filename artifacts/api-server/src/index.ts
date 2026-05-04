@@ -70,6 +70,16 @@ const server: Server = app.listen(port, () => {
     );
   }
 
+  // ── 3d. Content Engine AI integration probe ───────────────────────────────
+  if (!process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL) {
+    logger.warn(
+      "[Content] Anthropic AI integration not configured — draft generation will fail. " +
+      "Set AI_INTEGRATIONS_ANTHROPIC_BASE_URL and AI_INTEGRATIONS_ANTHROPIC_API_KEY in Railway environment variables."
+    );
+  } else {
+    logger.info("[Content] Anthropic AI integration present — draft generation enabled.");
+  }
+
   // ── 3c. Encryption-at-rest key probe ──────────────────────────────────────
   if (!process.env.ENCRYPTION_MASTER_KEY) {
     logger.warn(
