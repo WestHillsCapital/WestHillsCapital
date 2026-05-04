@@ -10,18 +10,22 @@ const router: IRouter = Router();
 // Supports two credential paths:
 //   1. Replit AI proxy (dev): AI_INTEGRATIONS_ANTHROPIC_BASE_URL + AI_INTEGRATIONS_ANTHROPIC_API_KEY
 //   2. Direct Anthropic key (Railway / production): ANTHROPIC_API_KEY
+function isValidUrl(s: string): boolean {
+  try { new URL(s); return true; } catch { return false; }
+}
+
 function getAnthropicClient(): Anthropic {
-  if (process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL && process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY) {
-    return new Anthropic({
-      apiKey:  process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-      baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
-    });
+  const proxyUrl = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL;
+  const proxyKey = process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  // Only use the Replit proxy path if the base URL is actually a valid URL
+  if (proxyUrl && proxyKey && isValidUrl(proxyUrl)) {
+    return new Anthropic({ apiKey: proxyKey, baseURL: proxyUrl });
   }
   if (process.env.ANTHROPIC_API_KEY) {
     return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   }
   throw new Error(
-    "No Anthropic credentials configured. Set AI_INTEGRATIONS_ANTHROPIC_BASE_URL + AI_INTEGRATIONS_ANTHROPIC_API_KEY (Replit env) or ANTHROPIC_API_KEY (production).",
+    "No Anthropic credentials configured. Set ANTHROPIC_API_KEY in Railway environment variables.",
   );
 }
 
