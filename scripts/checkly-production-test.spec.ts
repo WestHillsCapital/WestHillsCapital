@@ -167,8 +167,9 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   await scrollToSection(page, "timezone-locale-section");
   const tzSection = page.locator("#timezone-locale-section").first();
   await expect(tzSection).toBeVisible({ timeout: 8000 });
-  const tzSelect  = tzSection.locator("select, [role='combobox']").first();
-  await expect(tzSelect).toBeVisible();
+  // Timezone uses a custom listbox + search input (not a native <select>)
+  const tzSearch = tzSection.locator("input[placeholder*='timezones' i], input[placeholder*='timezone' i], [role='listbox']").first();
+  await expect(tzSearch).toBeVisible();
   console.log("✅ [4.4] Timezone section — selector visible");
 
   // ── 4.5 Organization (branding) ────────────────────────────────────────────
