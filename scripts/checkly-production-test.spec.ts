@@ -72,11 +72,13 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // that Clerk renders for accessibility scaffolding.
   await page.locator('button.cl-formButtonPrimary:not([aria-hidden="true"])').first().click();
 
-  // Wait until the URL is fully inside the app and no longer on any sign-in step.
-  // /app/sign-in/factor-one and factor-two are still Clerk sign-in pages,
-  // so we wait until the URL contains /app/ but NOT sign-in.
+  // Wait until the URL is inside the app and not on any sign-in step.
+  // Handles both /app and /app/* (Clerk may land on /app without trailing slash).
   await page.waitForURL(
-    (url) => url.pathname.startsWith("/app/") && !url.pathname.includes("sign-in"),
+    (url) => {
+      const p = url.pathname;
+      return (p === "/app" || p.startsWith("/app/")) && !p.includes("sign-in");
+    },
     { timeout: 30000 }
   );
   console.log("✅ [1] Signed in — URL:", page.url());
