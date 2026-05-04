@@ -134,7 +134,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.1 Profile ────────────────────────────────────────────────────────────
   await clickNavItem(page, "Profile");
   await scrollToSection(page, "profile-section");
-  const profileSection = page.locator("#profile-section");
+  const profileSection = page.locator("#profile-section").first();
   await expect(profileSection).toBeVisible({ timeout: 8000 });
   // First/last name or display name field
   const profileNameInput = profileSection.locator("input").first();
@@ -144,7 +144,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.2 Security ───────────────────────────────────────────────────────────
   await clickNavItem(page, "Security");
   await scrollToSection(page, "security-section");
-  const securitySection = page.locator("#security-section");
+  const securitySection = page.locator("#security-section").first();
   await expect(securitySection).toBeVisible({ timeout: 8000 });
   // Expect a password-change or 2FA element
   const securityContent = securitySection.locator("button, input, p").first();
@@ -154,7 +154,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.3 Notifications ──────────────────────────────────────────────────────
   await clickNavItem(page, "Notifications");
   await scrollToSection(page, "notifications-section");
-  const notifSection = page.locator("#notifications-section");
+  const notifSection = page.locator("#notifications-section").first();
   await expect(notifSection).toBeVisible({ timeout: 8000 });
   // Should contain toggle switches for notification types
   const notifToggles = notifSection.locator("input[type='checkbox'], button[role='switch']");
@@ -165,7 +165,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.4 Timezone ───────────────────────────────────────────────────────────
   await clickNavItem(page, "Timezone");
   await scrollToSection(page, "timezone-locale-section");
-  const tzSection = page.locator("#timezone-locale-section");
+  const tzSection = page.locator("#timezone-locale-section").first();
   await expect(tzSection).toBeVisible({ timeout: 8000 });
   const tzSelect  = tzSection.locator("select, [role='combobox']").first();
   await expect(tzSelect).toBeVisible();
@@ -174,7 +174,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.5 Organization (branding) ────────────────────────────────────────────
   await clickNavItem(page, "Organization");
   await scrollToSection(page, "organization-section");
-  const orgSection = page.locator("#organization-section");
+  const orgSection = page.locator("#organization-section").first();
   await expect(orgSection).toBeVisible({ timeout: 8000 });
   // Org name field
   const orgNameInput = orgSection.locator("input[type='text'], input:not([type])").first();
@@ -187,7 +187,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.6 Billing ────────────────────────────────────────────────────────────
   await clickNavItem(page, "Billing");
   await scrollToSection(page, "billing-section");
-  const billingSection = page.locator("#billing-section");
+  const billingSection = page.locator("#billing-section").first();
   await expect(billingSection).toBeVisible({ timeout: 8000 });
 
   // Plan tier badge
@@ -209,7 +209,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
 
   // ── 4.7 Submission Bank ────────────────────────────────────────────────────
   await scrollToSection(page, "submission-bank-section");
-  const subBankSection = page.locator("#submission-bank-section");
+  const subBankSection = page.locator("#submission-bank-section").first();
   const hasSubBank = await subBankSection.isVisible().catch(() => false);
   if (hasSubBank) {
     const buyBtn = subBankSection.getByRole("button", { name: /buy/i });
@@ -222,7 +222,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.8 Custom domain ──────────────────────────────────────────────────────
   await clickNavItem(page, "Custom domain");
   await scrollToSection(page, "custom-domain-section");
-  const cdSection = page.locator("#custom-domain-section");
+  const cdSection = page.locator("#custom-domain-section").first();
   const hasCd = await cdSection.isVisible().catch(() => false);
   if (hasCd) {
     console.log("✅ [4.8] Custom domain section visible");
@@ -233,7 +233,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.9 Team ───────────────────────────────────────────────────────────────
   await clickNavItem(page, "Team");
   await scrollToSection(page, "team-section");
-  const teamSection = page.locator("#team-section");
+  const teamSection = page.locator("#team-section").first();
   await expect(teamSection).toBeVisible({ timeout: 8000 });
   // At least one member row (the account owner)
   const memberRows = teamSection.locator("tr, [data-testid='team-member-row'], [class*='member']");
@@ -247,7 +247,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.10 Interview defaults ─────────────────────────────────────────────────
   await clickNavItem(page, "Interview");
   await scrollToSection(page, "interview-defaults-section");
-  const interviewSection = page.locator("#interview-defaults-section");
+  const interviewSection = page.locator("#interview-defaults-section").first();
   await expect(interviewSection).toBeVisible({ timeout: 8000 });
   const interviewToggles = interviewSection.locator("input[type='checkbox'], button[role='switch']");
   const toggleCount = await interviewToggles.count();
@@ -256,7 +256,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.11 Email ─────────────────────────────────────────────────────────────
   await clickNavItem(page, "Email");
   await scrollToSection(page, "email-section");
-  const emailSection = page.locator("#email-section");
+  const emailSection = page.locator("#email-section").first();
   await expect(emailSection).toBeVisible({ timeout: 8000 });
   const emailContent = emailSection.locator("input, button, p").first();
   await expect(emailContent).toBeVisible();
@@ -265,7 +265,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.12 Integrations ──────────────────────────────────────────────────────
   await clickNavItem(page, "Integrations");
   await scrollToSection(page, "integrations-section");
-  const intSection = page.locator("#integrations-section");
+  const intSection = page.locator("#integrations-section").first();
   await expect(intSection).toBeVisible({ timeout: 8000 });
   // Expect Google Drive and/or HubSpot connect buttons
   const driveBtn    = intSection.getByRole("button", { name: /google drive|connect/i }).first();
@@ -285,7 +285,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.14 Data & Privacy ─────────────────────────────────────────────────────
   await clickNavItem(page, "Data & Privacy");
   await scrollToSection(page, "data-privacy-section");
-  const privacySection = page.locator("#data-privacy-section");
+  const privacySection = page.locator("#data-privacy-section").first();
   await expect(privacySection).toBeVisible({ timeout: 8000 });
   // Data retention selector
   const retentionSelect = privacySection.locator("select, [role='combobox']").first();
@@ -298,7 +298,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   // ── 4.15 Audit log ──────────────────────────────────────────────────────────
   await clickNavItem(page, "Audit log");
   await scrollToSection(page, "audit-log-section");
-  const auditSection = page.locator("#audit-log-section");
+  const auditSection = page.locator("#audit-log-section").first();
   const hasAudit = await auditSection.isVisible().catch(() => false);
   if (hasAudit) {
     // Filter dropdown + log table/list
