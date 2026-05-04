@@ -508,6 +508,23 @@ const GAP_TOPICS: Record<string, GapTopic[]> = {
     { topic: "How to evaluate gold dealer reviews — what to look for",          volume: "Low",  priority: "P3" },
     { topic: "Why some dealers push numismatic coins on first-time buyers",     volume: "Low",  priority: "P3" },
   ],
+  "programmatic-seo-pairs": [
+    { topic: "What happens to your 401(k) fees after a gold rollover",                    volume: "High", priority: "P1" },
+    { topic: "Why the American Gold Eagle remains the most liquid bullion coin",           volume: "High", priority: "P1" },
+    { topic: "How gold performs in high-inflation states — historical context",            volume: "Med",  priority: "P1" },
+    { topic: "What a Gold Buffalo can do that a Gold Eagle cannot",                       volume: "Med",  priority: "P2" },
+    { topic: "The 2-year SIMPLE IRA rule: what it means for a precious metals rollover",  volume: "Med",  priority: "P2" },
+    { topic: "Equity Trust vs. GoldStar Trust: choosing a precious metals IRA custodian", volume: "High", priority: "P1" },
+    { topic: "Why TSP rollovers to a Precious Metals IRA work differently than 401(k)",   volume: "Med",  priority: "P2" },
+    { topic: "Gold vs. bonds in a rising-rate environment — what history shows",          volume: "High", priority: "P1" },
+    { topic: "Physical gold vs. gold ETF in a financial crisis",                          volume: "High", priority: "P1" },
+    { topic: "The Gold Buffalo's .9999 purity — what it actually means for IRA holders",  volume: "Med",  priority: "P2" },
+    { topic: "Silver Eagle premiums: why they're higher and what it means when you sell",  volume: "Med",  priority: "P2" },
+    { topic: "How gold has held purchasing power across 50-year periods",                  volume: "High", priority: "P1" },
+    { topic: "Is a Gold IRA better than a Roth IRA for early retirement?",                volume: "High", priority: "P1" },
+    { topic: "What 'IRA eligible' really means for a gold coin",                          volume: "Med",  priority: "P2" },
+    { topic: "How a pension lump-sum rollover into a Precious Metals IRA works",          volume: "Low",  priority: "P3" },
+  ],
 };
 
 // ─── COVERAGE PANEL ───────────────────────────────────────────────────────────

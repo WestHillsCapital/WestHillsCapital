@@ -5,6 +5,11 @@ import path from "path";
 import fs from "fs";
 import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
 import { INSIGHTS } from "./src/data/insights";
+import { IRA_ROLLOVERS } from "./src/data/seo/ira-rollovers";
+import { COINS } from "./src/data/seo/coins";
+import { US_STATES } from "./src/data/seo/states";
+import { CUSTODIANS } from "./src/data/seo/custodians";
+import { COMPARISONS } from "./src/data/seo/comparisons";
 
 // PORT and BASE_PATH are required in Replit but optional elsewhere (e.g. Vercel).
 // Defaults allow `vite build` to succeed without those env vars being set.
@@ -36,19 +41,47 @@ const STATIC_PAGES = [
   { loc: "/privacy", changefreq: "yearly", priority: "0.3" },
 ];
 
+const COIN_YEARS = [2020, 2021, 2022, 2023, 2024, 2025] as const;
+
 function buildSitemapXml(): string {
-  const articlePages = INSIGHTS.map((a) => ({
+  const buildDate = new Date().toISOString().split("T")[0];
+
+  type Entry = { loc: string; changefreq: string; priority: string; lastmod: string };
+
+  const articlePages: Entry[] = INSIGHTS.map((a) => ({
     loc: `/insights/${a.slug}`,
     changefreq: "yearly",
     priority: "0.7",
+    lastmod: buildDate,
   }));
 
-  const allPages = [...STATIC_PAGES, ...articlePages];
+  const seoPages: Entry[] = [];
+  for (const rollover of IRA_ROLLOVERS) {
+    seoPages.push({ loc: `/ira/rollover/${rollover.slug}`, changefreq: "monthly", priority: "0.75", lastmod: buildDate });
+  }
+  for (const coin of COINS) {
+    seoPages.push({ loc: `/products/${coin.slug}`, changefreq: "monthly", priority: "0.75", lastmod: buildDate });
+    for (const year of COIN_YEARS) {
+      seoPages.push({ loc: `/products/${coin.slug}/${year}`, changefreq: "monthly", priority: "0.65", lastmod: buildDate });
+    }
+  }
+  for (const state of US_STATES) {
+    seoPages.push({ loc: `/gold-ira/${state.slug}`, changefreq: "monthly", priority: "0.7", lastmod: buildDate });
+  }
+  for (const custodian of CUSTODIANS) {
+    seoPages.push({ loc: `/ira/custodians/${custodian.slug}`, changefreq: "monthly", priority: "0.7", lastmod: buildDate });
+  }
+  for (const comparison of COMPARISONS) {
+    seoPages.push({ loc: `/learn/${comparison.slug}`, changefreq: "monthly", priority: "0.7", lastmod: buildDate });
+  }
+
+  const staticWithLastmod = STATIC_PAGES.map((p) => ({ ...p, lastmod: buildDate }));
+  const allPages: Entry[] = [...staticWithLastmod, ...articlePages, ...seoPages];
 
   const urlEntries = allPages
     .map(
-      ({ loc, changefreq, priority }) =>
-        `  <url>\n    <loc>${SITE_BASE}${loc}</loc>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`,
+      ({ loc, changefreq, priority, lastmod }) =>
+        `  <url>\n    <loc>${SITE_BASE}${loc}</loc>\n    <lastmod>${lastmod}</lastmod>\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`,
     )
     .join("\n");
 

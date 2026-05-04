@@ -483,6 +483,31 @@ export default function LivePricing() {
           </>
         )}
 
+        {/* COIN PRODUCT PAGES */}
+        <div className="max-w-5xl mx-auto mb-14">
+          <div className="text-center mb-6">
+            <h2 className="text-2xl font-serif font-semibold mb-2">Coin Specifications & IRA Eligibility</h2>
+            <p className="text-foreground/55 text-sm leading-relaxed">Learn more about each coin — specifications, year-by-year availability, and why sovereign bullion outperforms proof coins for long-term investors.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {[
+              { name: "American Gold Eagle", slug: "american-gold-eagle", detail: ".9167 fine · 1 oz · IRA Eligible" },
+              { name: "American Gold Buffalo", slug: "american-gold-buffalo", detail: ".9999 fine · 1 oz · IRA Eligible" },
+              { name: "American Silver Eagle", slug: "american-silver-eagle", detail: ".999 fine · 1 oz · IRA Eligible" },
+            ].map((coin) => (
+              <Link key={coin.slug} href={`/products/${coin.slug}`}>
+                <div className="group bg-white border border-border/40 rounded-xl p-5 hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer flex items-center justify-between">
+                  <div>
+                    <p className="font-semibold text-sm group-hover:text-primary transition-colors">{coin.name}</p>
+                    <p className="text-xs text-foreground/45 mt-0.5">{coin.detail}</p>
+                  </div>
+                  <ArrowRight className="w-4 h-4 text-foreground/30 group-hover:text-primary group-hover:translate-x-0.5 transition-all shrink-0" />
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+
         {/* BUYBACK SECTION */}
         <div className="max-w-4xl mx-auto mb-14">
           <div className="text-center mb-8">

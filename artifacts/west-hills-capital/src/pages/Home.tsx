@@ -318,6 +318,47 @@ export default function Home() {
         </div>
       </section>
 
+      {/* ROLLOVER TYPES GRID */}
+      <section className="py-20 bg-background border-t border-border/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <h2 className="text-3xl lg:text-4xl font-serif font-semibold mb-3">Common Rollover Types</h2>
+            <p className="text-foreground/60 leading-relaxed max-w-xl mx-auto">
+              Most tax-advantaged retirement accounts can be rolled into a self-directed Precious Metals IRA without a taxable event.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-4xl mx-auto mb-8">
+            {[
+              { label: "401(k) Rollover", slug: "401k" },
+              { label: "Roth IRA Transfer", slug: "roth-ira" },
+              { label: "SEP IRA Rollover", slug: "sep-ira" },
+              { label: "403(b) Rollover", slug: "403b" },
+              { label: "TSP Rollover", slug: "tsp" },
+              { label: "457(b) Rollover", slug: "457b" },
+              { label: "SIMPLE IRA", slug: "simple-ira" },
+              { label: "Pension Rollover", slug: "pension" },
+            ].map((item) => (
+              <Link key={item.slug} href={`/ira/rollover/${item.slug}`}>
+                <div className="group bg-white border border-border/40 rounded-xl p-4 text-center hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer">
+                  <ArrowRight className="w-4 h-4 text-primary/50 mx-auto mb-2 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                  <p className="text-sm font-semibold text-foreground/75 group-hover:text-primary transition-colors leading-tight">
+                    {item.label}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+          <div className="text-center">
+            <Link href="/ira">
+              <Button variant="outline" className="bg-white">
+                How the IRA Process Works
+                <ArrowRight className="ml-2 w-4 h-4" />
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </section>
+
       {/* BOTTOM CTA */}
       <section className="py-20 bg-primary/5">
         <div className="max-w-4xl mx-auto px-4 text-center">
