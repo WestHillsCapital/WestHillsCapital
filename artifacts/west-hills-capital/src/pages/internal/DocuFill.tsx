@@ -1920,7 +1920,27 @@ export default function DocuFill() {
         // Scroll mode: expose the loaded doc as React state so ScrollPageCanvas
         // re-renders and renders each page. No canvas rendering needed here.
         if (mapperScrollMode) {
-          if (!cancelled) { setScrollPdfDoc(doc); setIsPdfRendering(false); }
+          if (!cancelled) {
+            setScrollPdfDoc(doc);
+            setIsPdfRendering(false);
+            const scrollPage = await doc.getPage(selectedPage);
+            if (!cancelled) {
+              const rawAnnotations = await scrollPage.getAnnotations();
+              if (!cancelled) {
+                const widgets: AcroAnnotation[] = [];
+                for (const ann of rawAnnotations) {
+                  const a = ann as Record<string, unknown>;
+                  if (a["subtype"] !== "Widget") continue;
+                  const r = a["rect"];
+                  if (!Array.isArray(r) || r.length < 4) continue;
+                  const [x1, y1, x2, y2] = r.map(Number);
+                  if (x2 - x1 < 2 || y2 - y1 < 2) continue;
+                  widgets.push({ fieldName: String(a["fieldName"] ?? a["alternativeText"] ?? ""), rect: [x1, y1, x2, y2], fieldType: String(a["fieldType"] ?? "") });
+                }
+                setAcroAnnotations(widgets);
+              }
+            }
+          }
           return;
         }
         // Single-page mode: render the selected page to the main canvas.
@@ -5572,7 +5592,7 @@ export default function DocuFill() {
             </section>
 
             <section className="bg-white border border-[#DDD5C4] rounded-lg flex flex-col min-h-0 overflow-hidden">
-              {inspectorMode === "panel" && placementModal && selectedPackage ? (() => {
+              {inspectorMode === "panel" && placementModal && selectedPackage && (() => {
                 const mapping = selectedPackage.mappings.find((item) => item.id === placementModal.mappingId);
                 const field = mapping ? selectedPackage.fields.find((item) => item.id === mapping.fieldId) : undefined;
                 const formatOptions = mappingFormatOptionsForField(field);
@@ -5593,7 +5613,7 @@ export default function DocuFill() {
                   { value: "omitted",   label: "Omit",      color: "#6B7A99", textClass: "text-[#6B7A99]" },
                 ];
                 return (
-                  <>
+                  <div style={{ maxHeight: "55%", overflowY: "auto" }} className="flex flex-col flex-shrink-0 border-b border-[#DDD5C4]">
                     <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#DDD5C4] flex-shrink-0">
                       <div className="flex items-center gap-2 min-w-0">
                         {field && <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: field.color }} />}
@@ -5753,10 +5773,10 @@ export default function DocuFill() {
                         Remove
                       </button>
                     </div>
-                  </>
+                  </div>
                 );
-              })() : (
-                <div className="p-3 flex flex-col min-h-0 flex-1">
+              })()}
+              <div className="p-3 flex flex-col min-h-0 flex-1">
                   <div className="flex items-center justify-between mb-2 flex-shrink-0">
                     <h2 className="text-sm font-semibold">Fields</h2>
                     <button onClick={openFieldEditorForAdd} className="text-xs text-[#C49A38]">Add</button>
@@ -5894,7 +5914,6 @@ export default function DocuFill() {
                   </DndContext>
                   </div>
                 </div>
-              )}
             </section>
           </div>
         )
