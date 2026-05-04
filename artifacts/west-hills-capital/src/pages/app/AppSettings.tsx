@@ -583,6 +583,16 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                   >
                     {isUpgrading ? "Opening…" : "Upgrade"}
                   </button>
+                  {billing.has_stripe_subscription && (
+                    <button
+                      type="button"
+                      disabled={isPortaling}
+                      onClick={() => { void handlePortal(); }}
+                      className="rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
+                    >
+                      {isPortaling ? "Opening…" : "Manage billing"}
+                    </button>
+                  )}
                 </div>
               ) : billing.has_stripe_subscription ? (
                 <button
