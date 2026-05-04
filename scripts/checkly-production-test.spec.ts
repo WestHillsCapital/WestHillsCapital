@@ -90,7 +90,7 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   await page.waitForLoadState("networkidle");
 
   // The main tab label visible on this page is "Package Builder"
-  const pkgBuilderTab = page.getByRole("button", { name: /package builder/i });
+  const pkgBuilderTab = page.getByRole("button", { name: "Package Builder", exact: true }).first();
   await expect(pkgBuilderTab).toBeVisible({ timeout: 10000 });
   console.log("✅ [2a] Packages page loaded — Package Builder tab visible");
 
