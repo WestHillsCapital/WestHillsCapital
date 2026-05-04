@@ -56,15 +56,25 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   await page.goto(`${BASE}/app/sign-in`);
   await page.waitForLoadState("networkidle");
 
-  const emailInput = page.locator('input[type="email"], input[name="identifier"], input[name="emailAddress"]').first();
+  const emailInput = page.locator('input[name="identifier"], input[name="emailAddress"], input[type="email"]').first();
   await emailInput.waitFor({ timeout: 20000 });
   await emailInput.fill(EMAIL);
-  await page.getByRole("button", { name: /continue|next/i }).first().click();
 
+  // Click the email-submit Continue button — NOT the "Continue with Google" OAuth button.
+  // Clerk renders the email form's submit as a button immediately after the input,
+  // so target it by type="submit" within the form, or by data-localization-key.
+  const emailSubmitBtn = page.locator('button[type="submit"]').first();
+  await emailSubmitBtn.click();
+
+  // Wait for the password field to appear AND become enabled (Clerk disables it briefly
+  // during the transition between steps).
   const passwordInput = page.locator('input[type="password"]').first();
-  await passwordInput.waitFor({ timeout: 10000 });
+  await passwordInput.waitFor({ state: "visible", timeout: 15000 });
+  await expect(passwordInput).toBeEnabled({ timeout: 10000 });
   await passwordInput.fill(PASSWORD);
-  await page.getByRole("button", { name: /sign in|continue/i }).first().click();
+
+  // Submit the password step
+  await page.locator('button[type="submit"]').first().click();
 
   await page.waitForURL(`${BASE}/app/**`, { timeout: 20000 });
   await expect(page).not.toHaveURL(/sign-in/);
