@@ -169,7 +169,7 @@ export const COINS: CoinProduct[] = [
       isReportable: true,
       threshold: "25 or more 1 oz coins in a single transaction",
       notes:
-        "When you sell 25 or more 1 oz Canadian Gold Maple Leafs to a dealer in a single transaction, the dealer is required to file IRS Form 1099-B. This is the same threshold that applies to American Gold Eagles and South African Krugerrands. Transactions below 25 oz are not subject to dealer reporting, though you remain personally responsible for reporting any capital gains on your own tax return.",
+        "When you sell 25 or more 1 oz Canadian Gold Maple Leafs to a dealer in a single transaction, the dealer is required to file IRS Form 1099-B. The Maple Leaf is one of only three coins on the IRS reportable list — alongside the South African Krugerrand and the Mexican Gold Onza. Transactions below 25 oz are not subject to dealer reporting, though you remain personally responsible for reporting any capital gains on your own tax return.",
     },
     specs: [
       { label: "Purity", value: ".9999 fine (24-karat)" },
@@ -272,7 +272,7 @@ export const COINS: CoinProduct[] = [
       isReportable: true,
       threshold: "25 or more 1 oz coins in a single transaction",
       notes:
-        "When you sell 25 or more 1 oz South African Krugerrands to a dealer in a single transaction, the dealer is required to file IRS Form 1099-B. The Krugerrand shares this reporting threshold with the American Gold Eagle and Canadian Gold Maple Leaf. Investors who hold Krugerrands should be aware that large liquidations will generate a 1099-B. Transactions below 25 oz are not reportable by the dealer, though you remain responsible for reporting capital gains on your own return regardless.",
+        "When you sell 25 or more 1 oz South African Krugerrands to a dealer in a single transaction, the dealer is required to file IRS Form 1099-B. The Krugerrand is one of only three coins on the IRS reportable list — alongside the Canadian Gold Maple Leaf and the Mexican Gold Onza. Investors who hold Krugerrands should be aware that large liquidations will generate a 1099-B. Transactions below 25 oz are not reportable by the dealer, though you remain responsible for reporting capital gains on your own return regardless.",
     },
     specs: [
       { label: "Purity", value: ".9167 fine (22-karat)" },
@@ -304,10 +304,9 @@ export const COINS: CoinProduct[] = [
     whyBullion:
       "The Silver Maple Leaf's .9999 purity exceeds the .999 standard of the American Silver Eagle, making it the purest widely available silver bullion coin. Its global recognition and deep dealer network ensure strong liquidity when you're ready to sell. For IRA investors, the Maple Leaf meets the IRS purity threshold for silver (.999 or better) and is fully eligible for self-directed IRA accounts.",
     reporting: {
-      isReportable: true,
-      threshold: "1,000 or more 1 oz coins in a single transaction",
+      isReportable: false,
       notes:
-        "When you sell 1,000 or more 1 oz Canadian Silver Maple Leafs to a dealer in a single transaction, the dealer is required to file IRS Form 1099-B. This is the same threshold that applies to American Silver Eagles. At current silver prices, 1,000 oz represents a significant position — the vast majority of individual investors will never approach this threshold. You remain responsible for reporting capital gains on your own return regardless of whether a 1099-B is filed.",
+        "The Canadian Silver Maple Leaf is not on the IRS list of reportable precious metals. Dealers are not required to file Form 1099-B when you sell Silver Maple Leafs, regardless of quantity. Only silver bars meeting a .999 fineness threshold of 1,000 troy oz or more trigger dealer reporting — silver coins such as the Maple Leaf and the American Silver Eagle are not included. You remain personally responsible for reporting any capital gains on your own tax return regardless of dealer reporting obligations.",
     },
     specs: [
       { label: "Purity", value: ".9999 fine" },
