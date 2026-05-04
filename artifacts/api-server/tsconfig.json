@@ -2,11 +2,13 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "outDir": "dist",
-    "rootDir": "src",
     "types": ["node"],
     "resolveJsonModule": true
   },
-  "include": ["src"],
+  "include": [
+    "src",
+    "../west-hills-capital/src/data/seo"
+  ],
   "references": [
     {
       "path": "../../lib/db"

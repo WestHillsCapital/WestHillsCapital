@@ -5,8 +5,9 @@ import { useSubmitLeadIntake } from "@/hooks/use-leads";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Shield, Building2, FileText, CheckCircle2 } from "lucide-react";
+import { Shield, Building2, FileText, CheckCircle2, ArrowRight } from "lucide-react";
 import { usePageMeta } from "@/hooks/use-page-meta";
+import { Link } from "wouter";
 
 const US_STATES = [
   ["AL", "Alabama"], ["AK", "Alaska"], ["AZ", "Arizona"], ["AR", "Arkansas"],
@@ -82,6 +83,70 @@ export default function IRA() {
           <p className="text-lg text-white/70 leading-relaxed max-w-2xl mx-auto">
             IRA allocations require proper custodial coordination. We guide you through the process step-by-step — from rollover or transfer to depository delivery — without the sales pressure.
           </p>
+        </div>
+      </section>
+
+      {/* ROLLOVER FROM YOUR ACCOUNT TYPE */}
+      <section className="py-16 bg-white border-t border-border/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl lg:text-3xl font-serif font-semibold mb-3">Rollover From Your Account Type</h2>
+            <p className="text-foreground/60 max-w-xl mx-auto">
+              Different account types have different rules. Select yours to learn what applies.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 max-w-4xl mx-auto mb-6">
+            {[
+              { label: "401(k)", slug: "401k" },
+              { label: "Roth IRA", slug: "roth-ira" },
+              { label: "SEP IRA", slug: "sep-ira" },
+              { label: "403(b)", slug: "403b" },
+              { label: "TSP", slug: "tsp" },
+              { label: "457(b)", slug: "457b" },
+              { label: "SIMPLE IRA", slug: "simple-ira" },
+              { label: "Pension", slug: "pension" },
+            ].map((item) => (
+              <Link key={item.slug} href={`/ira/rollover/${item.slug}`}>
+                <div className="group bg-background border border-border/40 rounded-xl p-3.5 text-center hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer">
+                  <p className="text-sm font-semibold text-foreground/70 group-hover:text-primary transition-colors">
+                    {item.label}
+                  </p>
+                  <p className="text-[10px] text-foreground/40 mt-0.5">Rollover guide →</p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* CHOOSE YOUR CUSTODIAN */}
+      <section className="py-16 bg-background border-t border-border/20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl lg:text-3xl font-serif font-semibold mb-3">Choose Your Custodian</h2>
+            <p className="text-foreground/60 max-w-xl mx-auto">
+              West Hills Capital coordinates with any IRS-approved self-directed IRA custodian. We have worked with all of the following.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 max-w-3xl mx-auto mb-6">
+            {[
+              { name: "Equity Trust", slug: "equity-trust" },
+              { name: "Strata Trust", slug: "strata-trust" },
+              { name: "Kingdom Trust", slug: "kingdom-trust" },
+              { name: "GoldStar Trust", slug: "goldstar-trust" },
+              { name: "Midland IRA", slug: "midland-ira" },
+              { name: "New Direction Trust", slug: "new-direction-trust" },
+            ].map((c) => (
+              <Link key={c.slug} href={`/ira/custodians/${c.slug}`}>
+                <div className="group bg-white border border-border/40 rounded-xl p-4 text-center hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer">
+                  <p className="text-sm font-semibold text-foreground/75 group-hover:text-primary transition-colors">
+                    {c.name}
+                  </p>
+                  <p className="text-[10px] text-foreground/40 mt-0.5">Learn how we work together →</p>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
       </section>
 

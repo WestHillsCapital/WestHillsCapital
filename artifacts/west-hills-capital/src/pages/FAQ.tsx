@@ -287,7 +287,30 @@ export default function FAQ() {
           ))}
         </div>
 
-        <div className="mt-16 text-center bg-white rounded-2xl border border-border/40 p-8">
+        {/* COMPARISON LINKS */}
+        <div className="mt-12 bg-white rounded-2xl border border-border/40 p-8">
+          <h2 className="text-lg font-serif font-semibold mb-2">Comparing Gold to Other Assets?</h2>
+          <p className="text-sm text-foreground/60 mb-5 leading-relaxed">
+            We have written plain-language comparisons for common questions about how physical gold stacks up against other investment types.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {[
+              { title: "Gold vs. ETFs", slug: "gold-vs-etf" },
+              { title: "Gold vs. Silver", slug: "gold-vs-silver" },
+              { title: "Gold IRA vs. Roth IRA", slug: "gold-ira-vs-roth-ira" },
+              { title: "Physical Gold vs. Futures", slug: "physical-gold-vs-futures" },
+              { title: "Gold vs. Real Estate", slug: "gold-vs-real-estate" },
+              { title: "Gold vs. Bonds", slug: "gold-vs-bonds" },
+              { title: "Gold vs. Cash", slug: "gold-vs-cash" },
+            ].map((c) => (
+              <a key={c.slug} href={`/learn/${c.slug}`} className="flex items-center gap-2 text-sm text-primary hover:underline font-medium">
+                <span>→</span> {c.title}
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-8 text-center bg-white rounded-2xl border border-border/40 p-8">
           <p className="font-serif text-xl text-foreground mb-2">Ready to talk numbers?</p>
           <p className="text-foreground/60 text-sm mb-6">
             Schedule a call and we'll walk through current pricing together.
