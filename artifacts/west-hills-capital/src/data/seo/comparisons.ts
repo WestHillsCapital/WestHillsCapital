@@ -432,6 +432,144 @@ export const COMPARISONS: AssetComparison[] = [
     bottomLine:
       "Physical gold and cryptocurrency both appeal to investors who want assets outside the traditional banking system. But they are not equivalent. Gold is a proven monetary asset with a multi-millennium track record and modest volatility. Cryptocurrency is a recent technological experiment with high volatility, evolving regulation, and custody risks that gold does not carry. Investors who hold both typically do so for different reasons — gold for long-term wealth preservation, crypto for speculative upside. They should be sized accordingly.",
   },
+  {
+    slug: "gold-vs-platinum",
+    title: "Gold vs. Platinum: Two Precious Metals, Different Roles",
+    metaTitle: "Gold vs. Platinum | West Hills Capital",
+    metaDescription:
+      "Compare physical gold and platinum as investment assets — industrial demand, supply concentration, price volatility, IRA eligibility, and long-term wealth preservation characteristics.",
+    goldLabel: "Gold",
+    otherLabel: "Platinum",
+    intro:
+      "Gold and platinum are both precious metals held by investors, but they behave very differently in a portfolio. Gold is primarily a monetary asset; platinum is primarily an industrial metal with investment characteristics. Understanding the difference helps clarify when each is appropriate.",
+    sections: [
+      {
+        heading: "The fundamental distinction: monetary vs. industrial",
+        content:
+          "Gold's demand is roughly 50% investment/central bank and 50% jewelry/industrial. This means gold prices are driven substantially by monetary demand — fear, currency devaluation, and safe-haven buying. Platinum's demand is roughly 70–80% industrial, primarily automotive catalytic converters and industrial catalysis. This means platinum prices are more sensitive to economic cycles and automotive production trends than to financial stress.",
+      },
+      {
+        heading: "Supply concentration risk",
+        content:
+          "South Africa produces approximately 70% of the world's platinum, with Russia contributing most of the remainder. This extreme geographic concentration creates supply disruption risk that gold does not share — gold is mined across dozens of countries. A single labor strike or political disruption in South Africa can meaningfully affect platinum supply and pricing.",
+      },
+      {
+        heading: "Price volatility and historical performance",
+        content:
+          "Platinum traded above gold for most of the 20th century — hitting over $2,000 per ounce in 2008 while gold was under $1,000. Since then, platinum has dramatically underperformed: it currently trades at a significant discount to gold. Gold has compounded at roughly 8–10% per year since the dollar's decoupling from gold in 1971. Platinum's long-term track record as an investment asset is far more inconsistent.",
+      },
+      {
+        heading: "IRA eligibility",
+        content:
+          "Both gold and platinum are IRA-eligible in their approved forms. Platinum must meet an IRS-required purity of .9995 or better. The American Platinum Eagle, issued by the U.S. Mint, meets this threshold. Platinum bars from approved refiners at .9995 fine are also eligible. The custodial and depository requirements are the same as for gold.",
+      },
+    ],
+    comparisonTable: [
+      { attribute: "Primary demand driver", gold: "Monetary / safe-haven", other: "Industrial (automotive, catalysis)" },
+      { attribute: "Geographic supply risk", gold: "Diversified globally", other: "~70% from South Africa" },
+      { attribute: "Long-term track record", gold: "Strong (decades of data)", other: "Inconsistent" },
+      { attribute: "Crisis performance", gold: "Typically rises", other: "Often falls (industrial demand drops)" },
+      { attribute: "IRA eligible", gold: "Yes", other: "Yes (.9995 fine required)" },
+      { attribute: "Liquidity", gold: "Very high", other: "Moderate" },
+      { attribute: "Current price vs. gold", gold: "Higher", other: "Significant discount to gold" },
+    ],
+    bottomLine:
+      "Gold and platinum are both precious metals, but they serve different purposes. Gold is the monetary anchor of a precious metals allocation — stable, liquid, and driven by safe-haven demand. Platinum is an industrial metal with speculative upside if automotive and hydrogen economy demand accelerates. Most long-term investors treat gold as the core holding and platinum, if held at all, as a smaller satellite position.",
+  },
+  {
+    slug: "gold-vs-palladium",
+    title: "Gold vs. Palladium: Understanding the Differences",
+    metaTitle: "Gold vs. Palladium | West Hills Capital",
+    metaDescription:
+      "Compare physical gold and palladium — industrial demand drivers, extreme supply concentration, price swings, IRA eligibility, and which makes sense for long-term investors.",
+    goldLabel: "Gold",
+    otherLabel: "Palladium",
+    intro:
+      "Palladium surged dramatically between 2016 and 2022, briefly surpassing gold in price and attracting significant investor attention. Understanding what drove that move — and its subsequent collapse — clarifies why gold and palladium occupy very different roles in a precious metals strategy.",
+    sections: [
+      {
+        heading: "Palladium is almost entirely an industrial metal",
+        content:
+          "Approximately 85% of palladium demand comes from automotive catalytic converters, specifically gasoline engine vehicles. Unlike gold — which retains substantial monetary and jewelry demand regardless of economic conditions — palladium's price is almost entirely tied to automotive production and emissions regulations. When automakers shift to electric vehicles, palladium demand declines structurally.",
+      },
+      {
+        heading: "Extreme supply concentration",
+        content:
+          "Russia and South Africa together produce roughly 80% of the world's palladium supply. Russia alone accounts for approximately 40%. This supply concentration created the conditions for palladium's 2016–2022 price surge: tight supply, rising automotive demand, and geopolitical risk premium. When the supply picture shifted and EV adoption accelerated, palladium fell over 70% from its 2022 peak.",
+      },
+      {
+        heading: "Volatility profile",
+        content:
+          "Palladium's price went from roughly $500 in 2016 to over $3,000 in early 2022, then collapsed back below $1,000 by 2024. Gold during the same period moved from approximately $1,150 to $2,000 — a meaningful gain without the extreme volatility. Investors who bought palladium near its peak suffered devastating losses. Palladium has a legitimate bull case in specific industrial scenarios, but it is not a wealth preservation asset in the way gold is.",
+      },
+      {
+        heading: "IRA eligibility",
+        content:
+          "Palladium is IRA-eligible when it meets the required .9995 purity standard. The American Palladium Eagle, introduced in 2017, meets this threshold. However, the dealer market for palladium is thinner than for gold, and liquidity in a self-directed IRA context may be more limited.",
+      },
+    ],
+    comparisonTable: [
+      { attribute: "Primary demand", gold: "Monetary, jewelry, investment", other: "~85% automotive catalytic converters" },
+      { attribute: "Supply concentration", gold: "Globally diversified", other: "~80% Russia + South Africa" },
+      { attribute: "Recent price range", gold: "Gradual appreciation", other: "~$500 → $3,000 → below $1,000 (2016–2024)" },
+      { attribute: "EV transition risk", gold: "Minimal", other: "Significant (gasoline demand declines)" },
+      { attribute: "IRA eligible", gold: "Yes", other: "Yes (.9995 fine required)" },
+      { attribute: "Liquidity", gold: "Very high", other: "Moderate (thinner dealer market)" },
+      { attribute: "Wealth preservation track record", gold: "Millennia", other: "No meaningful track record" },
+    ],
+    bottomLine:
+      "Palladium had a dramatic run driven by a specific supply-demand imbalance — and then gave most of it back. Gold is a wealth preservation asset with thousands of years of monetary history. Palladium is an industrial commodity subject to automotive technology transitions and geopolitical supply risk. They are not comparable as long-term portfolio anchors. Investors who want precious metals exposure for wealth preservation should focus on gold; investors who want commodity exposure to industrial metals should understand palladium's unique risks clearly before buying.",
+  },
+  {
+    slug: "gold-ira-vs-traditional-ira",
+    title: "Gold IRA vs. Traditional IRA: Choosing the Right Structure",
+    metaTitle: "Gold IRA vs. Traditional IRA | West Hills Capital",
+    metaDescription:
+      "Compare a Precious Metals IRA (self-directed) to a standard Traditional IRA — asset types, custodians, fees, setup complexity, and which structure fits different retirement goals.",
+    goldLabel: "Precious Metals IRA",
+    otherLabel: "Traditional IRA",
+    intro:
+      "A 'Gold IRA' is simply a self-directed Traditional IRA that holds physical precious metals instead of — or alongside — conventional securities. Both are IRAs under the same IRS rules for contributions, rollovers, and distributions. The differences lie in asset types, custodian requirements, fees, and setup complexity.",
+    sections: [
+      {
+        heading: "What makes an IRA 'self-directed'",
+        content:
+          "A self-directed IRA is an IRA where the account holder directs investments into non-standard assets that major brokerages do not support — physical real estate, private notes, private equity, and precious metals. The custodian is a specialized trust company that handles administrative compliance; it does not manage or advise on investments. The tax rules are identical to a standard IRA — only the asset class differs.",
+      },
+      {
+        heading: "Assets held",
+        content:
+          "A Traditional IRA at Fidelity, Schwab, or Vanguard holds publicly traded securities: stocks, bonds, ETFs, and mutual funds. A self-directed Precious Metals IRA holds IRS-approved physical gold, silver, platinum, and palladium — coins and bars that meet statutory purity requirements. The IRS does not allow collectibles or proof coins, and the metal must be stored at an IRS-approved depository, not at home.",
+      },
+      {
+        heading: "Fees: a real difference",
+        content:
+          "Traditional IRAs at major brokerages are often free — no annual fee, no asset-based fee, commission-free trades. Self-directed IRAs cost more: custodians charge annual administration fees (typically $75–$300 per year) plus depository storage fees (typically 0.5–1.0% of metal value annually). For smaller accounts, these fees are a meaningful cost. For larger positions held over long periods, the fees are often acceptable relative to the inflation protection the metals provide.",
+      },
+      {
+        heading: "Setup complexity",
+        content:
+          "Opening a Traditional IRA takes minutes online. Opening a self-directed Precious Metals IRA requires: selecting a specialized custodian, completing their application, funding via contribution or rollover, selecting a depository, and executing a buy direction through a dealer like West Hills Capital. The process typically takes 2–4 weeks for a rollover. Once set up, the account requires minimal ongoing attention.",
+      },
+      {
+        heading: "Tax treatment: identical",
+        content:
+          "Both accounts are tax-deferred. Contributions may be deductible (subject to income and workplace plan rules). Distributions are taxed as ordinary income. Required minimum distributions begin at age 73. The tax mechanics of a self-directed IRA are identical to a standard IRA — the only difference is what the account holds.",
+      },
+    ],
+    comparisonTable: [
+      { attribute: "Assets held", gold: "Physical gold, silver, platinum, palladium", other: "Stocks, bonds, ETFs, mutual funds" },
+      { attribute: "Custodian type", gold: "Specialized self-directed IRA trust company", other: "Major brokerage (Fidelity, Schwab, etc.)" },
+      { attribute: "Annual fees", gold: "$75–$300 admin + 0.5–1.0% storage", other: "Often none" },
+      { attribute: "Setup time", gold: "2–4 weeks (rollover)", other: "Minutes (online)" },
+      { attribute: "Tax treatment", gold: "Tax-deferred (same as Traditional IRA)", other: "Tax-deferred" },
+      { attribute: "RMDs required", gold: "Yes (age 73)", other: "Yes (age 73)" },
+      { attribute: "Home storage of assets", gold: "Not permitted (IRS rule)", other: "Not applicable" },
+      { attribute: "Inflation protection", gold: "Direct (metal ownership)", other: "Indirect (equity/bond allocation)" },
+    ],
+    bottomLine:
+      "A Precious Metals IRA and a Traditional IRA are both IRAs — same tax rules, same contribution limits, same RMD requirements. The choice between them comes down to what you want to own inside the account. If you want to hold physical gold as a portion of your retirement savings in a tax-deferred wrapper, a self-directed IRA is the appropriate structure. If you want low-cost exposure to publicly traded markets, a standard IRA at a major brokerage is simpler and less expensive. Many investors hold both — traditional brokerage IRAs for market exposure and a self-directed IRA for physical metals.",
+  },
 ];
 
 export function getComparisonBySlug(slug: string): AssetComparison | undefined {
