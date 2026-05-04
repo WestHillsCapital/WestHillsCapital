@@ -269,25 +269,29 @@ test("Docuplete — full e2e suite", async ({ page, context }) => {
   const tzSearchInput = tzSection.locator("input[placeholder*='timezones' i], input[placeholder*='timezone' i]").first();
   await expect(tzSearchInput).toBeVisible();
 
-  const tzListbox = tzSection.locator("[role='listbox']").first();
+  // The listbox has aria-label="Timezone" (set in source).
+  // Options are raw IANA names — the filter does NOT replace underscores,
+  // so search terms must match the raw string (e.g. "York" matches "New_York").
+  const tzListbox = tzSection.locator("[role='listbox'][aria-label='Timezone']").first();
 
-  // The listbox renders synchronously from Intl.supportedValuesOf but the
-  // component needs to mount first — wait for the first option to appear.
-  await expect(tzListbox.locator("button[role='option']").first())
-    .toBeVisible({ timeout: 8000 });
+  // Wait for the component to mount and render its options.
+  const firstTzOption = tzListbox.locator("[role='option']").first();
+  await expect(firstTzOption).toBeVisible({ timeout: 8000 });
 
-  const tzOptionCount = await tzListbox.locator("button[role='option']").count();
+  const tzOptionCount = await tzListbox.locator("[role='option']").count();
   expect(tzOptionCount).toBeGreaterThan(0);
-  console.log(`✅ [4.4] Timezone section — listbox has ${tzOptionCount} options`);
+  console.log(`✅ [4.4] Timezone listbox has ${tzOptionCount} options`);
 
-  // Filter listbox by typing, verify it narrows results
-  await tzSearchInput.fill("New York");
+  // Filter — use "York" (matches "America/New_York" via raw string include)
+  await tzSearchInput.fill("York");
   await page.waitForTimeout(400);
-  const filteredCount = await tzListbox.locator("button[role='option']").count();
+  const filteredCount = await tzListbox.locator("[role='option']").count();
+  // "York" must produce at least one match and fewer than the full list
   expect(filteredCount).toBeGreaterThan(0);
   expect(filteredCount).toBeLessThan(tzOptionCount);
   await tzSearchInput.clear();
-  console.log(`✅ [4.4b] Timezone search filtered ${tzOptionCount} → ${filteredCount} options`);
+  await page.waitForTimeout(300);
+  console.log(`✅ [4.4b] Timezone search "York" → ${filteredCount} / ${tzOptionCount} options`);
 
   // ── 4.5 Organization — edit org name, save, restore ────────────────────────
   await clickNavItem(page, "Organization");
