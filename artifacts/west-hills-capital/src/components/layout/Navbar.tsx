@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, X, Phone, ChevronDown } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
+import logoSrc from "@/assets/logo.webp";
 
 interface NavDropdownItem {
   label: string;
@@ -110,7 +111,7 @@ export function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center group">
             <img
-              src={`${import.meta.env.BASE_URL}images/logo.webp`}
+              src={logoSrc}
               alt="West Hills Capital"
               className="h-10 lg:h-12 w-auto object-contain transition-opacity group-hover:opacity-80"
             />
