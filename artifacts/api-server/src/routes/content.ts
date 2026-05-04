@@ -259,16 +259,23 @@ router.post("/draft", async (req, res): Promise<void> => {
       res.status(500).json({ error: "AI returned an unexpected format" }); return;
     }
 
-    const draft = JSON.parse(jsonMatch[0]);
+    let draft: unknown;
+    try {
+      draft = JSON.parse(jsonMatch[0]);
+    } catch (parseErr) {
+      logger.error({ parseErr, json: jsonMatch[0].slice(0, 200) }, "[Content] Draft generation failed — invalid JSON from Anthropic");
+      res.status(500).json({ error: "AI returned malformed JSON — check server logs for details." }); return;
+    }
     res.json({ draft });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    // Missing Replit AI integration env vars
     if (msg.includes("AI_INTEGRATIONS_ANTHROPIC_BASE_URL") || msg.includes("AI_INTEGRATIONS_ANTHROPIC_API_KEY")) {
       logger.error({ err }, "[Content] Anthropic AI integration not configured — draft generation will fail");
       res.status(500).json({ error: "AI integration is not configured on this server. Ask your administrator to set AI_INTEGRATIONS_ANTHROPIC_BASE_URL and AI_INTEGRATIONS_ANTHROPIC_API_KEY." });
       return;
     }
-    // Check for Anthropic API errors (they carry a status property)
+    // Anthropic API errors carry a numeric status property
     const status = (err as Record<string, unknown>)["status"];
     if (typeof status === "number") {
       logger.error({ err, status }, "[Content] Anthropic API error");
