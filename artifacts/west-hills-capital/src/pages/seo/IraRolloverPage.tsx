@@ -45,6 +45,18 @@ export default function IraRolloverPage() {
       : undefined,
   });
 
+  const faqSchema = rollover
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": rollover.faqs.map((faq) => ({
+          "@type": "Question",
+          "name": faq.q,
+          "acceptedAnswer": { "@type": "Answer", "text": faq.a },
+        })),
+      }
+    : null;
+
   if (!rollover) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-4 pb-24">
@@ -71,6 +83,12 @@ export default function IraRolloverPage() {
 
   return (
     <div className="w-full bg-background min-h-screen">
+      {faqSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        />
+      )}
       <section className="bg-foreground text-white py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link href="/ira">

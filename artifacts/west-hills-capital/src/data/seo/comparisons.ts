@@ -332,6 +332,106 @@ export const COMPARISONS: AssetComparison[] = [
     bottomLine:
       "Cash and gold are complements, not substitutes. Cash handles liquidity, transactions, and near-term needs. Gold protects long-term purchasing power in a way cash cannot. The investors who benefit most from holding gold are those with adequate cash reserves who are looking for a portion of their savings to maintain real value over 10, 20, or 30-year horizons.",
   },
+  {
+    slug: "gold-vs-stocks",
+    title: "Physical Gold vs. Stocks: A Long-Term Perspective",
+    metaTitle: "Physical Gold vs. Stocks | West Hills Capital",
+    metaDescription:
+      "Compare physical gold and stocks as long-term investments — volatility, correlation, inflation protection, and how gold behaves during equity market downturns.",
+    goldLabel: "Physical Gold",
+    otherLabel: "Stocks (Equities)",
+    intro:
+      "Stocks and gold both belong in long-term portfolios — but they serve fundamentally different roles. Stocks are ownership stakes in businesses that can grow earnings and compound value over time. Gold is a monetary asset that preserves purchasing power and behaves differently from equities during financial stress. Understanding the distinction clarifies why serious long-term investors often hold both.",
+    sections: [
+      {
+        heading: "What stocks are (and are not)",
+        content:
+          "A stock is a fractional ownership claim on a business. Its value depends on the company's ability to generate earnings, grow revenues, and survive competition. Well-run businesses compound value over decades. Poorly run ones go to zero. A diversified stock portfolio — broad index funds — has historically delivered 7–10% annualized real returns over long periods, making equities the most powerful wealth-building vehicle available to most investors.",
+      },
+      {
+        heading: "What gold is (and is not)",
+        content:
+          "Gold produces no earnings, pays no dividends, and has no balance sheet. It is a monetary commodity — the oldest form of money in human history — whose value is determined by supply, demand, and confidence in paper currencies. Over very long periods, gold has maintained its purchasing power while currencies have lost theirs. Gold does not compound like a business, but it also does not go bankrupt.",
+      },
+      {
+        heading: "Correlation: when they move together and when they do not",
+        content:
+          "Gold and stocks have a low-to-negative correlation during periods of financial stress. In major equity drawdowns — 2000–2002, 2007–2009, early 2020 — gold has often held its value or risen while stocks fell sharply. This is the primary portfolio argument for holding both: they tend to fail at different times. In strong bull markets for equities, gold frequently underperforms. The combination produces smoother returns over a full market cycle than either alone.",
+      },
+      {
+        heading: "Inflation protection",
+        content:
+          "Stocks are a partial inflation hedge because businesses can raise prices. But in high-inflation environments — particularly those accompanied by rising interest rates — stock valuations are pressured by the discount rate effect. Gold has historically outperformed during periods of elevated inflation, particularly when real interest rates are negative. The 1970s and 2020–2022 period are the two clearest modern examples.",
+      },
+      {
+        heading: "How much gold belongs in a portfolio?",
+        content:
+          "There is no universal answer. Academic research on portfolio construction generally supports a 5–20% allocation to gold as an uncorrelated asset that improves risk-adjusted returns. The right number depends on your objectives, time horizon, and existing portfolio composition. The conversation starts with understanding what role you want gold to play.",
+      },
+    ],
+    comparisonTable: [
+      { attribute: "What you own", gold: "Monetary commodity", other: "Fractional business ownership" },
+      { attribute: "Income generated", gold: "None", other: "Dividends (if paid)" },
+      { attribute: "Long-term real return", gold: "Purchasing power preservation", other: "7–10% annualized (broad index)" },
+      { attribute: "Correlation to stocks", gold: "Low to negative in crises", other: "—" },
+      { attribute: "Inflation protection", gold: "Strong historically", other: "Partial" },
+      { attribute: "Default / bankruptcy risk", gold: "None", other: "Yes (individual stocks)" },
+      { attribute: "IRA eligible", gold: "Yes (self-directed IRA)", other: "Yes (standard IRA/brokerage)" },
+      { attribute: "Volatility", gold: "Moderate", other: "Moderate to high (varies)" },
+    ],
+    bottomLine:
+      "Stocks are the engine of long-term wealth creation. Gold is the ballast that keeps a portfolio stable during market disruptions. Most serious long-term investors hold primarily equities with a meaningful gold allocation — not as a replacement for stocks, but as a counterbalance that performs when equities do not. The question is not stocks or gold. The question is how much of each.",
+  },
+  {
+    slug: "gold-vs-crypto",
+    title: "Physical Gold vs. Cryptocurrency",
+    metaTitle: "Physical Gold vs. Cryptocurrency | West Hills Capital",
+    metaDescription:
+      "Compare physical gold and cryptocurrency as store-of-value assets — 5,000-year track record vs. decade-long experiment, volatility, custody risk, and IRA treatment.",
+    goldLabel: "Physical Gold",
+    otherLabel: "Cryptocurrency",
+    intro:
+      "Both gold and cryptocurrency are held by some investors as alternatives to traditional currencies. Both are outside the traditional financial system in some sense. But they differ fundamentally in age, volatility, custody risk, and what they actually are. The comparison is worth examining carefully before making either a long-term holding.",
+    sections: [
+      {
+        heading: "Track record: 5,000 years vs. 15 years",
+        content:
+          "Gold has been recognized as a monetary asset across every major civilization for thousands of years. It survived the Roman Empire's collapse, the fall of Bretton Woods, and every financial crisis of the modern era. Cryptocurrency has existed since 2009. The oldest coins are 15 years old and have been through a handful of market cycles — most of which ended with 70–90% drawdowns from peak to trough. Track record is not the only thing that matters, but a 5,000-year store of value and a 15-year speculative experiment are genuinely different things.",
+      },
+      {
+        heading: "Volatility",
+        content:
+          "Bitcoin, the most established cryptocurrency, has experienced multiple drawdowns exceeding 70% — the most recent in 2022, when it fell from roughly $69,000 to under $17,000. Gold's largest modern drawdown was approximately 45% (2011–2015). For investors seeking wealth preservation, volatility matters: an asset that falls 70% requires a 233% gain just to recover. Gold is volatile, but it is not in the same category as most cryptocurrencies.",
+      },
+      {
+        heading: "Custody and counterparty risk",
+        content:
+          "Physical gold stored at home or at a reputable depository has no counterparty risk. Cryptocurrency held at an exchange introduces significant counterparty risk — the exchange can fail, freeze withdrawals, or be hacked. FTX, Celsius, BlockFi, and Mt. Gox are all examples of exchange failures that wiped out customer balances. Cryptocurrency held in a self-custody wallet eliminates exchange risk but introduces the risk of lost keys — a loss that is permanent and unrecoverable.",
+      },
+      {
+        heading: "IRA treatment",
+        content:
+          "IRS-approved physical gold (American Gold Eagle, Gold Buffalo, and bars meeting .995 purity) can be held in a self-directed IRA. Some self-directed IRA custodians also permit Bitcoin and other cryptocurrencies in IRAs. However, the custody and counterparty considerations for crypto in an IRA are more complex, and regulatory treatment continues to evolve.",
+      },
+      {
+        heading: "The 'digital gold' narrative",
+        content:
+          "Bitcoin is sometimes described as 'digital gold' based on its fixed supply of 21 million coins. The comparison has intuitive appeal. But during the most significant financial stress test of the crypto era — 2022, when inflation ran hot and risk assets sold off — Bitcoin did not behave like gold. It fell over 60% alongside equities. Gold rose. The correlation data so far does not support the 'store of value in a crisis' narrative for crypto, though the experiment continues.",
+      },
+    ],
+    comparisonTable: [
+      { attribute: "Track record", gold: "5,000+ years", other: "~15 years" },
+      { attribute: "Worst modern drawdown", gold: "~45% (2011–2015)", other: "70–90%+ (multiple cycles)" },
+      { attribute: "Counterparty risk (exchange)", gold: "None", other: "Significant" },
+      { attribute: "Lost key / theft risk", gold: "Physical theft only", other: "Permanent if self-custody keys lost" },
+      { attribute: "Crisis correlation (2022)", gold: "Positive (held value)", other: "Negative (fell with equities)" },
+      { attribute: "IRA eligible", gold: "Yes (self-directed IRA)", other: "Possible (custodian-dependent)" },
+      { attribute: "Income generation", gold: "None", other: "None (for most)" },
+      { attribute: "Regulatory clarity", gold: "Clear and long-established", other: "Evolving" },
+    ],
+    bottomLine:
+      "Physical gold and cryptocurrency both appeal to investors who want assets outside the traditional banking system. But they are not equivalent. Gold is a proven monetary asset with a multi-millennium track record and modest volatility. Cryptocurrency is a recent technological experiment with high volatility, evolving regulation, and custody risks that gold does not carry. Investors who hold both typically do so for different reasons — gold for long-term wealth preservation, crypto for speculative upside. They should be sized accordingly.",
+  },
 ];
 
 export function getComparisonBySlug(slug: string): AssetComparison | undefined {

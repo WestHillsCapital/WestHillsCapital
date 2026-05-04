@@ -45,6 +45,18 @@ export default function CustodianPage() {
       : undefined,
   });
 
+  const faqSchema = custodian
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": custodian.faqs.map((faq) => ({
+          "@type": "Question",
+          "name": faq.q,
+          "acceptedAnswer": { "@type": "Answer", "text": faq.a },
+        })),
+      }
+    : null;
+
   if (!custodian) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-4 pb-24">
@@ -69,6 +81,12 @@ export default function CustodianPage() {
 
   return (
     <div className="w-full bg-background min-h-screen">
+      {faqSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}
+        />
+      )}
       <section className="bg-foreground text-white py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link href="/ira">

@@ -19,6 +19,18 @@ export default function ComparisonPage() {
       : undefined,
   });
 
+  const articleSchema = comparison
+    ? {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": comparison.title,
+        "description": comparison.metaDescription,
+        "author": { "@type": "Organization", "name": "West Hills Capital" },
+        "publisher": { "@type": "Organization", "name": "West Hills Capital", "url": "https://westhillscapital.com" },
+        "url": `https://westhillscapital.com/learn/${comparison.slug}`,
+      }
+    : null;
+
   if (!comparison) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center text-center px-4 pb-24">
@@ -43,6 +55,12 @@ export default function ComparisonPage() {
 
   return (
     <div className="w-full bg-background min-h-screen">
+      {articleSchema && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(articleSchema) }}
+        />
+      )}
       <section className="bg-foreground text-white py-20">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <Link href="/insights">
