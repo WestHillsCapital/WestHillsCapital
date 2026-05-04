@@ -59,28 +59,23 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   const emailInput = page.locator('input[name="identifier"], input[name="emailAddress"], input[type="email"]').first();
   await emailInput.waitFor({ state: "visible", timeout: 20000 });
   await emailInput.fill(EMAIL);
-
-  // Clerk's primary action buttons carry the class cl-formButtonPrimary.
-  // This avoids accidentally clicking the hidden aria-hidden submit or the
-  // "Continue with Google" social button.
-  const primaryBtn = page.locator(".cl-formButtonPrimary:visible").first();
-  await primaryBtn.waitFor({ state: "visible", timeout: 10000 });
-  await primaryBtn.click();
+  await page.keyboard.press("Enter");
 
   // Wait for the password field to appear AND become enabled (Clerk disables it
-  // briefly during the step transition).
+  // briefly during the step transition from email → password).
   const passwordInput = page.locator('input[type="password"]').first();
   await passwordInput.waitFor({ state: "visible", timeout: 15000 });
   await expect(passwordInput).toBeEnabled({ timeout: 10000 });
   await passwordInput.fill(PASSWORD);
+  await page.keyboard.press("Enter");
 
-  // Click the sign-in primary button (same class, now on the password step)
-  const signInBtn = page.locator(".cl-formButtonPrimary:visible").first();
-  await signInBtn.waitFor({ state: "visible", timeout: 10000 });
-  await signInBtn.click();
-
-  await page.waitForURL(`${BASE}/app/**`, { timeout: 20000 });
-  await expect(page).not.toHaveURL(/sign-in/);
+  // Wait until the URL is fully inside the app and no longer on any sign-in step.
+  // /app/sign-in/factor-one and factor-two are still Clerk sign-in pages,
+  // so we wait until the URL contains /app/ but NOT sign-in.
+  await page.waitForURL(
+    (url) => url.pathname.startsWith("/app/") && !url.pathname.includes("sign-in"),
+    { timeout: 30000 }
+  );
   console.log("✅ [1] Signed in — URL:", page.url());
 
   // ════════════════════════════════════════════════════════════════════════════
