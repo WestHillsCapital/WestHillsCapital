@@ -8,7 +8,8 @@
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
     "test": "node --import tsx/esm --test \"src/tests/*.test.ts\"",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "validate-sitemap": "node scripts/validate-sitemap.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

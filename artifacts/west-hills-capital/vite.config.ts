@@ -29,16 +29,20 @@ const apiUrl =
 const SITE_BASE = "https://westhillscapital.com";
 
 const STATIC_PAGES = [
-  { loc: "/", changefreq: "weekly", priority: "1.0" },
-  { loc: "/faq", changefreq: "monthly", priority: "0.8" },
-  { loc: "/about", changefreq: "monthly", priority: "0.8" },
-  { loc: "/pricing", changefreq: "daily", priority: "0.9" },
-  { loc: "/ira", changefreq: "monthly", priority: "0.8" },
-  { loc: "/schedule", changefreq: "monthly", priority: "0.9" },
-  { loc: "/insights", changefreq: "weekly", priority: "0.8" },
-  { loc: "/disclosures", changefreq: "yearly", priority: "0.3" },
-  { loc: "/terms", changefreq: "yearly", priority: "0.3" },
-  { loc: "/privacy", changefreq: "yearly", priority: "0.3" },
+  { loc: "/",               changefreq: "weekly",  priority: "1.0" },
+  { loc: "/faq",            changefreq: "monthly", priority: "0.8" },
+  { loc: "/about",          changefreq: "monthly", priority: "0.8" },
+  { loc: "/pricing",        changefreq: "daily",   priority: "0.9" },
+  { loc: "/ira",            changefreq: "monthly", priority: "0.8" },
+  { loc: "/ira/rollovers",  changefreq: "monthly", priority: "0.9" },
+  { loc: "/ira/custodians", changefreq: "monthly", priority: "0.9" },
+  { loc: "/products",       changefreq: "weekly",  priority: "0.9" },
+  { loc: "/gold-ira",       changefreq: "monthly", priority: "0.9" },
+  { loc: "/schedule",       changefreq: "monthly", priority: "0.9" },
+  { loc: "/insights",       changefreq: "weekly",  priority: "0.8" },
+  { loc: "/disclosures",    changefreq: "yearly",  priority: "0.3" },
+  { loc: "/terms",          changefreq: "yearly",  priority: "0.3" },
+  { loc: "/privacy",        changefreq: "yearly",  priority: "0.3" },
 ];
 
 const COIN_YEARS = [2020, 2021, 2022, 2023, 2024, 2025] as const;

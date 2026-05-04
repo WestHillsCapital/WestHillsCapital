@@ -55,8 +55,9 @@ export default function Home() {
       <section className="relative pt-16 pb-0 overflow-hidden bg-background">
         <div className="absolute inset-0 z-0">
           <img
-            src={`${import.meta.env.BASE_URL}images/hero-bg.png`}
+            src={`${import.meta.env.BASE_URL}images/hero-bg.jpg`}
             alt=""
+            fetchPriority="high"
             className="w-full h-full object-cover opacity-30"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-background/60 via-background/90 to-background" />
@@ -288,6 +289,7 @@ export default function Home() {
                 <img
                   src={`${import.meta.env.BASE_URL}images/coins-hero.jpg`}
                   alt="Gold and silver coins"
+                  loading="lazy"
                   className="w-full h-full object-cover"
                   style={{ objectPosition: "28% center" }}
                 />
