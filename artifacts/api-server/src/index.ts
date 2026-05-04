@@ -71,13 +71,17 @@ const server: Server = app.listen(port, () => {
   }
 
   // ── 3d. Content Engine AI integration probe ───────────────────────────────
-  if (!process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL || !process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY) {
-    logger.warn(
-      "[Content] Anthropic AI integration not configured — draft generation will fail. " +
-      "Set AI_INTEGRATIONS_ANTHROPIC_BASE_URL and AI_INTEGRATIONS_ANTHROPIC_API_KEY in Railway environment variables."
-    );
+  const hasReplitProxy = process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL && process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY;
+  const hasDirectKey   = !!process.env.ANTHROPIC_API_KEY;
+  if (hasReplitProxy) {
+    logger.info("[Content] Anthropic AI integration present (Replit proxy) — draft generation enabled.");
+  } else if (hasDirectKey) {
+    logger.info("[Content] Anthropic AI integration present (direct API key) — draft generation enabled.");
   } else {
-    logger.info("[Content] Anthropic AI integration present — draft generation enabled.");
+    logger.warn(
+      "[Content] Anthropic AI not configured — draft generation will fail. " +
+      "Set ANTHROPIC_API_KEY in Railway environment variables."
+    );
   }
 
   // ── 3c. Encryption-at-rest key probe ──────────────────────────────────────
