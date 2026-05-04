@@ -7,17 +7,22 @@ const router: IRouter = Router();
 
 // Lazy Anthropic client — only constructed when a draft is requested so the
 // module loads cleanly even if env vars haven't been set yet.
+// Supports two credential paths:
+//   1. Replit AI proxy (dev): AI_INTEGRATIONS_ANTHROPIC_BASE_URL + AI_INTEGRATIONS_ANTHROPIC_API_KEY
+//   2. Direct Anthropic key (Railway / production): ANTHROPIC_API_KEY
 function getAnthropicClient(): Anthropic {
-  if (!process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL) {
-    throw new Error("AI_INTEGRATIONS_ANTHROPIC_BASE_URL is not set");
+  if (process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL && process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY) {
+    return new Anthropic({
+      apiKey:  process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
+      baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
+    });
   }
-  if (!process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY) {
-    throw new Error("AI_INTEGRATIONS_ANTHROPIC_API_KEY is not set");
+  if (process.env.ANTHROPIC_API_KEY) {
+    return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   }
-  return new Anthropic({
-    apiKey: process.env.AI_INTEGRATIONS_ANTHROPIC_API_KEY,
-    baseURL: process.env.AI_INTEGRATIONS_ANTHROPIC_BASE_URL,
-  });
+  throw new Error(
+    "No Anthropic credentials configured. Set AI_INTEGRATIONS_ANTHROPIC_BASE_URL + AI_INTEGRATIONS_ANTHROPIC_API_KEY (Replit env) or ANTHROPIC_API_KEY (production).",
+  );
 }
 
 // ─── TOPIC SEED LIST ──────────────────────────────────────────────────────────
@@ -269,10 +274,10 @@ router.post("/draft", async (req, res): Promise<void> => {
     res.json({ draft });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    // Missing Replit AI integration env vars
-    if (msg.includes("AI_INTEGRATIONS_ANTHROPIC_BASE_URL") || msg.includes("AI_INTEGRATIONS_ANTHROPIC_API_KEY")) {
-      logger.error({ err }, "[Content] Anthropic AI integration not configured — draft generation will fail");
-      res.status(500).json({ error: "AI integration is not configured on this server. Ask your administrator to set AI_INTEGRATIONS_ANTHROPIC_BASE_URL and AI_INTEGRATIONS_ANTHROPIC_API_KEY." });
+    // Missing Anthropic credentials (either path)
+    if (msg.includes("No Anthropic credentials configured") || msg.includes("AI_INTEGRATIONS_ANTHROPIC")) {
+      logger.error({ err }, "[Content] Anthropic AI not configured — draft generation will fail");
+      res.status(500).json({ error: "AI integration is not configured on this server. Set ANTHROPIC_API_KEY in Railway environment variables." });
       return;
     }
     // Anthropic API errors carry a numeric status property
