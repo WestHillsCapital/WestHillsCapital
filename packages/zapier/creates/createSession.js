@@ -96,7 +96,7 @@ const createSessionAction = {
     sample: {
       id: 42,
       token: "df_example456",
-      interview_url: "https://app.docuplete.com/docufill/public/df_example456",
+      interview_url: "https://app.docuplete.com/docuplete/public/df_example456",
       package_id: 7,
       package_name: "IRA Transfer Package",
       status: "draft",

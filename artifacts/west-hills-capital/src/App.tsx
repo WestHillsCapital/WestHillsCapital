@@ -127,7 +127,7 @@ function InternalRouter() {
 function Router() {
   const [location] = useLocation();
   const isInternal    = location.startsWith("/internal");
-  const isCustomerForm = location.startsWith("/docufill/public/");
+  const isCustomerForm = location.startsWith("/docuplete/public/");
   const isApp         = location.startsWith("/app");
 
   if (isInternal) {
@@ -147,7 +147,7 @@ function Router() {
         <ScrollToTop />
         <Suspense fallback={<PageSpinner />}>
           <Switch>
-            <Route path="/docufill/public/:token" component={DocuFillCustomer} />
+            <Route path="/docuplete/public/:token" component={DocuFillCustomer} />
           </Switch>
         </Suspense>
       </>

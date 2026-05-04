@@ -849,7 +849,7 @@ export interface paths {
                             /**
                              * Format: uri
                              * @description Full URL to the public-facing interview form for this session
-                             * @example https://app.docuplete.com/docufill/public/df_abc123
+                             * @example https://app.docuplete.com/docuplete/public/df_abc123
                              */
                             interviewUrl: string;
                         };

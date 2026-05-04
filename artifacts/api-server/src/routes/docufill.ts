@@ -3626,7 +3626,7 @@ router.post("/sessions/:token/void", requireAdminRole, async (req, res) => {
  *                   type: string
  *                   format: uri
  *                   description: Full URL to the public-facing interview form for this session
- *                   example: https://app.docuplete.com/docufill/public/df_abc123
+ *                   example: https://app.docuplete.com/docuplete/public/df_abc123
  *       400:
  *         description: Invalid packageId or package not active
  *         content:
@@ -3788,7 +3788,7 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
         interviewOrigin = `https://${dr.custom_domain}`;
       }
     } catch { /* non-fatal — fall back to default origin */ }
-    const interviewUrl = `${interviewOrigin}/docufill/public/${token}`;
+    const interviewUrl = `${interviewOrigin}/docuplete/public/${token}`;
     res.status(201).json({ session: rows[0], token, interviewUrl });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to create interview session");
@@ -3936,7 +3936,7 @@ router.post("/sessions/:token/send-link", requireMemberRole, requirePlanFeature(
         interviewOrigin2 = `https://${r2.custom_domain}`;
       }
     } catch { /* non-fatal */ }
-    const interviewUrl = `${interviewOrigin2}/docufill/public/${req.params.token}`;
+    const interviewUrl = `${interviewOrigin2}/docuplete/public/${req.params.token}`;
 
     const orgLogoUrl    = typeof session.org_logo_url === "string" ? session.org_logo_url : null;
     const orgBrandColor = typeof session.org_brand_color === "string" ? session.org_brand_color : null;
@@ -4026,7 +4026,7 @@ router.post("/batch/send-links", requireMemberRole, requirePlanFeature("clientLi
         continue;
       }
       try {
-        const interviewUrl = `${interviewOrigin}/docufill/public/${inv.token}`;
+        const interviewUrl = `${interviewOrigin}/docuplete/public/${inv.token}`;
         await sendInterviewLinkEmail({
           recipientEmail: inv.recipientEmail,
           recipientName:  inv.recipientName ?? "",
@@ -4952,7 +4952,7 @@ publicDocufillRouter.post("/embed/:embedKey/session", async (req, res) => {
       pkg.custom_domain && pkg.custom_domain_status === "active"
         ? `https://${pkg.custom_domain}`
         : appOrigin;
-    const interviewUrl = `${interviewOrigin}/docufill/public/${token}`;
+    const interviewUrl = `${interviewOrigin}/docuplete/public/${token}`;
     res.status(201).json({ token, interviewUrl });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to create embed session");

@@ -1560,7 +1560,7 @@ export default function DocuFill() {
       }
       const data = await res.json() as { token: string };
       const basePath = (import.meta.env.BASE_URL ?? "").replace(/\/$/, "");
-      const interviewUrl = `${window.location.origin}${basePath}/docufill/public/${data.token}`;
+      const interviewUrl = `${window.location.origin}${basePath}/docuplete/public/${data.token}`;
       window.open(interviewUrl, "_blank");
       setDemoUiState("open");
       try { localStorage.setItem("docufill:demo-ui", "open"); } catch { /* ignore */ }

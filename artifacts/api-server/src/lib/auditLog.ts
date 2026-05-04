@@ -30,7 +30,7 @@ export interface AuditLogMetadataMap {
   "settings.update_locale":    { timezone: string; dateFormat: string };
   "data.update_retention":     { submissionRetentionDays: number | null };
   "data.export_requested":     Record<string, never>;
-  "data.deletion_requested":   { graceWindowDays: number };
+  "data.deletion_requested":   { graceWindowDays: number; stripeCancelled?: boolean };
   "data.deletion_cancelled":   Record<string, never>;
   "security.2fa_enabled":             Record<string, never>;
   "security.2fa_disabled":            Record<string, never>;
