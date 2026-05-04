@@ -156,10 +156,12 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   await scrollToSection(page, "notifications-section");
   const notifSection = page.locator("#notifications-section").first();
   await expect(notifSection).toBeVisible({ timeout: 8000 });
-  // Should contain toggle switches for notification types
-  const notifToggles = notifSection.locator("input[type='checkbox'], button[role='switch']");
-  const notifCount   = await notifToggles.count();
-  expect(notifCount).toBeGreaterThan(0);
+  // Switches render only after the API fetch — wait for the spinner to disappear
+  await notifSection.locator(".animate-spin").waitFor({ state: "hidden", timeout: 10000 }).catch(() => {});
+  // Then wait for at least one switch button to appear
+  const firstSwitch = notifSection.locator("button[role='switch']").first();
+  await expect(firstSwitch).toBeVisible({ timeout: 8000 });
+  const notifCount = await notifSection.locator("button[role='switch']").count();
   console.log(`✅ [4.3] Notifications — ${notifCount} toggles visible`);
 
   // ── 4.4 Timezone ───────────────────────────────────────────────────────────
