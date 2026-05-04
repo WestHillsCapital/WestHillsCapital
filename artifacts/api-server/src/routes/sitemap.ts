@@ -13,16 +13,20 @@ const SITE_BASE = "https://westhillscapital.com";
 const BUILD_DATE = new Date().toISOString().split("T")[0];
 
 const STATIC_PAGES = [
-  { loc: "/",            changefreq: "weekly",  priority: "1.0", lastmod: BUILD_DATE },
-  { loc: "/faq",         changefreq: "monthly", priority: "0.8", lastmod: BUILD_DATE },
-  { loc: "/about",       changefreq: "monthly", priority: "0.8", lastmod: BUILD_DATE },
-  { loc: "/pricing",     changefreq: "daily",   priority: "0.9", lastmod: BUILD_DATE },
-  { loc: "/ira",         changefreq: "monthly", priority: "0.8", lastmod: BUILD_DATE },
-  { loc: "/schedule",    changefreq: "monthly", priority: "0.9", lastmod: BUILD_DATE },
-  { loc: "/insights",    changefreq: "weekly",  priority: "0.8", lastmod: BUILD_DATE },
-  { loc: "/disclosures", changefreq: "yearly",  priority: "0.3", lastmod: BUILD_DATE },
-  { loc: "/terms",       changefreq: "yearly",  priority: "0.3", lastmod: BUILD_DATE },
-  { loc: "/privacy",     changefreq: "yearly",  priority: "0.3", lastmod: BUILD_DATE },
+  { loc: "/",                changefreq: "weekly",  priority: "1.0", lastmod: BUILD_DATE },
+  { loc: "/faq",             changefreq: "monthly", priority: "0.8", lastmod: BUILD_DATE },
+  { loc: "/about",           changefreq: "monthly", priority: "0.8", lastmod: BUILD_DATE },
+  { loc: "/pricing",         changefreq: "daily",   priority: "0.9", lastmod: BUILD_DATE },
+  { loc: "/ira",             changefreq: "monthly", priority: "0.8", lastmod: BUILD_DATE },
+  { loc: "/ira/rollovers",   changefreq: "monthly", priority: "0.9", lastmod: BUILD_DATE },
+  { loc: "/ira/custodians",  changefreq: "monthly", priority: "0.9", lastmod: BUILD_DATE },
+  { loc: "/products",        changefreq: "weekly",  priority: "0.9", lastmod: BUILD_DATE },
+  { loc: "/gold-ira",        changefreq: "monthly", priority: "0.9", lastmod: BUILD_DATE },
+  { loc: "/schedule",        changefreq: "monthly", priority: "0.9", lastmod: BUILD_DATE },
+  { loc: "/insights",        changefreq: "weekly",  priority: "0.8", lastmod: BUILD_DATE },
+  { loc: "/disclosures",     changefreq: "yearly",  priority: "0.3", lastmod: BUILD_DATE },
+  { loc: "/terms",           changefreq: "yearly",  priority: "0.3", lastmod: BUILD_DATE },
+  { loc: "/privacy",         changefreq: "yearly",  priority: "0.3", lastmod: BUILD_DATE },
 ];
 
 const STATIC_INSIGHT_SLUGS = [
