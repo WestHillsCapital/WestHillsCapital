@@ -227,6 +227,53 @@ export default function Insights() {
               </div>
             )}
 
+            {/* VIDEOS */}
+            <div className="mb-16">
+              <div className="flex items-start gap-5 mb-7 pb-5 border-b border-border/35">
+                <span className="text-[11px] font-semibold text-primary/50 tabular-nums mt-1.5 shrink-0 tracking-widest">▶</span>
+                <div>
+                  <h2 className="text-xl font-serif font-semibold mb-1 leading-snug">Video Library</h2>
+                  <p className="text-[14px] text-foreground/55 leading-relaxed">Short animated explainers on gold, inflation, and why precious metals belong in a long-term portfolio.</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {[
+                  {
+                    id: "aHv_NhJ-VLY",
+                    title: "Norm Buried $35 and an Oz of Gold in 1971. The Difference Is Stunning.",
+                    duration: "2:21",
+                  },
+                  {
+                    id: "kqCcNeRzEyQ",
+                    title: "God Makes Gold. Man Makes Paper. Which Do You Trust?",
+                    duration: "2:07",
+                  },
+                  {
+                    id: "zrNAPJCKNog",
+                    title: "Same Salary. Same Start. Why Is Norm Rich and Tom Broke in Retirement?",
+                    duration: "2:30",
+                  },
+                ].map((video) => (
+                  <div key={video.id} className="group flex flex-col bg-white border border-border/40 rounded-xl overflow-hidden hover:shadow-md hover:border-primary/25 transition-all duration-200">
+                    <div className="relative aspect-video bg-foreground/5">
+                      <iframe
+                        src={`https://www.youtube.com/embed/${video.id}`}
+                        title={video.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        loading="lazy"
+                        className="absolute inset-0 w-full h-full"
+                      />
+                    </div>
+                    <div className="p-5 flex flex-col flex-1">
+                      <p className="text-[13.5px] font-semibold text-foreground leading-snug flex-1">{video.title}</p>
+                      <p className="text-[11px] text-foreground/35 mt-3 tabular-nums">{video.duration}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* GROUPS */}
             <div className="space-y-16">
               {INSIGHT_GROUPS.map((group, idx) => {

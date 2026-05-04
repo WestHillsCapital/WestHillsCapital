@@ -149,6 +149,27 @@ export default function IRA() {
         </div>
       </section>
 
+      {/* VIDEO — Norm vs Tom */}
+      <section className="py-14 bg-white border-t border-border/20">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <p className="text-[11px] text-primary font-semibold uppercase tracking-[0.18em] mb-3">See It In Action</p>
+          <h2 className="text-2xl font-serif font-semibold mb-3">Same Salary. Different Choice. Wildly Different Retirement.</h2>
+          <p className="text-[14.5px] text-foreground/60 leading-relaxed mb-8 max-w-xl mx-auto">
+            Two men. Same salary, same start date, same savings rate. One put his savings in gold — the other in CDs. Watch what happened over 40 years.
+          </p>
+          <div className="relative aspect-video rounded-xl overflow-hidden shadow-lg max-w-2xl mx-auto">
+            <iframe
+              src="https://www.youtube.com/embed/zrNAPJCKNog"
+              title="Same Salary. Same Start. Why Is Norm Rich and Tom Broke in Retirement?"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+              loading="lazy"
+              className="absolute inset-0 w-full h-full"
+            />
+          </div>
+        </div>
+      </section>
+
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-16">
