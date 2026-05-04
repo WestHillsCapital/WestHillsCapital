@@ -1,9 +1,9 @@
 import { useParams, Link } from "wouter";
 import { usePageMeta } from "@/hooks/use-page-meta";
-import { COINS, getCoinBySlug } from "@/data/seo/coins";
+import { COINS, RECOMMENDED_COINS, getCoinBySlug } from "@/data/seo/coins";
 import { useSpotPrices } from "@/hooks/use-pricing";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Shield, ArrowLeft } from "lucide-react";
+import { ArrowRight, Shield, ArrowLeft, FileText, CheckCircle, AlertCircle } from "lucide-react";
 
 export default function CoinYearPage() {
   const params = useParams<{ coinSlug: string; year?: string }>();
@@ -197,27 +197,63 @@ export default function CoinYearPage() {
               )}
 
               <div>
-                <h2 className="text-2xl font-serif font-semibold mb-4">
-                  Other Products We Offer
+                <h2 className="text-2xl font-serif font-semibold mb-1">
+                  IRS Reporting Requirements
                 </h2>
-                <div className="space-y-3">
-                  {COINS.filter((c) => c.slug !== coin.slug).map((c) => (
-                    <Link key={c.slug} href={`/products/${c.slug}`}>
-                      <div className="group flex items-center justify-between bg-white border border-border/40 rounded-xl p-4 hover:shadow-sm hover:border-primary/20 transition-all cursor-pointer">
-                        <div>
-                          <p className="font-semibold text-sm group-hover:text-primary transition-colors">
-                            {c.name}
-                          </p>
-                          <p className="text-xs text-foreground/50">
-                            {c.purity} · {c.weight}
-                          </p>
-                        </div>
-                        <ArrowRight className="w-4 h-4 text-foreground/30 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
-                      </div>
-                    </Link>
-                  ))}
+                <p className="text-sm text-foreground/55 mb-4 leading-relaxed">
+                  When selling precious metals back to a dealer, certain transactions trigger IRS Form 1099-B reporting obligations for the dealer. Understanding this before you buy is part of informed ownership.
+                </p>
+                <div className={`rounded-2xl border p-5 mb-3 ${coin.reporting.isReportable ? "bg-amber-50 border-amber-200" : "bg-green-50 border-green-200"}`}>
+                  <div className="flex items-center gap-2.5 mb-3">
+                    {coin.reporting.isReportable
+                      ? <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                      : <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
+                    }
+                    <span className={`text-sm font-semibold ${coin.reporting.isReportable ? "text-amber-800" : "text-green-800"}`}>
+                      {coin.reporting.isReportable
+                        ? `Reportable — ${coin.reporting.threshold}`
+                        : "Not subject to dealer reporting"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-foreground/65 leading-relaxed">
+                    {coin.reporting.notes}
+                  </p>
+                </div>
+                <div className="flex items-start gap-2 bg-muted/30 rounded-xl p-4">
+                  <FileText className="w-3.5 h-3.5 text-foreground/35 mt-0.5 shrink-0" />
+                  <p className="text-xs text-foreground/50 leading-relaxed">
+                    Dealer reporting obligations and your personal capital gains reporting obligations are separate. You are always required to report gains on precious metals sales regardless of whether a 1099-B is issued. West Hills Capital does not provide tax advice — consult a CPA for your specific situation.
+                  </p>
                 </div>
               </div>
+
+              {RECOMMENDED_COINS.filter((c) => c.slug !== coin.slug).length > 0 && (
+                <div>
+                  <h2 className="text-2xl font-serif font-semibold mb-1">
+                    Our Recommended Coins
+                  </h2>
+                  <p className="text-sm text-foreground/55 mb-4 leading-relaxed">
+                    West Hills Capital actively recommends three sovereign bullion coins for long-term investors and IRA accounts.
+                  </p>
+                  <div className="space-y-3">
+                    {RECOMMENDED_COINS.filter((c) => c.slug !== coin.slug).map((c) => (
+                      <Link key={c.slug} href={`/products/${c.slug}`}>
+                        <div className="group flex items-center justify-between bg-white border border-border/40 rounded-xl p-4 hover:shadow-sm hover:border-primary/20 transition-all cursor-pointer">
+                          <div>
+                            <p className="font-semibold text-sm group-hover:text-primary transition-colors">
+                              {c.name}
+                            </p>
+                            <p className="text-xs text-foreground/50">
+                              {c.purity} · {c.weight}
+                            </p>
+                          </div>
+                          <ArrowRight className="w-4 h-4 text-foreground/30 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-6">
@@ -276,7 +312,7 @@ export default function CoinYearPage() {
             Questions about the {coin.shortName}?
           </h2>
           <p className="text-foreground/65 mb-8 max-w-xl mx-auto leading-relaxed">
-            We carry the {coin.name} alongside the other two most liquid sovereign bullion coins in the world. A 15-minute call covers everything you need to know.
+            We source the {coin.name} and can walk you through pricing, delivery, and whether it fits your goals. A 15-minute call covers everything you need to know.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link href="/schedule">
