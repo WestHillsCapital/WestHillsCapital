@@ -299,65 +299,6 @@ export const CUSTODIANS: Custodian[] = [
       },
     ],
   },
-  {
-    slug: "new-direction-trust",
-    name: "New Direction Trust Company",
-    shortName: "New Direction Trust",
-    location: "Birmingham, Alabama",
-    founded: 2004,
-    description:
-      "New Direction Trust Company is an Alabama-based self-directed IRA custodian with extensive experience in alternative assets, including precious metals. Their educational approach to client service makes them a popular choice for first-time self-directed IRA investors.",
-    howWeWork:
-      "West Hills Capital coordinates purchases for clients with New Direction Trust accounts. After your account is funded and a buy direction received, we lock pricing and arrange direct delivery to the IRS-approved depository. New Direction Trust's education-first approach means most clients arrive well-informed about the process before we ever speak.",
-    accountTypes: [
-      "Traditional Self-Directed IRA",
-      "Roth Self-Directed IRA",
-      "SEP IRA",
-      "SIMPLE IRA",
-      "Solo 401(k)",
-      "Health Savings Account (HSA)",
-    ],
-    setupSteps: [
-      {
-        step: 1,
-        title: "Open Your New Direction Trust Account",
-        description:
-          "Complete New Direction Trust's account application. They provide educational resources on the self-directed IRA process as part of onboarding.",
-      },
-      {
-        step: 2,
-        title: "Fund the Account",
-        description:
-          "Initiate a rollover or trustee-to-trustee transfer. New Direction Trust coordinates the incoming transfer request.",
-      },
-      {
-        step: 3,
-        title: "Direct the Purchase",
-        description:
-          "New Direction Trust issues a buy direction to West Hills Capital. We confirm pricing at current market rates before any metal ships.",
-      },
-      {
-        step: 4,
-        title: "Delivery to Approved Depository",
-        description:
-          "Metal ships directly to the IRS-approved depository. New Direction Trust confirms receipt and updates your account record.",
-      },
-    ],
-    faqs: [
-      {
-        q: "Is New Direction Trust good for first-time self-directed IRA investors?",
-        a: "Yes. New Direction Trust is known for their educational resources and client-facing communication. They tend to take more time explaining the process, which benefits first-time self-directed IRA investors.",
-      },
-      {
-        q: "Does New Direction Trust offer Solo 401(k) accounts?",
-        a: "Yes. New Direction Trust offers Solo 401(k) plans for self-employed individuals and small business owners, which can hold IRS-approved precious metals.",
-      },
-      {
-        q: "Where is New Direction Trust headquartered?",
-        a: "New Direction Trust Company is headquartered in Birmingham, Alabama. They serve clients throughout the United States.",
-      },
-    ],
-  },
 ];
 
 export function getCustodianBySlug(slug: string): Custodian | undefined {
