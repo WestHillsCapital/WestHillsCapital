@@ -128,11 +128,19 @@ if (!doPush) {
 }
 
 // Push
+const BINARY_EXTS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif", ".ico", ".svg", ".woff", ".woff2", ".ttf", ".otf", ".pdf"]);
+
 const treeItems = [];
 for (const f of toSync) {
+  const ext = f.slice(f.lastIndexOf(".")).toLowerCase();
+  const isBinary = BINARY_EXTS.has(ext);
+  const content = isBinary
+    ? readFileSync(f).toString("base64")
+    : readFileSync(f, "utf8");
+  const encoding = isBinary ? "base64" : "utf-8";
   const blob = await gh("/git/blobs", {
     method: "POST",
-    body: JSON.stringify({ content: readFileSync(f, "utf8"), encoding: "utf-8" }),
+    body: JSON.stringify({ content, encoding }),
   });
   treeItems.push({ path: f, mode: "100644", type: "blob", sha: blob.sha });
   console.log(`  ✓ ${f}`);
