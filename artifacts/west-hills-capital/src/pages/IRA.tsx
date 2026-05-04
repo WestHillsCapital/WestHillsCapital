@@ -135,7 +135,6 @@ export default function IRA() {
               { name: "Kingdom Trust", slug: "kingdom-trust" },
               { name: "GoldStar Trust", slug: "goldstar-trust" },
               { name: "Midland IRA", slug: "midland-ira" },
-              { name: "New Direction Trust", slug: "new-direction-trust" },
             ].map((c) => (
               <Link key={c.slug} href={`/ira/custodians/${c.slug}`}>
                 <div className="group bg-white border border-border/40 rounded-xl p-4 text-center hover:border-primary/30 hover:shadow-sm transition-all cursor-pointer">

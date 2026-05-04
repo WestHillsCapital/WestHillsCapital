@@ -8,7 +8,7 @@ export default function CustodiansHubPage() {
   usePageMeta({
     title: "Self-Directed IRA Custodians | Precious Metals IRA | West Hills Capital",
     description:
-      "West Hills Capital works with leading self-directed IRA custodians — Equity Trust, Strata Trust, Kingdom Trust, GoldStar Trust, Midland IRA, and New Direction Trust. Learn how each custodian fits into the precious metals IRA process.",
+      "West Hills Capital works with leading self-directed IRA custodians — Equity Trust, Strata Trust, Kingdom Trust, GoldStar Trust, and Midland IRA. Learn how each custodian fits into the precious metals IRA process.",
     canonical: "https://westhillscapital.com/ira/custodians",
   });
 
