@@ -110,7 +110,7 @@ export function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center group">
             <img
-              src={`${import.meta.env.BASE_URL}images/logo.png`}
+              src={`${import.meta.env.BASE_URL}images/logo.webp`}
               alt="West Hills Capital"
               className="h-10 lg:h-12 w-auto object-contain transition-opacity group-hover:opacity-80"
             />

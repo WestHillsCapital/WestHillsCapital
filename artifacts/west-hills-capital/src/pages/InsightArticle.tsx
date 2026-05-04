@@ -161,7 +161,7 @@ export default function InsightArticle() {
       "name": "West Hills Capital",
       "logo": {
         "@type": "ImageObject",
-        "url": "https://westhillscapital.com/images/logo.png"
+        "url": "https://westhillscapital.com/images/logo.webp"
       }
     },
     "url": `https://westhillscapital.com/insights/${article.slug}`,
