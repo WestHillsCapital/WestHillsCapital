@@ -525,7 +525,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
 
           {/* Plan details */}
           <div className="px-3 sm:px-6 py-4 bg-gray-50">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <p className="text-sm font-medium text-gray-800">
                   {PLAN_LABELS[billing.plan_tier] ?? billing.plan_tier} plan
@@ -545,8 +545,8 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                 )}
               </div>
 
-              {/* CTA */}
-              {(billing.plan_tier === "free" || billing.plan_tier === "starter") ? (
+              {/* Upgrade CTA — free/starter only */}
+              {(billing.plan_tier === "free" || billing.plan_tier === "starter") && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex items-center gap-1 p-0.5 bg-gray-100 rounded-lg">
                     <button
@@ -583,28 +583,29 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                   >
                     {isUpgrading ? "Opening…" : "Upgrade"}
                   </button>
-                  {billing.has_stripe_subscription && (
-                    <button
-                      type="button"
-                      disabled={isPortaling}
-                      onClick={() => { void handlePortal(); }}
-                      className="rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
-                    >
-                      {isPortaling ? "Opening…" : "Manage billing"}
-                    </button>
-                  )}
                 </div>
-              ) : billing.has_stripe_subscription ? (
+              )}
+            </div>
+
+            {/* Manage Billing action row */}
+            {billing.has_stripe_subscription && (
+              <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between gap-4">
+                <p className="text-xs text-gray-500">
+                  {(billing.plan_tier === "free" || billing.plan_tier === "starter")
+                    ? "View invoices, update payment methods, or cancel your subscription."
+                    : "View invoices, update your payment method, or make changes to your subscription."}
+                </p>
                 <button
                   type="button"
                   disabled={isPortaling}
                   onClick={() => { void handlePortal(); }}
-                  className="rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
+                  className="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors brand-btn-hover disabled:opacity-60"
+                  style={{ backgroundColor: bc }}
                 >
-                  {isPortaling ? "Opening…" : "Manage billing"}
+                  {isPortaling ? "Opening…" : "Manage Billing"}
                 </button>
-              ) : null}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Plan comparison table */}
