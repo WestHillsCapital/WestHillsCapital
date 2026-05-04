@@ -133,6 +133,7 @@ export default function IRA() {
               { name: "Equity Trust", slug: "equity-trust" },
               { name: "Strata Trust", slug: "strata-trust" },
               { name: "Kingdom Trust", slug: "kingdom-trust" },
+              { name: "Advanta IRA", slug: "advanta-ira" },
               { name: "GoldStar Trust", slug: "goldstar-trust" },
               { name: "Midland IRA", slug: "midland-ira" },
             ].map((c) => (
