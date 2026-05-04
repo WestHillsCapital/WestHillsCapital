@@ -2734,10 +2734,118 @@ export default function DocuFill() {
     }));
   }
 
+  /**
+   * Multi-strategy fuzzy matcher for auto-map.
+   *
+   * Strategies (highest score wins, minimum 35 to accept):
+   *   100 — exact match after normalization
+   *    90 — exact after stripping common modifier words from the field name
+   *    75 — one contains the other after stripping
+   *    70 — one contains the other (normalized only)
+   *   40–70 — word overlap (Jaccard ≥ 0.5 on non-trivial words)
+   *    60 — acronym match (e.g. SSN ↔ Social Security Number)
+   *
+   * alreadyMatchedInThisRun lets _2/_3 PDF suffixed fields prefer a different
+   * package field than the one just matched (e.g. City_2 → "Mailing city"
+   * after City → "Client city"), while still falling back if no other option exists.
+   */
+  function findBestFieldForAnnotation(
+    ann: AcroAnnotation,
+    fields: FieldItem[],
+    alreadyMatchedInThisRun: Set<string>,
+  ): FieldItem | undefined {
+    if (!ann.fieldName) return undefined;
+
+    const MODIFIER_WORDS = new Set([
+      "client", "mailing", "physical", "account", "applicant", "signer",
+      "legal", "primary", "secondary", "billing", "home", "work", "middle",
+      "holder", "registered", "beneficial", "joint", "co", "current",
+    ]);
+    const STOP_WORDS = new Set(["the", "a", "an", "of", "in", "for", "to", "on", "at", "by", "or", "and", "if"]);
+    const FORMAT_HINTS = /\s*(mm[\/-]?dd[\/-]?yyyy|mmddyyyy|yyyymmdd|mm\/dd\/yy|\(mm\/dd\/yyyy\))\s*/gi;
+
+    function norm(name: string): string {
+      return name
+        .toLowerCase()
+        .replace(FORMAT_HINTS, " ")
+        .replace(/_\d+$/, "")      // trailing _2 _3 …
+        .replace(/\s+\d+$/, "")    // trailing " 2" " 3" …
+        .replace(/_/g, " ")
+        .replace(/[^\w\s]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+    }
+
+    function stripMods(name: string): string {
+      return name
+        .split(" ")
+        .filter((w) => !MODIFIER_WORDS.has(w))
+        .join(" ")
+        .trim();
+    }
+
+    function acronym(name: string): string {
+      return name.split(/\s+/).map((w) => w[0] ?? "").join("").toLowerCase();
+    }
+
+    function meaningfulWords(name: string): Set<string> {
+      return new Set(name.split(/\s+/).filter((w) => w.length >= 2 && !STOP_WORDS.has(w)));
+    }
+
+    function scoreMatch(fieldName: string, pdfName: string): number {
+      const nf = norm(fieldName);
+      const np = norm(pdfName);
+      if (nf === np) return 100;
+
+      const sf = stripMods(nf);
+      const sp = stripMods(np);
+      if (sf === np || nf === sp || sf === sp) return 90;
+
+      if (sf.length >= 2 && np.includes(sf)) return 75;
+      if (sp.length >= 2 && nf.includes(sp)) return 75;
+      if (nf.includes(np) || np.includes(nf)) return 70;
+      if (sf.includes(sp) || sp.includes(sf)) return 70;
+
+      const wf = meaningfulWords(sf);
+      const wp = meaningfulWords(sp);
+      if (wf.size > 0 && wp.size > 0) {
+        const inter = [...wf].filter((w) => wp.has(w)).length;
+        const union = new Set([...wf, ...wp]).size;
+        const j = inter / union;
+        if (j >= 0.5) return Math.round(40 + j * 30);
+      }
+
+      const acf = acronym(nf);
+      const acp = acronym(np);
+      if (acf.length >= 2 && acf === np) return 60;
+      if (acp.length >= 2 && acp === nf) return 60;
+
+      return 0;
+    }
+
+    const THRESHOLD = 35;
+    const candidates = fields
+      .map((f) => ({ field: f, score: scoreMatch(f.name, ann.fieldName) }))
+      .filter((c) => c.score >= THRESHOLD)
+      .sort((a, b) => b.score - a.score);
+
+    if (candidates.length === 0) return undefined;
+
+    // Prefer a field not yet matched in this run — handles _2 suffix disambiguation.
+    // Only override if the unmatched candidate is within 15 pts of the best overall.
+    const unmatched = candidates.filter((c) => !alreadyMatchedInThisRun.has(c.field.id));
+    if (unmatched.length > 0 && unmatched[0].score >= candidates[0].score - 15) {
+      return unmatched[0].field;
+    }
+    return candidates[0].field;
+  }
+
   function autoMapFromPdfFields() {
     if (!selectedDocument || !selectedPackage || !acroAnnotations.length) return;
     let placed = 0;
     let skipped = 0;
+    // Track which fields were matched in this run for _2/_3 disambiguation.
+    const alreadyMatchedInThisRun = new Set<string>();
     updateSelectedPackage((pkg) => {
       mappingUndoStack.current = [...mappingUndoStack.current, [...pkg.mappings]].slice(-20);
       let newMappings = [...pkg.mappings];
@@ -2753,9 +2861,7 @@ export default function DocuFill() {
         // semantically-equivalent names (Printed Name, Signer Name, Account Holder)
         // that all represent the same Docuplete field. Creating a new field for
         // each unmatched annotation would pollute the interview with duplicates.
-        const field = ann.fieldName
-          ? pkg.fields.find((f) => f.name.toLowerCase() === ann.fieldName.toLowerCase())
-          : undefined;
+        const field = findBestFieldForAnnotation(ann, pkg.fields, alreadyMatchedInThisRun);
         if (!field) { skipped++; continue; }
         // Skip if this field already has a mapping very close to this position on this page
         const alreadyMapped = newMappings.some(
@@ -2767,6 +2873,7 @@ export default function DocuFill() {
             Math.abs(m.y - yPct) < 3,
         );
         if (alreadyMapped) { skipped++; continue; }
+        alreadyMatchedInThisRun.add(field.id);
         newMappings = [
           ...newMappings,
           {
@@ -2789,13 +2896,13 @@ export default function DocuFill() {
       return { ...pkg, mappings: newMappings };
     });
     if (placed > 0) {
-      const skipNote = skipped > 0 ? ` (${skipped} unmatched — drag them manually)` : "";
+      const skipNote = skipped > 0 ? ` (${skipped} PDF field${skipped === 1 ? "" : "s"} unmatched — drag them manually)` : "";
       flashStatus(`Auto-mapped ${placed} field${placed === 1 ? "" : "s"} from PDF.${skipNote}`);
     } else {
-      const allUnmatched = skipped === acroAnnotations.length;
+      const pdfNames = acroAnnotations.map((a) => a.fieldName).filter(Boolean).slice(0, 5).join(", ");
       flashStatus(
-        allUnmatched
-          ? "No PDF field names matched existing package fields. Rename your fields to match, or drag them manually."
+        skipped === acroAnnotations.length
+          ? `No PDF fields matched package fields${pdfNames ? ` (PDF has: ${pdfNames}${acroAnnotations.length > 5 ? "…" : ""})` : ""}. Rename package fields to match, or drag manually.`
           : "All matching PDF fields are already mapped on this page.",
       );
     }
