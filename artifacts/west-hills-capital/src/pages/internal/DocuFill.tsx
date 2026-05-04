@@ -1087,6 +1087,7 @@ export default function DocuFill() {
   const newPackageInputRef = useRef<HTMLInputElement | null>(null);
   const [interviewOutputTab, setInterviewOutputTab] = useState<"staff" | "customerLink">("staff");
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [mappingStartedDocIds, setMappingStartedDocIds] = useState<Set<string>>(() => new Set());
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null);
   const [inspectorMode, setInspectorMode] = useState<"panel" | "modal">(() => {
@@ -1414,6 +1415,14 @@ export default function DocuFill() {
       (m) => m.documentId === selectedDocument.id && (m.page ?? 1) === selectedPage && knownFieldIds.has(m.fieldId)
     );
   }, [selectedPackage, selectedDocument, selectedPage]);
+  useEffect(() => {
+    if (!selectedDocument) return;
+    const docId = selectedDocument.id;
+    if (mappingStartedDocIds.has(docId)) return;
+    if (selectedPackage?.mappings.some((m) => m.documentId === docId)) {
+      setMappingStartedDocIds((prev) => new Set([...prev, docId]));
+    }
+  }, [selectedDocument, selectedPackage?.mappings, mappingStartedDocIds]);
   const fieldInInterview = (f: { interviewMode?: string; interviewVisible?: boolean }) =>
     f.interviewMode ? f.interviewMode !== "omitted" : f.interviewVisible !== false;
   const fieldIsRequired = (f: { interviewMode?: string; required?: boolean; interviewVisible?: boolean }) =>
@@ -5204,17 +5213,19 @@ export default function DocuFill() {
                     <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-[11px] font-medium border border-[#DDD5C4] rounded-md px-2.5 h-[26px] leading-none transition-all shrink-0 ${showAcroLayer ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
                       PDF Fields
                     </button>
-                    <button
-                      type="button"
-                      title={`Auto-create mappings from ${acroAnnotations.length} detected PDF form field${acroAnnotations.length === 1 ? "" : "s"} on this page`}
-                      onClick={autoMapFromPdfFields}
-                      className="flex items-center gap-1.5 text-[11px] font-medium border border-[#D4B96A] rounded-md px-2.5 h-[26px] leading-none bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A] transition-colors shrink-0"
-                    >
-                      <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6}>
-                        <path d="M2 8h5M10 8h4M7 5l3 3-3 3" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                      Auto-map
-                    </button>
+                    {selectedDocument && mappingStartedDocIds.has(selectedDocument.id) && (
+                      <button
+                        type="button"
+                        title={`Auto-create mappings from ${acroAnnotations.length} detected PDF form field${acroAnnotations.length === 1 ? "" : "s"} on this page`}
+                        onClick={autoMapFromPdfFields}
+                        className="flex items-center gap-1.5 text-[11px] font-medium border border-[#D4B96A] rounded-md px-2.5 h-[26px] leading-none bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A] transition-colors shrink-0"
+                      >
+                        <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6}>
+                          <path d="M2 8h5M10 8h4M7 5l3 3-3 3" strokeLinecap="round" strokeLinejoin="round"/>
+                        </svg>
+                        Auto-map
+                      </button>
+                    )}
                   </>
                 )}
 
