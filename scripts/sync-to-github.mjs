@@ -21,6 +21,7 @@ const WATCH_DIRS = [
   "artifacts/api-server/src",
   "artifacts/api-server/scripts",
   "artifacts/west-hills-capital/src",
+  "artifacts/west-hills-capital/public",
 ];
 
 const WATCH_ROOT_FILES = [

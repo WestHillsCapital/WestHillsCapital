@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Shield } from "lucide-react";
 
 export default function CoinsHubPage() {
+  const iraCoins = COINS.filter((c) => c.iraEligible);
+
   usePageMeta({
     title: "Sovereign Bullion Coins | Physical Gold & Silver | West Hills Capital",
     description:
-      "West Hills Capital sources American Gold Eagles, Gold Buffalos, and Silver Eagles — the three most recognized sovereign bullion coins, all IRA-eligible. View specifications, live pricing, and year-by-year pages.",
+      "West Hills Capital sources the world's most recognized sovereign bullion coins — American Gold Eagles, Canadian Maple Leafs, Krugerrands, and more. IRA-eligible options available. View specs, live pricing, and year-by-year pages.",
     canonical: "https://westhillscapital.com/products",
   });
 
@@ -18,7 +20,7 @@ export default function CoinsHubPage() {
   const schemaData = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    "name": "IRA-Eligible Sovereign Bullion Coins",
+    "name": "Sovereign Bullion Coins — Gold & Silver",
     "description": "Sovereign bullion coins available through West Hills Capital for direct purchase or Precious Metals IRA.",
     "numberOfItems": COINS.length,
     "itemListElement": COINS.map((c, i) => ({
@@ -45,7 +47,7 @@ export default function CoinsHubPage() {
             Sovereign Bullion Coins
           </h1>
           <p className="text-white/65 text-lg leading-relaxed max-w-3xl">
-            West Hills Capital sources three sovereign bullion coins — the world's most recognized, most liquid, and most commonly held precious metals for long-term investors and IRAs. Every coin we sell is government-minted and IRA-eligible.
+            West Hills Capital sources the world's most recognized sovereign bullion coins — American Gold Eagles, Canadian Maple Leafs, Australian Kangaroos, Gold Buffalos, Krugerrands, and Silver Eagles. Government-minted, transparently priced, and most are IRA-eligible.
           </p>
           {(spotData?.gold || spotData?.silver) && (
             <div className="flex flex-wrap gap-4 mt-8">
@@ -80,7 +82,7 @@ export default function CoinsHubPage() {
 
       <section className="py-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {COINS.map((coin) => {
               const spotPrice = coin.metal === "gold" ? spotData?.gold : spotData?.silver;
               return (
@@ -162,8 +164,8 @@ export default function CoinsHubPage() {
                 desc: "Bullion coins carry modest, transparent premiums over the spot price — unlike proof or collector editions, which can command 50–200% premiums that rarely survive resale.",
               },
               {
-                title: "IRA Eligible",
-                desc: "All three coins qualify for inclusion in a self-directed Precious Metals IRA, meeting IRS purity and form requirements.",
+                title: "IRA Eligible Options",
+                desc: `${iraCoins.length} of our ${COINS.length} coins qualify for inclusion in a self-directed Precious Metals IRA, meeting IRS purity and form requirements. The Krugerrand is available for direct purchase only.`,
               },
             ].map((item) => (
               <div key={item.title} className="bg-white border border-border/40 rounded-2xl p-5">
