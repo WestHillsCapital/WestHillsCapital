@@ -64,10 +64,9 @@ export const COINS: CoinProduct[] = [
     whyBullion:
       "Sovereign bullion coins like the American Gold Eagle are preferred over proof coins for long-term investors because their premiums are tied to the metal's value — not collector demand. Proof coins carry 30–100%+ premiums over spot that are rarely recoverable on resale. Bullion coins trade at modest, transparent premiums and are the most liquid gold you can own.",
     reporting: {
-      isReportable: true,
-      threshold: "25 or more 1 oz coins in a single transaction",
+      isReportable: false,
       notes:
-        "When you sell 25 or more 1 oz American Gold Eagles to a dealer in a single transaction, the dealer is required to file IRS Form 1099-B reporting the proceeds. Transactions below this threshold are not subject to dealer reporting, though you remain responsible for reporting any capital gains on your own return regardless of whether a 1099-B is filed.",
+        "The American Gold Eagle is not subject to IRS Form 1099-B dealer reporting requirements. As U.S. legal tender issued by the United States Mint, Gold Eagles are not on the IRS list of reportable precious metals, regardless of quantity sold. This is one of several advantages American Eagles carry over some foreign bullion coins. Note that you remain personally responsible for reporting any capital gains on your own tax return — the absence of dealer reporting does not affect your individual filing obligations.",
     },
     specs: [
       { label: "Purity", value: ".9167 fine (22-karat)" },
