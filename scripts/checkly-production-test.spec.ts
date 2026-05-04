@@ -136,8 +136,8 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   await scrollToSection(page, "profile-section");
   const profileSection = page.locator("#profile-section").first();
   await expect(profileSection).toBeVisible({ timeout: 8000 });
-  // First/last name or display name field
-  const profileNameInput = profileSection.locator("input").first();
+  // Display name text input (file input for avatar is hidden — skip it)
+  const profileNameInput = profileSection.locator("input[type='text'], input:not([type='file']):not([type='hidden'])").first();
   await expect(profileNameInput).toBeVisible();
   console.log("✅ [4.1] Profile section — name input visible");
 
