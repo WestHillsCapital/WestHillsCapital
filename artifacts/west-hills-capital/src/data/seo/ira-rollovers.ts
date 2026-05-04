@@ -9,6 +9,34 @@ export interface IraRolloverType {
 
 export const IRA_ROLLOVERS: IraRolloverType[] = [
   {
+    slug: "traditional-ira",
+    name: "Traditional IRA to Precious Metals IRA",
+    shortName: "Traditional IRA",
+    description:
+      "A Traditional IRA held at a brokerage like Fidelity, Vanguard, or Schwab can be transferred directly to a self-directed precious metals IRA. The transfer preserves your tax-deferred status entirely — there is no taxable event, no 60-day window, and no limit on the amount transferred. This is one of the most straightforward paths to owning physical gold and silver inside a retirement account.",
+    keyFacts: [
+      "Trustee-to-trustee transfers are not subject to the 60-day rollover rule",
+      "No IRS-imposed limit on transfer amounts",
+      "Preserves full tax-deferred status — no taxes owed until distributions",
+      "Required minimum distributions (RMDs) begin at age 73 (current law)",
+      "IRS-approved metals must meet purity standards: gold .995+, silver .999+",
+    ],
+    faqs: [
+      {
+        q: "What is the difference between a transfer and a rollover for a Traditional IRA?",
+        a: "A transfer moves funds directly between custodians — you never receive a check, there is no 60-day deadline, and it can be done unlimited times per year. A rollover sends funds to you first, which triggers mandatory 20% withholding and a 60-day window to deposit into the new IRA. Transfers are almost always preferable.",
+      },
+      {
+        q: "Can I transfer just part of my Traditional IRA?",
+        a: "Yes. A partial transfer moves only the portion you specify to the self-directed IRA. The remainder stays at your current custodian. You can structure the transfer however fits your allocation goals.",
+      },
+      {
+        q: "Will my current brokerage resist the transfer?",
+        a: "Some brokerages delay or complicate outgoing transfers. Working with an experienced self-directed IRA custodian — who initiates the transfer request on your behalf — minimizes friction. The process typically takes 1–3 weeks from initiation to funded account.",
+      },
+    ],
+  },
+  {
     slug: "401k",
     name: "401(k) to Precious Metals IRA",
     shortName: "401(k)",
