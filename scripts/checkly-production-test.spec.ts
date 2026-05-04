@@ -57,24 +57,27 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   await page.waitForLoadState("networkidle");
 
   const emailInput = page.locator('input[name="identifier"], input[name="emailAddress"], input[type="email"]').first();
-  await emailInput.waitFor({ timeout: 20000 });
+  await emailInput.waitFor({ state: "visible", timeout: 20000 });
   await emailInput.fill(EMAIL);
 
-  // Click the email-submit Continue button — NOT the "Continue with Google" OAuth button.
-  // Clerk renders the email form's submit as a button immediately after the input,
-  // so target it by type="submit" within the form, or by data-localization-key.
-  const emailSubmitBtn = page.locator('button[type="submit"]').first();
-  await emailSubmitBtn.click();
+  // Clerk's primary action buttons carry the class cl-formButtonPrimary.
+  // This avoids accidentally clicking the hidden aria-hidden submit or the
+  // "Continue with Google" social button.
+  const primaryBtn = page.locator(".cl-formButtonPrimary:visible").first();
+  await primaryBtn.waitFor({ state: "visible", timeout: 10000 });
+  await primaryBtn.click();
 
-  // Wait for the password field to appear AND become enabled (Clerk disables it briefly
-  // during the transition between steps).
+  // Wait for the password field to appear AND become enabled (Clerk disables it
+  // briefly during the step transition).
   const passwordInput = page.locator('input[type="password"]').first();
   await passwordInput.waitFor({ state: "visible", timeout: 15000 });
   await expect(passwordInput).toBeEnabled({ timeout: 10000 });
   await passwordInput.fill(PASSWORD);
 
-  // Submit the password step
-  await page.locator('button[type="submit"]').first().click();
+  // Click the sign-in primary button (same class, now on the password step)
+  const signInBtn = page.locator(".cl-formButtonPrimary:visible").first();
+  await signInBtn.waitFor({ state: "visible", timeout: 10000 });
+  await signInBtn.click();
 
   await page.waitForURL(`${BASE}/app/**`, { timeout: 20000 });
   await expect(page).not.toHaveURL(/sign-in/);
