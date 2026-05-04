@@ -67,7 +67,10 @@ test("Docuplete — exhaustive production smoke test", async ({ page, context })
   await passwordInput.waitFor({ state: "visible", timeout: 15000 });
   await expect(passwordInput).toBeEnabled({ timeout: 10000 });
   await passwordInput.fill(PASSWORD);
-  await page.keyboard.press("Enter");
+
+  // Click the visible primary button — avoid hidden aria-hidden submit buttons
+  // that Clerk renders for accessibility scaffolding.
+  await page.locator('button.cl-formButtonPrimary:not([aria-hidden="true"])').first().click();
 
   // Wait until the URL is fully inside the app and no longer on any sign-in step.
   // /app/sign-in/factor-one and factor-two are still Clerk sign-in pages,
