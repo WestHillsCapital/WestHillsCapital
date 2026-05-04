@@ -66,6 +66,8 @@ interface BillingInfo {
   billing_period_start: string | null;
   next_renewal_at: string | null;
   trial_end: string | null;
+  renewal_amount_cents: number | null;
+  billing_interval: string | null;
   has_stripe_customer: boolean;
   has_stripe_subscription: boolean;
   limits: {
@@ -536,6 +538,17 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                 {billing.next_renewal_at && billing.subscription_status !== "trialing" && (
                   <p className="text-xs text-gray-500 mt-0.5">
                     Renews {formatDate(billing.next_renewal_at)}
+                    {billing.renewal_amount_cents != null && (
+                      <> &mdash; <span className="font-medium text-gray-700">
+                        {(() => {
+                          const dollars = billing.renewal_amount_cents / 100;
+                          const formatted = dollars % 1 === 0
+                            ? `$${dollars.toLocaleString("en-US")}`
+                            : `$${dollars.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                          return `${formatted}${billing.billing_interval === "year" ? "/yr" : "/mo"}`;
+                        })()}
+                      </span></>
+                    )}
                   </p>
                 )}
                 {(billing.plan_tier === "free" || billing.plan_tier === "starter") && billing.subscription_status !== "trialing" && (
