@@ -3256,8 +3256,8 @@ export default function DocuFill() {
     }));
   }
 
-  function beginMappingPointer(e: ReactPointerEvent<HTMLElement>, mapping: MappingItem, mode: "move" | "resize") {
-    const frame = pageFrameRef.current;
+  function beginMappingPointer(e: ReactPointerEvent<HTMLElement>, mapping: MappingItem, mode: "move" | "resize", frameEl?: HTMLElement | null) {
+    const frame = frameEl ?? pageFrameRef.current;
     if (!frame) return;
     e.preventDefault();
     e.stopPropagation();
@@ -5342,6 +5342,7 @@ export default function DocuFill() {
                                   <button
                                     key={m.id}
                                     type="button"
+                                    onPointerDown={(e) => beginMappingPointer(e, m, "move", e.currentTarget.parentElement as HTMLElement)}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setSelectedPage(pageNum);
@@ -5359,7 +5360,7 @@ export default function DocuFill() {
                                       setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
                                       setPlacementModalPos(null);
                                     }}
-                                    className={`absolute rounded cursor-pointer flex flex-col overflow-hidden ${flexJustify} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
+                                    className={`absolute rounded cursor-move flex flex-col overflow-hidden ${flexJustify} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
                                     style={{
                                       left: `${m.x}%`,
                                       top: `${m.y}%`,
