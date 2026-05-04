@@ -283,12 +283,12 @@ router.post("/draft", async (req, res): Promise<void> => {
     // Anthropic API errors carry a numeric status property
     const status = (err as Record<string, unknown>)["status"];
     if (typeof status === "number") {
-      logger.error({ err, status }, "[Content] Anthropic API error");
-      res.status(500).json({ error: `Anthropic API error (HTTP ${status}) — check server logs for details.` });
+      logger.error({ err, status, msg }, "[Content] Anthropic API error");
+      res.status(500).json({ error: `Anthropic API error (HTTP ${status}): ${msg}` });
       return;
     }
-    logger.error({ err }, "[Content] Draft generation failed (unexpected error)");
-    res.status(500).json({ error: "Draft generation failed — check server logs for details." });
+    logger.error({ err, msg }, "[Content] Draft generation failed (unexpected error)");
+    res.status(500).json({ error: `Draft generation failed: ${msg}` });
   }
 });
 
