@@ -3363,12 +3363,13 @@ router.post("/data/request-deletion", requireAdminRole, async (req, res) => {
     const body        = req.body as Record<string, unknown>;
     const db          = getDb();
 
-    const { rows: orgRows } = await db.query(
-      `SELECT name FROM accounts WHERE id = $1`,
+    const { rows: orgRows } = await db.query<{ name: string; stripe_subscription_id: string | null }>(
+      `SELECT name, stripe_subscription_id FROM accounts WHERE id = $1`,
       [accountId],
     );
     if (!orgRows[0]) { res.status(404).json({ error: "Account not found" }); return; }
-    const orgName     = (orgRows[0] as Record<string, unknown>).name as string;
+    const orgName            = orgRows[0].name;
+    const stripeSubId        = orgRows[0].stripe_subscription_id;
 
     const confirmName = typeof body.confirmName === "string" ? body.confirmName.trim() : "";
     if (confirmName !== orgName.trim()) {
@@ -3388,11 +3389,25 @@ router.post("/data/request-deletion", requireAdminRole, async (req, res) => {
     );
     const row = rows[0] as Record<string, unknown>;
 
+    // Cancel any active Stripe subscription immediately so the account is not
+    // charged again. cancel_at_period_end = true means access continues until
+    // the current period ends (within the 7-day grace window) but no renewal fires.
+    if (stripeSubId) {
+      try {
+        const stripe = await getUncachableStripeClient();
+        await stripe.subscriptions.update(stripeSubId, { cancel_at_period_end: true });
+        logger.info({ accountId, stripeSubId }, "[Settings] Stripe subscription set to cancel at period end on account deletion request");
+      } catch (stripeErr) {
+        // Non-fatal — log and continue. Data deletion still proceeds.
+        logger.warn({ err: stripeErr, accountId, stripeSubId }, "[Settings] Failed to cancel Stripe subscription on deletion request — continuing");
+      }
+    }
+
     void insertAuditLog({
       accountId, actorEmail, actorUserId: clerkUserId,
       action: "data.deletion_requested",
       resourceType: "org",
-      metadata: { graceWindowDays: 7 },
+      metadata: { graceWindowDays: 7, stripeCancelled: !!stripeSubId },
     });
 
     res.json({
