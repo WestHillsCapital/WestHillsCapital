@@ -116,7 +116,7 @@ router.post("/", async (req, res) => {
     termsVersion,
     confirmationMethod,
     notes,
-  } = req.body as {
+  } = _parse.data as {
     leadId?:           number | null;
     confirmationId?:   string | null;
     dealType?:         string;

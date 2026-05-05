@@ -56,6 +56,7 @@ import {
 } from "../lib/encryption";
 import {
   EmptyBodySchema,
+  PdfUploadHeaderSchema,
   FieldLibraryCreateSchema,
   FieldLibraryUpdateSchema,
   EntityBodySchema,
@@ -1859,7 +1860,7 @@ router.get("/field-library", async (req, res) => {
 router.post("/field-library", requireAdminRole, async (req, res) => {
   const _parse = FieldLibraryCreateSchema.safeParse(req.body);
   if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-  const body = req.body as FieldLibraryInput;
+  const body = _parse.data as FieldLibraryInput;
   const label = cleanText(body.label);
   try {
     if (!label) {
@@ -1976,7 +1977,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
     const id = cleanText(req.params.id);
     const _parse = FieldLibraryUpdateSchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as FieldLibraryInput;
+    const body = _parse.data as FieldLibraryInput;
     const label = cleanText(body.label);
     if (!id || !label) {
       res.status(400).json({ error: "Field label is required" });
@@ -2060,7 +2061,7 @@ router.post("/groups", requireAdminRole, async (req, res) => {
   try {
     const _parse = EntityBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as EntityInput;
+    const body = _parse.data as EntityInput;
     const count = (await getDb().query("SELECT COUNT(*) FROM docufill_groups WHERE account_id=$1", [acctId(req)])).rows[0]?.count ?? 0;
     const name = cleanText(body.name) || `New Group ${Number(count) + 1}`;
     const accountId = acctId(req);
@@ -2086,7 +2087,7 @@ router.patch("/groups/:id", requireAdminRole, async (req, res) => {
     }
     const _parse = EntityNameRequiredSchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as EntityInput;
+    const body = _parse.data as EntityInput;
     const name = cleanText(body.name);
     if (!name) {
       res.status(400).json({ error: "Group name is required" });
@@ -2131,7 +2132,7 @@ router.post("/transaction-types", requireAdminRole, async (req, res) => {
     const accountId = acctId(req);
     const _parse = TransactionTypeBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as TransactionTypeInput;
+    const body = _parse.data as TransactionTypeInput;
     const label = cleanText(body.label);
     if (!label) {
       res.status(400).json({ error: "Transaction type label is required" });
@@ -2159,7 +2160,7 @@ router.patch("/transaction-types/:scope", requireAdminRole, async (req, res) => 
     const scope = cleanText(req.params.scope);
     const _parse = TransactionTypeBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as TransactionTypeInput;
+    const body = _parse.data as TransactionTypeInput;
     const label = cleanText(body.label);
     if (!scope || !label) {
       res.status(400).json({ error: "Transaction type label is required" });
@@ -2212,7 +2213,7 @@ router.post("/custodians", requireAdminRole, async (req, res) => {
   try {
     const _parse = EntityNameRequiredSchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as EntityInput;
+    const body = _parse.data as EntityInput;
     const name = cleanText(body.name);
     if (!name) {
       res.status(400).json({ error: "Custodian name is required" });
@@ -2242,7 +2243,7 @@ router.patch("/custodians/:id", requireAdminRole, async (req, res) => {
     }
     const _parse = EntityNameRequiredSchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as EntityInput;
+    const body = _parse.data as EntityInput;
     const name = cleanText(body.name);
     if (!name) {
       res.status(400).json({ error: "Custodian name is required" });
@@ -2273,7 +2274,7 @@ router.post("/depositories", requireAdminRole, async (req, res) => {
   try {
     const _parse = EntityNameRequiredSchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as EntityInput;
+    const body = _parse.data as EntityInput;
     const name = cleanText(body.name);
     if (!name) {
       res.status(400).json({ error: "Depository name is required" });
@@ -2303,7 +2304,7 @@ router.patch("/depositories/:id", requireAdminRole, async (req, res) => {
     }
     const _parse = EntityNameRequiredSchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as EntityInput;
+    const body = _parse.data as EntityInput;
     const name = cleanText(body.name);
     if (!name) {
       res.status(400).json({ error: "Depository name is required" });
@@ -2466,7 +2467,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
   try {
     const _parse = PackageBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as PackageInput;
+    const body = _parse.data as PackageInput;
     const name = cleanText(body.name);
     if (!name) {
       res.status(400).json({ error: "Package name is required" });
@@ -2570,7 +2571,7 @@ router.patch("/packages/:id", async (req, res) => {
     }
     const _parse = PackageBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as PackageInput;
+    const body = _parse.data as PackageInput;
     const accountId = acctId(req);
     const existing = await getPackage(id, db, false, accountId);
     if (!existing) {
@@ -2949,6 +2950,8 @@ router.delete("/packages/:id", async (req, res) => {
 
 router.post("/packages/:id/documents", requireAdminRole, async (req, res) => {
   try {
+    const _parseH = PdfUploadHeaderSchema.safeParse(req.headers);
+    if (!_parseH.success) { res.status(400).json({ error: "Invalid request headers", issues: _parseH.error.issues.map(i => i.message) }); return; }
     const packageId = parseId(req.params.id);
     if (!packageId) {
       res.status(400).json({ error: "Invalid package id" });
@@ -2975,6 +2978,8 @@ router.post("/packages/:id/documents", requireAdminRole, async (req, res) => {
 
 router.put("/packages/:id/documents/:documentId/pdf", async (req, res) => {
   try {
+    const _parseH = PdfUploadHeaderSchema.safeParse(req.headers);
+    if (!_parseH.success) { res.status(400).json({ error: "Invalid request headers", issues: _parseH.error.issues.map(i => i.message) }); return; }
     const packageId = parseId(req.params.id);
     if (!packageId) {
       res.status(400).json({ error: "Invalid package id" });
@@ -3100,7 +3105,7 @@ router.post("/csv-batch", requireMemberRole, requirePlanFeature("csvBatch"), asy
   try {
     const _parse = CsvBatchBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as { packageId?: unknown; rows?: unknown };
+    const body = _parse.data;
     const packageId = parseId(body.packageId);
     if (!packageId) {
       res.status(400).json({ error: "packageId is required" });
@@ -3777,7 +3782,7 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
   try {
     const _parse = SessionCreateBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as SessionInput;
+    const body = _parse.data as SessionInput;
     const packageId = parseId(body.packageId);
     if (!packageId) {
       res.status(400).json({ error: "Package id is required" });
@@ -3999,7 +4004,7 @@ router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
   try {
     const _parse = SessionAnswersBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as AnswersInput;
+    const body = _parse.data as AnswersInput;
     const db = getDb();
     const accountId = acctId(req);
     const inputAnswers: Record<string, unknown> = getRecord(body.answers);
@@ -4047,7 +4052,7 @@ router.post("/sessions/:token/send-link", requireMemberRole, requirePlanFeature(
 
     const _parse = SendLinkBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as { recipientEmail?: string; recipientName?: string; customMessage?: string };
+    const body = _parse.data;
     const recipientEmail = typeof body.recipientEmail === "string" ? body.recipientEmail.trim() : "";
     const recipientName  = typeof body.recipientName  === "string" ? body.recipientName.trim()  : "";
 
@@ -4109,10 +4114,7 @@ router.post("/batch/send-links", requireMemberRole, requirePlanFeature("clientLi
   try {
     const _parse = BatchSendLinksBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as {
-      invitations?: Array<{ token: string; recipientEmail: string; recipientName?: string }>;
-      customMessage?: string;
-    };
+    const body = _parse.data;
     if (!Array.isArray(body.invitations) || body.invitations.length === 0) {
       res.status(400).json({ error: "invitations array is required" });
       return;
@@ -4521,7 +4523,9 @@ publicDocufillRouter.get("/sessions/:token", async (req, res) => {
  */
 publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
   try {
-    const body = req.body as AnswersInput;
+    const _parse = SessionAnswersBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
+    const body = _parse.data as AnswersInput;
     const db = getDb();
     const { rows: metaRows } = await db.query<{ account_id: number }>(
       `SELECT account_id FROM docufill_interview_sessions WHERE token=$1 AND expires_at > NOW()`,

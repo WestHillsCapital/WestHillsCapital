@@ -72,9 +72,9 @@ router.post("/onboard", async (req, res) => {
 
   const _parse = OnboardBodySchema.safeParse(req.body);
   if (!_parse.success) { return void res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); }
-  const email: string | undefined = (req.body as { email?: string }).email?.trim().toLowerCase();
-  const companyName: string | undefined = (req.body as { companyName?: string }).companyName?.trim();
-  const industry: string | undefined = (req.body as { industry?: string }).industry?.trim() || undefined;
+  const email: string | undefined = _parse.data.email?.trim().toLowerCase();
+  const companyName: string | undefined = _parse.data.companyName?.trim();
+  const industry: string | undefined = _parse.data.industry?.trim() || undefined;
 
   if (!email) {
     return void res.status(400).json({ error: "email is required." });
@@ -290,7 +290,7 @@ router.post("/verify-2fa", async (req, res) => {
 
   const _parse = Verify2FABodySchema.safeParse(req.body);
   if (!_parse.success) { return void res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); }
-  const body = req.body as { code?: string; trustDevice?: boolean };
+  const body = _parse.data;
   const code = (body.code ?? "").trim();
   const trustDevice = body.trustDevice === true;
   if (!code) {
@@ -504,7 +504,7 @@ router.post("/api-keys", requireProductAuth, requireAdminRole, requirePlanFeatur
   const accountId = req.internalAccountId!;
   const _parse = ApiKeyBodySchema.safeParse(req.body);
   if (!_parse.success) { return void res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); }
-  const name = ((req.body as { name?: string }).name ?? "").trim();
+  const name = (_parse.data.name ?? "").trim();
 
   if (!name) {
     return void res.status(400).json({ error: "name is required." });
@@ -753,7 +753,7 @@ router.patch("/api-keys/:id", requireProductAuth, requireAdminRole, async (req, 
 
   const _parse = ApiKeyBodySchema.safeParse(req.body);
   if (!_parse.success) { return void res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); }
-  const name = ((req.body as { name?: string }).name ?? "").trim();
+  const name = (_parse.data.name ?? "").trim();
   if (!name) {
     return void res.status(400).json({ error: "name is required." });
   }

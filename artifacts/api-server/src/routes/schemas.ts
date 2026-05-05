@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // ── Shared ────────────────────────────────────────────────────────────────────
 
-export const EmptyBodySchema = z.object({}).passthrough().optional();
+export const EmptyBodySchema = z.object({}).optional();
 export type EmptyBody = z.infer<typeof EmptyBodySchema>;
 
 // ── Docufill ──────────────────────────────────────────────────────────────────
@@ -17,7 +17,14 @@ export const FieldLibraryUpdateSchema = z.object({
 }).passthrough();
 export type FieldLibraryUpdateBody = z.infer<typeof FieldLibraryUpdateSchema>;
 
-export const EntityBodySchema = z.object({}).passthrough();
+export const EntityBodySchema = z.object({
+  name: z.string().optional(),
+  kind: z.string().optional().nullable(),
+  phone: z.string().optional().nullable(),
+  email: z.string().optional().nullable(),
+  notes: z.string().optional().nullable(),
+  active: z.boolean().optional(),
+}).passthrough();
 export type EntityBody = z.infer<typeof EntityBodySchema>;
 
 export const EntityNameRequiredSchema = z.object({
@@ -59,7 +66,10 @@ export const SessionCreateBodySchema = z.object({
 }).passthrough();
 export type SessionCreateBody = z.infer<typeof SessionCreateBodySchema>;
 
-export const SessionAnswersBodySchema = z.object({}).passthrough();
+export const SessionAnswersBodySchema = z.object({
+  answers: z.record(z.unknown()).optional(),
+  status: z.string().optional(),
+}).passthrough();
 export type SessionAnswersBody = z.infer<typeof SessionAnswersBodySchema>;
 
 export const SendLinkBodySchema = z.object({
@@ -68,7 +78,12 @@ export const SendLinkBodySchema = z.object({
 export type SendLinkBody = z.infer<typeof SendLinkBodySchema>;
 
 export const BatchSendLinksBodySchema = z.object({
-  invitations: z.array(z.record(z.unknown())),
+  invitations: z.array(z.object({
+    token: z.string(),
+    recipientEmail: z.string(),
+    recipientName: z.string().optional(),
+  })),
+  customMessage: z.string().optional(),
 }).passthrough();
 export type BatchSendLinksBody = z.infer<typeof BatchSendLinksBodySchema>;
 
@@ -77,6 +92,14 @@ export const VoidSessionBodySchema = z.object({
   notifySigner: z.boolean().optional(),
 });
 export type VoidSessionBody = z.infer<typeof VoidSessionBodySchema>;
+
+export const PdfUploadHeaderSchema = z.object({
+  "content-type": z.string().refine(
+    (ct) => ct.includes("pdf") || ct.includes("octet-stream"),
+    "content-type must be application/pdf or application/octet-stream",
+  ).optional(),
+}).passthrough();
+export type PdfUploadHeader = z.infer<typeof PdfUploadHeaderSchema>;
 
 // ── Docufill GET query schemas ─────────────────────────────────────────────────
 
@@ -169,6 +192,7 @@ export type ExtractBrandColorsBody = z.infer<typeof ExtractBrandColorsBodySchema
 
 export const TeamInviteBodySchema = z.object({
   email: z.string(),
+  role: z.string().optional(),
 }).passthrough();
 export type TeamInviteBody = z.infer<typeof TeamInviteBodySchema>;
 
@@ -179,6 +203,9 @@ export type TeamRoleBody = z.infer<typeof TeamRoleBodySchema>;
 
 export const BillingCheckoutBodySchema = z.object({
   plan: z.string(),
+  interval: z.string().optional(),
+  extraSeats: z.number().optional(),
+  extraSubmissions: z.number().optional(),
 }).passthrough();
 export type BillingCheckoutBody = z.infer<typeof BillingCheckoutBodySchema>;
 
@@ -188,7 +215,9 @@ export const BillingPackCheckoutBodySchema = z.object({
 });
 export type BillingPackCheckoutBody = z.infer<typeof BillingPackCheckoutBodySchema>;
 
-export const OnboardingBodySchema = z.object({}).passthrough();
+export const OnboardingBodySchema = z.object({
+  dismissed: z.boolean().optional(),
+}).passthrough();
 export type OnboardingBody = z.infer<typeof OnboardingBodySchema>;
 
 export const OAuthConnectBodySchema = z.object({
@@ -199,6 +228,7 @@ export type OAuthConnectBody = z.infer<typeof OAuthConnectBodySchema>;
 export const OAuthExchangeBodySchema = z.object({
   code: z.string(),
   state: z.string(),
+  redirectUri: z.string().optional(),
 }).passthrough();
 export type OAuthExchangeBody = z.infer<typeof OAuthExchangeBodySchema>;
 
@@ -286,13 +316,20 @@ export type CustomDomainBody = z.infer<typeof CustomDomainBodySchema>;
 
 // ── Settings GET query schemas ─────────────────────────────────────────────────
 
-export const AdminAccountsQuerySchema = z.object({}).passthrough();
+export const AdminAccountsQuerySchema = z.object({
+  search: z.string().optional(),
+  status: z.string().optional(),
+  limit: z.string().regex(/^\d+$/, "limit must be a numeric string").optional(),
+  offset: z.string().regex(/^\d+$/, "offset must be a numeric string").optional(),
+}).passthrough();
 export type AdminAccountsQuery = z.infer<typeof AdminAccountsQuerySchema>;
 
 // ── Product Auth ──────────────────────────────────────────────────────────────
 
 export const OnboardBodySchema = z.object({
   email: z.string(),
+  companyName: z.string().optional(),
+  industry: z.string().optional(),
 }).passthrough();
 export type OnboardBody = z.infer<typeof OnboardBodySchema>;
 

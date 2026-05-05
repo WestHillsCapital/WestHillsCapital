@@ -348,7 +348,7 @@ router.patch("/org", requireAdminRole, async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const _parse = OrgBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
+    const body = _parse.data;
     const db = getDb();
 
     const { rows: existing } = await db.query(
@@ -902,7 +902,7 @@ router.post("/team/invite", requireAdminRole, requireWithinPlanLimits("seat"), a
     const accountId = req.internalAccountId ?? 1;
     const _parse = TeamInviteBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
+    const body = _parse.data;
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const role  = typeof body.role  === "string" ? body.role.trim().toLowerCase() : "member";
 
@@ -1344,7 +1344,7 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const _parse = BillingCheckoutBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
+    const body = _parse.data;
 
     const planTier = typeof body.plan === "string" ? body.plan.toLowerCase() : "";
     if (planTier !== "starter" && planTier !== "pro" && planTier !== "enterprise") {
@@ -1743,7 +1743,7 @@ router.patch("/onboarding", async (req, res) => {
     const db = getDb();
     const _parse = OnboardingBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
+    const body = _parse.data;
 
     const { rows } = await db.query(
       `SELECT onboarding_completed_steps FROM accounts WHERE id = $1`,
@@ -1853,7 +1853,7 @@ router.post("/integrations/slack/connect", requireAdminRole, async (req, res) =>
     const accountId = req.internalAccountId ?? 1;
     const _parse = OAuthConnectBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as { redirectUri?: string };
+    const body = _parse.data;
     if (!body.redirectUri || typeof body.redirectUri !== "string") {
       res.status(400).json({ error: "redirectUri is required" });
       return;
@@ -1889,7 +1889,7 @@ router.post("/integrations/slack/exchange", requireAdminRole, async (req, res) =
     const accountId = req.internalAccountId ?? 1;
     const _parse = OAuthExchangeBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as { code?: string; state?: string; redirectUri?: string };
+    const body = _parse.data;
     if (!body.code || !body.state) {
       res.status(400).json({ error: "code and state are required" });
       return;
@@ -1985,7 +1985,7 @@ router.post("/integrations/gdrive/connect", requireAdminRole, requirePlanFeature
     const accountId = req.internalAccountId ?? 1;
     const _parse = OAuthConnectBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as { redirectUri?: string };
+    const body = _parse.data;
     if (!body.redirectUri || typeof body.redirectUri !== "string") {
       res.status(400).json({ error: "redirectUri is required" });
       return;
@@ -2018,7 +2018,7 @@ router.post("/integrations/gdrive/exchange", requireAdminRole, requirePlanFeatur
     const accountId = req.internalAccountId ?? 1;
     const _parse = OAuthExchangeBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as { code?: string; state?: string; redirectUri?: string };
+    const body = _parse.data;
     if (!body.code || !body.state) {
       res.status(400).json({ error: "code and state are required" });
       return;
@@ -2057,7 +2057,7 @@ router.patch("/integrations/gdrive/folder", requireAdminRole, async (req, res) =
     const accountId = req.internalAccountId ?? 1;
     const _parse = GDriveFolderBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as { folderInput?: string };
+    const body = _parse.data;
     const folderId = parseFolderIdFromInput(body.folderInput ?? "");
     if (!folderId) {
       res.status(400).json({ error: "Provide a valid Google Drive folder URL or ID." });
@@ -2121,7 +2121,7 @@ router.post("/integrations/hubspot/connect", requireAdminRole, requirePlanFeatur
   try {
     const _parse = OAuthConnectBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as { redirectUri?: string };
+    const body = _parse.data;
     if (!body.redirectUri || typeof body.redirectUri !== "string") {
       res.status(400).json({ error: "redirectUri is required" }); return;
     }
@@ -2147,7 +2147,7 @@ router.post("/integrations/hubspot/exchange", requireAdminRole, requirePlanFeatu
     const db = getDb();
     const _parse = OAuthExchangeWithRedirectBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as { code?: string; state?: string; redirectUri?: string };
+    const body = _parse.data;
     if (!body.code || !body.state || !body.redirectUri) {
       res.status(400).json({ error: "code, state, and redirectUri are required" }); return;
     }
@@ -2575,7 +2575,7 @@ router.patch("/admin/accounts/:id", async (req, res) => {
 
   const _parse = AdminAccountBodySchema.safeParse(req.body);
   if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-  const body = req.body as Record<string, unknown>;
+  const body = _parse.data;
   const updates: string[] = [];
   const params: unknown[] = [];
 
@@ -2650,7 +2650,7 @@ router.post("/admin/accounts/:id/notes", async (req, res) => {
   const accountId = parseInt(rawId, 10);
   const _parse = AdminNoteBodySchema.safeParse(req.body);
   if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-  const body = req.body as Record<string, unknown>;
+  const body = _parse.data;
   const note = typeof body.note === "string" ? body.note.trim() : "";
   if (!note) {
     res.status(400).json({ error: "Note text is required." });
@@ -2862,7 +2862,7 @@ router.put("/notifications", async (req, res) => {
   const accountId = req.internalAccountId ?? 1;
   const _parse = NotificationsBodySchema.safeParse(req.body);
   if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-  const body = req.body as Record<string, unknown>;
+  const body = _parse.data;
   const rawPrefs = body.prefs;
   if (!Array.isArray(rawPrefs)) {
     return void res.status(400).json({ error: "prefs must be an array." });
@@ -3046,7 +3046,7 @@ router.patch("/email", requireAdminRole, requirePlanFeature("emailBranding"), as
     const accountId = req.internalAccountId ?? 1;
     const _parse = EmailSettingsBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
+    const body = _parse.data;
     const db = getDb();
 
     const { rows: existing } = await db.query(
@@ -3157,7 +3157,7 @@ router.patch("/interview-defaults", requireAdminRole, async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const _parse = InterviewDefaultsBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
+    const body = _parse.data;
     const db = getDb();
 
     const { rows: existing } = await db.query(
@@ -3277,7 +3277,7 @@ router.patch("/locale", requireAdminRole, async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const _parse = LocaleBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body      = req.body as Record<string, unknown>;
+    const body      = _parse.data;
     const db        = getDb();
 
     const { rows: cur } = await db.query(
@@ -3360,7 +3360,7 @@ router.patch("/data-privacy", requireAdminRole, async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const _parse = DataPrivacyBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
+    const body = _parse.data;
     const db = getDb();
 
     if (!("submissionRetentionDays" in body)) {
@@ -3759,7 +3759,7 @@ router.patch("/profile", async (req, res) => {
     const clerkUserId = getAuth(req)?.userId ?? null;
     const _parse = ProfileBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
+    const body = _parse.data;
     const db = getDb();
 
     const { rows: current } = await db.query(
@@ -4151,7 +4151,7 @@ router.post("/security/2fa/enable", async (req, res) => {
     const clerkUserId = getAuth(req)?.userId ?? null;
     const _parse = TwoFACodeBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
+    const body = _parse.data;
     const code = typeof body.code === "string" ? body.code.trim().replace(/\s/g, "") : "";
 
     if (!code) { res.status(400).json({ error: "Verification code is required." }); return; }
@@ -4203,7 +4203,7 @@ router.delete("/security/2fa", async (req, res) => {
     const clerkUserId = getAuth(req)?.userId ?? null;
     const _parse = TwoFACodeBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
+    const body = _parse.data;
     const code = typeof body.code === "string" ? body.code.trim().replace(/\s/g, "") : "";
 
     if (!code) { res.status(400).json({ error: "Verification code is required to disable 2FA." }); return; }
@@ -4471,7 +4471,7 @@ router.put("/custom-domain", requireAdminRole, requirePlanFeature("customDomain"
     const accountId = req.internalAccountId ?? 1;
     const _parse = CustomDomainBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
+    const body = _parse.data;
     const db = getDb();
 
     const { rows: acctRows } = await db.query<{ plan_tier: string }>(
