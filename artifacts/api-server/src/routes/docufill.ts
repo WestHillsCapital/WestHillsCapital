@@ -139,6 +139,7 @@ type PackageInput = {
   enableCustomerLink?: boolean;
   webhookEnabled?: boolean;
   webhookUrl?: string | null;
+  slackNotificationsEnabled?: boolean;
   tags?: unknown;
   notifyStaffOnSubmit?: boolean;
   notifyClientOnSubmit?: boolean;
@@ -1031,6 +1032,7 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
     `SELECT s.*, p.name AS package_name, p.documents, p.fields, p.mappings,
             p.transaction_scope, p.custodian_id, p.depository_id, p.group_id,
             p.webhook_enabled, p.webhook_url,
+            p.slack_notifications_enabled,
             p.notify_staff_on_submit, p.notify_client_on_submit,
             p.enable_embed, p.embed_key,
             p.enable_gdrive, p.enable_hubspot,
@@ -1043,7 +1045,8 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
             a.brand_color AS org_brand_color,
             a.logo_on_white AS org_logo_on_white,
             a.gdrive_access_token, a.gdrive_refresh_token, a.gdrive_folder_id,
-            a.hubspot_access_token, a.hubspot_refresh_token
+            a.hubspot_access_token, a.hubspot_refresh_token,
+            a.slack_webhook_url AS account_slack_webhook_url
        FROM docufill_interview_sessions s
        JOIN docufill_packages p ON p.id = s.package_id
        LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
@@ -1779,7 +1782,7 @@ router.get("/bootstrap", async (req, res) => {
   try {
     const accountId = acctId(req);
     const db = getDb();
-    const [groups, transactionTypes, fieldLibrary, packages, packageGroupRows] = await Promise.all([
+    const [groups, transactionTypes, fieldLibrary, packages, packageGroupRows, accountRow] = await Promise.all([
       db.query("SELECT * FROM docufill_groups WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, name ASC", [accountId]),
       db.query("SELECT * FROM docufill_transaction_types WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, label ASC", [accountId]),
       getFieldLibrary(db, accountId),
@@ -1793,7 +1796,9 @@ router.get("/bootstrap", async (req, res) => {
                   JOIN docufill_packages p ON p.id = pg.package_id
                  WHERE p.account_id = $1
                  GROUP BY pg.package_id`, [accountId]),
+      db.query<{ slack_webhook_url: string | null }>(`SELECT slack_webhook_url FROM accounts WHERE id = $1`, [accountId]),
     ]);
+    const slackConnected = !!(accountRow.rows[0]?.slack_webhook_url);
     const groupIdsMap = new Map<number, number[]>();
     for (const row of packageGroupRows.rows as Array<{ package_id: number; group_ids: number[] }>) {
       groupIdsMap.set(row.package_id, row.group_ids);
@@ -1813,7 +1818,7 @@ router.get("/bootstrap", async (req, res) => {
       transactionTypeRows = seeded.rows;
     }
     const hydratedPackages = await hydratePackages(packagesWithGroupIds as PackageRow[], db, fieldLibrary);
-    res.json({ groups: groups.rows, transactionTypes: transactionTypeRows, fieldLibrary, packages: hydratedPackages.map(sanitizePackageForClient) });
+    res.json({ groups: groups.rows, transactionTypes: transactionTypeRows, fieldLibrary, packages: hydratedPackages.map(sanitizePackageForClient), slackConnected });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load bootstrap data");
     res.status(500).json({ error: "Failed to load Docuplete data" });
@@ -2470,8 +2475,8 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
     const { rows } = await db.query(
       `INSERT INTO docufill_packages
          (name, group_id, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id, tags, webhook_enabled, webhook_url, webhook_secret,
-          enable_interview, enable_csv, enable_customer_link, notify_staff_on_submit, notify_client_on_submit, auth_level)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21,$22)
+          enable_interview, enable_csv, enable_customer_link, notify_staff_on_submit, notify_client_on_submit, auth_level, slack_notifications_enabled)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
        RETURNING *`,
       [
         name,
@@ -2496,6 +2501,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
         defaultNotifyStaff,
         defaultNotifyClient,
         defaultAuthLevel,
+        body.slackNotificationsEnabled === true,
       ],
     );
     const newPkgId = (rows[0] as PackageRow).id as number;
@@ -2628,8 +2634,9 @@ router.patch("/packages/:id", async (req, res) => {
           enable_gdrive=$22,
           enable_hubspot=$23,
           auth_level=$24,
+          slack_notifications_enabled=$25,
           version=version+1, updated_at=NOW()
-        WHERE id=$25 AND account_id=$26
+        WHERE id=$26 AND account_id=$27
         RETURNING *`,
       [
         name,
@@ -2669,6 +2676,8 @@ router.patch("/packages/:id", async (req, res) => {
         body.enableHubspot === undefined ? (existing.enable_hubspot ?? false) : Boolean(body.enableHubspot),
         // $24 auth_level
         body.authLevel === undefined ? (existing.auth_level ?? "none") : (body.authLevel === "email_otp" ? "email_otp" : "none"),
+        // $25 slack_notifications_enabled
+        body.slackNotificationsEnabled === undefined ? (existing.slack_notifications_enabled ?? false) : Boolean(body.slackNotificationsEnabled),
         id,
         accountId,
       ],
@@ -4251,6 +4260,17 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
         buildWebhookPayload(session),
       );
     }
+    const slackWebhookUrl = typeof session.account_slack_webhook_url === "string" ? session.account_slack_webhook_url : null;
+    if (session.slack_notifications_enabled === true && slackWebhookUrl) {
+      const pkgName = typeof session.package_name === "string" ? session.package_name : "Package";
+      fetch(slackWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: `New submission received for *${pkgName}* — just now.` }),
+      }).catch((err) => {
+        logger.warn({ err, token: req.params.token }, "[DocuFill] Slack notification failed (non-fatal)");
+      });
+    }
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to generate packet");
     res.status(500).json({ error: "Failed to generate packet" });
@@ -4948,6 +4968,17 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
         webhookUrl,
         buildWebhookPayload(session),
       );
+    }
+    const publicSlackWebhookUrl = typeof session.account_slack_webhook_url === "string" ? session.account_slack_webhook_url : null;
+    if (session.slack_notifications_enabled === true && publicSlackWebhookUrl) {
+      const pkgName = typeof session.package_name === "string" ? session.package_name : "Package";
+      fetch(publicSlackWebhookUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: `New submission received for *${pkgName}* — just now.` }),
+      }).catch((err) => {
+        logger.warn({ err, token: req.params.token }, "[DocuFill] Slack notification failed (non-fatal)");
+      });
     }
     // ── Task #195: fire submission notification emails asynchronously ──────────
     if (session.notify_staff_on_submit === true || session.notify_client_on_submit === true) {

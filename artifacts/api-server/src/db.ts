@@ -557,6 +557,10 @@ export async function initDb(): Promise<void> {
     ALTER TABLE docufill_packages
     ADD COLUMN IF NOT EXISTS webhook_url TEXT
   `);
+  await db.query(`
+    ALTER TABLE docufill_packages
+    ADD COLUMN IF NOT EXISTS slack_notifications_enabled BOOLEAN NOT NULL DEFAULT false
+  `);
 
   // ── Multi-tenancy: account_id columns + backfill ──────────────────────────
   // Nullable so existing rows don't fail; backfill immediately sets them to 1.

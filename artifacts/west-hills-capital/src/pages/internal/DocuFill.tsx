@@ -237,6 +237,7 @@ type PackageItem = {
   enable_customer_link: boolean;
   webhook_enabled: boolean;
   webhook_url: string | null;
+  slack_notifications_enabled: boolean;
   tags: string[];
   notify_staff_on_submit: boolean;
   notify_client_on_submit: boolean;
@@ -632,6 +633,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     enable_customer_link: pkg.enable_customer_link === true,
     webhook_enabled: (pkg as PackageItem & Record<string, unknown>).webhook_enabled === true,
     webhook_url: typeof (pkg as PackageItem & Record<string, unknown>).webhook_url === "string" ? (pkg as PackageItem & Record<string, unknown>).webhook_url as string : null,
+    slack_notifications_enabled: (pkg as PackageItem & Record<string, unknown>).slack_notifications_enabled === true,
     notify_staff_on_submit: (pkg as PackageItem & Record<string, unknown>).notify_staff_on_submit === true,
     notify_client_on_submit: (pkg as PackageItem & Record<string, unknown>).notify_client_on_submit === true,
     enable_embed: (pkg as PackageItem & Record<string, unknown>).enable_embed === true,
@@ -1213,6 +1215,7 @@ export default function DocuFill() {
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [slackConnected, setSlackConnected] = useState(false);
   const [webhookTestStatus, setWebhookTestStatus] = useState<null | { ok: boolean; message: string }>(null);
   const [webhookSecret, setWebhookSecret] = useState<string | null>(null);
   const [webhookSecretLoading, setWebhookSecretLoading] = useState(false);
@@ -1523,6 +1526,7 @@ export default function DocuFill() {
       setDepositories(data.depositories ?? []);
       setTransactionTypes(Array.isArray(data.transactionTypes) && data.transactionTypes.length ? data.transactionTypes : DOCUFILL_TRANSACTION_TYPES.map((item, index) => ({ scope: item.value, label: item.label, active: true, sort_order: (index + 1) * 10 })));
       setFieldLibrary(normalizeFieldLibrary(data.fieldLibrary ?? []));
+      setSlackConnected(data.slackConnected === true);
       setPackages(loadedPackages);
       setSelectedPackageId((current) => {
         // Keep the current selection if it still exists in the freshly loaded packages.
@@ -2023,6 +2027,7 @@ export default function DocuFill() {
           enableCustomerLink: pkg.enable_customer_link,
           webhookEnabled: pkg.webhook_enabled,
           webhookUrl: pkg.webhook_url ?? null,
+          slackNotificationsEnabled: pkg.slack_notifications_enabled,
           tags: pkg.tags ?? [],
           notifyStaffOnSubmit: pkg.notify_staff_on_submit,
           notifyClientOnSubmit: pkg.notify_client_on_submit,
@@ -4924,6 +4929,29 @@ export default function DocuFill() {
                                   )}
                                 </div>
                               </div>
+                            )}
+                          </div>
+                          {/* Slack — toggleable */}
+                          <div className={`rounded-lg border-2 p-3 transition-colors ${selectedPackage.slack_notifications_enabled ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}>
+                            <button
+                              type="button"
+                              onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, slack_notifications_enabled: !pkg.slack_notifications_enabled }))}
+                              className="w-full text-left"
+                            >
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <svg className={`w-4 h-4 shrink-0 ${selectedPackage.slack_notifications_enabled ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} viewBox="0 0 24 24" fill="currentColor"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg>
+                                <span className={`text-sm font-semibold ${selectedPackage.slack_notifications_enabled ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Slack</span>
+                                <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.slack_notifications_enabled ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
+                                  {selectedPackage.slack_notifications_enabled ? "Enabled" : "Off"}
+                                </span>
+                              </div>
+                              <p className="text-xs text-[#6B7A99]">Post a message to your connected Slack channel whenever an interview or customer form is completed.</p>
+                            </button>
+                            {selectedPackage.slack_notifications_enabled && !slackConnected && (
+                              <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">
+                                Slack is not connected yet.{" "}
+                                <a href="/app/settings?tab=integrations" className="underline font-medium hover:text-amber-900" target="_blank" rel="noopener noreferrer">Connect Slack in Settings → Integrations</a>{" "}to enable notifications.
+                              </p>
                             )}
                           </div>
                           {/* Staff email on submit — toggleable */}
