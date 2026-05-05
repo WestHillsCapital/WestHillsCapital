@@ -54,6 +54,8 @@ export const accounts = pgTable("accounts", {
   submissionRetentionDays: integer("submission_retention_days"),
   deletionRequestedAt: timestamp("deletion_requested_at", { withTimezone: true }),
   deletionRequestedBy: text("deletion_requested_by"),
+  trialEndedAt: timestamp("trial_ended_at", { withTimezone: true }),
+  dataPurgedAt: timestamp("data_purged_at", { withTimezone: true }),
   encryptedDek: text("encrypted_dek"),
   pkgDefaultInterview: boolean("pkg_default_interview").notNull().default(true),
   pkgDefaultCsv: boolean("pkg_default_csv").notNull().default(true),

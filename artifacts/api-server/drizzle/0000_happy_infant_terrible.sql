@@ -90,6 +90,8 @@ CREATE TABLE "accounts" (
 	"submission_retention_days" integer,
 	"deletion_requested_at" timestamp with time zone,
 	"deletion_requested_by" text,
+	"trial_ended_at" timestamp with time zone,
+	"data_purged_at" timestamp with time zone,
 	"encrypted_dek" text,
 	"pkg_default_interview" boolean DEFAULT true NOT NULL,
 	"pkg_default_csv" boolean DEFAULT true NOT NULL,

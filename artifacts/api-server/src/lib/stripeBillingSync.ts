@@ -129,11 +129,12 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
       : null;
 
     // Fetch account id + current plan tier before the update so we can write a meaningful audit entry
-    const { rows: preRows } = await db.query<{ id: number; plan_tier: string }>(
-      `SELECT id, plan_tier FROM accounts WHERE stripe_customer_id = $1`,
+    const { rows: preRows } = await db.query<{ id: number; plan_tier: string; subscription_status: string | null }>(
+      `SELECT id, plan_tier, subscription_status FROM accounts WHERE stripe_customer_id = $1`,
       [customerId],
     );
     const preAccount = preRows[0] ?? null;
+    const prevStatus = preAccount?.subscription_status ?? null;
 
     await db.query(
       `UPDATE accounts
@@ -141,9 +142,14 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
               stripe_subscription_id = $2,
               subscription_status    = $3,
               billing_period_start   = $4,
-              seat_limit             = $5
-        WHERE stripe_customer_id    = $6`,
-      [planTier, sub.id, sub.status, periodStart, seatLimit, customerId],
+              seat_limit             = $5,
+              trial_ended_at = CASE
+                WHEN $3 = 'active' THEN NULL
+                WHEN $6 = 'trialing' AND $3 NOT IN ('active', 'trialing') THEN NOW()
+                ELSE trial_ended_at
+              END
+        WHERE stripe_customer_id    = $7`,
+      [planTier, sub.id, sub.status, periodStart, seatLimit, prevStatus, customerId],
     );
 
     logger.info(

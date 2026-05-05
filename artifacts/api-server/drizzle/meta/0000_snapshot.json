@@ -1,5 +1,5 @@
 {
-  "id": "e9e972f7-380f-4b5d-a27b-1561c25b4b67",
+  "id": "b3de605e-d6f2-4cbe-9e86-25a6767bf6c0",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -733,6 +733,18 @@
         "deletion_requested_by": {
           "name": "deletion_requested_by",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "trial_ended_at": {
+          "name": "trial_ended_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "data_purged_at": {
+          "name": "data_purged_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },

@@ -1346,6 +1346,10 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS submission_retention_days INTEGER`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deletion_requested_at TIMESTAMPTZ`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS deletion_requested_by TEXT`);
+  // Post-trial data retention — set when a trial ends without converting; cleared on subscribe
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS trial_ended_at TIMESTAMPTZ`);
+  // Set by the purge job after org content is deleted; prevents re-processing
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS data_purged_at TIMESTAMPTZ`);
 
   // ── Data export requests — durable job queue for org data exports ─────────────
   await db.query(`
@@ -1561,6 +1565,49 @@ export async function initDb(): Promise<void> {
 
   processScheduledDeletions().catch(() => {});
   setInterval(() => processScheduledDeletions().catch(() => {}), 6 * 60 * 60 * 1000).unref();
+
+  // ── Post-trial data purge: delete org content for lapsed trials after 7 days ──
+  // Preserves the account row (email, name, created_at, plan_tier) for marketing.
+  // Only content is removed: packages, sessions, custodians, depositories, groups.
+  // Runs every 6 hours; accounts are excluded once data_purged_at is set.
+  async function purgeExpiredTrialData(): Promise<void> {
+    try {
+      const purgeDb = getDb();
+      const { rows } = await purgeDb.query<{ id: number; name: string }>(
+        `SELECT id, name FROM accounts
+         WHERE trial_ended_at IS NOT NULL
+           AND trial_ended_at < NOW() - INTERVAL '7 days'
+           AND data_purged_at IS NULL`,
+      );
+      for (const account of rows) {
+        const client = await purgeDb.connect();
+        try {
+          await client.query("BEGIN");
+          await client.query(`DELETE FROM docufill_custodians   WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM docufill_depositories WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM docufill_packages     WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM docufill_groups       WHERE account_id = $1`, [account.id]);
+          await client.query(
+            `UPDATE accounts SET data_purged_at = NOW() WHERE id = $1`,
+            [account.id],
+          );
+          await client.query("COMMIT");
+          logger.info({ accountId: account.id, name: account.name }, "[DB] Purged org content for lapsed trial account");
+        } catch (purgeErr) {
+          await client.query("ROLLBACK");
+          logger.error({ err: purgeErr, accountId: account.id }, "[DB] Trial data purge failed, rolled back");
+        } finally {
+          client.release();
+        }
+      }
+    } catch (err) {
+      logger.error({ err }, "[DB] Trial data purge job failed (non-fatal)");
+    }
+  }
+
+  purgeExpiredTrialData().catch(() => {});
+  setInterval(() => purgeExpiredTrialData().catch(() => {}), 6 * 60 * 60 * 1000).unref();
 
   // ── Data export cleanup — clear export payloads after link expiry ────────────
   // Removes sensitive archive payloads from data_export_requests once the

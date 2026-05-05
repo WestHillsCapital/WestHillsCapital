@@ -1,4 +1,4 @@
-import { Router, type IRouter, type Request, type Response } from "express";
+import { Router, type IRouter, type Request, type Response, type NextFunction } from "express";
 import { createHash, createHmac, randomBytes } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import { PDFDocument as PdfLibDocument, StandardFonts, rgb, degrees, type PDFFont, type PDFPage } from "pdf-lib";
@@ -82,11 +82,41 @@ export const publicDocufillRouter: IRouter = Router();
 const objectStorage = new ObjectStorageService();
 
 /**
+ * Blocks all authenticated content routes for accounts whose trial data has
+ * been purged. Returns 410 Gone so the frontend can show a clear message
+ * rather than an empty state. Skipped for the public interview router.
+ */
+async function requireAccountNotPurged(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const db = getDb();
+    const accountId = acctId(req);
+    const { rows } = await db.query<{ data_purged_at: Date | null }>(
+      `SELECT data_purged_at FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (rows[0]?.data_purged_at != null) {
+      res.status(410).json({
+        error: "account_data_purged",
+        message: "This account's data was removed after the trial period ended. Please subscribe to restore access.",
+      });
+      return;
+    }
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
  * API-key-authenticated public developer router.
  * Mounted at /api/v1/packages — requires requireApiKeyAuth + requireAccountId
  * upstream in index.ts.
  */
 export const apiKeyDocufillRouter: IRouter = Router();
+
+// Block content access for accounts whose trial data has been purged.
+router.use(requireAccountNotPurged);
+apiKeyDocufillRouter.use(requireAccountNotPurged);
 
 apiKeyDocufillRouter.get("/:id/webhook-deliveries", async (req, res) => {
   try {
