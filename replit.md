@@ -71,7 +71,9 @@ The project is structured as a pnpm monorepo using TypeScript, comprising severa
 *   **Google OAuth:** For internal portal authentication.
 *   **Stripe + `stripe-replit-sync`:** For subscription billing.
 *   **Resend:** For sending client recap emails.
-*   **Google Drive API:** For PDF invoice and packet uploads.
+*   **Google Drive API:** For PDF invoice and packet uploads (service-account deal invoices; per-account OAuth via `GOOGLE_OAUTH_CLIENT_ID`/`GOOGLE_OAUTH_CLIENT_SECRET`).
+*   **Microsoft OneDrive API:** Optional per-account cloud storage provider for DocuFill packets (requires `ONEDRIVE_CLIENT_ID` / `ONEDRIVE_CLIENT_SECRET` env vars and a registered Azure app with redirect URI pointing to the Settings page).
+*   **Dropbox API v2:** Optional per-account cloud storage provider for DocuFill packets (requires `DROPBOX_CLIENT_ID` / `DROPBOX_CLIENT_SECRET` env vars and a registered Dropbox app).
 *   **HubSpot CRM API:** For contact creation/updates on DocuFill submissions.
 *   **Google Sheets API:** For admin notifications and deal records.
 *   **FedEx API:** For shipping location search.

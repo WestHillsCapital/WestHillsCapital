@@ -1236,6 +1236,29 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gdrive_oauth_state TEXT`);
   await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS enable_gdrive BOOLEAN NOT NULL DEFAULT false`);
 
+  // ── Provider-agnostic cloud storage — OneDrive & Dropbox additions ───────────
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS storage_provider TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS storage_access_token TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS storage_refresh_token TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS storage_connected_email TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS storage_folder_id TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS storage_folder_name TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS storage_connected_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS storage_oauth_state TEXT`);
+  // Migrate existing Google Drive connections into the new provider-agnostic columns
+  await db.query(`
+    UPDATE accounts
+       SET storage_provider        = 'gdrive',
+           storage_access_token    = gdrive_access_token,
+           storage_refresh_token   = gdrive_refresh_token,
+           storage_connected_email = gdrive_connected_email,
+           storage_folder_id       = gdrive_folder_id,
+           storage_folder_name     = gdrive_folder_name,
+           storage_connected_at    = gdrive_connected_at
+     WHERE gdrive_refresh_token IS NOT NULL
+       AND storage_provider IS NULL
+  `);
+
   // ── HubSpot — per-account OAuth credentials ───────────────────────────────────
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS hubspot_access_token TEXT`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS hubspot_refresh_token TEXT`);

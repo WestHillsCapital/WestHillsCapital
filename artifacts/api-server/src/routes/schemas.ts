@@ -244,6 +244,25 @@ export const GDriveFolderBodySchema = z.object({
 }).passthrough();
 export type GDriveFolderBody = z.infer<typeof GDriveFolderBodySchema>;
 
+export const StorageConnectBodySchema = z.object({
+  provider: z.enum(["gdrive", "onedrive", "dropbox"]),
+  redirectUri: z.string(),
+});
+export type StorageConnectBody = z.infer<typeof StorageConnectBodySchema>;
+
+export const StorageExchangeBodySchema = z.object({
+  provider: z.enum(["gdrive", "onedrive", "dropbox"]),
+  code: z.string(),
+  state: z.string(),
+  redirectUri: z.string().optional(),
+}).passthrough();
+export type StorageExchangeBody = z.infer<typeof StorageExchangeBodySchema>;
+
+export const StorageFolderBodySchema = z.object({
+  folderInput: z.string().optional(),
+}).passthrough();
+export type StorageFolderBody = z.infer<typeof StorageFolderBodySchema>;
+
 export const AdminAccountBodySchema = z.object({
   plan_tier: z.string().optional(),
   seat_limit: z.number().optional(),

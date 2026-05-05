@@ -1384,6 +1384,14 @@ interface IntegrationsStatus {
   zapier: { api_key_count: number; first_key_prefix: string | null; available: boolean };
   slack: { connected: boolean; channel_name: string | null; connected_at: string | null; available: boolean };
   gdrive: { connected: boolean; email: string | null; folder_name: string | null; connected_at: string | null; available: boolean };
+  storage: {
+    provider: "gdrive" | "onedrive" | "dropbox" | null;
+    connected: boolean;
+    email: string | null;
+    folder_name: string | null;
+    connected_at: string | null;
+    available: { gdrive: boolean; onedrive: boolean; dropbox: boolean };
+  };
   hubspot: { connected: boolean; hub_domain: string | null; connected_at: string | null; available: boolean };
 }
 
@@ -1524,6 +1532,13 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
   const [slackError, setSlackError] = useState<string | null>(null);
   const [slackSuccess, setSlackSuccess] = useState<string | null>(null);
 
+  const [storageConnecting, setStorageConnecting] = useState(false);
+  const [storageDisconnecting, setStorageDisconnecting] = useState(false);
+  const [storageError, setStorageError] = useState<string | null>(null);
+  const [storageSuccess, setStorageSuccess] = useState<string | null>(null);
+  const [storageFolderInput, setStorageFolderInput] = useState("");
+  const [storageUpdatingFolder, setStorageUpdatingFolder] = useState(false);
+
   const [gdriveConnecting, setGdriveConnecting] = useState(false);
   const [gdriveDisconnecting, setGdriveDisconnecting] = useState(false);
   const [gdriveError, setGdriveError] = useState<string | null>(null);
@@ -1556,16 +1571,47 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
     const code = params.get("code");
     const state = params.get("state");
     const oauthError = params.get("error");
+    const storageProvider = params.get("storage_provider") as "gdrive" | "onedrive" | "dropbox" | null;
+    const isStorage  = !!storageProvider;
     const isGdrive   = params.get("gdrive")   === "1";
     const isHubSpot  = params.get("hubspot")  === "1";
 
     // Clean the URL immediately so params don't linger on refresh
-    if (code || state || oauthError || isGdrive || isHubSpot) {
+    if (code || state || oauthError || isStorage || isGdrive || isHubSpot) {
       window.history.replaceState({}, "", window.location.pathname);
     }
 
+    if (isStorage && storageProvider) {
+      // Cloud Storage OAuth callback (new provider-agnostic flow)
+      if (oauthError === "access_denied") {
+        setStorageError("Storage connection was cancelled.");
+        return;
+      }
+      if (code && state) {
+        const redirectUri = window.location.origin + window.location.pathname + `?storage_provider=${storageProvider}`;
+        setStorageConnecting(true);
+        const headers = new Headers(getAuthHeaders());
+        headers.set("Content-Type", "application/json");
+        fetch(`${SETTINGS_BASE}/integrations/storage/exchange`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ provider: storageProvider, code, state, redirectUri }),
+        })
+          .then(async (r) => {
+            const data = await r.json() as { success?: boolean; email?: string; folder_name?: string; error?: string };
+            if (!r.ok) { setStorageError(data.error ?? "Failed to connect storage provider."); return; }
+            const providerName = storageProvider === "gdrive" ? "Google Drive" : storageProvider === "onedrive" ? "OneDrive" : "Dropbox";
+            setStorageSuccess(`Connected ${providerName} as ${data.email ?? "your account"}. Files will be saved to "${data.folder_name ?? "Docuplete Submissions"}".`);
+            loadStatus();
+          })
+          .catch(() => setStorageError("Failed to connect storage provider."))
+          .finally(() => setStorageConnecting(false));
+      }
+      return;
+    }
+
     if (isGdrive) {
-      // Google Drive OAuth callback
+      // Google Drive OAuth callback (legacy — kept for backward compat)
       if (oauthError === "access_denied") {
         setGdriveError("Google Drive connection was cancelled.");
         return;
@@ -1681,6 +1727,65 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
       setSlackError("Failed to disconnect Slack.");
     } finally {
       setSlackDisconnecting(false);
+    }
+  }
+
+  async function handleStorageConnect(provider: "gdrive" | "onedrive" | "dropbox") {
+    setStorageError(null);
+    setStorageConnecting(true);
+    try {
+      const redirectUri = window.location.origin + window.location.pathname + `?storage_provider=${provider}`;
+      const res = await fetch(`${SETTINGS_BASE}/integrations/storage/connect`, {
+        method: "POST",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({ provider, redirectUri }),
+      });
+      const data = await res.json() as { url?: string; error?: string };
+      if (!res.ok || !data.url) { setStorageError(data.error ?? "Failed to initiate connection."); setStorageConnecting(false); return; }
+      window.location.href = data.url;
+    } catch {
+      setStorageError("Failed to initiate connection.");
+      setStorageConnecting(false);
+    }
+  }
+
+  async function handleStorageDisconnect() {
+    setStorageDisconnecting(true);
+    setStorageError(null);
+    setStorageSuccess(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/integrations/storage`, {
+        method: "DELETE",
+        headers: authHeaders(),
+      });
+      if (!res.ok) { setStorageError("Failed to disconnect."); return; }
+      loadStatus();
+    } catch {
+      setStorageError("Failed to disconnect.");
+    } finally {
+      setStorageDisconnecting(false);
+    }
+  }
+
+  async function handleStorageUpdateFolder() {
+    if (!storageFolderInput.trim()) return;
+    setStorageUpdatingFolder(true);
+    setStorageError(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/integrations/storage/folder`, {
+        method: "PATCH",
+        headers: authHeaders("application/json"),
+        body: JSON.stringify({ folderInput: storageFolderInput }),
+      });
+      const data = await res.json() as { success?: boolean; folder_name?: string; error?: string };
+      if (!res.ok) { setStorageError(data.error ?? "Could not update folder."); return; }
+      setStorageFolderInput("");
+      setStorageSuccess(`Folder updated to "${data.folder_name ?? storageFolderInput}".`);
+      loadStatus();
+    } catch {
+      setStorageError("Failed to update folder.");
+    } finally {
+      setStorageUpdatingFolder(false);
     }
   }
 
@@ -1867,86 +1972,195 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
               )}
             </div>
 
-            {/* ── Google Drive card ───────────────────────────────────────── */}
-            <div className="rounded-xl border border-gray-200 p-5 flex flex-col gap-3">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-lg bg-[#1AA260] flex items-center justify-center shrink-0">
-                  <svg className="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M6.18 17.01a5.09 5.09 0 01-3.6-1.49A5.12 5.12 0 011.1 12a5.07 5.07 0 011.49-3.6A5.07 5.07 0 016.18 6.9h2.18V9H6.18a3.01 3.01 0 000 6.02h2.18v2.09H6.18zm11.64 0h-2.18v-2.09h2.18a3.01 3.01 0 000-6.02h-2.18V6.9h2.18a5.07 5.07 0 013.6 1.49A5.09 5.09 0 0122.91 12a5.12 5.12 0 01-1.49 3.52 5.07 5.07 0 01-3.6 1.49zM8.09 13.09v-2.18h7.82v2.18H8.09z" /></svg>
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Google Drive</p>
-                  <p className="text-[10px] text-gray-400">Auto-save submitted packets</p>
-                </div>
-                {status?.gdrive?.connected
-                  ? <span className="ml-auto inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Connected</span>
-                  : <span className="ml-auto inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">Not connected</span>
-                }
+            {/* ── Cloud Storage section (Google Drive / OneDrive / Dropbox) ── */}
+            <div className="rounded-xl border border-gray-200 sm:col-span-2 flex flex-col gap-0 overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/60">
+                <p className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Cloud Storage</p>
+                <p className="text-[10px] text-gray-400 mt-0.5">Connect one provider to auto-save submitted PDF packets. Only one can be active at a time.</p>
               </div>
 
-              {gdriveConnecting && (
-                <div className="flex items-center gap-2 text-xs text-gray-500">
+              {storageConnecting && (
+                <div className="px-5 py-3 flex items-center gap-2 text-xs text-gray-500 border-b border-gray-100">
                   <div className="w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin shrink-0" />
-                  Connecting to Google Drive…
+                  Connecting to storage provider…
                 </div>
               )}
-              {gdriveError && <p className="text-xs text-red-600">{gdriveError}</p>}
-              {gdriveSuccess && <p className="text-xs text-green-700">{gdriveSuccess}</p>}
+              {storageError && <div className="px-5 py-2 border-b border-red-100 bg-red-50"><p className="text-xs text-red-600">{storageError}</p></div>}
+              {storageSuccess && <div className="px-5 py-2 border-b border-green-100 bg-green-50"><p className="text-xs text-green-700">{storageSuccess}</p></div>}
 
-              {status?.gdrive?.connected ? (
-                <>
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    Connected as <span className="font-medium text-gray-700">{status.gdrive?.email ?? "your Google account"}</span>.
-                    Submitted packets are saved to <span className="font-medium text-gray-700">"{status.gdrive?.folder_name ?? "Docuplete Submissions"}"</span>.
+              {status?.storage?.connected && (
+                <div className="px-5 py-3 border-b border-gray-100 bg-white flex flex-col gap-2">
+                  <p className="text-xs text-gray-500">
+                    Connected as <span className="font-medium text-gray-700">{status.storage.email ?? "your account"}</span>.
+                    {" "}Packets are saved to <span className="font-medium text-gray-700">"{status.storage.folder_name ?? "Docuplete Submissions"}"</span>.
                   </p>
                   <div className="flex gap-2 items-center">
                     <input
                       type="text"
-                      placeholder="Paste a different folder URL to change"
-                      value={gdriveFolderInput}
-                      onChange={(e) => setGdriveFolderInput(e.target.value)}
+                      placeholder={
+                        status.storage.provider === "dropbox"
+                          ? "Enter a Dropbox path (e.g. /My Folder)"
+                          : status.storage.provider === "onedrive"
+                          ? "Enter an OneDrive item ID to change folder"
+                          : "Paste a Google Drive folder URL or ID"
+                      }
+                      value={storageFolderInput}
+                      onChange={(e) => setStorageFolderInput(e.target.value)}
                       className="flex-1 min-w-0 text-xs rounded-lg border border-gray-200 px-3 py-1.5 text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-gray-400"
                     />
                     <button
                       type="button"
-                      disabled={gdriveUpdatingFolder || !gdriveFolderInput.trim()}
-                      onClick={() => { void handleGdriveUpdateFolder(); }}
-                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors shrink-0 brand-btn-hover"
+                      disabled={storageUpdatingFolder || !storageFolderInput.trim()}
+                      onClick={() => { void handleStorageUpdateFolder(); }}
+                      className="rounded-lg px-3 py-1.5 text-xs font-medium text-white transition-colors shrink-0 brand-btn-hover disabled:opacity-60"
                       style={{ backgroundColor: bc }}
                     >
-                      {gdriveUpdatingFolder ? "Updating…" : "Update"}
+                      {storageUpdatingFolder ? "Updating…" : "Update folder"}
                     </button>
                   </div>
                   <button
                     type="button"
-                    disabled={gdriveDisconnecting}
-                    onClick={() => { void handleGdriveDisconnect(); }}
-                    className="mt-auto pt-1 text-xs text-gray-400 hover:text-red-600 transition-colors text-left disabled:opacity-60"
+                    disabled={storageDisconnecting}
+                    onClick={() => { void handleStorageDisconnect(); }}
+                    className="text-xs text-gray-400 hover:text-red-600 transition-colors text-left disabled:opacity-60 w-fit"
                   >
-                    {gdriveDisconnecting ? "Disconnecting…" : "Disconnect Google Drive"}
+                    {storageDisconnecting ? "Disconnecting…" : "Disconnect storage"}
                   </button>
-                </>
-              ) : !status?.gdrive?.available ? (
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  Google Drive integration is not enabled on this server. Contact your administrator to configure <code className="font-mono">GOOGLE_OAUTH_CLIENT_ID</code>.
-                </p>
-              ) : (
-                <>
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    Automatically save a copy of every completed PDF packet to a folder in your Google Drive.
-                    Enable the Google Drive channel on any Docuplete package to activate.
-                  </p>
-                  <div className="mt-auto pt-1">
-                    <button
-                      type="button"
-                      disabled={gdriveConnecting}
-                      onClick={() => { void handleGdriveConnect(); }}
-                      className="rounded-lg bg-[#1AA260] px-3 py-1.5 text-xs font-medium text-white hover:bg-[#158a51] disabled:opacity-60 transition-colors"
-                    >
-                      Connect Google Drive
-                    </button>
-                  </div>
-                </>
+                </div>
               )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-gray-100">
+
+                {/* Google Drive */}
+                {(() => {
+                  const isConnected = status?.storage?.connected && status.storage.provider === "gdrive";
+                  const isAvailable = status?.storage?.available?.gdrive ?? false;
+                  const otherConnected = status?.storage?.connected && status.storage.provider !== "gdrive";
+                  return (
+                    <div className="p-5 flex flex-col gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-[#1AA260] flex items-center justify-center shrink-0">
+                          <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M6.18 17.01a5.09 5.09 0 01-3.6-1.49A5.12 5.12 0 011.1 12a5.07 5.07 0 011.49-3.6A5.07 5.07 0 016.18 6.9h2.18V9H6.18a3.01 3.01 0 000 6.02h2.18v2.09H6.18zm11.64 0h-2.18v-2.09h2.18a3.01 3.01 0 000-6.02h-2.18V6.9h2.18a5.07 5.07 0 013.6 1.49A5.09 5.09 0 0122.91 12a5.12 5.12 0 01-1.49 3.52 5.07 5.07 0 01-3.6 1.49zM8.09 13.09v-2.18h7.82v2.18H8.09z" /></svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-900">Google Drive</p>
+                        </div>
+                        {isConnected
+                          ? <span className="inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Active</span>
+                          : <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-400">—</span>
+                        }
+                      </div>
+                      {isConnected ? (
+                        <p className="text-[11px] text-green-700">Connected as <span className="font-medium">{status?.storage?.email ?? "your account"}</span></p>
+                      ) : !isAvailable ? (
+                        <p className="text-[11px] text-gray-400">Configure <code className="font-mono">GOOGLE_OAUTH_CLIENT_ID</code> to enable.</p>
+                      ) : otherConnected ? (
+                        <p className="text-[11px] text-gray-400">Disconnect your current provider first, then connect Google Drive.</p>
+                      ) : (
+                        <p className="text-[11px] text-gray-500">Save packets directly to a Google Drive folder.</p>
+                      )}
+                      {!isConnected && isAvailable && !otherConnected && (
+                        <button
+                          type="button"
+                          disabled={storageConnecting}
+                          onClick={() => { void handleStorageConnect("gdrive"); }}
+                          className="mt-auto rounded-lg bg-[#1AA260] px-3 py-1.5 text-[11px] font-medium text-white hover:bg-[#158a51] disabled:opacity-60 transition-colors w-fit"
+                        >
+                          Connect
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* OneDrive */}
+                {(() => {
+                  const isConnected = status?.storage?.connected && status.storage.provider === "onedrive";
+                  const isAvailable = status?.storage?.available?.onedrive ?? false;
+                  const otherConnected = status?.storage?.connected && status.storage.provider !== "onedrive";
+                  return (
+                    <div className="p-5 flex flex-col gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-[#0078D4] flex items-center justify-center shrink-0">
+                          <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M10.327 6.325A6.002 6.002 0 0 1 22 9.5c0 .343-.03.679-.087 1.007A4.5 4.5 0 0 1 19.5 19H6a4 4 0 0 1-.893-7.898A6.002 6.002 0 0 1 10.327 6.325Z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-900">OneDrive</p>
+                        </div>
+                        {isConnected
+                          ? <span className="inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Active</span>
+                          : <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-400">—</span>
+                        }
+                      </div>
+                      {isConnected ? (
+                        <p className="text-[11px] text-green-700">Connected as <span className="font-medium">{status?.storage?.email ?? "your account"}</span></p>
+                      ) : !isAvailable ? (
+                        <p className="text-[11px] text-gray-400">Configure <code className="font-mono">ONEDRIVE_CLIENT_ID</code> to enable.</p>
+                      ) : otherConnected ? (
+                        <p className="text-[11px] text-gray-400">Disconnect your current provider first, then connect OneDrive.</p>
+                      ) : (
+                        <p className="text-[11px] text-gray-500">Save packets to Microsoft OneDrive via your Microsoft account.</p>
+                      )}
+                      {!isConnected && isAvailable && !otherConnected && (
+                        <button
+                          type="button"
+                          disabled={storageConnecting}
+                          onClick={() => { void handleStorageConnect("onedrive"); }}
+                          className="mt-auto rounded-lg bg-[#0078D4] px-3 py-1.5 text-[11px] font-medium text-white hover:bg-[#006bbf] disabled:opacity-60 transition-colors w-fit"
+                        >
+                          Connect
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Dropbox */}
+                {(() => {
+                  const isConnected = status?.storage?.connected && status.storage.provider === "dropbox";
+                  const isAvailable = status?.storage?.available?.dropbox ?? false;
+                  const otherConnected = status?.storage?.connected && status.storage.provider !== "dropbox";
+                  return (
+                    <div className="p-5 flex flex-col gap-2">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-lg bg-[#0061FE] flex items-center justify-center shrink-0">
+                          <svg className="w-4 h-4 text-white" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M6 2 .5 5.75l5.5 3.5 5.5-3.5L6 2ZM17.5 2 12 5.75l5.5 3.5 5.5-3.5L17.5 2ZM.5 12.75 6 16.5l5.5-3.5-5.5-3.5-5.5 3.25Zm17 0-5.5 3.75 5.5 3.5 5.5-3.5-5.5-3.75ZM6 17.75l5.5 3.5 5.5-3.5-5.5-3.5-5.5 3.5Z" />
+                          </svg>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-900">Dropbox</p>
+                        </div>
+                        {isConnected
+                          ? <span className="inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Active</span>
+                          : <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-400">—</span>
+                        }
+                      </div>
+                      {isConnected ? (
+                        <p className="text-[11px] text-green-700">Connected as <span className="font-medium">{status?.storage?.email ?? "your account"}</span></p>
+                      ) : !isAvailable ? (
+                        <p className="text-[11px] text-gray-400">Configure <code className="font-mono">DROPBOX_CLIENT_ID</code> to enable.</p>
+                      ) : otherConnected ? (
+                        <p className="text-[11px] text-gray-400">Disconnect your current provider first, then connect Dropbox.</p>
+                      ) : (
+                        <p className="text-[11px] text-gray-500">Save packets to your Dropbox account folder.</p>
+                      )}
+                      {!isConnected && isAvailable && !otherConnected && (
+                        <button
+                          type="button"
+                          disabled={storageConnecting}
+                          onClick={() => { void handleStorageConnect("dropbox"); }}
+                          className="mt-auto rounded-lg bg-[#0061FE] px-3 py-1.5 text-[11px] font-medium text-white hover:bg-[#0050d8] disabled:opacity-60 transition-colors w-fit"
+                        >
+                          Connect
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
             </div>
 
             {/* ── HubSpot card ─────────────────────────────────────────────── */}

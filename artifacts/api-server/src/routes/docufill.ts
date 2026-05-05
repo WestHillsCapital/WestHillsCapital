@@ -21,6 +21,7 @@ import {
 } from "../lib/docufill-redaction";
 import { saveDocuFillPacketToDrive } from "../lib/google-drive";
 import { uploadSessionPdfToAccountDrive } from "../lib/google-drive-account";
+import { uploadToStorageProvider } from "../lib/storage-provider";
 import { upsertHubSpotContact, extractHubSpotProperties } from "../lib/hubspot-account";
 import {
   sendInterviewLinkEmail,
@@ -1102,6 +1103,7 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
             a.brand_color AS org_brand_color,
             a.logo_on_white AS org_logo_on_white,
             a.gdrive_access_token, a.gdrive_refresh_token, a.gdrive_folder_id,
+            a.storage_provider, a.storage_access_token, a.storage_refresh_token, a.storage_folder_id,
             a.hubspot_access_token, a.hubspot_refresh_token,
             a.slack_webhook_url AS account_slack_webhook_url
        FROM docufill_interview_sessions s
@@ -4271,17 +4273,22 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
         logger.error({ err, token: req.params.token }, "[DocuFill] Failed to save packet to Drive");
       }
     }
-    // Per-account Google Drive upload (enable_gdrive channel)
+    // Per-account cloud storage upload (enable_gdrive channel — now provider-agnostic)
     if (!driveResult && session.enable_gdrive === true) {
-      const accessToken = typeof session.gdrive_access_token === "string" ? session.gdrive_access_token : null;
-      const refreshToken = typeof session.gdrive_refresh_token === "string" ? session.gdrive_refresh_token : null;
-      const folderId = typeof session.gdrive_folder_id === "string" ? session.gdrive_folder_id : null;
-      if (accessToken && refreshToken && folderId) {
+      const storageProvider = typeof session.storage_provider === "string" ? session.storage_provider : null;
+      const storageAccessToken = typeof session.storage_access_token === "string" ? session.storage_access_token : null;
+      const storageRefreshToken = typeof session.storage_refresh_token === "string" ? session.storage_refresh_token : null;
+      const storageFolderId = typeof session.storage_folder_id === "string" ? session.storage_folder_id : null;
+      // Fall back to legacy gdrive_* columns for accounts not yet migrated
+      const accessToken = storageAccessToken ?? (typeof session.gdrive_access_token === "string" ? session.gdrive_access_token : null);
+      const refreshToken = storageRefreshToken ?? (typeof session.gdrive_refresh_token === "string" ? session.gdrive_refresh_token : null);
+      const folderId = storageFolderId ?? (typeof session.gdrive_folder_id === "string" ? session.gdrive_folder_id : null);
+      const provider = storageProvider ?? (accessToken && refreshToken && folderId ? "gdrive" : null);
+      if (provider && accessToken && refreshToken && folderId) {
         try {
           const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-          driveResult = await uploadSessionPdfToAccountDrive(
-            { accessToken, refreshToken },
-            folderId,
+          driveResult = await uploadToStorageProvider(
+            { storage_provider: provider, storage_access_token: accessToken, storage_refresh_token: refreshToken, storage_folder_id: folderId },
             pdfBuffer,
             {
               firstName: cleanText(prefill.firstName),
@@ -4291,8 +4298,8 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
             },
           );
         } catch (err) {
-          driveWarning = err instanceof Error ? err.message : "Could not save packet to Google Drive";
-          logger.error({ err, token: req.params.token }, "[DocuFill] Per-account Drive upload failed");
+          driveWarning = err instanceof Error ? err.message : "Could not save packet to cloud storage";
+          logger.error({ err, token: req.params.token, provider }, "[DocuFill] Per-account storage upload failed");
         }
       }
     }
@@ -4900,17 +4907,21 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
         logger.error({ err, token: req.params.token }, "[DocuFill] Failed to save public packet to Drive");
       }
     }
-    // Per-account Google Drive upload (enable_gdrive channel)
+    // Per-account cloud storage upload (enable_gdrive channel — now provider-agnostic)
     if (!driveResult && session.enable_gdrive === true) {
-      const accessToken = typeof session.gdrive_access_token === "string" ? session.gdrive_access_token : null;
-      const refreshToken = typeof session.gdrive_refresh_token === "string" ? session.gdrive_refresh_token : null;
-      const folderId = typeof session.gdrive_folder_id === "string" ? session.gdrive_folder_id : null;
-      if (accessToken && refreshToken && folderId) {
+      const storageProvider = typeof session.storage_provider === "string" ? session.storage_provider : null;
+      const storageAccessToken = typeof session.storage_access_token === "string" ? session.storage_access_token : null;
+      const storageRefreshToken = typeof session.storage_refresh_token === "string" ? session.storage_refresh_token : null;
+      const storageFolderId = typeof session.storage_folder_id === "string" ? session.storage_folder_id : null;
+      const accessToken = storageAccessToken ?? (typeof session.gdrive_access_token === "string" ? session.gdrive_access_token : null);
+      const refreshToken = storageRefreshToken ?? (typeof session.gdrive_refresh_token === "string" ? session.gdrive_refresh_token : null);
+      const folderId = storageFolderId ?? (typeof session.gdrive_folder_id === "string" ? session.gdrive_folder_id : null);
+      const provider = storageProvider ?? (accessToken && refreshToken && folderId ? "gdrive" : null);
+      if (provider && accessToken && refreshToken && folderId) {
         try {
           const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-          driveResult = await uploadSessionPdfToAccountDrive(
-            { accessToken, refreshToken },
-            folderId,
+          driveResult = await uploadToStorageProvider(
+            { storage_provider: provider, storage_access_token: accessToken, storage_refresh_token: refreshToken, storage_folder_id: folderId },
             pdfBuffer,
             {
               firstName: cleanText(prefill.firstName),
@@ -4920,8 +4931,8 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
             },
           );
         } catch (err) {
-          driveWarning = err instanceof Error ? err.message : "Could not save packet to Google Drive";
-          logger.error({ err, token: req.params.token }, "[DocuFill] Per-account Drive upload failed (public submit)");
+          driveWarning = err instanceof Error ? err.message : "Could not save packet to cloud storage";
+          logger.error({ err, token: req.params.token, provider }, "[DocuFill] Per-account storage upload failed (public submit)");
         }
       }
     }

@@ -19,6 +19,8 @@ import { insertAuditLog, getActorEmail } from "../lib/auditLog";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { sendOrgAlertEmails } from "../lib/email";
 import { isGDriveConfigured, generateGDriveAuthUrl, exchangeGDriveCode, parseFolderIdFromInput, verifyFolderAccess } from "../lib/google-drive-account";
+import { isOneDriveConfigured, generateOneDriveAuthUrl, exchangeOneDriveCode, verifyOneDriveFolderAccess } from "../lib/onedrive-account";
+import { isDropboxConfigured, generateDropboxAuthUrl, exchangeDropboxCode, verifyDropboxFolderAccess } from "../lib/dropbox-account";
 import { isHubSpotConfigured, generateHubSpotAuthUrl, exchangeHubSpotCode } from "../lib/hubspot-account";
 import archiver from "archiver";
 import { PassThrough } from "node:stream";
@@ -39,6 +41,9 @@ import {
   OAuthExchangeBodySchema,
   OAuthExchangeWithRedirectBodySchema,
   GDriveFolderBodySchema,
+  StorageConnectBodySchema,
+  StorageExchangeBodySchema,
+  StorageFolderBodySchema,
   AdminAccountBodySchema,
   AdminNoteBodySchema,
   IpAllowlistBodySchema,
@@ -1788,6 +1793,11 @@ router.get("/integrations", requireAdminRole, async (req, res) => {
         gdrive_folder_name: string | null;
         gdrive_connected_at: Date | null;
         gdrive_refresh_token: string | null;
+        storage_provider: string | null;
+        storage_refresh_token: string | null;
+        storage_connected_email: string | null;
+        storage_folder_name: string | null;
+        storage_connected_at: Date | null;
         hubspot_refresh_token: string | null;
         hubspot_hub_domain: string | null;
         hubspot_connected_at: Date | null;
@@ -1795,6 +1805,8 @@ router.get("/integrations", requireAdminRole, async (req, res) => {
         `SELECT slack_webhook_url, slack_channel_name, slack_connected_at,
                 gdrive_connected_email, gdrive_folder_name, gdrive_connected_at,
                 gdrive_refresh_token,
+                storage_provider, storage_refresh_token, storage_connected_email,
+                storage_folder_name, storage_connected_at,
                 hubspot_refresh_token, hubspot_hub_domain, hubspot_connected_at
            FROM accounts WHERE id = $1`,
         [accountId],
@@ -1828,6 +1840,18 @@ router.get("/integrations", requireAdminRole, async (req, res) => {
           folder_name: acct?.gdrive_folder_name ?? null,
           connected_at: acct?.gdrive_connected_at?.toISOString() ?? null,
           available: !!(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET),
+        },
+        storage: {
+          provider: acct?.storage_provider ?? null,
+          connected: !!acct?.storage_refresh_token,
+          email: acct?.storage_connected_email ?? null,
+          folder_name: acct?.storage_folder_name ?? null,
+          connected_at: acct?.storage_connected_at?.toISOString() ?? null,
+          available: {
+            gdrive: !!(process.env.GOOGLE_OAUTH_CLIENT_ID && process.env.GOOGLE_OAUTH_CLIENT_SECRET),
+            onedrive: isOneDriveConfigured(),
+            dropbox: isDropboxConfigured(),
+          },
         },
         hubspot: {
           connected: !!acct?.hubspot_refresh_token,
@@ -2117,6 +2141,204 @@ router.delete("/integrations/gdrive", requireAdminRole, async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Integrations] Failed to disconnect Google Drive");
     res.status(500).json({ error: "Failed to disconnect Google Drive" });
+  }
+});
+
+// ── Provider-agnostic Cloud Storage routes ────────────────────────────────────
+
+/**
+ * POST /integrations/storage/connect
+ * Generates the OAuth authorization URL for the specified storage provider.
+ * Accepts: { provider: 'gdrive' | 'onedrive' | 'dropbox', redirectUri: string }
+ */
+router.post("/integrations/storage/connect", requireAdminRole, requirePlanFeature("googleDrive"), async (req, res) => {
+  try {
+    const _parse = StorageConnectBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
+    const { provider, redirectUri } = _parse.data;
+
+    const accountId = req.internalAccountId ?? 1;
+    const state = randomUUID();
+    const db = getDb();
+    await db.query(`UPDATE accounts SET storage_oauth_state = $1 WHERE id = $2`, [state, accountId]);
+
+    let url: string | null = null;
+    if (provider === "gdrive") {
+      if (!isGDriveConfigured()) { res.status(503).json({ error: "Google Drive integration is not configured on this server." }); return; }
+      url = generateGDriveAuthUrl(state, redirectUri);
+    } else if (provider === "onedrive") {
+      if (!isOneDriveConfigured()) { res.status(503).json({ error: "OneDrive integration is not configured on this server." }); return; }
+      url = generateOneDriveAuthUrl(state, redirectUri);
+    } else if (provider === "dropbox") {
+      if (!isDropboxConfigured()) { res.status(503).json({ error: "Dropbox integration is not configured on this server." }); return; }
+      url = generateDropboxAuthUrl(state, redirectUri);
+    }
+
+    if (!url) { res.status(503).json({ error: "Failed to generate authorization URL." }); return; }
+    res.json({ url });
+  } catch (err) {
+    logger.error({ err }, "[Storage] Failed to generate storage OAuth URL");
+    res.status(500).json({ error: "Failed to initiate storage connection" });
+  }
+});
+
+/**
+ * POST /integrations/storage/exchange
+ * Exchanges the OAuth code for tokens and stores credentials.
+ * Accepts: { provider, code, state, redirectUri }
+ * Connecting a new provider automatically clears any previously connected provider.
+ */
+router.post("/integrations/storage/exchange", requireAdminRole, requirePlanFeature("googleDrive"), async (req, res) => {
+  try {
+    const _parse = StorageExchangeBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
+    const { provider, code, state, redirectUri } = _parse.data;
+    if (!code || !state) { res.status(400).json({ error: "code and state are required" }); return; }
+
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    const { rows } = await db.query<{ storage_oauth_state: string | null }>(
+      `SELECT storage_oauth_state FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    if (!rows[0] || rows[0].storage_oauth_state !== state) {
+      res.status(400).json({ error: "Invalid or expired OAuth state. Please try connecting again." });
+      return;
+    }
+
+    let accessToken: string;
+    let refreshToken: string;
+    let email: string;
+    let folderId: string;
+    let folderName: string;
+
+    if (provider === "gdrive") {
+      if (!isGDriveConfigured()) { res.status(503).json({ error: "Google Drive integration is not configured." }); return; }
+      const result = await exchangeGDriveCode(code, redirectUri ?? "");
+      ({ accessToken, refreshToken, email, folderId, folderName } = result);
+    } else if (provider === "onedrive") {
+      if (!isOneDriveConfigured()) { res.status(503).json({ error: "OneDrive integration is not configured." }); return; }
+      const result = await exchangeOneDriveCode(code, redirectUri ?? "");
+      ({ accessToken, refreshToken, email, folderId, folderName } = result);
+    } else if (provider === "dropbox") {
+      if (!isDropboxConfigured()) { res.status(503).json({ error: "Dropbox integration is not configured." }); return; }
+      const result = await exchangeDropboxCode(code, redirectUri ?? "");
+      ({ accessToken, refreshToken, email, folderId, folderName } = result);
+    } else {
+      res.status(400).json({ error: "Unknown provider." });
+      return;
+    }
+
+    await db.query(
+      `UPDATE accounts
+          SET storage_provider = $1, storage_access_token = $2, storage_refresh_token = $3,
+              storage_connected_email = $4, storage_folder_id = $5, storage_folder_name = $6,
+              storage_connected_at = NOW(), storage_oauth_state = NULL
+        WHERE id = $7`,
+      [provider, accessToken, refreshToken, email, folderId, folderName, accountId],
+    );
+    res.json({ success: true, email, folder_name: folderName });
+  } catch (err) {
+    logger.error({ err }, "[Storage] Exchange failed");
+    res.status(500).json({ error: err instanceof Error ? err.message : "Failed to connect storage provider" });
+  }
+});
+
+/**
+ * PATCH /integrations/storage/folder
+ * Updates the destination folder for the connected storage provider.
+ * For Google Drive: accepts a folder URL or ID.
+ * For OneDrive: accepts an item ID.
+ * For Dropbox: accepts a folder path (e.g. /My Folder).
+ */
+router.patch("/integrations/storage/folder", requireAdminRole, async (req, res) => {
+  try {
+    const _parse = StorageFolderBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
+    const { folderInput } = _parse.data;
+    if (!folderInput?.trim()) { res.status(400).json({ error: "folderInput is required." }); return; }
+
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    const { rows } = await db.query<{
+      storage_provider: string | null;
+      storage_access_token: string | null;
+      storage_refresh_token: string | null;
+    }>(
+      `SELECT storage_provider, storage_access_token, storage_refresh_token FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    const acct = rows[0];
+    if (!acct?.storage_provider || !acct.storage_access_token || !acct.storage_refresh_token) {
+      res.status(400).json({ error: "Connect a storage provider first." });
+      return;
+    }
+
+    const creds = { accessToken: acct.storage_access_token, refreshToken: acct.storage_refresh_token };
+    let resolvedFolderId: string;
+    let folderName: string;
+
+    if (acct.storage_provider === "gdrive") {
+      const parsed = parseFolderIdFromInput(folderInput);
+      if (!parsed) { res.status(400).json({ error: "Provide a valid Google Drive folder URL or ID." }); return; }
+      try {
+        folderName = await verifyFolderAccess(creds, parsed);
+        resolvedFolderId = parsed;
+      } catch (err) {
+        res.status(400).json({ error: err instanceof Error ? err.message : "Cannot access that folder." });
+        return;
+      }
+    } else if (acct.storage_provider === "onedrive") {
+      try {
+        folderName = await verifyOneDriveFolderAccess(creds, folderInput.trim());
+        resolvedFolderId = folderInput.trim();
+      } catch (err) {
+        res.status(400).json({ error: err instanceof Error ? err.message : "Cannot access that OneDrive folder." });
+        return;
+      }
+    } else if (acct.storage_provider === "dropbox") {
+      const path = folderInput.trim().startsWith("/") ? folderInput.trim() : `/${folderInput.trim()}`;
+      try {
+        folderName = await verifyDropboxFolderAccess(creds, path);
+        resolvedFolderId = path;
+      } catch (err) {
+        res.status(400).json({ error: err instanceof Error ? err.message : "Cannot access that Dropbox folder." });
+        return;
+      }
+    } else {
+      res.status(400).json({ error: "Unknown storage provider." });
+      return;
+    }
+
+    await db.query(
+      `UPDATE accounts SET storage_folder_id = $1, storage_folder_name = $2 WHERE id = $3`,
+      [resolvedFolderId, folderName, accountId],
+    );
+    res.json({ success: true, folder_name: folderName });
+  } catch (err) {
+    logger.error({ err }, "[Storage] Failed to update folder");
+    res.status(500).json({ error: "Failed to update folder" });
+  }
+});
+
+/** DELETE /integrations/storage — clears stored cloud storage credentials */
+router.delete("/integrations/storage", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const db = getDb();
+    await db.query(
+      `UPDATE accounts
+          SET storage_provider = NULL, storage_access_token = NULL, storage_refresh_token = NULL,
+              storage_connected_email = NULL, storage_folder_id = NULL,
+              storage_folder_name = NULL, storage_connected_at = NULL,
+              storage_oauth_state = NULL
+        WHERE id = $1`,
+      [accountId],
+    );
+    res.json({ success: true });
+  } catch (err) {
+    logger.error({ err }, "[Storage] Failed to disconnect");
+    res.status(500).json({ error: "Failed to disconnect storage provider" });
   }
 });
 
