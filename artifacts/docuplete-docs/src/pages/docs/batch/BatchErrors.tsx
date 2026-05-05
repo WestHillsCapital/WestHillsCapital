@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function BatchErrors() {
   return (
     <div className="docs-content">
@@ -46,6 +48,13 @@ export default function BatchErrors() {
 
       <h2>Per-row errors (during processing)</h2>
       <p>These affect individual rows but don't stop the batch. Other rows continue processing.</p>
+
+      <DocScreenshot
+        src="/screenshots/batch-errors.svg"
+        alt="The batch error table showing five failed rows, each with a colored issue badge (Missing value, Bad format, Bad option) and a descriptive error message"
+        caption="The error table — each failed row shows a color-coded issue badge and a specific error message so you know exactly what to fix before re-running."
+      />
+
       <div className="overflow-x-auto">
         <table>
           <thead>

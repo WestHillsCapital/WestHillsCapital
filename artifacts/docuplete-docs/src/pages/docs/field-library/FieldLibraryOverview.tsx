@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function FieldLibraryOverview() {
   return (
     <div className="docs-content">
@@ -8,6 +10,12 @@ export default function FieldLibraryOverview() {
       </div>
 
       <p>The Field Library stores field definitions at the organization level rather than inside a single package. Any package can pull fields from the library instead of defining them from scratch. This ensures consistency — the same "Social Security Number" field has the same label, validation, and format everywhere it's used.</p>
+
+      <DocScreenshot
+        src="/screenshots/field-library-list.svg"
+        alt="The Field Library list view showing a table of shared fields with their labels, internal keys, types, categories (Personal, Financial, Address), and how many packages use each field"
+        caption="The Field Library — every shared field shows which packages currently use it, so you can gauge the impact before making changes."
+      />
 
       <h2>Why use the Field Library?</h2>
       <ul>

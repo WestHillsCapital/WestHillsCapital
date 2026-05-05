@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    </style>
+  </defs>
+  <rect width="1280" height="800" fill="#080E1A"/>
+  
+    <rect x="0" y="0" width="1280" height="56" rx="0" fill="#080E1A"/>
+  <rect x="0" y="55" width="1280" height="1" fill="rgba(255,255,255,0.08)"/>
+  <!-- logo -->
+  <rect x="16" y="14" width="28" height="28" rx="7" fill="#1B4FD8"/>
+  <text x="50" y="34" font-size="15" fill="white" font-weight="700">Docuplete</text>
+  <rect x="126" y="18" width="38" height="20" rx="4" fill="rgba(255,255,255,0.08)"/>
+  <text x="145" y="32" font-size="10" fill="rgba(255,255,255,0.4)" font-weight="600" text-anchor="middle">Docs</text>
+  <!-- search -->
+  <rect x="256" y="12" width="320" height="32" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <text x="276" y="32" font-size="13" fill="rgba(255,255,255,0.35)">Search docs…</text>
+  <!-- cta -->
+  <rect x="1132" y="13" width="132" height="30" rx="8" fill="#1B4FD8"/>
+  <text x="1198" y="33" font-size="13" fill="white" font-weight="600" text-anchor="middle">Start free trial</text>
+
+    <!-- top toolbar -->
+    <rect x="0" y="56" width="1280" height="44" rx="0" fill="#0A1120"/>
+    <rect x="0" y="99" width="1280" height="1" fill="rgba(255,255,255,0.08)"/>
+    <text x="640" y="83" font-size="14" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="middle">Visual Mapper — E-Sign Fields</text>
+
+    <!-- field panel -->
+    <rect x="0" y="100" width="240" height="700" rx="0" fill="#0A1422"/>
+    <rect x="239" y="100" width="1" height="700" fill="rgba(255,255,255,0.08)"/>
+    <text x="12" y="128" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="700" text-anchor="start">Fields</text>
+
+    <rect x="8" y="148" width="224" height="52" rx="8" fill="rgba(27,79,216,0.2)" stroke="#1B4FD8" stroke-width="1"/>
+      <text x="20" y="170" font-size="13" fill="white" font-weight="600" text-anchor="start">Client Signature</text>
+      <text x="20" y="186" font-size="11" fill="#5B8DEF" font-weight="normal" text-anchor="start">Signature</text>
+<rect x="8" y="208" width="224" height="52" rx="8" fill="rgba(255,255,255,0.02)" stroke="none" stroke-width="1"/>
+      <text x="20" y="230" font-size="13" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">Initials (p.1)</text>
+      <text x="20" y="246" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Initials</text>
+<rect x="8" y="268" width="224" height="52" rx="8" fill="rgba(255,255,255,0.02)" stroke="none" stroke-width="1"/>
+      <text x="20" y="290" font-size="13" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">Initials (p.3)</text>
+      <text x="20" y="306" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Initials</text>
+<rect x="8" y="328" width="224" height="52" rx="8" fill="rgba(255,255,255,0.02)" stroke="none" stroke-width="1"/>
+      <text x="20" y="350" font-size="13" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">Date Signed</text>
+      <text x="20" y="366" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Date</text>
+
+    <!-- PDF canvas -->
+    <rect x="260" y="100" width="800" height="700" rx="0" fill="#1a2a3a"/>
+    <rect x="280" y="120" width="760" height="656" rx="4" fill="white"/>
+
+    <!-- PDF content -->
+    <text x="304" y="152" font-size="10" fill="#111827" font-weight="700" text-anchor="start">INVESTMENT ADVISORY AGREEMENT</text>
+    <rect x="304" y="158" width="712" height="1" rx="0" fill="#e5e7eb"/>
+    <rect x="304" y="184" width="712" height="12" rx="2" fill="#f3f4f6"/><rect x="304" y="204" width="632" height="12" rx="2" fill="#f3f4f6"/><rect x="304" y="224" width="712" height="12" rx="2" fill="#f3f4f6"/>
+    <rect x="304" y="228" width="712" height="12" rx="2" fill="#f3f4f6"/>
+    <rect x="304" y="248" width="592" height="12" rx="2" fill="#f3f4f6"/>
+
+    <text x="304" y="288" font-size="9" fill="#6b7280" font-weight="normal" text-anchor="start">By signing below, you agree to the terms set forth in this Agreement.</text>
+
+    <!-- signature box with active selection -->
+    <rect x="304" y="304" width="280" height="72" rx="4" fill="#f0fdf4" stroke="#1B4FD8" stroke-width="2"/>
+    <!-- signature image simulation -->
+    <path d="M320 351 Q350 326 380 346 Q410 366 440 336 Q470 316 520 351" stroke="#1d4ed8" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+    <text x="305" y="386" font-size="8" fill="#22c55e">✓ E-signature captured</text>
+
+    <!-- resize handles -->
+    <rect x="300" y="300" width="8" height="8" rx="2" fill="#1B4FD8" stroke="white" stroke-width="1"/><rect x="580" y="300" width="8" height="8" rx="2" fill="#1B4FD8" stroke="white" stroke-width="1"/><rect x="300" y="372" width="8" height="8" rx="2" fill="#1B4FD8" stroke="white" stroke-width="1"/><rect x="580" y="372" width="8" height="8" rx="2" fill="#1B4FD8" stroke="white" stroke-width="1"/>
+
+    <text x="304" y="408" font-size="9" fill="#374151" font-weight="normal" text-anchor="start">Client Name (Print):</text>
+    <rect x="304" y="412" width="200" height="20" rx="3" fill="#fafafa" stroke="#d1d5db" stroke-width="1"/>
+
+    <text x="540" y="408" font-size="9" fill="#374151" font-weight="normal" text-anchor="start">Date:</text>
+    <rect x="540" y="412" width="100" height="20" rx="3" fill="#fafafa" stroke="#d1d5db" stroke-width="1"/>
+
+    <!-- right panel -->
+    <rect x="1060" y="100" width="220" height="700" rx="0" fill="#0A1422"/>
+    <rect x="1060" y="100" width="1" height="700" fill="rgba(255,255,255,0.08)"/>
+    <text x="1072" y="128" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="700" text-anchor="start">Signature Field</text>
+    <text x="1072" y="152" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Scales to fit box</text>
+    <rect x="1072" y="158" width="192" height="30" rx="6" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <text x="1168" y="178" font-size="12" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="middle">Preserve ratio</text>
+    <rect x="1072" y="736" width="192" height="36" rx="8" fill="#1B4FD8"/>
+    <text x="1168" y="758" font-size="13" fill="white" font-weight="600" text-anchor="middle">Save mapping</text>
+  
+</svg>

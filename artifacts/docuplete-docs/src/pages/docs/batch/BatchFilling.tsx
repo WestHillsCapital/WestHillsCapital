@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function BatchFilling() {
   return (
     <div className="docs-content">
@@ -15,6 +17,12 @@ export default function BatchFilling() {
         <li>Maximum 5,000 rows per batch file.</li>
         <li>Maximum file size: 10 MB.</li>
       </ul>
+
+      <DocScreenshot
+        src="/screenshots/batch-progress.svg"
+        alt="The batch run progress screen showing a progress bar at 28%, a stats row with counts for completed and remaining rows, and a per-row results table"
+        caption="The batch progress screen updates in real time as PDFs are generated row by row. Individual PDFs become downloadable as soon as their row completes."
+      />
 
       <h2>Value formats by field type</h2>
       <div className="overflow-x-auto">

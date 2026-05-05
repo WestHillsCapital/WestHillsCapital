@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function GoogleDrive() {
   return (
     <div className="docs-content">
@@ -20,6 +22,12 @@ export default function GoogleDrive() {
         <li>Choose the <strong>default destination folder</strong> — a picker shows your Drive folder tree. Select the folder where completed PDFs should be saved.</li>
         <li>Click <strong>Save</strong>.</li>
       </ol>
+
+      <DocScreenshot
+        src="/screenshots/google-drive-settings.svg"
+        alt="The Google Drive integration settings page showing the connected account, default destination folder selector, file naming template, and a list of recent uploads"
+        caption="The Google Drive settings page — once connected, choose a default folder and optionally customize the file naming template using field values as placeholders."
+      />
 
       <h2>Per-package folder override</h2>
       <p>By default, all packages save to the default destination folder. To route a specific package's PDFs to a different folder:</p>

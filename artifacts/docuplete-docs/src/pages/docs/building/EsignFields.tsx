@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function EsignFields() {
   return (
     <div className="docs-content">
@@ -16,6 +18,12 @@ export default function EsignFields() {
 
       <h2>Adding e-sign fields</h2>
       <p>From the Fields tab, click <strong>Add Field</strong> and select <strong>Signature</strong> or <strong>Initials</strong>. E-sign fields behave like any other field — they appear in the interview at the position you place them in the field list, and they are mapped to the PDF in the Visual Mapper.</p>
+
+      <DocScreenshot
+        src="/screenshots/esign-field-placed.svg"
+        alt="The Visual Mapper with a signature field selected, showing a blue bounding box placed over the signature line on a PDF document, with a captured signature preview inside"
+        caption="Placing an e-sign field in the mapper — draw a bounding box over the signature line. The captured signature image scales to fit within the box."
+      />
 
       <h2>How the client signs</h2>
       <p>When the client reaches a signature field in the interview:</p>

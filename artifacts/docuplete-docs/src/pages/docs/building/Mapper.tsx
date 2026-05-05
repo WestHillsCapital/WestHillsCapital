@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function Mapper() {
   return (
     <div className="docs-content">
@@ -9,6 +11,12 @@ export default function Mapper() {
 
       <h2>Opening the Mapper</h2>
       <p>From the package page, click the <strong>Mapper</strong> tab. You'll see the PDF pages rendered at full width. The left panel lists all your fields. The right panel shows formatting options for the selected mapping.</p>
+
+      <DocScreenshot
+        src="/screenshots/mapper-overview.svg"
+        alt="The Visual Mapper showing the field list on the left, a PDF canvas in the center with blue bounding boxes annotated with numbered callouts, and formatting options on the right"
+        caption="The Visual Mapper — select a field from the left panel, then click or drag a bounding box on the PDF. Numbered callouts (① ②) indicate when the same field is mapped to multiple locations."
+      />
 
       <h2>Adding a mapping</h2>
       <ol>

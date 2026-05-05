@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function ApiKeys() {
   return (
     <div className="docs-content">
@@ -22,6 +24,12 @@ export default function ApiKeys() {
         <li>Void sessions</li>
       </ul>
       <p>API documentation is available at <a href="https://api.docuplete.com/docs" target="_blank" rel="noopener noreferrer">api.docuplete.com/docs</a>.</p>
+
+      <DocScreenshot
+        src="/screenshots/api-keys-panel.svg"
+        alt="The API Keys settings panel listing live and test keys with names, key prefixes, created dates, last-used dates, and Revoke buttons"
+        caption="The API Keys panel — create named keys for each integration, distinguish live from test keys, and revoke instantly if a key is compromised."
+      />
 
       <h2>Creating an API key</h2>
       <ol>

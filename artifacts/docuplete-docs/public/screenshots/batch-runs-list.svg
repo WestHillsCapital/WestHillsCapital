@@ -1,0 +1,102 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    </style>
+  </defs>
+  <rect width="1280" height="800" fill="#080E1A"/>
+  
+    <rect x="0" y="0" width="1280" height="56" rx="0" fill="#080E1A"/>
+  <rect x="0" y="55" width="1280" height="1" fill="rgba(255,255,255,0.08)"/>
+  <!-- logo -->
+  <rect x="16" y="14" width="28" height="28" rx="7" fill="#1B4FD8"/>
+  <text x="50" y="34" font-size="15" fill="white" font-weight="700">Docuplete</text>
+  <rect x="126" y="18" width="38" height="20" rx="4" fill="rgba(255,255,255,0.08)"/>
+  <text x="145" y="32" font-size="10" fill="rgba(255,255,255,0.4)" font-weight="600" text-anchor="middle">Docs</text>
+  <!-- search -->
+  <rect x="256" y="12" width="320" height="32" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <text x="276" y="32" font-size="13" fill="rgba(255,255,255,0.35)">Search docs…</text>
+  <!-- cta -->
+  <rect x="1132" y="13" width="132" height="30" rx="8" fill="#1B4FD8"/>
+  <text x="1198" y="33" font-size="13" fill="white" font-weight="600" text-anchor="middle">Start free trial</text>
+    <rect x="0" y="56" width="240" height="744" rx="0" fill="#0A1120"/>
+  <rect x="239" y="56" width="1" height="744" fill="rgba(255,255,255,0.08)"/><text x="16" y="84" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Getting Started</text><text x="20" y="117" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">What is Docuplete?</text><text x="20" y="145" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Quick Start</text><text x="20" y="173" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Plans</text><text x="16" y="196" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Building a Package</text><text x="20" y="229" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Uploading a PDF</text><text x="20" y="257" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Adding &amp; Editing Fields</text><text x="20" y="285" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Visual Mapper</text><text x="20" y="313" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">E-Sign Fields</text><text x="20" y="341" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Single-line vs. Multiline</text><text x="16" y="364" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Batch CSV Import</text><text x="20" y="397" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">When to Use Batch</text><text x="20" y="425" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Downloading Template</text><text x="20" y="453" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Filling Out CSV</text><text x="20" y="481" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Uploading &amp; Results</text><text x="20" y="509" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Understanding Errors</text><text x="16" y="532" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Sessions Dashboard</text><text x="20" y="565" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Interviews Tab</text><rect x="8" y="576" width="224" height="26" rx="8" fill="rgba(27,79,216,0.2)"/><text x="20" y="593" font-size="12" fill="#5B8DEF" font-weight="600">Batch Runs Tab</text><text x="16" y="616" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Sending to Clients</text><text x="20" y="649" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Generating a Session</text><text x="20" y="677" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Client Experience</text><text x="20" y="705" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">E-Sign Verification</text><text x="16" y="728" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Account &amp; Settings</text><text x="20" y="761" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">API Keys</text><text x="20" y="789" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Branding</text>
+
+    <!-- header -->
+    <text x="280" y="96" font-size="22" fill="rgba(255,255,255,0.85)" font-weight="700" text-anchor="start">Batch Runs</text>
+    <text x="280" y="118" font-size="13" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">All CSV import runs across all packages</text>
+
+    <!-- table -->
+    <rect x="280" y="136" width="984" height="648" rx="10" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <!-- header row -->
+    <rect x="280" y="136" width="984" height="40" rx="10" fill="#0D1829"/>
+    <rect x="280" y="175" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+    <text x="300" y="160" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">File name</text>
+<text x="540" y="160" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Package</text>
+<text x="720" y="160" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Status</text>
+<text x="860" y="160" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Success</text>
+<text x="940" y="160" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Errors</text>
+<text x="1040" y="160" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Date</text>
+
+    <rect x="280" y="176" width="984" height="64" rx="0" fill="rgba(255,255,255,0.01)"/>
+      <rect x="280" y="239" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <!-- file icon -->
+      <rect x="300" y="192" width="24" height="30" rx="4" fill="rgba(27,79,216,0.15)"/>
+      <text x="312" y="212" font-size="8" fill="#5B8DEF" text-anchor="middle">CSV</text>
+      <text x="332" y="204" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">renewals-2026-q1.csv</text>
+      <text x="540" y="212" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">Annual Disclosure</text>
+      <rect x="720" y="198" width="79" height="22" rx="6" fill="rgba(34,197,94,0.12)"/><text x="759.5" y="213.5" font-size="11" fill="#22c55e" font-weight="600" text-anchor="middle">Completed</text>
+      <text x="860" y="212" font-size="13" fill="#22c55e" font-weight="600" text-anchor="start">312</text>
+      <text x="940" y="212" font-size="13" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">—</text>
+      <text x="1040" y="212" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">May 1, 2026</text>
+      <rect x="1128" y="196" width="100" height="26" rx="6" fill="rgba(255,255,255,0.05)"/><text x="1178" y="213.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">↓ Download ZIP</text>
+<rect x="280" y="240" width="984" height="64" rx="0" fill="transparent"/>
+      <rect x="280" y="303" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <!-- file icon -->
+      <rect x="300" y="256" width="24" height="30" rx="4" fill="rgba(27,79,216,0.15)"/>
+      <text x="312" y="276" font-size="8" fill="#5B8DEF" text-anchor="middle">CSV</text>
+      <text x="332" y="268" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">onboarding-may.csv</text>
+      <text x="540" y="276" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">New Client Intake</text>
+      <rect x="720" y="262" width="58" height="22" rx="6" fill="rgba(245,158,11,0.12)"/><text x="749" y="277.5" font-size="11" fill="#f59e0b" font-weight="600" text-anchor="middle">Errors</text>
+      <text x="860" y="276" font-size="13" fill="#22c55e" font-weight="600" text-anchor="start">87</text>
+      <text x="940" y="276" font-size="13" fill="#ef4444" font-weight="600" text-anchor="start">4</text>
+      <text x="1040" y="276" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Apr 28, 2026</text>
+      <rect x="1128" y="260" width="100" height="26" rx="6" fill="rgba(255,255,255,0.05)"/><text x="1178" y="277.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">↓ Download ZIP</text>
+<rect x="280" y="304" width="984" height="64" rx="0" fill="rgba(255,255,255,0.01)"/>
+      <rect x="280" y="367" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <!-- file icon -->
+      <rect x="300" y="320" width="24" height="30" rx="4" fill="rgba(27,79,216,0.15)"/>
+      <text x="312" y="340" font-size="8" fill="#5B8DEF" text-anchor="middle">CSV</text>
+      <text x="332" y="332" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">beneficiary-updates.csv</text>
+      <text x="540" y="340" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">Beneficiary Update</text>
+      <rect x="720" y="326" width="86" height="22" rx="6" fill="rgba(91,141,239,0.12)"/><text x="763" y="341.5" font-size="11" fill="#5B8DEF" font-weight="600" text-anchor="middle">Processing</text>
+      <text x="860" y="340" font-size="13" fill="#22c55e" font-weight="600" text-anchor="start">45</text>
+      <text x="940" y="340" font-size="13" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">—</text>
+      <text x="1040" y="340" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Apr 25, 2026</text>
+      <rect x="1128" y="324" width="100" height="26" rx="6" fill="rgba(255,255,255,0.05)"/><text x="1178" y="341.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">↓ Download ZIP</text>
+<rect x="280" y="368" width="984" height="64" rx="0" fill="transparent"/>
+      <rect x="280" y="431" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <!-- file icon -->
+      <rect x="300" y="384" width="24" height="30" rx="4" fill="rgba(27,79,216,0.15)"/>
+      <text x="312" y="404" font-size="8" fill="#5B8DEF" text-anchor="middle">CSV</text>
+      <text x="332" y="396" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">q4-disclosures.csv</text>
+      <text x="540" y="404" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">Annual Disclosure</text>
+      <rect x="720" y="390" width="79" height="22" rx="6" fill="rgba(34,197,94,0.12)"/><text x="759.5" y="405.5" font-size="11" fill="#22c55e" font-weight="600" text-anchor="middle">Completed</text>
+      <text x="860" y="404" font-size="13" fill="#22c55e" font-weight="600" text-anchor="start">501</text>
+      <text x="940" y="404" font-size="13" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">—</text>
+      <text x="1040" y="404" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Apr 15, 2026</text>
+      <rect x="1128" y="388" width="100" height="26" rx="6" fill="rgba(255,255,255,0.05)"/><text x="1178" y="405.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">↓ Download ZIP</text>
+<rect x="280" y="432" width="984" height="64" rx="0" fill="rgba(255,255,255,0.01)"/>
+      <rect x="280" y="495" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <!-- file icon -->
+      <rect x="300" y="448" width="24" height="30" rx="4" fill="rgba(27,79,216,0.15)"/>
+      <text x="312" y="468" font-size="8" fill="#5B8DEF" text-anchor="middle">CSV</text>
+      <text x="332" y="460" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">ira-rollover-batch.csv</text>
+      <text x="540" y="468" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">IRA Rollover Form</text>
+      <rect x="720" y="454" width="79" height="22" rx="6" fill="rgba(34,197,94,0.12)"/><text x="759.5" y="469.5" font-size="11" fill="#22c55e" font-weight="600" text-anchor="middle">Completed</text>
+      <text x="860" y="468" font-size="13" fill="#22c55e" font-weight="600" text-anchor="start">23</text>
+      <text x="940" y="468" font-size="13" fill="#ef4444" font-weight="600" text-anchor="start">2</text>
+      <text x="1040" y="468" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Apr 10, 2026</text>
+      <rect x="1128" y="452" width="100" height="26" rx="6" fill="rgba(255,255,255,0.05)"/><text x="1178" y="469.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">↓ Download ZIP</text>
+  
+</svg>

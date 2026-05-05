@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function EsignSending() {
   return (
     <div className="docs-content">
@@ -15,6 +17,12 @@ export default function EsignSending() {
         <li><strong>Code entry</strong> — The client enters the code on the interview screen. They have 5 minutes and 3 attempts before the code expires. A new code can be requested after expiry.</li>
         <li><strong>Verification confirmed</strong> — Once the correct code is entered, the signature fields unlock. The verified email and timestamp are recorded in the session's audit trail.</li>
       </ol>
+
+      <DocScreenshot
+        src="/screenshots/esign-capture.svg"
+        alt="The signature capture screen showing an identity-verified banner, the agreement text excerpt, Draw and Type tabs, a signature canvas with a drawn signature, and a Submit & Sign button"
+        caption="The signature capture step — identity is verified once via OTP, then the client draws or types their signature before final submission."
+      />
 
       <div className="callout callout-info">
         <strong>One verification per session:</strong> The OTP is requested once per session, not once per signature field. After a successful verification, all signature and initials fields in the session are unlocked.

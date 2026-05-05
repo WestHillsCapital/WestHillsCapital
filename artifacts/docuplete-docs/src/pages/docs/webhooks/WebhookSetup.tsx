@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { DocScreenshot } from "@/components/DocScreenshot";
 
 export default function WebhookSetup() {
   return (
@@ -25,6 +26,12 @@ export default function WebhookSetup() {
         <li>Click <strong>Save</strong>. Docuplete sends a test ping to the URL immediately to verify it's reachable.</li>
         <li>Copy the <strong>Webhook Secret</strong> displayed after saving. Store it securely — you'll use it to verify signature headers.</li>
       </ol>
+
+      <DocScreenshot
+        src="/screenshots/webhook-setup.svg"
+        alt="The Webhook Setup page showing a URL input field with a Save &amp; test button, a green success banner confirming the test ping succeeded, and the webhook secret field with a Copy button"
+        caption="After saving the URL, Docuplete immediately sends a test ping. A green confirmation tells you the endpoint is reachable. Copy the secret — it's shown only once."
+      />
 
       <h2>Webhook secret</h2>
       <p>Each package has its own webhook secret — a randomly generated 32-byte hex string. The secret is used to compute an HMAC-SHA256 signature of the request body. Your server should verify this signature on every webhook delivery to confirm the request came from Docuplete. See <Link href="/webhooks/signature">Signature Verification</Link> for implementation details.</p>

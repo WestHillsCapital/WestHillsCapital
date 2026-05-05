@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { DocScreenshot } from "@/components/DocScreenshot";
 
 export default function BatchUploading() {
   return (
@@ -17,6 +18,12 @@ export default function BatchUploading() {
         <li>You'll see a preview of the first 5 rows. Review the column mapping to confirm data looks correct.</li>
         <li>Click <strong>Start Batch Run</strong>.</li>
       </ol>
+
+      <DocScreenshot
+        src="/screenshots/batch-upload-step.svg"
+        alt="The batch upload screen showing a drag-and-drop zone at the top and a preview table of the first five CSV rows below, with a Start Batch Run button"
+        caption="Before starting, review the first five rows to confirm column mapping looks correct — catch data issues before they become errors."
+      />
 
       <h2>Monitoring progress</h2>
       <p>After starting, the batch run appears in the <Link href="/sessions-dashboard/batch-runs">Batch Runs tab</Link> with a real-time progress indicator:</p>

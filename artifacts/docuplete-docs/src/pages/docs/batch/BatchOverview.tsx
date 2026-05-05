@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { DocScreenshot } from "@/components/DocScreenshot";
 
 export default function BatchOverview() {
   return (
@@ -15,6 +16,12 @@ export default function BatchOverview() {
 
       <h2>What is batch import?</h2>
       <p>Batch import lets you upload a CSV file where each row represents one client. Docuplete generates a separate filled PDF for each row — using the same package template for all of them. The batch run appears in your Sessions Dashboard under the <Link href="/sessions-dashboard/batch-runs">Batch Runs tab</Link>.</p>
+
+      <DocScreenshot
+        src="/screenshots/batch-runs-list.svg"
+        alt="The Batch Runs tab listing multiple CSV import runs with file names, package names, status chips, success and error counts, and download buttons"
+        caption="The Batch Runs tab — every import run is listed with its status, row counts, and download links for completed PDFs."
+      />
 
       <h2>When to use it</h2>
       <ul>

@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    </style>
+  </defs>
+  <rect width="1280" height="800" fill="#080E1A"/>
+  
+    <rect x="0" y="0" width="1280" height="56" rx="0" fill="#080E1A"/>
+  <rect x="0" y="55" width="1280" height="1" fill="rgba(255,255,255,0.08)"/>
+  <!-- logo -->
+  <rect x="16" y="14" width="28" height="28" rx="7" fill="#1B4FD8"/>
+  <text x="50" y="34" font-size="15" fill="white" font-weight="700">Docuplete</text>
+  <rect x="126" y="18" width="38" height="20" rx="4" fill="rgba(255,255,255,0.08)"/>
+  <text x="145" y="32" font-size="10" fill="rgba(255,255,255,0.4)" font-weight="600" text-anchor="middle">Docs</text>
+  <!-- search -->
+  <rect x="256" y="12" width="320" height="32" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <text x="276" y="32" font-size="13" fill="rgba(255,255,255,0.35)">Search docs…</text>
+  <!-- cta -->
+  <rect x="1132" y="13" width="132" height="30" rx="8" fill="#1B4FD8"/>
+  <text x="1198" y="33" font-size="13" fill="white" font-weight="600" text-anchor="middle">Start free trial</text>
+    <rect x="0" y="56" width="1280" height="744" rx="0" fill="#080E1A"/>
+    <rect x="0" y="56" width="240" height="744" rx="0" fill="#0A1120"/>
+  <rect x="239" y="56" width="1" height="744" fill="rgba(255,255,255,0.08)"/><text x="16" y="84" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Getting Started</text><text x="20" y="117" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">What is Docuplete?</text><text x="20" y="145" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Quick Start</text><text x="20" y="173" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Plans</text><text x="16" y="196" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Building a Package</text><text x="20" y="229" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Uploading a PDF</text><text x="20" y="257" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Adding &amp; Editing Fields</text><text x="20" y="285" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Visual Mapper</text><text x="20" y="313" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">E-Sign Fields</text><text x="20" y="341" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Single-line vs. Multiline</text><text x="16" y="364" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Batch CSV Import</text><text x="20" y="397" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">When to Use Batch</text><text x="20" y="425" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Downloading Template</text><text x="20" y="453" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Filling Out CSV</text><text x="20" y="481" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Uploading &amp; Results</text><text x="20" y="509" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Understanding Errors</text><text x="16" y="532" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Sessions Dashboard</text><text x="20" y="565" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Interviews Tab</text><text x="20" y="593" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Batch Runs Tab</text><text x="16" y="616" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Sending to Clients</text><text x="20" y="649" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Generating a Session</text><text x="20" y="677" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Client Experience</text><text x="20" y="705" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">E-Sign Verification</text><text x="16" y="728" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Account &amp; Settings</text><text x="20" y="761" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">API Keys</text><text x="20" y="789" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Branding</text>
+
+    <!-- dimmed overlay -->
+    <rect x="240" y="56" width="1040" height="744" fill="rgba(0,0,0,0.45)"/>
+
+    <!-- modal -->
+    <rect x="360" y="104" width="560" height="592" rx="16" fill="#111827" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <text x="640" y="136" font-size="18" fill="rgba(255,255,255,0.85)" font-weight="700" text-anchor="middle">Add from Field Library</text>
+    <text x="640" y="158" font-size="13" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="middle">Select fields to import into this package</text>
+
+    <!-- search -->
+    <rect x="384" y="172" width="512" height="36" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <text x="400" y="194" font-size="13" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">🔍 Search library fields…</text>
+
+    <!-- category tabs -->
+    <rect x="384" y="216" width="124" height="28" rx="6" fill="#1B4FD8"/>
+      <text x="446" y="235" font-size="12" fill="white" font-weight="600" text-anchor="middle">All (24)</text>
+<rect x="516" y="216" width="124" height="28" rx="6" fill="transparent"/>
+      <text x="578" y="235" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="middle">Personal</text>
+<rect x="648" y="216" width="124" height="28" rx="6" fill="transparent"/>
+      <text x="710" y="235" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="middle">Financial</text>
+<rect x="780" y="216" width="124" height="28" rx="6" fill="transparent"/>
+      <text x="842" y="235" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="middle">Address</text>
+
+    <!-- field list -->
+    <rect x="384" y="248" width="512" height="320" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <rect x="388" y="254" width="504" height="48" rx="6" fill="rgba(27,79,216,0.1)"/>
+      <!-- checkbox -->
+      <rect x="404" y="266" width="20" height="20" rx="4" fill="#1B4FD8" stroke="#1B4FD8" stroke-width="1.5"/>
+      <text x="414" y="281" font-size="12" fill="white" text-anchor="middle">✓</text>
+      <text x="432" y="274" font-size="13" fill="white" font-weight="600" text-anchor="start">Full Legal Name</text>
+      <text x="432" y="290" font-size="11" fill="#5B8DEF" font-weight="normal" text-anchor="start">Text  ·  Personal</text>
+<rect x="388" y="306" width="504" height="48" rx="6" fill="rgba(27,79,216,0.1)"/>
+      <!-- checkbox -->
+      <rect x="404" y="318" width="20" height="20" rx="4" fill="#1B4FD8" stroke="#1B4FD8" stroke-width="1.5"/>
+      <text x="414" y="333" font-size="12" fill="white" text-anchor="middle">✓</text>
+      <text x="432" y="326" font-size="13" fill="white" font-weight="600" text-anchor="start">Date of Birth</text>
+      <text x="432" y="342" font-size="11" fill="#5B8DEF" font-weight="normal" text-anchor="start">Date  ·  Personal</text>
+<rect x="388" y="358" width="504" height="48" rx="6" fill="transparent"/>
+      <!-- checkbox -->
+      <rect x="404" y="370" width="20" height="20" rx="4" fill="transparent" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+      
+      <text x="432" y="378" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">Social Security Number</text>
+      <text x="432" y="394" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Text  ·  Personal</text>
+<rect x="388" y="410" width="504" height="48" rx="6" fill="rgba(27,79,216,0.1)"/>
+      <!-- checkbox -->
+      <rect x="404" y="422" width="20" height="20" rx="4" fill="#1B4FD8" stroke="#1B4FD8" stroke-width="1.5"/>
+      <text x="414" y="437" font-size="12" fill="white" text-anchor="middle">✓</text>
+      <text x="432" y="430" font-size="13" fill="white" font-weight="600" text-anchor="start">Email Address</text>
+      <text x="432" y="446" font-size="11" fill="#5B8DEF" font-weight="normal" text-anchor="start">Email  ·  Personal</text>
+<rect x="388" y="462" width="504" height="48" rx="6" fill="transparent"/>
+      <!-- checkbox -->
+      <rect x="404" y="474" width="20" height="20" rx="4" fill="transparent" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+      
+      <text x="432" y="482" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">Phone Number</text>
+      <text x="432" y="498" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Phone  ·  Personal</text>
+<rect x="388" y="514" width="504" height="48" rx="6" fill="transparent"/>
+      <!-- checkbox -->
+      <rect x="404" y="526" width="20" height="20" rx="4" fill="transparent" stroke="rgba(255,255,255,0.08)" stroke-width="1.5"/>
+      
+      <text x="432" y="534" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">Annual Income</text>
+      <text x="432" y="550" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Number  ·  Financial</text>
+
+    <!-- selected count and actions -->
+    <rect x="384" y="572" width="512" height="1" fill="rgba(255,255,255,0.08)"/>
+    <text x="384" y="592" font-size="13" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">3 fields selected</text>
+    <rect x="384" y="604" width="244" height="44" rx="8" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <text x="506" y="630" font-size="13" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">Cancel</text>
+    <rect x="652" y="604" width="244" height="44" rx="8" fill="#1B4FD8"/>
+    <text x="774" y="630" font-size="13" fill="white" font-weight="600" text-anchor="middle">Import Selected (3)</text>
+  
+</svg>

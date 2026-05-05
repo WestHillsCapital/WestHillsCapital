@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    </style>
+  </defs>
+  <rect width="1280" height="800" fill="#080E1A"/>
+  
+    <rect width="1280" height="800" fill="#f8fafc"/>
+    <rect x="0" y="0" width="1280" height="64" rx="0" fill="white"/>
+    <rect x="0" y="63" width="1280" height="1" fill="#e2e8f0"/>
+    <!-- org logo -->
+    <rect x="560" y="16" width="160" height="32" rx="6" fill="#eff6ff"/>
+    <text x="640" y="37" font-size="13" fill="#1d4ed8" font-weight="700" text-anchor="middle">Smith Financial Group</text>
+
+    <!-- progress -->
+    <rect x="0" y="64" width="1280" height="4" rx="0" fill="#e2e8f0"/>
+    <rect x="0" y="64" width="768" height="4" rx="0" fill="#1B4FD8"/>
+    <text x="640" y="92" font-size="12" fill="#64748b" text-anchor="middle">Step 3 of 5 — Financial Profile</text>
+
+    <!-- card -->
+    <rect x="300" y="108" width="680" height="568" rx="16" fill="white"/>
+    <rect x="300" y="108" width="680" height="568" rx="16" fill="none" stroke="#e2e8f0" stroke-width="1"/>
+
+    <text x="640" y="156" font-size="20" fill="#0f172a" font-weight="700" text-anchor="middle">Financial Profile</text>
+    <text x="640" y="178" font-size="14" fill="#64748b" text-anchor="middle">This information helps us tailor the right account for you.</text>
+    <rect x="340" y="196" width="600" height="1" fill="#f1f5f9"/>
+
+    <!-- annual income -->
+    <text x="340" y="228" font-size="13" fill="#374151" font-weight="600">Annual Income *</text>
+    <rect x="340" y="236" width="600" height="48" rx="8" fill="#f8fafc" stroke="#1B4FD8" stroke-width="2"/>
+    <text x="364" y="267" font-size="16" fill="#0f172a">$</text>
+    <text x="380" y="267" font-size="16" fill="#0f172a">142,000</text>
+
+    <!-- net worth -->
+    <text x="340" y="308" font-size="13" fill="#374151" font-weight="600">Net Worth (approximate) *</text>
+    <rect x="340" y="316" width="292" height="48" rx="8" fill="#f8fafc" stroke="#d1d5db" stroke-width="1"/>
+    <text x="364" y="347" font-size="15" fill="#94a3b8">$</text>
+
+    <!-- liquid net worth -->
+    <text x="648" y="308" font-size="13" fill="#374151" font-weight="600">Liquid Net Worth *</text>
+    <rect x="648" y="316" width="292" height="48" rx="8" fill="#f8fafc" stroke="#d1d5db" stroke-width="1"/>
+    <text x="672" y="347" font-size="15" fill="#94a3b8">$</text>
+
+    <!-- investment objective -->
+    <text x="340" y="388" font-size="13" fill="#374151" font-weight="600">Primary Investment Objective *</text>
+    <rect x="340" y="396" width="144" height="48" rx="8" fill="#f8fafc" stroke="#d1d5db" stroke-width="1"/>
+      <text x="412" y="424" font-size="12" fill="#374151" font-weight="normal" text-anchor="middle">Capital Preservation</text><rect x="492" y="396" width="144" height="48" rx="8" fill="#f8fafc" stroke="#d1d5db" stroke-width="1"/>
+      <text x="564" y="424" font-size="12" fill="#374151" font-weight="normal" text-anchor="middle">Income</text><rect x="644" y="396" width="144" height="48" rx="8" fill="#eff6ff" stroke="#1B4FD8" stroke-width="2"/>
+      <text x="716" y="424" font-size="12" fill="#1d4ed8" font-weight="600" text-anchor="middle">Growth</text><rect x="796" y="396" width="144" height="48" rx="8" fill="#f8fafc" stroke="#d1d5db" stroke-width="1"/>
+      <text x="868" y="424" font-size="12" fill="#374151" font-weight="normal" text-anchor="middle">Aggressive Growth</text>
+
+    <!-- continue -->
+    <rect x="340" y="468" width="600" height="52" rx="10" fill="#1B4FD8"/>
+    <text x="640" y="499" font-size="15" fill="white" font-weight="600" text-anchor="middle">Continue</text>
+
+    <!-- back -->
+    <text x="640" y="540" font-size="13" fill="#64748b" text-anchor="middle">← Back</text>
+
+    <!-- autosave indicator -->
+    <text x="340" y="566" font-size="11" fill="#22c55e">✓ Progress saved automatically</text>
+
+    <!-- footer -->
+    <rect x="0" y="756" width="1280" height="44" rx="0" fill="white"/>
+    <rect x="0" y="755" width="1280" height="1" fill="#e2e8f0"/>
+    <text x="640" y="783" font-size="12" fill="#94a3b8" text-anchor="middle">Powered by Docuplete · Your data is encrypted and secure</text>
+  
+</svg>

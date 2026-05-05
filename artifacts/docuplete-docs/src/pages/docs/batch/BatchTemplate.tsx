@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function BatchTemplate() {
   return (
     <div className="docs-content">
@@ -15,6 +17,12 @@ export default function BatchTemplate() {
         <li>Click <strong>Batch Import → Download Template</strong>.</li>
         <li>Open the CSV in Excel, Google Sheets, or any spreadsheet editor.</li>
       </ol>
+
+      <DocScreenshot
+        src="/screenshots/batch-template-preview.svg"
+        alt="A preview of the downloaded CSV template showing column headers matching field keys, an example data row, and highlighted special columns like _client_name"
+        caption="The downloaded template — column headers match your package's field keys exactly. The example row shows valid values for every field type."
+      />
 
       <h2>Template structure</h2>
       <p>The template has one header row and one example data row. Each column corresponds to a field in the package:</p>

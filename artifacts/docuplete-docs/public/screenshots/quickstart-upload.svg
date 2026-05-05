@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    </style>
+  </defs>
+  <rect width="1280" height="800" fill="#080E1A"/>
+  
+    <rect x="0" y="0" width="1280" height="56" rx="0" fill="#080E1A"/>
+  <rect x="0" y="55" width="1280" height="1" fill="rgba(255,255,255,0.08)"/>
+  <!-- logo -->
+  <rect x="16" y="14" width="28" height="28" rx="7" fill="#1B4FD8"/>
+  <text x="50" y="34" font-size="15" fill="white" font-weight="700">Docuplete</text>
+  <rect x="126" y="18" width="38" height="20" rx="4" fill="rgba(255,255,255,0.08)"/>
+  <text x="145" y="32" font-size="10" fill="rgba(255,255,255,0.4)" font-weight="600" text-anchor="middle">Docs</text>
+  <!-- search -->
+  <rect x="256" y="12" width="320" height="32" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <text x="276" y="32" font-size="13" fill="rgba(255,255,255,0.35)">Search docs…</text>
+  <!-- cta -->
+  <rect x="1132" y="13" width="132" height="30" rx="8" fill="#1B4FD8"/>
+  <text x="1198" y="33" font-size="13" fill="white" font-weight="600" text-anchor="middle">Start free trial</text>
+    <rect x="0" y="56" width="240" height="744" rx="0" fill="#0A1120"/>
+  <rect x="239" y="56" width="1" height="744" fill="rgba(255,255,255,0.08)"/><text x="16" y="84" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Getting Started</text><text x="20" y="117" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">What is Docuplete?</text><rect x="8" y="128" width="224" height="26" rx="8" fill="rgba(27,79,216,0.2)"/><text x="20" y="145" font-size="12" fill="#5B8DEF" font-weight="600">Quick Start</text><text x="20" y="173" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Plans</text><text x="16" y="196" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Building a Package</text><text x="20" y="229" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Uploading a PDF</text><text x="20" y="257" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Adding &amp; Editing Fields</text><text x="20" y="285" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Visual Mapper</text><text x="20" y="313" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">E-Sign Fields</text><text x="20" y="341" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Single-line vs. Multiline</text><text x="16" y="364" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Batch CSV Import</text><text x="20" y="397" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">When to Use Batch</text><text x="20" y="425" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Downloading Template</text><text x="20" y="453" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Filling Out CSV</text><text x="20" y="481" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Uploading &amp; Results</text><text x="20" y="509" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Understanding Errors</text><text x="16" y="532" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Sessions Dashboard</text><text x="20" y="565" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Interviews Tab</text><text x="20" y="593" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Batch Runs Tab</text><text x="16" y="616" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Sending to Clients</text><text x="20" y="649" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Generating a Session</text><text x="20" y="677" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Client Experience</text><text x="20" y="705" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">E-Sign Verification</text><text x="16" y="728" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Account &amp; Settings</text><text x="20" y="761" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">API Keys</text><text x="20" y="789" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Branding</text>
+
+    <!-- content -->
+    <text x="280" y="104" font-size="22" fill="rgba(255,255,255,0.85)" font-weight="700" text-anchor="start">Step 2: Upload your PDF</text>
+    <text x="280" y="128" font-size="14" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">On the package page, click Upload PDF and select your document.</text>
+
+    <!-- package page mock -->
+    <rect x="280" y="152" width="976" height="628" rx="12" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+
+    <!-- package header -->
+    <rect x="280" y="152" width="976" height="52" rx="12" fill="#0D1829"/>
+    <rect x="280" y="203" width="976" height="1" fill="rgba(255,255,255,0.08)"/>
+    <text x="304" y="183" font-size="16" fill="rgba(255,255,255,0.85)" font-weight="700" text-anchor="start">New Client Intake</text>
+    <rect x="1100" y="166" width="72" height="24" rx="6" fill="rgba(34,197,94,0.12)"/><text x="1136" y="182.5" font-size="11" fill="#22c55e" font-weight="600" text-anchor="middle">Active</text>
+
+    <!-- tabs -->
+    <rect x="280" y="204" width="976" height="40" rx="0" fill="#0D1829"/>
+    <text x="304" y="229" font-size="13" fill="#5B8DEF" font-weight="600" text-anchor="start">Documents</text>
+    <rect x="304" y="243" width="80" height="2" fill="#1B4FD8" rx="1"/>
+    <text x="404" y="229" font-size="13" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Fields</text>
+    <text x="456" y="229" font-size="13" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Mapper</text>
+    <text x="512" y="229" font-size="13" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Configuration</text>
+    <rect x="280" y="243" width="976" height="1" fill="rgba(255,255,255,0.08)"/>
+
+    <!-- upload drop zone -->
+    <rect x="320" y="272" width="896" height="200" rx="12" fill="rgba(27,79,216,0.06)" stroke="#5B8DEF" stroke-width="1.5" stroke-dasharray="6,4"/>
+    <text x="760" y="352" font-size="36" text-anchor="middle">📎</text>
+    <text x="760" y="392" font-size="16" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="middle">Drop your PDF here</text>
+    <text x="760" y="412" font-size="13" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="middle">or</text>
+    <rect x="696" y="424" width="128" height="36" rx="8" fill="#1B4FD8"/>
+    <text x="760" y="447" font-size="13" fill="white" font-weight="600" text-anchor="middle">Browse files</text>
+
+    <!-- existing doc -->
+    <rect x="320" y="492" width="896" height="60" rx="10" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <rect x="336" y="508" width="32" height="40" rx="4" fill="rgba(27,79,216,0.2)"/>
+    <text x="352" y="533" font-size="11" fill="#5B8DEF" text-anchor="middle">PDF</text>
+    <text x="380" y="519" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">intake-form-v3.pdf</text>
+    <text x="380" y="536" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">2.4 MB  ·  8 pages</text>
+    <rect x="1080" y="511" width="60" height="22" rx="6" fill="rgba(34,197,94,0.12)"/><text x="1110" y="526.5" font-size="11" fill="#22c55e" font-weight="600" text-anchor="middle">Ready</text>
+    <text x="1152" y="522" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">Replace</text>
+    <text x="1198" y="522" font-size="12" fill="#ef4444" font-weight="normal" text-anchor="start">Remove</text>
+  
+</svg>

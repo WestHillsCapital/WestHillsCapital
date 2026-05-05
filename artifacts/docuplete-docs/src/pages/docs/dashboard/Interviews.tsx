@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function Interviews() {
   return (
     <div className="docs-content">
@@ -8,6 +10,12 @@ export default function Interviews() {
       </div>
 
       <p>The Interviews tab shows every session that was created as an individual client link (as opposed to batch runs, which appear in the Batch Runs tab). You can search, filter, sort, and take action on sessions from here.</p>
+
+      <DocScreenshot
+        src="/screenshots/interviews-list.svg"
+        alt="The Interviews tab showing a searchable table of client sessions with status chips (Generated, In Progress, Pending, Expired), package names, and dates"
+        caption="The Interviews tab — status chips make it easy to identify which sessions are waiting on clients, in progress, or completed."
+      />
 
       <h2>Columns</h2>
       <div className="overflow-x-auto">

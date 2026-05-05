@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { DocScreenshot } from "@/components/DocScreenshot";
 
 export default function WhatIsDocuplete() {
   return (
@@ -12,6 +13,12 @@ export default function WhatIsDocuplete() {
       <p>
         Docuplete is a document automation platform for financial advisors, insurance agents, real estate professionals, lawyers, and healthcare providers. It eliminates the manual work of collecting client paperwork by turning any PDF into a guided online interview that clients complete on their own time.
       </p>
+
+      <DocScreenshot
+        src="/screenshots/dashboard-overview.svg"
+        alt="Docuplete dashboard showing a list of packages with session counts and status"
+        caption="The Docuplete dashboard — manage all your PDF packages and track sessions from one place."
+      />
 
       <h2>The core model: Package → Session → Filled PDF</h2>
       <p>Every workflow in Docuplete follows three steps:</p>

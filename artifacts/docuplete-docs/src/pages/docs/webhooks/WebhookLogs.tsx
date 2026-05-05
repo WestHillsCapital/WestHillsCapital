@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function WebhookLogs() {
   return (
     <div className="docs-content">
@@ -17,6 +19,12 @@ export default function WebhookLogs() {
         <li><strong>Package → Configuration → Webhook → View Logs</strong> — All deliveries for that package's webhook.</li>
         <li><strong>Session detail → Webhook Deliveries</strong> — All delivery attempts for one specific session.</li>
       </ul>
+
+      <DocScreenshot
+        src="/screenshots/webhook-logs.svg"
+        alt="The webhook delivery logs table showing event IDs, attempt numbers, status chips (Success/Failed), HTTP status codes, response times, timestamps, and Retry now buttons for failed entries"
+        caption="The delivery logs table — each attempt shows its HTTP status, response time, and timestamp. Failed entries show a Retry now button and an Inspect link to see the full request and response."
+      />
 
       <h2>Log entry details</h2>
       <p>Each delivery attempt shows:</p>

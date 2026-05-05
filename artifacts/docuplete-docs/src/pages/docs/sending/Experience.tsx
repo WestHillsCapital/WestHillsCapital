@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function Experience() {
   return (
     <div className="docs-content">
@@ -9,6 +11,12 @@ export default function Experience() {
 
       <h2>What the client experiences</h2>
       <p>When a client opens their session link, they see a clean, branded interview — no PDF, no blank form, no confusing legal language. The interview presents one field group at a time and guides them through step by step.</p>
+
+      <DocScreenshot
+        src="/screenshots/client-interview.svg"
+        alt="The client-facing interview screen showing the firm's branding at the top, a progress bar, labeled input fields for financial information, radio button options, and a Continue button"
+        caption="The client interview — a clean, branded step-by-step form that works on any device. No PDF, no confusing legal language."
+      />
 
       <h3>Interview flow</h3>
       <ol>

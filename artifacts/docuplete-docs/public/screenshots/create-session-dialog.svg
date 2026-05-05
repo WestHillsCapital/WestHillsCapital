@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    </style>
+  </defs>
+  <rect width="1280" height="800" fill="#080E1A"/>
+  
+    <rect x="0" y="0" width="1280" height="56" rx="0" fill="#080E1A"/>
+  <rect x="0" y="55" width="1280" height="1" fill="rgba(255,255,255,0.08)"/>
+  <!-- logo -->
+  <rect x="16" y="14" width="28" height="28" rx="7" fill="#1B4FD8"/>
+  <text x="50" y="34" font-size="15" fill="white" font-weight="700">Docuplete</text>
+  <rect x="126" y="18" width="38" height="20" rx="4" fill="rgba(255,255,255,0.08)"/>
+  <text x="145" y="32" font-size="10" fill="rgba(255,255,255,0.4)" font-weight="600" text-anchor="middle">Docs</text>
+  <!-- search -->
+  <rect x="256" y="12" width="320" height="32" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <text x="276" y="32" font-size="13" fill="rgba(255,255,255,0.35)">Search docs…</text>
+  <!-- cta -->
+  <rect x="1132" y="13" width="132" height="30" rx="8" fill="#1B4FD8"/>
+  <text x="1198" y="33" font-size="13" fill="white" font-weight="600" text-anchor="middle">Start free trial</text>
+    <rect x="0" y="56" width="1280" height="744" rx="0" fill="#080E1A"/>
+    <rect x="0" y="56" width="240" height="744" rx="0" fill="#0A1120"/>
+  <rect x="239" y="56" width="1" height="744" fill="rgba(255,255,255,0.08)"/><text x="16" y="84" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Getting Started</text><text x="20" y="117" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">What is Docuplete?</text><text x="20" y="145" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Quick Start</text><text x="20" y="173" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Plans</text><text x="16" y="196" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Building a Package</text><text x="20" y="229" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Uploading a PDF</text><text x="20" y="257" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Adding &amp; Editing Fields</text><text x="20" y="285" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Visual Mapper</text><text x="20" y="313" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">E-Sign Fields</text><text x="20" y="341" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Single-line vs. Multiline</text><text x="16" y="364" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Batch CSV Import</text><text x="20" y="397" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">When to Use Batch</text><text x="20" y="425" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Downloading Template</text><text x="20" y="453" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Filling Out CSV</text><text x="20" y="481" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Uploading &amp; Results</text><text x="20" y="509" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Understanding Errors</text><text x="16" y="532" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Sessions Dashboard</text><text x="20" y="565" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Interviews Tab</text><text x="20" y="593" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Batch Runs Tab</text><text x="16" y="616" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Sending to Clients</text><rect x="8" y="632" width="224" height="26" rx="8" fill="rgba(27,79,216,0.2)"/><text x="20" y="649" font-size="12" fill="#5B8DEF" font-weight="600">Generating a Session</text><text x="20" y="677" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Client Experience</text><text x="20" y="705" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">E-Sign Verification</text><text x="16" y="728" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Account &amp; Settings</text><text x="20" y="761" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">API Keys</text><text x="20" y="789" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Branding</text>
+    <rect x="240" y="56" width="1040" height="744" fill="rgba(0,0,0,0.5)"/>
+
+    <!-- modal -->
+    <rect x="380" y="112" width="520" height="576" rx="16" fill="#111827" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>
+    <text x="640" y="144" font-size="18" fill="rgba(255,255,255,0.85)" font-weight="700" text-anchor="middle">Create Session</text>
+    <text x="640" y="166" font-size="13" fill="#5B8DEF" font-weight="normal" text-anchor="middle">New Client Intake</text>
+    <rect x="400" y="180" width="480" height="1" fill="rgba(255,255,255,0.08)"/>
+
+    <text x="400" y="188" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Client name *</text>
+      <rect x="400" y="196" width="480" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="416" y="220" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">Margaret A. Johnson</text>
+<text x="400" y="268" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Client email</text>
+      <rect x="400" y="276" width="480" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="416" y="300" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">margaret.j@email.com</text>
+<text x="400" y="348" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Expiration</text>
+      <rect x="400" y="356" width="480" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="416" y="380" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">30 days (May 4 → Jun 3)</text>
+
+    <!-- prefill section -->
+    <text x="400" y="424" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Prefill fields</text>
+    <rect x="400" y="432" width="480" height="120" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <text x="416" y="456" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">First Name</text>
+    <rect x="416" y="464" width="208" height="32" rx="6" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <text x="432" y="484" font-size="12" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">Margaret</text>
+    <text x="648" y="456" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Last Name</text>
+    <rect x="648" y="464" width="208" height="32" rx="6" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <text x="664" y="484" font-size="12" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">Johnson</text>
+    <text x="416" y="508" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Email</text>
+    <rect x="416" y="516" width="432" height="32" rx="6" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <text x="432" y="536" font-size="12" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">margaret.j@email.com</text>
+
+    <!-- actions -->
+    <rect x="400" y="560" width="480" height="1" fill="rgba(255,255,255,0.08)"/>
+    <rect x="400" y="572" width="232" height="44" rx="8" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <text x="516" y="598" font-size="14" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">Cancel</text>
+    <rect x="648" y="572" width="232" height="44" rx="8" fill="#1B4FD8"/>
+    <text x="764" y="598" font-size="14" fill="white" font-weight="600" text-anchor="middle">Generate Link →</text>
+  
+</svg>

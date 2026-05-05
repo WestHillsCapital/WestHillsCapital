@@ -1,0 +1,96 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    </style>
+  </defs>
+  <rect width="1280" height="800" fill="#080E1A"/>
+  
+    <rect x="0" y="0" width="1280" height="56" rx="0" fill="#080E1A"/>
+  <rect x="0" y="55" width="1280" height="1" fill="rgba(255,255,255,0.08)"/>
+  <!-- logo -->
+  <rect x="16" y="14" width="28" height="28" rx="7" fill="#1B4FD8"/>
+  <text x="50" y="34" font-size="15" fill="white" font-weight="700">Docuplete</text>
+  <rect x="126" y="18" width="38" height="20" rx="4" fill="rgba(255,255,255,0.08)"/>
+  <text x="145" y="32" font-size="10" fill="rgba(255,255,255,0.4)" font-weight="600" text-anchor="middle">Docs</text>
+  <!-- search -->
+  <rect x="256" y="12" width="320" height="32" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <text x="276" y="32" font-size="13" fill="rgba(255,255,255,0.35)">Search docs…</text>
+  <!-- cta -->
+  <rect x="1132" y="13" width="132" height="30" rx="8" fill="#1B4FD8"/>
+  <text x="1198" y="33" font-size="13" fill="white" font-weight="600" text-anchor="middle">Start free trial</text>
+    <rect x="0" y="56" width="240" height="744" rx="0" fill="#0A1120"/>
+  <rect x="239" y="56" width="1" height="744" fill="rgba(255,255,255,0.08)"/><text x="16" y="84" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Getting Started</text><text x="20" y="117" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">What is Docuplete?</text><text x="20" y="145" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Quick Start</text><text x="20" y="173" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Plans</text><text x="16" y="196" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Building a Package</text><text x="20" y="229" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Uploading a PDF</text><text x="20" y="257" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Adding &amp; Editing Fields</text><text x="20" y="285" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Visual Mapper</text><text x="20" y="313" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">E-Sign Fields</text><text x="20" y="341" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Single-line vs. Multiline</text><text x="16" y="364" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Batch CSV Import</text><text x="20" y="397" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">When to Use Batch</text><text x="20" y="425" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Downloading Template</text><text x="20" y="453" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Filling Out CSV</text><text x="20" y="481" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Uploading &amp; Results</text><text x="20" y="509" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Understanding Errors</text><text x="16" y="532" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Sessions Dashboard</text><text x="20" y="565" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Interviews Tab</text><text x="20" y="593" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Batch Runs Tab</text><text x="16" y="616" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Sending to Clients</text><text x="20" y="649" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Generating a Session</text><text x="20" y="677" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Client Experience</text><text x="20" y="705" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">E-Sign Verification</text><text x="16" y="728" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Account &amp; Settings</text><text x="20" y="761" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">API Keys</text><text x="20" y="789" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Branding</text>
+
+    <text x="280" y="96" font-size="22" fill="rgba(255,255,255,0.85)" font-weight="700" text-anchor="start">HubSpot Integration</text>
+    <text x="280" y="118" font-size="13" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">Sync submission data to HubSpot contacts automatically.</text>
+
+    <!-- connection status -->
+    <rect x="280" y="136" width="984" height="64" rx="10" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <circle cx="320" cy="168" r="20" fill="rgba(255,122,89,0.1)"/>
+    <text x="320" y="174" font-size="18" text-anchor="middle">🔗</text>
+    <text x="352" y="162" font-size="15" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">HubSpot</text>
+    <rect x="352" y="172" width="100" height="22" rx="6" fill="rgba(34,197,94,0.12)"/><text x="402" y="187.5" font-size="11" fill="#22c55e" font-weight="600" text-anchor="middle">✓ Connected</text>
+    <text x="1200" y="168" font-size="12" fill="#ef4444" font-weight="normal" text-anchor="end">Disconnect</text>
+
+    <!-- field mapping -->
+    <rect x="280" y="216" width="984" height="504" rx="10" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <text x="304" y="248" font-size="15" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">Field Mapping</text>
+    <text x="304" y="268" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">Map Docuplete fields to HubSpot contact properties.</text>
+    <rect x="304" y="284" width="920" height="1" fill="rgba(255,255,255,0.08)"/>
+
+    <!-- column headers -->
+    <text x="304" y="308" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Docuplete field</text>
+    <text x="680" y="308" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">HubSpot property</text>
+
+    <rect x="304" y="320" width="400" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="320" y="345" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">first_name</text>
+      <!-- arrow -->
+      <text x="734" y="346" font-size="16" fill="rgba(255,255,255,0.35)">→</text>
+      <rect x="680" y="320" width="400" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="696" y="345" font-size="12" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">First name</text>
+      <text x="1190" y="345" font-size="14" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="middle">✕</text>
+<rect x="304" y="376" width="400" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="320" y="401" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">last_name</text>
+      <!-- arrow -->
+      <text x="734" y="402" font-size="16" fill="rgba(255,255,255,0.35)">→</text>
+      <rect x="680" y="376" width="400" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="696" y="401" font-size="12" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">Last name</text>
+      <text x="1190" y="401" font-size="14" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="middle">✕</text>
+<rect x="304" y="432" width="400" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="320" y="457" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">email_address</text>
+      <!-- arrow -->
+      <text x="734" y="458" font-size="16" fill="rgba(255,255,255,0.35)">→</text>
+      <rect x="680" y="432" width="400" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="696" y="457" font-size="12" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">Email</text>
+      <text x="1190" y="457" font-size="14" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="middle">✕</text>
+<rect x="304" y="488" width="400" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="320" y="513" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">phone_number</text>
+      <!-- arrow -->
+      <text x="734" y="514" font-size="16" fill="rgba(255,255,255,0.35)">→</text>
+      <rect x="680" y="488" width="400" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="696" y="513" font-size="12" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">Phone number</text>
+      <text x="1190" y="513" font-size="14" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="middle">✕</text>
+<rect x="304" y="544" width="400" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="320" y="569" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">annual_income</text>
+      <!-- arrow -->
+      <text x="734" y="570" font-size="16" fill="rgba(255,255,255,0.35)">→</text>
+      <rect x="680" y="544" width="400" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="696" y="569" font-size="12" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">Annual income (custom)</text>
+      <text x="1190" y="569" font-size="14" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="middle">✕</text>
+<rect x="304" y="600" width="400" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="320" y="625" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">account_type</text>
+      <!-- arrow -->
+      <text x="734" y="626" font-size="16" fill="rgba(255,255,255,0.35)">→</text>
+      <rect x="680" y="600" width="400" height="40" rx="8" fill="#0F1A2E" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+      <text x="696" y="625" font-size="12" fill="rgba(255,255,255,0.85)" font-weight="normal" text-anchor="start">Account type (custom)</text>
+      <text x="1190" y="625" font-size="14" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="middle">✕</text>
+
+    <rect x="304" y="664" width="140" height="36" rx="8" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <text x="374" y="686" font-size="12" fill="#5B8DEF" font-weight="600" text-anchor="middle">+ Add mapping</text>
+
+    <!-- save -->
+    <rect x="280" y="728" width="160" height="40" rx="8" fill="#1B4FD8"/>
+    <text x="360" y="752" font-size="13" fill="white" font-weight="600" text-anchor="middle">Save Mappings</text>
+  
+</svg>

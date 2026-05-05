@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { DocScreenshot } from "@/components/DocScreenshot";
 
 export default function SendingSessions() {
   return (
@@ -24,6 +25,12 @@ export default function SendingSessions() {
         <li>Click <strong>Generate Link</strong>.</li>
         <li>Copy the link and send it to the client via email, text, your CRM, or any other channel.</li>
       </ol>
+
+      <DocScreenshot
+        src="/screenshots/create-session-dialog.svg"
+        alt="The Create Session dialog showing fields for client name, client email, expiration, and optional prefill values, with a Generate Link button"
+        caption="The Create Session dialog — enter the client details, optionally pre-populate known fields, then generate and copy the unique link."
+      />
 
       <div className="callout callout-tip">
         <strong>Directly from the Sessions tab:</strong> You can also click <strong>New Session</strong> in the Sessions Dashboard and search/select the package from there — useful when managing many sessions across multiple packages.

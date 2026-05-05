@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function TextBoxes() {
   return (
     <div className="docs-content">
@@ -22,6 +24,12 @@ export default function TextBoxes() {
         <li>Explanation or narrative fields (e.g., "Describe your investment objectives")</li>
         <li>Any field where the client might type more than ~60 characters</li>
       </ul>
+
+      <DocScreenshot
+        src="/screenshots/textbox-config.svg"
+        alt="Side-by-side comparison of single-line and multiline text box configuration panels, each showing mode, font size, and a preview of how the answer renders in the PDF"
+        caption="Single-line mode (left) auto-scales font to keep text on one line. Multiline mode (right) wraps text within the bounding box using the configured line height."
+      />
 
       <h2>Auto-scale font size</h2>
       <p>When enabled (default for single-line), the font shrinks proportionally until the text fits within the bounding box. You set a minimum font size below which auto-scale does not go — if the text still doesn't fit, it is truncated.</p>

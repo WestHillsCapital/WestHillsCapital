@@ -1,0 +1,126 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    </style>
+  </defs>
+  <rect width="1280" height="800" fill="#080E1A"/>
+  
+    <rect x="0" y="0" width="1280" height="56" rx="0" fill="#080E1A"/>
+  <rect x="0" y="55" width="1280" height="1" fill="rgba(255,255,255,0.08)"/>
+  <!-- logo -->
+  <rect x="16" y="14" width="28" height="28" rx="7" fill="#1B4FD8"/>
+  <text x="50" y="34" font-size="15" fill="white" font-weight="700">Docuplete</text>
+  <rect x="126" y="18" width="38" height="20" rx="4" fill="rgba(255,255,255,0.08)"/>
+  <text x="145" y="32" font-size="10" fill="rgba(255,255,255,0.4)" font-weight="600" text-anchor="middle">Docs</text>
+  <!-- search -->
+  <rect x="256" y="12" width="320" height="32" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <text x="276" y="32" font-size="13" fill="rgba(255,255,255,0.35)">Search docs…</text>
+  <!-- cta -->
+  <rect x="1132" y="13" width="132" height="30" rx="8" fill="#1B4FD8"/>
+  <text x="1198" y="33" font-size="13" fill="white" font-weight="600" text-anchor="middle">Start free trial</text>
+    <rect x="0" y="56" width="240" height="744" rx="0" fill="#0A1120"/>
+  <rect x="239" y="56" width="1" height="744" fill="rgba(255,255,255,0.08)"/><text x="16" y="84" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Getting Started</text><text x="20" y="117" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">What is Docuplete?</text><text x="20" y="145" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Quick Start</text><text x="20" y="173" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Plans</text><text x="16" y="196" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Building a Package</text><text x="20" y="229" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Uploading a PDF</text><text x="20" y="257" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Adding &amp; Editing Fields</text><text x="20" y="285" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Visual Mapper</text><text x="20" y="313" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">E-Sign Fields</text><text x="20" y="341" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Single-line vs. Multiline</text><text x="16" y="364" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Batch CSV Import</text><text x="20" y="397" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">When to Use Batch</text><text x="20" y="425" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Downloading Template</text><text x="20" y="453" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Filling Out CSV</text><text x="20" y="481" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Uploading &amp; Results</text><text x="20" y="509" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Understanding Errors</text><text x="16" y="532" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Sessions Dashboard</text><text x="20" y="565" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Interviews Tab</text><text x="20" y="593" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Batch Runs Tab</text><text x="16" y="616" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Sending to Clients</text><text x="20" y="649" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Generating a Session</text><text x="20" y="677" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Client Experience</text><text x="20" y="705" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">E-Sign Verification</text><text x="16" y="728" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="700">Account &amp; Settings</text><text x="20" y="761" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">API Keys</text><text x="20" y="789" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal">Branding</text>
+
+    <text x="280" y="96" font-size="22" fill="rgba(255,255,255,0.85)" font-weight="700" text-anchor="start">Field Library</text>
+    <text x="280" y="118" font-size="13" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">Shared field definitions reused across all your packages.</text>
+    <rect x="1080" y="86" width="176" height="40" rx="10" fill="#1B4FD8"/>
+    <text x="1168" y="111" font-size="13" fill="white" font-weight="600" text-anchor="middle">+ Add Library Field</text>
+
+    <!-- category filter -->
+    <rect x="280" y="136" width="984" height="44" rx="10" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <rect x="296" y="148" width="88" height="22" rx="6" fill="#1B4FD8"/>
+      <text x="340" y="163" font-size="12" fill="white" font-weight="600" text-anchor="middle">All</text>
+<rect x="396" y="148" width="88" height="22" rx="6" fill="transparent"/>
+      <text x="440" y="163" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="middle">Personal</text>
+<rect x="496" y="148" width="88" height="22" rx="6" fill="transparent"/>
+      <text x="540" y="163" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="middle">Address</text>
+<rect x="596" y="148" width="88" height="22" rx="6" fill="transparent"/>
+      <text x="640" y="163" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="middle">Financial</text>
+<rect x="696" y="148" width="88" height="22" rx="6" fill="transparent"/>
+      <text x="740" y="163" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="middle">Account</text>
+
+    <!-- table -->
+    <rect x="280" y="196" width="984" height="588" rx="10" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <rect x="280" y="196" width="984" height="36" rx="10" fill="#0D1829"/>
+    <rect x="280" y="231" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+    <text x="300" y="218" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Field label</text>
+<text x="520" y="218" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Key</text>
+<text x="720" y="218" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Type</text>
+<text x="840" y="218" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Category</text>
+<text x="980" y="218" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Used in</text>
+
+    <rect x="280" y="232" width="984" height="52" rx="0" fill="rgba(255,255,255,0.01)"/>
+      <rect x="280" y="283" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <text x="300" y="262" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">Full Legal Name</text>
+      <text x="520" y="262" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">full_legal_name</text>
+      <rect x="720" y="248" width="40" height="22" rx="4" fill="rgba(255,255,255,0.05)"/><text x="740" y="263.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">Text</text>
+      <rect x="840" y="248" width="68" height="22" rx="4" fill="rgba(91,141,239,0.1)"/><text x="874" y="263.5" font-size="11" fill="#5B8DEF" font-weight="600" text-anchor="middle">Personal</text>
+      <text x="980" y="262" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">8 packages</text>
+      <text x="1180" y="262" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">Edit</text>
+<rect x="280" y="284" width="984" height="52" rx="0" fill="transparent"/>
+      <rect x="280" y="335" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <text x="300" y="314" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">Date of Birth</text>
+      <text x="520" y="314" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">date_of_birth</text>
+      <rect x="720" y="300" width="40" height="22" rx="4" fill="rgba(255,255,255,0.05)"/><text x="740" y="315.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">Date</text>
+      <rect x="840" y="300" width="68" height="22" rx="4" fill="rgba(91,141,239,0.1)"/><text x="874" y="315.5" font-size="11" fill="#5B8DEF" font-weight="600" text-anchor="middle">Personal</text>
+      <text x="980" y="314" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">8 packages</text>
+      <text x="1180" y="314" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">Edit</text>
+<rect x="280" y="336" width="984" height="52" rx="0" fill="rgba(255,255,255,0.01)"/>
+      <rect x="280" y="387" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <text x="300" y="366" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">Social Security Number</text>
+      <text x="520" y="366" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">ssn</text>
+      <rect x="720" y="352" width="40" height="22" rx="4" fill="rgba(255,255,255,0.05)"/><text x="740" y="367.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">Text</text>
+      <rect x="840" y="352" width="68" height="22" rx="4" fill="rgba(91,141,239,0.1)"/><text x="874" y="367.5" font-size="11" fill="#5B8DEF" font-weight="600" text-anchor="middle">Personal</text>
+      <text x="980" y="366" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">6 packages</text>
+      <text x="1180" y="366" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">Edit</text>
+<rect x="280" y="388" width="984" height="52" rx="0" fill="transparent"/>
+      <rect x="280" y="439" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <text x="300" y="418" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">Email Address</text>
+      <text x="520" y="418" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">email_address</text>
+      <rect x="720" y="404" width="47" height="22" rx="4" fill="rgba(255,255,255,0.05)"/><text x="743.5" y="419.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">Email</text>
+      <rect x="840" y="404" width="68" height="22" rx="4" fill="rgba(91,141,239,0.1)"/><text x="874" y="419.5" font-size="11" fill="#5B8DEF" font-weight="600" text-anchor="middle">Personal</text>
+      <text x="980" y="418" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">7 packages</text>
+      <text x="1180" y="418" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">Edit</text>
+<rect x="280" y="440" width="984" height="52" rx="0" fill="rgba(255,255,255,0.01)"/>
+      <rect x="280" y="491" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <text x="300" y="470" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">Street Address</text>
+      <text x="520" y="470" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">street_address</text>
+      <rect x="720" y="456" width="40" height="22" rx="4" fill="rgba(255,255,255,0.05)"/><text x="740" y="471.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">Text</text>
+      <rect x="840" y="456" width="61" height="22" rx="4" fill="rgba(34,197,94,0.12)"/><text x="870.5" y="471.5" font-size="11" fill="#22c55e" font-weight="600" text-anchor="middle">Address</text>
+      <text x="980" y="470" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">5 packages</text>
+      <text x="1180" y="470" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">Edit</text>
+<rect x="280" y="492" width="984" height="52" rx="0" fill="transparent"/>
+      <rect x="280" y="543" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <text x="300" y="522" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">City</text>
+      <text x="520" y="522" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">city</text>
+      <rect x="720" y="508" width="40" height="22" rx="4" fill="rgba(255,255,255,0.05)"/><text x="740" y="523.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">Text</text>
+      <rect x="840" y="508" width="61" height="22" rx="4" fill="rgba(34,197,94,0.12)"/><text x="870.5" y="523.5" font-size="11" fill="#22c55e" font-weight="600" text-anchor="middle">Address</text>
+      <text x="980" y="522" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">5 packages</text>
+      <text x="1180" y="522" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">Edit</text>
+<rect x="280" y="544" width="984" height="52" rx="0" fill="rgba(255,255,255,0.01)"/>
+      <rect x="280" y="595" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <text x="300" y="574" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">Annual Income</text>
+      <text x="520" y="574" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">annual_income</text>
+      <rect x="720" y="560" width="54" height="22" rx="4" fill="rgba(255,255,255,0.05)"/><text x="747" y="575.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">Number</text>
+      <rect x="840" y="560" width="75" height="22" rx="4" fill="rgba(245,158,11,0.12)"/><text x="877.5" y="575.5" font-size="11" fill="#f59e0b" font-weight="600" text-anchor="middle">Financial</text>
+      <text x="980" y="574" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">4 packages</text>
+      <text x="1180" y="574" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">Edit</text>
+<rect x="280" y="596" width="984" height="52" rx="0" fill="transparent"/>
+      <rect x="280" y="647" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <text x="300" y="626" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">Net Worth</text>
+      <text x="520" y="626" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">net_worth</text>
+      <rect x="720" y="612" width="54" height="22" rx="4" fill="rgba(255,255,255,0.05)"/><text x="747" y="627.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">Number</text>
+      <rect x="840" y="612" width="75" height="22" rx="4" fill="rgba(245,158,11,0.12)"/><text x="877.5" y="627.5" font-size="11" fill="#f59e0b" font-weight="600" text-anchor="middle">Financial</text>
+      <text x="980" y="626" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">4 packages</text>
+      <text x="1180" y="626" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">Edit</text>
+<rect x="280" y="648" width="984" height="52" rx="0" fill="rgba(255,255,255,0.01)"/>
+      <rect x="280" y="699" width="984" height="1" fill="rgba(255,255,255,0.08)"/>
+      <text x="300" y="678" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">Account Type</text>
+      <text x="520" y="678" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">account_type</text>
+      <rect x="720" y="664" width="47" height="22" rx="4" fill="rgba(255,255,255,0.05)"/><text x="743.5" y="679.5" font-size="11" fill="rgba(255,255,255,0.55)" font-weight="600" text-anchor="middle">Radio</text>
+      <rect x="840" y="664" width="61" height="22" rx="4" fill="rgba(139,92,246,0.15)"/><text x="870.5" y="679.5" font-size="11" fill="#a78bfa" font-weight="600" text-anchor="middle">Account</text>
+      <text x="980" y="678" font-size="12" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">6 packages</text>
+      <text x="1180" y="678" font-size="12" fill="#5B8DEF" font-weight="normal" text-anchor="start">Edit</text>
+  
+</svg>

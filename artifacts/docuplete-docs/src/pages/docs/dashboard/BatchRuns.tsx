@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function BatchRuns() {
   return (
     <div className="docs-content">
@@ -8,6 +10,12 @@ export default function BatchRuns() {
       </div>
 
       <p>The Batch Runs tab lists every CSV import run across all packages. Each row is one batch run with its overall status, progress, and a link to the detailed results.</p>
+
+      <DocScreenshot
+        src="/screenshots/batch-runs-dashboard.svg"
+        alt="The Batch Runs tab showing a table of import runs with status chips (Completed, Processing, Queued), progress bars, and success/error counts"
+        caption="The Batch Runs tab — status chips and progress bars give you an at-a-glance view of every import run across all packages."
+      />
 
       <h2>Batch run list columns</h2>
       <div className="overflow-x-auto">

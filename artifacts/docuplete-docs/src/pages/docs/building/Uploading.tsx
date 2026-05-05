@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function Uploading() {
   return (
     <div className="docs-content">
@@ -28,6 +30,12 @@ export default function Uploading() {
         <li>The file processes in a few seconds. You'll see a thumbnail preview of each page.</li>
         <li>If the PDF is password-protected, a prompt asks for the password. Docuplete decrypts and re-saves a clean version — the password is not stored.</li>
       </ol>
+
+      <DocScreenshot
+        src="/screenshots/upload-dialog.svg"
+        alt="The Upload PDF dialog showing a drag-and-drop zone and an optional password field"
+        caption="The Upload PDF dialog — drag your file in or click Browse. Enter the password if the document is protected."
+      />
 
       <h2>Multiple documents in one package</h2>
       <p>To add more documents, click <strong>Upload PDF</strong> again. Documents are displayed in order. The order matters — it determines page numbering in the combined PDF output and the order the pages appear in the Visual Mapper.</p>

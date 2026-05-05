@@ -1,4 +1,5 @@
 import { Link } from "wouter";
+import { DocScreenshot } from "@/components/DocScreenshot";
 
 export default function BuildingFields() {
   return (
@@ -20,6 +21,12 @@ export default function BuildingFields() {
         <li>Optionally, add <strong>conditional logic</strong> to show/hide this field based on other answers.</li>
         <li>Click <strong>Save</strong>.</li>
       </ol>
+
+      <DocScreenshot
+        src="/screenshots/field-editor.svg"
+        alt="The Fields tab showing a list of fields on the left and the field editor panel on the right with label, key, interview mode, and conditional logic settings"
+        caption="The field editor — the left panel lists all fields in interview order; the right panel lets you configure every aspect of the selected field."
+      />
 
       <h2>Reordering fields</h2>
       <p>Drag fields by the handle (⠿) on the left to reorder them. The order you set here is the order the client sees in the interview.</p>

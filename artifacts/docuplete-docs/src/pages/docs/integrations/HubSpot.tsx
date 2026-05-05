@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function HubSpot() {
   return (
     <div className="docs-content">
@@ -37,6 +39,12 @@ export default function HubSpot() {
         <li>Repeat for all fields you want to sync.</li>
       </ol>
       <p>Per-package overrides are available in the package's Configuration panel if different packages have different field structures.</p>
+
+      <DocScreenshot
+        src="/screenshots/hubspot-field-mapping.svg"
+        alt="The HubSpot field mapping screen showing a connected status indicator and a table of mappings from Docuplete field keys (left) to HubSpot contact properties (right) with an Add mapping button"
+        caption="The field mapping table — link each Docuplete field to the corresponding HubSpot contact property. Mappings apply to every submission from this package."
+      />
 
       <h2>Deal creation</h2>
       <p>Enable deal creation in <strong>Settings → Integrations → HubSpot → Deal Settings</strong>:</p>

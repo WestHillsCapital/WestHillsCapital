@@ -1,0 +1,113 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="800" viewBox="0 0 1280 800">
+  <defs>
+    <style>
+      text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    </style>
+  </defs>
+  <rect width="1280" height="800" fill="#080E1A"/>
+  
+    <rect x="0" y="0" width="1280" height="56" rx="0" fill="#080E1A"/>
+  <rect x="0" y="55" width="1280" height="1" fill="rgba(255,255,255,0.08)"/>
+  <!-- logo -->
+  <rect x="16" y="14" width="28" height="28" rx="7" fill="#1B4FD8"/>
+  <text x="50" y="34" font-size="15" fill="white" font-weight="700">Docuplete</text>
+  <rect x="126" y="18" width="38" height="20" rx="4" fill="rgba(255,255,255,0.08)"/>
+  <text x="145" y="32" font-size="10" fill="rgba(255,255,255,0.4)" font-weight="600" text-anchor="middle">Docs</text>
+  <!-- search -->
+  <rect x="256" y="12" width="320" height="32" rx="8" fill="rgba(255,255,255,0.05)" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+  <text x="276" y="32" font-size="13" fill="rgba(255,255,255,0.35)">Search docs…</text>
+  <!-- cta -->
+  <rect x="1132" y="13" width="132" height="30" rx="8" fill="#1B4FD8"/>
+  <text x="1198" y="33" font-size="13" fill="white" font-weight="600" text-anchor="middle">Start free trial</text>
+    <rect x="0" y="56" width="1280" height="744" rx="0" fill="#080E1A"/>
+
+    <!-- sidebar nav -->
+    <rect x="0" y="56" width="220" height="744" rx="0" fill="#0A1120"/>
+    <rect x="219" y="56" width="1" height="744" fill="rgba(255,255,255,0.08)"/>
+    <text x="16" y="88" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="700" text-anchor="start">Sessions Dashboard</text>
+    <text x="20" y="114" font-size="13" fill="rgba(255,255,255,0.35)" font-weight="normal" text-anchor="start">Interviews</text>
+    <rect x="8" y="124" width="204" height="28" rx="8" fill="rgba(27,79,216,0.2)"/>
+    <text x="20" y="143" font-size="13" fill="#5B8DEF" font-weight="600" text-anchor="start">Batch Runs</text>
+
+    <!-- main -->
+    <text x="240" y="96" font-size="22" fill="rgba(255,255,255,0.85)" font-weight="700" text-anchor="start">Batch Runs</text>
+    <text x="240" y="118" font-size="13" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">Track and download results from all CSV import runs.</text>
+
+    <!-- table -->
+    <rect x="240" y="136" width="1024" height="648" rx="10" fill="#111827" stroke="rgba(255,255,255,0.08)" stroke-width="1"/>
+    <rect x="240" y="136" width="1024" height="40" rx="10" fill="#0D1829"/>
+    <rect x="240" y="175" width="1024" height="1" fill="rgba(255,255,255,0.08)"/>
+    <text x="256" y="160" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">File</text>
+<text x="440" y="160" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Package</text>
+<text x="600" y="160" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Status</text>
+<text x="740" y="160" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Progress</text>
+<text x="900" y="160" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Success</text>
+<text x="984" y="160" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="start">Errors</text>
+
+    <rect x="240" y="176" width="1024" height="72" rx="0" fill="rgba(255,255,255,0.01)"/>
+      <rect x="240" y="247" width="1024" height="1" fill="rgba(255,255,255,0.08)"/>
+      <rect x="256" y="196" width="24" height="28" rx="4" fill="rgba(27,79,216,0.15)"/>
+      <text x="268" y="215" font-size="8" fill="#5B8DEF" text-anchor="middle">CSV</text>
+      <text x="288" y="210" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">renewals-2026.csv</text>
+      <text x="440" y="210" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">Annual Disclosure</text>
+      <rect x="600" y="200" width="70" height="22" rx="6" fill="rgba(34,197,94,0.12)"/><text x="635" y="215.5" font-size="11" fill="#22c55e" font-weight="600" text-anchor="middle">Completed</text>
+      <!-- progress bar -->
+      <rect x="740" y="206" width="120" height="10" rx="5" fill="rgba(255,255,255,0.06)"/>
+      <rect x="740" y="206" width="120" height="10" rx="5" fill="#22c55e"/>
+      <text x="868" y="215" font-size="11" fill="rgba(255,255,255,0.35)">100%</text>
+      <text x="900" y="215" font-size="12" fill="#22c55e" font-weight="600">312</text>
+      <text x="984" y="215" font-size="12" fill="rgba(255,255,255,0.35)">—</text>
+<rect x="240" y="248" width="1024" height="72" rx="0" fill="transparent"/>
+      <rect x="240" y="319" width="1024" height="1" fill="rgba(255,255,255,0.08)"/>
+      <rect x="256" y="268" width="24" height="28" rx="4" fill="rgba(27,79,216,0.15)"/>
+      <text x="268" y="287" font-size="8" fill="#5B8DEF" text-anchor="middle">CSV</text>
+      <text x="288" y="282" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">onboarding-may.csv</text>
+      <text x="440" y="282" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">New Client Intake</text>
+      <rect x="600" y="272" width="142" height="22" rx="6" fill="rgba(245,158,11,0.12)"/><text x="671" y="287.5" font-size="11" fill="#f59e0b" font-weight="600" text-anchor="middle">Completed with errors</text>
+      <!-- progress bar -->
+      <rect x="740" y="278" width="120" height="10" rx="5" fill="rgba(255,255,255,0.06)"/>
+      <rect x="740" y="278" width="120" height="10" rx="5" fill="#22c55e"/>
+      <text x="868" y="287" font-size="11" fill="rgba(255,255,255,0.35)">100%</text>
+      <text x="900" y="287" font-size="12" fill="#22c55e" font-weight="600">87</text>
+      <text x="984" y="287" font-size="12" fill="#ef4444" font-weight="600">5</text>
+<rect x="240" y="320" width="1024" height="72" rx="0" fill="rgba(255,255,255,0.01)"/>
+      <rect x="240" y="391" width="1024" height="1" fill="rgba(255,255,255,0.08)"/>
+      <rect x="256" y="340" width="24" height="28" rx="4" fill="rgba(27,79,216,0.15)"/>
+      <text x="268" y="359" font-size="8" fill="#5B8DEF" text-anchor="middle">CSV</text>
+      <text x="288" y="354" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">beneficiary-q2.csv</text>
+      <text x="440" y="354" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">Beneficiary Update</text>
+      <rect x="600" y="344" width="76" height="22" rx="6" fill="rgba(91,141,239,0.12)"/><text x="638" y="359.5" font-size="11" fill="#5B8DEF" font-weight="600" text-anchor="middle">Processing</text>
+      <!-- progress bar -->
+      <rect x="740" y="350" width="120" height="10" rx="5" fill="rgba(255,255,255,0.06)"/>
+      <rect x="740" y="350" width="74" height="10" rx="5" fill="#1B4FD8"/>
+      <text x="868" y="359" font-size="11" fill="rgba(255,255,255,0.35)">62%</text>
+      <text x="900" y="359" font-size="12" fill="#22c55e" font-weight="600">45</text>
+      <text x="984" y="359" font-size="12" fill="rgba(255,255,255,0.35)">—</text>
+<rect x="240" y="392" width="1024" height="72" rx="0" fill="transparent"/>
+      <rect x="240" y="463" width="1024" height="1" fill="rgba(255,255,255,0.08)"/>
+      <rect x="256" y="412" width="24" height="28" rx="4" fill="rgba(27,79,216,0.15)"/>
+      <text x="268" y="431" font-size="8" fill="#5B8DEF" text-anchor="middle">CSV</text>
+      <text x="288" y="426" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">ira-rollover.csv</text>
+      <text x="440" y="426" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">IRA Rollover Form</text>
+      <rect x="600" y="416" width="70" height="22" rx="6" fill="rgba(34,197,94,0.12)"/><text x="635" y="431.5" font-size="11" fill="#22c55e" font-weight="600" text-anchor="middle">Completed</text>
+      <!-- progress bar -->
+      <rect x="740" y="422" width="120" height="10" rx="5" fill="rgba(255,255,255,0.06)"/>
+      <rect x="740" y="422" width="120" height="10" rx="5" fill="#22c55e"/>
+      <text x="868" y="431" font-size="11" fill="rgba(255,255,255,0.35)">100%</text>
+      <text x="900" y="431" font-size="12" fill="#22c55e" font-weight="600">23</text>
+      <text x="984" y="431" font-size="12" fill="rgba(255,255,255,0.35)">—</text>
+<rect x="240" y="464" width="1024" height="72" rx="0" fill="rgba(255,255,255,0.01)"/>
+      <rect x="240" y="535" width="1024" height="1" fill="rgba(255,255,255,0.08)"/>
+      <rect x="256" y="484" width="24" height="28" rx="4" fill="rgba(27,79,216,0.15)"/>
+      <text x="268" y="503" font-size="8" fill="#5B8DEF" text-anchor="middle">CSV</text>
+      <text x="288" y="498" font-size="13" fill="rgba(255,255,255,0.85)" font-weight="600" text-anchor="start">kyc-batch.csv</text>
+      <text x="440" y="498" font-size="12" fill="rgba(255,255,255,0.55)" font-weight="normal" text-anchor="start">KYC Intake</text>
+      <rect x="600" y="488" width="52" height="22" rx="6" fill="rgba(255,255,255,0.06)"/><text x="626" y="503.5" font-size="11" fill="rgba(255,255,255,0.35)" font-weight="600" text-anchor="middle">Queued</text>
+      <!-- progress bar -->
+      <rect x="740" y="494" width="120" height="10" rx="5" fill="rgba(255,255,255,0.06)"/>
+      
+      <text x="868" y="503" font-size="11" fill="rgba(255,255,255,0.35)">0%</text>
+      <text x="900" y="503" font-size="12" fill="rgba(255,255,255,0.35)">—</text>
+      <text x="984" y="503" font-size="12" fill="rgba(255,255,255,0.35)">—</text>
+  
+</svg>

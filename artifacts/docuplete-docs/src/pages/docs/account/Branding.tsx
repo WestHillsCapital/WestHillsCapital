@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function Branding() {
   return (
     <div className="docs-content">
@@ -13,6 +15,12 @@ export default function Branding() {
 
       <h2>Configuring organization branding</h2>
       <p>Go to <strong>Settings → Branding</strong> to set your organization-wide defaults. These apply to all packages unless a package overrides them individually.</p>
+
+      <DocScreenshot
+        src="/screenshots/branding-settings.svg"
+        alt="The Branding settings page split into two columns: logo, color, header text, footer text, and email sender name on the left; a live interview preview on the right"
+        caption="The Branding settings page — configure logo, brand color, and messaging on the left and see a live preview of the client interview on the right."
+      />
 
       <h3>Logo</h3>
       <ul>

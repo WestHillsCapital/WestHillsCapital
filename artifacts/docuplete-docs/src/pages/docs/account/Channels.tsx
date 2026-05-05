@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function Channels() {
   return (
     <div className="docs-content">
@@ -9,6 +11,12 @@ export default function Channels() {
 
       <h2>What are channels?</h2>
       <p>Channels control where Docuplete sends notifications — to your team when a session is submitted, and to clients when they receive or complete their interview. Channel defaults are set at the organization level and can be overridden per package.</p>
+
+      <DocScreenshot
+        src="/screenshots/channels-config.svg"
+        alt="The Channel Defaults settings page showing three sections: Team Notifications with Email/Slack/Both radio options, Client Confirmation with a toggle, and Expiration Reminder with a toggle"
+        caption="Channel defaults — configure team notifications, client confirmations, and expiration reminders all in one place. Each setting can be overridden per package."
+      />
 
       <h2>Team notification channel</h2>
       <p>Where your team is notified when a client submits a session:</p>

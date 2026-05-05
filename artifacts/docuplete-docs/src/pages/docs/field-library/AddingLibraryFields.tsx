@@ -1,3 +1,5 @@
+import { DocScreenshot } from "@/components/DocScreenshot";
+
 export default function AddingLibraryFields() {
   return (
     <div className="docs-content">
@@ -16,6 +18,12 @@ export default function AddingLibraryFields() {
         <li>Click <strong>Import Selected</strong>. The fields appear at the bottom of the package's field list.</li>
         <li>Drag them to the correct position in the interview order.</li>
       </ol>
+
+      <DocScreenshot
+        src="/screenshots/add-library-fields.svg"
+        alt="The Add from Library modal showing a search bar, category tabs, a scrollable list of library fields with checkboxes, and an Import Selected button showing 3 fields selected"
+        caption="The Add from Library picker — browse by category or search by name, check the fields you want, and import them all at once."
+      />
 
       <div className="callout callout-info">
         <strong>Linked, not copied:</strong> When you import a library field, the package maintains a live link to it. If the library field is updated (label, validation, options), the change is reflected in the package for new sessions.
