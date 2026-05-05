@@ -15,7 +15,7 @@
 import { logger } from "./logger.js";
 
 // ── Required — server cannot function without these ───────────────────────────
-const REQUIRED_VARS = ["PORT", "DATABASE_URL"] as const;
+const REQUIRED_VARS = ["PORT", "DATABASE_URL", "CLERK_WEBHOOK_SECRET"] as const;
 
 // ── Optional — absence degrades a specific feature but server still starts ────
 const OPTIONAL_VARS: Record<string, string> = {

@@ -161,6 +161,7 @@ APP_ORIGIN = "https://app.docuplete.com"
 [userenv.development]
 VITE_API_URL = "https://workspaceapi-server-production-987b.up.railway.app"
 FEDEX_BASE_URL = "https://apis-sandbox.fedex.com"
+CLERK_WEBHOOK_SECRET = "whsec_dev_placeholder_replace_in_production"
 
 [userenv.production]
 VITE_CLERK_PROXY_URL = "https://www.westhillscapital.com/api/__clerk"

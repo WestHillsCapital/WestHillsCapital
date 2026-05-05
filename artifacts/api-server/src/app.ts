@@ -15,6 +15,7 @@ import { dbReady, dbError } from "./db";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import { WebhookHandlers, verifyAndParseWebhook } from "./lib/stripeWebhookHandlers";
 import { handleStripeSubscriptionEvent } from "./lib/stripeBillingSync";
+import { verifyAndParseClerkWebhook, handleClerkWebhookEvent } from "./lib/clerkWebhookHandlers";
 
 // Request timeout: abort any request that hasn't completed within 30 s.
 // Prevents slow upstream calls (Sheets, Google Calendar, Dillon Gage API)
@@ -175,6 +176,36 @@ app.post(
       // 400 → invalid signature / validation error (Stripe won't retry)
       // 500 → internal processing error (Stripe will retry per its retry schedule)
       res.status(isValidationError ? 400 : 500).json({ error: "Webhook processing error" });
+    }
+  },
+);
+
+// ── Clerk webhook (must be before body parsers — needs raw Buffer) ────────────
+// Handles session lifecycle events (session.ended, session.revoked, session.removed)
+// to keep user_active_sessions in sync with Clerk's session state.
+// Signature verification uses CLERK_WEBHOOK_SECRET (Svix).
+app.post(
+  "/api/webhooks/clerk",
+  express.raw({ type: "application/json" }),
+  async (req, res) => {
+    if (!Buffer.isBuffer(req.body)) {
+      logger.error("[ClerkWebhook] Body is not a Buffer — express.json() ran first");
+      res.status(500).json({ error: "Webhook processing error" });
+      return;
+    }
+
+    try {
+      const event = verifyAndParseClerkWebhook(req.body as Buffer, req.headers as Record<string, string | string[] | undefined>);
+      await handleClerkWebhookEvent(event);
+      res.status(200).json({ received: true });
+    } catch (err) {
+      const isSignatureError = err instanceof Error &&
+        (err.message.toLowerCase().includes("signature") ||
+         err.message.toLowerCase().includes("invalid") ||
+         err.message.toLowerCase().includes("svix") ||
+         err.message.toLowerCase().includes("webhook_secret"));
+      logger.error({ err }, "[ClerkWebhook] Webhook processing failed");
+      res.status(isSignatureError ? 400 : 500).json({ error: "Webhook processing error" });
     }
   },
 );

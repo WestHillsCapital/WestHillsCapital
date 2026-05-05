@@ -26,6 +26,8 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2",
     "drizzle-orm": "catalog:",
+    "esbuild": "^0.27.3",
+    "esbuild-plugin-pino": "^2.3.3",
     "express": "^5",
     "geoip-lite": "1.4.10",
     "google-auth-library": "^10.6.2",
@@ -38,15 +40,14 @@
     "pg": "^8.20.0",
     "pino": "^9",
     "pino-http": "^10",
-    "qrcode": "^1.5.4",
-    "esbuild": "^0.27.3",
-    "esbuild-plugin-pino": "^2.3.3",
     "pino-pretty": "^13",
-    "thread-stream": "3.1.0",
+    "qrcode": "^1.5.4",
     "stripe": "^22.1.0",
     "stripe-replit-sync": "^1.0.0",
+    "svix": "^1.92.2",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "thread-stream": "3.1.0"
   },
   "devDependencies": {
     "@types/archiver": "^6.0.3",
