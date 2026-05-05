@@ -1253,7 +1253,7 @@ function fmtDate(iso: string): string {
  * Tab: "Deal Builder"  (spaces → must be quoted in A1 notation as 'Deal Builder')
  * Uses GOOGLE_DEAL_BUILDER_SHEET_ID if set, otherwise falls back to GOOGLE_SHEETS_SPREADSHEET_ID.
  */
-export async function writeDealToBuilderSheet(deal: DealPayload): Promise<void> {
+async function writeDealToBuilderSheet(deal: DealPayload): Promise<void> {
   if (!DEAL_BUILDER_SPREADSHEET_ID) {
     logger.warn("[Sheets] No Deal Builder spreadsheet ID set — skipping Deal Builder write");
     return;

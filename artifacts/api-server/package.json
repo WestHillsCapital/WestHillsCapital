@@ -20,6 +20,7 @@
     "@types/pdfkit": "^0.17.5",
     "@types/pg": "^8.18.0",
     "@types/qrcode": "^1.5.6",
+    "@types/swagger-jsdoc": "^6.0.4",
     "@workspace/api-zod": "workspace:*",
     "@workspace/db": "workspace:*",
     "archiver": "^7.0.1",
@@ -33,7 +34,6 @@
     "google-auth-library": "^10.6.2",
     "googleapis": "^171.4.0",
     "helmet": "^8.1.0",
-    "http-proxy-middleware": "^3.0.5",
     "otplib": "^13.4.0",
     "pdf-lib": "^1.17.1",
     "pdfkit": "^0.18.0",
@@ -45,10 +45,10 @@
     "stripe": "^22.1.0",
     "stripe-replit-sync": "^1.0.0",
     "svix": "^1.92.2",
-    "zod": "catalog:",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "thread-stream": "3.1.0"
+    "thread-stream": "3.1.0",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/archiver": "^6.0.3",
@@ -57,7 +57,6 @@
     "@types/geoip-lite": "^1.4.4",
     "@types/node": "catalog:",
     "@types/supertest": "^7.2.0",
-    "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.8",
     "supertest": "^7.2.2",
     "tsx": "catalog:"

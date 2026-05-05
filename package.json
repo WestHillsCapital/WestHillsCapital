@@ -10,17 +10,23 @@
     "preinstall": "sh -c 'rm -f package-lock.json yarn.lock; case \"$npm_config_user_agent\" in pnpm/*) ;; *) echo \"Use pnpm instead\" >&2; exit 1 ;; esac'",
     "build": "pnpm run typecheck && pnpm -r --filter '!@workspace/mockup-sandbox' --if-present run build",
     "typecheck:libs": "tsc --build",
-    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck"
+    "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
+    "knip": "knip"
   },
   "private": true,
   "devDependencies": {
+    "knip": "^6.11.0",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["esbuild", "@clerk/shared"],
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "@clerk/shared"
+    ],
     "overrides": {
       "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0",
+      "knip>zod": "^4.1.11",
       "@expo/ngrok-bin>@expo/ngrok-bin-darwin-arm64": "-",
       "@expo/ngrok-bin>@expo/ngrok-bin-darwin-x64": "-",
       "@expo/ngrok-bin>@expo/ngrok-bin-freebsd-ia32": "-",

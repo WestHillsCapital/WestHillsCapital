@@ -93,7 +93,7 @@ export async function getOrCreateAccountDek(accountId: number, db: Pool): Promis
   return dek;
 }
 
-export function clearDekCache(accountId?: number): void {
+function clearDekCache(accountId?: number): void {
   if (accountId !== undefined) {
     dekCache.delete(accountId);
   } else {

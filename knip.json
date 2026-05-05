@@ -1,0 +1,48 @@
+{
+  "$schema": "https://unpkg.com/knip@latest/schema.json",
+  "ignoreWorkspaces": [
+    "artifacts/west-hills-capital",
+    "artifacts/docuplete",
+    "artifacts/docuplete-docs",
+    "artifacts/mockup-sandbox",
+    "packages/zapier",
+    "packages/make",
+    "scripts"
+  ],
+  "exclude": ["catalog"],
+  "workspaces": {
+    ".": {
+      "entry": [],
+      "project": [],
+      "ignoreDependencies": ["stripe", "stripe-replit-sync", "prettier"]
+    },
+    "artifacts/api-server": {
+      "entry": [
+        "src/index.ts",
+        "src/instrument.ts",
+        "src/app.ts",
+        "src/routes/schemas.ts",
+        "scripts/**/*.mjs"
+      ],
+      "project": ["src/**/*.ts", "scripts/**/*.mjs"],
+      "ignoreDependencies": ["@workspace/db", "drizzle-orm"]
+    },
+    "packages/sdk": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"],
+      "ignore": ["src/openapi.ts"]
+    },
+    "packages/mcp-server": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.ts"]
+    },
+    "lib/api-zod": {
+      "ignore": ["src/generated/types/**"]
+    },
+    "lib/api-spec": {
+      "entry": ["orval.config.ts"],
+      "project": ["*.ts"]
+    }
+  },
+  "ignoreExportsUsedInFile": true
+}

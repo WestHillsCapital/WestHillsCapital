@@ -109,7 +109,7 @@ export function getPlanFeatures(tier: string): PlanFeatures {
   return PLAN_FEATURES[normalizeTier(tier)];
 }
 
-export function isPlanTier(value: unknown): value is PlanTier {
+function isPlanTier(value: unknown): value is PlanTier {
   return value === "starter" || value === "free" || value === "pro" || value === "enterprise";
 }
 

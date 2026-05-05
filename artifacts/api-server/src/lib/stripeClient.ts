@@ -61,7 +61,7 @@ export async function getUncachableStripeClient(): Promise<Stripe> {
   return new Stripe(secretKey, { apiVersion: "2026-04-22.dahlia" });
 }
 
-export async function getStripePublishableKey(): Promise<string> {
+async function getStripePublishableKey(): Promise<string> {
   const { publishableKey } = await getCredentials();
   return publishableKey;
 }

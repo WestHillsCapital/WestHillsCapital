@@ -105,7 +105,7 @@ export async function sendInAppNotifications(
  * Defaults to true (opted-in) when no preference row exists.
  * Defaults to true on DB error (fail-open so users aren't silently un-subscribed).
  */
-export async function isNotificationEnabled(
+async function isNotificationEnabled(
   accountId: number,
   clerkUserId: string,
   eventKey: NotificationEventKey,
