@@ -70,7 +70,7 @@ test("Docuplete — full e2e suite", async ({ page, context }) => {
   // 1. SIGN IN
   // ════════════════════════════════════════════════════════════════════════════
   await page.goto(`${BASE}/app/sign-in`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
 
   const emailInput = page
     .locator('input[name="identifier"], input[name="emailAddress"], input[type="email"]')
@@ -98,7 +98,7 @@ test("Docuplete — full e2e suite", async ({ page, context }) => {
   // 2. PACKAGES — full create → verify → delete flow
   // ════════════════════════════════════════════════════════════════════════════
   await page.goto(`${BASE}/app/packages`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
 
   // 2a. Package Builder tab renders
   const pkgBuilderTab = page.getByRole("button", { name: "Package Builder", exact: true }).first();
@@ -142,7 +142,7 @@ test("Docuplete — full e2e suite", async ({ page, context }) => {
   // 3. SESSIONS — both tabs, search, status filter
   // ════════════════════════════════════════════════════════════════════════════
   await page.goto(`${BASE}/app/sessions`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
 
   // 3a. Page heading
   await expect(page.getByRole("heading", { name: "Sessions" })).toBeVisible({ timeout: 10000 });
@@ -197,7 +197,7 @@ test("Docuplete — full e2e suite", async ({ page, context }) => {
   // 4. SETTINGS
   // ════════════════════════════════════════════════════════════════════════════
   await page.goto(`${BASE}/app/settings`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
   await expect(page.locator("[data-nav]").first()).toBeVisible({ timeout: 10000 });
   console.log("✅ [4] Settings sidebar loaded");
 
