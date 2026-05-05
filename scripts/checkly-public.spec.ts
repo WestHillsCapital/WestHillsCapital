@@ -30,11 +30,8 @@ test("West Hills Capital — public pages", async ({ page, context, request }) =
   // ── 1. Homepage ────────────────────────────────────────────────────────────
   await page.goto(BASE, { waitUntil: "domcontentloaded", timeout: 30_000 });
   await expect(page).toHaveTitle(/west hills capital/i, { timeout: 10_000 });
-  // Hero or nav should be present
-  await expect(
-    page.getByRole("navigation").first()
-      .or(page.locator("header").first())
-  ).toBeVisible({ timeout: 8_000 });
+  // Sticky header is always present on every public page
+  await expect(page.locator("header").first()).toBeVisible({ timeout: 8_000 });
   console.log("✅ [1] Homepage loaded —", page.url());
 
   // ── 2. Pricing page ───────────────────────────────────────────────────────
