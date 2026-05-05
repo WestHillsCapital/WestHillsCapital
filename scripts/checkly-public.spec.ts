@@ -43,9 +43,10 @@ test("West Hills Capital — public pages", async ({ page, context, request }) =
   console.log("✅ [2] Pricing page loaded");
 
   // ── 3. /app unauthenticated redirect → sign-in ────────────────────────────
+  // Clerk performs a client-side redirect (no page reload), so waitForURL's
+  // "load" event never fires. Use toHaveURL which polls the URL instead.
   await page.goto(`${BASE}/app`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await page.waitForURL(/sign-in/, { timeout: 15_000 });
-  expect(page.url()).toContain("sign-in");
+  await expect(page).toHaveURL(/sign-in/, { timeout: 15_000 });
   console.log("✅ [3] /app redirects unauthenticated users to sign-in");
 
   // ── 4. SEO learn article: Gold IRA vs Traditional IRA ─────────────────────
