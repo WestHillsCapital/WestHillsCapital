@@ -4547,8 +4547,13 @@ router.get("/security/login-history", async (req, res) => {
 
     const { rows } = await db.query(
       `SELECT id, ip_address, user_agent, created_at
-         FROM user_login_history
-        WHERE user_id = $1
+         FROM (
+           SELECT DISTINCT ON (ip_address, user_agent, created_at::date)
+                  id, ip_address, user_agent, created_at
+             FROM user_login_history
+            WHERE user_id = $1
+            ORDER BY ip_address, user_agent, created_at::date, created_at DESC
+         ) deduped
         ORDER BY created_at DESC
         LIMIT 30`,
       [userId],

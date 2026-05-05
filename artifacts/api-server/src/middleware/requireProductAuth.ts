@@ -165,7 +165,14 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
             if (wasNew) {
               await db2.query(
                 `INSERT INTO user_login_history (account_id, user_id, clerk_session_id, ip_address, user_agent)
-                   VALUES ($1, $2, $3, $4, $5)`,
+                   SELECT $1, $2, $3, $4, $5
+                    WHERE NOT EXISTS (
+                      SELECT 1 FROM user_login_history
+                       WHERE user_id    = $2
+                         AND ip_address = $4
+                         AND user_agent = $5
+                         AND created_at > NOW() - INTERVAL '1 hour'
+                    )`,
                 [result.rows[0].account_id, uid, sessionId, ip, ua],
               );
             }
