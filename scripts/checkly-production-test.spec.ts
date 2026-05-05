@@ -293,25 +293,26 @@ test("Docuplete — full e2e suite", async ({ page, context }) => {
   await page.waitForTimeout(300);
   console.log(`✅ [4.4b] Timezone search "York" → ${filteredCount} / ${tzOptionCount} options`);
 
-  // ── 4.5 Organization — edit org name, save, restore ────────────────────────
+  // ── 4.5 Organization — edit org name, auto-save (debounce), restore ─────────
+  // The org name field has NO save button — it auto-saves 700 ms after the
+  // last keystroke and shows "✓ Saved" on success (line 5685 in source).
   await clickNavItem(page, "Organization");
   await scrollToSection(page, "organization-section");
   const orgSection = page.locator("#organization-section").first();
   await expect(orgSection).toBeVisible({ timeout: 8000 });
-  const orgNameInput = orgSection.locator("input[type='text'], input:not([type])").first();
-  await expect(orgNameInput).toBeVisible();
+
+  const orgNameInput = page.locator("#org-name");
+  await expect(orgNameInput).toBeVisible({ timeout: 8000 });
   const originalOrgName = await orgNameInput.inputValue();
 
+  // Edit → wait for debounce + network → verify "✓ Saved"
   await orgNameInput.fill(`${originalOrgName} E2E`);
-  const orgSaveBtn = orgSection.getByRole("button", { name: /save/i }).first();
-  await expect(orgSaveBtn).toBeVisible({ timeout: 5000 });
-  await orgSaveBtn.click();
-  await expect(orgSection.getByText(/saved/i).first()).toBeVisible({ timeout: 8000 });
-  console.log("✅ [4.5a] Org name saved");
+  await expect(orgSection.getByText(/✓\s*Saved/i).first()).toBeVisible({ timeout: 6000 });
+  console.log("✅ [4.5a] Org name auto-saved");
 
-  await orgNameInput.fill(originalOrgName);
-  await orgSaveBtn.click();
-  await expect(orgSection.getByText(/saved/i).first()).toBeVisible({ timeout: 8000 });
+  // Restore original
+  await orgNameInput.fill(originalOrgName || "Org");
+  await expect(orgSection.getByText(/✓\s*Saved/i).first()).toBeVisible({ timeout: 6000 });
   console.log("✅ [4.5b] Org name restored");
 
   // ── 4.6 Billing ────────────────────────────────────────────────────────────
