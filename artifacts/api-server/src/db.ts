@@ -1597,6 +1597,10 @@ export async function initDb(): Promise<void> {
           // Revoke access — API keys and account_users (users cascade to sessions/devices/history)
           await client.query(`DELETE FROM account_api_keys           WHERE account_id = $1`, [account.id]);
           await client.query(`DELETE FROM account_users              WHERE account_id = $1`, [account.id]);
+          // docufill_signing_events has account_id with no FK/cascade
+          await client.query(`DELETE FROM docufill_signing_events    WHERE account_id = $1`, [account.id]);
+          // docufill_transaction_types has account_id with cascade but account row is preserved
+          await client.query(`DELETE FROM docufill_transaction_types WHERE account_id = $1`, [account.id]);
           // Remaining account-scoped tables that have ON DELETE CASCADE on accounts
           // but won't auto-cascade since the account row is preserved
           await client.query(`DELETE FROM usage_events               WHERE account_id = $1`, [account.id]);
