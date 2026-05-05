@@ -177,12 +177,36 @@ test("Docuplete — core e2e", async ({ page, context }) => {
   await keyNameInput.pressSequentially(TEST_KEY, { delay: 30 });
   await expect(keyNameInput).toHaveValue(TEST_KEY, { timeout: 5_000 });
 
+  // Intercept the POST /api-keys response so we can diagnose failures
+  let apiKeyHttpStatus = 0;
+  let apiKeyResponseBody = "";
+  page.once("response", async (resp) => {
+    if (resp.url().includes("/api-keys") && resp.request().method() === "POST") {
+      apiKeyHttpStatus = resp.status();
+      apiKeyResponseBody = await resp.text().catch(() => "(unreadable)");
+      console.log(`🔍 POST /api-keys → ${apiKeyHttpStatus}: ${apiKeyResponseBody.substring(0, 300)}`);
+    }
+  });
+
   // Click Create button explicitly (more reliable than Enter key)
   await apiSection.getByRole("button", { name: /^Create$/i }).click();
 
   // Wait for banner — scoped to apiSection to avoid matching the
   // "API key created" notification-category label elsewhere on the page
-  await expect(apiSection.getByText(/API key created — copy it now/i).first()).toBeVisible({ timeout: 15_000 });
+  const bannerVisible = await apiSection
+    .getByText(/API key created — copy it now/i)
+    .first()
+    .waitFor({ state: "visible", timeout: 15_000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (!bannerVisible) {
+    // Dump whatever text the api-keys section is showing to diagnose the failure
+    const sectionText = await apiSection.innerText().catch(() => "(unreadable)");
+    console.log(`❌ [4c] Banner missing. HTTP ${apiKeyHttpStatus} body: ${apiKeyResponseBody.substring(0, 200)}`);
+    console.log(`❌ [4c] Section text: ${sectionText.substring(0, 500)}`);
+    throw new Error(`API key creation banner did not appear (HTTP ${apiKeyHttpStatus})`);
+  }
   console.log("✅ [4c] API key created");
 
   const dismissBtn = apiSection.getByRole("button", { name: /I've saved the key/i }).first();
