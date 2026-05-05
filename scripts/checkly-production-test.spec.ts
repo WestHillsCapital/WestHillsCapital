@@ -1,81 +1,78 @@
 /**
  * Docuplete — Smoke Test
+ * Paste into Checkly Browser Check editor.
  *
- * Every operation has an explicit timeout so no single step can block
- * the whole run. page.setDefaultTimeout / setDefaultNavigationTimeout
- * is set to 30 s immediately to override any Checkly-level default.
+ * Uses CommonJS require + manual browser setup — works on ALL Checkly
+ * runtimes (2022.10 and 2024.02). No TypeScript, no ES imports.
  */
 
-import { test, expect } from "@playwright/test";
+const { chromium } = require("playwright");
 
 const BASE     = "https://www.westhillscapital.com";
 const EMAIL    = "bigej36290@lohinja.com";
 const PASSWORD = "T35tacc0nt";
 
-test("Docuplete — smoke", async ({ page, context }) => {
+(async () => {
+  const browser = await chromium.launch();
+  const context = await browser.newContext();
 
-  // Cap every operation at 30 s — overrides whatever Checkly sets globally
+  // Pre-seed consent cookie so the banner never blocks clicks
+  await context.addCookies([{
+    name:   "whc_cookie_consent",
+    value:  "granted",
+    domain: "www.westhillscapital.com",
+    path:   "/",
+  }]);
+
+  const page = await context.newPage();
   page.setDefaultTimeout(30_000);
   page.setDefaultNavigationTimeout(30_000);
+  console.log("✅ [0] browser ready");
 
-  // ── 0. Cookie consent ─────────────────────────────────────────────────────
-  await context.addCookies([{
-    name: "whc_cookie_consent", value: "granted",
-    domain: "www.westhillscapital.com", path: "/",
-  }]);
-  console.log("✅ [0] cookie seeded");
-
-  // ── 1. Load sign-in page ──────────────────────────────────────────────────
+  // ── 1. Load sign-in page ────────────────────────────────────────────────
   await page.goto(`${BASE}/app/sign-in`, { waitUntil: "domcontentloaded", timeout: 30_000 });
   console.log("✅ [1] sign-in page:", page.url());
 
-  // ── 2. Email input visible ────────────────────────────────────────────────
-  const emailInput = page.locator('input[type="email"], input[name="identifier"]').first();
-  await emailInput.waitFor({ state: "visible", timeout: 20_000 });
+  // ── 2. Email input ──────────────────────────────────────────────────────
+  await page.locator('input[type="email"], input[name="identifier"]').first().waitFor({ state: "visible", timeout: 20_000 });
   console.log("✅ [2] email input visible");
 
-  // ── 3. Enter email ────────────────────────────────────────────────────────
-  await emailInput.fill(EMAIL);
+  // ── 3. Fill email → Enter ───────────────────────────────────────────────
+  await page.locator('input[type="email"], input[name="identifier"]').first().fill(EMAIL);
   await page.keyboard.press("Enter");
   console.log("✅ [3] email submitted");
 
-  // ── 4. Password input visible ─────────────────────────────────────────────
-  const passwordInput = page.locator('input[type="password"]').first();
-  await passwordInput.waitFor({ state: "visible", timeout: 15_000 });
+  // ── 4. Password input ───────────────────────────────────────────────────
+  await page.locator('input[type="password"]').first().waitFor({ state: "visible", timeout: 15_000 });
   console.log("✅ [4] password input visible");
 
-  // ── 5. Submit ─────────────────────────────────────────────────────────────
-  await passwordInput.fill(PASSWORD);
-  const submitBtn = page.locator('button.cl-formButtonPrimary:not([aria-hidden="true"])').first();
-  await submitBtn.waitFor({ state: "visible", timeout: 10_000 });
-  await submitBtn.click();
+  // ── 5. Fill password → submit ───────────────────────────────────────────
+  await page.locator('input[type="password"]').first().fill(PASSWORD);
+  await page.locator('button.cl-formButtonPrimary:not([aria-hidden="true"])').first().click();
   console.log("✅ [5] submit clicked");
 
-  // ── 6. Redirect away from sign-in ─────────────────────────────────────────
-  // Use RegExp — avoids glob-pattern matching edge cases
+  // ── 6. Wait for redirect ─────────────────────────────────────────────────
   await page.waitForURL(/\/app(?!\/sign-in)/, { timeout: 30_000 });
   console.log("✅ [6] redirected to:", page.url());
 
-  // ── 7. Confirm authenticated ──────────────────────────────────────────────
-  expect(page.url()).not.toContain("sign-in");
-  console.log("✅ [7] authenticated");
-
-  // ── 8. Packages page ──────────────────────────────────────────────────────
+  // ── 7. Packages page ─────────────────────────────────────────────────────
   await page.goto(`${BASE}/app/packages`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await expect(
-    page.getByRole("button", { name: "Package Builder", exact: true }).first()
-  ).toBeVisible({ timeout: 12_000 });
-  console.log("✅ [8] packages page + tab visible");
+  await page.locator("text=Package Builder").first().waitFor({ state: "visible", timeout: 12_000 });
+  console.log("✅ [7] packages page loaded");
 
-  // ── 9. Sessions page ──────────────────────────────────────────────────────
+  // ── 8. Sessions page ─────────────────────────────────────────────────────
   await page.goto(`${BASE}/app/sessions`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await expect(page.getByRole("heading", { name: "Sessions" })).toBeVisible({ timeout: 12_000 });
-  console.log("✅ [9] sessions page visible");
+  await page.locator("h1, h2").filter({ hasText: /sessions/i }).first().waitFor({ state: "visible", timeout: 12_000 });
+  console.log("✅ [8] sessions page loaded");
 
-  // ── 10. Settings page ─────────────────────────────────────────────────────
+  // ── 9. Settings page ─────────────────────────────────────────────────────
   await page.goto(`${BASE}/app/settings`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await expect(page.locator("[data-nav]").first()).toBeVisible({ timeout: 12_000 });
-  console.log("✅ [10] settings sidebar visible");
+  await page.locator("[data-nav]").first().waitFor({ state: "visible", timeout: 12_000 });
+  console.log("✅ [9] settings sidebar loaded");
 
+  await browser.close();
   console.log("\n🎉 Smoke test passed.");
+})().catch(async (err) => {
+  console.error("❌ Test failed:", err.message);
+  process.exit(1);
 });
