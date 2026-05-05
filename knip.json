@@ -36,7 +36,11 @@
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
+    "lib/api-client-react": {
+      "project": ["src/**/*.ts"]
+    },
     "lib/api-zod": {
+      "project": ["src/**/*.ts"],
       "ignore": ["src/generated/types/**"]
     },
     "lib/api-spec": {
