@@ -156,7 +156,8 @@ test("Docuplete — core e2e", async ({ page, context }) => {
   console.log("✅ [4b] notification toggle saved + restored");
 
   // ── 4c. API key create → revoke ────────────────────────────────────────────
-  await page.locator("[data-nav='api-keys-section']").first().click();
+  // Nav item id = "developer-section"; api-keys-section is just the in-page anchor
+  await page.locator("[data-nav='developer-section']").first().click();
   await page.waitForTimeout(400);
   await page.evaluate(() =>
     document.getElementById("api-keys-section")?.scrollIntoView({ behavior: "instant" })
