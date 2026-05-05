@@ -5603,6 +5603,21 @@ export default function AppSettings() {
               });
             })()}
           </nav>
+
+          {/* Back to top — branded, sticky with the sidebar */}
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="mt-6 w-full rounded-lg px-3 py-1.5 text-sm font-medium transition-opacity flex items-center gap-1.5 opacity-70 hover:opacity-100"
+            style={{
+              backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38",
+              color: getTextForBg(/^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38"),
+            }}
+          >
+            <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5" />
+            </svg>
+            Back to top
+          </button>
         </aside>
 
         {/* ── Main content column ─────────────────────────────────────── */}

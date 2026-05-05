@@ -5598,8 +5598,8 @@ export default function DocuFill() {
                 </div>
               </div>}
               <div className="mt-4 flex flex-wrap justify-end gap-2">
-                <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} >{isSaving ? "Saving…" : `Save ${selectedPackage.fields.length} Fields / ${selectedPackage.mappings.length} Placements`}</Button>
                 <Button onClick={() => goBuilderStep("interview", { autoSort: true })} variant="outline">Review Generated Interview</Button>
+                <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving}>{isSaving ? "Saving…" : `Save ${selectedPackage.fields.length} Fields / ${selectedPackage.mappings.length} Placements`}</Button>
               </div>
             </section>
 
