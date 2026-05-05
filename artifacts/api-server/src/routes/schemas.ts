@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+// ── Shared ────────────────────────────────────────────────────────────────────
+
+export const EmptyBodySchema = z.object({}).passthrough().optional();
+export type EmptyBody = z.infer<typeof EmptyBodySchema>;
+
 // ── Docufill ──────────────────────────────────────────────────────────────────
 
 export const FieldLibraryCreateSchema = z.object({
@@ -25,7 +30,22 @@ export const TransactionTypeBodySchema = z.object({
 }).passthrough();
 export type TransactionTypeBody = z.infer<typeof TransactionTypeBodySchema>;
 
-export const PackageBodySchema = z.object({}).passthrough();
+export const PackageBodySchema = z.object({
+  name: z.string().optional(),
+  webhookUrl: z.string().optional().nullable(),
+  groupId: z.union([z.number(), z.null()]).optional(),
+  groupIds: z.array(z.number()).optional().nullable(),
+  enableGdrive: z.boolean().optional(),
+  enableHubspot: z.boolean().optional(),
+  enableCustomerLink: z.boolean().optional(),
+  enableInterview: z.boolean().optional(),
+  enableCsv: z.boolean().optional(),
+  notifyStaff: z.boolean().optional(),
+  notifyClient: z.boolean().optional(),
+  authLevel: z.string().optional(),
+  interviewUrl: z.string().optional().nullable(),
+  status: z.string().optional(),
+}).passthrough();
 export type PackageBody = z.infer<typeof PackageBodySchema>;
 
 export const CsvBatchBodySchema = z.object({
@@ -52,6 +72,30 @@ export const BatchSendLinksBodySchema = z.object({
 }).passthrough();
 export type BatchSendLinksBody = z.infer<typeof BatchSendLinksBodySchema>;
 
+export const VoidSessionBodySchema = z.object({
+  reason: z.string().min(1, "A void reason is required"),
+  notifySigner: z.boolean().optional(),
+});
+export type VoidSessionBody = z.infer<typeof VoidSessionBodySchema>;
+
+// ── Docufill GET query schemas ─────────────────────────────────────────────────
+
+export const SessionsQuerySchema = z.object({
+  dealId: z.string().regex(/^\d+$/, "dealId must be a numeric string").optional(),
+  packageId: z.string().regex(/^\d+$/, "packageId must be a numeric string").optional(),
+  status: z.enum(["draft", "in_progress", "generated", "voided"]).optional(),
+  updatedAfter: z.string().optional(),
+  limit: z.string().regex(/^\d+$/, "limit must be a numeric string").optional(),
+  offset: z.string().regex(/^\d+$/, "offset must be a numeric string").optional(),
+}).passthrough();
+export type SessionsQuery = z.infer<typeof SessionsQuerySchema>;
+
+export const BatchRunsQuerySchema = z.object({
+  limit: z.string().regex(/^\d+$/, "limit must be a numeric string").optional(),
+  offset: z.string().regex(/^\d+$/, "offset must be a numeric string").optional(),
+}).passthrough();
+export type BatchRunsQuery = z.infer<typeof BatchRunsQuerySchema>;
+
 // ── Deals ─────────────────────────────────────────────────────────────────────
 
 export const DealCreateBodySchema = z.object({
@@ -66,9 +110,56 @@ export const TrackingBodySchema = z.object({
 });
 export type TrackingBody = z.infer<typeof TrackingBodySchema>;
 
+export const PreviewInvoiceBodySchema = z.object({
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  state: z.string().optional(),
+  dealType: z.string().optional(),
+  shippingMethod: z.string().optional(),
+  fedexLocation: z.string().optional(),
+  fedexLocationHours: z.string().optional(),
+  shipToLine1: z.string().optional(),
+  shipToCity: z.string().optional(),
+  shipToState: z.string().optional(),
+  shipToZip: z.string().optional(),
+  billingLine1: z.string().optional(),
+  billingLine2: z.string().optional(),
+  billingCity: z.string().optional(),
+  billingState: z.string().optional(),
+  billingZip: z.string().optional(),
+  products: z.array(z.object({
+    productName: z.string(),
+    qty: z.number(),
+    unitPrice: z.number(),
+    lineTotal: z.number(),
+  })).optional(),
+  subtotal: z.number().optional(),
+  shipping: z.number().optional(),
+  total: z.number().optional(),
+  goldSpotAsk: z.number().optional(),
+  silverSpotAsk: z.number().optional(),
+}).passthrough();
+export type PreviewInvoiceBody = z.infer<typeof PreviewInvoiceBodySchema>;
+
 // ── Settings ──────────────────────────────────────────────────────────────────
 
-export const OrgBodySchema = z.object({}).passthrough();
+export const OrgBodySchema = z.object({
+  name: z.string().optional(),
+  brandColor: z.string().optional(),
+  timezone: z.string().optional(),
+  dateFormat: z.string().optional(),
+  clearLogo: z.boolean().optional(),
+  clearFormLogo: z.boolean().optional(),
+  pkgDefaultInterview: z.boolean().optional(),
+  pkgDefaultCsv: z.boolean().optional(),
+  pkgDefaultCustomerLink: z.boolean().optional(),
+  pkgDefaultNotifyStaff: z.boolean().optional(),
+  pkgDefaultNotifyClient: z.boolean().optional(),
+  pkgDefaultEsign: z.boolean().optional(),
+  logoOnWhite: z.boolean().optional(),
+}).passthrough();
 export type OrgBody = z.infer<typeof OrgBodySchema>;
 
 export const ExtractBrandColorsBodySchema = z.object({
@@ -118,10 +209,16 @@ export const OAuthExchangeWithRedirectBodySchema = z.object({
 });
 export type OAuthExchangeWithRedirectBody = z.infer<typeof OAuthExchangeWithRedirectBodySchema>;
 
-export const GDriveFolderBodySchema = z.object({}).passthrough();
+export const GDriveFolderBodySchema = z.object({
+  folderInput: z.string().optional(),
+}).passthrough();
 export type GDriveFolderBody = z.infer<typeof GDriveFolderBodySchema>;
 
-export const AdminAccountBodySchema = z.object({}).passthrough();
+export const AdminAccountBodySchema = z.object({
+  plan_tier: z.string().optional(),
+  seat_limit: z.number().optional(),
+  subscription_status: z.string().optional(),
+}).passthrough();
 export type AdminAccountBody = z.infer<typeof AdminAccountBodySchema>;
 
 export const AdminNoteBodySchema = z.object({
@@ -139,16 +236,30 @@ export const NotificationsBodySchema = z.object({
 });
 export type NotificationsBody = z.infer<typeof NotificationsBodySchema>;
 
-export const EmailSettingsBodySchema = z.object({}).passthrough();
+export const EmailSettingsBodySchema = z.object({
+  senderName: z.string().optional().nullable(),
+  replyTo: z.string().optional().nullable(),
+  footer: z.string().optional().nullable(),
+}).passthrough();
 export type EmailSettingsBody = z.infer<typeof EmailSettingsBodySchema>;
 
-export const InterviewDefaultsBodySchema = z.object({}).passthrough();
+export const InterviewDefaultsBodySchema = z.object({
+  linkExpiryDays: z.union([z.number(), z.null()]).optional(),
+  reminderEnabled: z.boolean().optional(),
+  reminderDays: z.number().optional(),
+  defaultLocale: z.string().optional(),
+}).passthrough();
 export type InterviewDefaultsBody = z.infer<typeof InterviewDefaultsBodySchema>;
 
-export const LocaleBodySchema = z.object({}).passthrough();
+export const LocaleBodySchema = z.object({
+  timezone: z.string().optional(),
+  dateFormat: z.string().optional(),
+}).passthrough();
 export type LocaleBody = z.infer<typeof LocaleBodySchema>;
 
-export const DataPrivacyBodySchema = z.object({}).passthrough();
+export const DataPrivacyBodySchema = z.object({
+  submissionRetentionDays: z.union([z.number().positive(), z.null()]).optional(),
+}).passthrough();
 export type DataPrivacyBody = z.infer<typeof DataPrivacyBodySchema>;
 
 export const DeletionRequestBodySchema = z.object({
@@ -156,7 +267,11 @@ export const DeletionRequestBodySchema = z.object({
 });
 export type DeletionRequestBody = z.infer<typeof DeletionRequestBodySchema>;
 
-export const ProfileBodySchema = z.object({}).passthrough();
+export const ProfileBodySchema = z.object({
+  display_name: z.string().optional().nullable(),
+  email: z.string().optional(),
+  cancel_pending_email: z.boolean().optional(),
+}).passthrough();
 export type ProfileBody = z.infer<typeof ProfileBodySchema>;
 
 export const TwoFACodeBodySchema = z.object({
@@ -164,8 +279,15 @@ export const TwoFACodeBodySchema = z.object({
 }).passthrough();
 export type TwoFACodeBody = z.infer<typeof TwoFACodeBodySchema>;
 
-export const CustomDomainBodySchema = z.object({}).passthrough();
+export const CustomDomainBodySchema = z.object({
+  domain: z.string().optional(),
+}).passthrough();
 export type CustomDomainBody = z.infer<typeof CustomDomainBodySchema>;
+
+// ── Settings GET query schemas ─────────────────────────────────────────────────
+
+export const AdminAccountsQuerySchema = z.object({}).passthrough();
+export type AdminAccountsQuery = z.infer<typeof AdminAccountsQuerySchema>;
 
 // ── Product Auth ──────────────────────────────────────────────────────────────
 

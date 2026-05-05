@@ -27,6 +27,7 @@ import QRCode from "qrcode";
 import { createHash } from "crypto";
 import geoip from "../lib/geoip";
 import {
+  EmptyBodySchema,
   OrgBodySchema,
   ExtractBrandColorsBodySchema,
   TeamInviteBodySchema,
@@ -50,6 +51,7 @@ import {
   ProfileBodySchema,
   TwoFACodeBodySchema,
   CustomDomainBodySchema,
+  AdminAccountsQuerySchema,
 } from "./schemas";
 
 // In-process LRU cache for geoip results (max 1000 entries).
@@ -812,8 +814,8 @@ router.post("/extract-brand-colors", brandColorRateLimit, async (req, res) => {
   try {
     const _parse = ExtractBrandColorsBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
-    const url = typeof body.url === "string" ? body.url.trim() : "";
+    const body = _parse.data;
+    const url = body.url.trim();
     if (!url) {
       res.status(400).json({ error: "A URL is required." });
       return;
@@ -991,8 +993,8 @@ router.patch("/team/:id/role", requireAdminRole, async (req, res) => {
 
     const _parse = TeamRoleBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
-    const newRole = typeof body.role === "string" ? body.role.trim().toLowerCase() : "";
+    const body = _parse.data;
+    const newRole = body.role.trim().toLowerCase();
     if (!VALID_ROLES.has(newRole)) {
       return void res.status(400).json({ error: "Invalid role. Must be admin, member, or readonly." });
     }
@@ -1539,6 +1541,8 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
 /** POST /billing/portal — create a Stripe Customer Portal session */
 router.post("/billing/portal", requireAdminRole, async (req, res) => {
   try {
+    const _parse = EmptyBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
 
@@ -1586,9 +1590,9 @@ router.post("/billing/pack/checkout", requireAdminRole, async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const _parse = BillingPackCheckoutBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as { packSize?: unknown; packType?: unknown };
-    const packSize = typeof body.packSize === "number" ? body.packSize : null;
-    const packType = typeof body.packType === "string" ? body.packType : null;
+    const body = _parse.data;
+    const packSize = body.packSize;
+    const packType = body.packType;
 
     if (!packSize || !packType) {
       res.status(400).json({ error: "packSize and packType are required." });
@@ -2201,6 +2205,8 @@ router.get("/admin/accounts", async (req, res) => {
     return;
   }
   try {
+    const _parseQ = AdminAccountsQuerySchema.safeParse(req.query);
+    if (!_parseQ.success) { res.status(400).json({ error: "Invalid query parameters", issues: _parseQ.error.issues.map(i => i.message) }); return; }
     const db = getDb();
 
     const { rows } = await db.query<{
@@ -2732,7 +2738,7 @@ router.put("/security/ip-allowlist", requireAdminRole, async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const _parse = IpAllowlistBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body = req.body as Record<string, unknown>;
+    const body = _parse.data;
     const rawRanges = body.allowed_ip_ranges;
 
     if (!Array.isArray(rawRanges)) {
@@ -2925,7 +2931,8 @@ router.patch("/notifications/inbox/:id/read", async (req, res) => {
     const accountId   = req.internalAccountId ?? 1;
     const clerkUserId = getAuth(req)?.userId;
     if (!clerkUserId) return void res.status(401).json({ error: "Unauthorized" });
-
+    const _parse = EmptyBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const db = getDb();
     const notifId = parseInt(req.params["id"]!, 10);
     if (isNaN(notifId)) return void res.status(400).json({ error: "Invalid notification ID." });
@@ -3405,6 +3412,8 @@ router.patch("/data-privacy", requireAdminRole, async (req, res) => {
 
 router.post("/data/request-export", requireAdminRole, async (req, res) => {
   try {
+    const _parse = EmptyBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const accountId   = req.internalAccountId ?? 1;
     const clerkUserId = getAuth(req)?.userId ?? null;
     const actorEmail  = await getActorEmail(accountId, clerkUserId);
@@ -3496,7 +3505,7 @@ router.post("/data/request-deletion", requireAdminRole, async (req, res) => {
     const accountId   = req.internalAccountId ?? 1;
     const _parse = DeletionRequestBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    const body        = req.body as Record<string, unknown>;
+    const body        = _parse.data;
     const db          = getDb();
 
     const { rows: orgRows } = await db.query<{ name: string; stripe_subscription_id: string | null }>(
@@ -3507,7 +3516,7 @@ router.post("/data/request-deletion", requireAdminRole, async (req, res) => {
     const orgName            = orgRows[0].name;
     const stripeSubId        = orgRows[0].stripe_subscription_id;
 
-    const confirmName = typeof body.confirmName === "string" ? body.confirmName.trim() : "";
+    const confirmName = body.confirmName.trim();
     if (confirmName !== orgName.trim()) {
       res.status(400).json({ error: `Organization name does not match. Please type "${orgName}" exactly.` });
       return;
@@ -4099,6 +4108,8 @@ router.get("/security/2fa/status", async (req, res) => {
 /** POST /security/2fa/setup — generate a TOTP secret and return QR code */
 router.post("/security/2fa/setup", async (req, res) => {
   try {
+    const _parse = EmptyBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const accountId   = req.internalAccountId ?? 1;
     const clerkUserId = getAuth(req)?.userId ?? null;
     const db = getDb();
@@ -4521,6 +4532,8 @@ router.put("/custom-domain", requireAdminRole, requirePlanFeature("customDomain"
 /** POST /custom-domain/verify — attempt DNS CNAME verification */
 router.post("/custom-domain/verify", requireAdminRole, async (req, res) => {
   try {
+    const _parse = EmptyBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
 

@@ -55,6 +55,7 @@ import {
   isEncryptionEnabled,
 } from "../lib/encryption";
 import {
+  EmptyBodySchema,
   FieldLibraryCreateSchema,
   FieldLibraryUpdateSchema,
   EntityBodySchema,
@@ -66,6 +67,9 @@ import {
   SessionAnswersBodySchema,
   SendLinkBodySchema,
   BatchSendLinksBodySchema,
+  VoidSessionBodySchema,
+  SessionsQuerySchema,
+  BatchRunsQuerySchema,
 } from "./schemas";
 const requireMemberRole = requireRole("member");
 
@@ -1735,6 +1739,8 @@ async function upsertPackageDocument(params: {
  */
 router.post("/demo-session", requireMemberRole, async (req, res) => {
   try {
+    const _parse = EmptyBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const accountId = acctId(req);
     const db = getDb();
 
@@ -1782,6 +1788,8 @@ router.post("/demo-session", requireMemberRole, async (req, res) => {
  */
 router.post("/seed-demo", requireAdminRole, async (req, res) => {
   try {
+    const _parse = EmptyBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const accountId = acctId(req);
     await seedDemoPackage(getDb(), accountId);
     res.json({ ok: true });
@@ -2747,6 +2755,8 @@ router.patch("/packages/:id", async (req, res) => {
 
 router.post("/packages/:id/test-webhook", async (req, res) => {
   try {
+    const _parse = EmptyBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid package id" }); return; }
     const accountId = acctId(req);
@@ -2835,6 +2845,8 @@ router.get("/packages/:id/webhook-deliveries", requireAdminRole, async (req, res
 // ── Task #217: manual retry of a failed webhook delivery ─────────────────────
 router.post("/packages/:id/webhook-deliveries/:deliveryId/retry", requireAdminRole, async (req, res) => {
   try {
+    const _parse = EmptyBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const packageId = parseId(req.params.id);
     const deliveryId = parseId(req.params.deliveryId);
     if (!packageId || !deliveryId) {
@@ -3171,6 +3183,8 @@ router.post("/csv-batch", requireMemberRole, requirePlanFeature("csvBatch"), asy
 /** GET /batch-runs — list all batch runs for the account, grouped by batch_run_id */
 router.get("/batch-runs", requireMemberRole, async (req, res) => {
   try {
+    const _parseQ = BatchRunsQuerySchema.safeParse(req.query);
+    if (!_parseQ.success) { res.status(400).json({ error: "Invalid query parameters", issues: _parseQ.error.issues.map(i => i.message) }); return; }
     const db = getDb();
     const accountId = acctId(req);
     const limit = Math.min(Math.max(Number(req.query.limit ?? 50), 1), 200);
@@ -3341,6 +3355,8 @@ router.get("/batch-runs/:runId", requireMemberRole, async (req, res) => {
  */
 router.get("/sessions", async (req, res) => {
   try {
+    const _parseQ = SessionsQuerySchema.safeParse(req.query);
+    if (!_parseQ.success) { res.status(400).json({ error: "Invalid query parameters", issues: _parseQ.error.issues.map(i => i.message) }); return; }
     const dealId = req.query.dealId ? Number(req.query.dealId) : null;
 
     // Legacy single-session lookup by dealId (internal/frontend use)
@@ -3521,13 +3537,9 @@ router.get("/sessions/portal-list", async (req, res) => {
 /** POST /sessions/:token/void — admin-only; voids a signed session */
 router.post("/sessions/:token/void", requireAdminRole, async (req, res) => {
   try {
-    const reason      = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
-    const notifySigner = req.body?.notifySigner === true;
-
-    if (!reason) {
-      res.status(400).json({ error: "A void reason is required" });
-      return;
-    }
+    const _parse = VoidSessionBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
+    const { reason, notifySigner = false } = _parse.data;
 
     const token = String(req.params.token);
     const db = getDb();
@@ -4183,6 +4195,8 @@ router.post("/batch/send-links", requireMemberRole, requirePlanFeature("clientLi
 
 router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => {
   try {
+    const _parse = EmptyBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const db = getDb();
     const session = await getSession(String(req.params.token), db, acctId(req));
     if (!session) {

@@ -19,7 +19,7 @@ import { lockAndExecuteTrade }   from "../lib/fiztrade";
 import { generateInvoicePdf }   from "../lib/invoice-pdf";
 import { saveDealPdfToDrive }   from "../lib/google-drive";
 import { isRateLimited }        from "../lib/ratelimit";
-import { DealCreateBodySchema, TrackingBodySchema } from "./schemas";
+import { DealCreateBodySchema, TrackingBodySchema, EmptyBodySchema, PreviewInvoiceBodySchema } from "./schemas";
 
 const router: IRouter = Router();
 
@@ -532,6 +532,8 @@ router.post("/", async (req, res) => {
 // Generates and streams the WHC invoice PDF for the current form state.
 // No DB write, no DG call, no Drive upload, no email.
 router.post("/preview-invoice", async (req, res) => {
+  const _parse = PreviewInvoiceBodySchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   const {
     firstName = "Preview",
     lastName  = "Client",
@@ -557,32 +559,7 @@ router.post("/preview-invoice", async (req, res) => {
     total     = 0,
     goldSpotAsk,
     silverSpotAsk,
-  } = req.body as {
-    firstName?:          string;
-    lastName?:           string;
-    email?:              string;
-    phone?:              string;
-    state?:              string;
-    dealType?:           string;
-    shippingMethod?:     string;
-    fedexLocation?:      string;
-    fedexLocationHours?: string;
-    shipToLine1?:        string;
-    shipToCity?:         string;
-    shipToState?:        string;
-    shipToZip?:          string;
-    billingLine1?:       string;
-    billingLine2?:       string;
-    billingCity?:        string;
-    billingState?:       string;
-    billingZip?:         string;
-    products?: { productName: string; qty: number; unitPrice: number; lineTotal: number }[];
-    subtotal?:           number;
-    shipping?:           number;
-    total?:              number;
-    goldSpotAsk?:        number;
-    silverSpotAsk?:      number;
-  };
+  } = _parse.data;
 
   try {
     const now = new Date();
@@ -677,7 +654,8 @@ router.post("/preview-invoice", async (req, res) => {
 router.patch("/:id/payment", async (req, res) => {
   const dealId = parseInt(req.params.id, 10);
   if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
-
+  const _parse = EmptyBodySchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   try {
     const db = getDb();
     const { rows } = await db.query(
@@ -747,7 +725,8 @@ router.patch("/:id/payment", async (req, res) => {
 router.patch("/:id/wire-received", async (req, res) => {
   const dealId = parseInt(req.params.id, 10);
   if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
-
+  const _parse = EmptyBodySchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   try {
     const db = getDb();
     const { rows } = await db.query(
@@ -808,7 +787,8 @@ router.patch("/:id/wire-received", async (req, res) => {
 router.patch("/:id/resend-wire-email", async (req, res) => {
   const dealId = parseInt(req.params.id, 10);
   if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
-
+  const _parse = EmptyBodySchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   try {
     const db = getDb();
     const { rows } = await db.query(
@@ -852,7 +832,8 @@ router.patch("/:id/resend-wire-email", async (req, res) => {
 router.patch("/:id/order-paid", async (req, res) => {
   const dealId = parseInt(req.params.id, 10);
   if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
-
+  const _parse = EmptyBodySchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   try {
     const db = getDb();
     const { rows } = await db.query(
@@ -947,7 +928,7 @@ router.patch("/:id/tracking", async (req, res) => {
 
   const _parse = TrackingBodySchema.safeParse(req.body);
   if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-  const { trackingNumber } = req.body as { trackingNumber?: string };
+  const { trackingNumber } = _parse.data;
   if (!trackingNumber?.trim()) {
     return res.status(400).json({ error: "trackingNumber is required" });
   }
@@ -995,7 +976,8 @@ router.patch("/:id/tracking", async (req, res) => {
 router.patch("/:id/delivered", async (req, res) => {
   const dealId = parseInt(req.params.id, 10);
   if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
-
+  const _parse = EmptyBodySchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   try {
     const db = getDb();
     // Set delivered_at and immediately schedule both follow-up emails at +7d and +30d.
