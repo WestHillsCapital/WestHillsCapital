@@ -90,17 +90,14 @@ async function requireAccountNotPurged(req: Request, res: Response, next: NextFu
   try {
     const db = getDb();
     const accountId = acctId(req);
-    const { rows } = await db.query<{ data_purged_at: Date | null; subscription_status: string | null }>(
-      `SELECT data_purged_at, subscription_status FROM accounts WHERE id = $1`,
+    const { rows } = await db.query<{ data_purged_at: Date | null }>(
+      `SELECT data_purged_at FROM accounts WHERE id = $1`,
       [accountId],
     );
-    const row = rows[0];
-    const isPurged = row?.data_purged_at != null;
-    const isActive = row?.subscription_status === "active" || row?.subscription_status === "trialing";
-    if (isPurged && !isActive) {
+    if (rows[0]?.data_purged_at != null) {
       res.status(410).json({
         error: "account_data_purged",
-        message: "This account's data was removed after the trial period ended. Please subscribe to restore access.",
+        message: "This account's data was removed after the trial period ended. Please contact support to restore access.",
       });
       return;
     }

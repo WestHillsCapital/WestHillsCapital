@@ -1594,9 +1594,20 @@ export async function initDb(): Promise<void> {
           // Packages cascade to: package_documents, webhook_deliveries, package_groups
           await client.query(`DELETE FROM docufill_packages          WHERE account_id = $1`, [account.id]);
           await client.query(`DELETE FROM docufill_groups            WHERE account_id = $1`, [account.id]);
-          // Revoke access — API keys and account_users (users cascade to sessions/devices)
+          // Revoke access — API keys and account_users (users cascade to sessions/devices/history)
           await client.query(`DELETE FROM account_api_keys           WHERE account_id = $1`, [account.id]);
           await client.query(`DELETE FROM account_users              WHERE account_id = $1`, [account.id]);
+          // Remaining account-scoped tables that have ON DELETE CASCADE on accounts
+          // but won't auto-cascade since the account row is preserved
+          await client.query(`DELETE FROM usage_events               WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM submission_bank            WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM pack_subscriptions         WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM pdf_audit_events           WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM data_export_requests       WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM user_notification_prefs    WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM user_in_app_notifications  WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM plan_limit_alerts          WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM org_audit_log              WHERE account_id = $1`, [account.id]);
           await client.query(
             `UPDATE accounts SET data_purged_at = NOW() WHERE id = $1`,
             [account.id],
