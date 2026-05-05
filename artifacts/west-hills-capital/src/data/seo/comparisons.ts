@@ -539,7 +539,7 @@ export const COMPARISONS: AssetComparison[] = [
       {
         heading: "Assets held",
         content:
-          "A Traditional IRA at Fidelity, Schwab, or Vanguard holds publicly traded securities: stocks, bonds, ETFs, and mutual funds. A self-directed Precious Metals IRA holds IRS-approved physical gold, silver, platinum, and palladium — coins and bars that meet statutory purity requirements. The IRS does not allow collectibles or proof coins, and the metal must be stored at an IRS-approved depository, not at home.",
+          "A Traditional IRA at Fidelity, Schwab, or Vanguard holds publicly traded securities: stocks, bonds, ETFs, and mutual funds. A self-directed Precious Metals IRA holds IRS-approved physical gold, silver, platinum, and palladium — coins and bars that meet statutory purity requirements. Eligible gold coins include the American Gold Eagle (including proof versions), the Gold Buffalo, and foreign bullion coins meeting .995 fineness or better. The IRS prohibits numismatic and purely collectible coins — value must derive from metal content, not rarity or condition. All metals must be stored at an IRS-approved depository; home storage is not permitted under any circumstances.",
       },
       {
         heading: "Fees: a real difference",
