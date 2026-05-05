@@ -1,5 +1,5 @@
 {
-  "id": "011ecb2a-94ad-43dd-816e-c342c7806b52",
+  "id": "04613b99-7002-425b-b8bb-157481a4b922",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -738,7 +738,7 @@
         },
         "period_start": {
           "name": "period_start",
-          "type": "text",
+          "type": "date",
           "primaryKey": false,
           "notNull": true,
           "default": "DATE_TRUNC('month', NOW())"

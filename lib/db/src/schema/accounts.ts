@@ -1,5 +1,5 @@
 import {
-  pgTable, serial, text, integer, boolean, timestamp, jsonb,
+  pgTable, serial, text, integer, boolean, timestamp, jsonb, date,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -88,7 +88,7 @@ export const usageEvents = pgTable("usage_events", {
   id: serial("id").primaryKey(),
   accountId: integer("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
   eventType: text("event_type").notNull(),
-  periodStart: text("period_start").notNull().default(sql`DATE_TRUNC('month', NOW())`),
+  periodStart: date("period_start").notNull().default(sql`DATE_TRUNC('month', NOW())`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

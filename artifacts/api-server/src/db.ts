@@ -102,7 +102,8 @@ export async function runDrizzleMigrations(): Promise<void> {
           "[Migrations] Baselined Drizzle migrations on existing database",
         );
       }
-      return;
+      // Fall through — migrate() will now see the baseline rows and skip any
+      // already-applied migrations; only genuinely new ones will run.
     }
 
     const ormDb = drizzle(db);

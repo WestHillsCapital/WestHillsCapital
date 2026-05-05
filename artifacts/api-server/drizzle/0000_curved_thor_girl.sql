@@ -112,7 +112,7 @@ CREATE TABLE "usage_events" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"account_id" integer NOT NULL,
 	"event_type" text NOT NULL,
-	"period_start" text DEFAULT DATE_TRUNC('month', NOW()) NOT NULL,
+	"period_start" date DEFAULT DATE_TRUNC('month', NOW()) NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
