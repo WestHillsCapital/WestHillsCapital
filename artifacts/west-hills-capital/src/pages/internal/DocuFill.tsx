@@ -5213,7 +5213,7 @@ export default function DocuFill() {
                     <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-[11px] font-medium border border-[#DDD5C4] rounded-md px-2.5 h-[26px] leading-none transition-all shrink-0 ${showAcroLayer ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
                       PDF Fields
                     </button>
-                    {selectedDocument && mappingStartedDocIds.has(selectedDocument.id) && (
+                    {selectedDocument && (mappingStartedDocIds.has(selectedDocument.id) || (selectedPackage?.fields.length ?? 0) > 0) && (
                       <button
                         type="button"
                         title={`Auto-create mappings from ${acroAnnotations.length} detected PDF form field${acroAnnotations.length === 1 ? "" : "s"} on this page`}
