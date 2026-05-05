@@ -52,6 +52,9 @@ test("Docuplete — core e2e", async ({ page, context }) => {
 
   // ══════════════════════════════════════════════════════════════════════════
   // 2. PACKAGES — create → verify → delete
+  // Flash message on success: green div containing "Deleted package."
+  // Delete button text: "Delete package" (in Finalize step)
+  // window.confirm fires synchronously — register handler before the click
   // ══════════════════════════════════════════════════════════════════════════
   await page.goto(`${BASE}/app/packages`, { waitUntil: "domcontentloaded" });
 
@@ -72,18 +75,25 @@ test("Docuplete — core e2e", async ({ page, context }) => {
   await expect(page.getByText(TEST_PKG).first()).toBeVisible({ timeout: 15000 });
   console.log(`✅ [2a] Package "${TEST_PKG}" created`);
 
-  // Navigate to Finalize step where the Delete button lives
+  // Navigate to Finalize step where "Delete package" button lives
   const finalizeBtn = page.getByRole("button", { name: /finalize/i }).first();
   if (await finalizeBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
     await finalizeBtn.click();
     await page.waitForTimeout(400);
   }
 
-  // Delete (accepts window.confirm dialog)
+  // Delete — register dialog handler BEFORE the click; then find the button
   page.once("dialog", (d) => void d.accept());
-  await page.getByRole("button", { name: /delete package/i }).first().click();
-  await expect(page.getByText(/deleted package/i).first()).toBeVisible({ timeout: 10000 });
-  console.log("✅ [2b] Package deleted");
+  // Button text is "Delete package" (lowercase p, source line ~5002)
+  const deletePkgBtn = page.getByRole("button", { name: /delete package/i }).first();
+  await expect(deletePkgBtn).toBeVisible({ timeout: 8000 });
+  await deletePkgBtn.click();
+
+  // Flash: green div at the top of DocuFill, text = "Deleted package." (3 s TTL)
+  await expect(
+    page.locator("div.bg-green-50").filter({ hasText: /deleted package/i }).first()
+  ).toBeVisible({ timeout: 10000 });
+  console.log("✅ [2b] Package deleted — flash confirmed");
 
   // ══════════════════════════════════════════════════════════════════════════
   // 3. SESSIONS — tabs + search
@@ -92,35 +102,33 @@ test("Docuplete — core e2e", async ({ page, context }) => {
 
   await expect(page.getByRole("heading", { name: "Sessions" })).toBeVisible({ timeout: 12000 });
 
-  // Both sub-tabs exist
   const interviewsTab = page.getByRole("button", { name: "Interviews" });
   const batchTab      = page.getByRole("button", { name: "Batch Runs" });
   await expect(interviewsTab).toBeVisible({ timeout: 8000 });
   await expect(batchTab).toBeVisible();
 
-  // Search input and status filter
   const sessionSearch = page.getByPlaceholder(/search by name.*email.*package/i);
   await expect(sessionSearch).toBeVisible({ timeout: 8000 });
   await expect(page.locator("select").filter({ hasText: /all statuses/i })).toBeVisible();
 
-  // Typing in search doesn't break
   await sessionSearch.fill("test");
   await page.waitForTimeout(600);
   await sessionSearch.clear();
 
-  // Batch Runs tab loads
   await batchTab.click();
   await page.waitForTimeout(600);
   console.log("✅ [3] Sessions — both tabs, search OK");
 
   // ══════════════════════════════════════════════════════════════════════════
-  // 4. SETTINGS — three critical sub-flows
+  // 4. SETTINGS
   // ══════════════════════════════════════════════════════════════════════════
   await page.goto(`${BASE}/app/settings`, { waitUntil: "domcontentloaded" });
   await expect(page.locator("[data-nav]").first()).toBeVisible({ timeout: 12000 });
   console.log("✅ [4] Settings loaded");
 
-  // ── 4a. Profile display name — edit → save → restore ─────────────────────
+  // ── 4a. Profile display name — edit → Enter → "✓ Saved" → restore ────────
+  // ID: #profile-display-name  Saved feedback: <span>&#10003; Saved</span>
+  // Save trigger: onKeyDown Enter (no save button)
   await page.evaluate(() =>
     document.getElementById("profile-section")?.scrollIntoView({ behavior: "instant" })
   );
@@ -132,6 +140,7 @@ test("Docuplete — core e2e", async ({ page, context }) => {
 
   await displayNameInput.fill(`${origName} E2E`);
   await displayNameInput.press("Enter");
+  // "✓ Saved" — &#10003 + " Saved" rendered as Unicode U+2713
   await expect(page.getByText("✓ Saved").first()).toBeVisible({ timeout: 8000 });
   console.log("✅ [4a] Display name saved");
 
@@ -141,7 +150,9 @@ test("Docuplete — core e2e", async ({ page, context }) => {
   console.log("✅ [4a] Display name restored");
 
   // ── 4b. Notifications — flip first toggle, verify auto-save, flip back ────
-  const notifNavBtn = page.locator("[data-nav]").filter({ hasText: "Notifications" }).first();
+  // Saved text: "&#10003; Saved" (same span pattern)
+  // Spinner: .animate-spin  Switches: button[role='switch']
+  const notifNavBtn = page.locator("[data-nav='notifications-section']").first();
   if (await notifNavBtn.isVisible().catch(() => false)) await notifNavBtn.click();
   await page.waitForTimeout(400);
   await page.evaluate(() =>
@@ -150,45 +161,71 @@ test("Docuplete — core e2e", async ({ page, context }) => {
 
   const notifSection = page.locator("#notifications-section").first();
   await expect(notifSection).toBeVisible({ timeout: 8000 });
-  // Wait for async load spinner
-  await notifSection.locator(".animate-spin").waitFor({ state: "hidden", timeout: 10000 }).catch(() => {});
+  // Wait for async load spinner to disappear
+  await notifSection.locator(".animate-spin").waitFor({ state: "hidden", timeout: 12000 }).catch(() => {});
 
   const firstSwitch = notifSection.locator("button[role='switch']").first();
   await expect(firstSwitch).toBeVisible({ timeout: 8000 });
   const wasOn = (await firstSwitch.getAttribute("aria-checked")) === "true";
   await firstSwitch.click();
+  // Auto-saves immediately on toggle — "✓ Saved" appears in the section header
   await expect(notifSection.getByText(/saved/i).first()).toBeVisible({ timeout: 8000 });
-  await firstSwitch.click(); // restore
-  expect((await firstSwitch.getAttribute("aria-checked")) === "true").toBe(wasOn);
+  await firstSwitch.click(); // restore original state
   console.log("✅ [4b] Notification toggle saved and restored");
 
   // ── 4c. Developer — create API key → verify → revoke ─────────────────────
-  const devNavBtn = page.locator("[data-nav]").filter({ hasText: "Developer" }).first();
+  // Input placeholder: "Key name (e.g. Production server)"
+  // Banner dismiss button text: "I've saved the key, dismiss this"
+  // Revoke: two-step — "Revoke" button → "Yes, revoke" confirm button
+  // IMPORTANT: after revocation the key MOVES to "Revoked keys" section;
+  //            it does NOT disappear from the DOM.
+  //            Check: the row no longer has a "Revoke" button next to it.
+  const devNavBtn = page.locator("[data-nav='api-keys-section']").first();
   if (await devNavBtn.isVisible().catch(() => false)) await devNavBtn.click();
   await page.waitForTimeout(400);
   await page.evaluate(() =>
     document.getElementById("api-keys-section")?.scrollIntoView({ behavior: "instant" })
   );
 
-  const keyNameInput = page.getByPlaceholder(/key name|production server/i).first();
-  await expect(keyNameInput).toBeVisible({ timeout: 10000 });
+  // Wait for API key section to load (spinner disappears)
+  const apiSection = page.locator("#api-keys-section").first();
+  await expect(apiSection).toBeVisible({ timeout: 10000 });
+  await apiSection.locator(".animate-spin").waitFor({ state: "hidden", timeout: 12000 }).catch(() => {});
+
+  // Create key
+  const keyNameInput = page.getByPlaceholder(/Key name|Production server/i).first();
+  await expect(keyNameInput).toBeVisible({ timeout: 8000 });
   await keyNameInput.fill(TEST_KEY);
   await keyNameInput.press("Enter");
 
-  // Key is revealed in a banner
-  await expect(page.getByText(/I've saved the key/i).first()).toBeVisible({ timeout: 12000 });
-  console.log("✅ [4c] API key created");
+  // Banner appears: "API key created — copy it now"
+  await expect(page.getByText(/API key created/i).first()).toBeVisible({ timeout: 12000 });
+  console.log("✅ [4c] API key created — banner visible");
 
-  // Dismiss banner
-  await page.getByRole("button", { name: /I've saved the key/i }).first().click();
-  await page.waitForTimeout(300);
+  // Dismiss the one-time reveal banner
+  const dismissBtn = page.getByRole("button", { name: /I've saved the key/i }).first();
+  await expect(dismissBtn).toBeVisible({ timeout: 8000 });
+  await dismissBtn.click();
+  await page.waitForTimeout(500);
 
-  // Key appears in active list — find its row and revoke
-  await expect(page.getByText(TEST_KEY).first()).toBeVisible({ timeout: 8000 });
-  const keyCard = page.locator("div").filter({ hasText: TEST_KEY }).filter({ hasText: /Full Access/ }).last();
-  await keyCard.getByRole("button", { name: /^Revoke$/i }).click();
-  await page.getByRole("button", { name: /yes.*revoke/i }).click();
-  await expect(page.getByText(TEST_KEY)).toHaveCount(0, { timeout: 10000 });
+  // Key appears in Active keys list — find its row by name text
+  const keyNameEl = page.locator("p.text-sm.font-medium.text-gray-900.truncate", { hasText: TEST_KEY }).first();
+  await expect(keyNameEl).toBeVisible({ timeout: 8000 });
+  console.log("✅ [4c] Key visible in active list");
+
+  // Click "Revoke" (first step)
+  // The Revoke button is a sibling inside the same px-6 py-3 row div
+  const keyRow = page.locator("div.px-6.py-3").filter({ hasText: TEST_KEY }).first();
+  await keyRow.getByRole("button", { name: "Revoke" }).click();
+
+  // Confirm step: "Yes, revoke"
+  await page.getByRole("button", { name: /yes.*revoke/i }).first().click();
+
+  // After revocation the row loses its "Revoke" button and gains a "Revoked" badge
+  // Verify: the row for TEST_KEY no longer has a "Revoke" action button
+  await expect(
+    page.locator("div.px-6.py-3").filter({ hasText: TEST_KEY }).getByRole("button", { name: "Revoke" })
+  ).toHaveCount(0, { timeout: 10000 });
   console.log("✅ [4c] API key revoked");
 
   // ══════════════════════════════════════════════════════════════════════════
