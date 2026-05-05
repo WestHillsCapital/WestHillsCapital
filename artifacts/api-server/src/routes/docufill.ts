@@ -71,6 +71,9 @@ import {
   VoidSessionBodySchema,
   SessionsQuerySchema,
   BatchRunsQuerySchema,
+  OtpRequestBodySchema,
+  OtpVerifyBodySchema,
+  GenerateSessionBodySchema,
 } from "./schemas";
 const requireMemberRole = requireRole("member");
 
@@ -4572,6 +4575,8 @@ publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
 // ── E-sign v1: request OTP ────────────────────────────────────────────────────
 publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
   try {
+    const _parse = OtpRequestBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const db = getDb();
     const session = await getSession(req.params.token, db);
     if (!session) {
@@ -4586,7 +4591,7 @@ publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
       res.status(400).json({ error: "This session has already been signed" });
       return;
     }
-    const email = String(req.body?.email ?? "").toLowerCase().trim();
+    const email = _parse.data.email.toLowerCase().trim();
     if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       res.status(400).json({ error: "A valid email address is required" });
       return;
@@ -4644,6 +4649,8 @@ publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
 // ── E-sign v1: verify OTP ─────────────────────────────────────────────────────
 publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
   try {
+    const _parse = OtpVerifyBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const db = getDb();
     const session = await getSession(req.params.token, db);
     if (!session) {
@@ -4654,12 +4661,8 @@ publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
       res.status(400).json({ error: "This session does not require email verification" });
       return;
     }
-    const email = String(req.body?.email ?? "").toLowerCase().trim();
-    const code  = String(req.body?.code  ?? "").trim();
-    if (!email || !code) {
-      res.status(400).json({ error: "email and code are required" });
-      return;
-    }
+    const email = _parse.data.email.toLowerCase().trim();
+    const code  = _parse.data.code.trim();
     const inputHash = hashOtp(code);
     // Fetch the most recent unused, non-expired OTP for this session+email
     const { rows: otpRows } = await db.query(
@@ -4778,6 +4781,8 @@ publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
  */
 publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
   try {
+    const _parse = GenerateSessionBodySchema.safeParse(req.body ?? {});
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const db = getDb();
     const session = await getSession(req.params.token, db);
     if (!session) {
@@ -4788,13 +4793,13 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
     let esignEmail: string | null = null;
     let esignSignerName: string | null = null;
     if (session.auth_level === "email_otp") {
-      const rawToken = String(req.headers["x-esign-token"] ?? req.body?.esignToken ?? "");
+      const rawToken = String(req.headers["x-esign-token"] ?? _parse.data.esignToken ?? "");
       const identity = rawToken ? verifyEsignIdentityToken(rawToken, req.params.token) : null;
       if (!identity) {
         res.status(401).json({ error: "Email identity verification required. Please verify your email before submitting." });
         return;
       }
-      const signerName = String(req.body?.signerName ?? "").trim();
+      const signerName = (_parse.data.signerName ?? "").trim();
       if (!signerName) {
         res.status(400).json({ error: "signerName is required for electronic signature" });
         return;
@@ -4810,7 +4815,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
     }
     // Accept optional drawn signature image (base64 PNG data URL, ≤200 KB)
     let esignSignatureImage: string | null = null;
-    const rawSigImage = req.body?.signatureImage;
+    const rawSigImage = _parse.data.signatureImage;
     if (typeof rawSigImage === "string" && rawSigImage.startsWith("data:image/png;base64,")) {
       const base64Part = rawSigImage.slice("data:image/png;base64,".length);
       const byteLength = Math.ceil(base64Part.length * 0.75);
@@ -4820,7 +4825,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
     }
     // Accept optional drawn initials image (base64 PNG data URL, ≤100 KB)
     let esignInitialsImage: string | null = null;
-    const rawInitialsImage = req.body?.initialsImage;
+    const rawInitialsImage = _parse.data.initialsImage;
     if (typeof rawInitialsImage === "string" && rawInitialsImage.startsWith("data:image/png;base64,")) {
       const base64Part = rawInitialsImage.slice("data:image/png;base64,".length);
       const byteLength = Math.ceil(base64Part.length * 0.75);
@@ -5102,6 +5107,8 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
  */
 publicDocufillRouter.post("/embed/:embedKey/session", async (req, res) => {
   try {
+    const _parse = EmptyBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const { embedKey } = req.params;
     if (!embedKey || !embedKey.startsWith("emb_")) {
       res.status(400).json({ error: "Invalid embed key" });

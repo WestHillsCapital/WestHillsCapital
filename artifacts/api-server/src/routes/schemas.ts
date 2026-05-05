@@ -342,3 +342,34 @@ export const ApiKeyBodySchema = z.object({
   name: z.string().max(100),
 });
 export type ApiKeyBody = z.infer<typeof ApiKeyBodySchema>;
+
+// ── E-sign / public session schemas ───────────────────────────────────────────
+
+export const OtpRequestBodySchema = z.object({
+  email: z.string().email("A valid email address is required"),
+});
+export type OtpRequestBody = z.infer<typeof OtpRequestBodySchema>;
+
+export const OtpVerifyBodySchema = z.object({
+  email: z.string().email("A valid email address is required"),
+  code: z.string().min(1, "Verification code is required"),
+});
+export type OtpVerifyBody = z.infer<typeof OtpVerifyBodySchema>;
+
+export const GenerateSessionBodySchema = z.object({
+  esignToken:      z.string().optional(),
+  signerName:      z.string().optional(),
+  signatureImage:  z.string().optional(),
+  initialsImage:   z.string().optional(),
+}).passthrough();
+export type GenerateSessionBody = z.infer<typeof GenerateSessionBodySchema>;
+
+// ── Image upload header schema ─────────────────────────────────────────────────
+
+export const ImageUploadHeaderSchema = z.object({
+  "content-type": z.string().regex(
+    /^(image\/png|image\/jpeg|image\/webp)/i,
+    "content-type must be image/png, image/jpeg, or image/webp",
+  ),
+}).passthrough();
+export type ImageUploadHeader = z.infer<typeof ImageUploadHeaderSchema>;

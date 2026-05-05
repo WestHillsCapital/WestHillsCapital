@@ -52,6 +52,7 @@ import {
   TwoFACodeBodySchema,
   CustomDomainBodySchema,
   AdminAccountsQuerySchema,
+  ImageUploadHeaderSchema,
 } from "./schemas";
 
 // In-process LRU cache for geoip results (max 1000 entries).
@@ -558,6 +559,8 @@ router.post(
   express.raw({ type: ALLOWED_IMAGE_TYPES as unknown as string[], limit: "5mb" }),
   async (req, res) => {
     try {
+      const _parseH = ImageUploadHeaderSchema.safeParse(req.headers);
+      if (!_parseH.success) { res.status(400).json({ error: "Invalid request headers", issues: _parseH.error.issues.map(i => i.message) }); return; }
       const accountId = req.internalAccountId ?? 1;
       const contentType = (req.headers["content-type"] ?? "").split(";")[0].trim() as ImageContentType;
       if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(contentType)) {
@@ -631,6 +634,8 @@ router.post(
   express.raw({ type: ALLOWED_IMAGE_TYPES as unknown as string[], limit: "5mb" }),
   async (req, res) => {
     try {
+      const _parseH = ImageUploadHeaderSchema.safeParse(req.headers);
+      if (!_parseH.success) { res.status(400).json({ error: "Invalid request headers", issues: _parseH.error.issues.map(i => i.message) }); return; }
       const accountId = req.internalAccountId ?? 1;
       const contentType = (req.headers["content-type"] ?? "").split(";")[0].trim() as ImageContentType;
       if (!(ALLOWED_IMAGE_TYPES as readonly string[]).includes(contentType)) {
@@ -3871,6 +3876,8 @@ router.post(
   express.raw({ type: ALLOWED_IMAGE_TYPES as unknown as string[], limit: "5mb" }),
   async (req, res) => {
     try {
+      const _parseH = ImageUploadHeaderSchema.safeParse(req.headers);
+      if (!_parseH.success) { res.status(400).json({ error: "Invalid request headers", issues: _parseH.error.issues.map(i => i.message) }); return; }
       const accountId = req.internalAccountId ?? 1;
       const clerkUserId = getAuth(req)?.userId ?? null;
       const contentType = (req.headers["content-type"] ?? "").split(";")[0].trim() as ImageContentType;
