@@ -55,11 +55,8 @@ test("West Hills Capital — public pages", async ({ page, context, request }) =
   await page.goto(`${BASE}/learn/gold-ira-vs-traditional-ira`, {
     waitUntil: "domcontentloaded", timeout: 30_000,
   });
-  // Article should have a meaningful heading and no crash
-  await expect(
-    page.getByRole("heading", { level: 1 }).first()
-      .or(page.getByRole("heading", { level: 2 }).first())
-  ).toBeVisible({ timeout: 10_000 });
+  // Article should have a meaningful H1 heading and no crash
+  await expect(page.getByRole("heading", { level: 1 }).first()).toBeVisible({ timeout: 10_000 });
   const articleBody = await page.locator("body").innerText({ timeout: 8_000 });
   expect(articleBody).not.toMatch(/application error|something went wrong|404|not found/i);
   // Verify the corrected IRS eligibility fact is present
