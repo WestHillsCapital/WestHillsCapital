@@ -54,6 +54,19 @@ import {
   decryptAnswers,
   isEncryptionEnabled,
 } from "../lib/encryption";
+import {
+  FieldLibraryCreateSchema,
+  FieldLibraryUpdateSchema,
+  EntityBodySchema,
+  EntityNameRequiredSchema,
+  TransactionTypeBodySchema,
+  PackageBodySchema,
+  CsvBatchBodySchema,
+  SessionCreateBodySchema,
+  SessionAnswersBodySchema,
+  SendLinkBodySchema,
+  BatchSendLinksBodySchema,
+} from "./schemas";
 const requireMemberRole = requireRole("member");
 
 const router: IRouter = Router();
@@ -1836,6 +1849,8 @@ router.get("/field-library", async (req, res) => {
 });
 
 router.post("/field-library", requireAdminRole, async (req, res) => {
+  const _parse = FieldLibraryCreateSchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   const body = req.body as FieldLibraryInput;
   const label = cleanText(body.label);
   try {
@@ -1951,6 +1966,8 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
 router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
   try {
     const id = cleanText(req.params.id);
+    const _parse = FieldLibraryUpdateSchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as FieldLibraryInput;
     const label = cleanText(body.label);
     if (!id || !label) {
@@ -2033,6 +2050,8 @@ router.delete("/field-library/:id", requireAdminRole, async (req, res) => {
 
 router.post("/groups", requireAdminRole, async (req, res) => {
   try {
+    const _parse = EntityBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as EntityInput;
     const count = (await getDb().query("SELECT COUNT(*) FROM docufill_groups WHERE account_id=$1", [acctId(req)])).rows[0]?.count ?? 0;
     const name = cleanText(body.name) || `New Group ${Number(count) + 1}`;
@@ -2057,6 +2076,8 @@ router.patch("/groups/:id", requireAdminRole, async (req, res) => {
       res.status(400).json({ error: "Invalid group id" });
       return;
     }
+    const _parse = EntityNameRequiredSchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as EntityInput;
     const name = cleanText(body.name);
     if (!name) {
@@ -2100,6 +2121,8 @@ router.delete("/groups/:id", requireAdminRole, async (req, res) => {
 router.post("/transaction-types", requireAdminRole, async (req, res) => {
   try {
     const accountId = acctId(req);
+    const _parse = TransactionTypeBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as TransactionTypeInput;
     const label = cleanText(body.label);
     if (!label) {
@@ -2126,6 +2149,8 @@ router.patch("/transaction-types/:scope", requireAdminRole, async (req, res) => 
   try {
     const accountId = acctId(req);
     const scope = cleanText(req.params.scope);
+    const _parse = TransactionTypeBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as TransactionTypeInput;
     const label = cleanText(body.label);
     if (!scope || !label) {
@@ -2177,6 +2202,8 @@ router.delete("/transaction-types/:scope", requireAdminRole, async (req, res) =>
 
 router.post("/custodians", requireAdminRole, async (req, res) => {
   try {
+    const _parse = EntityNameRequiredSchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as EntityInput;
     const name = cleanText(body.name);
     if (!name) {
@@ -2205,6 +2232,8 @@ router.patch("/custodians/:id", requireAdminRole, async (req, res) => {
       res.status(400).json({ error: "Invalid custodian id" });
       return;
     }
+    const _parse = EntityNameRequiredSchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as EntityInput;
     const name = cleanText(body.name);
     if (!name) {
@@ -2234,6 +2263,8 @@ router.patch("/custodians/:id", requireAdminRole, async (req, res) => {
 
 router.post("/depositories", requireAdminRole, async (req, res) => {
   try {
+    const _parse = EntityNameRequiredSchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as EntityInput;
     const name = cleanText(body.name);
     if (!name) {
@@ -2262,6 +2293,8 @@ router.patch("/depositories/:id", requireAdminRole, async (req, res) => {
       res.status(400).json({ error: "Invalid depository id" });
       return;
     }
+    const _parse = EntityNameRequiredSchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as EntityInput;
     const name = cleanText(body.name);
     if (!name) {
@@ -2423,6 +2456,8 @@ router.get("/packages/:id", requireMemberRole, async (req, res) => {
 
 router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), async (req, res) => {
   try {
+    const _parse = PackageBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as PackageInput;
     const name = cleanText(body.name);
     if (!name) {
@@ -2525,6 +2560,8 @@ router.patch("/packages/:id", async (req, res) => {
       res.status(400).json({ error: "Invalid package id" });
       return;
     }
+    const _parse = PackageBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as PackageInput;
     const accountId = acctId(req);
     const existing = await getPackage(id, db, false, accountId);
@@ -3049,6 +3086,8 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
 
 router.post("/csv-batch", requireMemberRole, requirePlanFeature("csvBatch"), async (req, res) => {
   try {
+    const _parse = CsvBatchBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as { packageId?: unknown; rows?: unknown };
     const packageId = parseId(body.packageId);
     if (!packageId) {
@@ -3724,6 +3763,8 @@ router.post("/sessions/:token/void", requireAdminRole, async (req, res) => {
  */
 router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"), async (req, res) => {
   try {
+    const _parse = SessionCreateBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as SessionInput;
     const packageId = parseId(body.packageId);
     if (!packageId) {
@@ -3944,6 +3985,8 @@ router.get("/sessions/:token", async (req, res) => {
 
 router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
   try {
+    const _parse = SessionAnswersBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as AnswersInput;
     const db = getDb();
     const accountId = acctId(req);
@@ -3990,6 +4033,8 @@ router.post("/sessions/:token/send-link", requireMemberRole, requirePlanFeature(
       return;
     }
 
+    const _parse = SendLinkBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as { recipientEmail?: string; recipientName?: string; customMessage?: string };
     const recipientEmail = typeof body.recipientEmail === "string" ? body.recipientEmail.trim() : "";
     const recipientName  = typeof body.recipientName  === "string" ? body.recipientName.trim()  : "";
@@ -4050,6 +4095,8 @@ router.post("/sessions/:token/send-link", requireMemberRole, requirePlanFeature(
 
 router.post("/batch/send-links", requireMemberRole, requirePlanFeature("clientLinks"), async (req, res) => {
   try {
+    const _parse = BatchSendLinksBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as {
       invitations?: Array<{ token: string; recipientEmail: string; recipientName?: string }>;
       customMessage?: string;

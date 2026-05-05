@@ -15,6 +15,7 @@ import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificati
 import { sendOrgAlertEmails } from "../lib/email";
 import { verifySync as totpVerifySync } from "otplib";
 import { isRateLimited, isCurrentlyBlocked } from "../lib/ratelimit";
+import { OnboardBodySchema, Verify2FABodySchema, ApiKeyBodySchema } from "./schemas";
 
 const TOTP_FAIL_MAX = 10;
 const TOTP_FAIL_WINDOW_MS = 60 * 1000;
@@ -69,6 +70,8 @@ router.post("/onboard", async (req, res) => {
     return void res.status(401).json({ error: "Authentication required." });
   }
 
+  const _parse = OnboardBodySchema.safeParse(req.body);
+  if (!_parse.success) { return void res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); }
   const email: string | undefined = (req.body as { email?: string }).email?.trim().toLowerCase();
   const companyName: string | undefined = (req.body as { companyName?: string }).companyName?.trim();
   const industry: string | undefined = (req.body as { industry?: string }).industry?.trim() || undefined;
@@ -285,6 +288,8 @@ router.post("/verify-2fa", async (req, res) => {
     return void res.status(429).json({ error: "Too many failed attempts. Please wait before trying again." });
   }
 
+  const _parse = Verify2FABodySchema.safeParse(req.body);
+  if (!_parse.success) { return void res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); }
   const body = req.body as { code?: string; trustDevice?: boolean };
   const code = (body.code ?? "").trim();
   const trustDevice = body.trustDevice === true;
@@ -497,6 +502,8 @@ router.post("/verify-2fa", async (req, res) => {
  */
 router.post("/api-keys", requireProductAuth, requireAdminRole, requirePlanFeature("apiAccess"), async (req, res) => {
   const accountId = req.internalAccountId!;
+  const _parse = ApiKeyBodySchema.safeParse(req.body);
+  if (!_parse.success) { return void res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); }
   const name = ((req.body as { name?: string }).name ?? "").trim();
 
   if (!name) {
@@ -744,6 +751,8 @@ router.patch("/api-keys/:id", requireProductAuth, requireAdminRole, async (req, 
     return void res.status(400).json({ error: "Invalid key id." });
   }
 
+  const _parse = ApiKeyBodySchema.safeParse(req.body);
+  if (!_parse.success) { return void res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); }
   const name = ((req.body as { name?: string }).name ?? "").trim();
   if (!name) {
     return void res.status(400).json({ error: "name is required." });

@@ -19,6 +19,7 @@ import { lockAndExecuteTrade }   from "../lib/fiztrade";
 import { generateInvoicePdf }   from "../lib/invoice-pdf";
 import { saveDealPdfToDrive }   from "../lib/google-drive";
 import { isRateLimited }        from "../lib/ratelimit";
+import { DealCreateBodySchema, TrackingBodySchema } from "./schemas";
 
 const router: IRouter = Router();
 
@@ -69,6 +70,8 @@ router.post("/", async (req, res) => {
     res.status(429).json({ error: "Too many deal submissions — please wait a few minutes." });
     return;
   }
+  const _parse = DealCreateBodySchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   const {
     leadId,
     confirmationId,
@@ -942,6 +945,8 @@ router.patch("/:id/tracking", async (req, res) => {
   const dealId = parseInt(req.params.id, 10);
   if (isNaN(dealId)) return res.status(400).json({ error: "Invalid deal ID" });
 
+  const _parse = TrackingBodySchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   const { trackingNumber } = req.body as { trackingNumber?: string };
   if (!trackingNumber?.trim()) {
     return res.status(400).json({ error: "trackingNumber is required" });

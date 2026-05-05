@@ -26,6 +26,31 @@ import { generateSecret as totpGenerateSecret, generateURI as totpGenerateURI, v
 import QRCode from "qrcode";
 import { createHash } from "crypto";
 import geoip from "../lib/geoip";
+import {
+  OrgBodySchema,
+  ExtractBrandColorsBodySchema,
+  TeamInviteBodySchema,
+  TeamRoleBodySchema,
+  BillingCheckoutBodySchema,
+  BillingPackCheckoutBodySchema,
+  OnboardingBodySchema,
+  OAuthConnectBodySchema,
+  OAuthExchangeBodySchema,
+  OAuthExchangeWithRedirectBodySchema,
+  GDriveFolderBodySchema,
+  AdminAccountBodySchema,
+  AdminNoteBodySchema,
+  IpAllowlistBodySchema,
+  NotificationsBodySchema,
+  EmailSettingsBodySchema,
+  InterviewDefaultsBodySchema,
+  LocaleBodySchema,
+  DataPrivacyBodySchema,
+  DeletionRequestBodySchema,
+  ProfileBodySchema,
+  TwoFACodeBodySchema,
+  CustomDomainBodySchema,
+} from "./schemas";
 
 // In-process LRU cache for geoip results (max 1000 entries).
 // ES Maps preserve insertion order; true LRU is achieved by deleting and
@@ -319,6 +344,8 @@ router.get("/org", async (req, res) => {
 router.patch("/org", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = OrgBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
     const db = getDb();
 
@@ -783,6 +810,8 @@ router.post(
  */
 router.post("/extract-brand-colors", brandColorRateLimit, async (req, res) => {
   try {
+    const _parse = ExtractBrandColorsBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
     const url = typeof body.url === "string" ? body.url.trim() : "";
     if (!url) {
@@ -869,6 +898,8 @@ router.get("/team", async (req, res) => {
 router.post("/team/invite", requireAdminRole, requireWithinPlanLimits("seat"), async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = TeamInviteBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
     const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
     const role  = typeof body.role  === "string" ? body.role.trim().toLowerCase() : "member";
@@ -958,6 +989,8 @@ router.patch("/team/:id/role", requireAdminRole, async (req, res) => {
     const memberId  = parseInt(String(req.params.id ?? ""), 10);
     if (isNaN(memberId)) return void res.status(400).json({ error: "Invalid member id." });
 
+    const _parse = TeamRoleBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
     const newRole = typeof body.role === "string" ? body.role.trim().toLowerCase() : "";
     if (!VALID_ROLES.has(newRole)) {
@@ -1307,6 +1340,8 @@ router.get("/billing", async (req, res) => {
 router.post("/billing/checkout", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = BillingCheckoutBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
 
     const planTier = typeof body.plan === "string" ? body.plan.toLowerCase() : "";
@@ -1549,6 +1584,8 @@ router.get("/billing/bank", async (req, res) => {
 router.post("/billing/pack/checkout", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = BillingPackCheckoutBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as { packSize?: unknown; packType?: unknown };
     const packSize = typeof body.packSize === "number" ? body.packSize : null;
     const packType = typeof body.packType === "string" ? body.packType : null;
@@ -1700,6 +1737,8 @@ router.patch("/onboarding", async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
+    const _parse = OnboardingBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
 
     const { rows } = await db.query(
@@ -1808,6 +1847,8 @@ router.post("/integrations/slack/connect", requireAdminRole, async (req, res) =>
   }
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = OAuthConnectBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as { redirectUri?: string };
     if (!body.redirectUri || typeof body.redirectUri !== "string") {
       res.status(400).json({ error: "redirectUri is required" });
@@ -1842,6 +1883,8 @@ router.post("/integrations/slack/exchange", requireAdminRole, async (req, res) =
   }
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = OAuthExchangeBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as { code?: string; state?: string; redirectUri?: string };
     if (!body.code || !body.state) {
       res.status(400).json({ error: "code and state are required" });
@@ -1936,6 +1979,8 @@ router.post("/integrations/gdrive/connect", requireAdminRole, requirePlanFeature
   }
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = OAuthConnectBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as { redirectUri?: string };
     if (!body.redirectUri || typeof body.redirectUri !== "string") {
       res.status(400).json({ error: "redirectUri is required" });
@@ -1967,6 +2012,8 @@ router.post("/integrations/gdrive/exchange", requireAdminRole, requirePlanFeatur
   }
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = OAuthExchangeBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as { code?: string; state?: string; redirectUri?: string };
     if (!body.code || !body.state) {
       res.status(400).json({ error: "code and state are required" });
@@ -2004,6 +2051,8 @@ router.post("/integrations/gdrive/exchange", requireAdminRole, requirePlanFeatur
 router.patch("/integrations/gdrive/folder", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = GDriveFolderBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as { folderInput?: string };
     const folderId = parseFolderIdFromInput(body.folderInput ?? "");
     if (!folderId) {
@@ -2066,6 +2115,8 @@ router.delete("/integrations/gdrive", requireAdminRole, async (req, res) => {
 /** POST /integrations/hubspot/connect — initiates HubSpot OAuth flow */
 router.post("/integrations/hubspot/connect", requireAdminRole, requirePlanFeature("hubspot"), async (req, res) => {
   try {
+    const _parse = OAuthConnectBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as { redirectUri?: string };
     if (!body.redirectUri || typeof body.redirectUri !== "string") {
       res.status(400).json({ error: "redirectUri is required" }); return;
@@ -2090,6 +2141,8 @@ router.post("/integrations/hubspot/exchange", requireAdminRole, requirePlanFeatu
   try {
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
+    const _parse = OAuthExchangeWithRedirectBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as { code?: string; state?: string; redirectUri?: string };
     if (!body.code || !body.state || !body.redirectUri) {
       res.status(400).json({ error: "code, state, and redirectUri are required" }); return;
@@ -2514,6 +2567,8 @@ router.patch("/admin/accounts/:id", async (req, res) => {
   const VALID_TIERS    = new Set(["free", "pro", "enterprise"]);
   const VALID_STATUSES = new Set(["active", "trialing", "canceled", "past_due", "manual", "none"]);
 
+  const _parse = AdminAccountBodySchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   const body = req.body as Record<string, unknown>;
   const updates: string[] = [];
   const params: unknown[] = [];
@@ -2587,6 +2642,8 @@ router.post("/admin/accounts/:id/notes", async (req, res) => {
     return;
   }
   const accountId = parseInt(rawId, 10);
+  const _parse = AdminNoteBodySchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   const body = req.body as Record<string, unknown>;
   const note = typeof body.note === "string" ? body.note.trim() : "";
   if (!note) {
@@ -2673,6 +2730,8 @@ router.get("/security/ip-allowlist", requireAdminRole, async (req, res) => {
 router.put("/security/ip-allowlist", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = IpAllowlistBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
     const rawRanges = body.allowed_ip_ranges;
 
@@ -2795,6 +2854,8 @@ router.put("/notifications", async (req, res) => {
     return void res.status(401).json({ error: "User authentication required for notification preferences." });
   }
   const accountId = req.internalAccountId ?? 1;
+  const _parse = NotificationsBodySchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   const body = req.body as Record<string, unknown>;
   const rawPrefs = body.prefs;
   if (!Array.isArray(rawPrefs)) {
@@ -2976,6 +3037,8 @@ router.get("/email", async (req, res) => {
 router.patch("/email", requireAdminRole, requirePlanFeature("emailBranding"), async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = EmailSettingsBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
     const db = getDb();
 
@@ -3085,6 +3148,8 @@ router.get("/interview-defaults", async (req, res) => {
 router.patch("/interview-defaults", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = InterviewDefaultsBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
     const db = getDb();
 
@@ -3203,6 +3268,8 @@ router.get("/locale", async (req, res) => {
 router.patch("/locale", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = LocaleBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body      = req.body as Record<string, unknown>;
     const db        = getDb();
 
@@ -3284,6 +3351,8 @@ router.get("/data-privacy", async (req, res) => {
 router.patch("/data-privacy", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = DataPrivacyBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
     const db = getDb();
 
@@ -3425,6 +3494,8 @@ router.get("/data/download-export", requireAdminRole, async (req, res) => {
 router.post("/data/request-deletion", requireAdminRole, async (req, res) => {
   try {
     const accountId   = req.internalAccountId ?? 1;
+    const _parse = DeletionRequestBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body        = req.body as Record<string, unknown>;
     const db          = getDb();
 
@@ -3677,6 +3748,8 @@ router.patch("/profile", async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
     const clerkUserId = getAuth(req)?.userId ?? null;
+    const _parse = ProfileBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
     const db = getDb();
 
@@ -4065,6 +4138,8 @@ router.post("/security/2fa/enable", async (req, res) => {
   try {
     const accountId   = req.internalAccountId ?? 1;
     const clerkUserId = getAuth(req)?.userId ?? null;
+    const _parse = TwoFACodeBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
     const code = typeof body.code === "string" ? body.code.trim().replace(/\s/g, "") : "";
 
@@ -4115,6 +4190,8 @@ router.delete("/security/2fa", async (req, res) => {
   try {
     const accountId   = req.internalAccountId ?? 1;
     const clerkUserId = getAuth(req)?.userId ?? null;
+    const _parse = TwoFACodeBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
     const code = typeof body.code === "string" ? body.code.trim().replace(/\s/g, "") : "";
 
@@ -4381,6 +4458,8 @@ router.get("/custom-domain", async (req, res) => {
 router.put("/custom-domain", requireAdminRole, requirePlanFeature("customDomain"), async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
+    const _parse = CustomDomainBodySchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = req.body as Record<string, unknown>;
     const db = getDb();
 
