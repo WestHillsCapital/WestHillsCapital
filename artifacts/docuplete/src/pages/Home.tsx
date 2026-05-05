@@ -259,6 +259,65 @@ const PERSONAS = [
   },
 ];
 
+const COMPARISON_FEATURES = [
+  {
+    label: "Monthly price (2 users)",
+    docuplete: { value: "$69 / mo", note: "eSign + PDF filling included" },
+    docusign: { value: "$50 / mo", note: "eSign only — filling not included" },
+    pandadoc: { value: "$38 / mo", note: "eSign only — filling not included" },
+    type: "price" as const,
+  },
+  {
+    label: "Separate filling tool needed",
+    docuplete: { value: false, note: "" },
+    docusign: { value: true, note: "adds $30–$80 / mo" },
+    pandadoc: { value: true, note: "adds $30–$80 / mo" },
+    type: "extra_cost" as const,
+  },
+  {
+    label: "eSignatures",
+    docuplete: true,
+    docusign: true,
+    pandadoc: true,
+    type: "bool" as const,
+  },
+  {
+    label: "Intelligent PDF filling",
+    docuplete: true,
+    docusign: false,
+    pandadoc: false,
+    type: "bool" as const,
+  },
+  {
+    label: "Batch CSV sending",
+    docuplete: true,
+    docusign: false,
+    pandadoc: false,
+    type: "bool" as const,
+  },
+  {
+    label: "Client-facing links",
+    docuplete: true,
+    docusign: false,
+    pandadoc: false,
+    type: "bool" as const,
+  },
+  {
+    label: "Submission tracking",
+    docuplete: true,
+    docusign: false,
+    pandadoc: false,
+    type: "bool" as const,
+  },
+  {
+    label: "Custom branding",
+    docuplete: true,
+    docusign: false,
+    pandadoc: false,
+    type: "bool" as const,
+  },
+];
+
 const STEPS = [
   {
     number: "01",
@@ -580,6 +639,143 @@ export default function Home() {
                 <div className="text-sm text-[#4B5A7A]">Clients complete on their own time. You get a finished document.</div>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── COMPETITOR COMPARISON ───────────────────────────── */}
+      <section className="py-24 px-6 bg-[#F5F7FC]">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-[#1B4FD8] text-sm font-semibold uppercase tracking-widest mb-3">Why Docuplete</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-[#0B1220]">
+              Everything DocuSign does —<br className="hidden sm:block" /> plus the part they don't.
+            </h2>
+            <p className="mt-4 text-[#4B5A7A] max-w-xl mx-auto text-lg">
+              DocuSign charges $50/mo and still can't fill your forms. Docuplete does both for $69.
+            </p>
+          </div>
+
+          {/* Table */}
+          <div className="overflow-x-auto rounded-2xl border border-[#E8EDF5] shadow-sm">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className="text-left bg-white px-6 py-4 text-[#4B5A7A] font-semibold text-xs uppercase tracking-widest border-b border-[#E8EDF5] w-[38%]">
+                    Feature
+                  </th>
+                  {/* Docuplete — highlighted */}
+                  <th className="bg-[#1B4FD8] px-6 py-4 text-center border-b border-[#1740B8] w-[20%]">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-white font-bold text-sm">Docuplete</span>
+                      <span className="text-[#A8C4FF] text-xs font-medium">Starter Professional</span>
+                    </div>
+                  </th>
+                  <th className="bg-white px-6 py-4 text-center border-b border-[#E8EDF5] w-[21%]">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[#0B1220] font-bold text-sm">DocuSign</span>
+                      <span className="text-[#4B5A7A] text-xs font-medium">Standard</span>
+                    </div>
+                  </th>
+                  <th className="bg-white px-6 py-4 text-center border-b border-[#E8EDF5] w-[21%]">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[#0B1220] font-bold text-sm">PandaDoc</span>
+                      <span className="text-[#4B5A7A] text-xs font-medium">Starter</span>
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {COMPARISON_FEATURES.map((row, i) => {
+                  const isLast = i === COMPARISON_FEATURES.length - 1;
+                  const rowBg = i % 2 === 0 ? "bg-white" : "bg-[#F5F7FC]";
+                  const docupleteRowBg = i % 2 === 0 ? "bg-[#1740B8]" : "bg-[#1B4FD8]";
+                  const borderClass = isLast ? "" : "border-b border-[#E8EDF5]";
+                  const docupleteBorderClass = isLast ? "" : "border-b border-[#1533A0]";
+
+                  const CheckSvg = ({ className }: { className?: string }) => (
+                    <svg className={`w-5 h-5 mx-auto ${className ?? ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  );
+                  const CrossSvg = ({ className }: { className?: string }) => (
+                    <svg className={`w-5 h-5 mx-auto ${className ?? "text-[#B0BCCE]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                    </svg>
+                  );
+
+                  const renderDocuSign = () => {
+                    if (row.type === "price") {
+                      const p = row.docusign as { value: string; note: string };
+                      return <div><span className="font-semibold text-[#0B1220]">{p.value}</span><p className="text-xs text-[#B0BCCE] mt-0.5">{p.note}</p></div>;
+                    }
+                    if (row.type === "extra_cost") {
+                      const p = row.docusign as { value: boolean; note: string };
+                      return <div><CrossSvg />{p.note && <p className="text-xs text-[#E57373] mt-1">{p.note}</p>}</div>;
+                    }
+                    return (row.docusign as boolean) ? <CheckSvg className="text-[#4B5A7A]" /> : <CrossSvg />;
+                  };
+
+                  const renderPandaDoc = () => {
+                    if (row.type === "price") {
+                      const p = row.pandadoc as { value: string; note: string };
+                      return <div><span className="font-semibold text-[#0B1220]">{p.value}</span><p className="text-xs text-[#B0BCCE] mt-0.5">{p.note}</p></div>;
+                    }
+                    if (row.type === "extra_cost") {
+                      const p = row.pandadoc as { value: boolean; note: string };
+                      return <div><CrossSvg />{p.note && <p className="text-xs text-[#E57373] mt-1">{p.note}</p>}</div>;
+                    }
+                    return (row.pandadoc as boolean) ? <CheckSvg className="text-[#4B5A7A]" /> : <CrossSvg />;
+                  };
+
+                  const renderDocuplete = () => {
+                    if (row.type === "price") {
+                      const p = row.docuplete as { value: string; note: string };
+                      return <div><span className="font-bold text-white">{p.value}</span><p className="text-xs text-[#A8C4FF] mt-0.5">{p.note}</p></div>;
+                    }
+                    if (row.type === "extra_cost") {
+                      const p = row.docuplete as { value: boolean; note: string };
+                      return <div><CheckSvg className="text-[#4ADE80]" /><p className="text-xs text-[#A8C4FF] mt-1">not needed</p></div>;
+                    }
+                    return (row.docuplete as boolean) ? <CheckSvg /> : <CrossSvg className="text-[#B0BCCE]" />;
+                  };
+
+                  return (
+                    <tr key={row.label}>
+                      <td className={`px-6 py-4 font-medium text-[#0B1220] ${rowBg} ${borderClass}`}>
+                        {row.label}
+                      </td>
+                      <td className={`px-6 py-4 text-center ${docupleteRowBg} ${docupleteBorderClass}`}>
+                        {renderDocuplete()}
+                      </td>
+                      <td className={`px-6 py-4 text-center text-[#4B5A7A] ${rowBg} ${borderClass}`}>
+                        {renderDocuSign()}
+                      </td>
+                      <td className={`px-6 py-4 text-center text-[#4B5A7A] ${rowBg} ${borderClass}`}>
+                        {renderPandaDoc()}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-center text-xs text-[#B0BCCE] mt-4">
+            Prices as published. DocuSign Standard $25/user/mo · PandaDoc Starter $19/seat/mo · Docuplete Starter Professional $69 flat for 2 seats.
+          </p>
+
+          {/* CTA */}
+          <div className="mt-10 text-center">
+            <a
+              href="#pricing"
+              className="inline-flex items-center gap-2 bg-[#1B4FD8] hover:bg-[#1740B8] text-white font-semibold px-7 py-3.5 rounded-xl transition-colors text-base shadow-lg shadow-[#1B4FD8]/25"
+            >
+              See Docuplete pricing
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
+              </svg>
+            </a>
           </div>
         </div>
       </section>
