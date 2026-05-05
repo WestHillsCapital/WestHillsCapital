@@ -147,10 +147,6 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
                 WHEN $3 = 'active' THEN NULL
                 WHEN $6 = 'trialing' AND $3 NOT IN ('active', 'trialing') THEN NOW()
                 ELSE trial_ended_at
-              END,
-              data_purged_at = CASE
-                WHEN $3 = 'active' THEN NULL
-                ELSE data_purged_at
               END
         WHERE stripe_customer_id    = $7`,
       [planTier, sub.id, sub.status, periodStart, seatLimit, prevStatus, customerId],
@@ -212,13 +208,14 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
     const inv = event.data.object as StripeInvoiceObject;
     if (!inv.subscription || !inv.customer) return;
 
-    // Mark subscription active and clear trial_ended_at / data_purged_at so
-    // reactivating accounts regain full access and are excluded from the purge job.
+    // Mark subscription active and clear trial_ended_at so the purge job
+    // does not reprocess this account. data_purged_at is intentionally kept
+    // immutable once set — it is an audit record. The route guard checks
+    // subscription_status to allow active accounts through regardless.
     await db.query(
       `UPDATE accounts
           SET subscription_status = 'active',
-              trial_ended_at      = NULL,
-              data_purged_at      = NULL
+              trial_ended_at      = NULL
         WHERE stripe_customer_id  = $1`,
       [inv.customer],
     );
