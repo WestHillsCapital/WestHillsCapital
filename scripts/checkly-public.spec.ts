@@ -42,12 +42,15 @@ test("West Hills Capital — public pages", async ({ page, context, request }) =
   await expect(page.locator("body")).toBeVisible({ timeout: 5_000 });
   console.log("✅ [2] Pricing page loaded");
 
-  // ── 3. /app unauthenticated redirect → sign-in ────────────────────────────
-  // Clerk performs a client-side redirect (no page reload), so waitForURL's
-  // "load" event never fires. Use toHaveURL which polls the URL instead.
+  // ── 3. /app unauthenticated → Clerk auth gate ─────────────────────────────
+  // Clerk renders the sign-in form inline at /app rather than redirecting,
+  // so the URL stays at /app. Assert that the auth gate is actually working
+  // by verifying the sign-in form (email input) becomes visible.
   await page.goto(`${BASE}/app`, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  await expect(page).toHaveURL(/sign-in/, { timeout: 15_000 });
-  console.log("✅ [3] /app redirects unauthenticated users to sign-in");
+  await expect(
+    page.locator('input[type="email"], input[name="identifier"]').first()
+  ).toBeVisible({ timeout: 15_000 });
+  console.log("✅ [3] /app — Clerk auth gate active (sign-in form visible)");
 
   // ── 4. SEO learn article: Gold IRA vs Traditional IRA ─────────────────────
   await page.goto(`${BASE}/learn/gold-ira-vs-traditional-ira`, {
