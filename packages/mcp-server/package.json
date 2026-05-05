@@ -35,7 +35,7 @@
   },
   "dependencies": {
     "@docuplete/sdk": "workspace:*",
-    "@modelcontextprotocol/sdk": "1.10.0"
+    "@modelcontextprotocol/sdk": ">=1.26.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
