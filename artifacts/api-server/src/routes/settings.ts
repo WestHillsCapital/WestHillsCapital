@@ -3622,7 +3622,7 @@ function buildZipBuffer(files: Array<{ name: string; content: string }>): Promis
 
 async function processExportRequests(): Promise<void> {
   let db: ReturnType<typeof getDb>;
-  try { db = getDb(); } catch { return; }
+  try { db = getDb(); } catch (err) { logger.debug({ err }, "[Settings] DB not ready in processExportRequests — skipping this tick"); return; }
 
   // Atomic claim: transition to 'processing' in a single statement so concurrent
   // server instances never double-process the same export job.
@@ -3707,13 +3707,13 @@ async function processExportRequests(): Promise<void> {
       await db.query(
         `UPDATE data_export_requests SET status = 'failed' WHERE id = $1`,
         [job.id],
-      ).catch(() => {});
+      ).catch((failErr) => logger.warn({ err: failErr, jobId: job.id }, "[Settings] Failed to mark export job as failed"));
     }
   }
 }
 
-setInterval(() => processExportRequests().catch(() => {}), 60 * 1000).unref();
-processExportRequests().catch(() => {});
+setInterval(() => processExportRequests().catch((err) => logger.warn({ err }, "[Settings] processExportRequests interval tick failed")), 60 * 1000).unref();
+processExportRequests().catch((err) => logger.warn({ err }, "[Settings] Initial processExportRequests call failed"));
 
 // ── User profile routes ───────────────────────────────────────────────────────
 

@@ -432,6 +432,7 @@ function parseWebhookUrl(value: unknown): string | null {
     if (u.protocol !== "http:" && u.protocol !== "https:") return null;
     return u.toString();
   } catch {
+    // URL constructor throws on malformed input — return null to indicate an invalid URL
     return null;
   }
 }
@@ -1538,6 +1539,7 @@ function resolveGeo(ip: string | null | undefined): string | null {
     if (country) return country;
     return null;
   } catch {
+    // Best-effort geo lookup — geoip lookup failures are non-fatal for audit enrichment
     return null;
   }
 }
@@ -3583,7 +3585,7 @@ router.post("/sessions/:token/void", requireAdminRole, async (req, res) => {
        VALUES ($1, $2, 'voided', $3, $4, $5::jsonb)`,
       [token, acctId(req), actorEmail, req.ip ?? null,
        JSON.stringify({ reason, voidedBy: actorEmail })],
-    ).catch(() => {});
+    ).catch((err) => logger.warn({ err, token }, "[DocuFill] Void session signing event insert failed"));
 
     // Optionally notify the signer via email
     if (notifySigner && typeof session.signer_email === "string" && session.signer_email) {
@@ -3924,7 +3926,7 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
       if (dr?.custom_domain && dr.custom_domain_status === "active") {
         interviewOrigin = `https://${dr.custom_domain}`;
       }
-    } catch { /* non-fatal — fall back to default origin */ }
+    } catch (err) { logger.warn({ err, accountId }, "[DocuFill] Custom domain lookup failed — using default interview origin"); }
     const interviewUrl = `${interviewOrigin}/docuplete/public/${token}`;
     res.status(201).json({ session: rows[0], token, interviewUrl });
   } catch (err) {
@@ -4076,7 +4078,7 @@ router.post("/sessions/:token/send-link", requireMemberRole, requirePlanFeature(
       if (r2?.custom_domain && r2.custom_domain_status === "active") {
         interviewOrigin2 = `https://${r2.custom_domain}`;
       }
-    } catch { /* non-fatal */ }
+    } catch (err) { logger.warn({ err, token: req.params.token }, "[DocuFill] Custom domain lookup failed for send-link — using default origin"); }
     const interviewUrl = `${interviewOrigin2}/docuplete/public/${req.params.token}`;
 
     const orgLogoUrl    = typeof session.org_logo_url === "string" ? session.org_logo_url : null;
@@ -4136,7 +4138,7 @@ router.post("/batch/send-links", requireMemberRole, requirePlanFeature("clientLi
       if (r?.custom_domain && r.custom_domain_status === "active") {
         interviewOrigin = `https://${r.custom_domain}`;
       }
-    } catch { /* non-fatal */ }
+    } catch (err) { logger.warn({ err, accountId: aId }, "[DocuFill] Custom domain lookup failed for batch send-links — using default origin"); }
 
     const orgRow = await db.query<{ name: string; logo_url: string | null; brand_color: string | null }>(
       `SELECT name, logo_url, brand_color FROM accounts WHERE id = $1`, [aId],
@@ -4315,7 +4317,7 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
         packageName: session.package_name,
         driveFileId: driveResult?.fileId ?? null,
       },
-    }).catch(() => {});
+    }).catch((err) => logger.warn({ err, token: req.params.token }, "[DocuFill] recordPdfAuditEvent failed after generate"));
     const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
     if (session.webhook_enabled === true && webhookUrl) {
       fireWebhookAsync(
@@ -4378,7 +4380,7 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
         };
         await pump();
         const { actorIp: dlIp, actorUa: dlUa } = actorContextFromRequest(req);
-        recordPdfAuditEvent({ accountId: acctId(req), sessionToken: req.params.token, eventType: "downloaded", actorType: req.internalEmail ? "staff" : "api", actorEmail: req.internalEmail ?? null, actorIp: dlIp, actorUa: dlUa }).catch(() => {});
+        recordPdfAuditEvent({ accountId: acctId(req), sessionToken: req.params.token, eventType: "downloaded", actorType: req.internalEmail ? "staff" : "api", actorEmail: req.internalEmail ?? null, actorIp: dlIp, actorUa: dlUa }).catch((err) => logger.warn({ err, token: req.params.token }, "[DocuFill] PDF download audit event failed (storage path)"));
         return;
       } catch (storageErr) {
         if (!(storageErr instanceof ObjectNotFoundError)) {
@@ -4421,7 +4423,7 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
       actorEmail:   req.internalEmail ?? null,
       actorIp:      dlIp,
       actorUa:      dlUa,
-    }).catch(() => {});
+    }).catch((err) => logger.warn({ err, token: req.params.token }, "[DocuFill] PDF download audit event failed (regenerate path)"));
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to download packet PDF");
     if (!res.headersSent) res.status(500).json({ error: "Failed to download packet" });
@@ -4623,7 +4625,7 @@ publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
        VALUES ($1, $2, 'otp_sent', $3, $4, $5, $6::jsonb)`,
       [req.params.token, pkgAccountId, email, req.ip ?? null, req.headers["user-agent"] ?? null,
        JSON.stringify({ packageName: session.package_name })],
-    ).catch(() => {});
+    ).catch((err) => logger.warn({ err, token: req.params.token }, "[DocuFill] OTP sent signing event insert failed"));
     // Send OTP email
     const emailSettings = pkgAccountId ? await getOrgEmailSettings(pkgAccountId).catch(() => null) : null;
     await sendEsignOtpEmail({
@@ -4711,7 +4713,7 @@ publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
        VALUES ($1, $2, 'otp_verified', $3, $4, $5, $6::jsonb)`,
       [req.params.token, pkgAccountId, email, req.ip ?? null, req.headers["user-agent"] ?? null,
        JSON.stringify({ packageName: session.package_name })],
-    ).catch(() => {});
+    ).catch((err) => logger.warn({ err, token: req.params.token }, "[DocuFill] OTP verified signing event insert failed"));
     // Issue a short-lived identity token
     const identityToken = createEsignIdentityToken(req.params.token, email);
     res.json({ ok: true, identityToken });
@@ -5005,7 +5007,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
            tsaTokenObtained: tsaTokenB64 !== null,
            signerGeo,
          })],
-      ).catch(() => {});
+      ).catch((err) => logger.warn({ err, token: req.params.token }, "[DocuFill] E-sign signed event insert failed"));
       // Send confirmation email with signed PDF to signer (fire-and-forget)
       sendSignerConfirmationEmail({
         signerEmail: esignEmail,
