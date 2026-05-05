@@ -1,4 +1,5 @@
 import { useState, useRef, type FormEvent } from "react";
+import { Input } from "@/components/ui/input";
 
 interface TwoFAGateProps {
   verify2FA: (code: string, trustDevice?: boolean) => Promise<{ success: boolean; error?: string }>;
@@ -50,7 +51,7 @@ export function TwoFAGate({ verify2FA, onVerified, onSignOut }: TwoFAGateProps) 
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <input
+            <Input
               ref={inputRef}
               type="text"
               inputMode="numeric"
@@ -61,7 +62,7 @@ export function TwoFAGate({ verify2FA, onVerified, onSignOut }: TwoFAGateProps) 
               placeholder="000000"
               maxLength={32}
               disabled={loading}
-              className="w-full px-4 py-3 text-center text-lg font-mono tracking-widest border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent disabled:opacity-50"
+              className="text-center text-lg font-mono tracking-widest"
             />
           </div>
 
@@ -89,14 +90,24 @@ export function TwoFAGate({ verify2FA, onVerified, onSignOut }: TwoFAGateProps) 
           </button>
         </form>
 
-        <div className="text-center">
-          <button
-            type="button"
-            onClick={onSignOut}
-            className="text-sm text-gray-400 hover:text-gray-600 underline"
-          >
-            Sign out
-          </button>
+        <div className="text-center space-y-2">
+          <div>
+            <a
+              href="mailto:support@docuplete.com?subject=Lost%20authenticator%20access"
+              className="text-sm text-gray-500 hover:text-gray-700 underline"
+            >
+              Lost access to your authenticator?
+            </a>
+          </div>
+          <div>
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="text-sm text-gray-400 hover:text-gray-600 underline"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </div>
     </div>

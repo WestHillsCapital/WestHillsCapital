@@ -305,7 +305,7 @@ function SubmissionBankSection({ getAuthHeaders }: { getAuthHeaders: () => Heade
           <div className="flex flex-col gap-1">
             <label className="text-[11px] text-gray-500">Purchase type</label>
             <div className="flex items-center gap-1 p-0.5 bg-gray-100 rounded-lg">
-              {(["monthly", "annual", "one_off"] as const).map((t) => (
+              {(["monthly", "one_off", "annual"] as const).map((t) => (
                 <button
                   key={t}
                   type="button"

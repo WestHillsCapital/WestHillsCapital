@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
+import { formatOrgDate } from "@/lib/orgDateFormat";
+import { getCachedProductOrg } from "@/hooks/useProductOrgSettings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
@@ -67,19 +69,18 @@ type SortDir = "asc" | "desc";
 const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   draft:       { label: "Draft",       cls: "bg-gray-100 text-gray-600" },
   in_progress: { label: "In Progress", cls: "bg-blue-50 text-blue-700" },
-  generated:   { label: "Signed",      cls: "bg-green-50 text-green-700" },
+  generated:   { label: "Complete",    cls: "bg-green-50 text-green-700" },
   voided:      { label: "Voided",      cls: "bg-red-50 text-red-700" },
 };
 
 function fmtDate(iso: string | null) {
   if (!iso) return "—";
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+  return formatOrgDate(iso, getCachedProductOrg());
 }
 
 function fmtDatetime(iso: string | null) {
   if (!iso) return "—";
-  const d = new Date(iso);
-  return d.toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" });
+  return formatOrgDate(iso, getCachedProductOrg(), true);
 }
 
 function TsaBadge({ obtained }: { obtained: boolean }) {
@@ -243,7 +244,10 @@ function RowMenu({ session, onVoid }: RowMenuProps) {
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  if (session.status !== "generated") return null;
+  if (session.status === "voided") return null;
+
+  const isGenerated = session.status === "generated";
+  const pdfHref = `${API_BASE}/api/v1/public/docufill/sessions/${session.token}/packet.pdf`;
 
   return (
     <div className="relative" ref={ref}>
@@ -259,12 +263,26 @@ function RowMenu({ session, onVoid }: RowMenuProps) {
         </svg>
       </Button>
       {open && (
-        <div className="absolute right-0 z-20 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+        <div className="absolute right-0 z-20 mt-1 w-40 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
+          {isGenerated && (
+            <a
+              href={pdfHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2"
+            >
+              <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              Download PDF
+            </a>
+          )}
           <button
             onClick={() => { setOpen(false); onVoid(); }}
             className="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-2"
           >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
             </svg>
             Void session
@@ -635,7 +653,7 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
               <option value="">All statuses</option>
               <option value="draft">Draft</option>
               <option value="in_progress">In Progress</option>
-              <option value="generated">Signed</option>
+              <option value="generated">Complete</option>
               <option value="voided">Voided</option>
             </Select>
           </div>

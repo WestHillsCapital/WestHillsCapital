@@ -1,5 +1,5 @@
-import { lazy, Suspense } from "react";
-import { Switch, Route } from "wouter";
+import { lazy, Suspense, useEffect } from "react";
+import { Switch, Route, useLocation } from "wouter";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { useProductRole } from "@/hooks/useProductRole";
 import { DocuFillConfigProvider } from "@/hooks/useDocuFillConfig";
@@ -18,6 +18,15 @@ function Spinner() {
       <div className="w-7 h-7 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
     </div>
   );
+}
+
+function SignInRedirect() {
+  const [, setLocation] = useLocation();
+  useEffect(() => {
+    const t = setTimeout(() => setLocation("/app/sign-in"), 2000);
+    return () => clearTimeout(t);
+  }, [setLocation]);
+  return <Spinner />;
 }
 
 function DocuFillWrapper({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
@@ -63,11 +72,10 @@ export default function AppPortal() {
     return <Spinner />;
   }
 
-  // Not signed in — Clerk's afterSignOutUrl handles the navigation.
-  // Rendering a Redirect here races with Clerk's own routerPush and can
-  // produce a white screen. Return a spinner instead and let Clerk route.
+  // Not signed in — redirect to sign-in after a short delay so Clerk can
+  // route first; fall back to an explicit redirect after 2 s.
   if (!isSignedIn) {
-    return <Spinner />;
+    return <SignInRedirect />;
   }
 
   if (needs2FA) {
@@ -85,13 +93,22 @@ export default function AppPortal() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
         <div className="max-w-sm w-full text-center space-y-4">
           <p className="text-sm text-gray-600">{authError}</p>
-          <button
-            type="button"
-            onClick={() => signOut({ redirectUrl: "/app/sign-in" })}
-            className="text-sm underline text-gray-500 hover:text-gray-800"
-          >
-            Sign out
-          </button>
+          <div className="flex items-center justify-center gap-4">
+            <button
+              type="button"
+              onClick={() => refreshAccount()}
+              className="text-sm underline text-gray-700 hover:text-gray-900"
+            >
+              Try again
+            </button>
+            <button
+              type="button"
+              onClick={() => signOut({ redirectUrl: "/app/sign-in" })}
+              className="text-sm underline text-gray-500 hover:text-gray-800"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </div>
     );

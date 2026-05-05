@@ -126,9 +126,14 @@ export default function AppOnboard({ user, token, onComplete }: Props) {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 w-full max-w-lg p-8">
 
         {/* Step indicator */}
-        <div className="flex items-center gap-2 mb-6">
-          <div className={`h-1.5 flex-1 rounded-full transition-colors ${step >= 1 ? "bg-gray-900" : "bg-gray-200"}`} />
-          <div className={`h-1.5 flex-1 rounded-full transition-colors ${step >= 2 ? "bg-gray-900" : "bg-gray-200"}`} />
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <div className={`h-1.5 flex-1 rounded-full transition-colors ${step >= 1 ? "bg-gray-900" : "bg-gray-200"}`} />
+            <div className={`h-1.5 flex-1 rounded-full transition-colors ${step >= 2 ? "bg-gray-900" : "bg-gray-200"}`} />
+          </div>
+          <p className="text-xs text-gray-400">
+            {step === 1 ? "Step 1 of 2 — Company info" : "Step 2 of 2 — Industry"}
+          </p>
         </div>
 
         {step === 1 && (
