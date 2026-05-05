@@ -208,9 +208,10 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
     const inv = event.data.object as StripeInvoiceObject;
     if (!inv.subscription || !inv.customer) return;
 
-    // Mark plan subscription as active
+    // Mark plan subscription as active and clear any stale trial_ended_at flag
+    // so the post-trial purge job does not delete this account's data.
     await db.query(
-      `UPDATE accounts SET subscription_status = 'active' WHERE stripe_customer_id = $1`,
+      `UPDATE accounts SET subscription_status = 'active', trial_ended_at = NULL WHERE stripe_customer_id = $1`,
       [inv.customer],
     );
     logger.info({ customerId: inv.customer }, "[BillingSync] Subscription marked active on invoice.paid");

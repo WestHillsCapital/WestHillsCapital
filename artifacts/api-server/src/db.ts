@@ -1573,21 +1573,30 @@ export async function initDb(): Promise<void> {
   async function purgeExpiredTrialData(): Promise<void> {
     try {
       const purgeDb = getDb();
+      // Defense-in-depth: exclude any account that is currently active or trialing
+      // even if trial_ended_at was somehow not cleared (e.g., webhook ordering edge case).
       const { rows } = await purgeDb.query<{ id: number; name: string }>(
         `SELECT id, name FROM accounts
          WHERE trial_ended_at IS NOT NULL
            AND trial_ended_at < NOW() - INTERVAL '7 days'
-           AND data_purged_at IS NULL`,
+           AND data_purged_at IS NULL
+           AND (subscription_status IS NULL OR subscription_status NOT IN ('active', 'trialing'))`,
       );
       for (const account of rows) {
         const client = await purgeDb.connect();
         try {
           await client.query("BEGIN");
-          await client.query(`DELETE FROM docufill_custodians   WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM docufill_depositories WHERE account_id = $1`, [account.id]);
+          // Non-CASCADE docufill content — must be deleted explicitly
+          await client.query(`DELETE FROM docufill_custodians        WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM docufill_depositories      WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM docufill_fields            WHERE account_id = $1`, [account.id]);
           await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM docufill_packages     WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM docufill_groups       WHERE account_id = $1`, [account.id]);
+          // Packages cascade to: package_documents, webhook_deliveries, package_groups
+          await client.query(`DELETE FROM docufill_packages          WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM docufill_groups            WHERE account_id = $1`, [account.id]);
+          // Revoke access — API keys and account_users (users cascade to sessions/devices)
+          await client.query(`DELETE FROM account_api_keys           WHERE account_id = $1`, [account.id]);
+          await client.query(`DELETE FROM account_users              WHERE account_id = $1`, [account.id]);
           await client.query(
             `UPDATE accounts SET data_purged_at = NOW() WHERE id = $1`,
             [account.id],
