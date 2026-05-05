@@ -226,8 +226,8 @@ router.post("/", async (req, res) => {
           billing_line1, billing_line2, billing_city, billing_state, billing_zip,
           fedex_location_hours,
           terms_provided, terms_provided_at, terms_version, confirmation_method,
-          notes, status, locked_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42)
+          notes, status, locked_at, account_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43)
        RETURNING id`,
       [
         leadId ?? null, confirmationId ?? null, dealType, iraType ?? null,
@@ -250,6 +250,7 @@ router.post("/", async (req, res) => {
         fedexLocationHours ?? null,
         true, lockedAt, termsVersion ?? CURRENT_TERMS_VERSION, confirmationMethod ?? "verbal_recorded_call",
         notes ?? null, "locked", lockedAt,
+        req.internalAccountId ?? null,
       ],
     );
 
@@ -658,10 +659,11 @@ router.patch("/:id/payment", async (req, res) => {
   if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   try {
     const db = getDb();
+    const accountId = req.internalAccountId ?? null;
     const { rows } = await db.query(
       `UPDATE deals SET payment_received_at = NOW(), updated_at = NOW()
-       WHERE id = $1 RETURNING *`,
-      [dealId],
+       WHERE id = $1 AND (account_id = $2 OR account_id IS NULL) RETURNING *`,
+      [dealId, accountId],
     );
     if (!rows[0]) return res.status(404).json({ error: "Deal not found" });
 
@@ -729,13 +731,14 @@ router.patch("/:id/wire-received", async (req, res) => {
   if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
   try {
     const db = getDb();
+    const accountId = req.internalAccountId ?? null;
     const { rows } = await db.query(
       `UPDATE deals
           SET wire_received_at = NOW(),
               payment_received_at = COALESCE(payment_received_at, NOW()),
               updated_at = NOW()
-        WHERE id = $1 RETURNING *`,
-      [dealId],
+        WHERE id = $1 AND (account_id = $2 OR account_id IS NULL) RETURNING *`,
+      [dealId, accountId],
     );
     if (!rows[0]) return res.status(404).json({ error: "Deal not found" });
 
@@ -1049,7 +1052,11 @@ router.get("/:id", async (req, res) => {
 
   try {
     const db = getDb();
-    const { rows } = await db.query(`SELECT * FROM deals WHERE id = $1`, [dealId]);
+    const accountId = req.internalAccountId ?? null;
+    const { rows } = await db.query(
+      `SELECT * FROM deals WHERE id = $1 AND (account_id = $2 OR account_id IS NULL)`,
+      [dealId, accountId],
+    );
     if (!rows[0]) {
       return res.status(404).json({ error: "Deal not found" });
     }
