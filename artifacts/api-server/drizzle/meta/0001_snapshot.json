@@ -1,6 +1,6 @@
 {
-  "id": "5732a78f-263d-462e-9559-27d34cb0b73f",
-  "prevId": "00000000-0000-0000-0000-000000000000",
+  "id": "211428de-82af-4a29-8c0f-1288454c6fe3",
+  "prevId": "5732a78f-263d-462e-9559-27d34cb0b73f",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -733,6 +733,18 @@
         "deletion_requested_by": {
           "name": "deletion_requested_by",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "trial_ended_at": {
+          "name": "trial_ended_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "data_purged_at": {
+          "name": "data_purged_at",
+          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
         },
