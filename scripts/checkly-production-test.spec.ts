@@ -172,10 +172,12 @@ test("Docuplete — core e2e", async ({ page, context }) => {
   await keyNameInput.fill(TEST_KEY);
   await keyNameInput.press("Enter");
 
-  await expect(page.getByText(/API key created/i).first()).toBeVisible({ timeout: 12_000 });
+  // Scope to apiSection to avoid matching the "API key created" notification
+  // category label that lives in the notifications section (same page, DOM-visible)
+  await expect(apiSection.getByText(/API key created — copy it now/i).first()).toBeVisible({ timeout: 12_000 });
   console.log("✅ [4c] API key created");
 
-  const dismissBtn = page.getByRole("button", { name: /I've saved the key/i }).first();
+  const dismissBtn = apiSection.getByRole("button", { name: /I've saved the key/i }).first();
   await expect(dismissBtn).toBeVisible({ timeout: 8_000 });
   await dismissBtn.click();
   await page.waitForTimeout(400);
