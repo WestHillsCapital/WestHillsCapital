@@ -5,6 +5,7 @@ import {
 } from "@workspace/api-zod";
 import { getDb } from "../db";
 import { syncProspectToPipeline } from "../lib/google-sheets";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -12,8 +13,9 @@ const router: IRouter = Router();
 router.post("/intake", async (req, res) => {
   const parseResult = SubmitLeadIntakeBody.safeParse(req.body);
   if (!parseResult.success) {
-    console.error(
-      `[Leads] Validation failed for lead intake — formType="${req.body?.formType}" error: ${parseResult.error.message}`
+    logger.error(
+      { err: parseResult.error, formType: req.body?.formType },
+      "[Leads] Validation failed for lead intake"
     );
     res.status(400).json({
       error: "validation_error",
@@ -25,8 +27,9 @@ router.post("/intake", async (req, res) => {
   const lead = parseResult.data;
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null;
 
-  console.log(
-    `[Leads] Received ${lead.formType} lead: ${lead.firstName} ${lead.lastName} <${lead.email}> — ${lead.allocationRange ?? "N/A"} — ${lead.timeline ?? "N/A"} — IP: ${ip}`
+  logger.info(
+    { formType: lead.formType, email: lead.email, allocationRange: lead.allocationRange ?? "N/A", timeline: lead.timeline ?? "N/A", ip },
+    "[Leads] Received lead intake"
   );
 
   try {
@@ -54,7 +57,7 @@ router.post("/intake", async (req, res) => {
     );
 
     const row = result.rows[0];
-    console.log(`[Leads] Saved lead id=${row.id} (${lead.formType}) for ${lead.email}`);
+    logger.info({ leadId: row.id, formType: lead.formType, email: lead.email }, "[Leads] Saved lead");
 
     // Mirror to Prospecting Pipeline (non-blocking)
     syncProspectToPipeline({
@@ -70,10 +73,10 @@ router.post("/intake", async (req, res) => {
       formType:         lead.formType,
       currentCustodian: lead.currentCustodian,
       createdAt:        row.created_at.toISOString(),
-    }).catch((err) => console.error("[Leads] Pipeline sync failed:", err));
+    }).catch((err) => logger.error({ err }, "[Leads] Pipeline sync failed"));
 
   } catch (err) {
-    console.error(`[Leads] FAILED to save ${lead.formType} lead for ${lead.email}:`, err);
+    logger.error({ err, formType: lead.formType, email: lead.email }, "[Leads] FAILED to save lead");
   }
 
   const data = SubmitLeadIntakeResponse.parse({
@@ -96,7 +99,7 @@ router.post("/subscribe", async (req, res) => {
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null;
   const source = (req.body?.source ?? "article-subscribe").trim();
 
-  console.log(`[Leads/Subscribe] ${email} source=${source} ip=${ip}`);
+  logger.info({ email, source, ip }, "[Leads/Subscribe] Received subscribe");
 
   try {
     const db = getDb();
@@ -108,7 +111,7 @@ router.post("/subscribe", async (req, res) => {
     );
 
     const row = result.rows[0];
-    console.log(`[Leads/Subscribe] Saved id=${row.id} for ${email}`);
+    logger.info({ leadId: row.id, email }, "[Leads/Subscribe] Saved lead");
 
     syncProspectToPipeline({
       leadId:    String(row.id),
@@ -117,10 +120,10 @@ router.post("/subscribe", async (req, res) => {
       email,
       formType:  source,
       createdAt: row.created_at.toISOString(),
-    }).catch((err) => console.error("[Leads/Subscribe] Pipeline sync failed:", err));
+    }).catch((err) => logger.error({ err }, "[Leads/Subscribe] Pipeline sync failed"));
 
   } catch (err) {
-    console.error(`[Leads/Subscribe] FAILED for ${email}:`, err);
+    logger.error({ err, email }, "[Leads/Subscribe] FAILED to save subscribe lead");
   }
 
   res.json({ success: true });

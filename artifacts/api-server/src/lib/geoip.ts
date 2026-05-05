@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import path from "node:path";
 import type { Lookup } from "geoip-lite";
+import { logger } from "./logger";
 
 const require = createRequire(import.meta.url);
 
@@ -17,7 +18,7 @@ try {
   const mod = await import("geoip-lite");
   geoip = ((mod.default ?? mod) as unknown) as GeoipModule;
 } catch (err) {
-  console.warn("[geoip] Failed to load geoip-lite data — location lookups will return null.", err);
+  logger.warn({ err }, "[geoip] Failed to load geoip-lite data — location lookups will return null.");
   geoip = {
     lookup: (_ip: string) => null,
   };

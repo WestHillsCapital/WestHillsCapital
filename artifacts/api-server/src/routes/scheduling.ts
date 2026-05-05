@@ -14,6 +14,7 @@ import {
   APPOINTMENT_DURATION_MINUTES,
 } from "../lib/google-calendar";
 import { mergeAppointmentIntoPipeline } from "../lib/google-sheets";
+import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
 
@@ -152,7 +153,7 @@ router.get("/slots", async (req, res) => {
     );
     bookedSlotIds = new Set(result.rows.map((r) => r.slot_id));
   } catch (err) {
-    console.error("[Scheduling] Failed to load booked slots:", err);
+    logger.error({ err }, "[Scheduling] Failed to load booked slots");
     res.status(503).json({
       error: "database_unavailable",
       message: "Unable to load available times. Please try again shortly.",
@@ -201,7 +202,7 @@ router.post("/book", async (req, res) => {
   // ── 2. Rate limit (per IP:email) ───────────────────────────────────────────
   const rlKey = `book:${ip}:${body.email.toLowerCase()}`;
   if (isRateLimited(rlKey, BOOK_MAX_PER_10_MIN, BOOK_WINDOW_MS)) {
-    console.warn(`[Scheduling] Rate limited: ${body.email} from ${ip}`);
+    logger.warn({ email: body.email, ip }, "[Scheduling] Rate limited");
     await recordBookingAttempt({
       email: body.email,
       slotId: body.slotId,
@@ -226,7 +227,7 @@ router.post("/book", async (req, res) => {
     );
     bookedSlotIds = new Set(result.rows.map((r) => r.slot_id));
   } catch (err) {
-    console.error("[Scheduling] Failed to load booked slots:", err);
+    logger.error({ err }, "[Scheduling] Failed to load booked slots");
     await recordBookingAttempt({
       email: body.email,
       slotId: body.slotId,
@@ -252,7 +253,7 @@ router.post("/book", async (req, res) => {
   const slot = slots.find((s) => s.id === body.slotId);
 
   if (!slot) {
-    console.warn(`[Scheduling] Slot unavailable: ${body.slotId} for ${body.email}`);
+    logger.warn({ slotId: body.slotId, email: body.email }, "[Scheduling] Slot unavailable");
     await recordBookingAttempt({
       email: body.email,
       slotId: body.slotId,
@@ -296,14 +297,15 @@ router.post("/book", async (req, res) => {
         "confirmed",
       ]
     );
-    console.log(
-      `[Scheduling] Appointment saved: ${confirmationId} — ${body.firstName} ${body.lastName} @ ${slot.timeLabel} ${slot.dayLabel}`
+    logger.info(
+      { confirmationId, email: body.email, timeLabel: slot.timeLabel, dayLabel: slot.dayLabel },
+      "[Scheduling] Appointment saved"
     );
   } catch (err: unknown) {
     const pgCode = (err as { code?: string }).code;
     const isSlotConflict = pgCode === "23505";
 
-    console.error(`[Scheduling] INSERT failed (${pgCode}):`, err);
+    logger.error({ err, pgCode }, "[Scheduling] INSERT failed");
 
     await recordBookingAttempt({
       email: body.email,
@@ -436,9 +438,9 @@ router.post("/book", async (req, res) => {
         });
       }
     } catch (err) {
-      console.error("[Scheduling] Lead linkage / Sheets sync error:", err);
+      logger.error({ err }, "[Scheduling] Lead linkage / Sheets sync error");
     }
-  }).catch((err) => console.error("[Scheduling] Lead linkage wrapper error:", err));
+  }).catch((err) => logger.error({ err }, "[Scheduling] Lead linkage wrapper error"));
 
   // ── 7. Google Calendar event + emails (all non-fatal) ────────────────────
   Promise.all([
@@ -464,7 +466,7 @@ router.post("/book", async (req, res) => {
           [eventId, confirmationId]
         );
       } catch (err) {
-        console.error("[Scheduling] Failed to store calendar_event_id:", err);
+        logger.error({ err, confirmationId }, "[Scheduling] Failed to store calendar_event_id");
       }
     }),
 
@@ -497,7 +499,7 @@ router.post("/book", async (req, res) => {
       allocationRange: body.allocationRange,
       timeline: body.timeline,
     }),
-  ]).catch((err) => console.error("[Scheduling] Post-booking operations error:", err));
+  ]).catch((err) => logger.error({ err }, "[Scheduling] Post-booking operations error"));
 
   // ── 8. Respond ────────────────────────────────────────────────────────────
   const data = BookAppointmentResponse.parse({
