@@ -1196,32 +1196,54 @@ router.get("/billing", async (req, res) => {
     let trialEnd: string | null = null;
     let renewalAmountCents: number | null = null;
     let billingInterval: string | null = null;
+    let lineItems: Array<{ description: string; quantity: number; unit_amount_cents: number; amount_cents: number }> = [];
     if (acct.stripe_subscription_id) {
       try {
-        const { rows: subRows } = await db.query<{
-          current_period_end: Date | null;
-          trial_end: Date | null;
-          total_amount_cents: string | null;
-          interval: string | null;
-        }>(
-          `SELECT s.current_period_end,
-                  s.trial_end,
-                  SUM(COALESCE(si.quantity, 1) * pr.unit_amount) AS total_amount_cents,
-                  -- Use the interval from the plan item (lowest unit_amount = base plan price)
-                  (SELECT pr2.recurring->>'interval'
-                     FROM stripe.subscription_items si2
-                     JOIN stripe.prices pr2 ON pr2.id = si2.price
-                    WHERE si2.subscription = s.id
-                      AND pr2.recurring IS NOT NULL
-                    ORDER BY pr2.unit_amount ASC
-                    LIMIT 1) AS interval
-             FROM stripe.subscriptions s
-             LEFT JOIN stripe.subscription_items si ON si.subscription = s.id
-             LEFT JOIN stripe.prices pr ON pr.id = si.price AND pr.recurring IS NOT NULL
-            WHERE s.id = $1
-            GROUP BY s.id, s.current_period_end, s.trial_end`,
-          [acct.stripe_subscription_id],
-        );
+        const [subResult, itemsResult] = await Promise.all([
+          db.query<{
+            current_period_end: Date | null;
+            trial_end: Date | null;
+            total_amount_cents: string | null;
+            interval: string | null;
+          }>(
+            `SELECT s.current_period_end,
+                    s.trial_end,
+                    SUM(COALESCE(si.quantity, 1) * pr.unit_amount) AS total_amount_cents,
+                    -- Use the interval from the plan item (lowest unit_amount = base plan price)
+                    (SELECT pr2.recurring->>'interval'
+                       FROM stripe.subscription_items si2
+                       JOIN stripe.prices pr2 ON pr2.id = si2.price
+                      WHERE si2.subscription = s.id
+                        AND pr2.recurring IS NOT NULL
+                      ORDER BY pr2.unit_amount ASC
+                      LIMIT 1) AS interval
+               FROM stripe.subscriptions s
+               LEFT JOIN stripe.subscription_items si ON si.subscription = s.id
+               LEFT JOIN stripe.prices pr ON pr.id = si.price AND pr.recurring IS NOT NULL
+              WHERE s.id = $1
+              GROUP BY s.id, s.current_period_end, s.trial_end`,
+            [acct.stripe_subscription_id],
+          ),
+          db.query<{
+            description: string | null;
+            price_nickname: string | null;
+            quantity: number | null;
+            unit_amount_cents: number | null;
+          }>(
+            `SELECT
+                COALESCE(p.name, pr.nickname, pr.id) AS description,
+                pr.nickname AS price_nickname,
+                COALESCE(si.quantity, 1) AS quantity,
+                pr.unit_amount AS unit_amount_cents
+               FROM stripe.subscription_items si
+               JOIN stripe.prices pr ON pr.id = si.price AND pr.recurring IS NOT NULL
+               LEFT JOIN stripe.products p ON p.id = pr.product
+              WHERE si.subscription = $1
+              ORDER BY pr.unit_amount DESC`,
+            [acct.stripe_subscription_id],
+          ),
+        ]);
+        const subRows = subResult.rows;
         if (subRows[0]?.current_period_end) {
           nextRenewalAt = new Date(subRows[0].current_period_end).toISOString();
         }
@@ -1234,6 +1256,18 @@ router.get("/billing", async (req, res) => {
         if (subRows[0]?.interval) {
           billingInterval = subRows[0].interval;
         }
+        lineItems = itemsResult.rows
+          .filter((r) => r.unit_amount_cents != null)
+          .map((r) => {
+            const qty = r.quantity ?? 1;
+            const unit = r.unit_amount_cents ?? 0;
+            return {
+              description: r.description ?? "Plan",
+              quantity: qty,
+              unit_amount_cents: unit,
+              amount_cents: qty * unit,
+            };
+          });
       } catch {
         // stripe schema not yet initialized or subscription_items/prices not synced — skip silently
       }
@@ -1248,6 +1282,7 @@ router.get("/billing", async (req, res) => {
         trial_end:               trialEnd,
         renewal_amount_cents:    renewalAmountCents,
         billing_interval:        billingInterval,
+        line_items:              lineItems,
         has_stripe_customer:     !!acct.stripe_customer_id,
         has_stripe_subscription: !!acct.stripe_subscription_id,
         limits: {

@@ -60,6 +60,13 @@ function formatRelative(iso: string | null): string {
   return formatOrgRelative(iso, getCachedProductOrg());
 }
 
+interface BillingLineItem {
+  description: string;
+  quantity: number;
+  unit_amount_cents: number;
+  amount_cents: number;
+}
+
 interface BillingInfo {
   plan_tier: string;
   subscription_status: string | null;
@@ -68,6 +75,7 @@ interface BillingInfo {
   trial_end: string | null;
   renewal_amount_cents: number | null;
   billing_interval: string | null;
+  line_items?: BillingLineItem[];
   has_stripe_customer: boolean;
   has_stripe_subscription: boolean;
   limits: {
@@ -536,20 +544,44 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                   )}
                 </p>
                 {billing.next_renewal_at && billing.subscription_status !== "trialing" && (
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Renews {formatDate(billing.next_renewal_at)}
-                    {billing.renewal_amount_cents != null && (
-                      <> &mdash; <span className="font-medium text-gray-700">
-                        {(() => {
-                          const dollars = billing.renewal_amount_cents / 100;
-                          const formatted = dollars % 1 === 0
-                            ? `$${dollars.toLocaleString("en-US")}`
-                            : `$${dollars.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                          return `${formatted}${billing.billing_interval === "year" ? "/yr" : "/mo"}`;
-                        })()}
-                      </span></>
+                  <div className="mt-0.5">
+                    <p className="text-xs text-gray-500">
+                      Renews {formatDate(billing.next_renewal_at)}
+                      {billing.renewal_amount_cents != null && (
+                        <> &mdash; <span className="font-medium text-gray-700">
+                          {(() => {
+                            const dollars = billing.renewal_amount_cents / 100;
+                            const formatted = dollars % 1 === 0
+                              ? `$${dollars.toLocaleString("en-US")}`
+                              : `$${dollars.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                            return `${formatted}${billing.billing_interval === "year" ? "/yr" : "/mo"}`;
+                          })()}
+                        </span></>
+                      )}
+                    </p>
+                    {(billing.line_items ?? []).length > 1 && (
+                      <div className="mt-1.5 space-y-0.5">
+                        {(billing.line_items ?? []).map((item, i) => {
+                          const amt = item.amount_cents / 100;
+                          const fmtAmt = amt % 1 === 0
+                            ? `$${amt.toLocaleString("en-US")}`
+                            : `$${amt.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                          const interval = billing.billing_interval === "year" ? "/yr" : "/mo";
+                          return (
+                            <div key={i} className="flex items-center justify-between text-[11px] text-gray-500">
+                              <span>
+                                {item.description}
+                                {item.quantity > 1 && (
+                                  <span className="text-gray-400"> ×{item.quantity}</span>
+                                )}
+                              </span>
+                              <span className="font-medium text-gray-600 ml-4">{fmtAmt}{interval}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     )}
-                  </p>
+                  </div>
                 )}
                 {(billing.plan_tier === "free" || billing.plan_tier === "starter") && billing.subscription_status !== "trialing" && (
                   <p className="text-xs text-gray-500 mt-0.5">
