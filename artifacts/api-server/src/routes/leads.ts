@@ -14,8 +14,8 @@ router.post("/intake", async (req, res) => {
   const parseResult = SubmitLeadIntakeBody.safeParse(req.body);
   if (!parseResult.success) {
     logger.error(
-      { err: parseResult.error, formType: req.body?.formType },
-      "[Leads] Validation failed for lead intake"
+      { err: parseResult.error },
+      `[Leads] Validation failed for lead intake — formType="${req.body?.formType}" error: ${parseResult.error.message}`
     );
     res.status(400).json({
       error: "validation_error",
@@ -28,8 +28,7 @@ router.post("/intake", async (req, res) => {
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null;
 
   logger.info(
-    { formType: lead.formType, email: lead.email, allocationRange: lead.allocationRange ?? "N/A", timeline: lead.timeline ?? "N/A", ip },
-    "[Leads] Received lead intake"
+    `[Leads] Received ${lead.formType} lead: ${lead.firstName} ${lead.lastName} <${lead.email}> — ${lead.allocationRange ?? "N/A"} — ${lead.timeline ?? "N/A"} — IP: ${ip}`
   );
 
   try {
@@ -57,7 +56,7 @@ router.post("/intake", async (req, res) => {
     );
 
     const row = result.rows[0];
-    logger.info({ leadId: row.id, formType: lead.formType, email: lead.email }, "[Leads] Saved lead");
+    logger.info(`[Leads] Saved lead id=${row.id} (${lead.formType}) for ${lead.email}`);
 
     // Mirror to Prospecting Pipeline (non-blocking)
     syncProspectToPipeline({
@@ -99,7 +98,7 @@ router.post("/subscribe", async (req, res) => {
   const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.ip ?? null;
   const source = (req.body?.source ?? "article-subscribe").trim();
 
-  logger.info({ email, source, ip }, "[Leads/Subscribe] Received subscribe");
+  logger.info(`[Leads/Subscribe] ${email} source=${source} ip=${ip}`);
 
   try {
     const db = getDb();
@@ -111,7 +110,7 @@ router.post("/subscribe", async (req, res) => {
     );
 
     const row = result.rows[0];
-    logger.info({ leadId: row.id, email }, "[Leads/Subscribe] Saved lead");
+    logger.info(`[Leads/Subscribe] Saved id=${row.id} for ${email}`);
 
     syncProspectToPipeline({
       leadId:    String(row.id),
@@ -123,7 +122,7 @@ router.post("/subscribe", async (req, res) => {
     }).catch((err) => logger.error({ err }, "[Leads/Subscribe] Pipeline sync failed"));
 
   } catch (err) {
-    logger.error({ err, email }, "[Leads/Subscribe] FAILED to save subscribe lead");
+    logger.error({ err }, `[Leads/Subscribe] FAILED for ${email}:`);
   }
 
   res.json({ success: true });

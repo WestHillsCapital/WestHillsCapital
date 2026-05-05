@@ -202,7 +202,7 @@ router.post("/book", async (req, res) => {
   // ── 2. Rate limit (per IP:email) ───────────────────────────────────────────
   const rlKey = `book:${ip}:${body.email.toLowerCase()}`;
   if (isRateLimited(rlKey, BOOK_MAX_PER_10_MIN, BOOK_WINDOW_MS)) {
-    logger.warn({ email: body.email, ip }, "[Scheduling] Rate limited");
+    logger.warn(`[Scheduling] Rate limited: ${body.email} from ${ip}`);
     await recordBookingAttempt({
       email: body.email,
       slotId: body.slotId,
@@ -253,7 +253,7 @@ router.post("/book", async (req, res) => {
   const slot = slots.find((s) => s.id === body.slotId);
 
   if (!slot) {
-    logger.warn({ slotId: body.slotId, email: body.email }, "[Scheduling] Slot unavailable");
+    logger.warn(`[Scheduling] Slot unavailable: ${body.slotId} for ${body.email}`);
     await recordBookingAttempt({
       email: body.email,
       slotId: body.slotId,
@@ -298,14 +298,13 @@ router.post("/book", async (req, res) => {
       ]
     );
     logger.info(
-      { confirmationId, email: body.email, timeLabel: slot.timeLabel, dayLabel: slot.dayLabel },
-      "[Scheduling] Appointment saved"
+      `[Scheduling] Appointment saved: ${confirmationId} — ${body.firstName} ${body.lastName} @ ${slot.timeLabel} ${slot.dayLabel}`
     );
   } catch (err: unknown) {
     const pgCode = (err as { code?: string }).code;
     const isSlotConflict = pgCode === "23505";
 
-    logger.error({ err, pgCode }, "[Scheduling] INSERT failed");
+    logger.error({ err }, `[Scheduling] INSERT failed (${pgCode})`);
 
     await recordBookingAttempt({
       email: body.email,
