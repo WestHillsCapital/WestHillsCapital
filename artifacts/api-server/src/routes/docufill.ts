@@ -1730,7 +1730,7 @@ async function upsertPackageDocument(params: {
     await client.query("COMMIT");
     return getPackage(params.packageId, getDb(), true, params.accountId);
   } catch (err) {
-    await client.query("ROLLBACK").catch(() => {});
+    await client.query("ROLLBACK").catch(() => {}); // suppress rollback errors — original err is re-thrown below
     throw err;
   } finally {
     client.release();
@@ -2748,7 +2748,7 @@ router.patch("/packages/:id", async (req, res) => {
       const finalGroupIds = junctionGroupIds.length > 0 ? junctionGroupIds : (patchedRow.group_id ? [Number(patchedRow.group_id)] : []);
       res.json({ package: sanitizePackageForClient({ ...patchedRow, group_ids: finalGroupIds }) });
     } catch (err) {
-      await client.query("ROLLBACK").catch(() => {});
+      await client.query("ROLLBACK").catch(() => {}); // suppress rollback errors — original err is re-thrown below
       throw err;
     } finally {
       client.release();
@@ -3093,7 +3093,7 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
       );
       await client.query("COMMIT");
     } catch (err) {
-      await client.query("ROLLBACK").catch(() => {});
+      await client.query("ROLLBACK").catch(() => {}); // suppress rollback errors — original err is re-thrown below
       throw err;
     } finally {
       client.release();
@@ -4625,7 +4625,7 @@ publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
        VALUES ($1, $2, 'otp_sent', $3, $4, $5, $6::jsonb)`,
       [req.params.token, pkgAccountId, email, req.ip ?? null, req.headers["user-agent"] ?? null,
        JSON.stringify({ packageName: session.package_name })],
-    ).catch((err) => logger.warn({ err, token: req.params.token }, "[DocuFill] OTP sent signing event insert failed"));
+    ).catch((err) => logger.warn({ err, token: req.params.token, accountId: pkgAccountId }, "[DocuFill] OTP sent signing event insert failed"));
     // Send OTP email
     const emailSettings = pkgAccountId ? await getOrgEmailSettings(pkgAccountId).catch(() => null) : null;
     await sendEsignOtpEmail({
@@ -4713,7 +4713,7 @@ publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
        VALUES ($1, $2, 'otp_verified', $3, $4, $5, $6::jsonb)`,
       [req.params.token, pkgAccountId, email, req.ip ?? null, req.headers["user-agent"] ?? null,
        JSON.stringify({ packageName: session.package_name })],
-    ).catch((err) => logger.warn({ err, token: req.params.token }, "[DocuFill] OTP verified signing event insert failed"));
+    ).catch((err) => logger.warn({ err, token: req.params.token, accountId: pkgAccountId }, "[DocuFill] OTP verified signing event insert failed"));
     // Issue a short-lived identity token
     const identityToken = createEsignIdentityToken(req.params.token, email);
     res.json({ ok: true, identityToken });
@@ -5007,7 +5007,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
            tsaTokenObtained: tsaTokenB64 !== null,
            signerGeo,
          })],
-      ).catch((err) => logger.warn({ err, token: req.params.token }, "[DocuFill] E-sign signed event insert failed"));
+      ).catch((err) => logger.warn({ err, token: req.params.token, accountId: pkgAccountId }, "[DocuFill] E-sign signed event insert failed"));
       // Send confirmation email with signed PDF to signer (fire-and-forget)
       sendSignerConfirmationEmail({
         signerEmail: esignEmail,
