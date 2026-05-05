@@ -168,6 +168,7 @@ export default function Home() {
           <div className="flex items-center gap-6">
             <a href="#how-it-works" className="hidden sm:block text-sm text-[#4B5A7A] hover:text-[#0B1220] transition-colors">How it works</a>
             <a href="#pricing" className="hidden sm:block text-sm text-[#4B5A7A] hover:text-[#0B1220] transition-colors">Pricing</a>
+            <a href="/docuplete-docs/" className="hidden sm:block text-sm text-[#4B5A7A] hover:text-[#0B1220] transition-colors">Docs</a>
             <a
               href={NAV_SIGNUP}
               className="inline-flex items-center gap-1.5 bg-[#1B4FD8] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1740B8] transition-colors"

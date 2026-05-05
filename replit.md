@@ -8,7 +8,17 @@ I prefer iterative development. I want to be asked before making major changes.
 
 # System Architecture
 
-The project is structured as a pnpm monorepo using TypeScript, comprising two main artifacts: `artifacts/api-server` (Express 5 backend) and `artifacts/west-hills-capital` (React + Vite + Tailwind + shadcn frontend). Shared packages include `packages/api-zod` for Zod schemas and `packages/db` for the database client.
+The project is structured as a pnpm monorepo using TypeScript, comprising several artifacts: `artifacts/api-server` (Express 5 backend), `artifacts/west-hills-capital` (React + Vite + Tailwind + shadcn frontend), `artifacts/docuplete` (Docuplete marketing site), and `artifacts/docuplete-docs` (Docuplete user documentation site at `/docuplete-docs/`). Shared packages include `packages/api-zod` for Zod schemas and `packages/db` for the database client.
+
+**Docuplete Docs (`artifacts/docuplete-docs`):**
+- React + Vite + Tailwind documentation site at preview path `/docuplete-docs/`
+- Dark navy/indigo brand palette (`#0B1220` bg, `#1B4FD8` primary)
+- Left sidebar with 10 sections and ~40 sub-pages, collapsible with active state tracking
+- Client-side search across all pages via `allPages()` helper in `src/lib/nav.ts`
+- Navigation structure defined in `src/lib/nav.ts` (typed `NavItem` tree)
+- All pages in `src/pages/docs/` organized by section subdirectories
+- Webhooks & API section marked with Enterprise-only callout boxes
+- "Docs" link added to marketing site nav (`artifacts/docuplete/src/pages/Home.tsx`)
 
 **Frontend (React + Vite + Tailwind + shadcn):**
 - **User Interfaces:** Includes public pages (Home, Live Pricing, etc.), an internal Google-authenticated portal (`/internal/*`) for tools like Deal Builder and DocuFill manager, and a Clerk-authenticated product portal (`/app/*`) for Docuplete SaaS features such as the AppPortal and DocuFill editor.
