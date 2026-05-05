@@ -1,5 +1,7 @@
 import { useState } from "react";
 import type { UserResource } from "@clerk/shared/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const APP_NAME = "Docuplete";
@@ -144,25 +146,25 @@ export default function AppOnboard({ user, token, onComplete }: Props) {
                 <label htmlFor="companyName" className="block text-sm font-medium text-gray-700 mb-1">
                   Company name
                 </label>
-                <input
+                <Input
                   id="companyName"
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder={defaultName ? `e.g. ${defaultName} Financial` : "e.g. Apex Wealth Group"}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
+                  className="h-9"
                   autoFocus
                   required
                 />
               </div>
 
-              <button
+              <Button
                 type="submit"
                 disabled={!companyName.trim()}
-                className="w-full bg-gray-900 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full"
               >
                 Continue
-              </button>
+              </Button>
             </form>
           </>
         )}
@@ -181,13 +183,14 @@ export default function AppOnboard({ user, token, onComplete }: Props) {
               {INDUSTRIES.map((opt) => {
                 const selected = industry === opt.key;
                 return (
-                  <button
+                  <Button
                     key={opt.key}
                     type="button"
+                    variant="outline"
                     onClick={() => setIndustry(opt.key)}
-                    className={`flex flex-col items-start gap-2 rounded-xl border-2 p-3.5 text-left transition-all ${
+                    className={`flex flex-col items-start gap-2 rounded-xl border-2 p-3.5 text-left h-auto w-full transition-all ${
                       selected
-                        ? "border-gray-900 bg-gray-900 text-white"
+                        ? "border-gray-900 bg-gray-900 text-white hover:bg-gray-900 hover:border-gray-900"
                         : "border-gray-200 bg-white text-gray-700 hover:border-gray-400"
                     }`}
                   >
@@ -202,7 +205,7 @@ export default function AppOnboard({ user, token, onComplete }: Props) {
                         {opt.description}
                       </p>
                     </div>
-                  </button>
+                  </Button>
                 );
               })}
             </div>
@@ -212,21 +215,22 @@ export default function AppOnboard({ user, token, onComplete }: Props) {
             )}
 
             <div className="flex gap-2">
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={() => { setStep(1); setError(null); }}
-                className="flex-none px-4 py-2.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="flex-none"
               >
                 Back
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
                 onClick={handleSubmit}
                 disabled={saving || !industry}
-                className="flex-1 bg-gray-900 text-white rounded-lg py-2.5 text-sm font-medium hover:bg-gray-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1"
               >
                 {saving ? "Setting up your account…" : "Get started"}
-              </button>
+              </Button>
             </div>
           </>
         )}

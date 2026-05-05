@@ -8,6 +8,8 @@ import { useProductOrgSettings, updateProductOrgCache, getCachedProductOrg, type
 import { formatOrgDate, formatOrgRelative } from "@/lib/orgDateFormat";
 import { BrandColorSection } from "@/components/settings/BrandColorSection";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { Select } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SETTINGS_BASE = `${API_BASE}/api/v1/product/settings`;
@@ -288,15 +290,15 @@ function SubmissionBankSection({ getAuthHeaders }: { getAuthHeaders: () => Heade
           {/* Size picker */}
           <div className="flex flex-col gap-1">
             <label className="text-[11px] text-gray-500">Pack size</label>
-            <select
-              value={selectedSize}
+            <Select
+              value={String(selectedSize)}
               onChange={(e) => setSelectedSize(Number(e.target.value))}
-              className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20"
+              className="h-auto rounded-md border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700"
             >
               {packs.map((p) => (
                 <option key={p.size} value={p.size}>{p.size} submissions</option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Type picker */}
@@ -1319,31 +1321,36 @@ function TeamSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) 
                     {confirmRemoveId === member.id ? (
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs text-gray-600 whitespace-nowrap">Remove?</span>
-                        <button
-                          type="button"
+                        <Button
+                          variant="destructive"
+                          size="sm"
                           disabled={removingId === member.id}
                           onClick={() => { void handleRemove(member.id); }}
-                          className="rounded bg-red-600 px-2.5 py-1 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-60 transition-colors"
+                          className="h-7 px-2.5 text-xs"
                         >
                           {removingId === member.id ? "…" : "Yes"}
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => setConfirmRemoveId(null)}
-                          className="rounded border border-gray-200 px-2.5 py-1 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
+                          className="h-7 px-2.5 text-xs"
                         >
                           No
-                        </button>
+                        </Button>
                       </div>
                     ) : (
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="icon"
                         onClick={() => { setConfirmRemoveId(member.id); setActionError(null); }}
-                        className="text-xs text-gray-400 hover:text-red-600 transition-colors px-1"
                         title="Remove member"
+                        className="h-7 w-7"
                       >
-                        ✕
-                      </button>
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
+                        </svg>
+                      </Button>
                     )}
                   </div>
                 )}

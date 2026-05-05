@@ -63,7 +63,7 @@
   --popover: 0 0% 100%;
   --popover-foreground: 222 47% 11%;
   
-  /* Subtle Muted Gold */
+  /* Gold primary */
   --primary: 40 48% 56%;
   --primary-foreground: 0 0% 100%;
   
@@ -110,6 +110,12 @@
 @keyframes slide-up {
   from { opacity: 0; transform: translateY(20px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+/* Docuplete app portal — scoped navy primary so the West Hills marketing site keeps gold */
+.docuplete-app {
+  --primary: 224 61% 15%;
+  --ring: 224 61% 15%;
 }
 
 /* Base custom utilities */

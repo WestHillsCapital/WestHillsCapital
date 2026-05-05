@@ -715,7 +715,7 @@ export default function DocuFillCustomer() {
             <p className="text-sm text-[#6B7A99] mt-1">Your paperwork is complete. Your advisor has been notified.{signerEmail ? ` A copy has been sent to ${signerEmail}.` : ""}</p>
           </div>
           {downloadUrl && (
-            <Button onClick={handleDownload} disabled={isDownloading} className="bg-[#0F1C3F] hover:bg-[#182B5F] w-full">
+            <Button onClick={handleDownload} disabled={isDownloading} className="w-full">
               {isDownloading ? "Preparing download…" : "Download your completed documents"}
             </Button>
           )}
@@ -835,7 +835,7 @@ export default function DocuFillCustomer() {
                   type="button"
                   onClick={() => { void handleRequestOtp(); }}
                   disabled={otpLoading || !signerEmail.trim()}
-                  className="flex-1 bg-[#0F1C3F] hover:bg-[#182B5F]"
+                  className="flex-1"
                 >
                   {otpLoading ? "Sending code…" : "Send verification code"}
                 </Button>
@@ -912,7 +912,7 @@ export default function DocuFillCustomer() {
                   type="button"
                   onClick={() => { void handleVerifyOtp(); }}
                   disabled={otpLoading || otpCode.length < 6 || otpExpired}
-                  className="flex-1 bg-[#0F1C3F] hover:bg-[#182B5F]"
+                  className="flex-1"
                 >
                   {otpLoading ? "Verifying…" : "Verify code"}
                 </Button>
@@ -931,20 +931,22 @@ export default function DocuFillCustomer() {
               </div>
               {/* Draw/type toggle */}
               <div className="flex items-center gap-1 rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-1 w-fit">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={() => setInitialsMode("draw")}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${initialsMode === "draw" ? "bg-white shadow-sm text-[#0F1C3F] font-medium" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                  className={`px-3 py-1.5 text-sm rounded-md h-auto transition-colors ${initialsMode === "draw" ? "bg-white shadow-sm text-[#0F1C3F] font-medium hover:bg-white" : "text-[#6B7A99] hover:text-[#0F1C3F] hover:bg-transparent"}`}
                 >
                   Draw
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="ghost"
                   onClick={() => setInitialsMode("type")}
-                  className={`px-3 py-1.5 text-sm rounded-md transition-colors ${initialsMode === "type" ? "bg-white shadow-sm text-[#0F1C3F] font-medium" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                  className={`px-3 py-1.5 text-sm rounded-md h-auto transition-colors ${initialsMode === "type" ? "bg-white shadow-sm text-[#0F1C3F] font-medium hover:bg-white" : "text-[#6B7A99] hover:text-[#0F1C3F] hover:bg-transparent"}`}
                 >
                   Type
-                </button>
+                </Button>
               </div>
               {/* Draw pad */}
               {initialsMode === "draw" && (
@@ -1001,7 +1003,7 @@ export default function DocuFillCustomer() {
                   type="button"
                   onClick={handleInitialsContinue}
                   disabled={initialsMode === "draw" ? !initPadHasContent : typedInitials.trim().length < 2}
-                  className="flex-1 bg-[#0F1C3F] hover:bg-[#182B5F]"
+                  className="flex-1"
                 >
                   Continue
                 </Button>
@@ -1044,22 +1046,24 @@ export default function DocuFillCustomer() {
               {/* Draw / type toggle */}
               <div className="space-y-2">
                 <div className="flex items-center gap-1 rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-1 w-fit">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={() => { setSigMode("type"); }}
-                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${sigMode === "type" ? "bg-white shadow-sm text-[#0F1C3F] font-medium" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                    className={`px-3 py-1.5 text-sm rounded-md h-auto transition-colors ${sigMode === "type" ? "bg-white shadow-sm text-[#0F1C3F] font-medium hover:bg-white" : "text-[#6B7A99] hover:text-[#0F1C3F] hover:bg-transparent"}`}
                     disabled={pageStatus === "submitting"}
                   >
                     Type
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
+                    variant="ghost"
                     onClick={() => { setSigMode("draw"); }}
-                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${sigMode === "draw" ? "bg-white shadow-sm text-[#0F1C3F] font-medium" : "text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                    className={`px-3 py-1.5 text-sm rounded-md h-auto transition-colors ${sigMode === "draw" ? "bg-white shadow-sm text-[#0F1C3F] font-medium hover:bg-white" : "text-[#6B7A99] hover:text-[#0F1C3F] hover:bg-transparent"}`}
                     disabled={pageStatus === "submitting"}
                   >
                     Draw
-                  </button>
+                  </Button>
                 </div>
 
                 {sigMode === "type" && signerName.trim() && (
@@ -1129,7 +1133,7 @@ export default function DocuFillCustomer() {
                     (sigMode === "draw" && !sigPadHasContent) ||
                     (merlinWasUsed && !merlinReviewConfirmed)
                   }
-                  className="flex-1 bg-[#0F1C3F] hover:bg-[#182B5F]"
+                  className="flex-1"
                 >
                   {pageStatus === "submitting" ? "Submitting…" : "Submit and sign"}
                 </Button>

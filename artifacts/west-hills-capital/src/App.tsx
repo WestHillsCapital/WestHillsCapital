@@ -132,31 +132,31 @@ function Router() {
 
   if (isInternal) {
     return (
-      <>
+      <div className="docuplete-app">
         <ScrollToTop />
         <Suspense fallback={<PageSpinner />}>
           <InternalRouter />
         </Suspense>
-      </>
+      </div>
     );
   }
 
   if (isCustomerForm) {
     return (
-      <>
+      <div className="docuplete-app">
         <ScrollToTop />
         <Suspense fallback={<PageSpinner />}>
           <Switch>
             <Route path="/docuplete/public/:token" component={DocuFillCustomer} />
           </Switch>
         </Suspense>
-      </>
+      </div>
     );
   }
 
   if (isApp) {
     return (
-      <>
+      <div className="docuplete-app">
         <ScrollToTop />
         <Suspense fallback={<PageSpinner />}>
           <Switch>
@@ -165,7 +165,7 @@ function Router() {
             <Route path="/app/*?"         component={AppPortal} />
           </Switch>
         </Suspense>
-      </>
+      </div>
     );
   }
 

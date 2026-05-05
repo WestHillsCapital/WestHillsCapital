@@ -10,7 +10,7 @@ import { useUpgradeModal } from "@/hooks/useUpgradeModal";
 import { useDocuFillConfig } from "@/hooks/useDocuFillConfig";
 import { getCachedOrg } from "@/hooks/useOrgSettings";
 import { formatOrgTime } from "@/lib/orgDateFormat";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { getDocuFillPrefillDisplayValue, ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE, isSystemEsignFieldId } from "@/lib/docufill-redaction";
@@ -3859,7 +3859,7 @@ export default function DocuFill() {
                 />
               </label>
               <div className="flex gap-2">
-                <Button onClick={createPackage} disabled={isSaving || !newPackageName.trim()} className="bg-[#0F1C3F] hover:bg-[#182B5F]">Create Package</Button>
+                <Button onClick={createPackage} disabled={isSaving || !newPackageName.trim()} >Create Package</Button>
                 <Button type="button" onClick={() => setAddingPackage(false)} variant="outline">Cancel</Button>
               </div>
             </div>
@@ -4349,8 +4349,8 @@ export default function DocuFill() {
                         <p className="text-xs text-[#8A9BB8]">The order below becomes the order of the generated paperwork packet.</p>
                       </div>
                       <div className="flex gap-2">
-                        <button type="button" onClick={addDocument} className="rounded border border-[#D4C9B5] px-3 py-2 text-sm text-[#6B7A99]">Add placeholder</button>
-                        <label className="rounded bg-[#0F1C3F] px-3 py-2 text-sm text-white cursor-pointer">
+                        <Button type="button" variant="outline" size="sm" onClick={addDocument}>Add placeholder</Button>
+                        <label className={`${buttonVariants({ size: "sm" })} cursor-pointer`}>
                           Upload PDFs
                           <input
                             type="file"
@@ -4388,7 +4388,7 @@ export default function DocuFill() {
                     >
                       <div className="text-sm font-semibold text-[#0F1C3F]">Drag and drop multiple PDFs here</div>
                       <p className="mt-1 text-xs text-[#6B7A99]">Drop all paperwork documents at once. Docuplete will upload them in order and add each file to this package.</p>
-                      <label className={`mt-3 inline-flex rounded border border-[#D4C9B5] bg-white px-3 py-2 text-xs font-medium text-[#0F1C3F] ${isUploadingDocument ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer"}`}>
+                      <label className={`mt-3 ${buttonVariants({ variant: "outline", size: "sm" })} ${isUploadingDocument ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer"}`}>
                         {isUploadingDocument ? "Uploading…" : "Browse PDF files"}
                         <input
                           type="file"
@@ -4471,7 +4471,7 @@ export default function DocuFill() {
                       <Button
                         onClick={async () => { await savePackage(selectedPackage); goBuilderStep("mapping"); }}
                         disabled={isSaving || selectedPackage.documents.length === 0}
-                        className="bg-[#0F1C3F] hover:bg-[#182B5F]"
+                        
                       >
                         {isSaving ? "Saving…" : "Save & Continue →"}
                       </Button>
@@ -4988,7 +4988,7 @@ export default function DocuFill() {
                       <div className="flex flex-wrap items-center gap-2 border-t border-[#DDD5C4] pt-4">
                         <Button onClick={() => goBuilderStep("mapping")} variant="outline" className="text-[#6B7A99]">← Back to Mapping</Button>
                         {selectedPackage.status !== "active" && (
-                          <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || selectedPackage.mappings.length === 0} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : "Activate Package"}</Button>
+                          <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || selectedPackage.mappings.length === 0} >{isSaving ? "Saving…" : "Activate Package"}</Button>
                         )}
                         <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save"}</Button>
                         {selectedPackage.status !== "active" && selectedPackage.id && (
@@ -5598,7 +5598,7 @@ export default function DocuFill() {
                 </div>
               </div>}
               <div className="mt-4 flex flex-wrap justify-end gap-2">
-                <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Saving…" : `Save ${selectedPackage.fields.length} Fields / ${selectedPackage.mappings.length} Placements`}</Button>
+                <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} >{isSaving ? "Saving…" : `Save ${selectedPackage.fields.length} Fields / ${selectedPackage.mappings.length} Placements`}</Button>
                 <Button onClick={() => goBuilderStep("interview", { autoSort: true })} variant="outline">Review Generated Interview</Button>
               </div>
             </section>
@@ -5983,7 +5983,7 @@ export default function DocuFill() {
                               onChange={setStandalonePackageId}
                               transactionLabel={labelForTransactionScope}
                             />
-                            <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} className="bg-[#0F1C3F] hover:bg-[#182B5F]">{isSaving ? "Launching…" : "Start Interview"}</Button>
+                            <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} >{isSaving ? "Launching…" : "Start Interview"}</Button>
                           </div>
                         </div>
                       )}
@@ -6019,7 +6019,7 @@ export default function DocuFill() {
                               <Input placeholder="Last name (optional)" value={customerLinkLastName} onChange={(e) => setCustomerLinkLastName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm" />
                               <Input placeholder="Email (optional)" value={customerLinkEmail} onChange={(e) => setCustomerLinkEmail(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm" />
                             </div>
-                            <Button onClick={generateCustomerLink} disabled={!customerLinkPackageId || isGeneratingLink} className="bg-[#0F1C3F] hover:bg-[#182B5F]">
+                            <Button onClick={generateCustomerLink} disabled={!customerLinkPackageId || isGeneratingLink} >
                               {isGeneratingLink ? "Generating…" : "Generate Link"}
                             </Button>
                             {generatedCustomerLink && (
@@ -6091,7 +6091,7 @@ export default function DocuFill() {
                                     <Button
                                       onClick={handleSendLinkByEmail}
                                       disabled={!sendLinkEmail.trim() || isSendingLink}
-                                      className="bg-[#0F1C3F] hover:bg-[#182B5F] text-xs h-8 px-4"
+                                      className="text-xs h-8 px-4"
                                     >
                                       {isSendingLink ? "Sending…" : "Send Email"}
                                     </Button>
@@ -6335,7 +6335,7 @@ export default function DocuFill() {
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 <Button onClick={() => saveAnswers()} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save Interview"}</Button>
-                <Button onClick={generatePacket} disabled={isSaving || missingRequiredFields.length > 0 || Object.keys(fieldErrors).length > 0} className="bg-[#0F1C3F] hover:bg-[#182B5F] disabled:opacity-60">{isSaving ? "Generating…" : "Generate Packet"}</Button>
+                <Button onClick={generatePacket} disabled={isSaving || missingRequiredFields.length > 0 || Object.keys(fieldErrors).length > 0} className="disabled:opacity-60">{isSaving ? "Generating…" : "Generate Packet"}</Button>
                 <Button onClick={handleDownloadInterviewCsv} variant="outline" className="text-[#6B7A99] border-[#DDD5C4]">Download CSV</Button>
                 {generatedUrl && (
                   <button type="button" onClick={downloadGeneratedPacket} disabled={isDownloading} className="text-sm text-[#C49A38] underline disabled:opacity-60">
@@ -7189,7 +7189,7 @@ export default function DocuFill() {
             <Button
               onClick={() => handleCsvBatchImport()}
               disabled={!csvBatchPackageId || csvBatchRows.length === 0 || csvBatchIsImporting || csvBatchRows.length > CSV_BATCH_MAX}
-              className="bg-[#0F1C3F] hover:bg-[#182B5F] disabled:opacity-60"
+              className="disabled:opacity-60"
             >
               {csvBatchIsImporting ? "Importing…" : `Import & Generate ${csvBatchRows.length > 0 ? csvBatchRows.length : ""} row${csvBatchRows.length === 1 ? "" : "s"}`}
             </Button>
@@ -7392,7 +7392,7 @@ export default function DocuFill() {
                                         setCsvInviteSending(false);
                                       }
                                     }}
-                                    className="bg-[#0F1C3F] text-white hover:bg-[#1a2f5e]"
+                                    
                                   >
                                     {csvInviteSending
                                       ? "Sending…"

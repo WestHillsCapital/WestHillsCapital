@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SESSIONS_URL = `${API_BASE}/api/v1/product/docufill/sessions/portal-list`;
@@ -179,12 +184,11 @@ function VoidSessionModal({ session, getAuthHeaders, onClose, onVoided }: VoidMo
 
           {hasSigner && (
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
-              <input
-                type="checkbox"
+              <Checkbox
                 checked={notifySigner}
-                onChange={(e) => setNotifySigner(e.target.checked)}
+                onCheckedChange={(checked) => setNotifySigner(checked === true)}
                 disabled={submitting}
-                className="w-4 h-4 rounded border-gray-300 text-red-600 focus:ring-red-300"
+                id="notify-signer"
               />
               <span className="text-sm text-gray-700">
                 Notify signer{session.signer_email ? ` (${session.signer_email})` : ""} by email
@@ -197,21 +201,23 @@ function VoidSessionModal({ session, getAuthHeaders, onClose, onVoided }: VoidMo
           )}
 
           <div className="flex items-center justify-end gap-2 pt-1">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
               disabled={submitting}
-              className="px-3 py-2 text-sm font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              size="sm"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
+              variant="destructive"
               disabled={!canSubmit}
-              className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              size="sm"
             >
               {submitting ? "Voiding…" : "Void session"}
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -241,15 +247,17 @@ function RowMenu({ session, onVoid }: RowMenuProps) {
 
   return (
     <div className="relative" ref={ref}>
-      <button
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={() => setOpen((o) => !o)}
-        className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
         title="Actions"
+        className="h-7 w-7"
       >
         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
           <circle cx="12" cy="5" r="1.5" /><circle cx="12" cy="12" r="1.5" /><circle cx="12" cy="19" r="1.5" />
         </svg>
-      </button>
+      </Button>
       {open && (
         <div className="absolute right-0 z-20 mt-1 w-36 bg-white border border-gray-200 rounded-lg shadow-lg py-1">
           <button
@@ -289,10 +297,12 @@ function VerifyCell({ token }: { token: string }) {
 
   return (
     <div className="flex items-center gap-1">
-      <button
+      <Button
+        variant="ghost"
+        size="icon"
         onClick={handleCopy}
         title={copied ? "Copied!" : "Copy verify link"}
-        className="p-1 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+        className="h-7 w-7"
       >
         {copied ? (
           <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -303,7 +313,7 @@ function VerifyCell({ token }: { token: string }) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
         )}
-      </button>
+      </Button>
       <a
         href={verifyUrl}
         target="_blank"
@@ -448,337 +458,328 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
         </div>
       </div>
 
-      {/* Sub-tab bar */}
-      <div className="flex border-b border-gray-200 mb-5">
-        {(["interviews", "batch"] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setActiveTab(t)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
-              activeTab === t
-                ? "border-gray-900 text-gray-900"
-                : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-            }`}
-          >
-            {t === "interviews" ? "Interviews" : "Batch Runs"}
-          </button>
-        ))}
-      </div>
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "interviews" | "batch")}>
+        <TabsList className="mb-5">
+          <TabsTrigger value="interviews">Interviews</TabsTrigger>
+          <TabsTrigger value="batch">Batch Runs</TabsTrigger>
+        </TabsList>
 
-      {/* ── Batch Runs tab ── */}
-      {activeTab === "batch" && (
-        <div>
-          {batchRunsLoading && (
-            <div className="flex justify-center py-16">
-              <div className="w-6 h-6 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-            </div>
-          )}
-          {batchRunsError && (
-            <div className="text-sm text-red-600 text-center py-8">{batchRunsError}</div>
-          )}
-          {!batchRunsLoading && !batchRunsError && batchRuns.length === 0 && (
-            <div className="text-center py-16 text-sm text-gray-400">
-              No batch runs yet. Upload a CSV in the Batch CSV tab to get started.
-            </div>
-          )}
-          {!batchRunsLoading && batchRuns.length > 0 && (
-            <div className="space-y-3">
-              {batchRuns.map((run) => {
-                const total = Number(run.total);
-                const generated = Number(run.generated);
-                const submitted = Number(run.submitted);
-                const emailed = Number(run.emailed);
-                const pct = total > 0 ? Math.round((submitted / total) * 100) : 0;
-                const isExpanded = expandedRun === run.batch_run_id;
-                const sessions = runSessions[run.batch_run_id] ?? [];
-                const isLoadingSessions = runSessionsLoading[run.batch_run_id] ?? false;
-                return (
-                  <div key={run.batch_run_id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    <button
-                      type="button"
-                      className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-colors"
-                      onClick={() => {
-                        const next = isExpanded ? null : run.batch_run_id;
-                        setExpandedRun(next);
-                        if (next && !runSessions[run.batch_run_id]) fetchRunSessions(run.batch_run_id);
-                      }}
-                    >
-                      <div className="flex items-center gap-4 min-w-0">
-                        <svg className={`w-4 h-4 shrink-0 text-gray-400 transition-transform ${isExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                        </svg>
-                        <div className="min-w-0">
-                          <div className="text-sm font-semibold text-gray-900 truncate">{run.package_name}</div>
-                          <div className="text-xs text-gray-400 mt-0.5">
-                            {new Date(run.run_started_at).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-6 shrink-0 ml-4">
-                        <div className="text-center hidden sm:block">
-                          <div className="text-sm font-semibold text-gray-900">{total}</div>
-                          <div className="text-xs text-gray-400">Rows</div>
-                        </div>
-                        <div className="text-center hidden sm:block">
-                          <div className="text-sm font-semibold text-emerald-700">{generated}</div>
-                          <div className="text-xs text-gray-400">Generated</div>
-                        </div>
-                        <div className="text-center hidden sm:block">
-                          <div className="text-sm font-semibold text-blue-700">{emailed}</div>
-                          <div className="text-xs text-gray-400">Emailed</div>
-                        </div>
-                        <div className="text-center hidden sm:block">
-                          <div className="text-sm font-semibold text-violet-700">{submitted}</div>
-                          <div className="text-xs text-gray-400">Submitted</div>
-                        </div>
-                        <div className="text-center">
-                          <div className={`text-sm font-bold ${pct >= 75 ? "text-emerald-600" : pct >= 40 ? "text-amber-600" : "text-gray-500"}`}>{pct}%</div>
-                          <div className="text-xs text-gray-400">Complete</div>
-                        </div>
-                      </div>
-                    </button>
-
-                    {isExpanded && (
-                      <div className="border-t border-gray-100">
-                        {isLoadingSessions && (
-                          <div className="flex justify-center py-6">
-                            <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
-                          </div>
-                        )}
-                        {!isLoadingSessions && sessions.length > 0 && (
-                          <div className="overflow-x-auto">
-                            <table className="min-w-full divide-y divide-gray-50">
-                              <thead className="bg-gray-50">
-                                <tr>
-                                  <th className="px-5 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Row</th>
-                                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Recipient</th>
-                                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
-                                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">PDF</th>
-                                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Emailed</th>
-                                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Submitted</th>
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-gray-50 bg-white">
-                                {sessions.map((s, idx) => {
-                                  const pdfUrl = `${API_BASE}/api/v1/docufill/public/sessions/${s.token}/packet.pdf`;
-                                  const recipient = s.signer_name || s.signer_email || s.link_email_recipient || "—";
-                                  const statusMap: Record<string, { label: string; cls: string }> = {
-                                    generated: { label: "Generated", cls: "bg-emerald-50 text-emerald-700" },
-                                    draft:     { label: "Pending",   cls: "bg-gray-100 text-gray-600" },
-                                    submitted: { label: "Submitted", cls: "bg-blue-50 text-blue-700" },
-                                    voided:    { label: "Voided",    cls: "bg-red-50 text-red-600" },
-                                  };
-                                  const statusInfo = statusMap[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-600" };
-                                  return (
-                                    <tr key={s.token} className="hover:bg-gray-50 transition-colors">
-                                      <td className="px-5 py-2.5 text-sm text-gray-500">{idx + 1}</td>
-                                      <td className="px-4 py-2.5 text-sm text-gray-800 max-w-[200px] truncate" title={recipient}>{recipient}</td>
-                                      <td className="px-4 py-2.5">
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>
-                                          {statusInfo.label}
-                                        </span>
-                                      </td>
-                                      <td className="px-4 py-2.5">
-                                        <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900 underline underline-offset-2">
-                                          <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                          PDF
-                                        </a>
-                                      </td>
-                                      <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">
-                                        {s.link_emailed_at ? new Date(s.link_emailed_at).toLocaleDateString() : <span className="text-gray-300">—</span>}
-                                      </td>
-                                      <td className="px-4 py-2.5 text-xs whitespace-nowrap">
-                                        {s.submitted_at
-                                          ? <span className="text-violet-700 font-medium">{new Date(s.submitted_at).toLocaleDateString()}</span>
-                                          : <span className="text-gray-300">Pending</span>}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                        {!isLoadingSessions && sessions.length === 0 && (
-                          <div className="text-center py-6 text-sm text-gray-400">No sessions found for this run.</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* ── Interviews tab ── */}
-      {activeTab === "interviews" && <>
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <div className="relative flex-1">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
-          </svg>
-          <input
-            type="text"
-            placeholder="Search by name, email, or package…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-gray-300"
-          />
-        </div>
-        <select
-          value={statusFilter}
-          onChange={(e) => { setStatus(e.target.value); setPage(0); }}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-gray-300"
-        >
-          <option value="">All statuses</option>
-          <option value="draft">Draft</option>
-          <option value="in_progress">In Progress</option>
-          <option value="generated">Signed</option>
-          <option value="voided">Voided</option>
-        </select>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        {error && (
-          <div className="p-6 text-sm text-red-600 text-center">{error}</div>
-        )}
-        {!error && loading && sessions.length === 0 && (
-          <div className="p-10 flex justify-center">
-            <div className="w-6 h-6 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
-          </div>
-        )}
-        {!error && !loading && sessions.length === 0 && (
-          <div className="p-10 text-center text-sm text-gray-400">No sessions found.</div>
-        )}
-        {!error && sessions.length > 0 && (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-100">
-              <thead className="bg-gray-50">
-                <tr>
-                  <Th field="package_name" label="Package" />
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Signer</th>
-                  <Th field="status" label="Status" />
-                  <Th field="signed_at" label="Signed" />
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">TSA</th>
-                  <Th field="updated_at" label="Updated" />
-                  <Th field="created_at" label="Created" />
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">PDF</th>
-                  <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Verify</th>
-                  <th scope="col" className="px-4 py-3 w-10" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50 bg-white">
-                {sessions.map((s) => {
-                  const statusInfo = STATUS_LABELS[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-600" };
-                  const recipient = s.signer_name || s.signer_email || s.link_email_recipient || "—";
-                  const recipientSub = s.signer_name && s.signer_email ? s.signer_email : null;
-                  const pdfHref = `${API_BASE}/api/v1/public/docufill/sessions/${s.token}/packet.pdf`;
-                  const isVoided = s.status === "voided";
+        {/* ── Batch Runs tab ── */}
+        <TabsContent value="batch">
+          <div>
+            {batchRunsLoading && (
+              <div className="flex justify-center py-16">
+                <div className="w-6 h-6 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+            {batchRunsError && (
+              <div className="text-sm text-red-600 text-center py-8">{batchRunsError}</div>
+            )}
+            {!batchRunsLoading && !batchRunsError && batchRuns.length === 0 && (
+              <div className="text-center py-16 text-sm text-gray-400">
+                No batch runs yet. Upload a CSV in the Batch CSV tab to get started.
+              </div>
+            )}
+            {!batchRunsLoading && batchRuns.length > 0 && (
+              <div className="space-y-3">
+                {batchRuns.map((run) => {
+                  const total = Number(run.total);
+                  const generated = Number(run.generated);
+                  const submitted = Number(run.submitted);
+                  const emailed = Number(run.emailed);
+                  const pct = total > 0 ? Math.round((submitted / total) * 100) : 0;
+                  const isExpanded = expandedRun === run.batch_run_id;
+                  const sessions = runSessions[run.batch_run_id] ?? [];
+                  const isLoadingSessions = runSessionsLoading[run.batch_run_id] ?? false;
                   return (
-                    <tr key={s.token} className={`hover:bg-gray-50 transition-colors ${isVoided ? "opacity-60" : ""}`}>
-                      <td className="px-4 py-3">
-                        <span className="text-sm font-medium text-gray-800 line-clamp-1">{s.package_name}</span>
-                        {isVoided && s.voided_reason && (
-                          <div className="text-xs text-red-500 mt-0.5 line-clamp-1" title={s.voided_reason}>
-                            {s.voided_reason}
+                    <div key={run.batch_run_id} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                      <button
+                        type="button"
+                        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-gray-50 transition-colors"
+                        onClick={() => {
+                          const next = isExpanded ? null : run.batch_run_id;
+                          setExpandedRun(next);
+                          if (next && !runSessions[run.batch_run_id]) fetchRunSessions(run.batch_run_id);
+                        }}
+                      >
+                        <div className="flex items-center gap-4 min-w-0">
+                          <svg className={`w-4 h-4 shrink-0 text-gray-400 transition-transform ${isExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                          </svg>
+                          <div className="min-w-0">
+                            <div className="text-sm font-semibold text-gray-900 truncate">{run.package_name}</div>
+                            <div className="text-xs text-gray-400 mt-0.5">
+                              {new Date(run.run_started_at).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
+                            </div>
                           </div>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm text-gray-800 truncate max-w-[180px]">{recipient}</div>
-                        {recipientSub && <div className="text-xs text-gray-400 truncate max-w-[180px]">{recipientSub}</div>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>
-                          {statusInfo.label}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDate(s.signed_at)}</td>
-                      <td className="px-4 py-3"><TsaBadge obtained={s.tsa_obtained} /></td>
-                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDatetime(s.updated_at)}</td>
-                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDate(s.created_at)}</td>
-                      <td className="px-4 py-3">
-                        {s.status === "generated" ? (
-                          <a
-                            href={pdfHref}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 hover:text-gray-900 underline underline-offset-2"
-                          >
-                            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                            </svg>
-                            {s.pdf_stored ? "Stored" : "Generate"}
-                          </a>
-                        ) : isVoided && s.voided_at ? (
-                          <span className="text-xs text-red-400 whitespace-nowrap">{fmtDate(s.voided_at)}</span>
-                        ) : (
-                          <span className="text-gray-300 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {s.status === "generated" ? (
-                          <VerifyCell token={s.token} />
-                        ) : (
-                          <span className="text-gray-300 text-xs">—</span>
-                        )}
-                      </td>
-                      <td className="px-2 py-3">
-                        <RowMenu session={s} onVoid={() => setVoidTarget(s)} />
-                      </td>
-                    </tr>
+                        </div>
+                        <div className="flex items-center gap-6 shrink-0 ml-4">
+                          <div className="text-center hidden sm:block">
+                            <div className="text-sm font-semibold text-gray-900">{total}</div>
+                            <div className="text-xs text-gray-400">Rows</div>
+                          </div>
+                          <div className="text-center hidden sm:block">
+                            <div className="text-sm font-semibold text-emerald-700">{generated}</div>
+                            <div className="text-xs text-gray-400">Generated</div>
+                          </div>
+                          <div className="text-center hidden sm:block">
+                            <div className="text-sm font-semibold text-blue-700">{emailed}</div>
+                            <div className="text-xs text-gray-400">Emailed</div>
+                          </div>
+                          <div className="text-center hidden sm:block">
+                            <div className="text-sm font-semibold text-violet-700">{submitted}</div>
+                            <div className="text-xs text-gray-400">Submitted</div>
+                          </div>
+                          <div className="text-center">
+                            <div className={`text-sm font-bold ${pct >= 75 ? "text-emerald-600" : pct >= 40 ? "text-amber-600" : "text-gray-500"}`}>{pct}%</div>
+                            <div className="text-xs text-gray-400">Complete</div>
+                          </div>
+                        </div>
+                      </button>
+
+                      {isExpanded && (
+                        <div className="border-t border-gray-100">
+                          {isLoadingSessions && (
+                            <div className="flex justify-center py-6">
+                              <div className="w-5 h-5 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                            </div>
+                          )}
+                          {!isLoadingSessions && sessions.length > 0 && (
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full divide-y divide-gray-50">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-5 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Row</th>
+                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Recipient</th>
+                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">PDF</th>
+                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Emailed</th>
+                                    <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Submitted</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-50 bg-white">
+                                  {sessions.map((s, idx) => {
+                                    const pdfUrl = `${API_BASE}/api/v1/docufill/public/sessions/${s.token}/packet.pdf`;
+                                    const recipient = s.signer_name || s.signer_email || s.link_email_recipient || "—";
+                                    const statusMap: Record<string, { label: string; cls: string }> = {
+                                      generated: { label: "Generated", cls: "bg-emerald-50 text-emerald-700" },
+                                      draft:     { label: "Pending",   cls: "bg-gray-100 text-gray-600" },
+                                      submitted: { label: "Submitted", cls: "bg-blue-50 text-blue-700" },
+                                      voided:    { label: "Voided",    cls: "bg-red-50 text-red-600" },
+                                    };
+                                    const statusInfo = statusMap[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-600" };
+                                    return (
+                                      <tr key={s.token} className="hover:bg-gray-50 transition-colors">
+                                        <td className="px-5 py-2.5 text-sm text-gray-500">{idx + 1}</td>
+                                        <td className="px-4 py-2.5 text-sm text-gray-800 max-w-[200px] truncate" title={recipient}>{recipient}</td>
+                                        <td className="px-4 py-2.5">
+                                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>
+                                            {statusInfo.label}
+                                          </span>
+                                        </td>
+                                        <td className="px-4 py-2.5">
+                                          <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900 underline underline-offset-2">
+                                            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                            PDF
+                                          </a>
+                                        </td>
+                                        <td className="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">
+                                          {s.link_emailed_at ? new Date(s.link_emailed_at).toLocaleDateString() : <span className="text-gray-300">—</span>}
+                                        </td>
+                                        <td className="px-4 py-2.5 text-xs whitespace-nowrap">
+                                          {s.submitted_at
+                                            ? <span className="text-violet-700 font-medium">{new Date(s.submitted_at).toLocaleDateString()}</span>
+                                            : <span className="text-gray-300">Pending</span>}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                          {!isLoadingSessions && sessions.length === 0 && (
+                            <div className="text-center py-6 text-sm text-gray-400">No sessions found for this run.</div>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   );
                 })}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
-        )}
+        </TabsContent>
 
-        {/* Pagination */}
-        {!error && total > LIMIT && (
-          <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
-            <span className="text-xs text-gray-500">
-              {page * LIMIT + 1}–{Math.min((page + 1) * LIMIT, total)} of {total}
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={page === 0}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 hover:bg-gray-50 transition-colors"
-              >
-                Previous
-              </button>
-              <span className="text-xs text-gray-500">{page + 1} / {totalPages}</span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={page >= totalPages - 1}
-                className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-700 disabled:opacity-40 hover:bg-gray-50 transition-colors"
-              >
-                Next
-              </button>
+        {/* ── Interviews tab ── */}
+        <TabsContent value="interviews">
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row gap-3 mb-5">
+            <div className="relative flex-1">
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
+              </svg>
+              <Input
+                type="text"
+                placeholder="Search by name, email, or package…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="h-9 pl-9 text-sm"
+              />
             </div>
+            <Select
+              value={statusFilter}
+              onChange={(e) => { setStatus(e.target.value); setPage(0); }}
+              className="h-9 text-sm"
+            >
+              <option value="">All statuses</option>
+              <option value="draft">Draft</option>
+              <option value="in_progress">In Progress</option>
+              <option value="generated">Signed</option>
+              <option value="voided">Voided</option>
+            </Select>
           </div>
-        )}
-      </div>
 
-      <p className="mt-3 text-xs text-gray-400">
-        Showing {sessions.length} interview{sessions.length !== 1 ? "s" : ""} · Total {total}
-      </p>
+          {/* Table */}
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            {error && (
+              <div className="p-6 text-sm text-red-600 text-center">{error}</div>
+            )}
+            {!error && loading && sessions.length === 0 && (
+              <div className="p-10 flex justify-center">
+                <div className="w-6 h-6 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+            {!error && !loading && sessions.length === 0 && (
+              <div className="p-10 text-center text-sm text-gray-400">No sessions found.</div>
+            )}
+            {!error && sessions.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-100">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <Th field="package_name" label="Package" />
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Signer</th>
+                      <Th field="status" label="Status" />
+                      <Th field="signed_at" label="Signed" />
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">TSA</th>
+                      <Th field="updated_at" label="Updated" />
+                      <Th field="created_at" label="Created" />
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">PDF</th>
+                      <th scope="col" className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Verify</th>
+                      <th scope="col" className="px-4 py-3 w-10" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-50 bg-white">
+                    {sessions.map((s) => {
+                      const statusInfo = STATUS_LABELS[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-600" };
+                      const recipient = s.signer_name || s.signer_email || s.link_email_recipient || "—";
+                      const recipientSub = s.signer_name && s.signer_email ? s.signer_email : null;
+                      const pdfHref = `${API_BASE}/api/v1/public/docufill/sessions/${s.token}/packet.pdf`;
+                      const isVoided = s.status === "voided";
+                      return (
+                        <tr key={s.token} className={`hover:bg-gray-50 transition-colors ${isVoided ? "opacity-60" : ""}`}>
+                          <td className="px-4 py-3">
+                            <span className="text-sm font-medium text-gray-800 line-clamp-1">{s.package_name}</span>
+                            {isVoided && s.voided_reason && (
+                              <div className="text-xs text-red-500 mt-0.5 line-clamp-1" title={s.voided_reason}>
+                                {s.voided_reason}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="text-sm text-gray-800 truncate max-w-[180px]">{recipient}</div>
+                            {recipientSub && <div className="text-xs text-gray-400 truncate max-w-[180px]">{recipientSub}</div>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>
+                              {statusInfo.label}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDate(s.signed_at)}</td>
+                          <td className="px-4 py-3"><TsaBadge obtained={s.tsa_obtained} /></td>
+                          <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDatetime(s.updated_at)}</td>
+                          <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">{fmtDate(s.created_at)}</td>
+                          <td className="px-4 py-3">
+                            {s.status === "generated" ? (
+                              <a
+                                href={pdfHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-xs font-medium text-gray-700 hover:text-gray-900 underline underline-offset-2"
+                              >
+                                <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                {s.pdf_stored ? "Stored" : "Generate"}
+                              </a>
+                            ) : isVoided && s.voided_at ? (
+                              <span className="text-xs text-red-400 whitespace-nowrap">{fmtDate(s.voided_at)}</span>
+                            ) : (
+                              <span className="text-gray-300 text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {s.status === "generated" ? (
+                              <VerifyCell token={s.token} />
+                            ) : (
+                              <span className="text-gray-300 text-xs">—</span>
+                            )}
+                          </td>
+                          <td className="px-2 py-3">
+                            <RowMenu session={s} onVoid={() => setVoidTarget(s)} />
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
 
-      {voidTarget && (
-        <VoidSessionModal
-          session={voidTarget}
-          getAuthHeaders={getAuthHeaders}
-          onClose={() => setVoidTarget(null)}
-          onVoided={() => { setVoidTarget(null); fetchSessions(); }}
-        />
-      )}
-      </>}
+            {/* Pagination */}
+            {!error && total > LIMIT && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 bg-gray-50">
+                <span className="text-xs text-gray-500">
+                  {page * LIMIT + 1}–{Math.min((page + 1) * LIMIT, total)} of {total}
+                </span>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-xs text-gray-500">{page + 1} / {totalPages}</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                    disabled={page >= totalPages - 1}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <p className="mt-3 text-xs text-gray-400">
+            Showing {sessions.length} interview{sessions.length !== 1 ? "s" : ""} · Total {total}
+          </p>
+
+          {voidTarget && (
+            <VoidSessionModal
+              session={voidTarget}
+              getAuthHeaders={getAuthHeaders}
+              onClose={() => setVoidTarget(null)}
+              onVoided={() => { setVoidTarget(null); fetchSessions(); }}
+            />
+          )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
