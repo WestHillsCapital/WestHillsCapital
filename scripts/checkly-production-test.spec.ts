@@ -169,12 +169,20 @@ test("Docuplete — core e2e", async ({ page, context }) => {
 
   const keyNameInput = page.getByPlaceholder(/Key name|Production server/i).first();
   await expect(keyNameInput).toBeVisible({ timeout: 8_000 });
-  await keyNameInput.fill(TEST_KEY);
-  await keyNameInput.press("Enter");
 
-  // Scope to apiSection to avoid matching the "API key created" notification
-  // category label that lives in the notifications section (same page, DOM-visible)
-  await expect(apiSection.getByText(/API key created — copy it now/i).first()).toBeVisible({ timeout: 12_000 });
+  // pressSequentially fires real input events React's onChange actually catches.
+  // fill() on a controlled input can leave React state empty, causing the
+  // "Key name is required" early-exit in handleCreate.
+  await keyNameInput.click();
+  await keyNameInput.pressSequentially(TEST_KEY, { delay: 30 });
+  await expect(keyNameInput).toHaveValue(TEST_KEY, { timeout: 5_000 });
+
+  // Click Create button explicitly (more reliable than Enter key)
+  await apiSection.getByRole("button", { name: /^Create$/i }).click();
+
+  // Wait for banner — scoped to apiSection to avoid matching the
+  // "API key created" notification-category label elsewhere on the page
+  await expect(apiSection.getByText(/API key created — copy it now/i).first()).toBeVisible({ timeout: 15_000 });
   console.log("✅ [4c] API key created");
 
   const dismissBtn = apiSection.getByRole("button", { name: /I've saved the key/i }).first();
