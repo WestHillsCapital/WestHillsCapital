@@ -1,6 +1,6 @@
 import {
   pgTable, serial, text, integer, boolean, timestamp, jsonb,
-  primaryKey, customType,
+  primaryKey, uniqueIndex, index, customType,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import { accounts } from "./accounts";
@@ -26,7 +26,10 @@ export const docufillCustodians = pgTable("docufill_custodians", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   accountId: integer("account_id").notNull().references(() => accounts.id),
-});
+}, (t) => [
+  uniqueIndex("docufill_custodians_account_name_idx").on(t.accountId, t.name),
+  index("docufill_custodians_account_idx").on(t.accountId),
+]);
 
 export const docufillDepositories = pgTable("docufill_depositories", {
   id: serial("id").primaryKey(),
@@ -39,7 +42,10 @@ export const docufillDepositories = pgTable("docufill_depositories", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   accountId: integer("account_id").notNull().references(() => accounts.id),
-});
+}, (t) => [
+  uniqueIndex("docufill_depositories_account_name_idx").on(t.accountId, t.name),
+  index("docufill_depositories_account_idx").on(t.accountId),
+]);
 
 export const docufillTransactionTypes = pgTable("docufill_transaction_types", {
   scope: text("scope").primaryKey(),
@@ -49,7 +55,9 @@ export const docufillTransactionTypes = pgTable("docufill_transaction_types", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   accountId: integer("account_id").references(() => accounts.id, { onDelete: "cascade" }),
-});
+}, (t) => [
+  index("docufill_transaction_types_account_idx").on(t.accountId),
+]);
 
 export const docufillFields = pgTable("docufill_fields", {
   id: text("id").primaryKey(),
@@ -68,7 +76,14 @@ export const docufillFields = pgTable("docufill_fields", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   accountId: integer("account_id").references(() => accounts.id),
-});
+}, (t) => [
+  uniqueIndex("docufill_fields_global_label_unique")
+    .on(t.label)
+    .where(sql`account_id IS NULL`),
+  uniqueIndex("docufill_fields_account_label_unique")
+    .on(t.accountId, t.label)
+    .where(sql`account_id IS NOT NULL`),
+]);
 
 export const docufillGroups = pgTable("docufill_groups", {
   id: serial("id").primaryKey(),
@@ -116,7 +131,11 @@ export const docufillPackages = pgTable("docufill_packages", {
   enableGdrive: boolean("enable_gdrive").notNull().default(false),
   enableHubspot: boolean("enable_hubspot").notNull().default(false),
   authLevel: text("auth_level").notNull().default("none"),
-});
+}, (t) => [
+  index("docufill_packages_account_idx").on(t.accountId),
+  index("docufill_packages_combo_idx").on(t.accountId, t.status),
+  index("docufill_packages_workflow_idx").on(t.accountId, t.webhookEnabled),
+]);
 
 export const docufillPackageDocuments = pgTable("docufill_package_documents", {
   id: serial("id").primaryKey(),
@@ -130,12 +149,18 @@ export const docufillPackageDocuments = pgTable("docufill_package_documents", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   pageSizes: jsonb("page_sizes").notNull().default(sql`'[]'::jsonb`),
-});
+}, (t) => [
+  uniqueIndex("docufill_package_documents_unique_idx").on(t.packageId, t.documentId),
+  index("docufill_package_documents_package_idx").on(t.packageId),
+]);
 
 export const docufillPackageGroups = pgTable("docufill_package_groups", {
   packageId: integer("package_id").notNull().references(() => docufillPackages.id, { onDelete: "cascade" }),
   groupId: integer("group_id").notNull().references(() => docufillGroups.id, { onDelete: "cascade" }),
-}, (t) => [primaryKey({ columns: [t.packageId, t.groupId] })]);
+}, (t) => [
+  primaryKey({ columns: [t.packageId, t.groupId] }),
+  index("docufill_package_groups_package_idx").on(t.packageId),
+]);
 
 export const docufillInterviewSessions = pgTable("docufill_interview_sessions", {
   id: serial("id").primaryKey(),
@@ -177,7 +202,13 @@ export const docufillInterviewSessions = pgTable("docufill_interview_sessions", 
   signerGeo: text("signer_geo"),
   batchRunId: text("batch_run_id"),
   submittedAt: timestamp("submitted_at", { withTimezone: true }),
-});
+}, (t) => [
+  index("docufill_interview_sessions_token_idx").on(t.token),
+  index("docufill_interview_sessions_account_idx").on(t.accountId),
+  index("dis_batch_run_idx")
+    .on(t.batchRunId)
+    .where(sql`batch_run_id IS NOT NULL`),
+]);
 
 export const webhookDeliveries = pgTable("webhook_deliveries", {
   id: serial("id").primaryKey(),
@@ -191,7 +222,10 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   durationMs: integer("duration_ms"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   payloadJson: text("payload_json"),
-});
+}, (t) => [
+  index("webhook_deliveries_package_created_idx").on(t.packageId, t.createdAt),
+  index("webhook_deliveries_account_idx").on(t.accountId),
+]);
 
 export const docufillEsignOtps = pgTable("docufill_esign_otps", {
   id: serial("id").primaryKey(),
@@ -202,7 +236,9 @@ export const docufillEsignOtps = pgTable("docufill_esign_otps", {
   usedAt: timestamp("used_at", { withTimezone: true }),
   attemptCount: integer("attempt_count").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("docufill_esign_otps_session_idx").on(t.sessionToken),
+]);
 
 export const docufillSigningEvents = pgTable("docufill_signing_events", {
   id: serial("id").primaryKey(),
@@ -214,4 +250,6 @@ export const docufillSigningEvents = pgTable("docufill_signing_events", {
   actorUa: text("actor_ua"),
   metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("docufill_signing_events_session_idx").on(t.sessionToken),
+]);

@@ -1,5 +1,5 @@
 import {
-  pgTable, serial, text, integer, boolean, timestamp,
+  pgTable, serial, text, integer, boolean, timestamp, index,
 } from "drizzle-orm/pg-core";
 import { accounts, accountUsers } from "./accounts";
 
@@ -14,7 +14,9 @@ export const userActiveSessions = pgTable("user_active_sessions", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   totpVerified: boolean("totp_verified").notNull().default(false),
-});
+}, (t) => [
+  index("user_active_sessions_user_idx").on(t.userId),
+]);
 
 export const userLoginHistory = pgTable("user_login_history", {
   id: serial("id").primaryKey(),
@@ -24,7 +26,9 @@ export const userLoginHistory = pgTable("user_login_history", {
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("user_login_history_user_idx").on(t.userId),
+]);
 
 export const trustedDevices = pgTable("trusted_devices", {
   id: serial("id").primaryKey(),
@@ -36,4 +40,6 @@ export const trustedDevices = pgTable("trusted_devices", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
-});
+}, (t) => [
+  index("trusted_devices_user_idx").on(t.userId),
+]);

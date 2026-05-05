@@ -1,5 +1,5 @@
 {
-  "id": "04613b99-7002-425b-b8bb-157481a4b922",
+  "id": "e9e972f7-380f-4b5d-a27b-1561c25b4b67",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -40,7 +40,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "account_admin_notes_account_idx": {
+          "name": "account_admin_notes_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "account_admin_notes_account_id_accounts_id_fk": {
           "name": "account_admin_notes_account_id_accounts_id_fk",
@@ -116,7 +132,38 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "account_api_keys_account_idx": {
+          "name": "account_api_keys_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "account_api_keys_hash_idx": {
+          "name": "account_api_keys_hash_idx",
+          "columns": [
+            {
+              "expression": "key_hash",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "account_api_keys_account_id_accounts_id_fk": {
           "name": "account_api_keys_account_id_accounts_id_fk",
@@ -270,7 +317,92 @@
           "default": "'{}'::text[]"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "account_users_account_email_idx": {
+          "name": "account_users_account_email_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "email",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "account_users_clerk_user_id_idx": {
+          "name": "account_users_clerk_user_id_idx",
+          "columns": [
+            {
+              "expression": "clerk_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "clerk_user_id IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "account_users_email_idx": {
+          "name": "account_users_email_idx",
+          "columns": [
+            {
+              "expression": "lower(email)",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "account_users_avatar_token_idx": {
+          "name": "account_users_avatar_token_idx",
+          "columns": [
+            {
+              "expression": "avatar_token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "avatar_token IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "account_users_pending_email_token_idx": {
+          "name": "account_users_pending_email_token_idx",
+          "columns": [
+            {
+              "expression": "pending_email_token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "pending_email_token IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "account_users_account_id_accounts_id_fk": {
           "name": "account_users_account_id_accounts_id_fk",
@@ -706,7 +838,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "internal_sessions_expires_idx": {
+          "name": "internal_sessions_expires_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -751,7 +899,35 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "usage_events_account_period_idx": {
+          "name": "usage_events_account_period_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "period_start",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "event_type",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "usage_events_account_id_accounts_id_fk": {
           "name": "usage_events_account_id_accounts_id_fk",
@@ -901,7 +1077,24 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "appointments_slot_id_confirmed_idx": {
+          "name": "appointments_slot_id_confirmed_idx",
+          "columns": [
+            {
+              "expression": "slot_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "status = 'confirmed'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
@@ -1772,7 +1965,44 @@
           "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "docufill_custodians_account_name_idx": {
+          "name": "docufill_custodians_account_name_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "docufill_custodians_account_idx": {
+          "name": "docufill_custodians_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "docufill_custodians_account_id_accounts_id_fk": {
           "name": "docufill_custodians_account_id_accounts_id_fk",
@@ -1862,7 +2092,44 @@
           "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "docufill_depositories_account_name_idx": {
+          "name": "docufill_depositories_account_name_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "name",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "docufill_depositories_account_idx": {
+          "name": "docufill_depositories_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "docufill_depositories_account_id_accounts_id_fk": {
           "name": "docufill_depositories_account_id_accounts_id_fk",
@@ -1939,7 +2206,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "docufill_esign_otps_session_idx": {
+          "name": "docufill_esign_otps_session_idx",
+          "columns": [
+            {
+              "expression": "session_token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -2059,7 +2342,46 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "docufill_fields_global_label_unique": {
+          "name": "docufill_fields_global_label_unique",
+          "columns": [
+            {
+              "expression": "label",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "account_id IS NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "docufill_fields_account_label_unique": {
+          "name": "docufill_fields_account_label_unique",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "label",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "account_id IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "docufill_fields_account_id_accounts_id_fk": {
           "name": "docufill_fields_account_id_accounts_id_fk",
@@ -2430,7 +2752,54 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "docufill_interview_sessions_token_idx": {
+          "name": "docufill_interview_sessions_token_idx",
+          "columns": [
+            {
+              "expression": "token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "docufill_interview_sessions_account_idx": {
+          "name": "docufill_interview_sessions_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "dis_batch_run_idx": {
+          "name": "dis_batch_run_idx",
+          "columns": [
+            {
+              "expression": "batch_run_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "batch_run_id IS NOT NULL",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "docufill_interview_sessions_package_id_docufill_packages_id_fk": {
           "name": "docufill_interview_sessions_package_id_docufill_packages_id_fk",
@@ -2588,7 +2957,44 @@
           "default": "'[]'::jsonb"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "docufill_package_documents_unique_idx": {
+          "name": "docufill_package_documents_unique_idx",
+          "columns": [
+            {
+              "expression": "package_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "document_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "docufill_package_documents_package_idx": {
+          "name": "docufill_package_documents_package_idx",
+          "columns": [
+            {
+              "expression": "package_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "docufill_package_documents_package_id_docufill_packages_id_fk": {
           "name": "docufill_package_documents_package_id_docufill_packages_id_fk",
@@ -2627,7 +3033,23 @@
           "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "docufill_package_groups_package_idx": {
+          "name": "docufill_package_groups_package_idx",
+          "columns": [
+            {
+              "expression": "package_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "docufill_package_groups_package_id_docufill_packages_id_fk": {
           "name": "docufill_package_groups_package_id_docufill_packages_id_fk",
@@ -2882,7 +3304,65 @@
           "default": "'none'"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "docufill_packages_account_idx": {
+          "name": "docufill_packages_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "docufill_packages_combo_idx": {
+          "name": "docufill_packages_combo_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "docufill_packages_workflow_idx": {
+          "name": "docufill_packages_workflow_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "webhook_enabled",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "docufill_packages_custodian_id_docufill_custodians_id_fk": {
           "name": "docufill_packages_custodian_id_docufill_custodians_id_fk",
@@ -3004,7 +3484,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "docufill_signing_events_session_idx": {
+          "name": "docufill_signing_events_session_idx",
+          "columns": [
+            {
+              "expression": "session_token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
@@ -3063,7 +3559,23 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "docufill_transaction_types_account_idx": {
+          "name": "docufill_transaction_types_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "docufill_transaction_types_account_id_accounts_id_fk": {
           "name": "docufill_transaction_types_account_id_accounts_id_fk",
@@ -3159,7 +3671,44 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "webhook_deliveries_package_created_idx": {
+          "name": "webhook_deliveries_package_created_idx",
+          "columns": [
+            {
+              "expression": "package_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "webhook_deliveries_account_idx": {
+          "name": "webhook_deliveries_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "webhook_deliveries_package_id_docufill_packages_id_fk": {
           "name": "webhook_deliveries_package_id_docufill_packages_id_fk",
@@ -3267,7 +3816,29 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "org_audit_log_account_created_idx": {
+          "name": "org_audit_log_account_created_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "org_audit_log_account_id_accounts_id_fk": {
           "name": "org_audit_log_account_id_accounts_id_fk",
@@ -3325,7 +3896,56 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "plan_limit_alerts_unique_idx": {
+          "name": "plan_limit_alerts_unique_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "billing_period_start",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "threshold_pct",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "plan_limit_alerts_lookup_idx": {
+          "name": "plan_limit_alerts_lookup_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "billing_period_start",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "plan_limit_alerts_account_id_accounts_id_fk": {
           "name": "plan_limit_alerts_account_id_accounts_id_fk",
@@ -3401,7 +4021,29 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "user_in_app_notif_user_idx": {
+          "name": "user_in_app_notif_user_idx",
+          "columns": [
+            {
+              "expression": "clerk_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "user_in_app_notifications_account_id_accounts_id_fk": {
           "name": "user_in_app_notifications_account_id_accounts_id_fk",
@@ -3473,7 +4115,56 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "user_notification_prefs_unique_idx": {
+          "name": "user_notification_prefs_unique_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "clerk_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "event_key",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "user_notification_prefs_user_idx": {
+          "name": "user_notification_prefs_user_idx",
+          "columns": [
+            {
+              "expression": "clerk_user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "user_notification_prefs_account_id_accounts_id_fk": {
           "name": "user_notification_prefs_account_id_accounts_id_fk",
@@ -3556,7 +4247,23 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "trusted_devices_user_idx": {
+          "name": "trusted_devices_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "trusted_devices_user_id_account_users_id_fk": {
           "name": "trusted_devices_user_id_account_users_id_fk",
@@ -3667,7 +4374,23 @@
           "default": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "user_active_sessions_user_idx": {
+          "name": "user_active_sessions_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "user_active_sessions_account_id_accounts_id_fk": {
           "name": "user_active_sessions_account_id_accounts_id_fk",
@@ -3758,7 +4481,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "user_login_history_user_idx": {
+          "name": "user_login_history_user_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "user_login_history_account_id_accounts_id_fk": {
           "name": "user_login_history_account_id_accounts_id_fk",
@@ -3893,7 +4632,23 @@
           "default": "'zip'"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "data_export_requests_status_idx": {
+          "name": "data_export_requests_status_idx",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "data_export_requests_account_id_accounts_id_fk": {
           "name": "data_export_requests_account_id_accounts_id_fk",
@@ -3965,7 +4720,23 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "pack_subscriptions_stripe_idx": {
+          "name": "pack_subscriptions_stripe_idx",
+          "columns": [
+            {
+              "expression": "stripe_subscription_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "pack_subscriptions_account_id_accounts_id_fk": {
           "name": "pack_subscriptions_account_id_accounts_id_fk",
@@ -4062,7 +4833,38 @@
           "default": "now()"
         }
       },
-      "indexes": {},
+      "indexes": {
+        "pdf_audit_events_session_idx": {
+          "name": "pdf_audit_events_session_idx",
+          "columns": [
+            {
+              "expression": "session_token",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "pdf_audit_events_account_idx": {
+          "name": "pdf_audit_events_account_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "pdf_audit_events_account_id_accounts_id_fk": {
           "name": "pdf_audit_events_account_id_accounts_id_fk",
@@ -4144,7 +4946,29 @@
           "notNull": true
         }
       },
-      "indexes": {},
+      "indexes": {
+        "submission_bank_account_expiry_idx": {
+          "name": "submission_bank_account_expiry_idx",
+          "columns": [
+            {
+              "expression": "account_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
         "submission_bank_account_id_accounts_id_fk": {
           "name": "submission_bank_account_id_accounts_id_fk",

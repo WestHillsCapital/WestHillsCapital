@@ -649,4 +649,49 @@ ALTER TABLE "user_login_history" ADD CONSTRAINT "user_login_history_user_id_acco
 ALTER TABLE "data_export_requests" ADD CONSTRAINT "data_export_requests_account_id_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pack_subscriptions" ADD CONSTRAINT "pack_subscriptions_account_id_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pdf_audit_events" ADD CONSTRAINT "pdf_audit_events_account_id_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "submission_bank" ADD CONSTRAINT "submission_bank_account_id_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."accounts"("id") ON DELETE cascade ON UPDATE no action;
+ALTER TABLE "submission_bank" ADD CONSTRAINT "submission_bank_account_id_accounts_id_fk" FOREIGN KEY ("account_id") REFERENCES "public"."accounts"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "account_admin_notes_account_idx" ON "account_admin_notes" USING btree ("account_id");--> statement-breakpoint
+CREATE INDEX "account_api_keys_account_idx" ON "account_api_keys" USING btree ("account_id");--> statement-breakpoint
+CREATE INDEX "account_api_keys_hash_idx" ON "account_api_keys" USING btree ("key_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "account_users_account_email_idx" ON "account_users" USING btree ("account_id","email");--> statement-breakpoint
+CREATE UNIQUE INDEX "account_users_clerk_user_id_idx" ON "account_users" USING btree ("clerk_user_id") WHERE clerk_user_id IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "account_users_email_idx" ON "account_users" USING btree (lower(email));--> statement-breakpoint
+CREATE UNIQUE INDEX "account_users_avatar_token_idx" ON "account_users" USING btree ("avatar_token") WHERE avatar_token IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "account_users_pending_email_token_idx" ON "account_users" USING btree ("pending_email_token") WHERE pending_email_token IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "internal_sessions_expires_idx" ON "internal_sessions" USING btree ("expires_at");--> statement-breakpoint
+CREATE INDEX "usage_events_account_period_idx" ON "usage_events" USING btree ("account_id","period_start","event_type");--> statement-breakpoint
+CREATE UNIQUE INDEX "appointments_slot_id_confirmed_idx" ON "appointments" USING btree ("slot_id") WHERE status = 'confirmed';--> statement-breakpoint
+CREATE UNIQUE INDEX "docufill_custodians_account_name_idx" ON "docufill_custodians" USING btree ("account_id","name");--> statement-breakpoint
+CREATE INDEX "docufill_custodians_account_idx" ON "docufill_custodians" USING btree ("account_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "docufill_depositories_account_name_idx" ON "docufill_depositories" USING btree ("account_id","name");--> statement-breakpoint
+CREATE INDEX "docufill_depositories_account_idx" ON "docufill_depositories" USING btree ("account_id");--> statement-breakpoint
+CREATE INDEX "docufill_esign_otps_session_idx" ON "docufill_esign_otps" USING btree ("session_token");--> statement-breakpoint
+CREATE UNIQUE INDEX "docufill_fields_global_label_unique" ON "docufill_fields" USING btree ("label") WHERE account_id IS NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "docufill_fields_account_label_unique" ON "docufill_fields" USING btree ("account_id","label") WHERE account_id IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "docufill_interview_sessions_token_idx" ON "docufill_interview_sessions" USING btree ("token");--> statement-breakpoint
+CREATE INDEX "docufill_interview_sessions_account_idx" ON "docufill_interview_sessions" USING btree ("account_id");--> statement-breakpoint
+CREATE INDEX "dis_batch_run_idx" ON "docufill_interview_sessions" USING btree ("batch_run_id") WHERE batch_run_id IS NOT NULL;--> statement-breakpoint
+CREATE UNIQUE INDEX "docufill_package_documents_unique_idx" ON "docufill_package_documents" USING btree ("package_id","document_id");--> statement-breakpoint
+CREATE INDEX "docufill_package_documents_package_idx" ON "docufill_package_documents" USING btree ("package_id");--> statement-breakpoint
+CREATE INDEX "docufill_package_groups_package_idx" ON "docufill_package_groups" USING btree ("package_id");--> statement-breakpoint
+CREATE INDEX "docufill_packages_account_idx" ON "docufill_packages" USING btree ("account_id");--> statement-breakpoint
+CREATE INDEX "docufill_packages_combo_idx" ON "docufill_packages" USING btree ("account_id","status");--> statement-breakpoint
+CREATE INDEX "docufill_packages_workflow_idx" ON "docufill_packages" USING btree ("account_id","webhook_enabled");--> statement-breakpoint
+CREATE INDEX "docufill_signing_events_session_idx" ON "docufill_signing_events" USING btree ("session_token");--> statement-breakpoint
+CREATE INDEX "docufill_transaction_types_account_idx" ON "docufill_transaction_types" USING btree ("account_id");--> statement-breakpoint
+CREATE INDEX "webhook_deliveries_package_created_idx" ON "webhook_deliveries" USING btree ("package_id","created_at");--> statement-breakpoint
+CREATE INDEX "webhook_deliveries_account_idx" ON "webhook_deliveries" USING btree ("account_id");--> statement-breakpoint
+CREATE INDEX "org_audit_log_account_created_idx" ON "org_audit_log" USING btree ("account_id","created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "plan_limit_alerts_unique_idx" ON "plan_limit_alerts" USING btree ("account_id","billing_period_start","threshold_pct");--> statement-breakpoint
+CREATE INDEX "plan_limit_alerts_lookup_idx" ON "plan_limit_alerts" USING btree ("account_id","billing_period_start");--> statement-breakpoint
+CREATE INDEX "user_in_app_notif_user_idx" ON "user_in_app_notifications" USING btree ("clerk_user_id","account_id");--> statement-breakpoint
+CREATE UNIQUE INDEX "user_notification_prefs_unique_idx" ON "user_notification_prefs" USING btree ("account_id","clerk_user_id","event_key");--> statement-breakpoint
+CREATE INDEX "user_notification_prefs_user_idx" ON "user_notification_prefs" USING btree ("clerk_user_id","account_id");--> statement-breakpoint
+CREATE INDEX "trusted_devices_user_idx" ON "trusted_devices" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "user_active_sessions_user_idx" ON "user_active_sessions" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "user_login_history_user_idx" ON "user_login_history" USING btree ("user_id");--> statement-breakpoint
+CREATE INDEX "data_export_requests_status_idx" ON "data_export_requests" USING btree ("status");--> statement-breakpoint
+CREATE INDEX "pack_subscriptions_stripe_idx" ON "pack_subscriptions" USING btree ("stripe_subscription_id");--> statement-breakpoint
+CREATE INDEX "pdf_audit_events_session_idx" ON "pdf_audit_events" USING btree ("session_token");--> statement-breakpoint
+CREATE INDEX "pdf_audit_events_account_idx" ON "pdf_audit_events" USING btree ("account_id");--> statement-breakpoint
+CREATE INDEX "submission_bank_account_expiry_idx" ON "submission_bank" USING btree ("account_id","expires_at");

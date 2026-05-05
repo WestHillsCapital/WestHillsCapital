@@ -1,6 +1,5 @@
 import {
-  pgTable, serial, text, integer, boolean, timestamp, jsonb, bigint,
-  customType,
+  pgTable, serial, text, integer, timestamp, jsonb, bigint, index,
 } from "drizzle-orm/pg-core";
 import { accounts } from "./accounts";
 
@@ -15,7 +14,9 @@ export const dataExportRequests = pgTable("data_export_requests", {
   completedAt: timestamp("completed_at", { withTimezone: true }),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
   exportFormat: text("export_format").notNull().default("zip"),
-});
+}, (t) => [
+  index("data_export_requests_status_idx").on(t.status),
+]);
 
 export const brandColorRateLimit = pgTable("brand_color_rate_limit", {
   key: text("key").primaryKey(),
@@ -33,7 +34,9 @@ export const submissionBank = pgTable("submission_bank", {
   stripeRef: text("stripe_ref"),
   depositedAt: timestamp("deposited_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-});
+}, (t) => [
+  index("submission_bank_account_expiry_idx").on(t.accountId, t.expiresAt),
+]);
 
 export const packSubscriptions = pgTable("pack_subscriptions", {
   id: serial("id").primaryKey(),
@@ -42,7 +45,9 @@ export const packSubscriptions = pgTable("pack_subscriptions", {
   packSize: integer("pack_size").notNull(),
   packType: text("pack_type").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("pack_subscriptions_stripe_idx").on(t.stripeSubscriptionId),
+]);
 
 export const pdfAuditEvents = pgTable("pdf_audit_events", {
   id: serial("id").primaryKey(),
@@ -55,4 +60,7 @@ export const pdfAuditEvents = pgTable("pdf_audit_events", {
   actorUa: text("actor_ua"),
   metadata: jsonb("metadata").notNull().default({}),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("pdf_audit_events_session_idx").on(t.sessionToken),
+  index("pdf_audit_events_account_idx").on(t.accountId),
+]);

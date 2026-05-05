@@ -1,5 +1,6 @@
 import {
   pgTable, serial, text, integer, boolean, timestamp, jsonb, date,
+  uniqueIndex, index,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 
@@ -82,7 +83,19 @@ export const accountUsers = pgTable("account_users", {
   totpSecret: text("totp_secret"),
   totpEnabled: boolean("totp_enabled").notNull().default(false),
   totpBackupCodes: text("totp_backup_codes").array().notNull().default(sql`'{}'::text[]`),
-});
+}, (t) => [
+  uniqueIndex("account_users_account_email_idx").on(t.accountId, t.email),
+  uniqueIndex("account_users_clerk_user_id_idx")
+    .on(t.clerkUserId)
+    .where(sql`clerk_user_id IS NOT NULL`),
+  index("account_users_email_idx").on(sql`lower(email)`),
+  uniqueIndex("account_users_avatar_token_idx")
+    .on(t.avatarToken)
+    .where(sql`avatar_token IS NOT NULL`),
+  uniqueIndex("account_users_pending_email_token_idx")
+    .on(t.pendingEmailToken)
+    .where(sql`pending_email_token IS NOT NULL`),
+]);
 
 export const usageEvents = pgTable("usage_events", {
   id: serial("id").primaryKey(),
@@ -90,7 +103,9 @@ export const usageEvents = pgTable("usage_events", {
   eventType: text("event_type").notNull(),
   periodStart: date("period_start").notNull().default(sql`DATE_TRUNC('month', NOW())`),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("usage_events_account_period_idx").on(t.accountId, t.periodStart, t.eventType),
+]);
 
 export const internalSessions = pgTable("internal_sessions", {
   token: text("token").primaryKey(),
@@ -98,7 +113,9 @@ export const internalSessions = pgTable("internal_sessions", {
   accountId: integer("account_id").notNull().default(1),
   expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("internal_sessions_expires_idx").on(t.expiresAt),
+]);
 
 export const accountApiKeys = pgTable("account_api_keys", {
   id: serial("id").primaryKey(),
@@ -109,7 +126,10 @@ export const accountApiKeys = pgTable("account_api_keys", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   revokedAt: timestamp("revoked_at", { withTimezone: true }),
   lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
-});
+}, (t) => [
+  index("account_api_keys_account_idx").on(t.accountId),
+  index("account_api_keys_hash_idx").on(t.keyHash),
+]);
 
 export const accountAdminNotes = pgTable("account_admin_notes", {
   id: serial("id").primaryKey(),
@@ -117,4 +137,6 @@ export const accountAdminNotes = pgTable("account_admin_notes", {
   note: text("note").notNull(),
   createdBy: text("created_by").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  index("account_admin_notes_account_idx").on(t.accountId),
+]);

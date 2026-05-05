@@ -1,6 +1,8 @@
 import {
   pgTable, serial, text, integer, boolean, timestamp, numeric, jsonb, date,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const appointments = pgTable("appointments", {
   id: serial("id").primaryKey(),
@@ -23,7 +25,11 @@ export const appointments = pgTable("appointments", {
   notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (t) => [
+  uniqueIndex("appointments_slot_id_confirmed_idx")
+    .on(t.slotId)
+    .where(sql`status = 'confirmed'`),
+]);
 
 export const leads = pgTable("leads", {
   id: serial("id").primaryKey(),

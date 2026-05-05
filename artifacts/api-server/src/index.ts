@@ -107,7 +107,10 @@ const server: Server = app.listen(port, () => {
   // tracked SQL migrations on fresh ones. initDb() then applies any remaining
   // idempotent CREATE TABLE IF NOT EXISTS / ALTER TABLE operations.
   // If initDb fails, close the server so Railway restarts the container.
-  runDrizzleMigrations()
+  // Drizzle tracked migrations run automatically in development (and in
+  // production when RUN_MIGRATIONS=true is set for on-demand rollouts).
+  const shouldMigrate = process.env.NODE_ENV !== "production" || process.env.RUN_MIGRATIONS === "true";
+  (shouldMigrate ? runDrizzleMigrations() : Promise.resolve())
     .then(() => initDb())
     .then(async () => {
       logger.info("Database ready — all systems operational");
