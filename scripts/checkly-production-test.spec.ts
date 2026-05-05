@@ -167,13 +167,41 @@ test("Docuplete — core e2e", async ({ page, context }) => {
   await expect(apiSection).toBeVisible({ timeout: 10_000 });
   await apiSection.locator(".animate-spin").waitFor({ state: "hidden", timeout: 12_000 }).catch(() => {});
 
-  // API key creation requires a paid plan (returns HTTP 402 for the test account).
-  // Verify the Developer section renders correctly and the create form is accessible —
-  // that still exercises auth, navigation, and the component rendering path.
+  // ── Create ──────────────────────────────────────────────────────────────────
   const keyNameInput = page.getByPlaceholder(/Key name|Production server/i).first();
   await expect(keyNameInput).toBeVisible({ timeout: 8_000 });
-  await expect(apiSection.getByRole("button", { name: /^Create$/i })).toBeVisible({ timeout: 5_000 });
-  console.log("✅ [4c] Developer / API-keys section loaded — create form present");
+
+  // pressSequentially fires real input events that React's controlled-input
+  // onChange handler catches (fill() can leave React state empty on some builds)
+  await keyNameInput.click();
+  await keyNameInput.pressSequentially(TEST_KEY, { delay: 30 });
+  await expect(keyNameInput).toHaveValue(TEST_KEY, { timeout: 5_000 });
+  await apiSection.getByRole("button", { name: /^Create$/i }).click();
+
+  // Banner is scoped to apiSection to avoid matching the "API key created"
+  // notification-category label that lives elsewhere on the same settings page
+  await expect(
+    apiSection.getByText(/API key created — copy it now/i).first()
+  ).toBeVisible({ timeout: 15_000 });
+  console.log("✅ [4c] API key created");
+
+  const dismissBtn = apiSection.getByRole("button", { name: /I've saved the key/i }).first();
+  await expect(dismissBtn).toBeVisible({ timeout: 8_000 });
+  await dismissBtn.click();
+  await page.waitForTimeout(400);
+
+  // ── Revoke ──────────────────────────────────────────────────────────────────
+  // After creation the key row appears in the active-keys list with a Revoke button
+  const keyRow = page.locator("div.px-6.py-3").filter({ hasText: TEST_KEY }).first();
+  await expect(keyRow.getByRole("button", { name: "Revoke" })).toBeVisible({ timeout: 8_000 });
+  await keyRow.getByRole("button", { name: "Revoke" }).click();
+  await page.getByRole("button", { name: /yes.*revoke/i }).first().click();
+
+  // After revoke the row moves to "Revoked keys" section — Revoke button disappears
+  await expect(
+    page.locator("div.px-6.py-3").filter({ hasText: TEST_KEY }).getByRole("button", { name: "Revoke" })
+  ).toHaveCount(0, { timeout: 10_000 });
+  console.log("✅ [4c] API key revoked");
 
   // ══════════════════════════════════════════════════════════════════════════
   // 5. SIGN OUT
