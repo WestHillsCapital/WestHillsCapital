@@ -52,6 +52,23 @@ const PLANS = [
     highlight: false,
   },
   {
+    name: "Starter Professional",
+    price: 69,
+    description: "For practitioners who need built-in eSign.",
+    submissions: "50 submissions / seat / mo",
+    seats: "2 seats included",
+    overage: "$15 / extra seat",
+    features: [
+      "Everything in Starter",
+      "E-sign fields (signature & initials)",
+      "Email OTP identity verification",
+      "Signing certificate page",
+      "RFC 3161 trusted timestamp",
+    ],
+    cta: "Start free trial",
+    highlight: false,
+  },
+  {
     name: "Pro",
     price: 249,
     description: "For growing teams handling real volume.",
@@ -59,7 +76,7 @@ const PLANS = [
     seats: "10 seats included",
     overage: "$15 / extra seat",
     features: [
-      "Everything in Starter",
+      "Everything in Starter Professional",
       "Team seats",
       "Batch CSV import",
       "Client links & custom branding",

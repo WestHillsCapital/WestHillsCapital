@@ -57,8 +57,9 @@ interface AccountDetail {
 type SortCol = "name" | "plan_tier" | "seat_count" | "package_count" | "submission_count" | "subscription_status" | "last_activity_at" | "created_at";
 
 function planBadge(tier: string) {
-  if (tier === "enterprise") return <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-800">Enterprise</span>;
-  if (tier === "pro") return <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">Pro</span>;
+  if (tier === "enterprise")    return <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-semibold text-amber-800">Enterprise</span>;
+  if (tier === "pro")           return <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-200 px-2 py-0.5 text-[10px] font-semibold text-indigo-700">Pro</span>;
+  if (tier === "starter_esign") return <span className="inline-flex items-center rounded-full bg-violet-50 border border-violet-200 px-2 py-0.5 text-[10px] font-semibold text-violet-700">Starter Professional</span>;
   return <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-semibold text-gray-600">Free</span>;
 }
 

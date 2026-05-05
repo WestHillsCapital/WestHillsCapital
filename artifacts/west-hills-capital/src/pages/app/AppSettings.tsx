@@ -92,11 +92,18 @@ interface BillingInfo {
   };
 }
 
-const PLAN_LABELS: Record<string, string> = { free: "Starter", starter: "Starter", pro: "Pro", enterprise: "Enterprise" };
+const PLAN_LABELS: Record<string, string> = {
+  free:           "Starter",
+  starter:        "Starter",
+  starter_esign:  "Starter Professional",
+  pro:            "Pro",
+  enterprise:     "Enterprise",
+};
 
 function planBadge(tier: string) {
-  if (tier === "enterprise") return <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Enterprise</span>;
-  if (tier === "pro")        return <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">Pro</span>;
+  if (tier === "enterprise")   return <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Enterprise</span>;
+  if (tier === "pro")          return <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">Pro</span>;
+  if (tier === "starter_esign") return <span className="inline-flex items-center rounded-full bg-violet-50 border border-violet-200 px-2.5 py-0.5 text-xs font-semibold text-violet-700">Starter Professional</span>;
   return <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2.5 py-0.5 text-xs font-semibold text-gray-600">Starter</span>;
 }
 

@@ -4,7 +4,7 @@ export default function Plans() {
       <div className="mb-6">
         <div className="text-xs font-semibold uppercase tracking-widest text-[#5B8DEF] mb-2">Getting Started</div>
         <h1>Plans & Pricing</h1>
-        <p className="text-lg text-white/55 mt-2">Docuplete offers three plans. All start with a 14-day free trial — no credit card required.</p>
+        <p className="text-lg text-white/55 mt-2">Docuplete offers four plans. All start with a 14-day free trial — no credit card required.</p>
       </div>
 
       <div className="overflow-x-auto">
@@ -13,80 +13,81 @@ export default function Plans() {
             <tr>
               <th>Feature</th>
               <th>Starter ($49/mo)</th>
+              <th>Starter Professional ($69/mo)</th>
               <th>Pro ($249/mo)</th>
               <th>Enterprise ($3,000/mo)</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td colSpan={4} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Seats & Submissions</td>
+              <td colSpan={5} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Seats & Submissions</td>
             </tr>
-            <tr><td>Seats included</td><td>2</td><td>10</td><td>25</td></tr>
-            <tr><td>Extra seats</td><td>$15/seat</td><td>$15/seat</td><td>$15/seat</td></tr>
-            <tr><td>Submissions/seat/mo</td><td>50</td><td>50</td><td>Unlimited</td></tr>
+            <tr><td>Seats included</td><td>2</td><td>2</td><td>10</td><td>25</td></tr>
+            <tr><td>Extra seats</td><td>$15/seat</td><td>$15/seat</td><td>$15/seat</td><td>$15/seat</td></tr>
+            <tr><td>Submissions/seat/mo</td><td>50</td><td>50</td><td>50</td><td>Unlimited</td></tr>
 
             <tr>
-              <td colSpan={4} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Packages & Templates</td>
+              <td colSpan={5} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Packages & Templates</td>
             </tr>
-            <tr><td>PDF upload & visual mapping</td><td>✓</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Unlimited packages</td><td>✓</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Field library (shared fields)</td><td>✓</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Package groups & transaction types</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>PDF upload & visual mapping</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Unlimited packages</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Field library (shared fields)</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Package groups & transaction types</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
 
             <tr>
-              <td colSpan={4} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Sessions & Interview Flow</td>
+              <td colSpan={5} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Sessions & Interview Flow</td>
             </tr>
-            <tr><td>Shareable client interview link</td><td>✓</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Autosave as client fills</td><td>✓</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Client email notifications</td><td>✓</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Session expiration & reminders</td><td>✓</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Prefill field values</td><td>✓</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Void sessions</td><td>✓</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Answer encryption at rest</td><td>—</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Shareable client interview link</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Autosave as client fills</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Client email notifications</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Session expiration & reminders</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Prefill field values</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Void sessions</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Answer encryption at rest</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
 
             <tr>
-              <td colSpan={4} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">PDF Generation & Delivery</td>
+              <td colSpan={5} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">PDF Generation & Delivery</td>
             </tr>
-            <tr><td>Filled PDF generation</td><td>✓</td><td>✓</td><td>✓</td></tr>
-            <tr><td>PDF download & dashboard storage</td><td>✓</td><td>✓</td><td>✓</td></tr>
-            <tr><td>SHA-256 tamper detection</td><td>✓</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Signed document verification (by token or hash)</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Filled PDF generation</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>PDF download & dashboard storage</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>SHA-256 tamper detection</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Signed document verification (by token or hash)</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
 
             <tr>
-              <td colSpan={4} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Electronic Signature</td>
+              <td colSpan={5} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Electronic Signature</td>
             </tr>
-            <tr><td>E-sign fields (signature & initials)</td><td>—</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Email OTP identity verification</td><td>—</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Signing certificate page</td><td>—</td><td>✓</td><td>✓</td></tr>
-            <tr><td>RFC 3161 trusted timestamp</td><td>—</td><td>✓</td><td>✓</td></tr>
+            <tr><td>E-sign fields (signature & initials)</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Email OTP identity verification</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Signing certificate page</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>RFC 3161 trusted timestamp</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
 
             <tr>
-              <td colSpan={4} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Batch & Branding</td>
+              <td colSpan={5} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Batch & Branding</td>
             </tr>
-            <tr><td>Custom branding (logo, colors)</td><td>—</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Batch CSV import</td><td>—</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Batch send client links</td><td>—</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Custom branding (logo, colors)</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Batch CSV import</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Batch send client links</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
 
             <tr>
-              <td colSpan={4} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Integrations</td>
+              <td colSpan={5} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Integrations</td>
             </tr>
-            <tr><td>Google Drive auto-save</td><td>—</td><td>✓</td><td>✓</td></tr>
-            <tr><td>HubSpot contact sync</td><td>—</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Google Drive auto-save</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
+            <tr><td>HubSpot contact sync</td><td>—</td><td>—</td><td>✓</td><td>✓</td></tr>
 
             <tr>
-              <td colSpan={4} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Webhooks & API</td>
+              <td colSpan={5} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Webhooks & API</td>
             </tr>
-            <tr><td>Webhooks (HMAC-signed, with retries)</td><td>—</td><td>—</td><td>✓</td></tr>
-            <tr><td>Webhook delivery logs & manual retry</td><td>—</td><td>—</td><td>✓</td></tr>
-            <tr><td>API key access</td><td>—</td><td>—</td><td>✓</td></tr>
-            <tr><td>OpenAPI docs (Swagger UI)</td><td>—</td><td>—</td><td>✓</td></tr>
+            <tr><td>Webhooks (HMAC-signed, with retries)</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
+            <tr><td>Webhook delivery logs & manual retry</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
+            <tr><td>API key access</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
+            <tr><td>OpenAPI docs (Swagger UI)</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
 
             <tr>
-              <td colSpan={4} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Enterprise</td>
+              <td colSpan={5} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Enterprise</td>
             </tr>
-            <tr><td>SSO / SAML</td><td>—</td><td>—</td><td>✓</td></tr>
-            <tr><td>SLA guarantee</td><td>—</td><td>—</td><td>✓</td></tr>
-            <tr><td>Dedicated account manager</td><td>—</td><td>—</td><td>✓</td></tr>
+            <tr><td>SSO / SAML</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
+            <tr><td>SLA guarantee</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
+            <tr><td>Dedicated account manager</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
           </tbody>
         </table>
       </div>

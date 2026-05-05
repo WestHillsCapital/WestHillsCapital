@@ -59,9 +59,11 @@ interface AccountDetail {
 
 function planBadge(tier: string) {
   const map: Record<string, { label: string; cls: string }> = {
-    free:       { label: "Free",       cls: "bg-gray-100 text-gray-500 border-gray-200" },
-    pro:        { label: "Pro",        cls: "bg-blue-50 text-blue-700 border-blue-200" },
-    enterprise: { label: "Enterprise", cls: "bg-[#C49A38]/10 text-[#C49A38] border-[#C49A38]/30" },
+    free:           { label: "Free",                 cls: "bg-gray-100 text-gray-500 border-gray-200" },
+    starter:        { label: "Starter",              cls: "bg-gray-100 text-gray-500 border-gray-200" },
+    starter_esign:  { label: "Starter Professional", cls: "bg-violet-50 text-violet-700 border-violet-200" },
+    pro:            { label: "Pro",                  cls: "bg-blue-50 text-blue-700 border-blue-200" },
+    enterprise:     { label: "Enterprise",           cls: "bg-[#C49A38]/10 text-[#C49A38] border-[#C49A38]/30" },
   };
   const { label, cls } = map[tier] ?? { label: tier, cls: "bg-gray-100 text-gray-400 border-gray-200" };
   return (

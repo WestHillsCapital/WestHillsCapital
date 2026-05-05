@@ -10,7 +10,7 @@ import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
 import { requirePlanFeature } from "../middleware/requirePlanFeature";
 import { brandColorRateLimit } from "../middleware/brandColorRateLimit";
 import { sendTeamInvitationEmail, sendDataExportEmail, sendEmailVerificationEmail } from "../lib/email";
-import { getPlanLimits, getEffectiveSubmissionLimit, SUBMISSION_PACKS, getPackTier } from "../lib/plans";
+import { getPlanLimits, getEffectiveSubmissionLimit, SUBMISSION_PACKS, getPackTier, getPlanDisplayName, normalizeStripeProductName } from "../lib/plans";
 import { getBankBalance } from "../lib/submissionBank";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { isIpAllowed } from "../lib/cidr";
@@ -1316,6 +1316,7 @@ router.get("/billing", async (req, res) => {
     res.json({
       billing: {
         plan_tier:               acct.plan_tier,
+        plan_display_name:       getPlanDisplayName(acct.plan_tier),
         subscription_status:     acct.subscription_status ?? null,
         billing_period_start:    acct.billing_period_start?.toISOString() ?? null,
         next_renewal_at:         nextRenewalAt,
@@ -2464,7 +2465,7 @@ router.get("/admin/accounts/:id", async (req, res) => {
             ? new Date((rawSub["current_period_end"] as number) * 1000).toISOString()
             : null;
           stripeSubscription = {
-            plan_name:          productName ?? acct.plan_tier,
+            plan_name:          productName ? normalizeStripeProductName(productName) : getPlanDisplayName(acct.plan_tier),
             amount:             price?.unit_amount ?? null,
             currency:           price?.currency ?? null,
             interval:           price?.recurring?.interval ?? null,

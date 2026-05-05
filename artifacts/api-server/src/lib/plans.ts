@@ -136,3 +136,36 @@ export const SUBMISSION_PACKS: SubmissionPackTier[] = [
 export function getPackTier(size: number): SubmissionPackTier | undefined {
   return SUBMISSION_PACKS.find((p) => p.size === size);
 }
+
+/**
+ * Human-readable display names for plan tier slugs.
+ * The internal slug "starter_esign" maps to "Starter Professional" for all
+ * customer-facing surfaces. Add entries here whenever a new tier is introduced.
+ */
+export const PLAN_DISPLAY_NAMES: Record<string, string> = {
+  starter:        "Starter",
+  starter_esign:  "Starter Professional",
+  pro:            "Pro",
+  enterprise:     "Enterprise",
+  free:           "Free",
+};
+
+/**
+ * Returns the customer-facing display name for a plan tier slug.
+ * Falls back to the raw slug when no mapping is found.
+ */
+export function getPlanDisplayName(tier: string): string {
+  return PLAN_DISPLAY_NAMES[tier] ?? tier;
+}
+
+/**
+ * Normalises a Stripe product name to its canonical customer-facing display
+ * name. Used to rewrite legacy names (e.g. "Starter + eSign") that may still
+ * appear on Stripe products before they are renamed there.
+ */
+export function normalizeStripeProductName(productName: string): string {
+  if (productName === "Starter + eSign" || productName === "starter_esign") {
+    return "Starter Professional";
+  }
+  return productName;
+}
