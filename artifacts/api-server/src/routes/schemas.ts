@@ -205,7 +205,7 @@ export const BillingCheckoutBodySchema = z.object({
   plan: z.string(),
   interval: z.string().optional(),
   extraSeats: z.number().optional(),
-  extraSubmissions: z.number().optional(),
+  extraSubmissionPacks: z.number().optional(),
 }).passthrough();
 export type BillingCheckoutBody = z.infer<typeof BillingCheckoutBodySchema>;
 
