@@ -5608,7 +5608,7 @@ export default function AppSettings() {
           <button
             onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
             aria-label="Back to top"
-            className="mt-6 w-full rounded-lg py-1.5 transition-opacity flex items-center justify-center opacity-70 hover:opacity-100"
+            className="mt-6 mx-auto w-8 h-8 rounded-lg transition-opacity flex items-center justify-center opacity-70 hover:opacity-100"
             style={{
               backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38",
               color: getTextForBg(/^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38"),
