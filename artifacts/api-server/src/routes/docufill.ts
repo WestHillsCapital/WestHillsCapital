@@ -46,6 +46,7 @@ import { requireWithinPlanLimits, recordSubmissionEvent, recordPdfGenerationEven
 import { requirePlanFeature, planFeatureError } from "../middleware/requirePlanFeature";
 import { getPlanFeatures } from "../lib/plans";
 import { recordPdfAuditEvent, actorContextFromRequest } from "../lib/pdf-audit";
+import geoip from "../lib/geoip";
 import { seedDemoPackage } from "../lib/demoPackage";
 import {
   getOrCreateAccountDek,
@@ -1456,8 +1457,67 @@ async function buildPacketPdfBuffer(
   });
 }
 
-/** Append a signing certificate page to an existing PDF buffer.
- *  Uses pdf-lib to merge so all original pages are preserved exactly. */
+/**
+ * Format a raw User-Agent string into a human-readable "Browser on OS" label.
+ * Returns null when the UA string is absent or unrecognisable.
+ */
+function formatUserAgent(ua: string | null | undefined): string | null {
+  if (!ua) return null;
+  let browser = "Unknown browser";
+  let os = "Unknown OS";
+  // Browser detection — order matters (Edge before Chrome, etc.)
+  const edgeMatch = ua.match(/Edg(?:e)?\/(\d+)/);
+  const firefoxMatch = ua.match(/Firefox\/(\d+)/);
+  const safariMatch = !ua.includes("Chrome") && ua.match(/Version\/(\d+).*Safari/);
+  const chromeMatch = ua.match(/Chrome\/(\d+)/);
+  const operaMatch = ua.match(/OPR\/(\d+)/);
+  if (edgeMatch)    browser = `Edge ${edgeMatch[1]}`;
+  else if (operaMatch) browser = `Opera ${operaMatch[1]}`;
+  else if (firefoxMatch) browser = `Firefox ${firefoxMatch[1]}`;
+  else if (safariMatch)  browser = `Safari ${safariMatch[1]}`;
+  else if (chromeMatch)  browser = `Chrome ${chromeMatch[1]}`;
+  // OS detection
+  if (ua.includes("Windows NT 10") || ua.includes("Windows NT 11")) os = "Windows 10/11";
+  else if (ua.includes("Windows NT 6.3")) os = "Windows 8.1";
+  else if (ua.includes("Windows NT 6.1")) os = "Windows 7";
+  else if (ua.includes("Windows"))        os = "Windows";
+  else if (ua.includes("iPhone"))         os = "iPhone";
+  else if (ua.includes("iPad"))           os = "iPad";
+  else if (ua.includes("Android"))        os = "Android";
+  else if (ua.includes("Mac OS X"))       os = "macOS";
+  else if (ua.includes("Linux"))          os = "Linux";
+  if (browser === "Unknown browser" && os === "Unknown OS") return null;
+  return `${browser} on ${os}`;
+}
+
+/**
+ * Normalize an IP address for GeoIP lookup.
+ * Strips the IPv6-mapped IPv4 prefix (::ffff:) so geoip-lite can match the
+ * IPv4 record instead of returning null for a valid address.
+ */
+function normalizeIp(ip: string): string {
+  return ip.startsWith("::ffff:") ? ip.slice(7) : ip;
+}
+
+/**
+ * Resolve city + country from an IP address using the GeoIP database.
+ * Returns a short string like "San Francisco, US" or null on failure.
+ */
+function resolveGeo(ip: string | null | undefined): string | null {
+  if (!ip) return null;
+  try {
+    const result = geoip.lookup(normalizeIp(ip));
+    if (!result) return null;
+    const city    = result.city    || null;
+    const country = result.country || null;
+    if (city && country) return `${city}, ${country}`;
+    if (country) return country;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function appendSigningCertificatePage(
   pdfBytes: Buffer,
   params: {
@@ -1468,6 +1528,9 @@ async function appendSigningCertificatePage(
     tsaUrl?: string | null;
     sessionToken?: string | null;
     signatureImage?: string | null;
+    signerIp?: string | null;
+    signerUa?: string | null;
+    signerGeo?: string | null;
   },
 ): Promise<Buffer> {
   const existing = await PdfLibDocument.load(pdfBytes, { ignoreEncryption: true });
@@ -1525,10 +1588,14 @@ async function appendSigningCertificatePage(
     page.drawText(params.signerName, { x: margin + 8, y: y + sigBoxHeight / 2 - 10, font: helv, size: 16, color: navy });
   }
   y -= 20;
+  const deviceLabel = formatUserAgent(params.signerUa);
   const rows: Array<{ label: string; value: string }> = [
     { label: "Signer Name",  value: params.signerName },
     { label: "Signer Email", value: params.signerEmail },
     { label: "Signed At",    value: `${params.signedAt.toUTCString()} (server-assigned at time of submission)` },
+    ...(params.signerIp  ? [{ label: "IP Address", value: params.signerIp }] : []),
+    ...(deviceLabel      ? [{ label: "Device",     value: deviceLabel }] : []),
+    ...(params.signerGeo ? [{ label: "Location",   value: params.signerGeo }] : []),
     { label: "Method",       value: "Email OTP — Docuplete E-sign v1" },
     ...(params.tsaUrl ? [
       { label: "Timestamp Authority", value: params.tsaUrl },
@@ -4246,6 +4313,9 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
           signedAt:    new Date(session.signed_at as string),
           tsaUrl:      typeof session.tsa_url === "string" ? session.tsa_url : null,
           sessionToken: req.params.token,
+          signerIp:    typeof session.signer_ip  === "string" ? session.signer_ip  : null,
+          signerUa:    typeof session.signer_ua  === "string" ? session.signer_ua  : null,
+          signerGeo:   typeof session.signer_geo === "string" ? session.signer_geo : null,
         });
       } catch (certErr) {
         logger.warn({ certErr }, "[E-sign] Failed to re-append certificate page on download");
@@ -4459,9 +4529,10 @@ publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
     // Fire-and-forget audit event
     const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
     db.query(
-      `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, metadata)
-       VALUES ($1, $2, 'otp_sent', $3, $4, $5::jsonb)`,
-      [req.params.token, pkgAccountId, email, req.ip ?? null, JSON.stringify({ packageName: session.package_name })],
+      `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
+       VALUES ($1, $2, 'otp_sent', $3, $4, $5, $6::jsonb)`,
+      [req.params.token, pkgAccountId, email, req.ip ?? null, req.headers["user-agent"] ?? null,
+       JSON.stringify({ packageName: session.package_name })],
     ).catch(() => {});
     // Send OTP email
     const emailSettings = pkgAccountId ? await getOrgEmailSettings(pkgAccountId).catch(() => null) : null;
@@ -4548,9 +4619,10 @@ publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
     // Audit event
     const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
     db.query(
-      `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, metadata)
-       VALUES ($1, $2, 'otp_verified', $3, $4, $5::jsonb)`,
-      [req.params.token, pkgAccountId, email, req.ip ?? null, JSON.stringify({ packageName: session.package_name })],
+      `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
+       VALUES ($1, $2, 'otp_verified', $3, $4, $5, $6::jsonb)`,
+      [req.params.token, pkgAccountId, email, req.ip ?? null, req.headers["user-agent"] ?? null,
+       JSON.stringify({ packageName: session.package_name })],
     ).catch(() => {});
     // Issue a short-lived identity token
     const identityToken = createEsignIdentityToken(req.params.token, email);
@@ -4755,6 +4827,10 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
     let tsaUrlUsed: string | null = null;
     let pdfStorageKey: string | null = null;
     const signedAt = esignEmail ? new Date() : null;
+    // Capture signer context at the moment of signing
+    const signerIp  = req.ip ?? req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ?? null;
+    const signerUa  = req.headers["user-agent"] ?? null;
+    const signerGeo = resolveGeo(signerIp);
     if (esignEmail && esignSignerName) {
       // Use the primary TSA URL as the "intended" authority shown in the cert page.
       // The actual TSA that responds (may be a fallback) is stored separately.
@@ -4768,6 +4844,9 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
           tsaUrl: intendedTsaUrl,
           sessionToken: req.params.token,
           signatureImage: esignSignatureImage,
+          signerIp,
+          signerUa,
+          signerGeo,
         });
       } catch (certErr) {
         logger.warn({ certErr }, "[E-sign] Failed to append certificate page — using base PDF");
@@ -4809,18 +4888,24 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
               tsa_token_b64=$9,
               tsa_url=$10,
               generated_pdf_storage_key=$11,
+              signer_ip=COALESCE(signer_ip, $12),
+              signer_ua=COALESCE(signer_ua, $13),
+              signer_geo=COALESCE(signer_geo, $14),
               updated_at=NOW()
         WHERE token=$4`,
       [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token,
-       esignEmail, esignSignerName, signedAt, pdfSha256, tsaTokenB64, tsaUrlUsed, pdfStorageKey],
+       esignEmail, esignSignerName, signedAt, pdfSha256, tsaTokenB64, tsaUrlUsed, pdfStorageKey,
+       esignEmail ? (signerIp ?? null) : null,
+       esignEmail ? (signerUa ?? null) : null,
+       esignEmail ? (signerGeo ?? null) : null],
     );
     // Append-only signing audit event (fire-and-forget)
     if (esignEmail) {
       const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
       db.query(
-        `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, metadata)
-         VALUES ($1, $2, 'signed', $3, $4, $5::jsonb)`,
-        [req.params.token, pkgAccountId, esignEmail, req.ip ?? null,
+        `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
+         VALUES ($1, $2, 'signed', $3, $4, $5, $6::jsonb)`,
+        [req.params.token, pkgAccountId, esignEmail, signerIp ?? null, signerUa ?? null,
          JSON.stringify({
            signerName: esignSignerName,
            packageName: session.package_name,
@@ -4828,6 +4913,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
            signedAt: signedAt?.toISOString(),
            tsaUrl: tsaUrlUsed,
            tsaTokenObtained: tsaTokenB64 !== null,
+           signerGeo,
          })],
       ).catch(() => {});
       // Send confirmation email with signed PDF to signer (fire-and-forget)
@@ -5125,6 +5211,9 @@ publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
           signedAt:    new Date(session.signed_at as string),
           tsaUrl:      typeof session.tsa_url === "string" ? session.tsa_url : null,
           sessionToken: req.params.token,
+          signerIp:    typeof session.signer_ip  === "string" ? session.signer_ip  : null,
+          signerUa:    typeof session.signer_ua  === "string" ? session.signer_ua  : null,
+          signerGeo:   typeof session.signer_geo === "string" ? session.signer_geo : null,
         });
       } catch (certErr) {
         logger.warn({ certErr }, "[E-sign] Failed to re-append certificate page on public download");

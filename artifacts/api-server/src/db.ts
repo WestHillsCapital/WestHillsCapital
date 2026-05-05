@@ -1581,6 +1581,13 @@ export async function initDb(): Promise<void> {
     CREATE INDEX IF NOT EXISTS docufill_signing_events_session_idx
       ON docufill_signing_events (session_token, created_at)
   `);
+  // Migration: actor_ua may not exist on tables created before this column was added
+  await db.query(`ALTER TABLE docufill_signing_events ADD COLUMN IF NOT EXISTS actor_ua TEXT`);
+
+  // ── Signer context on sessions (IP, user-agent, geo) ────────────────────────
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signer_ip TEXT`);
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signer_ua TEXT`);
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signer_geo TEXT`);
 
   // ── Batch run tracking ──────────────────────────────────────────────────────
   // batch_run_id: UUID shared by all sessions from the same CSV upload run.
