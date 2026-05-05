@@ -1,5 +1,7 @@
 import { Pool } from "pg";
 import { randomBytes } from "crypto";
+import { fileURLToPath } from "url";
+import path from "path";
 import { logger } from "./lib/logger";
 import { appendBookingAttemptToSheet } from "./lib/google-sheets";
 
@@ -31,6 +33,84 @@ export function getDb(): Pool {
     });
   }
   return pool;
+}
+
+// ── Drizzle migrations ─────────────────────────────────────────────────────────
+// Runs tracked SQL migrations from the ./drizzle folder on startup.
+// On an existing database (accounts table already present) the initial migration
+// is baselined so drizzle knows it is already applied. On a fresh database all
+// migrations run normally. Always non-fatal — initDb() handles idempotent
+// schema management for the running production DB.
+export async function runDrizzleMigrations(): Promise<void> {
+  const db = getDb();
+  try {
+    const { drizzle } = await import("drizzle-orm/node-postgres");
+    const { migrate } = await import("drizzle-orm/node-postgres/migrator");
+
+    const migrationsFolder = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      "../drizzle",
+    );
+
+    // Baseline check: if the accounts table already exists this is a running
+    // production database — mark the initial migration as applied without
+    // executing it so future incremental migrations can run normally.
+    const { rows } = await db.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'accounts'
+       ) AS exists`,
+    );
+    if (rows[0]?.exists) {
+      // Ensure the drizzle schema and migrations table exist (drizzle-orm creates
+      // these automatically on a fresh DB; we replicate it for the baseline path).
+      await db.query(`CREATE SCHEMA IF NOT EXISTS drizzle`);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS drizzle."__drizzle_migrations" (
+          id         SERIAL PRIMARY KEY,
+          hash       TEXT    NOT NULL,
+          created_at BIGINT
+        )
+      `);
+      const { rows: existing } = await db.query(
+        `SELECT 1 FROM drizzle."__drizzle_migrations" LIMIT 1`,
+      );
+      if (existing.length === 0) {
+        const { readFile } = await import("fs/promises");
+        const { createHash } = await import("crypto");
+        // Read the journal to get each entry's timestamp and corresponding SQL hash
+        const journalRaw = await readFile(
+          path.join(migrationsFolder, "meta/_journal.json"),
+          "utf8",
+        );
+        const journal = JSON.parse(journalRaw) as {
+          entries: Array<{ tag: string; when: number }>;
+        };
+        for (const entry of journal.entries) {
+          const sqlContent = await readFile(
+            path.join(migrationsFolder, `${entry.tag}.sql`),
+            "utf8",
+          );
+          const hash = createHash("sha256").update(sqlContent).digest("hex");
+          await db.query(
+            `INSERT INTO drizzle."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
+            [hash, entry.when],
+          );
+        }
+        logger.info(
+          { count: journal.entries.length },
+          "[Migrations] Baselined Drizzle migrations on existing database",
+        );
+      }
+      return;
+    }
+
+    const ormDb = drizzle(db);
+    await migrate(ormDb, { migrationsFolder });
+    logger.info("[Migrations] Drizzle migrations applied successfully");
+  } catch (err) {
+    logger.warn({ err }, "[Migrations] Migration run skipped — schema may already be managed or DATABASE_URL absent");
+  }
 }
 
 export async function initDb(): Promise<void> {

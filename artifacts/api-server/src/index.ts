@@ -3,7 +3,7 @@ import * as Sentry from "@sentry/node";
 import { Server } from "node:http";
 import app from "./app";
 import { logger } from "./lib/logger";
-import { initDb, getDb } from "./db";
+import { initDb, getDb, runDrizzleMigrations } from "./db";
 import { validateConfig } from "./lib/config";
 import { ObjectStorageService } from "./lib/objectStorage";
 import { syncDealOpsStatus, updateOperationsMilestone, computeOpsStatus } from "./lib/google-sheets";
@@ -103,8 +103,12 @@ const server: Server = app.listen(port, () => {
 
   // ── 4. Initialise the database ──────────────────────────────────────────────
   // Runs after the server is confirmed listening and config is valid.
-  // If it fails, close the server so Railway restarts the container.
-  initDb()
+  // runDrizzleMigrations is non-fatal: it baselines existing DBs and runs all
+  // tracked SQL migrations on fresh ones. initDb() then applies any remaining
+  // idempotent CREATE TABLE IF NOT EXISTS / ALTER TABLE operations.
+  // If initDb fails, close the server so Railway restarts the container.
+  runDrizzleMigrations()
+    .then(() => initDb())
     .then(async () => {
       logger.info("Database ready — all systems operational");
       // Initialize Stripe after DB is ready (non-fatal if it fails)
