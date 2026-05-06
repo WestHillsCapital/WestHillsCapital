@@ -1322,7 +1322,19 @@ export default function DocuFillCustomer() {
             <div className="min-w-0">
               <p className="text-xs font-semibold text-[#2E5A8A] mb-2">We already have some information on file for you</p>
               <div className="flex flex-wrap gap-2">
-                {Object.entries(session!.prefill).filter(([, v]) => String(v ?? "").trim()).map(([key, value]) => (
+                {((): [string, string][] => {
+                  const ORDER = ["firstName", "first_name", "lastName", "last_name", "email", "phone"];
+                  return Object.entries(session!.prefill)
+                    .filter(([, v]) => String(v ?? "").trim())
+                    .sort(([a], [b]) => {
+                      const ai = ORDER.findIndex((k) => k.toLowerCase() === a.toLowerCase());
+                      const bi = ORDER.findIndex((k) => k.toLowerCase() === b.toLowerCase());
+                      if (ai === -1 && bi === -1) return 0;
+                      if (ai === -1) return 1;
+                      if (bi === -1) return -1;
+                      return ai - bi;
+                    }) as [string, string][];
+                })().map(([key, value]) => (
                   <div key={key} className="inline-flex items-center gap-1.5 bg-white border border-[#C8D7E8] rounded-full px-3 py-1">
                     <span className="text-[10px] text-[#4A7FB5] font-medium uppercase tracking-wide">{humanizeKey(key)}</span>
                     <span className="text-xs text-[#0F1C3F] font-semibold">{String(value)}</span>

@@ -4665,7 +4665,9 @@ publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
     db.query(
       `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
        VALUES ($1, $2, 'otp_sent', $3, $4, $5, $6::jsonb)`,
-      [req.params.token, pkgAccountId, email, req.ip ?? null, req.headers["user-agent"] ?? null,
+      [req.params.token, pkgAccountId, email,
+       (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? null,
+       req.headers["user-agent"] ?? null,
        JSON.stringify({ packageName: session.package_name })],
     ).catch((err) => logger.warn({ err, token: req.params.token, accountId: pkgAccountId }, "[DocuFill] OTP sent signing event insert failed"));
     // Send OTP email
@@ -4673,8 +4675,9 @@ publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
     await sendEsignOtpEmail({
       to: email,
       otpCode: code,
-      packageName: String(session.package_name ?? "Document Package"),
-      orgName: String(session.org_name ?? "Docuplete"),
+      packageName:   String(session.package_name ?? "Document Package"),
+      orgName:       String(session.org_name ?? "Docuplete"),
+      orgBrandColor: typeof session.org_brand_color === "string" ? session.org_brand_color : null,
       emailSettings,
     });
     const cooldownUntil = new Date(Date.now() + 60 * 1000); // 60-second resend cooldown
@@ -4753,7 +4756,9 @@ publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
     db.query(
       `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
        VALUES ($1, $2, 'otp_verified', $3, $4, $5, $6::jsonb)`,
-      [req.params.token, pkgAccountId, email, req.ip ?? null, req.headers["user-agent"] ?? null,
+      [req.params.token, pkgAccountId, email,
+       (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? null,
+       req.headers["user-agent"] ?? null,
        JSON.stringify({ packageName: session.package_name })],
     ).catch((err) => logger.warn({ err, token: req.params.token, accountId: pkgAccountId }, "[DocuFill] OTP verified signing event insert failed"));
     // Issue a short-lived identity token
@@ -5056,13 +5061,14 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
       ).catch((err) => logger.warn({ err, token: req.params.token, accountId: pkgAccountId }, "[DocuFill] E-sign signed event insert failed"));
       // Send confirmation email with signed PDF to signer (fire-and-forget)
       sendSignerConfirmationEmail({
-        signerEmail: esignEmail,
-        signerName:  esignSignerName!,
-        packageName: String(session.package_name ?? "Document Package"),
-        signedAt:    signedAt!,
-        pdfSha256:   pdfSha256 ?? "",
+        signerEmail:   esignEmail,
+        signerName:    esignSignerName!,
+        packageName:   String(session.package_name ?? "Document Package"),
+        signedAt:      signedAt!,
+        pdfSha256:     pdfSha256 ?? "",
         pdfBuffer,
-        orgName:     typeof session.org_name === "string" ? session.org_name : null,
+        orgName:       typeof session.org_name === "string" ? session.org_name : null,
+        orgBrandColor: typeof session.org_brand_color === "string" ? session.org_brand_color : null,
       }).then(() => {
         logger.info({ to: esignEmail, token: req.params.token }, "[E-sign] Confirmation email sent to signer");
       }).catch((err) => {

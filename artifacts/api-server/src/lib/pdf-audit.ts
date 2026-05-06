@@ -76,7 +76,7 @@ export function actorContextFromRequest(req: Request): {
   actorUa: string | null;
 } {
   return {
-    actorIp: req.ip ?? req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ?? null,
+    actorIp: (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? null,
     actorUa: req.headers["user-agent"] ?? null,
   };
 }

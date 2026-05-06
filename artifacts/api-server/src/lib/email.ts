@@ -2276,9 +2276,11 @@ export async function sendEsignOtpEmail(params: {
   otpCode: string;
   packageName: string;
   orgName: string | null;
+  orgBrandColor?: string | null;
   emailSettings?: OrgEmailSettings | null;
 }): Promise<void> {
-  const org = params.orgName ?? "Docuplete";
+  const org        = params.orgName ?? "Docuplete";
+  const brandColor = params.orgBrandColor ?? "#0F1C3F";
   await sendEmail({
     to: params.to,
     subject: `Your verification code — ${params.packageName}`,
@@ -2296,7 +2298,7 @@ export async function sendEsignOtpEmail(params: {
     <table role="presentation" width="560" cellpadding="0" cellspacing="0"
            style="max-width:560px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #e5e7eb;">
       <tr>
-        <td style="background:#0F1C3F;padding:24px 32px;">
+        <td style="background:${brandColor};padding:24px 32px;">
           <p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">${org}</p>
         </td>
       </tr>
@@ -2437,16 +2439,18 @@ export async function sendSignerVoidedEmail(params: {
 }
 
 export async function sendSignerConfirmationEmail(params: {
-  signerEmail:  string;
-  signerName:   string;
-  packageName:  string;
-  signedAt:     Date;
-  pdfSha256:    string;
-  pdfBuffer:    Buffer;
-  orgName?:     string | null;
+  signerEmail:    string;
+  signerName:     string;
+  packageName:    string;
+  signedAt:       Date;
+  pdfSha256:      string;
+  pdfBuffer:      Buffer;
+  orgName?:       string | null;
+  orgBrandColor?: string | null;
 }): Promise<void> {
-  const shortHash = params.pdfSha256.slice(-8).toUpperCase();
-  const org       = params.orgName?.trim() || "Docuplete";
+  const shortHash  = params.pdfSha256.slice(-8).toUpperCase();
+  const org        = params.orgName?.trim() || "Docuplete";
+  const brandColor = params.orgBrandColor ?? "#0F1C3F";
   const dateStr   = params.signedAt.toLocaleDateString("en-US", {
     weekday: "long", year: "numeric", month: "long", day: "numeric", timeZone: "UTC",
   });
@@ -2510,7 +2514,7 @@ export async function sendSignerConfirmationEmail(params: {
            style="max-width:560px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #e5e7eb;">
       <!-- Header -->
       <tr>
-        <td style="background:#0F1C3F;padding:24px 32px;">
+        <td style="background:${brandColor};padding:24px 32px;">
           <p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">${org}</p>
         </td>
       </tr>
