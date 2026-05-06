@@ -1643,12 +1643,15 @@ export default function DocuFillCustomer() {
               : "By submitting, you confirm the information above is accurate. Your completed documents will be generated immediately and sent to your advisor."}
           </div>
           <div className={`flex gap-3 ${session!.require_preview ? "" : "flex-wrap"}`}>
-            {/* "Review Document" — always shown */}
+            {/* "Review Document" — always shown; primary when it's the sole action (require_preview) */}
             <Button
               type="button"
-              variant="outline"
+              variant={session!.require_preview ? "default" : "outline"}
               disabled={hasErrors || missingRequiredCount > 0 || (merlinWasUsed && !merlinReviewConfirmed)}
-              className="flex-1 border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0] disabled:opacity-60 py-3"
+              style={session!.require_preview ? { backgroundColor: brandColor, color: brandTextColor } : undefined}
+              className={session!.require_preview
+                ? "flex-1 disabled:opacity-60 py-3 hover:opacity-90"
+                : "flex-1 border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0] disabled:opacity-60 py-3"}
               onClick={async () => {
                 if (!validate()) return;
                 setPreviewError("");
