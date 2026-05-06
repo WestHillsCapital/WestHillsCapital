@@ -1657,16 +1657,25 @@ export default function DocuFillCustomer() {
                 setPageStatus("previewing");
                 setPreviewLoading(true);
                 try {
+                  // Flush the current answers to the server before rendering the preview
+                  // so the draft PDF reflects unsaved edits (autosave is debounced).
+                  await fetch(`${SESSION_BASE}/${token}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ answers }),
+                  });
                   const resp = await fetch(`${SESSION_BASE}/${token}/preview-pdf`, { method: "POST" });
                   if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error((d as { error?: string }).error ?? "Failed to load preview"); }
                   const blob = await resp.blob();
                   const url = URL.createObjectURL(blob);
                   setPreviewObjectUrl(url);
                 } catch (err) {
-                  setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
-                } finally {
                   setPreviewLoading(false);
+                  setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
+                  setPageStatus("ready");
+                  return;
                 }
+                setPreviewLoading(false);
               }}
             >
               Review Document
