@@ -3104,14 +3104,26 @@ export default function DocuFill() {
     updateSelectedPackage((pkg) => {
       const srcMap = pkg.mappings.find((m) => m.id === sourceMappingId);
       if (!srcMap) return pkg;
+      const srcField = srcMap.fieldId ? pkg.fields.find((f) => f.id === srcMap.fieldId) : undefined;
+      const newField: FieldItem | undefined = srcField && !isSystemEsignFieldId(srcField.id) ? {
+        ...srcField,
+        id: newId("field"),
+        libraryFieldId: "",
+        name: `${srcField.name} (copy)`,
+        color: pickFieldColor(pkg.fields.map((f) => f.color), srcField.sensitive),
+      } : undefined;
       const newMapping: MappingItem = {
         ...srcMap,
         id: newId("mapping"),
+        fieldId: newField?.id ?? srcMap.fieldId,
+        recipientId: undefined,
         x: snapX,
         y: snapY,
       };
+      const fields = newField ? [newField, ...pkg.fields] : pkg.fields;
+      if (newField) setSelectedFieldId(newField.id);
       setSelectedMappingId(newMapping.id);
-      return { ...pkg, mappings: [...pkg.mappings, newMapping] };
+      return { ...pkg, fields, mappings: [...pkg.mappings, newMapping] };
     });
     setPlacementModal(null);
   }
@@ -5880,16 +5892,6 @@ export default function DocuFill() {
                   )}
                   <div className="flex-1 min-h-0 flex flex-col">
                   {(() => {
-                    const fieldRecipientMap = new Map<string, RecipientItem[]>();
-                    for (const m of selectedPackage.mappings) {
-                      if (!m.recipientId) continue;
-                      const rec = (selectedPackage.recipients ?? []).find((r) => r.id === m.recipientId);
-                      if (!rec) continue;
-                      const existing = fieldRecipientMap.get(m.fieldId) ?? [];
-                      if (!existing.some((r) => r.id === rec.id)) {
-                        fieldRecipientMap.set(m.fieldId, [...existing, rec]);
-                      }
-                    }
                     return (
                   <DndContext
                     sensors={sortSensors}
@@ -5953,9 +5955,6 @@ export default function DocuFill() {
                                         {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
                                         {(field.condition?.fieldId || field.condition2?.fieldId) && <span className="text-[10px] uppercase tracking-wide rounded bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5">Conditional</span>}
                                         {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
-                                        {fieldRecipientMap.get(field.id)?.map((r) => (
-                                          <span key={r.id} className="text-[10px] rounded border px-1.5 py-0.5" style={{ borderColor: r.color, color: r.color }}>{r.email ?? r.label}</span>
-                                        ))}
                                       </div>
                                       <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
                                     </button>
