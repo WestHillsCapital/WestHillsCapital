@@ -1,7 +1,7 @@
 import "./instrument.js";
 import * as Sentry from "@sentry/node";
 import { Server } from "node:http";
-import app from "./app";
+import app, { startCustomDomainCors } from "./app";
 import { logger } from "./lib/logger";
 import { initDb, getDb, runDrizzleMigrations } from "./db";
 import { validateConfig } from "./lib/config";
@@ -114,6 +114,8 @@ const server: Server = app.listen(port, () => {
     .then(() => initDb())
     .then(async () => {
       logger.info("Database ready — all systems operational");
+      // Seed CORS custom-domain cache immediately and start 60-second refresh.
+      startCustomDomainCors();
       // Initialize Stripe after DB is ready (non-fatal if it fails)
       void initStripe();
       // Run every 15 minutes to keep milestone states fresh

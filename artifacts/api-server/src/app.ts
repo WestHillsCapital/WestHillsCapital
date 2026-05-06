@@ -97,9 +97,11 @@ async function refreshCustomDomainOrigins(): Promise<void> {
   }
 }
 
-// Seed on first request after DB is ready; then refresh on a 60-second interval.
+// Called once from index.ts after the DB is ready — seeds the cache immediately
+// and starts a 60-second refresh interval so new verified domains go live within
+// a minute of being confirmed, with no server restart needed.
 let customDomainRefreshInterval: ReturnType<typeof setInterval> | null = null;
-function ensureCustomDomainRefresh(): void {
+export function startCustomDomainCors(): void {
   if (customDomainRefreshInterval) return;
   void refreshCustomDomainOrigins();
   customDomainRefreshInterval = setInterval(() => void refreshCustomDomainOrigins(), 60_000);
@@ -133,7 +135,6 @@ app.use(
   cors({
     origin: staticAllowedOrigins
       ? (origin, cb) => {
-          ensureCustomDomainRefresh();
           // Allow server-to-server requests (no Origin header).
           if (!origin || isOriginAllowed(origin)) {
             cb(null, true);
