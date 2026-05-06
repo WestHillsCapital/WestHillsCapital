@@ -5388,7 +5388,7 @@ export default function DocuFill() {
                                       setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
                                       setPlacementModalPos(null);
                                     }}
-                                    className={`absolute rounded cursor-move flex flex-col overflow-hidden ${flexJustify} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
+                                    className={`absolute rounded cursor-move flex flex-col ${flexJustify} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
                                     style={{
                                       left: `${m.x}%`,
                                       top: `${m.y}%`,
@@ -5415,7 +5415,7 @@ export default function DocuFill() {
                                         {sampleValueForMapping(field, m.format) || "\u00A0"}
                                       </span>
                                     ) : (
-                                      <div className="pointer-events-none w-full">
+                                      <div className="pointer-events-none w-full overflow-hidden">
                                         <span className="block leading-tight">{field?.name ?? "Field"}</span>
                                         {recipient && (
                                           <span className="block text-[9px] leading-none truncate font-medium" style={{ color: recipient.color }}>{recipient.email ?? recipient.label}</span>
@@ -5424,6 +5424,12 @@ export default function DocuFill() {
                                         <span className="block leading-tight italic truncate" style={{ color: "#9AAAC0", opacity: 0.85 }}>{sampleValueForMapping(field, m.format)}</span>
                                         <div style={{ borderBottom: "0.4px solid #c8c8c8", marginTop: "1px" }} />
                                       </div>
+                                    )}
+                                    {isSelected && (
+                                      <span
+                                        onPointerDown={(e) => beginMappingPointer(e, m, "resize", e.currentTarget.parentElement?.parentElement as HTMLElement)}
+                                        className="absolute bottom-0 right-0 h-3 w-3 translate-x-1 translate-y-1 rounded-sm border border-[#0F1C3F] bg-[#C49A38] cursor-nwse-resize"
+                                      />
                                     )}
                                   </button>
                                 );
