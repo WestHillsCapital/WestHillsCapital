@@ -195,6 +195,8 @@ function PlanOverrideForm({
             node: (
               <select value={tier} onChange={(e) => setTier(e.target.value)} className="text-xs rounded border border-gray-200 px-2 py-1.5 bg-white text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#C49A38]/50 w-full">
                 <option value="free">Free</option>
+                <option value="starter">Starter</option>
+                <option value="starter_esign">Starter Professional</option>
                 <option value="pro">Pro</option>
                 <option value="enterprise">Enterprise</option>
               </select>

@@ -1,4 +1,4 @@
-export type PlanTier = "starter" | "pro" | "enterprise";
+export type PlanTier = "starter" | "starter_esign" | "pro" | "enterprise";
 
 export interface PlanLimits {
   maxPackages:            number | null;
@@ -27,6 +27,12 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     submissionsPerSeat:     50,
     maxSeats:               2,
   },
+  starter_esign: {
+    maxPackages:            10,
+    maxSubmissionsPerMonth: 200,
+    submissionsPerSeat:     50,
+    maxSeats:               5,
+  },
   pro: {
     maxPackages:            null,
     maxSubmissionsPerMonth: 500,
@@ -48,6 +54,18 @@ export const PLAN_FEATURES: Record<PlanTier, PlanFeatures> = {
     googleDrive:          false,
     hubspot:              false,
     eSign:                false,
+    emailBranding:        false,
+    webhooks:             false,
+    apiAccess:            false,
+    embeddedInterviews:   false,
+    customDomain:         false,
+  },
+  starter_esign: {
+    clientLinks:          true,
+    csvBatch:             false,
+    googleDrive:          false,
+    hubspot:              false,
+    eSign:                true,
     emailBranding:        false,
     webhooks:             false,
     apiAccess:            false,
@@ -85,8 +103,9 @@ export const PLAN_FEATURES: Record<PlanTier, PlanFeatures> = {
  * "free" and any unknown value map to "starter" for backward compatibility.
  */
 function normalizeTier(tier: string): PlanTier {
-  if (tier === "pro")        return "pro";
-  if (tier === "enterprise") return "enterprise";
+  if (tier === "starter_esign") return "starter_esign";
+  if (tier === "pro")           return "pro";
+  if (tier === "enterprise")    return "enterprise";
   return "starter";
 }
 
@@ -110,7 +129,7 @@ export function getPlanFeatures(tier: string): PlanFeatures {
 }
 
 function isPlanTier(value: unknown): value is PlanTier {
-  return value === "starter" || value === "free" || value === "pro" || value === "enterprise";
+  return value === "starter" || value === "starter_esign" || value === "free" || value === "pro" || value === "enterprise";
 }
 
 export interface SubmissionPackTier {
