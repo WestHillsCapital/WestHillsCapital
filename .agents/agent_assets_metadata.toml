@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "GCU-49Xo_-dL_FdO1rV_U"
+uri = "file://artifacts/west-hills-capital/public/images/apple-touch-icon.png"
+type = "image"
+title = "Mobile Bookmark Icon (apple-touch-icon)"
