@@ -89,7 +89,9 @@ async function refreshCustomDomainOrigins(): Promise<void> {
     const next = new Set<string>();
     for (const { custom_domain } of rows) {
       next.add(`https://${custom_domain}`);
-      next.add(`http://${custom_domain}`); // allow http in dev/staging
+      if (process.env.NODE_ENV !== "production") {
+        next.add(`http://${custom_domain}`); // allow http in dev/staging only
+      }
     }
     customDomainOrigins = next;
   } catch {
