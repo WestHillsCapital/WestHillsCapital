@@ -2128,12 +2128,18 @@ router.delete("/integrations/gdrive", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
+    // Clear both legacy gdrive_* columns AND the unified storage_* columns so
+    // the fallback chain in docufill upload routes is fully broken on disconnect.
     await db.query(
       `UPDATE accounts
           SET gdrive_access_token = NULL, gdrive_refresh_token = NULL,
               gdrive_connected_email = NULL, gdrive_folder_id = NULL,
               gdrive_folder_name = NULL, gdrive_connected_at = NULL,
-              gdrive_oauth_state = NULL
+              gdrive_oauth_state = NULL,
+              storage_provider = NULL, storage_access_token = NULL,
+              storage_refresh_token = NULL, storage_connected_email = NULL,
+              storage_folder_id = NULL, storage_folder_name = NULL,
+              storage_connected_at = NULL, storage_oauth_state = NULL
         WHERE id = $1`,
       [accountId],
     );
@@ -2326,12 +2332,18 @@ router.delete("/integrations/storage", requireAdminRole, async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
+    // Clear both unified storage_* columns AND legacy gdrive_* columns so
+    // the fallback chain in docufill upload routes is fully broken on disconnect.
     await db.query(
       `UPDATE accounts
-          SET storage_provider = NULL, storage_access_token = NULL, storage_refresh_token = NULL,
-              storage_connected_email = NULL, storage_folder_id = NULL,
-              storage_folder_name = NULL, storage_connected_at = NULL,
-              storage_oauth_state = NULL
+          SET storage_provider = NULL, storage_access_token = NULL,
+              storage_refresh_token = NULL, storage_connected_email = NULL,
+              storage_folder_id = NULL, storage_folder_name = NULL,
+              storage_connected_at = NULL, storage_oauth_state = NULL,
+              gdrive_access_token = NULL, gdrive_refresh_token = NULL,
+              gdrive_connected_email = NULL, gdrive_folder_id = NULL,
+              gdrive_folder_name = NULL, gdrive_connected_at = NULL,
+              gdrive_oauth_state = NULL
         WHERE id = $1`,
       [accountId],
     );
