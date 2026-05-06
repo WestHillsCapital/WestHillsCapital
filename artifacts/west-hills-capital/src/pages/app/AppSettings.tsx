@@ -726,7 +726,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                       <td className="px-3 py-2.5 text-center text-gray-600">2</td>
                       <td className="px-3 py-2.5 text-center text-violet-700 font-medium">2</td>
                       <td className="px-3 py-2.5 text-center text-indigo-700 font-medium">10</td>
-                      <td className="px-3 py-2.5 text-center text-amber-700 font-medium">25 + $15/ea</td>
+                      <td className="px-3 py-2.5 text-center text-amber-700 font-medium">25</td>
                     </tr>
                     <tr>
                       <td className="px-3 py-2.5 text-gray-700">eSign</td>
@@ -759,6 +759,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                   </tbody>
                 </table>
               </div>
+              <p className="mt-2 text-[11px] text-gray-400">* Additional seats available on all plans for $15/seat/mo.</p>
             </div>
           )}
         </>
