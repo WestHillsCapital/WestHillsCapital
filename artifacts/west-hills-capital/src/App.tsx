@@ -8,6 +8,7 @@ import { ClerkProvider } from "@clerk/react";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { UpgradeModalProvider } from "@/hooks/useUpgradeModal";
 import { UpgradeModal } from "@/components/UpgradeModal";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Public layout
 import { Layout } from "@/components/layout/Layout";
@@ -111,9 +112,17 @@ function InternalRouter() {
         <Route path="/internal/appointments">
           <Redirect to="/internal/scheduled-calls" />
         </Route>
-        <Route path="/internal/deal-builder"         component={DealBuilder}                 />
+        <Route path="/internal/deal-builder">
+          <ErrorBoundary inline label="Deal Builder">
+            <DealBuilder />
+          </ErrorBoundary>
+        </Route>
         <Route path="/internal/content"              component={ContentEngine}               />
-        <Route path="/internal/docufill"             component={DocuFillInternal}            />
+        <Route path="/internal/docufill">
+          <ErrorBoundary inline label="DocuFill mapper">
+            <DocuFillInternal />
+          </ErrorBoundary>
+        </Route>
         <Route path="/internal/settings"             component={SettingsInternal}            />
         <Route path="/internal/super-admin"          component={SuperAdminInternal}          />
         <Route>
@@ -134,9 +143,11 @@ function Router() {
     return (
       <div className="docuplete-app">
         <ScrollToTop />
-        <Suspense fallback={<PageSpinner />}>
-          <InternalRouter />
-        </Suspense>
+        <ErrorBoundary label="internal portal">
+          <Suspense fallback={<PageSpinner />}>
+            <InternalRouter />
+          </Suspense>
+        </ErrorBoundary>
       </div>
     );
   }
