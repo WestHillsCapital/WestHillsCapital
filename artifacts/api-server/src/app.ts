@@ -11,7 +11,7 @@ import router from "./routes";
 import sitemapRouter from "./routes/sitemap";
 import { logger } from "./lib/logger";
 import { errorHandler } from "./middleware/errorHandler";
-import { dbReady, dbError } from "./db";
+import { dbReady, dbError, getDb } from "./db";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import { WebhookHandlers, verifyAndParseWebhook } from "./lib/stripeWebhookHandlers";
 import { handleStripeSubscriptionEvent } from "./lib/stripeBillingSync";
@@ -60,7 +60,8 @@ app.use(
 );
 
 // ── CORS ───────────────────────────────────────────────────────────────────────
-// In production, restrict to the actual Vercel frontend domain.
+// In production, restrict to the actual Vercel frontend domain plus any
+// verified custom domains stored in the database (e.g. forms.acme.com).
 // In development (CORS_ALLOWED_ORIGINS not set) allow all origins so the
 // Replit dev preview can reach the API.
 const CORS_ORIGINS_RAW =
@@ -68,9 +69,41 @@ const CORS_ORIGINS_RAW =
   process.env.FRONTEND_URL ??
   "";
 
-const allowedOrigins = CORS_ORIGINS_RAW
+const staticAllowedOrigins = CORS_ORIGINS_RAW
   ? new Set(CORS_ORIGINS_RAW.split(",").map((o) => o.trim()).filter(Boolean))
-  : null; // null → allow all
+  : null; // null → allow all in dev
+
+// Verified custom domains loaded from DB — refreshed every 60 seconds so new
+// customer domains are picked up without a server restart.
+let customDomainOrigins = new Set<string>();
+
+async function refreshCustomDomainOrigins(): Promise<void> {
+  try {
+    const db = getDb();
+    const { rows } = await db.query<{ custom_domain: string }>(
+      `SELECT custom_domain FROM accounts
+       WHERE custom_domain IS NOT NULL
+         AND custom_domain <> ''
+         AND custom_domain_status = 'verified'`
+    );
+    const next = new Set<string>();
+    for (const { custom_domain } of rows) {
+      next.add(`https://${custom_domain}`);
+      next.add(`http://${custom_domain}`); // allow http in dev/staging
+    }
+    customDomainOrigins = next;
+  } catch {
+    // Non-fatal: keep the previous set if the DB is temporarily unavailable.
+  }
+}
+
+// Seed on first request after DB is ready; then refresh on a 60-second interval.
+let customDomainRefreshInterval: ReturnType<typeof setInterval> | null = null;
+function ensureCustomDomainRefresh(): void {
+  if (customDomainRefreshInterval) return;
+  void refreshCustomDomainOrigins();
+  customDomainRefreshInterval = setInterval(() => void refreshCustomDomainOrigins(), 60_000);
+}
 
 // Normalize an origin by stripping a leading "www." subdomain so that
 // https://www.westhillscapital.com matches https://westhillscapital.com in
@@ -87,23 +120,29 @@ function normalizeOrigin(origin: string): string {
   }
 }
 
+function isOriginAllowed(origin: string): boolean {
+  if (!staticAllowedOrigins) return true; // dev: allow all
+  if (staticAllowedOrigins.has(origin) || staticAllowedOrigins.has(normalizeOrigin(origin))) return true;
+  if (customDomainOrigins.has(origin) || customDomainOrigins.has(normalizeOrigin(origin))) return true;
+  return false;
+}
+
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
 
 app.use(
   cors({
-    origin: allowedOrigins
+    origin: staticAllowedOrigins
       ? (origin, cb) => {
+          ensureCustomDomainRefresh();
           // Allow server-to-server requests (no Origin header).
-          // Check both the raw origin and its www-normalized form so that
-          // https://www.example.com matches an entry of https://example.com.
-          if (!origin || allowedOrigins.has(origin) || allowedOrigins.has(normalizeOrigin(origin))) {
+          if (!origin || isOriginAllowed(origin)) {
             cb(null, true);
           } else {
             cb(new Error(`CORS: origin ${origin} is not allowed`));
           }
         }
       : IS_PRODUCTION
-        // In production, allowedOrigins should always be set.
+        // In production, staticAllowedOrigins should always be set.
         // If missing, fail closed to avoid credentialed cross-origin exposure.
         ? (_origin, cb) => cb(new Error("CORS: CORS_ALLOWED_ORIGINS is not configured"))
         // In development (Replit preview), reflect the requesting origin so
