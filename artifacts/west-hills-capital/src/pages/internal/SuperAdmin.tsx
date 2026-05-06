@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import * as Sentry from "@sentry/react";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 
 const API_BASE   = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -646,6 +647,34 @@ export default function SuperAdmin() {
   const atRiskCount  = accounts.filter((a) => a.churn_risk).length;
   const trialCount   = accounts.filter((a) => a.subscription_status === "trialing").length;
 
+  // ── Sentry test state ───────────────────────────────────────────────────────
+  type TestStatus = "idle" | "sending" | "sent" | "error";
+  const [feStatus, setFeStatus] = useState<TestStatus>("idle");
+  const [apiStatus, setApiStatus] = useState<TestStatus>("idle");
+
+  function testFrontendError() {
+    setFeStatus("sending");
+    try {
+      const eventId = Sentry.captureException(
+        new Error("Sentry frontend test — triggered from Super Admin panel"),
+        { tags: { test: "true", source: "super-admin" } },
+      );
+      setFeStatus(eventId ? "sent" : "error");
+    } catch {
+      setFeStatus("error");
+    }
+  }
+
+  async function testApiError() {
+    setApiStatus("sending");
+    try {
+      const res = await fetch(`${API_BASE}/api/debug-sentry`, { headers: getAuthHeaders() });
+      setApiStatus(res.ok || res.status === 500 ? "sent" : "error");
+    } catch {
+      setApiStatus("error");
+    }
+  }
+
   return (
     <div className="max-w-screen-xl mx-auto px-4 py-8">
 
@@ -663,6 +692,53 @@ export default function SuperAdmin() {
           className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-[#C49A38]/50 w-52"
         />
       </div>
+
+      {/* Monitoring test panel */}
+      <details className="mb-6 rounded-xl border border-gray-200 bg-white overflow-hidden">
+        <summary className="px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider cursor-pointer select-none hover:bg-gray-50 transition-colors list-none flex items-center justify-between">
+          <span>System Diagnostics</span>
+          <span className="text-gray-300 text-base">›</span>
+        </summary>
+        <div className="border-t border-gray-100 px-5 py-4 flex flex-col sm:flex-row gap-4">
+          {(
+            [
+              {
+                label: "Test frontend error monitoring",
+                description: "Sends a test event to Sentry from the browser. Check your Sentry dashboard to confirm it arrives.",
+                status: feStatus,
+                onClick: testFrontendError,
+              },
+              {
+                label: "Test API error monitoring",
+                description: "Throws a test exception on the API server. Check your Sentry dashboard to confirm it arrives.",
+                status: apiStatus,
+                onClick: testApiError,
+              },
+            ] as const
+          ).map(({ label, description, status, onClick }) => (
+            <div key={label} className="flex-1 rounded-lg border border-gray-100 bg-gray-50 px-4 py-3 flex flex-col gap-2">
+              <p className="text-xs font-medium text-gray-700">{label}</p>
+              <p className="text-[11px] text-gray-400 leading-relaxed">{description}</p>
+              <div className="flex items-center gap-3 mt-1">
+                <button
+                  type="button"
+                  onClick={onClick}
+                  disabled={status === "sending"}
+                  className="px-3 py-1.5 text-xs font-medium rounded border border-gray-200 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {status === "sending" ? "Sending…" : "Send test event"}
+                </button>
+                {status === "sent" && (
+                  <span className="text-[11px] text-green-600 font-medium">Sent — check Sentry</span>
+                )}
+                {status === "error" && (
+                  <span className="text-[11px] text-red-500 font-medium">Failed — DSN may not be configured</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </details>
 
       {/* Summary cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
