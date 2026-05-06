@@ -710,7 +710,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     <tr className="bg-gray-50/50">
                       <td className="px-3 py-2.5 text-gray-700">Packages</td>
                       <td className="px-3 py-2.5 text-center text-gray-600">5</td>
-                      <td className="px-3 py-2.5 text-center text-violet-700 font-medium">10</td>
+                      <td className="px-3 py-2.5 text-center text-violet-700 font-medium">5</td>
                       <td className="px-3 py-2.5 text-center text-indigo-700 font-medium">Unlimited</td>
                       <td className="px-3 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
                     </tr>
@@ -724,7 +724,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     <tr className="bg-gray-50/50">
                       <td className="px-3 py-2.5 text-gray-700">Team seats</td>
                       <td className="px-3 py-2.5 text-center text-gray-600">2</td>
-                      <td className="px-3 py-2.5 text-center text-violet-700 font-medium">5</td>
+                      <td className="px-3 py-2.5 text-center text-violet-700 font-medium">2</td>
                       <td className="px-3 py-2.5 text-center text-indigo-700 font-medium">10</td>
                       <td className="px-3 py-2.5 text-center text-amber-700 font-medium">25 + $15/ea</td>
                     </tr>

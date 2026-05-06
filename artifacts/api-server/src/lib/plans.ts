@@ -28,10 +28,10 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
     maxSeats:               2,
   },
   starter_esign: {
-    maxPackages:            10,
-    maxSubmissionsPerMonth: 200,
+    maxPackages:            5,
+    maxSubmissionsPerMonth: 100,
     submissionsPerSeat:     50,
-    maxSeats:               5,
+    maxSeats:               2,
   },
   pro: {
     maxPackages:            null,
