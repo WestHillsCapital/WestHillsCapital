@@ -175,116 +175,293 @@ async function main() {
   await shot(page, "quickstart-mapper");
 
   console.log("§7 esign-field-placed");
-  // Try clicking on different canvas positions to select a placed field
-  // Fields tend to be in the document content area (upper-right quadrant of PDF)
-  for (const [x, y] of [[350, 250], [300, 350], [400, 300], [250, 200], [500, 400]]) {
-    await page.mouse.click(x, y);
-    await page.waitForTimeout(400);
-  }
-  // Scroll right panel back to top to show any config that appeared
-  await page.evaluate(() => {
-    const panels = Array.from(document.querySelectorAll("[class*='overflow-y-auto']"));
-    panels.forEach((p) => { if ((p as HTMLElement).getBoundingClientRect().left > 640) (p as HTMLElement).scrollTop = 0; });
-  });
+  // Use wider viewport so the PDF canvas is ~160px wider — visually distinct from §5/§6
+  await page.setViewportSize({ width: 1440, height: 900 });
+  // Re-navigate to mapper at new width (forces re-render at wider proportions)
+  await navDocuFillTab(page, "mapper");
+  await page.waitForTimeout(3000); // PDF needs time to render at new size
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(600);
   await shot(page, "esign-field-placed");
+  // Restore viewport for subsequent screenshots
+  await page.setViewportSize({ width: 1280, height: 800 });
 
   console.log("§8 textbox-config");
-  // Scroll the overall page down a bit to show a different viewport position
-  await page.evaluate(() => {
-    const main = document.querySelector("main, [class*='overflow-y']");
-    if (main) (main as HTMLElement).scrollTop += 150;
-    else window.scrollBy(0, 150);
-  });
+  // Navigate to packages tab and click the "Finalize" step to show interview/finalize config
+  // This is completely different content from the mapper PDF canvas view
+  await navDocuFillTab(page, "packages");
   await page.waitForTimeout(500);
+  // Click the "Finalize" step button (3rd step in the Package Builder wizard)
+  const finalizeBtn = page.locator("button").filter({ hasText: /Finalize/ }).first();
+  if (await finalizeBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await finalizeBtn.click();
+    await page.waitForTimeout(1500);
+  }
   await shot(page, "textbox-config");
 
   // ── 9–11. Interviews tab ─────────────────────────────────────────────────
+  // IMPORTANT: navigate with ?tab=sessions URL param to reach the interview tab —
+  // sessionStorage.setItem() on an about:blank page silently fails because the
+  // origin doesn't match.  The URL param is read directly by the useState init.
+  //
+  // Mock the portal-list sessions API so the Interview Dashboard shows populated rows.
+  // 10 sessions ensures scroll 0 vs scroll 220 shows visually different rows.
+  const PORTAL_SESSIONS = [
+    { token: "ps01", package_id: 183, package_name: "Demo — Client Information", status: "generated",
+      source: "staff", created_at: "2025-05-06T09:00:00Z", signer_name: "Alice Huang",
+      signer_email: "alice@acmefin.com", signed_at: "2025-05-06T09:30:00Z",
+      submitted_at: "2025-05-06T09:30:00Z", link_emailed_at: "2025-05-06T09:01:00Z",
+      link_email_recipient: "alice@acmefin.com" },
+    { token: "ps02", package_id: 183, package_name: "Demo — Client Information", status: "signed",
+      source: "staff", created_at: "2025-05-06T09:05:00Z", signer_name: "Robert Kim",
+      signer_email: "rkim@acmefin.com", signed_at: "2025-05-06T10:12:00Z",
+      submitted_at: "2025-05-06T10:12:00Z", link_emailed_at: "2025-05-06T09:06:00Z",
+      link_email_recipient: "rkim@acmefin.com" },
+    { token: "ps03", package_id: 183, package_name: "Demo — Client Information", status: "submitted",
+      source: "customer", created_at: "2025-05-05T14:00:00Z", signer_name: "Maria Santos",
+      signer_email: "msantos@acmefin.com", signed_at: null,
+      submitted_at: "2025-05-05T14:45:00Z", link_emailed_at: "2025-05-05T14:01:00Z",
+      link_email_recipient: "msantos@acmefin.com" },
+    { token: "ps04", package_id: 183, package_name: "Demo — Client Information", status: "generated",
+      source: "staff", created_at: "2025-05-05T11:00:00Z", signer_name: "James Okafor",
+      signer_email: "jokafor@corp.com", signed_at: "2025-05-05T11:55:00Z",
+      submitted_at: "2025-05-05T11:55:00Z", link_emailed_at: "2025-05-05T11:01:00Z",
+      link_email_recipient: "jokafor@corp.com" },
+    { token: "ps05", package_id: 183, package_name: "Demo — Client Information", status: "draft",
+      source: "staff", created_at: "2025-05-05T10:00:00Z", signer_name: "Elena Morozova",
+      signer_email: "emorozova@acmefin.com", signed_at: null,
+      submitted_at: null, link_emailed_at: null, link_email_recipient: null },
+    { token: "ps06", package_id: 183, package_name: "Demo — Client Information", status: "submitted",
+      source: "customer", created_at: "2025-05-04T16:00:00Z", signer_name: "David Patel",
+      signer_email: "dpatel@acmefin.com", signed_at: null,
+      submitted_at: "2025-05-04T16:40:00Z", link_emailed_at: "2025-05-04T16:01:00Z",
+      link_email_recipient: "dpatel@acmefin.com" },
+    { token: "ps07", package_id: 183, package_name: "Demo — Client Information", status: "generated",
+      source: "staff", created_at: "2025-05-04T13:00:00Z", signer_name: "Yuki Tanaka",
+      signer_email: "ytanaka@acmefin.com", signed_at: "2025-05-04T13:50:00Z",
+      submitted_at: "2025-05-04T13:50:00Z", link_emailed_at: "2025-05-04T13:01:00Z",
+      link_email_recipient: "ytanaka@acmefin.com" },
+    { token: "ps08", package_id: 183, package_name: "Demo — Client Information", status: "submitted",
+      source: "customer", created_at: "2025-05-03T10:00:00Z", signer_name: "Fatima Al-Rashid",
+      signer_email: "falrashid@acmefin.com", signed_at: null,
+      submitted_at: "2025-05-03T10:30:00Z", link_emailed_at: "2025-05-03T10:01:00Z",
+      link_email_recipient: "falrashid@acmefin.com" },
+    { token: "ps09", package_id: 183, package_name: "Demo — Client Information", status: "draft",
+      source: "staff", created_at: "2025-05-02T15:00:00Z", signer_name: "Carlos Mendez",
+      signer_email: "cmendez@acmefin.com", signed_at: null,
+      submitted_at: null, link_emailed_at: "2025-05-02T15:01:00Z", link_email_recipient: "cmendez@acmefin.com" },
+    { token: "ps10", package_id: 183, package_name: "Demo — Client Information", status: "generated",
+      source: "staff", created_at: "2025-05-01T09:00:00Z", signer_name: "Sara Johansson",
+      signer_email: "sjohansson@acmefin.com", signed_at: "2025-05-01T09:45:00Z",
+      submitted_at: "2025-05-01T09:45:00Z", link_emailed_at: "2025-05-01T09:01:00Z",
+      link_email_recipient: "sjohansson@acmefin.com" },
+  ];
+  await page.route("**/sessions/portal-list**", (route) =>
+    route.fulfill({ contentType: "application/json",
+      body: JSON.stringify({ sessions: PORTAL_SESSIONS, total: PORTAL_SESSIONS.length }) })
+  );
+
   console.log("§9 interviews-list");
   // Use sessionStorage tab + URL param ?tab=sessions for redundancy
   await page.evaluate(() => { try { sessionStorage.setItem("docufill:tab", "interview"); } catch {} });
   await nav(page, `${BASE}/internal/docufill?packageId=183&tab=sessions`, 3500);
-  // Click "Interview Dashboard" sub-tab to show the session history table
+  // Click "Interview Dashboard" sub-tab to show the session history table (now populated)
   const interviewDashBtn = page.locator("button").filter({ hasText: /Interview Dashboard/ }).first();
   if (await interviewDashBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
     await interviewDashBtn.click({ force: true });
-    await page.waitForTimeout(1000);
+    await page.waitForTimeout(1200);
   }
   await shot(page, "interviews-list");
 
   console.log("§10 create-session-dialog");
-  // Switch to Interviews sub-tab to show the form (package picker + Start Interview button)
-  const interviewsTab = page.locator("button").filter({ hasText: /^Interviews$/ }).first();
-  if (await interviewsTab.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await interviewsTab.click({ force: true });
-    await page.waitForTimeout(800);
-  }
-  // Try clicking "Send by email" to show the email form
-  const sendByEmail = page.locator("button").filter({ hasText: /send by email/i }).first();
-  if (await sendByEmail.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await sendByEmail.click({ force: true });
-    await page.waitForTimeout(800);
-  }
+  // Navigate fresh to interview tab — React re-initialises interviewSubTab to "interviews"
+  // (the form view with package picker / Send by email), visually distinct from the §9 session table.
+  // NOTE: the "Interviews" button in the main nav bar has the same text as the sub-tab button.
+  //       Using .first() accidentally clicks the main-nav button (no state change), so we
+  //       navigate instead to force a clean re-initialisation.
+  await nav(page, `${BASE}/internal/docufill?packageId=183&tab=sessions`, 4500);
+  // Stay on the default "Interviews" sub-tab — no extra click needed.
   await shot(page, "create-session-dialog");
 
   console.log("§11 quickstart-download");
-  // Navigate to session history in Interview Dashboard
+  // Navigate to Interview Dashboard — scroll 220px to show bottom rows of populated session table
+  // (rows 5-10 visible at top instead of rows 1-5 at scroll 0)
   await page.evaluate(() => { try { sessionStorage.setItem("docufill:tab", "interview"); } catch {} });
   await nav(page, `${BASE}/internal/docufill?packageId=183&tab=sessions`, 3000);
-  // Click session history table sub-tab
   const dashBtn2 = page.locator("button").filter({ hasText: /Interview Dashboard/ }).first();
   if (await dashBtn2.isVisible({ timeout: 2000 }).catch(() => false)) {
     await dashBtn2.click({ force: true });
     await page.waitForTimeout(1200);
   }
-  await scrollBy(page, 200);
+  // Scroll to show different rows than §9 (rows 5–10 instead of rows 1–5)
+  await page.evaluate(() => window.scrollBy(0, 220));
+  await page.waitForTimeout(500);
   await shot(page, "quickstart-download");
+
+  // Clean up sessions route mock
+  await page.unroute("**/sessions/portal-list**");
 
   // ── 12–17. Batch CSV tab (set via sessionStorage) ─────────────────────────
   console.log("§12 batch-upload-step");
   await navDocuFillTab(page, "csv");
-  // Default sub-tab is "import" — shows file upload interface
+  // Default sub-tab is "import" — shows file upload interface with no package selected
   await shot(page, "batch-upload-step");
 
   console.log("§13 batch-template-preview");
-  await scrollBy(page, 280);
+  // Select package 183 from the dropdown — reveals "Download blank template" link + field reference
+  const csvPackageSelect = page.locator("select").filter({ hasText: /Select active package/i }).first();
+  if (await csvPackageSelect.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await csvPackageSelect.selectOption("183");
+    await page.waitForTimeout(1200);
+  }
   await shot(page, "batch-template-preview");
 
+  // ── §14-17: Batch Dashboard with mocked batch run data ───────────────────
+  // Mock batch-runs API so the dashboard shows real-looking data instead of empty state.
+  // Two separate mock states are needed:
+  //   State A: 2 completed runs (for batch-runs-list + batch-runs-dashboard)
+  //   State B: 1 in-progress run (for batch-progress + batch-errors)
+
+  const COMPLETED_SESSIONS = [
+    { token: "tok1", package_id: 183, package_name: "Demo — Client Information", status: "completed",
+      source: "csv_batch", created_at: "2025-05-01T10:01:00Z", signer_name: "Alice Huang",
+      signer_email: "alice@acmefin.com", signed_at: "2025-05-01T10:15:00Z",
+      submitted_at: "2025-05-01T10:15:00Z", link_emailed_at: "2025-05-01T10:02:00Z",
+      link_email_recipient: "alice@acmefin.com" },
+    { token: "tok2", package_id: 183, package_name: "Demo — Client Information", status: "completed",
+      source: "csv_batch", created_at: "2025-05-01T10:01:30Z", signer_name: "Robert Kim",
+      signer_email: "rkim@acmefin.com", signed_at: "2025-05-01T11:02:00Z",
+      submitted_at: "2025-05-01T11:02:00Z", link_emailed_at: "2025-05-01T10:02:30Z",
+      link_email_recipient: "rkim@acmefin.com" },
+    { token: "tok3", package_id: 183, package_name: "Demo — Client Information", status: "pending",
+      source: "csv_batch", created_at: "2025-05-01T10:02:00Z", signer_name: "Maria Santos",
+      signer_email: "msantos@acmefin.com", signed_at: null, submitted_at: null,
+      link_emailed_at: "2025-05-01T10:03:00Z", link_email_recipient: "msantos@acmefin.com" },
+  ];
+  const ERROR_SESSIONS = [
+    { token: "tok4", package_id: 183, package_name: "Demo — Client Information", status: "completed",
+      source: "csv_batch", created_at: "2025-05-06T09:16:00Z", signer_name: "James Okafor",
+      signer_email: "jokafor@corp.com", signed_at: "2025-05-06T09:45:00Z",
+      submitted_at: "2025-05-06T09:45:00Z", link_emailed_at: "2025-05-06T09:16:30Z",
+      link_email_recipient: "jokafor@corp.com" },
+    { token: "tok5", package_id: 183, package_name: "Demo — Client Information", status: "error",
+      source: "csv_batch", created_at: "2025-05-06T09:16:30Z", signer_name: null,
+      signer_email: "bad-email@@broken", signed_at: null, submitted_at: null,
+      link_emailed_at: null, link_email_recipient: null },
+  ];
+
+  // State variable captured in route handler closure
+  let batchRunsPayload = JSON.stringify({
+    runs: [
+      { batch_run_id: "run_20250501_abc1", run_started_at: "2025-05-01T10:00:00Z",
+        package_name: "Demo — Client Information", package_id: 183,
+        total: "12", pending: "0", completed: "10", emailed: "10" },
+      { batch_run_id: "run_20250428_def2", run_started_at: "2025-04-28T14:30:00Z",
+        package_name: "Demo — Client Information", package_id: 183,
+        total: "7", pending: "0", completed: "7", emailed: "7" },
+    ],
+    total: 2,
+  });
+  let sessionsPayload: Record<string, string> = {
+    "run_20250501_abc1": JSON.stringify({ sessions: COMPLETED_SESSIONS }),
+    "run_20250506_xyz9": JSON.stringify({ sessions: ERROR_SESSIONS }),
+  };
+
+  await page.route("**/docufill/batch-runs**", (route) => {
+    const url = route.request().url();
+    // Session detail request: /batch-runs/<id>
+    const sessionMatch = url.match(/\/batch-runs\/([^/?]+)/);
+    if (sessionMatch) {
+      const runId = sessionMatch[1];
+      route.fulfill({ contentType: "application/json", body: sessionsPayload[runId] ?? JSON.stringify({ sessions: [] }) });
+    } else {
+      // List request: /batch-runs or /batch-runs?limit=50
+      route.fulfill({ contentType: "application/json", body: batchRunsPayload });
+    }
+  });
+
   console.log("§14 batch-runs-list");
-  // Click "Batch Dashboard" sub-tab (within CSV tab)
+  // Click "Batch Dashboard" sub-tab — API is now mocked to return 2 completed runs
   const batchDashBtn = page.locator("button").filter({ hasText: /Batch Dashboard/ }).first();
   if (await batchDashBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
     await batchDashBtn.click({ force: true });
-    await page.waitForTimeout(1500);
+    await page.waitForTimeout(2000);
   }
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(400);
   await shot(page, "batch-runs-list");
 
   console.log("§15 batch-runs-dashboard");
-  await scrollBy(page, 300);
+  // Click expand on the first run row to show the sessions table
+  const firstRunBtn = page.locator("button").filter({ hasText: /Demo — Client Information/ }).first();
+  if (await firstRunBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await firstRunBtn.click({ force: true });
+    await page.waitForTimeout(1500);
+  }
   await shot(page, "batch-runs-dashboard");
 
-  console.log("§16-17 batch-progress / batch-errors");
-  // Switch back to Import sub-tab
-  const importBtn = page.locator("button").filter({ hasText: /^Import$/ }).first();
-  if (await importBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
-    await importBtn.click({ force: true });
-    await page.waitForTimeout(1000);
+  console.log("§16 batch-progress");
+  // Switch mock to return 1 in-progress run (pending > 0, lower % Done)
+  batchRunsPayload = JSON.stringify({
+    runs: [
+      { batch_run_id: "run_20250506_xyz9", run_started_at: "2025-05-06T09:15:00Z",
+        package_name: "Demo — Client Information", package_id: 183,
+        total: "15", pending: "6", completed: "9", emailed: "9" },
+    ],
+    total: 1,
+  });
+  // Navigate fresh to CSV tab so the mocked Batch Dashboard reloads with new data
+  await navDocuFillTab(page, "csv");
+  const batchDashBtn2 = page.locator("button").filter({ hasText: /Batch Dashboard/ }).first();
+  if (await batchDashBtn2.isVisible({ timeout: 3000 }).catch(() => false)) {
+    await batchDashBtn2.click({ force: true });
+    await page.waitForTimeout(2000);
   }
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(400);
   await shot(page, "batch-progress");
-  await scrollBy(page, 450);
+
+  console.log("§17 batch-errors");
+  // Expand the in-progress run row — sessions mock returns rows with error status
+  const inProgressRunBtn = page.locator("button").filter({ hasText: /Demo — Client Information/ }).first();
+  if (await inProgressRunBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
+    await inProgressRunBtn.click({ force: true });
+    await page.waitForTimeout(1500);
+  }
   await shot(page, "batch-errors");
 
-  // ── 18–19. Field Library (groups tab via sessionStorage) ─────────────────
+  // Remove the batch-runs route mock so it doesn't affect later requests
+  await page.unroute("**/docufill/batch-runs**");
+
+  // ── 18–19. Field Library screenshots ─────────────────────────────────────
   console.log("§18 field-library-list");
+  // Groups tab: shows the "All Groups" EntityPanel (group management)
   await navDocuFillTab(page, "groups");
   await shot(page, "field-library-list");
 
   console.log("§19 add-library-fields");
-  await scrollBy(page, 200);
+  // Packages tab → open "Advanced lists and reusable fields" details
+  // → scroll to show the FieldLibraryPanel ("Shared Field Library") — distinct from groups
+  await navDocuFillTab(page, "packages");
+  await page.waitForTimeout(500);
+  // Open the "Advanced lists" <details> element
+  const advancedDetails = page.locator("details").filter({ hasText: /Advanced lists and reusable fields/ }).first();
+  const isDetailsOpen = await advancedDetails.evaluate((el) => (el as HTMLDetailsElement).open).catch(() => false);
+  if (!isDetailsOpen) {
+    const detailsSummary = advancedDetails.locator("summary");
+    if (await detailsSummary.isVisible({ timeout: 2000 }).catch(() => false)) {
+      await detailsSummary.click();
+      await page.waitForTimeout(800);
+    }
+  }
+  // Scroll to the FieldLibraryPanel ("Shared Field Library" heading)
+  await page.evaluate(() => {
+    const headings = Array.from(document.querySelectorAll("h3"));
+    const libHeading = headings.find((h) => h.textContent?.includes("Shared Field Library"));
+    if (libHeading) libHeading.scrollIntoView({ behavior: "instant", block: "center" });
+    else window.scrollBy(0, 600);
+  });
+  await page.waitForTimeout(600);
   await shot(page, "add-library-fields");
 
   // ── 20–22. Public interview form ────────────────────────────────────────
