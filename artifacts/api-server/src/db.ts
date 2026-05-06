@@ -1828,6 +1828,9 @@ export async function initDb(): Promise<void> {
        AND auth_level != 'email_otp'
        AND status = 'active'
   `);
+
+  // ── Mandate preview: require signers to view the filled PDF before signing ──
+  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS require_preview BOOLEAN NOT NULL DEFAULT FALSE`);
 }
 
 /**

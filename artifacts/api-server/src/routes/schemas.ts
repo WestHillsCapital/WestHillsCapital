@@ -50,6 +50,7 @@ export const PackageBodySchema = z.object({
   notifyStaff: z.boolean().optional(),
   notifyClient: z.boolean().optional(),
   authLevel: z.string().optional(),
+  requirePreview: z.boolean().optional(),
   interviewUrl: z.string().optional().nullable(),
   status: z.string().optional(),
 }).passthrough();

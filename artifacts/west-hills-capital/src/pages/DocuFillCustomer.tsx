@@ -57,6 +57,7 @@ type SessionData = {
   org_brand_color?: string | null;
   org_logo_on_white?: boolean | null;
   auth_level?: "none" | "email_otp";
+  require_preview?: boolean;
   signed_at?: string | null;
   signer_name?: string | null;
 };
@@ -278,7 +279,7 @@ export default function DocuFillCustomer() {
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [pageStatus, setPageStatus] = useState<"loading" | "ready" | "expired" | "submitting" | "generated" | "error">("loading");
+  const [pageStatus, setPageStatus] = useState<"loading" | "ready" | "expired" | "submitting" | "generated" | "error" | "previewing">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -287,6 +288,12 @@ export default function DocuFillCustomer() {
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasSavedRef = useRef(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+
+  // Preview-before-signing state
+  const [previewObjectUrl, setPreviewObjectUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState("");
+  const [previewViewed, setPreviewViewed] = useState(false);
 
   // E-sign flow state
   const [esignStep, setEsignStep] = useState<EsignStep | null>(null);
@@ -1149,6 +1156,132 @@ export default function DocuFillCustomer() {
     );
   }
 
+  // ── Preview screen ────────────────────────────────────────────────────────
+  if (pageStatus === "previewing") {
+    const brandColor = session!.org_brand_color ?? "#C49A38";
+    const brandTextColor = parseInt(brandColor.replace("#", ""), 16) > 0xffffff / 2 ? "#000000" : "#ffffff";
+    return (
+      <div ref={rootRef} className={isEmbed ? "bg-white" : "min-h-screen bg-[#F8F6F0]"}>
+        {!isEmbed && <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
+          <div className="max-w-2xl mx-auto flex items-center gap-3">
+            {(() => {
+              const orgName = session!.org_name ?? "West Hills Capital";
+              const rawLogoUrl = session!.org_form_logo_url ?? session!.org_logo_url ?? null;
+              const logoSrc = rawLogoUrl ? `${API_BASE}${rawLogoUrl}` : null;
+              const logoOnWhite = session!.org_logo_on_white !== false;
+              const initial = orgName.charAt(0).toUpperCase();
+              return (
+                <>
+                  <div className="w-8 h-8 rounded shrink-0 flex items-center justify-center overflow-hidden"
+                    style={{ backgroundColor: logoSrc && logoOnWhite ? "#ffffff" : brandColor }}>
+                    {logoSrc ? <img src={logoSrc} alt={orgName} className="w-full h-full object-contain" /> : <span className="text-white text-xs font-bold">{initial}</span>}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-[#0F1C3F]">{orgName}</div>
+                    <div className="text-[11px] text-[#6B7A99]">Secure document collection</div>
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+        </header>}
+        <main className={`max-w-2xl mx-auto px-4 space-y-5 ${isEmbed ? "py-6" : "py-8"}`}>
+          <div>
+            <h1 className="text-2xl font-semibold text-[#0F1C3F]">Review Your Document</h1>
+            <p className="text-sm text-[#6B7A99] mt-1">
+              {session!.require_preview
+                ? "Please review the document below before proceeding to sign."
+                : "Review the filled document, then proceed to sign when ready."}
+            </p>
+          </div>
+
+          {previewError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{previewError}</div>
+          )}
+
+          {previewLoading && (
+            <div className="rounded-lg border border-[#DDD5C4] bg-white flex items-center justify-center" style={{ height: 480 }}>
+              <p className="text-sm text-[#6B7A99]">Loading preview…</p>
+            </div>
+          )}
+
+          {previewObjectUrl && !previewLoading && (
+            <div className="rounded-lg border border-[#DDD5C4] overflow-hidden shadow-sm">
+              <iframe
+                src={previewObjectUrl}
+                title="Document preview"
+                className="w-full"
+                style={{ height: 520 }}
+                onLoad={() => setPreviewViewed(true)}
+              />
+            </div>
+          )}
+
+          {!previewObjectUrl && !previewLoading && !previewError && (
+            <div className="rounded-lg border border-[#DDD5C4] bg-white flex items-center justify-center" style={{ height: 480 }}>
+              <p className="text-sm text-[#6B7A99]">Click "Load Preview" to render your document.</p>
+            </div>
+          )}
+
+          <div className="flex gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              className="border-[#DDD5C4] text-[#6B7A99] hover:bg-[#F8F6F0]"
+              onClick={() => {
+                setPageStatus("ready");
+                if (previewObjectUrl) { URL.revokeObjectURL(previewObjectUrl); setPreviewObjectUrl(null); }
+              }}
+            >
+              Back to form
+            </Button>
+            {!previewObjectUrl && !previewLoading && (
+              <Button
+                type="button"
+                variant="outline"
+                className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
+                onClick={async () => {
+                  setPreviewLoading(true);
+                  setPreviewError("");
+                  try {
+                    const resp = await fetch(`${SESSION_BASE}/${token}/preview-pdf`, { method: "POST" });
+                    if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error((d as { error?: string }).error ?? "Failed to load preview"); }
+                    const blob = await resp.blob();
+                    const url = URL.createObjectURL(blob);
+                    setPreviewObjectUrl(url);
+                    setPreviewViewed(true);
+                  } catch (err) {
+                    setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
+                  } finally {
+                    setPreviewLoading(false);
+                  }
+                }}
+              >
+                Load Preview
+              </Button>
+            )}
+            <Button
+              type="button"
+              disabled={session!.require_preview && !previewViewed}
+              style={(!session!.require_preview || previewViewed) ? { backgroundColor: brandColor, color: brandTextColor } : undefined}
+              className="flex-1 disabled:opacity-60 hover:opacity-90"
+              onClick={() => {
+                if (previewObjectUrl) { URL.revokeObjectURL(previewObjectUrl); setPreviewObjectUrl(null); }
+                void handleSubmit();
+              }}
+            >
+              {session!.require_preview && !previewViewed ? "Open document to continue" : "Proceed to sign"}
+            </Button>
+          </div>
+
+          {session!.require_preview && !previewViewed && (
+            <p className="text-xs text-[#8A9BB8] text-center">You must open the document preview before signing is available.</p>
+          )}
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div ref={rootRef} className={isEmbed ? "bg-white" : "min-h-screen bg-[#F8F6F0]"}>
       {/* Header — hidden in embed mode */}
@@ -1494,27 +1627,63 @@ export default function DocuFillCustomer() {
           })}
         </div>
 
-        {/* Submit */}
+        {/* Submit / Preview */}
         <div className="bg-white rounded-lg border border-[#DDD5C4] p-5 space-y-3">
           <div className="text-sm text-[#6B7A99]">
-            {session!.auth_level === "email_otp" && hasSignatureStep
+            {session!.require_preview
+              ? "Review the filled document before signing — click \u201cReview Document\u201d to open the PDF preview."
+              : session!.auth_level === "email_otp" && hasSignatureStep
               ? "Your identity has been verified. Complete the form, then you'll provide your legal name and signature to finalize the documents."
               : session!.auth_level === "email_otp"
               ? "Your identity has been verified. Complete the form and submit — your documents will be generated immediately."
               : "By submitting, you confirm the information above is accurate. Your completed documents will be generated immediately and sent to your advisor."}
           </div>
-          <Button
-            onClick={() => void handleSubmit()}
-            disabled={pageStatus === "submitting" || hasErrors || missingRequiredCount > 0 || (merlinWasUsed && !merlinReviewConfirmed)}
-            style={{ backgroundColor: brandColor, color: brandTextColor }}
-            className="w-full disabled:opacity-60 py-3 hover:opacity-90"
-          >
-            {pageStatus === "submitting"
-              ? "Submitting…"
-              : session!.auth_level === "email_otp"
-              ? "Continue to signing"
-              : "Submit and generate documents"}
-          </Button>
+          <div className={`flex gap-3 ${session!.require_preview ? "" : "flex-wrap"}`}>
+            {/* "Review Document" — always shown */}
+            <Button
+              type="button"
+              variant="outline"
+              disabled={hasErrors || missingRequiredCount > 0 || (merlinWasUsed && !merlinReviewConfirmed)}
+              className="flex-1 border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0] disabled:opacity-60 py-3"
+              onClick={async () => {
+                setPreviewError("");
+                setPreviewViewed(false);
+                setPreviewObjectUrl(null);
+                setPageStatus("previewing");
+                setPreviewLoading(true);
+                try {
+                  const resp = await fetch(`${SESSION_BASE}/${token}/preview-pdf`, { method: "POST" });
+                  if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error((d as { error?: string }).error ?? "Failed to load preview"); }
+                  const blob = await resp.blob();
+                  const url = URL.createObjectURL(blob);
+                  setPreviewObjectUrl(url);
+                  setPreviewViewed(true);
+                } catch (err) {
+                  setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
+                } finally {
+                  setPreviewLoading(false);
+                }
+              }}
+            >
+              Review Document
+            </Button>
+            {/* "Sign Now" — only shown when preview is not mandated */}
+            {!session!.require_preview && (
+              <Button
+                type="button"
+                onClick={() => void handleSubmit()}
+                disabled={pageStatus === "submitting" || hasErrors || missingRequiredCount > 0 || (merlinWasUsed && !merlinReviewConfirmed)}
+                style={{ backgroundColor: brandColor, color: brandTextColor }}
+                className="flex-1 disabled:opacity-60 py-3 hover:opacity-90"
+              >
+                {pageStatus === "submitting"
+                  ? "Submitting…"
+                  : session!.auth_level === "email_otp"
+                  ? "Continue to signing"
+                  : "Submit and generate documents"}
+              </Button>
+            )}
+          </div>
           {(hasErrors || missingRequiredCount > 0) && pageStatus !== "submitting" && (
             <p className="text-xs text-red-600 text-center">
               {hasErrors

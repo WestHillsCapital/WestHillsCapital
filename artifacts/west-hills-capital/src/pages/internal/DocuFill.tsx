@@ -203,6 +203,7 @@ type PackageItem = {
   enable_gdrive: boolean;
   enable_hubspot: boolean;
   auth_level: "none" | "email_otp";
+  require_preview: boolean;
 };
 
 type Session = {
@@ -302,6 +303,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     enable_gdrive: (pkg as PackageItem & Record<string, unknown>).enable_gdrive === true,
     enable_hubspot: (pkg as PackageItem & Record<string, unknown>).enable_hubspot === true,
     auth_level: (pkg as PackageItem & Record<string, unknown>).auth_level === "email_otp" ? "email_otp" as const : "none" as const,
+    require_preview: (pkg as PackageItem & Record<string, unknown>).require_preview === true,
     tags: Array.isArray((pkg as PackageItem & { tags?: unknown }).tags)
       ? ((pkg as PackageItem & { tags?: unknown }).tags as unknown[]).map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
       : [],
@@ -1718,6 +1720,7 @@ export default function DocuFill() {
           enableGdrive: pkg.enable_gdrive,
           enableHubspot: pkg.enable_hubspot,
           authLevel: pkg.auth_level,
+          requirePreview: pkg.require_preview,
         }),
       });
       const data = await res.json();
@@ -4366,6 +4369,21 @@ export default function DocuFill() {
                               </span>
                             </div>
                             <p className="text-xs text-[#6B7A99]">Require the customer to verify their email with a one-time code before submitting. Their name is captured as a typed legal signature and a signing certificate page is appended to the PDF.</p>
+                          </button>
+                          {/* Require document preview before signing */}
+                          <button
+                            type="button"
+                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, require_preview: !pkg.require_preview }))}
+                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.require_preview ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
+                          >
+                            <div className="flex items-center gap-2 mb-1.5">
+                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.require_preview ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                              <span className={`text-sm font-semibold ${selectedPackage.require_preview ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Require document preview before signing</span>
+                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.require_preview ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
+                                {selectedPackage.require_preview ? "Required" : "Off"}
+                              </span>
+                            </div>
+                            <p className="text-xs text-[#6B7A99]">Require the signer to open and view the filled PDF before the signing step becomes available. When off, signers can still preview but may also proceed directly to signing.</p>
                           </button>
                           {/* Customer Link — toggleable */}
                           <button

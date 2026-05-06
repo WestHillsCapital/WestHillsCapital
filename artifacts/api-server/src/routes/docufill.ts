@@ -204,6 +204,7 @@ type PackageInput = {
   enableGdrive?: boolean;
   enableHubspot?: boolean;
   authLevel?: "none" | "email_otp";
+  requirePreview?: boolean;
 };
 
 type DocItem = {
@@ -1094,7 +1095,7 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
             p.notify_staff_on_submit, p.notify_client_on_submit,
             p.enable_embed, p.embed_key,
             p.enable_gdrive, p.enable_hubspot,
-            p.auth_level,
+            p.auth_level, p.require_preview,
             p.account_id AS package_account_id,
             c.name AS custodian_name, d.name AS depository_name, g.name AS group_name,
             a.name AS org_name,
@@ -2723,8 +2724,9 @@ router.patch("/packages/:id", async (req, res) => {
           enable_hubspot=$23,
           auth_level=$24,
           slack_notifications_enabled=$25,
+          require_preview=$26,
           version=version+1, updated_at=NOW()
-        WHERE id=$26 AND account_id=$27
+        WHERE id=$27 AND account_id=$28
         RETURNING *`,
       [
         name,
@@ -2766,6 +2768,8 @@ router.patch("/packages/:id", async (req, res) => {
         body.authLevel === undefined ? (existing.auth_level ?? "none") : (body.authLevel === "email_otp" ? "email_otp" : "none"),
         // $25 slack_notifications_enabled
         body.slackNotificationsEnabled === undefined ? (existing.slack_notifications_enabled ?? false) : Boolean(body.slackNotificationsEnabled),
+        // $26 require_preview
+        body.requirePreview === undefined ? (existing.require_preview ?? false) : Boolean(body.requirePreview),
         id,
         accountId,
       ],
@@ -4517,6 +4521,34 @@ publicDocufillRouter.get("/sessions/:token", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load public interview session");
     res.status(500).json({ error: "Failed to load interview session" });
+  }
+});
+
+/**
+ * Draft preview PDF — renders the session's current answers into the document
+ * package without finalizing. Does not change session status or write any
+ * signing fields. Only available for non-expired, non-finalized sessions.
+ */
+publicDocufillRouter.post("/sessions/:token/preview-pdf", async (req, res) => {
+  try {
+    const db = getDb();
+    const session = await getSession(req.params.token, db);
+    if (!session) {
+      res.status(404).json({ error: "Interview session not found" });
+      return;
+    }
+    if (session.status === "generated" || session.status === "voided") {
+      res.status(409).json({ error: "Session is already finalized" });
+      return;
+    }
+    const pdfBuffer = await buildPacketPdfBuffer(session, db);
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `inline; filename=preview-${req.params.token}.pdf`);
+    res.setHeader("Content-Length", String(pdfBuffer.length));
+    res.end(pdfBuffer);
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to build draft preview PDF");
+    if (!res.headersSent) res.status(500).json({ error: "Failed to generate preview" });
   }
 });
 
