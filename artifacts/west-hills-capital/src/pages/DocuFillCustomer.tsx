@@ -328,6 +328,11 @@ export default function DocuFillCustomer() {
   const [merlinWasUsed, setMerlinWasUsed]           = useState(false);
   const [merlinReviewConfirmed, setMerlinReviewConfirmed] = useState(false);
 
+  // Revoke preview blob URL when it changes or component unmounts to free memory
+  useEffect(() => {
+    return () => { if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl); };
+  }, [previewObjectUrl]);
+
   useLayoutEffect(() => {
     if (!isEmbed) return;
     const el = rootRef.current ?? document.documentElement;
@@ -1249,7 +1254,6 @@ export default function DocuFillCustomer() {
                     const blob = await resp.blob();
                     const url = URL.createObjectURL(blob);
                     setPreviewObjectUrl(url);
-                    setPreviewViewed(true);
                   } catch (err) {
                     setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
                   } finally {
@@ -1646,6 +1650,7 @@ export default function DocuFillCustomer() {
               disabled={hasErrors || missingRequiredCount > 0 || (merlinWasUsed && !merlinReviewConfirmed)}
               className="flex-1 border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0] disabled:opacity-60 py-3"
               onClick={async () => {
+                if (!validate()) return;
                 setPreviewError("");
                 setPreviewViewed(false);
                 setPreviewObjectUrl(null);
@@ -1657,7 +1662,6 @@ export default function DocuFillCustomer() {
                   const blob = await resp.blob();
                   const url = URL.createObjectURL(blob);
                   setPreviewObjectUrl(url);
-                  setPreviewViewed(true);
                 } catch (err) {
                   setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
                 } finally {
