@@ -4,7 +4,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useEffect, lazy, Suspense } from "react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import { ClerkProvider } from "@clerk/react";
+import { ClerkProvider, useUser } from "@clerk/react";
+import * as Sentry from "@sentry/react";
 import { CookieConsentBanner } from "@/components/CookieConsentBanner";
 import { UpgradeModalProvider } from "@/hooks/useUpgradeModal";
 import { UpgradeModal } from "@/components/UpgradeModal";
@@ -228,6 +229,22 @@ function stripBase(path: string): string {
     : path;
 }
 
+// Syncs the signed-in Clerk user to Sentry so error reports include user context.
+function ClerkSentrySync() {
+  const { user, isSignedIn } = useUser();
+  useEffect(() => {
+    if (isSignedIn && user) {
+      Sentry.setUser({
+        id:    user.id,
+        email: user.primaryEmailAddress?.emailAddress,
+      });
+    } else {
+      Sentry.setUser(null);
+    }
+  }, [isSignedIn, user]);
+  return null;
+}
+
 function ClerkProviderWithRouter({ children }: { children: React.ReactNode }) {
   const [, setLocation] = useLocation();
   return (
@@ -240,6 +257,7 @@ function ClerkProviderWithRouter({ children }: { children: React.ReactNode }) {
       routerPush={(to) => setLocation(stripBase(to))}
       routerReplace={(to) => setLocation(stripBase(to), { replace: true })}
     >
+      <ClerkSentrySync />
       {children}
     </ClerkProvider>
   );

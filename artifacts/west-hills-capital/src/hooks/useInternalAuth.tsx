@@ -6,6 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from "react";
+import * as Sentry from "@sentry/react";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const STORAGE_KEY = "whc_internal_session";
@@ -63,6 +64,7 @@ export function InternalAuthProvider({ children }: { children: ReactNode }) {
         // Keep session if it expires more than 5 minutes from now and has a token
         if (session.expiresAt > Date.now() + 5 * 60 * 1000 && session.sessionToken) {
           setUser(session);
+          Sentry.setUser({ email: session.email });
         } else {
           localStorage.removeItem(STORAGE_KEY);
         }
@@ -94,6 +96,7 @@ export function InternalAuthProvider({ children }: { children: ReactNode }) {
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
       setUser(session);
+      Sentry.setUser({ email: session.email });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign-in failed";
       setError(msg);
@@ -120,6 +123,7 @@ export function InternalAuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem(STORAGE_KEY);
     setUser(null);
     setError(null);
+    Sentry.setUser(null);
   }, []);
 
   // Returns the Authorization header needed for protected internal API calls.

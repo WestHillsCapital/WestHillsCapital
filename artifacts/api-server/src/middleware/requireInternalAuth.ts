@@ -1,4 +1,5 @@
 import type { RequestHandler } from "express";
+import * as Sentry from "@sentry/node";
 import { validateSession } from "../lib/session-store";
 import { logger } from "../lib/logger";
 
@@ -75,5 +76,7 @@ export const requireInternalAuth: RequestHandler = async (req, res, next) => {
 
   req.internalEmail     = session.email;
   req.internalAccountId = session.accountId;
+  Sentry.getCurrentScope().setUser({ email: session.email });
+  Sentry.getCurrentScope().setTag("account_id", String(session.accountId));
   next();
 };

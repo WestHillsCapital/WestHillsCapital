@@ -1,5 +1,6 @@
 import { createHash } from "crypto";
 import type { RequestHandler } from "express";
+import * as Sentry from "@sentry/node";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import { isRateLimited, isCurrentlyBlocked } from "../lib/ratelimit";
@@ -105,5 +106,6 @@ export const requireApiKeyAuth: RequestHandler = async (req, res, next) => {
   }
 
   req.internalAccountId = accountId;
+  Sentry.getCurrentScope().setTag("account_id", String(accountId));
   next();
 };
