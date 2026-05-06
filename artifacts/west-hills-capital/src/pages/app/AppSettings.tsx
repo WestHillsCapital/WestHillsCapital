@@ -3931,6 +3931,189 @@ function TimezoneLocaleSection({
   );
 }
 
+// ── Feedback Section ──────────────────────────────────────────────────────────
+
+type FeedbackType = "bug" | "idea" | "message";
+
+const FEEDBACK_FIELDS: Record<FeedbackType, Array<{ key: string; label: string; type: "text" | "textarea"; required: boolean; placeholder?: string }>> = {
+  bug: [
+    { key: "Steps to reproduce",         label: "Steps to reproduce",         type: "textarea", required: true,  placeholder: "1. Go to…\n2. Click…\n3. See error" },
+    { key: "What you expected",          label: "What you expected to happen", type: "textarea", required: true,  placeholder: "I expected…" },
+    { key: "What actually happened",     label: "What actually happened",      type: "textarea", required: true,  placeholder: "Instead…" },
+    { key: "Page or URL",                label: "Page or URL (optional)",      type: "text",     required: false, placeholder: "e.g. /app/settings or the full URL" },
+  ],
+  idea: [
+    { key: "Feature name",               label: "Feature name",                type: "text",     required: true,  placeholder: "e.g. Bulk export PDF" },
+    { key: "Problem it solves",          label: "What problem does this solve?", type: "textarea", required: true, placeholder: "Right now I have to…" },
+    { key: "How it should work",         label: "How should it work?",         type: "textarea", required: true,  placeholder: "Ideally…" },
+  ],
+  message: [
+    { key: "Subject",                    label: "Subject",                     type: "text",     required: true,  placeholder: "Brief summary" },
+    { key: "Message",                    label: "Message",                     type: "textarea", required: true,  placeholder: "Tell us anything" },
+  ],
+};
+
+function FeedbackSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
+  function authHeaders(ct?: string): HeadersInit {
+    const h = new Headers(getAuthHeaders());
+    if (ct) h.set("Content-Type", ct);
+    return h;
+  }
+
+  const { user } = useUser();
+  const userEmail = user?.primaryEmailAddress?.emailAddress ?? null;
+
+  const [feedbackType, setFeedbackType] = useState<FeedbackType>("bug");
+  const [fields, setFields]             = useState<Record<string, string>>({});
+  const [sendCopy, setSendCopy]         = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitMsg, setSubmitMsg]       = useState<{ ok: boolean; text: string } | null>(null);
+
+  const fieldDefs = FEEDBACK_FIELDS[feedbackType];
+
+  function handleTypeChange(t: FeedbackType) {
+    setFeedbackType(t);
+    setFields({});
+    setSubmitMsg(null);
+  }
+
+  function setField(key: string, val: string) {
+    setFields(prev => ({ ...prev, [key]: val }));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const missing = fieldDefs.filter(f => f.required && !fields[f.key]?.trim());
+    if (missing.length) {
+      setSubmitMsg({ ok: false, text: `Please fill in: ${missing.map(f => f.label).join(", ")}.` });
+      return;
+    }
+    setIsSubmitting(true);
+    setSubmitMsg(null);
+    try {
+      const res  = await fetch(`${SETTINGS_BASE}/feedback`, {
+        method:  "POST",
+        headers: authHeaders("application/json"),
+        body:    JSON.stringify({ type: feedbackType, fields, sendCopy }),
+      });
+      const data = await res.json() as { ok?: boolean; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Unknown error");
+      setSubmitMsg({ ok: true, text: "Message sent! We'll be in touch if we have questions." });
+      setFields({});
+    } catch (err: unknown) {
+      setSubmitMsg({ ok: false, text: err instanceof Error ? err.message : "Failed to send. Please try again." });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  const typeLabels: Record<FeedbackType, string> = {
+    bug:     "Bug report",
+    idea:    "Feature idea",
+    message: "General message",
+  };
+  const typeDescriptions: Record<FeedbackType, string> = {
+    bug:     "Something isn't working the way it should.",
+    idea:    "A feature or improvement you'd like to see.",
+    message: "Anything else on your mind.",
+  };
+
+  return (
+    <section className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+      <div className="px-6 py-4">
+        <h2 className="text-base font-semibold text-gray-900">Send a message</h2>
+        <p className="text-xs text-gray-500 mt-0.5">Report a bug, share a feature idea, or send us a general message.</p>
+      </div>
+
+      <form onSubmit={(e) => { void handleSubmit(e); }} className="px-6 py-5 space-y-5">
+        {/* Type selector */}
+        <div className="space-y-1.5">
+          <label className="block text-sm font-medium text-gray-700">What kind of message is this?</label>
+          <div className="grid grid-cols-3 gap-2">
+            {(["bug", "idea", "message"] as FeedbackType[]).map(t => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => handleTypeChange(t)}
+                className={[
+                  "flex flex-col items-start gap-0.5 rounded-lg border px-3.5 py-2.5 text-left transition-colors",
+                  feedbackType === t
+                    ? "border-gray-900 bg-gray-50 ring-1 ring-gray-900"
+                    : "border-gray-200 hover:border-gray-300 hover:bg-gray-50",
+                ].join(" ")}
+              >
+                <span className="text-sm font-medium text-gray-900">{typeLabels[t]}</span>
+                <span className="text-[11px] text-gray-500 leading-tight">{typeDescriptions[t]}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Dynamic fields */}
+        <div className="space-y-4">
+          {fieldDefs.map(f => (
+            <div key={f.key} className="space-y-1">
+              <label className="block text-sm font-medium text-gray-700">
+                {f.label}
+                {!f.required && <span className="ml-1 text-xs text-gray-400 font-normal">(optional)</span>}
+              </label>
+              {f.type === "textarea" ? (
+                <textarea
+                  rows={4}
+                  placeholder={f.placeholder}
+                  value={fields[f.key] ?? ""}
+                  onChange={e => setField(f.key, e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900 resize-y"
+                />
+              ) : (
+                <input
+                  type="text"
+                  placeholder={f.placeholder}
+                  value={fields[f.key] ?? ""}
+                  onChange={e => setField(f.key, e.target.value)}
+                  className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-900/20 focus:border-gray-900"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Send me a copy */}
+        <label className="flex items-center gap-2.5 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={sendCopy}
+            onChange={e => setSendCopy(e.target.checked)}
+            className="h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+          />
+          <span className="text-sm text-gray-700">
+            Send me a copy
+            {userEmail && <span className="ml-1 text-gray-400 text-xs">({userEmail})</span>}
+          </span>
+        </label>
+
+        {/* Feedback */}
+        {submitMsg && (
+          <p className={`text-sm font-medium ${submitMsg.ok ? "text-green-600" : "text-red-600"}`}>
+            {submitMsg.text}
+          </p>
+        )}
+
+        {/* Submit */}
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:opacity-60 transition-colors"
+          >
+            {isSubmitting ? "Sending…" : "Send message"}
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
 function DataPrivacySection({
   getAuthHeaders,
   isAdmin,
@@ -5421,6 +5604,8 @@ const ALL_SETTINGS_NAV: Array<{ id: string; label: string; adminOnly?: boolean; 
   // Admin — governance and data controls
   { id: "data-privacy-section",       label: "Data & Privacy", group: "Admin" },
   { id: "audit-log-section",          label: "Audit log",      adminOnly: true },
+  // Help — contact and feedback
+  { id: "feedback-section",           label: "Send a message", group: "Help" },
 ];
 
 export default function AppSettings() {
@@ -6346,6 +6531,11 @@ export default function AppSettings() {
               <AuditLogSection getAuthHeaders={getAuthHeaders} isAdmin={isAdmin} />
             </div>
           )}
+
+      {/* Feedback section */}
+      <div id="feedback-section">
+        <FeedbackSection getAuthHeaders={getAuthHeaders} />
+      </div>
 
         </div>{/* end content column */}
       </div>{/* end lg:flex container */}

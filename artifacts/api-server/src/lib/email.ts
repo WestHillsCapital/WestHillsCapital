@@ -2581,3 +2581,119 @@ export async function sendSignerConfirmationEmail(params: {
 </html>`,
   });
 }
+
+// ── In-app Feedback Email ──────────────────────────────────────────────────────
+
+const FEEDBACK_TO_EMAIL = process.env.FEEDBACK_TO_EMAIL ?? ADMIN_EMAIL;
+
+type FeedbackType = "bug" | "idea" | "message";
+const FEEDBACK_TYPE_LABELS: Record<FeedbackType, string> = {
+  bug:     "Bug Report",
+  idea:    "Feature Idea",
+  message: "General Message",
+};
+
+export async function sendFeedbackEmail(params: {
+  type:        FeedbackType;
+  fields:      Record<string, string>;
+  senderName:  string;
+  senderEmail: string | null;
+  orgName:     string | null;
+  sendCopy:    boolean;
+}): Promise<void> {
+  const dest = FEEDBACK_TO_EMAIL;
+  if (!dest) {
+    logger.warn("[Feedback] FEEDBACK_TO_EMAIL / ADMIN_EMAIL not configured — skipping send");
+    return;
+  }
+  const typeLabel = FEEDBACK_TYPE_LABELS[params.type] ?? params.type;
+  const org       = params.orgName ? ` (${params.orgName})` : "";
+  const subject   = `[Docuplete Feedback] ${typeLabel} from ${params.senderName}${org}`;
+
+  const fieldRows = Object.entries(params.fields)
+    .filter(([, v]) => v?.trim())
+    .map(([k, v]) => `
+      <tr>
+        <td style="padding:9px 14px;font-size:13px;font-weight:600;color:#374151;vertical-align:top;white-space:nowrap;width:38%;background:#f9fafb;border-bottom:1px solid #e5e7eb;">${k}</td>
+        <td style="padding:9px 14px;font-size:13px;color:#111827;vertical-align:top;border-bottom:1px solid #e5e7eb;line-height:1.55;">${v.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "<br>")}</td>
+      </tr>`)
+    .join("");
+
+  const inboxHtml = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>${subject}</title></head>
+<body style="margin:0;padding:0;background:#F4F4F0;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr><td align="center" style="padding:40px 16px;">
+    <table role="presentation" width="600" cellpadding="0" cellspacing="0"
+           style="max-width:600px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #e5e7eb;">
+      <tr>
+        <td style="background:#0F1C3F;padding:20px 28px;">
+          <p style="margin:0;font-size:16px;font-weight:700;color:#ffffff;">Docuplete — ${typeLabel}</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:24px 28px 8px;">
+          <p style="margin:0 0 16px;font-size:13px;color:#6b7280;">
+            From: <strong>${params.senderName}</strong>${params.senderEmail ? ` &lt;${params.senderEmail}&gt;` : ""}${org}
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0"
+                 style="border:1px solid #e5e7eb;border-radius:4px;overflow:hidden;border-collapse:collapse;">
+            ${fieldRows}
+          </table>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:16px 28px 24px;">
+          <p style="margin:0;font-size:11px;color:#9ca3af;">Sent via the Docuplete in-app feedback form</p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+
+  await sendEmail({ to: dest, subject, html: inboxHtml });
+
+  if (params.sendCopy && params.senderEmail) {
+    const copyHtml = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><title>We received your ${typeLabel.toLowerCase()}</title></head>
+<body style="margin:0;padding:0;background:#F4F4F0;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+  <tr><td align="center" style="padding:40px 16px;">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0"
+           style="max-width:560px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #e5e7eb;">
+      <tr>
+        <td style="background:#0F1C3F;padding:20px 28px;">
+          <p style="margin:0;font-size:16px;font-weight:700;color:#ffffff;">Docuplete</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:28px 28px 16px;">
+          <h1 style="margin:0 0 8px;font-size:18px;font-weight:700;color:#111827;">We received your message</h1>
+          <p style="margin:0 0 20px;font-size:14px;color:#4b5563;line-height:1.6;">
+            Thanks, ${params.senderName}. Here's a copy of what you sent us.
+          </p>
+          <table width="100%" cellpadding="0" cellspacing="0"
+                 style="border:1px solid #e5e7eb;border-radius:4px;overflow:hidden;border-collapse:collapse;">
+            ${fieldRows}
+          </table>
+          <p style="margin:20px 0 0;font-size:13px;color:#6b7280;line-height:1.5;">
+            We'll follow up if we have questions. You don't need to reply to this email.
+          </p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+    await sendEmail({
+      to:      params.senderEmail,
+      subject: `Your ${typeLabel.toLowerCase()} was received`,
+      html:    copyHtml,
+    });
+  }
+}

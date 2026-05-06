@@ -9,7 +9,7 @@ import { requireAdminRole } from "../middleware/requireRole";
 import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
 import { requirePlanFeature } from "../middleware/requirePlanFeature";
 import { brandColorRateLimit } from "../middleware/brandColorRateLimit";
-import { sendTeamInvitationEmail, sendDataExportEmail, sendEmailVerificationEmail } from "../lib/email";
+import { sendTeamInvitationEmail, sendDataExportEmail, sendEmailVerificationEmail, sendFeedbackEmail } from "../lib/email";
 import { getPlanLimits, getEffectiveSubmissionLimit, SUBMISSION_PACKS, getPackTier, getPlanDisplayName, normalizeStripeProductName } from "../lib/plans";
 import { getBankBalance } from "../lib/submissionBank";
 import { getUncachableStripeClient } from "../lib/stripeClient";
@@ -4912,6 +4912,54 @@ router.get("/security/login-history", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Security] Failed to get login history");
     res.status(500).json({ error: "Failed to get login history" });
+  }
+});
+
+/** POST /feedback — submit in-app feedback (bug, idea, or general message) */
+router.post("/feedback", async (req, res) => {
+  try {
+    const db          = getDb();
+    const accountId   = req.internalAccountId ?? 1;
+    const clerkUserId = getAuth(req)?.userId ?? null;
+
+    const { rows: userRows } = await db.query(
+      `SELECT email, display_name FROM account_users
+        WHERE account_id = $1 AND clerk_user_id = $2 LIMIT 1`,
+      [accountId, clerkUserId],
+    );
+    const userEmail  = (userRows[0]?.email        as string | null) ?? null;
+    const userName   = (userRows[0]?.display_name as string | null) ?? userEmail ?? "A Docuplete user";
+
+    const { rows: orgRows } = await db.query(
+      `SELECT name FROM accounts WHERE id = $1 LIMIT 1`,
+      [accountId],
+    );
+    const orgName = (orgRows[0]?.name as string | null) ?? null;
+
+    const type     = req.body.type   as string | undefined;
+    const fields   = req.body.fields as Record<string, string> | undefined;
+    const sendCopy = Boolean(req.body.sendCopy);
+
+    if (!type || !["bug", "idea", "message"].includes(type)) {
+      return void res.status(400).json({ error: "Invalid feedback type." });
+    }
+    if (!fields || typeof fields !== "object" || Array.isArray(fields)) {
+      return void res.status(400).json({ error: "Missing fields." });
+    }
+
+    await sendFeedbackEmail({
+      type:        type as "bug" | "idea" | "message",
+      fields,
+      senderName:  userName,
+      senderEmail: userEmail,
+      orgName,
+      sendCopy,
+    });
+
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "[Feedback] Failed to send feedback email");
+    res.status(500).json({ error: "Failed to send your message. Please try again." });
   }
 });
 
