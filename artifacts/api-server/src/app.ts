@@ -11,6 +11,7 @@ import router from "./routes";
 import sitemapRouter from "./routes/sitemap";
 import { logger } from "./lib/logger";
 import { errorHandler } from "./middleware/errorHandler";
+import { requireInternalAuth } from "./middleware/requireInternalAuth";
 import { dbReady, dbError, getDb } from "./db";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import { WebhookHandlers, verifyAndParseWebhook } from "./lib/stripeWebhookHandlers";
@@ -305,7 +306,8 @@ app.use("/api", router);
 
 // ── Debug-only Sentry test route (must be before 404 catch-all) ───────────────
 // Hit GET /api/debug-sentry to verify the Sentry connection after a deploy.
-app.get("/api/debug-sentry", (_req, _res) => {
+// Gated behind internal auth so external callers cannot spam Sentry events.
+app.get("/api/debug-sentry", requireInternalAuth, (_req, _res) => {
   throw new Error("Sentry test error — if you see this in Sentry, the integration is working.");
 });
 
