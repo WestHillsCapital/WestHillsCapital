@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type ReactNode } from "react";
 import { Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -17,6 +17,33 @@ import { getDocuFillPrefillDisplayValue, ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_I
 import { sessionToCsv, packageTemplateToCsv, downloadCsv, parseCsvString, batchResultsToCsv } from "@/lib/docufill-csv";
 import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
 import * as pdfjsLib from "pdfjs-dist";
+import {
+  type FieldInterviewMode,
+  type FieldCondition,
+  type FieldItem,
+  type MappingFormat,
+  type MappingItem,
+  type RecipientItem,
+} from "@/lib/docufill-types";
+import { useDocuFillPointer } from "@/hooks/useDocuFillPointer";
+import { MappingButton } from "@/components/MappingButton";
+import {
+  MAPPING_FORMAT_OPTIONS,
+  NAME_MAPPING_FORMATS,
+  labelForMappingFormat,
+  inferFieldCategory,
+  sampleValueForMapping,
+  mappingFormatOptionsForField,
+  clampPercent,
+  defaultMappingFormat,
+} from "@/lib/docufill-mapping-utils";
+import {
+  validationTypeHint,
+  validateCellValue,
+  tryReformatDate,
+  tryAutoFix,
+  autoFixLabel,
+} from "@/lib/docufill-field-utils";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
 
@@ -90,33 +117,6 @@ type DocItem = {
   updatedAt?: string;
 };
 
-type FieldInterviewMode = "required" | "optional" | "readonly" | "omitted";
-
-type FieldCondition = {
-  fieldId: string;
-  operator: "equals" | "not_equals" | "is_answered" | "is_not_answered";
-  value: string;
-};
-
-type FieldItem = {
-  id: string;
-  libraryFieldId?: string;
-  name: string;
-  color: string;
-  type: "text" | "radio" | "checkbox" | "dropdown" | "date" | "initials";
-  options?: string[];
-  optionsMode?: "inherit" | "override";
-  interviewMode: FieldInterviewMode;
-  defaultValue: string;
-  source: string;
-  sensitive: boolean;
-  validationType?: "none" | "string" | "name" | "number" | "currency" | "email" | "phone" | "date" | "time" | "zip" | "zip4" | "ssn" | "percent" | "custom";
-  validationPattern?: string;
-  validationMessage?: string;
-  condition?: FieldCondition | null;
-  condition2?: FieldCondition | null;
-};
-
 type FieldLibraryItem = {
   id: string;
   label: string;
@@ -137,40 +137,6 @@ type AcroAnnotation = {
   fieldName: string;
   rect: [number, number, number, number];
   fieldType: string;
-};
-
-type MappingFormat =
-  | "as-entered"
-  | "uppercase"
-  | "lowercase"
-  | "first-name"
-  | "middle-name"
-  | "last-name"
-  | "last-first-m"
-  | "first-last"
-  | "initials"
-  | "digits-only"
-  | "last-four"
-  | "currency"
-  | "date-mm-dd-yyyy"
-  | "checkbox-yes"
-  | "signature";
-
-type MappingItem = {
-  id: string;
-  fieldId: string;
-  documentId: string;
-  page: number;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  fontSize?: number;
-  align?: "left" | "center" | "right";
-  format?: MappingFormat | string;
-  recipientId?: string;
-  multiLine?: boolean;
-  rotation?: 0 | 90 | 180 | 270;
 };
 
 // ─── E-Sign system field sidebar definitions (IDs imported from shared lib) ──
@@ -196,15 +162,6 @@ function makeSystemEsignFieldItem(id: string, usedColors: string[]): FieldItem {
   };
 }
 // ─────────────────────────────────────────────────────────────────────────────
-
-type RecipientItem = {
-  id: string;
-  label: string;
-  color: string;
-  type: "customer" | "group" | "custodian" | "depository" | "custom";
-  refId?: number;
-  email?: string;
-};
 
 type BuilderStep = "documents" | "mapping" | "interview" | "finalize";
 
@@ -272,21 +229,6 @@ function newId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
-function clampPercent(value: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
-}
-
-function defaultMappingFormat(field: FieldItem): MappingItem["format"] {
-  if (field.id === ESIGN_FIELD_ID_INITIALS || field.type === "initials") return "initials";
-  if (field.id === ESIGN_FIELD_ID_SIGNATURE) return "signature";
-  if (inferFieldCategory(field) === "signature") return "signature";
-  if (field.validationType === "currency") return "currency";
-  if (field.validationType === "number") return "digits-only";
-  if (field.validationType === "date" || field.type === "date") return "date-mm-dd-yyyy";
-  if ((field.type === "radio" || field.type === "checkbox") && field.options && field.options.length > 0) return `checkbox-option:${field.options[0]}`;
-  if (field.type === "checkbox") return "checkbox-yes";
-  return "as-entered";
-}
 
 const FIELD_COLOR_PALETTE = [
   "#EF4444", "#F97316", "#F59E0B", "#EAB308", "#84CC16",
@@ -315,287 +257,6 @@ function newRecipientId(): string {
   return `recip_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-function validationTypeHint(vt: FieldItem["validationType"], message?: string): string {
-  return fieldFormatHint(vt, message) ?? "Any text";
-}
-
-function validateCellValue(field: FieldItem, value: string): "ok" | "empty-required" | "invalid" {
-  if (field.interviewMode === "omitted" || field.interviewMode === "readonly") return "ok";
-  const trimmed = value.trim();
-  if (trimmed === "") {
-    return field.interviewMode === "required" ? "empty-required" : "ok";
-  }
-  if (field.type === "dropdown" || field.type === "radio") {
-    const opts = field.options ?? [];
-    if (opts.length > 0 && !opts.some((o) => o.toLowerCase() === trimmed.toLowerCase())) return "invalid";
-    return "ok";
-  }
-  if (field.type === "checkbox") {
-    const opts = field.options ?? [];
-    if (opts.length > 0) {
-      const tokens = trimmed.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
-      if (tokens.some((t) => !opts.some((o) => o.toLowerCase() === t.toLowerCase()))) return "invalid";
-    }
-    return "ok";
-  }
-  if (field.type === "date") return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed) ? "ok" : "invalid";
-  const vt = field.validationType;
-  if (!vt || vt === "none" || vt === "string" || vt === "name") return "ok";
-  if (vt === "email")    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed) ? "ok" : "invalid";
-  if (vt === "phone")    return /^[\d\s\-()+.]{7,}$/.test(trimmed) ? "ok" : "invalid";
-  if (vt === "date")     return /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(trimmed) ? "ok" : "invalid";
-  if (vt === "ssn")      return /^\d{3}-\d{2}-\d{4}$/.test(trimmed) ? "ok" : "invalid";
-  if (vt === "zip")      return /^\d{5}$/.test(trimmed) ? "ok" : "invalid";
-  if (vt === "zip4")     return /^\d{5}-\d{4}$/.test(trimmed) ? "ok" : "invalid";
-  if (vt === "number")   return /^\d+(\.\d+)?$/.test(trimmed) ? "ok" : "invalid";
-  if (vt === "currency") return /^\d+(\.\d{1,2})?$/.test(trimmed) ? "ok" : "invalid";
-  if (vt === "percent")  { const n = Number(trimmed); return (!isNaN(n) && n >= 0 && n <= 100) ? "ok" : "invalid"; }
-  if (vt === "time")     return /^\d{1,2}:\d{2}(:\d{2})?(\s?[APap][Mm])?$/.test(trimmed) ? "ok" : "invalid";
-  if (vt === "custom") {
-    if (field.validationPattern) {
-      try { return new RegExp(field.validationPattern).test(trimmed) ? "ok" : "invalid"; } catch { return "ok"; }
-    }
-    return "ok";
-  }
-  return "ok";
-}
-
-function tryReformatDate(v: string): string | null {
-  if (!v) return null;
-  // M/D/YYYY or MM/DD/YYYY — already slash-style, just zero-pad
-  const slashMatch = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if (slashMatch) {
-    const m = slashMatch[1].padStart(2, "0");
-    const d = slashMatch[2].padStart(2, "0");
-    return `${m}/${d}/${slashMatch[3]}`;
-  }
-  // M/D/YY — two-digit year
-  const slashShortMatch = v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
-  if (slashShortMatch) {
-    const m = slashShortMatch[1].padStart(2, "0");
-    const d = slashShortMatch[2].padStart(2, "0");
-    const yr = parseInt(slashShortMatch[3], 10);
-    const y = yr <= 30 ? `20${slashShortMatch[3].padStart(2, "0")}` : `19${slashShortMatch[3].padStart(2, "0")}`;
-    return `${m}/${d}/${y}`;
-  }
-  // YYYY-MM-DD (ISO)
-  const isoMatch = v.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (isoMatch) return `${isoMatch[2]}/${isoMatch[3]}/${isoMatch[1]}`;
-  // M-D-YYYY or MM-DD-YYYY (dashes)
-  const dashMatch = v.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
-  if (dashMatch) {
-    const m = dashMatch[1].padStart(2, "0");
-    const d = dashMatch[2].padStart(2, "0");
-    return `${m}/${d}/${dashMatch[3]}`;
-  }
-  // YYYY/MM/DD
-  const isoSlashMatch = v.match(/^(\d{4})\/(\d{2})\/(\d{2})$/);
-  if (isoSlashMatch) return `${isoSlashMatch[2]}/${isoSlashMatch[3]}/${isoSlashMatch[1]}`;
-  return null;
-}
-
-function tryAutoFix(field: FieldItem, value: string): string | null {
-  const v = value.trim();
-  if (!v) return null;
-  if (field.type === "date") return tryReformatDate(v);
-  const vt = field.validationType;
-  if (vt === "date") return tryReformatDate(v);
-  if (vt === "phone") {
-    const digits = v.replace(/\D/g, "");
-    if (digits.length === 10) return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-    if (digits.length === 11 && digits[0] === "1") return `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
-    return null;
-  }
-  if (vt === "ssn") {
-    const digits = v.replace(/\D/g, "");
-    if (digits.length === 9) return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
-    return null;
-  }
-  if (vt === "zip") {
-    const digits = v.replace(/\D/g, "");
-    if (digits.length === 5) return digits;
-    if (digits.length >= 5) return digits.slice(0, 5);
-    return null;
-  }
-  if (vt === "zip4") {
-    const digits = v.replace(/\D/g, "");
-    if (digits.length === 9) return `${digits.slice(0, 5)}-${digits.slice(5)}`;
-    return null;
-  }
-  if (vt === "currency") {
-    const cleaned = v.replace(/[$,\s]/g, "");
-    const num = parseFloat(cleaned);
-    if (!isNaN(num)) return num.toFixed(2);
-    return null;
-  }
-  if (vt === "number") {
-    const cleaned = v.replace(/[^0-9.]/g, "");
-    const num = parseFloat(cleaned);
-    if (!isNaN(num)) return String(num);
-    return null;
-  }
-  if (vt === "percent") {
-    const cleaned = v.replace(/[%\s]/g, "");
-    const num = parseFloat(cleaned);
-    if (!isNaN(num) && num >= 0 && num <= 100) return String(num);
-    return null;
-  }
-  return null;
-}
-
-function autoFixLabel(field: FieldItem): string | null {
-  if (field.type === "date") return "→ MM/DD/YYYY";
-  const vt = field.validationType;
-  if (vt === "date")     return "→ MM/DD/YYYY";
-  if (vt === "phone")    return "→ (XXX) XXX-XXXX";
-  if (vt === "ssn")      return "→ XXX-XX-XXXX";
-  if (vt === "zip")      return "→ 5-digit ZIP";
-  if (vt === "zip4")     return "→ XXXXX-XXXX";
-  if (vt === "currency") return "→ 0.00";
-  if (vt === "number")   return "→ number";
-  if (vt === "percent")  return "→ 0–100";
-  return null;
-}
-
-const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string; group: string }> = [
-  { value: "first-name", label: "First", group: "Name" },
-  { value: "middle-name", label: "Middle", group: "Name" },
-  { value: "last-name", label: "Last", group: "Name" },
-  { value: "last-first-m", label: "Last, First M.", group: "Name" },
-  { value: "first-last", label: "First + Last", group: "Name" },
-  { value: "initials", label: "Initials", group: "Name" },
-  { value: "uppercase", label: "Uppercase", group: "Text" },
-  { value: "lowercase", label: "Lowercase", group: "Text" },
-  { value: "digits-only", label: "Digits only", group: "Numbers" },
-  { value: "last-four", label: "Last four", group: "Numbers" },
-  { value: "currency", label: "Currency", group: "Numbers" },
-  { value: "date-mm-dd-yyyy", label: "Date MM/DD/YYYY", group: "Dates" },
-  { value: "checkbox-yes", label: "Checkbox mark when yes", group: "Checks" },
-  { value: "signature", label: "Drawn / typed signature", group: "Signature" },
-];
-
-const NAME_MAPPING_FORMATS: MappingFormat[] = ["first-name", "middle-name", "last-name", "last-first-m", "first-last", "initials"];
-
-function labelForMappingFormat(format: MappingFormat | string | undefined) {
-  const fmt = format ?? "as-entered";
-  if (fmt.startsWith("checkbox-option:")) return `Option: ${fmt.slice("checkbox-option:".length).trim()}`;
-  return MAPPING_FORMAT_OPTIONS.find((option) => option.value === fmt)?.label ?? "Whole answer";
-}
-
-function inferFieldCategory(field: FieldItem): "name" | "first" | "last" | "address" | "city" | "state" | "zip" | "phone" | "email" | "ssn" | "dob" | "account" | "relationship" | "share" | "date" | "signature" | "general" {
-  const hay = [field.name, field.source, field.validationType ?? ""].join(" ").toLowerCase().replace(/[_-]/g, " ");
-  if (/\bssn\b|social.?sec/i.test(hay)) return "ssn";
-  if (/\bdob\b|date.?of.?birth|birth.?date/i.test(hay)) return "dob";
-  if (/\bzip\b|postal/i.test(hay)) return "zip";
-  if (/\bstate\b/.test(hay)) return "state";
-  if (/\bcity\b|town/.test(hay)) return "city";
-  if (/\baddress\b|street|addr/.test(hay)) return "address";
-  if (/\bphone\b|mobile|cell|fax/.test(hay)) return "phone";
-  if (/\bemail\b/.test(hay)) return "email";
-  if (/\baccount.?(num|#|no)\b/.test(hay)) return "account";
-  if (/\brelation(ship)?\b/.test(hay)) return "relationship";
-  if (/\bshare\b|percent|%/.test(hay)) return "share";
-  if (/\bsignature\b/.test(hay)) return "signature";
-  if (/\bfirst.?name\b/.test(hay)) return "first";
-  if (/\blast.?name\b/.test(hay)) return "last";
-  if (/\b(full.?)?name\b|client.?name/.test(hay)) return "name";
-  if (field.validationType === "name") return "name";
-  if (field.validationType === "phone") return "phone";
-  if (field.validationType === "email") return "email";
-  if (field.validationType === "ssn") return "ssn";
-  if (field.validationType === "date") return "date";
-  return "general";
-}
-
-function sampleValueForMapping(field: FieldItem | undefined, format: MappingFormat | string | undefined): string {
-  if (!field) return "…";
-  const fmt = format ?? "as-entered";
-
-  const FALSE_LIKE = /^(no|false|0|off|n)$/i;
-
-  if (fmt.startsWith("checkbox-option:")) {
-    const optionValue = fmt.slice("checkbox-option:".length).trim();
-    const sample = field.defaultValue?.trim() || (field.options?.[0] ?? "");
-    return sample.split(",").map((s) => s.trim()).includes(optionValue) ? "X" : "";
-  }
-
-  if (field.defaultValue) {
-    if (fmt === "checkbox-yes") return FALSE_LIKE.test(field.defaultValue.trim()) ? "" : (field.defaultValue.trim() ? "X" : "");
-    if (fmt === "first-name") return field.defaultValue.trim().split(/\s+/)[0] ?? field.defaultValue;
-    if (fmt === "last-name") { const parts = field.defaultValue.trim().split(/\s+/); return parts[parts.length - 1] ?? field.defaultValue; }
-    if (fmt === "middle-name") { const parts = field.defaultValue.trim().split(/\s+/); return parts.length >= 3 ? parts[1] : ""; }
-    if (fmt === "first-last") { const parts = field.defaultValue.trim().split(/\s+/); return parts.length >= 2 ? `${parts[0]} ${parts[parts.length - 1]}` : field.defaultValue; }
-    if (fmt === "last-first-m") { const parts = field.defaultValue.trim().split(/\s+/); if (parts.length < 2) return field.defaultValue; const last = parts[parts.length - 1]; const first = parts[0]; const mid = parts.length >= 3 ? ` ${parts[1][0]?.toUpperCase()}.` : ""; return `${last}, ${first}${mid}`; }
-    if (fmt === "initials") return field.defaultValue.trim().split(/\s+/).map((p) => p[0]?.toUpperCase() ?? "").filter(Boolean).join(".") + ".";
-    if (fmt === "uppercase") return field.defaultValue.toUpperCase();
-    if (fmt === "lowercase") return field.defaultValue.toLowerCase();
-    if (fmt === "digits-only") return field.defaultValue.replace(/\D/g, "");
-    if (fmt === "last-four") return field.defaultValue.replace(/\D/g, "").slice(-4);
-    if (fmt === "currency") { const n = parseFloat(field.defaultValue.replace(/[^\d.]/g, "")); return isNaN(n) ? field.defaultValue : `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
-    if (fmt === "date-mm-dd-yyyy") return field.defaultValue;
-    return field.defaultValue;
-  }
-
-  if (field.type === "checkbox") return "X";
-  if (field.type === "date" || fmt === "date-mm-dd-yyyy" || field.validationType === "date") return "04/22/1965";
-  if ((field.type === "radio" || field.type === "dropdown") && field.options && field.options.length > 0) return field.options[0];
-
-  if (fmt === "first-name") return "Alice";
-  if (fmt === "last-name") return "Smith";
-  if (fmt === "middle-name") return "B.";
-  if (fmt === "last-first-m") return "Smith, Alice B.";
-  if (fmt === "first-last") return "Alice Smith";
-  if (fmt === "initials") return "A.B.S.";
-  if (fmt === "digits-only") return "123456789";
-  if (fmt === "last-four") return "1234";
-  if (fmt === "currency") return "$50,000.00";
-  if (fmt === "checkbox-yes") return "X";
-  if (fmt === "signature") return "~ Signature ~";
-
-  const isUpper = fmt === "uppercase";
-  const isLower = fmt === "lowercase";
-  const cat = inferFieldCategory(field);
-  if (cat === "first") return isUpper ? "ALICE" : isLower ? "alice" : "Alice";
-  if (cat === "last") return isUpper ? "SMITH" : isLower ? "smith" : "Smith";
-  if (cat === "name" || cat === "signature") return isUpper ? "ALICE B. SMITH" : isLower ? "alice b. smith" : "Alice B. Smith";
-  if (cat === "address") return "123 Main St";
-  if (cat === "city") return "Wichita";
-  if (cat === "state") return "KS";
-  if (cat === "zip") return "67206";
-  if (cat === "phone") return "(316) 555-1234";
-  if (cat === "email") return "client@example.com";
-  if (cat === "ssn") return "123-45-6789";
-  if (cat === "dob") return "04/22/1965";
-  if (cat === "account") return "1234567890";
-  if (cat === "relationship") return "Spouse";
-  if (cat === "share") return "100%";
-  if (cat === "date") return "04/22/2026";
-  return isUpper ? "ALICE B. SMITH" : isLower ? "alice b. smith" : "Alice B. Smith";
-}
-
-function isNameLikeField(field: FieldItem | undefined) {
-  if (!field) return false;
-  const text = [field.name, field.source, field.validationType].join(" ").toLowerCase();
-  return /\b(name|firstname|lastname|fullname|clientname)\b/.test(text.replace(/[_-]/g, " "));
-}
-
-function mappingFormatOptionsForField(field: FieldItem | undefined): Array<{ value: MappingFormat; label: string; group: string }> {
-  if (!field) return MAPPING_FORMAT_OPTIONS;
-  const vt = field.validationType ?? "none";
-  const type = field.type;
-  const cat = inferFieldCategory(field);
-  if (cat === "signature") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Signature" || o.group === "Name" || o.group === "Text");
-  if (type === "checkbox" || type === "radio") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Checks");
-  if (type === "date" || vt === "date") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Dates");
-  if (vt === "currency") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "currency" || o.group === "Text");
-  if (vt === "number") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "digits-only" || o.value === "last-four");
-  if (vt === "phone") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "digits-only");
-  if (vt === "ssn") return MAPPING_FORMAT_OPTIONS.filter((o) => o.value === "digits-only" || o.value === "last-four");
-  if (vt === "email") return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Text");
-  if (["zip", "zip4", "percent", "time", "string", "custom"].includes(vt)) return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Text");
-  if (vt === "name" || isNameLikeField(field)) return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Name" || o.group === "Text");
-  return MAPPING_FORMAT_OPTIONS.filter((o) => o.group === "Text");
-}
 
 function normalizePackages(items: PackageItem[]): PackageItem[] {
   return items.map((pkg) => ({
@@ -1418,6 +1079,28 @@ export default function DocuFill() {
       (m) => m.documentId === selectedDocument.id && (m.page ?? 1) === selectedPage && knownFieldIds.has(m.fieldId)
     );
   }, [selectedPackage, selectedDocument, selectedPage]);
+  const onUpdateMapping = useCallback(
+    (id: string, patcher: (item: MappingItem) => MappingItem) => {
+      updateSelectedPackage((pkg) => ({
+        ...pkg,
+        mappings: pkg.mappings.map((m) => (m.id === id ? patcher(m) : m)),
+      }));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+  const { beginMappingPointer } = useDocuFillPointer({
+    pageFrameRef,
+    snapGrid,
+    nativePageW,
+    nativePageH,
+    pageMappings,
+    onUpdateMapping,
+    setResizeDim,
+    setDragGuides,
+    setSelectedMappingId,
+    setSelectedFieldId,
+  });
   useEffect(() => {
     if (!selectedDocument) return;
     const docId = selectedDocument.id;
@@ -3269,77 +2952,6 @@ export default function DocuFill() {
       ...pkg,
       recipients: (pkg.recipients ?? []).map((r) => r.id === recipientId ? { ...r, ...patch } : r),
     }));
-  }
-
-  function beginMappingPointer(e: ReactPointerEvent<HTMLElement>, mapping: MappingItem, mode: "move" | "resize", frameEl?: HTMLElement | null) {
-    const frame = frameEl ?? pageFrameRef.current;
-    if (!frame) return;
-    e.preventDefault();
-    e.stopPropagation();
-    // Capture the pointer so fast moves outside the window still reach onMove
-    try { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); } catch (_) { /* ignore */ }
-    setSelectedMappingId(mapping.id);
-    setSelectedFieldId(mapping.fieldId);
-    const rect = frame.getBoundingClientRect();
-    const startX = e.clientX;
-    const startY = e.clientY;
-    const original = { ...mapping };
-    const GRID_PTS = 4;
-    const snapPctX = (pct: number) => {
-      if (!snapGrid) return pct;
-      const pts = (pct / 100) * nativePageW;
-      return (Math.round(pts / GRID_PTS) * GRID_PTS / nativePageW) * 100;
-    };
-    const snapPctY = (pct: number) => {
-      if (!snapGrid) return pct;
-      const pts = (pct / 100) * nativePageH;
-      return (Math.round(pts / GRID_PTS) * GRID_PTS / nativePageH) * 100;
-    };
-    const otherMappings = pageMappings.filter((item) => item.id !== mapping.id);
-    const GUIDE_THRESH = 0.6;
-    const onMove = (event: PointerEvent) => {
-      const dx = ((event.clientX - startX) / rect.width) * 100;
-      const dy = ((event.clientY - startY) / rect.height) * 100;
-      updateSelectedPackage((pkg) => ({
-        ...pkg,
-        mappings: pkg.mappings.map((item) => {
-          if (item.id !== original.id) return item;
-          if (mode === "resize") {
-            const newW = snapPctX(clampPercent((original.w ?? 26) + dx, 3, 100));
-            const newH = snapPctY(clampPercent((original.h ?? 6) + dy, 2, 100));
-            setResizeDim({ w: Math.round((newW / 100) * nativePageW), h: Math.round((newH / 100) * nativePageH) });
-            return { ...item, w: newW, h: newH };
-          }
-          const width = original.w ?? 26;
-          const height = original.h ?? 6;
-          const newX = snapPctX(clampPercent((original.x ?? 0) + dx, 0, 100 - width));
-          const newY = snapPctY(clampPercent((original.y ?? 0) + dy, 0, 100 - height));
-          const L = newX, R = newX + width, CX = newX + width / 2;
-          const T = newY, B = newY + height, CY = newY + height / 2;
-          const guideXs: number[] = [], guideYs: number[] = [];
-          for (const other of otherMappings) {
-            const oL = other.x ?? 0, oW = other.w ?? 26;
-            const oR = oL + oW, oCX = oL + oW / 2;
-            const oT = other.y ?? 0, oH = other.h ?? 6;
-            const oB = oT + oH, oCY = oT + oH / 2;
-            for (const [a, b] of [[L, oL],[L, oR],[L, oCX],[R, oL],[R, oR],[R, oCX],[CX, oL],[CX, oR],[CX, oCX]] as [number,number][])
-              if (Math.abs(a - b) < GUIDE_THRESH) guideXs.push(b);
-            for (const [a, b] of [[T, oT],[T, oB],[T, oCY],[B, oT],[B, oB],[B, oCY],[CY, oT],[CY, oB],[CY, oCY]] as [number,number][])
-              if (Math.abs(a - b) < GUIDE_THRESH) guideYs.push(b);
-          }
-          setDragGuides(guideXs.length > 0 || guideYs.length > 0 ? { xs: [...new Set(guideXs)], ys: [...new Set(guideYs)] } : null);
-          return { ...item, x: newX, y: newY };
-        }),
-      }));
-    };
-    const onUp = () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      setResizeDim(null);
-      setDragGuides(null);
-    };
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
   }
 
   function handleInterviewFieldBlur(field: FieldItem, value: string) {
@@ -5373,16 +4985,21 @@ export default function DocuFill() {
                               {pageMs.map((m) => {
                                 const field = selectedPackage?.fields.find((f) => f.id === m.fieldId);
                                 const isSelected = selectedMapping?.id === m.id;
-                                const mFontSize = m.fontSize ?? 11;
                                 const recipient = m.recipientId ? (selectedPackage?.recipients ?? []).find((r) => r.id === m.recipientId) : undefined;
                                 const fieldColor = recipient?.color ?? (isSystemEsignFieldId(m.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
-                                const isCheckboxMark = m.format === "checkbox-yes" || String(m.format ?? "").startsWith("checkbox-option:");
-                                const flexJustify = isCheckboxMark ? "justify-center" : "justify-end";
                                 return (
-                                  <button
+                                  <MappingButton
                                     key={m.id}
-                                    type="button"
-                                    onPointerDown={(e) => beginMappingPointer(e, m, "move", e.currentTarget.parentElement as HTMLElement)}
+                                    m={m}
+                                    fieldName={field?.name ?? "Field"}
+                                    sampleValue={sampleValueForMapping(field, m.format)}
+                                    formatLabel={labelForMappingFormat(m.format)}
+                                    fieldColor={fieldColor}
+                                    recipient={recipient}
+                                    isSelected={isSelected}
+                                    mapperTextMode={mapperTextMode}
+                                    onMoveStart={(e) => beginMappingPointer(e, m, "move", e.currentTarget.parentElement as HTMLElement)}
+                                    onResizeStart={(e) => beginMappingPointer(e, m, "resize", e.currentTarget.parentElement?.parentElement as HTMLElement)}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setSelectedPage(pageNum);
@@ -5400,50 +5017,7 @@ export default function DocuFill() {
                                       setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
                                       setPlacementModalPos(null);
                                     }}
-                                    className={`absolute rounded cursor-move flex flex-col ${flexJustify} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
-                                    style={{
-                                      left: `${m.x}%`,
-                                      top: `${m.y}%`,
-                                      width: `${m.w}%`,
-                                      height: `${m.h}%`,
-                                      minHeight: "20px",
-                                      border: mapperTextMode
-                                        ? `1px ${isSelected ? "solid" : "dashed"} ${fieldColor}${isSelected ? "" : "80"}`
-                                        : `2px ${isSelected ? "solid" : "dashed"} ${fieldColor}`,
-                                      backgroundColor: mapperTextMode
-                                        ? (isSelected ? fieldColor + "18" : "transparent")
-                                        : "rgba(255,255,255,0.93)",
-                                      fontSize: `${mFontSize}px`,
-                                      textAlign: m.align ?? "left",
-                                      paddingBottom: !isCheckboxMark ? "2px" : undefined,
-                                      paddingLeft: "2px",
-                                      paddingRight: "2px",
-                                      zIndex: 2,
-                                      transform: m.rotation ? `rotate(${m.rotation}deg)` : undefined,
-                                    }}
-                                  >
-                                    {mapperTextMode ? (
-                                      <span className="block leading-none select-none pointer-events-none truncate" style={{ color: "#111", fontFamily: "Helvetica, Arial, sans-serif" }}>
-                                        {sampleValueForMapping(field, m.format) || "\u00A0"}
-                                      </span>
-                                    ) : (
-                                      <div className="pointer-events-none w-full overflow-hidden">
-                                        <span className="block leading-tight">{field?.name ?? "Field"}</span>
-                                        {recipient && (
-                                          <span className="block text-[9px] leading-none truncate font-medium" style={{ color: recipient.color }}>{recipient.email ?? recipient.label}</span>
-                                        )}
-                                        <span className="block text-[9px] uppercase tracking-wide text-[#6B7A99]">{labelForMappingFormat(m.format)}</span>
-                                        <span className="block leading-tight italic truncate" style={{ color: "#9AAAC0", opacity: 0.85 }}>{sampleValueForMapping(field, m.format)}</span>
-                                        <div style={{ borderBottom: "0.4px solid #c8c8c8", marginTop: "1px" }} />
-                                      </div>
-                                    )}
-                                    {isSelected && (
-                                      <span
-                                        onPointerDown={(e) => beginMappingPointer(e, m, "resize", e.currentTarget.parentElement?.parentElement as HTMLElement)}
-                                        className="absolute bottom-0 right-0 h-3 w-3 translate-x-1 translate-y-1 rounded-sm border border-[#0F1C3F] bg-[#C49A38] cursor-nwse-resize"
-                                      />
-                                    )}
-                                  </button>
+                                  />
                                 );
                               })}
                             </div>
@@ -5538,17 +5112,23 @@ export default function DocuFill() {
                   {pageMappings.map((m) => {
                     const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
                     const isSelected = selectedMapping?.id === m.id;
-                    const mFontSize = m.fontSize ?? 11;
-                    const isCheckboxMark = m.format === "checkbox-yes" || String(m.format ?? "").startsWith("checkbox-option:");
                     const recipient = m.recipientId ? (selectedPackage.recipients ?? []).find((r) => r.id === m.recipientId) : undefined;
                     const fieldColor = recipient?.color ?? (isSystemEsignFieldId(m.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
                     const isFullyDefined = Boolean(field?.name && !field.name.match(/^Field \d+$/i) && (field.libraryFieldId || field.interviewMode));
-                    const flexJustify = isCheckboxMark ? "justify-center" : "justify-end";
                     return (
-                      <button
+                      <MappingButton
                         key={m.id}
-                        type="button"
-                        onPointerDown={(e) => beginMappingPointer(e, m, "move")}
+                        m={m}
+                        fieldName={field?.name ?? "Field"}
+                        sampleValue={sampleValueForMapping(field, m.format)}
+                        formatLabel={labelForMappingFormat(m.format)}
+                        fieldColor={fieldColor}
+                        recipient={recipient}
+                        isSelected={isSelected}
+                        mapperTextMode={mapperTextMode}
+                        isFullyDefined={isFullyDefined}
+                        onMoveStart={(e) => beginMappingPointer(e, m, "move")}
+                        onResizeStart={(e) => beginMappingPointer(e, m, "resize")}
                         onClick={() => {
                           setSelectedMappingId(m.id);
                           setSelectedFieldId(m.fieldId);
@@ -5563,56 +5143,7 @@ export default function DocuFill() {
                           setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
                           setPlacementModalPos(null);
                         }}
-                        className={`absolute rounded cursor-move flex flex-col ${flexJustify} ${mapperTextMode ? (isSelected ? "ring-2 shadow" : "hover:ring-1") : "shadow"} ${isSelected ? "ring-[#C49A38]/70" : "ring-[#C49A38]/30"}`}
-                        style={{
-                          left: `${m.x}%`,
-                          top: `${m.y}%`,
-                          width: `${m.w}%`,
-                          height: `${m.h}%`,
-                          minHeight: "20px",
-                          border: mapperTextMode
-                            ? `1px ${isSelected ? "solid" : "dashed"} ${fieldColor}${isSelected ? "" : "80"}`
-                            : isFullyDefined
-                              ? `2px solid ${fieldColor}`
-                              : `2px dashed ${fieldColor}88`,
-                          backgroundColor: mapperTextMode
-                            ? (isSelected ? fieldColor + "18" : "transparent")
-                            : isFullyDefined
-                              ? "rgba(255,255,255,0.93)"
-                              : "rgba(255,255,255,0.55)",
-                          fontSize: `${mFontSize}px`,
-                          textAlign: m.align ?? "left",
-                          paddingBottom: !isCheckboxMark ? "2px" : undefined,
-                          paddingLeft: "2px",
-                          paddingRight: "2px",
-                          zIndex: 2,
-                          transform: m.rotation ? `rotate(${m.rotation}deg)` : undefined,
-                        }}
-                      >
-                        {mapperTextMode ? (
-                          <span className="block leading-none select-none pointer-events-none truncate" style={{ color: "#111", fontFamily: "Helvetica, Arial, sans-serif" }}>
-                            {sampleValueForMapping(field, m.format) || "\u00A0"}
-                          </span>
-                        ) : (
-                          <>
-                            <div className="pointer-events-none w-full overflow-hidden">
-                              <span className="block leading-tight">{field?.name ?? "Field"}</span>
-                              {recipient && (
-                                <span className="block text-[9px] leading-none truncate font-medium" style={{ color: recipient.color }}>{recipient.email ?? recipient.label}</span>
-                              )}
-                              <span className="block text-[9px] uppercase tracking-wide text-[#6B7A99]">{labelForMappingFormat(m.format)}</span>
-                              <span className="block leading-tight italic truncate" style={{ color: "#9AAAC0", opacity: 0.85 }}>{sampleValueForMapping(field, m.format)}</span>
-                              <div style={{ borderBottom: "0.4px solid #c8c8c8", marginTop: "1px" }} />
-                            </div>
-                          </>
-                        )}
-                        {isSelected && (
-                          <span
-                            onPointerDown={(e) => beginMappingPointer(e, m, "resize")}
-                            className="absolute bottom-0 right-0 h-3 w-3 translate-x-1 translate-y-1 rounded-sm border border-[#0F1C3F] bg-[#C49A38] cursor-nwse-resize"
-                          />
-                        )}
-                      </button>
+                      />
                     );
                   })}
                   {dragGuides && (
