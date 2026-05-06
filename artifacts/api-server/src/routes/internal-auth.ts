@@ -104,8 +104,9 @@ router.post("/verify", async (req, res) => {
   }
 
   // ── Issue a server-side session token ───────────────────────────────────
-  const googleExpiresAt = (payload.exp ?? 0) * 1_000; // seconds → ms
-  const sessionToken    = await createSession(email, accountId, googleExpiresAt);
+  // The Google token is only used to prove identity at sign-in; the server
+  // issues its own long-lived session independent of the Google token TTL.
+  const { token: sessionToken, expiresAt } = await createSession(email, accountId);
 
   logger.info({ email, accountId }, "[InternalAuth] Access granted — session created");
 
@@ -114,7 +115,7 @@ router.post("/verify", async (req, res) => {
     email,
     name:         payload.name    ?? email,
     picture:      payload.picture ?? null,
-    expiresAt:    googleExpiresAt,
+    expiresAt,
     sessionToken,
   });
 });

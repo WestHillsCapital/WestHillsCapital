@@ -35,23 +35,22 @@ setInterval(async () => {
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
+// Internal portal sessions last 30 days regardless of the short-lived Google
+// token that was used to authenticate. The Google token is only used to prove
+// identity at sign-in; after that the server issues its own long-lived token.
+const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 /**
  * Create a session for the given email + account.
- * `googleExpiresAt` is the `exp` claim from the Google ID token (in ms).
- * The session will expire at that time, floored to 5 min and capped at 8 hours.
+ * Returns { token, expiresAt } — pass expiresAt back to the client so it knows
+ * when to prompt for re-authentication.
  */
 export async function createSession(
-  email:           string,
-  accountId:       number,
-  googleExpiresAt: number,
-): Promise<string> {
-  const token = crypto.randomBytes(32).toString("hex"); // 64-char hex string
-  const now   = Date.now();
-  const expiresMs = Math.min(
-    now + 8 * 60 * 60 * 1000,
-    Math.max(googleExpiresAt, now + 5 * 60 * 1000),
-  );
-  const expiresAt = new Date(expiresMs);
+  email:     string,
+  accountId: number,
+): Promise<{ token: string; expiresAt: number }> {
+  const token     = crypto.randomBytes(32).toString("hex"); // 64-char hex string
+  const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   const db = getDb();
   await db.query(
     `INSERT INTO internal_sessions (token, email, account_id, expires_at)
@@ -59,7 +58,7 @@ export async function createSession(
     [token, email.toLowerCase(), accountId, expiresAt],
   );
   logger.info({ email, accountId }, "[Sessions] Session created");
-  return token;
+  return { token, expiresAt: expiresAt.getTime() };
 }
 
 /**
