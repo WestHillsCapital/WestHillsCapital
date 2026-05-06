@@ -28,7 +28,7 @@ export default function WebhookSetup() {
       </ol>
 
       <DocScreenshot
-        src="/screenshots/webhook-setup.svg"
+        src="/screenshots/webhook-setup.png"
         alt="The Webhook Setup page showing a URL input field with a Save &amp; test button, a green success banner confirming the test ping succeeded, and the webhook secret field with a Copy button"
         caption="After saving the URL, Docuplete immediately sends a test ping. A green confirmation tells you the endpoint is reachable. Copy the secret — it's shown only once."
       />

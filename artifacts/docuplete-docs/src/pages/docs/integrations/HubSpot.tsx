@@ -41,7 +41,7 @@ export default function HubSpot() {
       <p>Per-package overrides are available in the package's Configuration panel if different packages have different field structures.</p>
 
       <DocScreenshot
-        src="/screenshots/hubspot-field-mapping.svg"
+        src="/screenshots/hubspot-field-mapping.png"
         alt="The HubSpot field mapping screen showing a connected status indicator and a table of mappings from Docuplete field keys (left) to HubSpot contact properties (right) with an Add mapping button"
         caption="The field mapping table — link each Docuplete field to the corresponding HubSpot contact property. Mappings apply to every submission from this package."
       />

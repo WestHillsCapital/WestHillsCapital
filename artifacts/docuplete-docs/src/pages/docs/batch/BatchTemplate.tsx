@@ -19,7 +19,7 @@ export default function BatchTemplate() {
       </ol>
 
       <DocScreenshot
-        src="/screenshots/batch-template-preview.svg"
+        src="/screenshots/batch-template-preview.png"
         alt="A preview of the downloaded CSV template showing column headers matching field keys, an example data row, and highlighted special columns like _client_name"
         caption="The downloaded template — column headers match your package's field keys exactly. The example row shows valid values for every field type."
       />

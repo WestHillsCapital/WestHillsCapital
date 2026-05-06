@@ -20,7 +20,7 @@ export default function BatchUploading() {
       </ol>
 
       <DocScreenshot
-        src="/screenshots/batch-upload-step.svg"
+        src="/screenshots/batch-upload-step.png"
         alt="The batch upload screen showing a drag-and-drop zone at the top and a preview table of the first five CSV rows below, with a Start Batch Run button"
         caption="Before starting, review the first five rows to confirm column mapping looks correct — catch data issues before they become errors."
       />

@@ -24,7 +24,7 @@ export default function GoogleDrive() {
       </ol>
 
       <DocScreenshot
-        src="/screenshots/google-drive-settings.svg"
+        src="/screenshots/google-drive-settings.png"
         alt="The Google Drive integration settings page showing the connected account, default destination folder selector, file naming template, and a list of recent uploads"
         caption="The Google Drive settings page — once connected, choose a default folder and optionally customize the file naming template using field values as placeholders."
       />

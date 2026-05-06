@@ -17,7 +17,7 @@ export default function Branding() {
       <p>Go to <strong>Settings → Branding</strong> to set your organization-wide defaults. These apply to all packages unless a package overrides them individually.</p>
 
       <DocScreenshot
-        src="/screenshots/branding-settings.svg"
+        src="/screenshots/branding-settings.png"
         alt="The Branding settings page split into two columns: logo, color, header text, footer text, and email sender name on the left; a live interview preview on the right"
         caption="The Branding settings page — configure logo, brand color, and messaging on the left and see a live preview of the client interview on the right."
       />

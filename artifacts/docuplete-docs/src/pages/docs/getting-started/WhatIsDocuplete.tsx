@@ -15,7 +15,7 @@ export default function WhatIsDocuplete() {
       </p>
 
       <DocScreenshot
-        src="/screenshots/dashboard-overview.svg"
+        src="/screenshots/dashboard-overview.png"
         alt="Docuplete dashboard showing a list of packages with session counts and status"
         caption="The Docuplete dashboard — manage all your PDF packages and track sessions from one place."
       />

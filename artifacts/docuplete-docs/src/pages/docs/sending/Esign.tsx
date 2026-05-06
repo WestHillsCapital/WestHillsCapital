@@ -19,7 +19,7 @@ export default function EsignSending() {
       </ol>
 
       <DocScreenshot
-        src="/screenshots/esign-capture.svg"
+        src="/screenshots/esign-capture.png"
         alt="The signature capture screen showing an identity-verified banner, the agreement text excerpt, Draw and Type tabs, a signature canvas with a drawn signature, and a Submit & Sign button"
         caption="The signature capture step — identity is verified once via OTP, then the client draws or types their signature before final submission."
       />

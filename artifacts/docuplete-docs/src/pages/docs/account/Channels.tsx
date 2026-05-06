@@ -13,7 +13,7 @@ export default function Channels() {
       <p>Channels control where Docuplete sends notifications — to your team when a session is submitted, and to clients when they receive or complete their interview. Channel defaults are set at the organization level and can be overridden per package.</p>
 
       <DocScreenshot
-        src="/screenshots/channels-config.svg"
+        src="/screenshots/channels-config.png"
         alt="The Channel Defaults settings page showing three sections: Team Notifications with Email/Slack/Both radio options, Client Confirmation with a toggle, and Expiration Reminder with a toggle"
         caption="Channel defaults — configure team notifications, client confirmations, and expiration reminders all in one place. Each setting can be overridden per package."
       />

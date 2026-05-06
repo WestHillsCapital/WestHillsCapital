@@ -26,7 +26,7 @@ export default function ApiKeys() {
       <p>API documentation is available at <a href="https://api.docuplete.com/docs" target="_blank" rel="noopener noreferrer">api.docuplete.com/docs</a>.</p>
 
       <DocScreenshot
-        src="/screenshots/api-keys-panel.svg"
+        src="/screenshots/api-keys-panel.png"
         alt="The API Keys settings panel listing live and test keys with names, key prefixes, created dates, last-used dates, and Revoke buttons"
         caption="The API Keys panel — create named keys for each integration, distinguish live from test keys, and revoke instantly if a key is compromised."
       />

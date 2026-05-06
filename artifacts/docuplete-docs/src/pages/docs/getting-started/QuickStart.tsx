@@ -22,7 +22,7 @@ export default function QuickStart() {
       <p>On the package page, click <strong>Upload PDF</strong> and select your document. Docuplete accepts any standard PDF. Once uploaded, you'll see a preview of the document pages.</p>
 
       <DocScreenshot
-        src="/screenshots/quickstart-upload.svg"
+        src="/screenshots/quickstart-upload.png"
         alt="The Documents tab showing the PDF upload drop zone and an existing uploaded document"
         caption="Drag and drop your PDF or click Browse — Docuplete accepts any standard PDF up to 50 MB."
       />
@@ -50,7 +50,7 @@ export default function QuickStart() {
       <p>One field can be mapped to multiple positions across multiple documents — useful for names, dates, or any value that appears more than once.</p>
 
       <DocScreenshot
-        src="/screenshots/quickstart-mapper.svg"
+        src="/screenshots/quickstart-mapper.png"
         alt="The Visual Mapper showing a PDF with blue bounding boxes placed on form fields, with the field list on the left and formatting options on the right"
         caption="The Visual Mapper — drag boxes onto the PDF to tell Docuplete exactly where each answer should appear. Numbered callouts indicate fields mapped to multiple locations."
       />
@@ -60,7 +60,7 @@ export default function QuickStart() {
       <p>The client opens the link and is guided through the interview. No account or app required.</p>
 
       <DocScreenshot
-        src="/screenshots/quickstart-interview.svg"
+        src="/screenshots/quickstart-interview.png"
         alt="The client-facing interview screen showing a clean form with labeled fields, a progress bar, and a Continue button"
         caption="What your client sees — a clean, branded step-by-step interview. No blank PDFs, no confusing legal forms."
       />
@@ -70,7 +70,7 @@ export default function QuickStart() {
       <p>The filled document is also stored in your Sessions view, searchable and accessible any time.</p>
 
       <DocScreenshot
-        src="/screenshots/quickstart-download.svg"
+        src="/screenshots/quickstart-download.png"
         alt="The session detail page showing submitted answers and a Download PDF button"
         caption="The session detail view — review submitted answers and download the completed PDF with one click."
       />

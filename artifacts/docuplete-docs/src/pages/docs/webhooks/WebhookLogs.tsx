@@ -21,7 +21,7 @@ export default function WebhookLogs() {
       </ul>
 
       <DocScreenshot
-        src="/screenshots/webhook-logs.svg"
+        src="/screenshots/webhook-logs.png"
         alt="The webhook delivery logs table showing event IDs, attempt numbers, status chips (Success/Failed), HTTP status codes, response times, timestamps, and Retry now buttons for failed entries"
         caption="The delivery logs table — each attempt shows its HTTP status, response time, and timestamp. Failed entries show a Retry now button and an Inspect link to see the full request and response."
       />

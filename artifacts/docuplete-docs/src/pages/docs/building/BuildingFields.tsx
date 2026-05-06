@@ -23,7 +23,7 @@ export default function BuildingFields() {
       </ol>
 
       <DocScreenshot
-        src="/screenshots/field-editor.svg"
+        src="/screenshots/field-editor.png"
         alt="The Fields tab showing a list of fields on the left and the field editor panel on the right with label, key, interview mode, and conditional logic settings"
         caption="The field editor — the left panel lists all fields in interview order; the right panel lets you configure every aspect of the selected field."
       />

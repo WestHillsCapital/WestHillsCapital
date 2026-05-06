@@ -50,7 +50,7 @@ export default function BatchErrors() {
       <p>These affect individual rows but don't stop the batch. Other rows continue processing.</p>
 
       <DocScreenshot
-        src="/screenshots/batch-errors.svg"
+        src="/screenshots/batch-errors.png"
         alt="The batch error table showing five failed rows, each with a colored issue badge (Missing value, Bad format, Bad option) and a descriptive error message"
         caption="The error table — each failed row shows a color-coded issue badge and a specific error message so you know exactly what to fix before re-running."
       />

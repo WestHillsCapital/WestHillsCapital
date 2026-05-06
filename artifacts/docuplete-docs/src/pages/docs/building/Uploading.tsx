@@ -32,7 +32,7 @@ export default function Uploading() {
       </ol>
 
       <DocScreenshot
-        src="/screenshots/upload-dialog.svg"
+        src="/screenshots/upload-dialog.png"
         alt="The Upload PDF dialog showing a drag-and-drop zone and an optional password field"
         caption="The Upload PDF dialog — drag your file in or click Browse. Enter the password if the document is protected."
       />

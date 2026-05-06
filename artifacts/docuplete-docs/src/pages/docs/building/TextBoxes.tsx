@@ -26,7 +26,7 @@ export default function TextBoxes() {
       </ul>
 
       <DocScreenshot
-        src="/screenshots/textbox-config.svg"
+        src="/screenshots/textbox-config.png"
         alt="Side-by-side comparison of single-line and multiline text box configuration panels, each showing mode, font size, and a preview of how the answer renders in the PDF"
         caption="Single-line mode (left) auto-scales font to keep text on one line. Multiline mode (right) wraps text within the bounding box using the configured line height."
       />

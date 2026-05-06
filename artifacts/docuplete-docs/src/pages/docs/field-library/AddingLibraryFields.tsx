@@ -20,7 +20,7 @@ export default function AddingLibraryFields() {
       </ol>
 
       <DocScreenshot
-        src="/screenshots/add-library-fields.svg"
+        src="/screenshots/add-library-fields.png"
         alt="The Add from Library modal showing a search bar, category tabs, a scrollable list of library fields with checkboxes, and an Import Selected button showing 3 fields selected"
         caption="The Add from Library picker — browse by category or search by name, check the fields you want, and import them all at once."
       />

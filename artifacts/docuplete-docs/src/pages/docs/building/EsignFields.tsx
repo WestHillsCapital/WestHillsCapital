@@ -20,7 +20,7 @@ export default function EsignFields() {
       <p>From the Fields tab, click <strong>Add Field</strong> and select <strong>Signature</strong> or <strong>Initials</strong>. E-sign fields behave like any other field — they appear in the interview at the position you place them in the field list, and they are mapped to the PDF in the Visual Mapper.</p>
 
       <DocScreenshot
-        src="/screenshots/esign-field-placed.svg"
+        src="/screenshots/esign-field-placed.png"
         alt="The Visual Mapper with a signature field selected, showing a blue bounding box placed over the signature line on a PDF document, with a captured signature preview inside"
         caption="Placing an e-sign field in the mapper — draw a bounding box over the signature line. The captured signature image scales to fit within the box."
       />

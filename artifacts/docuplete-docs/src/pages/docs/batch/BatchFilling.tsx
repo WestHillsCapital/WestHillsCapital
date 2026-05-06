@@ -19,7 +19,7 @@ export default function BatchFilling() {
       </ul>
 
       <DocScreenshot
-        src="/screenshots/batch-progress.svg"
+        src="/screenshots/batch-progress.png"
         alt="The batch run progress screen showing a progress bar at 28%, a stats row with counts for completed and remaining rows, and a per-row results table"
         caption="The batch progress screen updates in real time as PDFs are generated row by row. Individual PDFs become downloadable as soon as their row completes."
       />

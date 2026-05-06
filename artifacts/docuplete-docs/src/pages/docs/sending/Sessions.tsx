@@ -27,7 +27,7 @@ export default function SendingSessions() {
       </ol>
 
       <DocScreenshot
-        src="/screenshots/create-session-dialog.svg"
+        src="/screenshots/create-session-dialog.png"
         alt="The Create Session dialog showing fields for client name, client email, expiration, and optional prefill values, with a Generate Link button"
         caption="The Create Session dialog — enter the client details, optionally pre-populate known fields, then generate and copy the unique link."
       />
