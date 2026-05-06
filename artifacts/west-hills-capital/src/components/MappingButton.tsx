@@ -1,15 +1,14 @@
-import { type PointerEvent as ReactPointerEvent, type MouseEvent } from "react";
-import { type MappingItem, type FieldItem, type RecipientItem } from "@/lib/docufill-types";
+import { memo, type PointerEvent as ReactPointerEvent, type MouseEvent } from "react";
+import { type RecipientItem } from "@/lib/docufill-types";
+import { useDocuFillStore } from "@/stores/useDocuFillStore";
 
 export interface MappingButtonProps {
-  m: MappingItem;
+  mappingId: string;
   fieldName: string;
   sampleValue: string;
   formatLabel: string;
   fieldColor: string;
   recipient: RecipientItem | undefined;
-  isSelected: boolean;
-  mapperTextMode: boolean;
   /**
    * Controls border/background style in non-text mode.
    * - undefined (scroll mode): solid when selected, dashed when not.
@@ -23,21 +22,25 @@ export interface MappingButtonProps {
   onContextMenu: (e: MouseEvent<HTMLButtonElement>) => void;
 }
 
-export function MappingButton({
-  m,
+export const MappingButton = memo(function MappingButton({
+  mappingId,
   fieldName,
   sampleValue,
   formatLabel,
   fieldColor,
   recipient,
-  isSelected,
-  mapperTextMode,
   isFullyDefined,
   onMoveStart,
   onResizeStart,
   onClick,
   onContextMenu,
 }: MappingButtonProps) {
+  const m = useDocuFillStore((s) => s.mappings.find((item) => item.id === mappingId));
+  const isSelected = useDocuFillStore((s) => s.selectedMappingId === mappingId);
+  const mapperTextMode = useDocuFillStore((s) => s.mapperTextMode);
+
+  if (!m) return null;
+
   const isCheckboxMark =
     m.format === "checkbox-yes" || String(m.format ?? "").startsWith("checkbox-option:");
   const flexJustify = isCheckboxMark ? "justify-center" : "justify-end";
@@ -123,4 +126,4 @@ export function MappingButton({
       )}
     </button>
   );
-}
+});

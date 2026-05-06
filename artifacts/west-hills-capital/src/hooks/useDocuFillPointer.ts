@@ -1,5 +1,5 @@
 import { useCallback, useRef, type RefObject, type PointerEvent as ReactPointerEvent } from "react";
-import { type MappingItem } from "@/lib/docufill-types";
+import { useDocuFillStore } from "@/stores/useDocuFillStore";
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
@@ -10,12 +10,6 @@ export interface UseDocuFillPointerOptions {
   snapGrid: boolean;
   nativePageW: number;
   nativePageH: number;
-  pageMappings: MappingItem[];
-  onUpdateMapping: (id: string, patcher: (item: MappingItem) => MappingItem) => void;
-  setResizeDim: (dim: { w: number; h: number } | null) => void;
-  setDragGuides: (guides: { xs: number[]; ys: number[] } | null) => void;
-  setSelectedMappingId: (id: string | null) => void;
-  setSelectedFieldId: (id: string | null) => void;
 }
 
 export function useDocuFillPointer(options: UseDocuFillPointerOptions) {
@@ -25,22 +19,22 @@ export function useDocuFillPointer(options: UseDocuFillPointerOptions) {
   const beginMappingPointer = useCallback(
     (
       e: ReactPointerEvent<HTMLElement>,
-      mapping: MappingItem,
+      mappingId: string,
       mode: "move" | "resize",
       frameEl?: HTMLElement | null,
     ) => {
+      const { pageFrameRef, snapGrid, nativePageW, nativePageH } = optionsRef.current;
+
       const {
-        pageFrameRef,
-        snapGrid,
-        nativePageW,
-        nativePageH,
-        pageMappings,
-        onUpdateMapping,
         setResizeDim,
         setDragGuides,
         setSelectedMappingId,
         setSelectedFieldId,
-      } = optionsRef.current;
+        updateMapping,
+      } = useDocuFillStore.getState();
+
+      const mapping = useDocuFillStore.getState().mappings.find((m) => m.id === mappingId);
+      if (!mapping) return;
 
       const frame = frameEl ?? pageFrameRef.current;
       if (!frame) return;
@@ -68,7 +62,6 @@ export function useDocuFillPointer(options: UseDocuFillPointerOptions) {
         return (Math.round(pts / GRID_PTS) * GRID_PTS / nativePageH) * 100;
       };
 
-      const otherMappings = pageMappings.filter((item) => item.id !== mapping.id);
       const GUIDE_THRESH = 0.6;
 
       const onMove = (event: PointerEvent) => {
@@ -82,7 +75,7 @@ export function useDocuFillPointer(options: UseDocuFillPointerOptions) {
             w: Math.round((newW / 100) * nativePageW),
             h: Math.round((newH / 100) * nativePageH),
           });
-          onUpdateMapping(original.id, (item) => ({ ...item, w: newW, h: newH }));
+          updateMapping(original.id, (item) => ({ ...item, w: newW, h: newH }));
           return;
         }
 
@@ -94,6 +87,13 @@ export function useDocuFillPointer(options: UseDocuFillPointerOptions) {
         const L = newX, R = newX + width, CX = newX + width / 2;
         const T = newY, B = newY + height, CY = newY + height / 2;
         const guideXs: number[] = [], guideYs: number[] = [];
+
+        const otherMappings = useDocuFillStore.getState().mappings.filter(
+          (item) => item.id !== mapping.id &&
+            item.documentId === mapping.documentId &&
+            (item.page ?? 1) === (mapping.page ?? 1),
+        );
+
         for (const other of otherMappings) {
           const oL = other.x ?? 0, oW = other.w ?? 26;
           const oR = oL + oW, oCX = oL + oW / 2;
@@ -109,7 +109,7 @@ export function useDocuFillPointer(options: UseDocuFillPointerOptions) {
             ? { xs: [...new Set(guideXs)], ys: [...new Set(guideYs)] }
             : null,
         );
-        onUpdateMapping(original.id, (item) => ({ ...item, x: newX, y: newY }));
+        updateMapping(original.id, (item) => ({ ...item, x: newX, y: newY }));
       };
 
       const onUp = () => {

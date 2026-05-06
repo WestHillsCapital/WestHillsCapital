@@ -1,4 +1,6 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type ReactNode } from "react";
+import { useDocuFillStore } from "@/stores/useDocuFillStore";
+import { useShallow } from "zustand/react/shallow";
 import { Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { DndContext, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
@@ -651,6 +653,38 @@ function EmbedSnippetPanel({ embedKey, apiBase }: { embedKey: string | null; api
   );
 }
 
+const DragGuideLines = memo(function DragGuideLines() {
+  const dragGuides = useDocuFillStore((s) => s.dragGuides);
+  if (!dragGuides) return null;
+  return (
+    <>
+      {dragGuides.xs.map((x, i) => (
+        <div key={`gx-${i}`} className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${x}%`, width: 1, background: "#2563eb", opacity: 0.65, zIndex: 15 }} />
+      ))}
+      {dragGuides.ys.map((y, i) => (
+        <div key={`gy-${i}`} className="absolute left-0 right-0 pointer-events-none" style={{ top: `${y}%`, height: 1, background: "#2563eb", opacity: 0.65, zIndex: 15 }} />
+      ))}
+    </>
+  );
+});
+
+const ResizeDimTooltip = memo(function ResizeDimTooltip({
+  x, y, w, h,
+}: { x: number; y: number; w: number; h: number }) {
+  const resizeDim = useDocuFillStore((s) => s.resizeDim);
+  if (!resizeDim) return null;
+  return (
+    <div
+      className="absolute pointer-events-none"
+      style={{ left: `${x + w}%`, top: `${y + h}%`, transform: "translate(4px, 4px)", zIndex: 20 }}
+    >
+      <div className="bg-[#0F1C3F] text-white rounded px-1.5 py-0.5 whitespace-nowrap" style={{ fontSize: 9 }}>
+        {resizeDim.w} × {resizeDim.h} pt
+      </div>
+    </div>
+  );
+});
+
 export default function DocuFill() {
   const search = useSearch();
   const params = useParams<{ token?: string }>();
@@ -753,8 +787,10 @@ export default function DocuFill() {
   const [interviewOutputTab, setInterviewOutputTab] = useState<"staff" | "customerLink">("staff");
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [mappingStartedDocIds, setMappingStartedDocIds] = useState<Set<string>>(() => new Set());
-  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
-  const [selectedMappingId, setSelectedMappingId] = useState<string | null>(null);
+  const selectedFieldId = useDocuFillStore((s) => s.selectedFieldId);
+  const setSelectedFieldId = useDocuFillStore((s) => s.setSelectedFieldId);
+  const selectedMappingId = useDocuFillStore((s) => s.selectedMappingId);
+  const setSelectedMappingId = useDocuFillStore((s) => s.setSelectedMappingId);
   const [inspectorMode, setInspectorMode] = useState<"panel" | "modal">(() => {
     const stored = localStorage.getItem("docufill-inspector-mode");
     return stored === "modal" ? "modal" : "panel";
@@ -909,14 +945,16 @@ export default function DocuFill() {
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
   // Scroll-mode PDF doc as React state so ScrollPageCanvas re-renders when it's ready.
   const [scrollPdfDoc, setScrollPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
-  const mappingUndoStack = useRef<MappingItem[][]>([]);
+  const pushUndo = useDocuFillStore((s) => s.pushUndo);
+  const popUndo = useDocuFillStore((s) => s.popUndo);
   const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   const mapperContainerRef = useRef<HTMLElement | null>(null);
   const [mapperContainerWidth, setMapperContainerWidth] = useState(800);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
   const [acroAnnotations, setAcroAnnotations] = useState<AcroAnnotation[]>([]);
   const [showAcroLayer, setShowAcroLayer] = useState(true);
-  const [mapperTextMode, setMapperTextMode] = useState(true);
+  const mapperTextMode = useDocuFillStore((s) => s.mapperTextMode);
+  const setMapperTextMode = useDocuFillStore((s) => s.setMapperTextMode);
   const [snapGrid, setSnapGrid] = useState<boolean>(() => {
     try { return localStorage.getItem("docufill-snap-grid") === "true"; } catch { return false; }
   });
@@ -950,8 +988,6 @@ export default function DocuFill() {
     try { localStorage.setItem("docufill-mapper-scroll", mapperScrollMode ? "true" : "false"); } catch { /* ignore */ }
   }, [mapperScrollMode]);
   const [userZoom, setUserZoom] = useState(1.0);
-  const [resizeDim, setResizeDim] = useState<{ w: number; h: number } | null>(null);
-  const [dragGuides, setDragGuides] = useState<{ xs: number[]; ys: number[] } | null>(null);
   const [isPdfRendering, setIsPdfRendering] = useState(false);
   const [pdfRenderError, setPdfRenderError] = useState<string | null>(null);
   const documentPreviewCache = useRef<Record<string, string>>({});
@@ -978,6 +1014,7 @@ export default function DocuFill() {
   const csvCorrectedDownloadedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (csvCorrectedDownloadedTimerRef.current) clearTimeout(csvCorrectedDownloadedTimerRef.current); }, []);
   const csvEditNavigatingRef = useRef(false);
+  const prevSelectedPackageIdRef = useRef<number | null>(null);
   const [csvBreakdownHighlightedField, setCsvBreakdownHighlightedField] = useState<string | null>(null);
   const [showCsvFieldKey, setShowCsvFieldKey] = useState(false);
   const [csvBatchFieldBreakdownOpen, setCsvBatchFieldBreakdownOpen] = useState<boolean>(() => {
@@ -1055,7 +1092,9 @@ export default function DocuFill() {
   const selectedDocument = selectedPackage?.documents.find((doc) => doc.id === selectedDocumentId) ?? selectedPackage?.documents[0] ?? null;
   const selectedField = selectedPackage?.fields.find((field) => field.id === selectedFieldId) ?? selectedPackage?.fields[0] ?? null;
   const selectedFieldIsShared = Boolean(selectedField?.libraryFieldId);
-  const selectedMapping = selectedPackage?.mappings.find((mapping) => mapping.id === selectedMappingId) ?? null;
+  const storeMappings = useDocuFillStore((s) => s.mappings);
+  const storeRecipientList = useDocuFillStore((s) => s.recipientList);
+  const selectedMapping = useDocuFillStore((s) => s.mappings.find((m) => m.id === s.selectedMappingId) ?? null);
   const selectedMappingField = selectedMapping ? selectedPackage?.fields.find((field) => field.id === selectedMapping.fieldId) : undefined;
   const selectedMappingFormatOptions = mappingFormatOptionsForField(selectedMappingField);
   const selectedPageSize = selectedDocument?.pageSizes?.[selectedPage - 1] ?? selectedDocument?.pageSizes?.[0];
@@ -1074,43 +1113,30 @@ export default function DocuFill() {
   // Outer container dimensions grow with zoom up to the available space, then scroll.
   const mapperViewW = Math.min(Math.round(nativePageW * effectiveScale), mapperMaxW);
   const mapperViewH = Math.min(Math.round(nativePageH * effectiveScale), mapperMaxH);
-  const pageMappings = useMemo(() => {
-    if (!selectedPackage || !selectedDocument) return [];
-    const knownFieldIds = new Set(selectedPackage.fields.map((f) => f.id));
-    return selectedPackage.mappings.filter(
-      (m) => m.documentId === selectedDocument.id && (m.page ?? 1) === selectedPage && knownFieldIds.has(m.fieldId)
-    );
-  }, [selectedPackage, selectedDocument, selectedPage]);
-  const onUpdateMapping = useCallback(
-    (id: string, patcher: (item: MappingItem) => MappingItem) => {
-      updateSelectedPackage((pkg) => ({
-        ...pkg,
-        mappings: pkg.mappings.map((m) => (m.id === id ? patcher(m) : m)),
-      }));
-    },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
+  type PageMappingMeta = { id: string; fieldId: string; format?: string; recipientId?: string };
+  const pageMappingMetas = useDocuFillStore(
+    useShallow((s): PageMappingMeta[] => {
+      if (!selectedDocument) return [];
+      const knownFieldIds = new Set(selectedPackage?.fields.map((f) => f.id) ?? []);
+      return s.mappings
+        .filter((m) => m.documentId === selectedDocument.id && (m.page ?? 1) === selectedPage && knownFieldIds.has(m.fieldId))
+        .map(({ id, fieldId, format, recipientId }) => ({ id, fieldId, format, recipientId }));
+    }),
   );
   const { beginMappingPointer } = useDocuFillPointer({
     pageFrameRef,
     snapGrid,
     nativePageW,
     nativePageH,
-    pageMappings,
-    onUpdateMapping,
-    setResizeDim,
-    setDragGuides,
-    setSelectedMappingId,
-    setSelectedFieldId,
   });
   useEffect(() => {
     if (!selectedDocument) return;
     const docId = selectedDocument.id;
     if (mappingStartedDocIds.has(docId)) return;
-    if (selectedPackage?.mappings.some((m) => m.documentId === docId)) {
+    if (storeMappings.some((m) => m.documentId === docId)) {
       setMappingStartedDocIds((prev) => new Set([...prev, docId]));
     }
-  }, [selectedDocument, selectedPackage?.mappings, mappingStartedDocIds]);
+  }, [selectedDocument, storeMappings, mappingStartedDocIds]);
   const fieldInInterview = (f: { interviewMode?: string; interviewVisible?: boolean }) =>
     f.interviewMode ? f.interviewMode !== "omitted" : f.interviewVisible !== false;
   const fieldIsRequired = (f: { interviewMode?: string; required?: boolean; interviewVisible?: boolean }) =>
@@ -1194,8 +1220,30 @@ export default function DocuFill() {
   }, [packages]);
   const packageInterviewFields = selectedPackage?.fields.filter((field) => field.interviewMode !== "omitted") ?? [];
   const packageFixedOrHiddenFields = selectedPackage?.fields.filter((field) => field.interviewMode === "omitted") ?? [];
-  const packageMappedFieldIds = new Set(selectedPackage?.mappings.map((mapping) => mapping.fieldId) ?? []);
+  const packageMappedFieldIds = new Set(storeMappings.map((mapping) => mapping.fieldId));
   const unmappedPackageFields = selectedPackage?.fields.filter((field) => !packageMappedFieldIds.has(field.id)) ?? [];
+
+  useEffect(() => {
+    const prevId = prevSelectedPackageIdRef.current;
+    const nextId = selectedPackage?.id ?? null;
+    // Before loading a new package into the store, flush live edits back to the old package so
+    // that switching away and returning preserves in-progress changes.
+    if (prevId !== null && prevId !== nextId) {
+      const { mappings: liveMappings, recipientList: liveRecipients } = useDocuFillStore.getState();
+      setPackages((prev) =>
+        prev.map((pkg) =>
+          pkg.id === prevId ? { ...pkg, mappings: liveMappings, recipients: liveRecipients } : pkg,
+        ),
+      );
+    }
+    prevSelectedPackageIdRef.current = nextId;
+    if (selectedPackage) {
+      useDocuFillStore.getState().setMappings(selectedPackage.mappings);
+      useDocuFillStore.getState().setRecipientList(selectedPackage.recipients ?? []);
+      useDocuFillStore.getState().clearUndo();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPackage?.id]);
 
   async function loadBootstrap() {
     try {
@@ -1391,8 +1439,8 @@ export default function DocuFill() {
 
   useEffect(() => {
     if (!selectedMappingId) return;
-    if (!pageMappings.some((mapping) => mapping.id === selectedMappingId)) setSelectedMappingId(null);
-  }, [pageMappings, selectedMappingId]);
+    if (!pageMappingMetas.some((meta) => meta.id === selectedMappingId)) setSelectedMappingId(null);
+  }, [pageMappingMetas, selectedMappingId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1438,6 +1486,11 @@ export default function DocuFill() {
       Object.values(documentPreviewCache.current).forEach((url) => URL.revokeObjectURL(url));
       documentPreviewCache.current = {};
       documentPreviewCacheOrder.current = [];
+      useDocuFillStore.getState().setSelectedMappingId(null);
+      useDocuFillStore.getState().setSelectedFieldId(null);
+      useDocuFillStore.getState().setResizeDim(null);
+      useDocuFillStore.getState().setDragGuides(null);
+      useDocuFillStore.getState().clearUndo();
     };
   }, []);
 
@@ -1468,9 +1521,9 @@ export default function DocuFill() {
     // Ctrl/⌘ + Z: undo last field placement
     if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key.toLowerCase() === "z") {
       e.preventDefault();
-      const prev = mappingUndoStack.current.pop();
+      const prev = popUndo();
       if (prev !== undefined) {
-        updateSelectedPackage((pkg) => ({ ...pkg, mappings: prev }));
+        useDocuFillStore.getState().setMappings(prev);
         setSelectedMappingId(null);
         setPlacementModal(null);
         setPlacementModalPos(null);
@@ -1495,17 +1548,14 @@ export default function DocuFill() {
       const step = e.shiftKey ? 10 : 1;
       const dxPct = (step / nativePageW) * 100;
       const dyPct = (step / nativePageH) * 100;
-      updateSelectedPackage((pkg) => ({
-        ...pkg,
-        mappings: pkg.mappings.map((m) => {
-          if (m.id !== selectedMappingId) return m;
-          if (e.key === "ArrowLeft")  return { ...m, x: clampPercent((m.x ?? 0) - dxPct, 0, 100 - (m.w ?? 26)) };
-          if (e.key === "ArrowRight") return { ...m, x: clampPercent((m.x ?? 0) + dxPct, 0, 100 - (m.w ?? 26)) };
-          if (e.key === "ArrowUp")    return { ...m, y: clampPercent((m.y ?? 0) - dyPct, 0, 100 - (m.h ?? 6)) };
-          if (e.key === "ArrowDown")  return { ...m, y: clampPercent((m.y ?? 0) + dyPct, 0, 100 - (m.h ?? 6)) };
-          return m;
-        }),
-      }));
+      const capturedKey = e.key;
+      useDocuFillStore.getState().updateMapping(selectedMappingId, (m) => {
+        if (capturedKey === "ArrowLeft")  return { ...m, x: clampPercent((m.x ?? 0) - dxPct, 0, 100 - (m.w ?? 26)) };
+        if (capturedKey === "ArrowRight") return { ...m, x: clampPercent((m.x ?? 0) + dxPct, 0, 100 - (m.w ?? 26)) };
+        if (capturedKey === "ArrowUp")    return { ...m, y: clampPercent((m.y ?? 0) - dyPct, 0, 100 - (m.h ?? 6)) };
+        if (capturedKey === "ArrowDown")  return { ...m, y: clampPercent((m.y ?? 0) + dyPct, 0, 100 - (m.h ?? 6)) };
+        return m;
+      });
       return;
     }
 
@@ -1705,8 +1755,8 @@ export default function DocuFill() {
           status: pkg.status,
           documents: pkg.documents,
           fields: pkg.fields,
-          mappings: pkg.mappings,
-          recipients: pkg.recipients ?? [],
+          mappings: useDocuFillStore.getState().mappings,
+          recipients: useDocuFillStore.getState().recipientList,
           enableInterview: pkg.enable_interview,
           enableCsv: pkg.enable_csv,
           enableCustomerLink: pkg.enable_customer_link,
@@ -2172,9 +2222,10 @@ export default function DocuFill() {
 
   function sortFieldsByPdfPosition(pkg: PackageItem): PackageItem {
     const docIndexMap = new Map(pkg.documents.map((d, i) => [d.id, i]));
+    const storeMappingsForSort = useDocuFillStore.getState().mappings;
     const firstMappingScore = (fieldId: string): number => {
       let best = Infinity;
-      for (const m of pkg.mappings) {
+      for (const m of storeMappingsForSort) {
         if (m.fieldId !== fieldId) continue;
         const docIdx = docIndexMap.get(m.documentId ?? "") ?? 999;
         const score = docIdx * 1_000_000 + (m.page ?? 1) * 10_000 + Math.round((m.y ?? 50) * 100);
@@ -2226,14 +2277,18 @@ export default function DocuFill() {
   }
 
   function mergeServerDocumentUpdate(updatedPackage: PackageItem, removedDocumentId?: string) {
+    if (removedDocumentId && updatedPackage.id === selectedPackageId) {
+      const filtered = useDocuFillStore.getState().mappings.filter(
+        (m) => m.documentId !== removedDocumentId,
+      );
+      useDocuFillStore.getState().setMappings(filtered);
+    }
     setPackages((prev) => prev.map((pkg) => {
       if (pkg.id !== updatedPackage.id) return pkg;
-      return {
-        ...pkg,
-        ...updatedPackage,
-        fields: pkg.fields,
-        mappings: removedDocumentId ? pkg.mappings.filter((mapping) => mapping.documentId !== removedDocumentId) : pkg.mappings,
-      };
+      const pkgMappings = removedDocumentId
+        ? pkg.mappings.filter((mapping) => mapping.documentId !== removedDocumentId)
+        : pkg.mappings;
+      return { ...pkg, ...updatedPackage, fields: pkg.fields, mappings: pkgMappings };
     }));
   }
 
@@ -2343,10 +2398,12 @@ export default function DocuFill() {
       }
       return;
     }
+    useDocuFillStore.getState().setMappings(
+      useDocuFillStore.getState().mappings.filter((m) => m.documentId !== docId),
+    );
     updateSelectedPackage((pkg) => ({
       ...pkg,
       documents: pkg.documents.filter((doc) => doc.id !== docId),
-      mappings: pkg.mappings.filter((m) => m.documentId !== docId),
     }));
     setSelectedDocumentId(null);
   }
@@ -2567,55 +2624,57 @@ export default function DocuFill() {
     let skipped = 0;
     // Track which fields were matched in this run for _2/_3 disambiguation.
     const alreadyMatchedInThisRun = new Set<string>();
-    updateSelectedPackage((pkg) => {
-      mappingUndoStack.current = [...mappingUndoStack.current, [...pkg.mappings]].slice(-20);
-      let newMappings = [...pkg.mappings];
-      for (const ann of acroAnnotations) {
-        const [x1, y1, x2, y2] = ann.rect;
-        // Convert from PDF coords (bottom-left origin) to percentage (top-left origin)
-        const xPct = clampPercent((x1 / nativePageW) * 100, 0, 98);
-        const yPct = clampPercent(((nativePageH - y2) / nativePageH) * 100, 0, 98);
-        const wPct = Math.max(((x2 - x1) / nativePageW) * 100, 1);
-        const hPct = Math.max(((y2 - y1) / nativePageH) * 100, 0.5);
-        // Only match against fields that already exist in this package — never
-        // create new fields automatically. PDF form fields often have many
-        // semantically-equivalent names (Printed Name, Signer Name, Account Holder)
-        // that all represent the same Docuplete field. Creating a new field for
-        // each unmatched annotation would pollute the interview with duplicates.
-        const field = findBestFieldForAnnotation(ann, pkg.fields, alreadyMatchedInThisRun);
-        if (!field) { skipped++; continue; }
-        // Skip if this field already has a mapping very close to this position on this page
-        const alreadyMapped = newMappings.some(
-          (m) =>
-            m.fieldId === field.id &&
-            m.documentId === selectedDocument.id &&
-            m.page === selectedPage &&
-            Math.abs(m.x - xPct) < 3 &&
-            Math.abs(m.y - yPct) < 3,
-        );
-        if (alreadyMapped) { skipped++; continue; }
-        alreadyMatchedInThisRun.add(field.id);
-        newMappings = [
-          ...newMappings,
-          {
-            id: newId("map"),
-            fieldId: field.id,
-            documentId: selectedDocument.id,
-            page: selectedPage,
-            x: xPct,
-            y: yPct,
-            w: wPct,
-            h: hPct,
-            fontSize: 11,
-            align: "left",
-            format: defaultMappingFormat(field),
-          },
-        ];
-        placed++;
-      }
-      if (placed === 0) return pkg;
-      return { ...pkg, mappings: newMappings };
-    });
+    const currentMappings = useDocuFillStore.getState().mappings;
+    pushUndo([...currentMappings]);
+    let newMappings = [...currentMappings];
+    for (const ann of acroAnnotations) {
+      const [x1, y1, x2, y2] = ann.rect;
+      // Convert from PDF coords (bottom-left origin) to percentage (top-left origin)
+      const xPct = clampPercent((x1 / nativePageW) * 100, 0, 98);
+      const yPct = clampPercent(((nativePageH - y2) / nativePageH) * 100, 0, 98);
+      const wPct = Math.max(((x2 - x1) / nativePageW) * 100, 1);
+      const hPct = Math.max(((y2 - y1) / nativePageH) * 100, 0.5);
+      // Only match against fields that already exist in this package — never
+      // create new fields automatically. PDF form fields often have many
+      // semantically-equivalent names (Printed Name, Signer Name, Account Holder)
+      // that all represent the same Docuplete field. Creating a new field for
+      // each unmatched annotation would pollute the interview with duplicates.
+      const field = findBestFieldForAnnotation(ann, selectedPackage.fields, alreadyMatchedInThisRun);
+      if (!field) { skipped++; continue; }
+      // Skip if this field already has a mapping very close to this position on this page
+      const alreadyMapped = newMappings.some(
+        (m) =>
+          m.fieldId === field.id &&
+          m.documentId === selectedDocument.id &&
+          m.page === selectedPage &&
+          Math.abs(m.x - xPct) < 3 &&
+          Math.abs(m.y - yPct) < 3,
+      );
+      if (alreadyMapped) { skipped++; continue; }
+      alreadyMatchedInThisRun.add(field.id);
+      newMappings = [
+        ...newMappings,
+        {
+          id: newId("map"),
+          fieldId: field.id,
+          documentId: selectedDocument.id,
+          page: selectedPage,
+          x: xPct,
+          y: yPct,
+          w: wPct,
+          h: hPct,
+          fontSize: 11,
+          align: "left",
+          format: defaultMappingFormat(field),
+        },
+      ];
+      placed++;
+    }
+    if (placed > 0) {
+      useDocuFillStore.getState().setMappings(newMappings);
+    } else {
+      popUndo(); // discard the snapshot we just pushed
+    }
     if (placed > 0) {
       const skipNote = skipped > 0 ? ` (${skipped} PDF field${skipped === 1 ? "" : "s"} unmatched — drag them manually)` : "";
       flashStatus(`Auto-mapped ${placed} field${placed === 1 ? "" : "s"} from PDF.${skipNote}`);
@@ -2670,40 +2729,45 @@ export default function DocuFill() {
     }
 
     if (fieldEditorModal.mode === "add") {
-      updateSelectedPackage((pkg) => {
-        const field: FieldItem = {
-          id: newId("field"), libraryFieldId: resolvedLibraryFieldId,
-          name: name.trim() || `Field ${pkg.fields.length + 1}`,
-          color, type, options: cleanOpts, optionsMode: "override",
+      const fieldId = newId("field");
+      const field: FieldItem = {
+        id: fieldId, libraryFieldId: resolvedLibraryFieldId,
+        name: name.trim() || `Field ${(selectedPackage?.fields.length ?? 0) + 1}`,
+        color, type, options: cleanOpts, optionsMode: "override",
+        interviewMode, defaultValue: hasDefault ? defaultValue : "",
+        source: "interview", sensitive: false,
+        validationType: validationType ?? "none", validationPattern, validationMessage,
+        condition: condition ?? undefined,
+        condition2: condition2 ?? undefined,
+      };
+      setSelectedFieldId(field.id);
+      const currentStoreMappings = useDocuFillStore.getState().mappings;
+      const autoMappings = isChoiceType ? autoPlacementsForOptions(field.id, cleanOpts, currentStoreMappings) : [];
+      if (autoMappings.length > 0) pushUndo([...currentStoreMappings]);
+      autoMappings.forEach((m) => useDocuFillStore.getState().addMapping(m));
+      updateSelectedPackage((pkg) => ({
+        ...pkg,
+        fields: [...pkg.fields, field],
+        mappings: [...currentStoreMappings, ...autoMappings],
+      }));
+    } else if (fieldEditorModal.fieldId) {
+      const fid = fieldEditorModal.fieldId;
+      const currentStoreMappings = useDocuFillStore.getState().mappings;
+      const autoMappings = isChoiceType ? autoPlacementsForOptions(fid, cleanOpts, currentStoreMappings) : [];
+      if (autoMappings.length > 0) pushUndo([...currentStoreMappings]);
+      autoMappings.forEach((m) => useDocuFillStore.getState().addMapping(m));
+      updateSelectedPackage((pkg) => ({
+        ...pkg,
+        fields: pkg.fields.map((f) => f.id === fid ? {
+          ...f, name: name.trim() || f.name, color, type,
+          options: cleanOpts, optionsMode: "override" as const,
           interviewMode, defaultValue: hasDefault ? defaultValue : "",
-          source: "interview", sensitive: false,
           validationType: validationType ?? "none", validationPattern, validationMessage,
           condition: condition ?? undefined,
           condition2: condition2 ?? undefined,
-        };
-        setSelectedFieldId(field.id);
-        const autoMappings = isChoiceType ? autoPlacementsForOptions(field.id, cleanOpts, pkg.mappings) : [];
-        if (autoMappings.length > 0) mappingUndoStack.current = [...mappingUndoStack.current, [...pkg.mappings]].slice(-20);
-        return { ...pkg, fields: [...pkg.fields, field], mappings: [...pkg.mappings, ...autoMappings] };
-      });
-    } else if (fieldEditorModal.fieldId) {
-      const fid = fieldEditorModal.fieldId;
-      updateSelectedPackage((pkg) => {
-        const autoMappings = isChoiceType ? autoPlacementsForOptions(fid, cleanOpts, pkg.mappings) : [];
-        if (autoMappings.length > 0) mappingUndoStack.current = [...mappingUndoStack.current, [...pkg.mappings]].slice(-20);
-        return {
-          ...pkg,
-          fields: pkg.fields.map((f) => f.id === fid ? {
-            ...f, name: name.trim() || f.name, color, type,
-            options: cleanOpts, optionsMode: "override" as const,
-            interviewMode, defaultValue: hasDefault ? defaultValue : "",
-            validationType: validationType ?? "none", validationPattern, validationMessage,
-            condition: condition ?? undefined,
-            condition2: condition2 ?? undefined,
-          } : f),
-          mappings: [...pkg.mappings, ...autoMappings],
-        };
-      });
+        } : f),
+        mappings: [...currentStoreMappings, ...autoMappings],
+      }));
     }
     setFieldEditorModal(null);
   }
@@ -2729,10 +2793,10 @@ export default function DocuFill() {
   }
 
   function removeField(fieldId: string) {
+    useDocuFillStore.getState().removeMappingsForField(fieldId);
     updateSelectedPackage((pkg) => ({
       ...pkg,
       fields: pkg.fields.filter((field) => field.id !== fieldId),
-      mappings: pkg.mappings.filter((m) => m.fieldId !== fieldId),
     }));
     setSelectedFieldId(null);
     setSelectedMappingId(null);
@@ -2741,9 +2805,7 @@ export default function DocuFill() {
   function copyField(sourceFieldId: string) {
     const snapX = clampPercent((placementModal?.pdfX ?? 20) + 3, 0, 74);
     const snapY = clampPercent((placementModal?.pdfY ?? 20) + 3, 0, 94);
-    if (selectedPackage) {
-      mappingUndoStack.current = [...mappingUndoStack.current, [...selectedPackage.mappings]].slice(-20);
-    }
+    pushUndo([...useDocuFillStore.getState().mappings]);
     updateSelectedPackage((pkg) => {
       const source = pkg.fields.find((f) => f.id === sourceFieldId);
       if (!source) return pkg;
@@ -2773,7 +2835,8 @@ export default function DocuFill() {
         };
         setSelectedFieldId(copy.id);
         setSelectedMappingId(mappingId);
-        return { ...pkg, fields: [...pkg.fields, copy], mappings: [...pkg.mappings, newMapping] };
+        useDocuFillStore.getState().addMapping(newMapping);
+        return { ...pkg, fields: [...pkg.fields, copy] };
       }
       setSelectedFieldId(copy.id);
       return { ...pkg, fields: [...pkg.fields, copy] };
@@ -2784,12 +2847,10 @@ export default function DocuFill() {
   function duplicateMapping(sourceMappingId: string) {
     const snapX = clampPercent((placementModal?.pdfX ?? 20) + 3, 0, 74);
     const snapY = clampPercent((placementModal?.pdfY ?? 20) + 3, 0, 94);
-    if (selectedPackage) {
-      mappingUndoStack.current = [...mappingUndoStack.current, [...selectedPackage.mappings]].slice(-20);
-    }
+    pushUndo([...useDocuFillStore.getState().mappings]);
+    const srcMap = useDocuFillStore.getState().mappings.find((m) => m.id === sourceMappingId);
+    if (!srcMap || !selectedPackage) { setPlacementModal(null); return; }
     updateSelectedPackage((pkg) => {
-      const srcMap = pkg.mappings.find((m) => m.id === sourceMappingId);
-      if (!srcMap) return pkg;
       const srcField = srcMap.fieldId ? pkg.fields.find((f) => f.id === srcMap.fieldId) : undefined;
       const newField: FieldItem | undefined = srcField && !isSystemEsignFieldId(srcField.id) ? {
         ...srcField,
@@ -2806,10 +2867,11 @@ export default function DocuFill() {
         x: snapX,
         y: snapY,
       };
-      const fields = newField ? [newField, ...pkg.fields] : pkg.fields;
       if (newField) setSelectedFieldId(newField.id);
       setSelectedMappingId(newMapping.id);
-      return { ...pkg, fields, mappings: [...pkg.mappings, newMapping] };
+      useDocuFillStore.getState().addMapping(newMapping);
+      const fields = newField ? [newField, ...pkg.fields] : pkg.fields;
+      return { ...pkg, fields };
     });
     setPlacementModal(null);
   }
@@ -2828,32 +2890,28 @@ export default function DocuFill() {
 
   function placeField() {
     if (!selectedField || !selectedDocument) return;
-    addMappingForField(selectedField, 18 + (selectedPackage?.mappings.length ?? 0) % 5 * 12, 20 + (selectedPackage?.mappings.length ?? 0) % 8 * 8);
+    const n = useDocuFillStore.getState().mappings.length;
+    addMappingForField(selectedField, 18 + n % 5 * 12, 20 + n % 8 * 8);
   }
 
   function addMappingForField(field: FieldItem, x: number, y: number, pageOverride?: number) {
     if (!selectedDocument) return;
-    if (selectedPackage) {
-      mappingUndoStack.current = [...mappingUndoStack.current, [...selectedPackage.mappings]].slice(-20);
-    }
+    pushUndo([...useDocuFillStore.getState().mappings]);
     const mappingId = newId("map");
     const targetPage = pageOverride ?? selectedPage;
-    updateSelectedPackage((pkg) => ({
-      ...pkg,
-      mappings: [...pkg.mappings, {
-        id: mappingId,
-        fieldId: field.id,
-        documentId: selectedDocument.id,
-        page: targetPage,
-        x: clampPercent(x, 0, 74),
-        y: clampPercent(y, 0, 94),
-        w: 26,
-        h: 6,
-        fontSize: 11,
-        align: "left",
-        format: defaultMappingFormat(field),
-      }],
-    }));
+    useDocuFillStore.getState().addMapping({
+      id: mappingId,
+      fieldId: field.id,
+      documentId: selectedDocument.id,
+      page: targetPage,
+      x: clampPercent(x, 0, 74),
+      y: clampPercent(y, 0, 94),
+      w: 26,
+      h: 6,
+      fontSize: 11,
+      align: "left",
+      format: defaultMappingFormat(field),
+    });
     setSelectedMappingId(mappingId);
     setSelectedFieldId(field.id);
     setPlacementModal(null);
@@ -2875,30 +2933,27 @@ export default function DocuFill() {
       const capturedField = field;
       const mappingId = newId("map");
       const targetPage = pageOverride ?? selectedPage;
-      mappingUndoStack.current = [...mappingUndoStack.current, [...selectedPackage.mappings]].slice(-20);
+      pushUndo([...useDocuFillStore.getState().mappings]);
       const needsAutoDate = (fieldId === ESIGN_FIELD_ID_SIGNATURE || fieldId === ESIGN_FIELD_ID_INITIALS);
       updateSelectedPackage((pkg) => {
         let fields = pkg.fields.find((f) => f.id === capturedField.id) ? pkg.fields : [...pkg.fields, capturedField];
         if (needsAutoDate && !fields.find((f) => f.id === ESIGN_FIELD_ID_DATE)) {
           fields = [...fields, makeSystemEsignFieldItem(ESIGN_FIELD_ID_DATE, fields.map((f) => f.color))];
         }
-        return {
-          ...pkg,
-          fields,
-          mappings: [...pkg.mappings, {
-            id: mappingId,
-            fieldId: capturedField.id,
-            documentId: selectedDocument!.id,
-            page: targetPage,
-            x: clampPercent(x, 0, 74),
-            y: clampPercent(y, 0, 94),
-            w: capturedField.id === ESIGN_FIELD_ID_SIGNATURE ? 30 : 22,
-            h: capturedField.id === ESIGN_FIELD_ID_SIGNATURE ? 8 : 6,
-            fontSize: 11,
-            align: "left" as const,
-            format: defaultMappingFormat(capturedField),
-          }],
-        };
+        return { ...pkg, fields };
+      });
+      useDocuFillStore.getState().addMapping({
+        id: mappingId,
+        fieldId: capturedField.id,
+        documentId: selectedDocument!.id,
+        page: targetPage,
+        x: clampPercent(x, 0, 74),
+        y: clampPercent(y, 0, 94),
+        w: capturedField.id === ESIGN_FIELD_ID_SIGNATURE ? 30 : 22,
+        h: capturedField.id === ESIGN_FIELD_ID_SIGNATURE ? 8 : 6,
+        fontSize: 11,
+        align: "left" as const,
+        format: defaultMappingFormat(capturedField),
       });
       setSelectedMappingId(mappingId);
       setSelectedFieldId(capturedField.id);
@@ -2911,50 +2966,32 @@ export default function DocuFill() {
 
   function updateSelectedMapping(patch: Partial<MappingItem>) {
     if (!selectedMapping) return;
-    updateSelectedPackage((pkg) => ({
-      ...pkg,
-      mappings: pkg.mappings.map((mapping) => mapping.id === selectedMapping.id ? { ...mapping, ...patch } : mapping),
-    }));
+    useDocuFillStore.getState().updateMapping(selectedMapping.id, (m) => ({ ...m, ...patch }));
   }
 
   function chooseMappingFormat(mappingId: string, format: MappingFormat | string) {
-    updateSelectedPackage((pkg) => ({
-      ...pkg,
-      mappings: pkg.mappings.map((mapping) => mapping.id === mappingId ? { ...mapping, format } : mapping),
-    }));
+    useDocuFillStore.getState().updateMapping(mappingId, (m) => ({ ...m, format }));
     setSelectedMappingId(mappingId);
   }
 
   function removeSelectedMapping() {
     if (!selectedMapping) return;
-    updateSelectedPackage((pkg) => ({
-      ...pkg,
-      mappings: pkg.mappings.filter((mapping) => mapping.id !== selectedMapping.id),
-    }));
+    useDocuFillStore.getState().removeMapping(selectedMapping.id);
     setSelectedMappingId(null);
   }
 
   function addRecipient(recipient: RecipientItem) {
-    updateSelectedPackage((pkg) => ({
-      ...pkg,
-      recipients: [...(pkg.recipients ?? []), recipient],
-    }));
+    useDocuFillStore.getState().addRecipient(recipient);
     setRecipientPickerOpen(false);
   }
 
   function removeRecipient(recipientId: string) {
-    updateSelectedPackage((pkg) => ({
-      ...pkg,
-      recipients: (pkg.recipients ?? []).filter((r) => r.id !== recipientId),
-      mappings: pkg.mappings.map((m) => m.recipientId === recipientId ? { ...m, recipientId: undefined } : m),
-    }));
+    useDocuFillStore.getState().removeRecipient(recipientId);
+    useDocuFillStore.getState().clearRecipientFromMappings(recipientId);
   }
 
   function updateRecipient(recipientId: string, patch: Partial<RecipientItem>) {
-    updateSelectedPackage((pkg) => ({
-      ...pkg,
-      recipients: (pkg.recipients ?? []).map((r) => r.id === recipientId ? { ...r, ...patch } : r),
-    }));
+    useDocuFillStore.getState().updateRecipient(recipientId, patch);
   }
 
   function handleInterviewFieldBlur(field: FieldItem, value: string) {
@@ -3445,7 +3482,7 @@ export default function DocuFill() {
             {selectedPackage && (
               <div className="flex items-center gap-3 ml-auto flex-wrap">
                 <span className="text-xs text-[#8A9BB8] hidden sm:block">
-                  {selectedPackage.documents.length} doc{selectedPackage.documents.length !== 1 ? "s" : ""} · {packageInterviewFields.length} question{packageInterviewFields.length !== 1 ? "s" : ""} · {selectedPackage.mappings.length} placement{selectedPackage.mappings.length !== 1 ? "s" : ""}{unmappedPackageFields.length > 0 ? ` · ${unmappedPackageFields.length} unmapped` : " · all placed"}
+                  {selectedPackage.documents.length} doc{selectedPackage.documents.length !== 1 ? "s" : ""} · {packageInterviewFields.length} question{packageInterviewFields.length !== 1 ? "s" : ""} · {storeMappings.length} placement{storeMappings.length !== 1 ? "s" : ""}{unmappedPackageFields.length > 0 ? ` · ${unmappedPackageFields.length} unmapped` : " · all placed"}
                 </span>
                 <button
                   type="button"
@@ -4647,7 +4684,7 @@ export default function DocuFill() {
                       <div className="flex flex-wrap items-center gap-2 border-t border-[#DDD5C4] pt-4">
                         <Button onClick={() => goBuilderStep("mapping")} variant="outline" className="text-[#6B7A99]">← Back to Mapping</Button>
                         {selectedPackage.status !== "active" && (
-                          <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || selectedPackage.mappings.length === 0} >{isSaving ? "Saving…" : "Activate Package"}</Button>
+                          <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || storeMappings.length === 0} >{isSaving ? "Saving…" : "Activate Package"}</Button>
                         )}
                         <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save"}</Button>
                         {selectedPackage.status !== "active" && selectedPackage.id && (
@@ -4698,10 +4735,10 @@ export default function DocuFill() {
                 </div>
                 {recipientsExpanded && (
                   <div className="space-y-1">
-                    {(selectedPackage.recipients ?? []).length === 0 ? (
+                    {storeRecipientList.length === 0 ? (
                       <p className="text-[11px] text-[#8A9BB8] italic px-1">No recipients yet.</p>
                     ) : (
-                      (selectedPackage.recipients ?? []).map((r) => (
+                      storeRecipientList.map((r) => (
                         <div key={r.id} className="rounded border border-[#EFE8D8] bg-[#F8F6F0] overflow-hidden">
                           <div className="flex items-center gap-1.5 px-1.5 py-1">
                             <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
@@ -4974,7 +5011,7 @@ export default function DocuFill() {
                   <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "16px 0", alignItems: "flex-start" }}>
                     {Array.from({ length: Math.max(selectedDocument.pages ?? 1, 1) }, (_, i) => i + 1).map((pageNum) => {
                       const _knownFieldIds = new Set((selectedPackage?.fields ?? []).map((f) => f.id));
-                      const pageMs = (selectedPackage?.mappings ?? []).filter(
+                      const pageMs = storeMappings.filter(
                         (m) => m.documentId === selectedDocument.id && m.page === pageNum && _knownFieldIds.has(m.fieldId)
                       );
                       return (
@@ -5002,22 +5039,19 @@ export default function DocuFill() {
                               />
                               {pageMs.map((m) => {
                                 const field = selectedPackage?.fields.find((f) => f.id === m.fieldId);
-                                const isSelected = selectedMapping?.id === m.id;
-                                const recipient = m.recipientId ? (selectedPackage?.recipients ?? []).find((r) => r.id === m.recipientId) : undefined;
+                                const recipient = m.recipientId ? storeRecipientList.find((r) => r.id === m.recipientId) : undefined;
                                 const fieldColor = recipient?.color ?? (isSystemEsignFieldId(m.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
                                 return (
                                   <MappingButton
                                     key={m.id}
-                                    m={m}
+                                    mappingId={m.id}
                                     fieldName={field?.name ?? "Field"}
                                     sampleValue={sampleValueForMapping(field, m.format)}
                                     formatLabel={labelForMappingFormat(m.format)}
                                     fieldColor={fieldColor}
                                     recipient={recipient}
-                                    isSelected={isSelected}
-                                    mapperTextMode={mapperTextMode}
-                                    onMoveStart={(e) => beginMappingPointer(e, m, "move", e.currentTarget.parentElement as HTMLElement)}
-                                    onResizeStart={(e) => beginMappingPointer(e, m, "resize", e.currentTarget.parentElement?.parentElement as HTMLElement)}
+                                    onMoveStart={(e) => beginMappingPointer(e, m.id, "move", e.currentTarget.parentElement as HTMLElement)}
+                                    onResizeStart={(e) => beginMappingPointer(e, m.id, "resize", e.currentTarget.parentElement?.parentElement as HTMLElement)}
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setSelectedPage(pageNum);
@@ -5127,62 +5161,50 @@ export default function DocuFill() {
                       </div>
                     );
                   })}
-                  {pageMappings.map((m) => {
-                    const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
-                    const isSelected = selectedMapping?.id === m.id;
-                    const recipient = m.recipientId ? (selectedPackage.recipients ?? []).find((r) => r.id === m.recipientId) : undefined;
-                    const fieldColor = recipient?.color ?? (isSystemEsignFieldId(m.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
+                  {pageMappingMetas.map((meta) => {
+                    const field = selectedPackage.fields.find((f) => f.id === meta.fieldId);
+                    const recipient = meta.recipientId ? storeRecipientList.find((r) => r.id === meta.recipientId) : undefined;
+                    const fieldColor = recipient?.color ?? (isSystemEsignFieldId(meta.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
                     const isFullyDefined = Boolean(field?.name && !field.name.match(/^Field \d+$/i) && (field.libraryFieldId || field.interviewMode));
                     return (
                       <MappingButton
-                        key={m.id}
-                        m={m}
+                        key={meta.id}
+                        mappingId={meta.id}
                         fieldName={field?.name ?? "Field"}
-                        sampleValue={sampleValueForMapping(field, m.format)}
-                        formatLabel={labelForMappingFormat(m.format)}
+                        sampleValue={sampleValueForMapping(field, meta.format)}
+                        formatLabel={labelForMappingFormat(meta.format)}
                         fieldColor={fieldColor}
                         recipient={recipient}
-                        isSelected={isSelected}
-                        mapperTextMode={mapperTextMode}
                         isFullyDefined={isFullyDefined}
-                        onMoveStart={(e) => beginMappingPointer(e, m, "move")}
-                        onResizeStart={(e) => beginMappingPointer(e, m, "resize")}
+                        onMoveStart={(e) => beginMappingPointer(e, meta.id, "move")}
+                        onResizeStart={(e) => beginMappingPointer(e, meta.id, "resize")}
                         onClick={() => {
-                          setSelectedMappingId(m.id);
-                          setSelectedFieldId(m.fieldId);
+                          setSelectedMappingId(meta.id);
+                          setSelectedFieldId(meta.fieldId);
                           if (inspectorMode === "panel") {
-                            setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
+                            const fullM = useDocuFillStore.getState().mappings.find((m) => m.id === meta.id);
+                            setPlacementModal({ mappingId: meta.id, pdfX: fullM?.x ?? 0, pdfY: fullM?.y ?? 0 });
                             setPlacementModalPos(null);
                           }
                         }}
                         onContextMenu={(e) => {
                           e.preventDefault(); e.stopPropagation();
-                          setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId);
-                          setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
+                          setSelectedMappingId(meta.id); setSelectedFieldId(meta.fieldId);
+                          const fullM = useDocuFillStore.getState().mappings.find((m) => m.id === meta.id);
+                          setPlacementModal({ mappingId: meta.id, pdfX: fullM?.x ?? 0, pdfY: fullM?.y ?? 0 });
                           setPlacementModalPos(null);
                         }}
                       />
                     );
                   })}
-                  {dragGuides && (
-                    <>
-                      {dragGuides.xs.map((x, i) => (
-                        <div key={`gx-${i}`} className="absolute top-0 bottom-0 pointer-events-none" style={{ left: `${x}%`, width: 1, background: "#2563eb", opacity: 0.65, zIndex: 15 }} />
-                      ))}
-                      {dragGuides.ys.map((y, i) => (
-                        <div key={`gy-${i}`} className="absolute left-0 right-0 pointer-events-none" style={{ top: `${y}%`, height: 1, background: "#2563eb", opacity: 0.65, zIndex: 15 }} />
-                      ))}
-                    </>
-                  )}
-                  {resizeDim && selectedMapping && (
-                    <div
-                      className="absolute pointer-events-none"
-                      style={{ left: `${(selectedMapping.x ?? 0) + (selectedMapping.w ?? 26)}%`, top: `${(selectedMapping.y ?? 0) + (selectedMapping.h ?? 6)}%`, transform: "translate(4px, 4px)", zIndex: 20 }}
-                    >
-                      <div className="bg-[#0F1C3F] text-white rounded px-1.5 py-0.5 whitespace-nowrap" style={{ fontSize: 9 }}>
-                        {resizeDim.w} × {resizeDim.h} pt
-                      </div>
-                    </div>
+                  <DragGuideLines />
+                  {selectedMapping && (
+                    <ResizeDimTooltip
+                      x={selectedMapping.x ?? 0}
+                      y={selectedMapping.y ?? 0}
+                      w={selectedMapping.w ?? 26}
+                      h={selectedMapping.h ?? 6}
+                    />
                   )}
                 </div>
                 </div>
@@ -5191,20 +5213,20 @@ export default function DocuFill() {
                 <Button onClick={() => goBuilderStep("interview", { autoSort: true })} variant="outline">Review Generated Interview</Button>
                 <Button
                   onClick={() => savePackage(selectedPackage)}
-                  disabled={isSaving || (selectedPackage.fields.length === 0 && selectedPackage.mappings.length === 0)}
+                  disabled={isSaving || (selectedPackage.fields.length === 0 && storeMappings.length === 0)}
                 >
-                  {isSaving ? "Saving…" : `Save ${selectedPackage.fields.length} Fields / ${selectedPackage.mappings.length} Placements`}
+                  {isSaving ? "Saving…" : `Save ${selectedPackage.fields.length} Fields / ${storeMappings.length} Placements`}
                 </Button>
               </div>
             </section>
 
             <section className="bg-white border border-[#DDD5C4] rounded-lg flex flex-col min-h-0 overflow-hidden">
               {inspectorMode === "panel" && placementModal && selectedPackage && (() => {
-                const mapping = selectedPackage.mappings.find((item) => item.id === placementModal.mappingId);
+                const mapping = storeMappings.find((item) => item.id === placementModal.mappingId);
                 const field = mapping ? selectedPackage.fields.find((item) => item.id === mapping.fieldId) : undefined;
                 const formatOptions = mappingFormatOptionsForField(field);
                 if (!mapping) return null;
-                const assignedRecipient = mapping.recipientId ? (selectedPackage.recipients ?? []).find((r) => r.id === mapping.recipientId) : undefined;
+                const assignedRecipient = mapping.recipientId ? storeRecipientList.find((r) => r.id === mapping.recipientId) : undefined;
                 const fieldInterviewMode: FieldInterviewMode = field?.interviewMode ?? "optional";
                 const isMasked = field?.sensitive === true;
                 const isMultiLine = mapping.multiLine === true;
@@ -5251,7 +5273,7 @@ export default function DocuFill() {
                         </div>
                       )}
 
-                      {(selectedPackage.recipients ?? []).length > 0 && (
+                      {storeRecipientList.length > 0 && (
                         <div>
                           <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1.5">Recipient</div>
                           <div className="flex flex-wrap gap-1">
@@ -5263,7 +5285,7 @@ export default function DocuFill() {
                               <span className="w-2 h-2 rounded-full border border-current inline-block" />
                               <span>None</span>
                             </button>
-                            {(selectedPackage.recipients ?? []).map((r) => (
+                            {storeRecipientList.map((r) => (
                               <button
                                 key={r.id}
                                 type="button"
@@ -5436,7 +5458,7 @@ export default function DocuFill() {
                       </label>
                     );
                   })()}
-                  {inspectorMode === "panel" && selectedPackage.mappings.length > 0 && (
+                  {inspectorMode === "panel" && storeMappings.length > 0 && (
                     <p className="mb-2 text-[10px] text-[#8A9BB8] italic flex-shrink-0">Click a placement on the document to inspect it.</p>
                   )}
                   <div className="flex-1 min-h-0 flex flex-col">
@@ -7100,11 +7122,11 @@ export default function DocuFill() {
       )}
 
       {inspectorMode === "modal" && placementModal && selectedPackage && (() => {
-        const mapping = selectedPackage.mappings.find((item) => item.id === placementModal.mappingId);
+        const mapping = storeMappings.find((item) => item.id === placementModal.mappingId);
         const field = mapping ? selectedPackage.fields.find((item) => item.id === mapping.fieldId) : undefined;
         const formatOptions = mappingFormatOptionsForField(field);
         if (!mapping) return null;
-        const assignedRecipient = mapping.recipientId ? (selectedPackage.recipients ?? []).find((r) => r.id === mapping.recipientId) : undefined;
+        const assignedRecipient = mapping.recipientId ? storeRecipientList.find((r) => r.id === mapping.recipientId) : undefined;
         const fieldInterviewMode: FieldInterviewMode = field?.interviewMode ?? "optional";
         const isMasked = field?.sensitive === true;
         const isMultiLine = mapping.multiLine === true;
@@ -7187,7 +7209,7 @@ export default function DocuFill() {
                   </div>
                 )}
 
-                {(selectedPackage.recipients ?? []).length > 0 && (
+                {storeRecipientList.length > 0 && (
                   <div>
                     <div className="text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide mb-1">Recipient</div>
                     <div className="flex flex-wrap gap-1">
@@ -7199,7 +7221,7 @@ export default function DocuFill() {
                         <span className="w-2 h-2 rounded-full border border-current inline-block" />
                         <span>None</span>
                       </button>
-                      {(selectedPackage.recipients ?? []).map((r) => (
+                      {storeRecipientList.map((r) => (
                         <button
                           key={r.id}
                           type="button"
@@ -7325,13 +7347,13 @@ export default function DocuFill() {
                 <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Customer</div>
                 <button
                   type="button"
-                  disabled={(selectedPackage.recipients ?? []).some((r) => r.type === "customer")}
-                  onClick={() => addRecipient({ id: newRecipientId(), label: "Customer", color: pickRecipientColor((selectedPackage.recipients ?? []).map((r) => r.color)), type: "customer" })}
+                  disabled={storeRecipientList.some((r) => r.type === "customer")}
+                  onClick={() => addRecipient({ id: newRecipientId(), label: "Customer", color: pickRecipientColor(storeRecipientList.map((r) => r.color)), type: "customer" })}
                   className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] border border-[#EFE8D8] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <svg className="w-3.5 h-3.5 text-[#8A9BB8] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                   Customer
-                  {(selectedPackage.recipients ?? []).some((r) => r.type === "customer") && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
+                  {storeRecipientList.some((r) => r.type === "customer") && <span className="ml-auto text-[10px] text-[#8A9BB8]">already added</span>}
                 </button>
               </div>
               {(() => {
@@ -7343,13 +7365,13 @@ export default function DocuFill() {
                     <div className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide mb-2">Groups</div>
                     <div className="space-y-1">
                       {userGroups.map((g) => {
-                        const already = (selectedPackage.recipients ?? []).some((r) => r.type === "group" && r.refId === g.id);
+                        const already = storeRecipientList.some((r) => r.type === "group" && r.refId === g.id);
                         return (
                           <button
                             key={g.id}
                             type="button"
                             disabled={already}
-                            onClick={() => addRecipient({ id: newRecipientId(), label: g.name, color: pickRecipientColor((selectedPackage.recipients ?? []).map((r) => r.color)), type: "group", refId: g.id })}
+                            onClick={() => addRecipient({ id: newRecipientId(), label: g.name, color: pickRecipientColor(storeRecipientList.map((r) => r.color)), type: "group", refId: g.id })}
                             className="flex w-full items-center gap-2 rounded px-3 py-2 text-xs text-[#334155] hover:bg-[#F8F6F0] border border-[#EFE8D8] disabled:opacity-40 disabled:cursor-not-allowed"
                           >
                             {icon}

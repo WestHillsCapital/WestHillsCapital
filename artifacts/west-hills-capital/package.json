@@ -95,6 +95,7 @@
     "@react-oauth/google": "^0.13.5",
     "@sentry/react": "^10.51.0",
     "jszip": "^3.10.1",
-    "pdfjs-dist": "^5.6.205"
+    "pdfjs-dist": "^5.6.205",
+    "zustand": "^5.0.13"
   }
 }
