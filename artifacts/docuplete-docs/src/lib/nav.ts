@@ -103,6 +103,7 @@ export const NAV: NavItem[] = [
       { title: "Authentication & API Keys", slug: "developer/authentication" },
       { title: "Quickstart: Create a Session", slug: "developer/quickstart-session" },
       { title: "Quickstart: Handling Webhooks", slug: "developer/quickstart-webhooks" },
+      { title: "Public Sandbox Demo", slug: "developer/sandbox" },
     ],
   },
   {

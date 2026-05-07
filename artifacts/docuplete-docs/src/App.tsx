@@ -56,6 +56,7 @@ import ApiKeys from "@/pages/docs/account/ApiKeys";
 import DeveloperAuthentication from "@/pages/docs/developer/Authentication";
 import QuickstartSession from "@/pages/docs/developer/QuickstartSession";
 import QuickstartWebhooks from "@/pages/docs/developer/QuickstartWebhooks";
+import SandboxDemo from "@/pages/docs/developer/SandboxDemo";
 
 function NotFound() {
   return (
@@ -134,6 +135,7 @@ function Router() {
         <Route path="/developer/authentication" component={DeveloperAuthentication} />
         <Route path="/developer/quickstart-session" component={QuickstartSession} />
         <Route path="/developer/quickstart-webhooks" component={QuickstartWebhooks} />
+        <Route path="/developer/sandbox" component={SandboxDemo} />
 
         {/* Account & Settings */}
         <Route path="/account/billing" component={Billing} />

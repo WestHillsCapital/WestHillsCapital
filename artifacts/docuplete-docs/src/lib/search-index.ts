@@ -229,6 +229,12 @@ export const SEARCH_INDEX: SearchEntry[] = [
     headings: ["Connecting HubSpot", "What syncs on submission", "Field mapping", "Deal creation", "Disconnecting"],
   },
   {
+    slug: "developer/sandbox",
+    title: "Public Sandbox Demo",
+    section: "Developer API",
+    headings: ["How the sandbox works", "The sandbox endpoint", "Query parameters", "Response", "Shareable landing page", "URL prefill for demos", "Call the endpoint directly", "What the prospect sees", "Limitations", "Next steps"],
+  },
+  {
     slug: "account/billing",
     title: "Seats & Billing",
     section: "Account & Settings",

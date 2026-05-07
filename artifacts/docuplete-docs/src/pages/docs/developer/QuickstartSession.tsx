@@ -10,6 +10,12 @@ export default function QuickstartSession() {
         </p>
       </div>
 
+      <div className="callout callout-info">
+        <strong>Want to try it first?</strong> Before building a real integration, run the{" "}
+        <a href="/developer/sandbox">Public Sandbox Demo</a> — a zero-config live session you can
+        start in your browser with no API key.
+      </div>
+
       <h2>What you'll need</h2>
       <ul>
         <li>A <strong>live API key</strong> (<code>dp_live_…</code>) — see <a href="/developer/authentication">Authentication</a>.</li>
