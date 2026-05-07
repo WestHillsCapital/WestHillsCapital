@@ -1466,18 +1466,6 @@ export async function initDb(): Promise<void> {
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 
-  // ── Scheduled data retention — startup backlog runs ──────────────────────────
-  // Run once on startup to clear any backlog accumulated while the worker was down.
-  // The repeatable cadence (24 h / 6 h) is handled by BullMQ job schedulers in
-  // the worker process (upsertJobScheduler in worker.ts), which ensures
-  // exactly-once execution regardless of how many instances are running.
-  pruneAuditTables().catch(() => {});
-  pruneRetainedSubmissions().catch(() => {});
-  pruneSessionData().catch(() => {});
-  processScheduledDeletions().catch(() => {});
-  purgeExpiredTrialData().catch(() => {});
-  purgeExpiredExports().catch(() => {});
-
   // ── Super-admin account notes ─────────────────────────────────────────────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS account_admin_notes (

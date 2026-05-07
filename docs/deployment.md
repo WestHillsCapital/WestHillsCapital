@@ -92,12 +92,15 @@ All scheduled jobs run in the **worker process** (not the API server) as BullMQ 
 | `purge:trial-data` | every 6 h | Purges org content for lapsed trial accounts |
 | `expire:exports` | every 6 h | Clears `export_json` payloads after the 48-hour download window |
 
-Jobs are registered idempotently via `queue.upsertJobScheduler()` on every worker startup. The API server still calls each function once on startup (to clear any backlog), but the repeatable schedule is worker-only.
+Jobs are registered idempotently via `queue.upsertJobScheduler()` on every worker startup. The API server does **not** run any scheduler logic — it handles HTTP requests only.
+
+On worker startup, each scheduler function also runs once immediately as a backlog-clear pass (to process any rows that accumulated while the worker was down). This is done in the worker's init path, not in `initDb()`, so the API server is never involved.
 
 ### Inspecting scheduler run history
 
-- `GET /api/internal/queue-status` now includes the `scheduler` queue, showing waiting / active / completed / failed counts
-- In Railway, check worker logs for `[Scheduler] Job scheduler registered` and `[Scheduler] Starting fulfillment scheduler tick` to confirm jobs are running
+- `GET /api/internal/queue-status` (internal auth required) — includes the `scheduler` queue, showing waiting / active / completed / failed job counts
+- **BullMQ Board**: connect a BullMQ Board instance to your Redis URL for a visual dashboard of all queues, repeatable job schedules, and per-job run history. See the [BullMQ Board docs](https://github.com/felixmosh/bull-board) for setup instructions.
+- In Railway worker logs, look for `[Scheduler] Job scheduler registered` (registration complete) and job-specific log lines (e.g. `[Scheduler] Fulfillment scheduler tick complete`) to confirm jobs are running
 
 ---
 

@@ -99,6 +99,30 @@ const shouldMigrate =
       });
     }
 
+    // ── One-shot startup backlog clear ──────────────────────────────────────
+    // Run each scheduler once immediately to process any rows that accumulated
+    // while the worker was down (e.g. during a deploy or crash). This only
+    // runs in the worker process — the API server calls initDb() but does NOT
+    // call these functions. Fire-and-forget: failures are non-fatal.
+    void Promise.allSettled([
+      pruneInternalSessions(),
+      pruneAuditTables(),
+      pruneRetainedSubmissions(),
+      pruneSessionData(),
+      processScheduledDeletions(),
+      purgeExpiredTrialData(),
+      purgeExpiredExports(),
+      runFulfillmentScheduler(),
+      runTrackingSync(),
+    ]).then((results) => {
+      const failed = results.filter((r) => r.status === "rejected");
+      if (failed.length > 0) {
+        logger.warn({ failedCount: failed.length }, "[Scheduler] Some startup backlog runs failed (non-fatal)");
+      } else {
+        logger.info("[Scheduler] Startup backlog runs complete");
+      }
+    });
+
     // ── Register repeatable job schedulers ──────────────────────────────────
     // upsertJobScheduler is idempotent — safe to call on every worker restart.
     // BullMQ deduplicates by schedulerId and only updates timing if it changed.
