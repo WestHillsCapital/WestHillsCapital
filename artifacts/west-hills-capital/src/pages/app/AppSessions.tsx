@@ -357,6 +357,8 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
 
   const [search, setSearch]         = useState("");
   const [statusFilter, setStatus]   = useState("");
+  const [hideDrafts, setHideDrafts] = useState(false);
+  const [timelineWindow, setTimelineWindow] = useState("all");
   const [page, setPage]             = useState(0);
   const [sortField, setSortField]   = useState<SortField>("updated_at");
   const [sortDir, setSortDir]       = useState<SortDir>("desc");
@@ -391,10 +393,34 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
       });
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (statusFilter) params.set("status", statusFilter);
+      if (hideDrafts) params.set("excludeStatus", "draft");
+      if (timelineWindow !== "all") {
+        const now = new Date();
+        const days = timelineWindow === "today" ? 0 : timelineWindow === "7d" ? 7 : timelineWindow === "30d" ? 30 : 90;
+        const cutoff = new Date(now);
+        if (days === 0) {
+          cutoff.setHours(0, 0, 0, 0);
+        } else {
+          cutoff.setDate(cutoff.getDate() - days);
+        }
+        params.set("createdAfter", cutoff.toISOString());
+      }
       const res = await fetch(`${SESSIONS_URL}?${params}`, { headers: getAuthHeaders() });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json() as { sessions: PortalSession[]; total: number };
       let rows = data.sessions ?? [];
+      if (hideDrafts) rows = rows.filter((r) => r.status !== "draft");
+      if (timelineWindow !== "all") {
+        const now = new Date();
+        const days = timelineWindow === "today" ? 0 : timelineWindow === "7d" ? 7 : timelineWindow === "30d" ? 30 : 90;
+        const cutoff = new Date(now);
+        if (days === 0) {
+          cutoff.setHours(0, 0, 0, 0);
+        } else {
+          cutoff.setDate(cutoff.getDate() - days);
+        }
+        rows = rows.filter((r) => new Date(r.created_at) >= cutoff);
+      }
       rows = [...rows].sort((a, b) => {
         const av = a[sortField] ?? "";
         const bv = b[sortField] ?? "";
@@ -408,7 +434,7 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
     } finally {
       setLoading(false);
     }
-  }, [getAuthHeaders, page, debouncedSearch, statusFilter, sortField, sortDir]);
+  }, [getAuthHeaders, page, debouncedSearch, statusFilter, hideDrafts, timelineWindow, sortField, sortDir]);
 
   const fetchBatchRuns = useCallback(async () => {
     setBatchRunsLoading(true);
@@ -632,8 +658,8 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
         {/* ── Interviews tab ── */}
         <TabsContent value="interviews">
           {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-5">
-            <div className="relative flex-1">
+          <div className="flex flex-col sm:flex-row gap-3 mb-5 flex-wrap">
+            <div className="relative flex-1 min-w-[180px]">
               <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z" />
               </svg>
@@ -656,6 +682,34 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
               <option value="generated">Complete</option>
               <option value="voided">Voided</option>
             </Select>
+            <Select
+              value={timelineWindow}
+              onChange={(e) => { setTimelineWindow(e.target.value); setPage(0); }}
+              className="h-9 text-sm"
+            >
+              <option value="all">All time</option>
+              <option value="today">Today</option>
+              <option value="7d">Last 7 days</option>
+              <option value="30d">Last 30 days</option>
+              <option value="90d">Last 90 days</option>
+            </Select>
+            <label className="flex items-center gap-2 cursor-pointer select-none h-9 px-1 whitespace-nowrap">
+              <Checkbox
+                checked={hideDrafts}
+                onCheckedChange={(checked) => { setHideDrafts(checked === true); setPage(0); }}
+                id="hide-drafts"
+              />
+              <span className="text-sm text-gray-700">Hide drafts</span>
+            </label>
+            {(hideDrafts || timelineWindow !== "all" || search || statusFilter) && (
+              <button
+                type="button"
+                onClick={() => { setHideDrafts(false); setTimelineWindow("all"); setSearch(""); setStatus(""); setPage(0); }}
+                className="h-9 px-1 text-sm text-gray-400 hover:text-gray-700 underline underline-offset-2 whitespace-nowrap transition-colors"
+              >
+                Clear filters
+              </button>
+            )}
           </div>
 
           {/* Table */}
