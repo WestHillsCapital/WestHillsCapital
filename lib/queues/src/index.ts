@@ -5,3 +5,4 @@ export { PingJobPayloadSchema, GeneratePdfJobPayloadSchema, DeliverWebhookJobPay
 export type { PingJobPayload, GeneratePdfJobPayload, DeliverWebhookJobPayload } from "./jobTypes.js";
 export { createQueue, createQueueWorker } from "./factories.js";
 export type { Worker, Queue } from "bullmq";
+export { UnrecoverableError } from "bullmq";

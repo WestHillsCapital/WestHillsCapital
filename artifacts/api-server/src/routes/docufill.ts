@@ -55,7 +55,7 @@ import {
   decryptAnswers,
   isEncryptionEnabled,
 } from "../lib/encryption";
-import { createQueueWorker, QUEUE_NAMES, type GeneratePdfJobPayload, type DeliverWebhookJobPayload, type Worker } from "@workspace/queues";
+import { createQueueWorker, QUEUE_NAMES, UnrecoverableError, type GeneratePdfJobPayload, type DeliverWebhookJobPayload, type Worker } from "@workspace/queues";
 import { generatePdfQueue, enqueueGeneratePdfJob, enqueueDeliverWebhookJob, isQueueEnabled } from "../lib/queue";
 import {
   EmptyBodySchema,
@@ -5746,10 +5746,14 @@ export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | 
  * BullMQ worker processor for the `deliver-webhook` queue.
  *
  * Each job attempt calls `doWebhookDelivery` once and records the result
- * in `webhook_deliveries`.  If the HTTP delivery fails, the job throws so
- * BullMQ retries with exponential backoff (configured at enqueue time:
- * 3 attempts — immediate, +30 s, +60 s).  On final exhaustion the
- * `failed` event surfaces in worker.ts where Sentry is notified.
+ * in `webhook_deliveries`.  If the HTTP delivery fails the processor throws
+ * so BullMQ retries using the custom backoff schedule defined in
+ * `settings.backoffStrategy` (attempt 1→2: +30 s, attempt 2→3: +5 min).
+ * On final exhaustion the `failed` event surfaces in worker.ts where
+ * Sentry is notified.
+ *
+ * When the signing secret is unavailable an `UnrecoverableError` is thrown
+ * to skip remaining retries immediately.
  */
 export function registerDeliverWebhookProcessor(): Worker<DeliverWebhookJobPayload> | null {
   const worker = createQueueWorker<DeliverWebhookJobPayload>(
@@ -5761,7 +5765,7 @@ export function registerDeliverWebhookProcessor(): Worker<DeliverWebhookJobPaylo
       logger.info({ jobId: job.id, sessionToken, packageId, attempt }, "[DeliverWebhook] Processing job");
 
       const db = getDb();
-      const bodyStr    = JSON.stringify(payload);
+      const bodyStr     = JSON.stringify(payload);
       const payloadHash = createHash("sha256").update(bodyStr).digest("hex").slice(0, 16);
 
       // Fetch signing secret at delivery time — fail-closed if unavailable.
@@ -5774,7 +5778,7 @@ export function registerDeliverWebhookProcessor(): Worker<DeliverWebhookJobPaylo
         secret = rows[0]?.webhook_secret ?? null;
         if (!secret) throw new Error("webhook_secret is missing or null");
       } catch (err) {
-        logger.error({ err, packageId, accountId, sessionToken }, "[DeliverWebhook] Cannot fetch webhook_secret — aborting attempt");
+        logger.error({ err, packageId, accountId, sessionToken }, "[DeliverWebhook] Cannot fetch webhook_secret — aborting");
         db.query(
           `INSERT INTO webhook_deliveries
              (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms, payload_json)
@@ -5784,11 +5788,9 @@ export function registerDeliverWebhookProcessor(): Worker<DeliverWebhookJobPaylo
           if (e?.code === "23503" && e?.constraint === "webhook_deliveries_package_id_fkey") return;
           logger.error({ e }, "[DeliverWebhook] Failed to log aborted delivery");
         });
-        // Do not retry when the secret is missing — throw a non-retryable error
-        // by setting attemptsMade to max so BullMQ exhausts the job immediately.
-        throw Object.assign(
-          new Error(`[DeliverWebhook] Webhook secret unavailable for package ${packageId} — will not retry`),
-          { failedJobsHistoryLength: 0 },
+        // UnrecoverableError tells BullMQ to skip remaining retries immediately.
+        throw new UnrecoverableError(
+          `[DeliverWebhook] Webhook secret unavailable for package ${packageId} — will not retry`,
         );
       }
 
@@ -5804,7 +5806,20 @@ export function registerDeliverWebhookProcessor(): Worker<DeliverWebhookJobPaylo
 
       logger.info({ jobId: job.id, sessionToken, packageId, attempt }, "[DeliverWebhook] Delivery succeeded");
     },
-    { concurrency: 5 },
+    {
+      concurrency: 5,
+      // Custom backoff schedule: immediate → +30 s → +5 min.
+      // BullMQ calls this when job.opts.backoff.type is not "fixed"/"exponential".
+      settings: {
+        backoffStrategy: (attemptsMade: number): number => {
+          // attemptsMade is the number of failed attempts so far (1-indexed here).
+          // attempt 1 just failed → wait 30 s before attempt 2
+          // attempt 2 just failed → wait 5 min before attempt 3
+          const schedule = [30_000, 5 * 60_000] as const;
+          return schedule[Math.min(attemptsMade - 1, schedule.length - 1)] ?? 30_000;
+        },
+      },
+    },
   );
 
   if (!worker) return null;

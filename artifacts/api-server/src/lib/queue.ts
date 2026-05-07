@@ -62,7 +62,10 @@ export async function enqueueDeliverWebhookJob(
   try {
     const job = await deliverWebhookQueue.add(QUEUE_NAMES.DELIVER_WEBHOOK, payload, {
       attempts: 3,
-      backoff: { type: "exponential", delay: 30_000 },
+      // Custom backoff strategy name — the actual delay schedule is defined
+      // in registerDeliverWebhookProcessor (settings.backoffStrategy):
+      //   attempt 1→2: +30 s, attempt 2→3: +5 min
+      backoff: { type: "deliver-webhook" },
       removeOnComplete: { count: 500 },
       removeOnFail: { count: 500 },
     });
