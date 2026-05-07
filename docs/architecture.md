@@ -145,7 +145,7 @@ Wire arrives in WHC bank account
   → updateOperationsMilestone() (Google Sheets)
 
 DG ships the metal
-  → runTrackingSync() (background, every 15 min, 2 min offset)
+  → scheduler:tracking-sync BullMQ job (worker, every 15 min)
   → getShippingStatus([supplier_confirmation_ids]) (DG batch poll)
   → Sets tracking_number, shipping_notification_scheduled_at = NOW() + 24h
 

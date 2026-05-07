@@ -94,9 +94,9 @@
 
 ### Tracking number not auto-populating
 **Symptom**: Deal has a DG confirmation ID but tracking number never appears.  
-**Cause**: `runTrackingSync()` runs every 15 minutes (with a 2-minute startup offset). DG may not have reported "shipped" status yet. Or `DILLON_GAGE_API_KEY` missing.  
-**Check**: Logs for `[TrackingSync]` entries.  
-**Fix**: Wait up to 17 minutes after DG marks the order shipped. If still not appearing after 1 hour, check logs for DG API errors. As a fallback, enter the tracking number manually in the Fulfillment Panel.
+**Cause**: The `scheduler:tracking-sync` BullMQ job runs every 15 minutes in the worker process. DG may not have reported "shipped" status yet. Or `DILLON_GAGE_API_KEY` missing.  
+**Check**: Worker logs for `[TrackingSync]` entries. Also check `GET /api/internal/queue-status` to confirm the `scheduler` queue is processing jobs.  
+**Fix**: Wait up to 15 minutes after DG marks the order shipped. If still not appearing after 1 hour, check logs for DG API errors. As a fallback, enter the tracking number manually in the Fulfillment Panel.
 
 ### Follow-up emails not sending
 **Symptom**: 7d or 30d follow-up email was never sent.  

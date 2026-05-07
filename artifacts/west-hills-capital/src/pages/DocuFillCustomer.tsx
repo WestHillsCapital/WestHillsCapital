@@ -6,6 +6,9 @@ import { validateFieldValue, fieldFormatHint, buildSensitiveMask } from "@/lib/v
 import { ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE } from "@/lib/docufill-redaction";
 import SignaturePad, { type SignaturePadRef } from "@/components/SignaturePad";
 import { MerlinCustomerChat } from "@/components/MerlinCustomerChat";
+import * as pdfjsLib from "pdfjs-dist";
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SESSION_BASE = `${API_BASE}/api/v1/docufill/public/sessions`;
@@ -58,6 +61,7 @@ type SessionData = {
   org_logo_on_white?: boolean | null;
   auth_level?: "none" | "email_otp";
   require_preview?: boolean;
+  require_scroll_confirmation?: boolean;
   signed_at?: string | null;
   signer_name?: string | null;
 };
@@ -272,6 +276,29 @@ function todayFormatted(): string {
   return `${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}/${d.getFullYear()}`;
 }
 
+/**
+ * Renders a single PDF page from an ImageBitmap onto a canvas element.
+ * Used by the scroll-tracking PDF viewer to display pdfjs-rendered pages.
+ */
+function PdfPageCanvas({ bitmap }: { bitmap: ImageBitmap }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    if (ctx) ctx.drawImage(bitmap, 0, 0);
+  }, [bitmap]);
+  return (
+    <canvas
+      ref={canvasRef}
+      className="shadow-lg rounded-sm"
+      style={{ maxWidth: "100%", height: "auto", display: "block" }}
+    />
+  );
+}
+
 export default function DocuFillCustomer() {
   const params = useParams<{ token: string }>();
   const token = params.token ?? "";
@@ -298,6 +325,13 @@ export default function DocuFillCustomer() {
   const [previewLoading, setPreviewLoading] = useState(false);
   const [previewError, setPreviewError] = useState("");
   const [previewViewed, setPreviewViewed] = useState(false);
+  // Scroll-depth tracking state (for require_scroll_confirmation packages)
+  const [scrollConfirmed, setScrollConfirmed] = useState(false);
+  const [scrollDepthPct, setScrollDepthPct] = useState(0);
+  const [pdfPages, setPdfPages] = useState<ImageBitmap[]>([]);
+  const [pdfPagesLoading, setPdfPagesLoading] = useState(false);
+  const [pdfRenderFailed, setPdfRenderFailed] = useState(false);
+  const scrollViewRef = useRef<HTMLDivElement | null>(null);
 
   // E-sign flow state
   const [esignStep, setEsignStep] = useState<EsignStep | null>(null);
@@ -336,6 +370,89 @@ export default function DocuFillCustomer() {
   useEffect(() => {
     return () => { if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl); };
   }, [previewObjectUrl]);
+
+  // Auto-fetch the preview PDF whenever we enter the previewing state with previewLoading=true.
+  // Triggered both on initial navigation ("Review Document" button) and on retry.
+  useEffect(() => {
+    if (pageStatus !== "previewing" || !previewLoading || previewObjectUrl) return;
+    void (async () => {
+      try {
+        const resp = await fetch(`${SESSION_BASE}/${token}/preview-pdf`, { method: "POST" });
+        if (!resp.ok) {
+          const d = await resp.json().catch(() => ({}));
+          throw new Error((d as { error?: string }).error ?? "Failed to load preview");
+        }
+        // Async path: server returned 202 with a jobId — poll until ready, then download
+        let blob: Blob;
+        if (resp.status === 202) {
+          const { jobId } = await resp.json() as { jobId: string };
+          const POLL_INTERVAL = 1500;
+          const MAX_POLLS = 60; // up to ~90 s
+          let downloadUrl: string | null = null;
+          for (let i = 0; i < MAX_POLLS; i++) {
+            await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL));
+            const sr = await fetch(
+              `${SESSION_BASE}/${token}/preview-pdf/status?jobId=${encodeURIComponent(jobId)}`,
+            );
+            if (!sr.ok) continue;
+            const sd = await sr.json() as { status: string; downloadUrl?: string; error?: string };
+            if (sd.status === "ready" && sd.downloadUrl) {
+              downloadUrl = sd.downloadUrl;
+              break;
+            }
+            if (sd.status === "failed") {
+              throw new Error(sd.error ?? "Preview generation failed. Please try again.");
+            }
+          }
+          if (!downloadUrl) throw new Error("Preview is taking too long to load. Please try again.");
+          const dlResp = await fetch(`${API_BASE}${downloadUrl}`);
+          if (!dlResp.ok) throw new Error("Failed to download preview");
+          blob = await dlResp.blob();
+        } else {
+          // Synchronous fallback (queue disabled or connectivity fallback)
+          blob = await resp.blob();
+        }
+        const url = URL.createObjectURL(blob);
+        setPreviewObjectUrl(url);
+        // When scroll confirmation is required, also render all pages via pdfjs
+        // so we can track scroll depth precisely without relying on the iframe.
+        if (session?.require_scroll_confirmation) {
+          setPdfPagesLoading(true);
+          try {
+            const arrayBuf = await blob.arrayBuffer();
+            const pdfDoc = await pdfjsLib.getDocument({ data: arrayBuf }).promise;
+            const bitmaps: ImageBitmap[] = [];
+            const scale = window.devicePixelRatio > 1 ? 1.5 : 1.2;
+            for (let i = 1; i <= pdfDoc.numPages; i++) {
+              const page = await pdfDoc.getPage(i);
+              const viewport = page.getViewport({ scale });
+              const canvas = document.createElement("canvas");
+              canvas.width = viewport.width;
+              canvas.height = viewport.height;
+              const ctx = canvas.getContext("2d")!;
+              await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+              const bmp = await createImageBitmap(canvas);
+              bitmaps.push(bmp);
+            }
+            setPdfPages(bitmaps);
+          } catch {
+            // Rendering failed while scroll confirmation is required.
+            // Mark the failure so the UI can show a clear reload prompt
+            // instead of silently falling back to iframe (which would
+            // dead-end the signer since scrollConfirmed is never set).
+            setPdfRenderFailed(true);
+          } finally {
+            setPdfPagesLoading(false);
+          }
+        }
+      } catch (err) {
+        setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
+      } finally {
+        setPreviewLoading(false);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageStatus, previewLoading]);
 
   useLayoutEffect(() => {
     if (!isEmbed) return;
@@ -657,6 +774,7 @@ export default function DocuFillCustomer() {
       const genBody: Record<string, unknown> = {};
       if (identityToken) genBody.esignToken = identityToken;
       if (signerName.trim()) genBody.signerName = signerName.trim();
+      if (session?.require_scroll_confirmation) genBody.scrollConfirmed = scrollConfirmed;
       if (sigMode === "draw") {
         const dataUrl = sigPadRef.current?.getDataUrl();
         if (dataUrl) genBody.signatureImage = dataUrl;
@@ -671,12 +789,46 @@ export default function DocuFillCustomer() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(genBody),
       });
-      const genData = await genRes.json();
+      if (genRes.status === 202) {
+        const { jobId } = await genRes.json() as { jobId: string };
+        // Poll for job completion (max 90 s, 1.5 s interval)
+        const MAX_WAIT_MS   = 90_000;
+        const POLL_INTERVAL = 1_500;
+        const startedAt = Date.now();
+        let done = false;
+        while (!done && Date.now() - startedAt < MAX_WAIT_MS) {
+          await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL));
+          try {
+            const sr = await fetch(`${SESSION_BASE}/${token}/generate-status?jobId=${encodeURIComponent(jobId)}`);
+            const sd = await sr.json() as { status: string; error?: string };
+            if (sd.status === "ready") {
+              setDownloadUrl(`${SESSION_BASE}/${token}/packet.pdf`);
+              setPageStatus("generated");
+              done = true;
+            } else if (sd.status === "failed") {
+              setErrorMsg(sd.error ?? "Document generation failed. Please try again.");
+              setPageStatus("ready");
+              done = true;
+            }
+            // "pending" | "processing" — keep polling
+          } catch {
+            // Network error — keep polling
+          }
+        }
+        if (!done) {
+          setErrorMsg("Document generation is taking longer than expected. Your answers have been saved — please try refreshing in a moment.");
+          setPageStatus("ready");
+        }
+        return;
+      }
+      // Non-202 response (validation error, queue unavailable, etc.)
+      const genData = await genRes.json() as { error?: string };
       if (!genRes.ok) {
         setErrorMsg(genData.error ?? "Could not generate your documents.");
         setPageStatus("ready");
         return;
       }
+      // Synchronous fallback (should not occur when queue is enabled)
       setDownloadUrl(`${SESSION_BASE}/${token}/packet.pdf`);
       setPageStatus("generated");
     } catch {
@@ -1362,16 +1514,88 @@ export default function DocuFillCustomer() {
           </div>
 
           {previewError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{previewError}</div>
-          )}
-
-          {previewLoading && (
-            <div className="rounded-lg border border-[#DDD5C4] bg-white flex items-center justify-center" style={{ height: 480 }}>
-              <p className="text-sm text-[#6B7A99]">Loading preview…</p>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-center justify-between gap-3">
+              <span>{previewError}</span>
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0 border-red-300 text-red-700 hover:bg-red-100 text-xs"
+                onClick={() => { setPreviewError(""); setScrollConfirmed(false); setScrollDepthPct(0); setPdfPages([]); setPreviewLoading(true); }}
+              >
+                Retry
+              </Button>
             </div>
           )}
 
-          {previewObjectUrl && !previewLoading && (
+          {(previewLoading || pdfPagesLoading) && (
+            <div className="rounded-lg border border-[#DDD5C4] bg-white flex items-center justify-center" style={{ height: 480 }}>
+              <p className="text-sm text-[#6B7A99]">{pdfPagesLoading ? "Rendering document…" : "Loading preview…"}</p>
+            </div>
+          )}
+
+          {/* When require_scroll_confirmation is on and pages are rendered, show a scrollable pdfjs view */}
+          {previewObjectUrl && !previewLoading && !pdfPagesLoading && session!.require_scroll_confirmation && pdfPages.length > 0 && (
+            <div className="rounded-lg border border-[#DDD5C4] overflow-hidden shadow-sm">
+              {/* Scroll progress indicator */}
+              <div className="bg-white border-b border-[#DDD5C4] px-4 py-2 flex items-center gap-3">
+                <div className="flex-1 h-1.5 bg-[#EFE8D8] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{ width: `${scrollDepthPct}%`, backgroundColor: scrollConfirmed ? "#22C55E" : brandColor }}
+                  />
+                </div>
+                <span className="text-[11px] text-[#6B7A99] shrink-0">
+                  {scrollConfirmed ? "Document reviewed" : `${scrollDepthPct}% scrolled`}
+                </span>
+                {scrollConfirmed && (
+                  <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              {/* Scrollable page canvas list */}
+              <div
+                ref={scrollViewRef}
+                data-testid="scroll-view"
+                className="overflow-y-auto bg-[#525659]"
+                style={{ height: 520 }}
+                onScroll={(e) => {
+                  const el = e.currentTarget;
+                  const pct = el.scrollHeight <= el.clientHeight
+                    ? 100
+                    : Math.round((el.scrollTop / (el.scrollHeight - el.clientHeight)) * 100);
+                  setScrollDepthPct(pct);
+                  if (pct >= 95 && !scrollConfirmed) {
+                    // Persist scroll confirmation server-side so generate can verify
+                    // it without trusting client-supplied body fields.
+                    setScrollConfirmed(true);
+                    void fetch(`${SESSION_BASE}/${token}/scroll-confirm`, { method: "POST" }).catch(() => {
+                      // Non-fatal in UI — generate will enforce server-side; the
+                      // signer will see a 403 if the call failed and they try to sign.
+                    });
+                  }
+                  if (!previewViewed) setPreviewViewed(true);
+                }}
+              >
+                <div className="flex flex-col items-center gap-4 py-4 px-4">
+                  {pdfPages.map((bmp, i) => (
+                    <PdfPageCanvas key={i} bitmap={bmp} />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error state: scroll required but pdf.js rendering failed — fail closed with a clear message */}
+          {previewObjectUrl && !previewLoading && !pdfPagesLoading && session!.require_scroll_confirmation && pdfRenderFailed && pdfPages.length === 0 && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-5 text-center space-y-2">
+              <p className="text-sm font-medium text-red-700">The document could not be rendered for scroll verification.</p>
+              <p className="text-xs text-red-500">Please reload the page and try again. Signing is unavailable until the document can be displayed.</p>
+            </div>
+          )}
+
+          {/* Fallback iframe: shown when scroll confirmation is off (or pages loaded OK via pdf.js) */}
+          {previewObjectUrl && !previewLoading && !pdfPagesLoading && (!session!.require_scroll_confirmation || (pdfPages.length === 0 && !pdfRenderFailed)) && (
             <div className="rounded-lg border border-[#DDD5C4] overflow-hidden shadow-sm">
               <iframe
                 src={previewObjectUrl}
@@ -1383,12 +1607,6 @@ export default function DocuFillCustomer() {
             </div>
           )}
 
-          {!previewObjectUrl && !previewLoading && !previewError && (
-            <div className="rounded-lg border border-[#DDD5C4] bg-white flex items-center justify-center" style={{ height: 480 }}>
-              <p className="text-sm text-[#6B7A99]">Click "Load Preview" to render your document.</p>
-            </div>
-          )}
-
           <div className="flex gap-3">
             <Button
               type="button"
@@ -1397,49 +1615,44 @@ export default function DocuFillCustomer() {
               onClick={() => {
                 setPageStatus("ready");
                 if (previewObjectUrl) { URL.revokeObjectURL(previewObjectUrl); setPreviewObjectUrl(null); }
+                setPdfPages([]);
+                setPdfRenderFailed(false);
+                setScrollConfirmed(false);
+                setScrollDepthPct(0);
               }}
             >
               Back to form
             </Button>
-            {!previewObjectUrl && !previewLoading && (
-              <Button
-                type="button"
-                variant="outline"
-                className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
-                onClick={async () => {
-                  setPreviewLoading(true);
-                  setPreviewError("");
-                  try {
-                    const resp = await fetch(`${SESSION_BASE}/${token}/preview-pdf`, { method: "POST" });
-                    if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error((d as { error?: string }).error ?? "Failed to load preview"); }
-                    const blob = await resp.blob();
-                    const url = URL.createObjectURL(blob);
-                    setPreviewObjectUrl(url);
-                  } catch (err) {
-                    setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
-                  } finally {
-                    setPreviewLoading(false);
-                  }
-                }}
-              >
-                Load Preview
-              </Button>
-            )}
             <Button
               type="button"
-              disabled={session!.require_preview && !previewViewed}
-              style={(!session!.require_preview || previewViewed) ? { backgroundColor: brandColor, color: brandTextColor } : undefined}
+              disabled={
+                (session!.require_preview && !previewViewed) ||
+                (session!.require_scroll_confirmation && !scrollConfirmed)
+              }
+              style={
+                (!session!.require_preview || previewViewed) && (!session!.require_scroll_confirmation || scrollConfirmed)
+                  ? { backgroundColor: brandColor, color: brandTextColor }
+                  : undefined
+              }
               className="flex-1 disabled:opacity-60 hover:opacity-90"
               onClick={() => {
                 if (previewObjectUrl) { URL.revokeObjectURL(previewObjectUrl); setPreviewObjectUrl(null); }
+                setPdfPages([]);
                 void handleSubmit();
               }}
             >
-              {session!.require_preview && !previewViewed ? "Open document to continue" : "Proceed to sign"}
+              {session!.require_scroll_confirmation && !scrollConfirmed
+                ? "Scroll to end to continue"
+                : session!.require_preview && !previewViewed
+                ? "Open document to continue"
+                : "Proceed to sign"}
             </Button>
           </div>
 
-          {session!.require_preview && !previewViewed && (
+          {session!.require_scroll_confirmation && !scrollConfirmed && (
+            <p className="text-xs text-[#8A9BB8] text-center">Please scroll through the entire document before signing is available.</p>
+          )}
+          {!session!.require_scroll_confirmation && session!.require_preview && !previewViewed && (
             <p className="text-xs text-[#8A9BB8] text-center">You must open the document preview before signing is available.</p>
           )}
         </main>
@@ -1828,14 +2041,14 @@ export default function DocuFillCustomer() {
               ? "Your identity has been verified. Complete the form and submit — your documents will be generated immediately."
               : "By submitting, you confirm the information above is accurate. Your completed documents will be generated immediately and sent to your advisor."}
           </div>
-          <div className={`flex gap-3 ${session!.require_preview ? "" : "flex-wrap"}`}>
-            {/* "Review Document" — always shown; primary when it's the sole action (require_preview) */}
+          <div className={`flex gap-3 ${(session!.require_preview || session!.require_scroll_confirmation) ? "" : "flex-wrap"}`}>
+            {/* "Review Document" — always shown; primary when it's the sole action (require_preview or require_scroll_confirmation) */}
             <Button
               type="button"
-              variant={session!.require_preview ? "default" : "outline"}
+              variant={(session!.require_preview || session!.require_scroll_confirmation) ? "default" : "outline"}
               disabled={hasErrors || missingRequiredCount > 0 || (merlinWasUsed && !merlinReviewConfirmed)}
-              style={session!.require_preview ? { backgroundColor: brandColor, color: brandTextColor } : undefined}
-              className={session!.require_preview
+              style={(session!.require_preview || session!.require_scroll_confirmation) ? { backgroundColor: brandColor, color: brandTextColor } : undefined}
+              className={(session!.require_preview || session!.require_scroll_confirmation)
                 ? "flex-1 disabled:opacity-60 py-3 hover:opacity-90"
                 : "flex-1 border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0] disabled:opacity-60 py-3"}
               onClick={async () => {
@@ -1843,34 +2056,27 @@ export default function DocuFillCustomer() {
                 setPreviewError("");
                 setPreviewViewed(false);
                 setPreviewObjectUrl(null);
-                setPageStatus("previewing");
+                // Flush the current answers to the server before rendering the preview
+                // so the draft PDF reflects unsaved edits (autosave is debounced).
+                await fetch(`${SESSION_BASE}/${token}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ answers }),
+                }).catch(() => {});
+                // Setting previewLoading=true then pageStatus="previewing" triggers the
+                // auto-load useEffect which fetches the preview PDF.
+                setScrollConfirmed(false);
+                setScrollDepthPct(0);
+                setPdfPages([]);
+                setPdfRenderFailed(false);
                 setPreviewLoading(true);
-                try {
-                  // Flush the current answers to the server before rendering the preview
-                  // so the draft PDF reflects unsaved edits (autosave is debounced).
-                  await fetch(`${SESSION_BASE}/${token}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ answers }),
-                  });
-                  const resp = await fetch(`${SESSION_BASE}/${token}/preview-pdf`, { method: "POST" });
-                  if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error((d as { error?: string }).error ?? "Failed to load preview"); }
-                  const blob = await resp.blob();
-                  const url = URL.createObjectURL(blob);
-                  setPreviewObjectUrl(url);
-                } catch (err) {
-                  setPreviewLoading(false);
-                  setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
-                  setPageStatus("ready");
-                  return;
-                }
-                setPreviewLoading(false);
+                setPageStatus("previewing");
               }}
             >
               Review Document
             </Button>
-            {/* "Sign Now" — only shown when preview is not mandated */}
-            {!session!.require_preview && (
+            {/* "Sign Now" — only shown when neither preview nor scroll confirmation is mandated */}
+            {!session!.require_preview && !session!.require_scroll_confirmation && (
               <Button
                 type="button"
                 onClick={() => void handleSubmit()}

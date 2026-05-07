@@ -230,6 +230,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     enable_hubspot: (pkg as PackageItem & Record<string, unknown>).enable_hubspot === true,
     auth_level: (pkg as PackageItem & Record<string, unknown>).auth_level === "email_otp" ? "email_otp" as const : "none" as const,
     require_preview: (pkg as PackageItem & Record<string, unknown>).require_preview === true,
+    require_scroll_confirmation: (pkg as PackageItem & Record<string, unknown>).require_scroll_confirmation === true,
     tags: Array.isArray((pkg as PackageItem & { tags?: unknown }).tags)
       ? ((pkg as PackageItem & { tags?: unknown }).tags as unknown[]).map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
       : [],
@@ -629,7 +630,7 @@ export default function DocuFill() {
   const [csvDashRunSessions, setCsvDashRunSessions] = useState<Record<string, Array<{ token: string; status: string; submitted_at: string | null; link_emailed_at: string | null; link_email_recipient: string | null; signer_name: string | null }>>>({});
   const [csvDashRunLoading, setCsvDashRunLoading] = useState<Record<string, boolean>>({});
   const [interviewSubTab, setInterviewSubTab] = useState<"interviews" | "dashboard">("interviews");
-  type PortalSession = { token: string; package_id: number; package_name: string; status: string; source: string; created_at: string; signer_name: string | null; signer_email: string | null; signed_at: string | null; submitted_at: string | null; link_emailed_at: string | null; link_email_recipient: string | null; };
+  type PortalSession = { token: string; package_id: number; package_name: string; status: string; source: string; created_at: string; signer_name: string | null; signer_email: string | null; signed_at: string | null; submitted_at: string | null; link_emailed_at: string | null; link_email_recipient: string | null; signing_scroll_required: boolean | null; signing_scroll_confirmed_at: string | null; };
   const [portalSessions, setPortalSessions] = useState<PortalSession[]>([]);
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);
@@ -1343,6 +1344,7 @@ export default function DocuFill() {
           enableHubspot: pkg.enable_hubspot,
           authLevel: pkg.auth_level,
           requirePreview: pkg.require_preview,
+          requireScrollConfirmation: pkg.require_scroll_confirmation,
         }),
       });
       const data = await res.json();

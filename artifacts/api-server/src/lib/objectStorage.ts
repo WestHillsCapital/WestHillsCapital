@@ -298,6 +298,17 @@ export class ObjectStorageService {
     return normalizedPath;
   }
 
+  /**
+   * Download an object (addressed by its /objects/... storage key) to a Buffer.
+   * Use this when the full file content is needed in memory (e.g. as a PDF source).
+   * Throws ObjectNotFoundError if the key does not exist.
+   */
+  async downloadObjectToBuffer(storageKey: string): Promise<Buffer> {
+    const file = await this.getObjectEntityFile(storageKey);
+    const [contents] = await file.download();
+    return contents as Buffer;
+  }
+
   async canAccessObjectEntity({
     userId,
     objectFile,

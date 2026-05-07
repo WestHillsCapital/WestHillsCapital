@@ -540,7 +540,7 @@ router.post("/api-keys", requireProductAuth, requireAdminRole, requirePlanFeatur
 
     const clerkUserId = getAuth(req)?.userId ?? null;
     const actorEmail = await getActorEmail(accountId, clerkUserId);
-    void insertAuditLog({
+    await insertAuditLog({
       accountId,
       actorEmail,
       actorUserId: clerkUserId,
@@ -548,7 +548,7 @@ router.post("/api-keys", requireProductAuth, requireAdminRole, requirePlanFeatur
       resourceType: "api_key",
       resourceId: String(row.id),
       resourceLabel: name,
-    });
+    }, { critical: true });
 
     // Notify org members who want api_key_created notifications
     void (async () => {
@@ -877,7 +877,7 @@ router.delete("/api-keys/:id", requireProductAuth, requireAdminRole, async (req,
     const clerkUserId = getAuth(req)?.userId ?? null;
     const revokeActorEmail = await getActorEmail(accountId, clerkUserId);
     const revokedKeyName = result.rows[0].name;
-    void insertAuditLog({
+    await insertAuditLog({
       accountId,
       actorEmail: revokeActorEmail,
       actorUserId: clerkUserId,
@@ -885,7 +885,7 @@ router.delete("/api-keys/:id", requireProductAuth, requireAdminRole, async (req,
       resourceType: "api_key",
       resourceId: String(keyId),
       resourceLabel: revokedKeyName,
-    });
+    }, { critical: true });
 
     // Notify org members who want api_key_revoked notifications
     void (async () => {

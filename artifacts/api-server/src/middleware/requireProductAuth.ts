@@ -1,6 +1,7 @@
 import type { RequestHandler } from "express";
 import { createHash } from "crypto";
 import { getAuth } from "@clerk/express";
+import * as Sentry from "@sentry/node";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import { resolveApiKeyAccountId } from "./requireApiKeyAuth";
@@ -61,6 +62,8 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
     }
     req.internalAccountId = accountId;
     req.productUserRole   = "member";
+    Sentry.getCurrentScope().setUser({ id: String(accountId) });
+    Sentry.getCurrentScope().setTag("account_id", String(accountId));
     return next();
   }
 
@@ -143,6 +146,8 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
       req.internalAccountId = result.rows[0].account_id;
       req.productUserRole   = result.rows[0].role;
       req.productUserEmail  = result.rows[0].email;
+      Sentry.getCurrentScope().setUser({ id: String(result.rows[0].account_id) });
+      Sentry.getCurrentScope().setTag("account_id", String(result.rows[0].account_id));
 
       // Fire-and-forget: stamp last_seen_at and upsert the session record
       getDb()
@@ -189,6 +194,8 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
       req.internalAccountId = linked.account_id;
       req.productUserRole   = linked.role;
       req.productUserEmail  = linked.email;
+      Sentry.getCurrentScope().setUser({ id: String(linked.account_id) });
+      Sentry.getCurrentScope().setTag("account_id", String(linked.account_id));
       return next();
     }
 

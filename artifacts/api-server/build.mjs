@@ -19,7 +19,10 @@ async function buildAll() {
   execSync(`node ${path.resolve(artifactDir, "scripts/generate-openapi.mjs")}`, { stdio: "inherit" });
 
   await esbuild({
-    entryPoints: [path.resolve(artifactDir, "src/index.ts")],
+    entryPoints: [
+      path.resolve(artifactDir, "src/index.ts"),
+      path.resolve(artifactDir, "src/worker.ts"),
+    ],
     platform: "node",
     bundle: true,
     format: "esm",

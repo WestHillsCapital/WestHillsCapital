@@ -80,4 +80,5 @@ export type PackageItem = {
   enable_hubspot: boolean;
   auth_level: "none" | "email_otp";
   require_preview: boolean;
+  require_scroll_confirmation: boolean;
 };

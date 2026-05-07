@@ -135,6 +135,7 @@ export const docufillPackages = pgTable("docufill_packages", {
   index("docufill_packages_account_idx").on(t.accountId),
   index("docufill_packages_combo_idx").on(t.accountId, t.status),
   index("docufill_packages_workflow_idx").on(t.accountId, t.webhookEnabled),
+  index("docufill_packages_account_created_idx").on(t.accountId, t.createdAt.desc()),
 ]);
 
 export const docufillPackageDocuments = pgTable("docufill_package_documents", {
@@ -145,7 +146,8 @@ export const docufillPackageDocuments = pgTable("docufill_package_documents", {
   contentType: text("content_type").notNull().default("application/pdf"),
   byteSize: integer("byte_size").notNull(),
   pageCount: integer("page_count").notNull().default(1),
-  pdfData: bytea("pdf_data").notNull(),
+  pdfData: bytea("pdf_data"),
+  pdfGcsKey: text("pdf_gcs_key"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   pageSizes: jsonb("page_sizes").notNull().default(sql`'[]'::jsonb`),
@@ -208,12 +210,17 @@ export const docufillInterviewSessions = pgTable("docufill_interview_sessions", 
   index("dis_batch_run_idx")
     .on(t.batchRunId)
     .where(sql`batch_run_id IS NOT NULL`),
+  index("dis_account_created_idx").on(t.accountId, t.createdAt.desc()),
+  index("dis_account_package_idx").on(t.accountId, t.packageId),
+  index("dis_account_status_idx").on(t.accountId, t.status),
+  index("dis_account_expires_idx").on(t.accountId, t.expiresAt.asc()),
 ]);
 
 export const webhookDeliveries = pgTable("webhook_deliveries", {
   id: serial("id").primaryKey(),
   packageId: integer("package_id").notNull().references(() => docufillPackages.id, { onDelete: "cascade" }),
   accountId: integer("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  sessionId: integer("session_id").references(() => docufillInterviewSessions.id, { onDelete: "set null" }),
   eventType: text("event_type").notNull().default("interview.submitted"),
   payloadHash: text("payload_hash").notNull(),
   attemptNumber: integer("attempt_number").notNull().default(1),
@@ -225,6 +232,8 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
 }, (t) => [
   index("webhook_deliveries_package_created_idx").on(t.packageId, t.createdAt),
   index("webhook_deliveries_account_idx").on(t.accountId),
+  index("webhook_deliveries_account_created_idx").on(t.accountId, t.createdAt.desc()),
+  index("webhook_deliveries_session_created_idx").on(t.sessionId, t.createdAt.desc()),
 ]);
 
 export const docufillEsignOtps = pgTable("docufill_esign_otps", {

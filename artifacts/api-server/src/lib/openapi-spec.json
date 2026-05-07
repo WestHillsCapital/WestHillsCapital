@@ -1791,6 +1791,15 @@
         }
       }
     },
+    "/docufill/public/sessions/{token}/scroll-confirm": {
+      "post": {
+        "tags": [
+          "Docuplete — Public (no auth)"
+        ],
+        "summary": "Record that the signer has scrolled through the entire document",
+        "description": "Persists a server-side timestamp (scroll_confirmed_at) for the session once\nthe signer attests they have scrolled to the end of the preview PDF. The\ngenerate endpoint refuses to finalise a session that requires scroll\nconfirmation unless this endpoint has been called first.\n"
+      }
+    },
     "/docufill/public/sessions/{token}/generate": {
       "post": {
         "tags": [

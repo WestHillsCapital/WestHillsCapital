@@ -12,14 +12,53 @@ let pool: Pool | null = null;
 export let dbReady = false;
 export let dbError: string | null = null;
 
+/**
+ * Builds the SSL configuration for pg Pool connections.
+ *
+ * In development (NODE_ENV !== "production") SSL is disabled so the local
+ * Replit-managed dev database (which does not serve TLS) can connect without
+ * extra config.
+ *
+ * In production:
+ *   - rejectUnauthorized: true  — certificate chain is verified against the
+ *     Node.js system CA bundle (SOC 2 CC6.7 — authenticated connections).
+ *     Both Replit-managed Neon and Railway Postgres use publicly-trusted certs
+ *     (Let's Encrypt / DigiCert), so no custom CA is needed in standard setups.
+ *   - DB_SSL_CA (optional, base64-encoded PEM) — if the database provider uses
+ *     a private CA cert (e.g. a self-hosted Postgres), encode the cert as
+ *     base64 and set this variable. The cert is decoded at startup and passed
+ *     as the `ca` option to TLS, while rejectUnauthorized remains true.
+ */
+function buildDbSslConfig(): false | { rejectUnauthorized: boolean; ca?: string } {
+  if (process.env.NODE_ENV !== "production") return false;
+
+  const caPem = process.env.DB_SSL_CA
+    ? Buffer.from(process.env.DB_SSL_CA, "base64").toString("utf8")
+    : undefined;
+
+  return {
+    rejectUnauthorized: true,
+    ...(caPem ? { ca: caPem } : {}),
+  };
+}
+
 export function getDb(): Pool {
   if (!pool) {
     if (!process.env.DATABASE_URL) {
       throw new Error("DATABASE_URL environment variable is not set");
     }
+    const sslConfig = buildDbSslConfig();
+    logger.info(
+      {
+        sslEnabled: sslConfig !== false,
+        rejectUnauthorized: sslConfig !== false ? sslConfig.rejectUnauthorized : false,
+        customCa: sslConfig !== false && "ca" in sslConfig && !!sslConfig.ca,
+      },
+      "[DB] SSL configuration",
+    );
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      ssl: sslConfig,
       // Sane pool limits: enough for concurrent requests, not so many that we
       // exhaust Railway's Postgres connection limit.
       max: 10,
@@ -46,24 +85,31 @@ export async function runDrizzleMigrations(): Promise<void> {
   try {
     const { drizzle } = await import("drizzle-orm/node-postgres");
     const { migrate } = await import("drizzle-orm/node-postgres/migrator");
+    const { readFile } = await import("fs/promises");
+    const { createHash } = await import("crypto");
 
     const migrationsFolder = path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
       "../drizzle",
     );
 
-    // Baseline check: if the accounts table already exists this is a running
-    // production database — mark the initial migration as applied without
-    // executing it so future incremental migrations can run normally.
-    const { rows } = await db.query<{ exists: boolean }>(
-      `SELECT EXISTS(
-         SELECT 1 FROM information_schema.tables
-          WHERE table_schema = 'public' AND table_name = 'accounts'
-       ) AS exists`,
+    // Read journal once — used by both baseline and concurrent-migration logic.
+    const journalRaw = await readFile(
+      path.join(migrationsFolder, "meta/_journal.json"),
+      "utf8",
     );
-    if (rows[0]?.exists) {
-      // Ensure the drizzle schema and migrations table exist (drizzle-orm creates
-      // these automatically on a fresh DB; we replicate it for the baseline path).
+    const journal = JSON.parse(journalRaw) as {
+      entries: Array<{ idx: number; tag: string; when: number }>;
+    };
+
+    // Helper: compute the SHA-256 hash Drizzle uses for tracking a migration.
+    const migrationHash = async (tag: string) => {
+      const sql = await readFile(path.join(migrationsFolder, `${tag}.sql`), "utf8");
+      return { hash: createHash("sha256").update(sql).digest("hex"), sql };
+    };
+
+    // Helper: ensure the drizzle tracking table exists before any reads/writes.
+    const ensureMigrationsTable = async () => {
       await db.query(`CREATE SCHEMA IF NOT EXISTS drizzle`);
       await db.query(`
         CREATE TABLE IF NOT EXISTS drizzle."__drizzle_migrations" (
@@ -72,38 +118,213 @@ export async function runDrizzleMigrations(): Promise<void> {
           created_at BIGINT
         )
       `);
+    };
+
+    // Helper: upsert a migration record by its canonical timestamp.
+    // Uses created_at as the identity key because Drizzle's migrator orders by
+    // it to determine the "last applied" migration — not by hash.
+    const upsertMigrationRecord = async (hash: string, when: number) => {
+      await db.query(
+        `DELETE FROM drizzle."__drizzle_migrations" WHERE hash = $1 OR created_at = $2`,
+        [hash, when],
+      );
+      await db.query(
+        `INSERT INTO drizzle."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
+        [hash, when],
+      );
+    };
+
+    // ── Baseline + per-migration reconciliation ────────────────────────────────
+    // Only runs when the accounts table already exists (i.e. production or dev
+    // DBs that were set up before Drizzle migrations were introduced).
+    const { rows } = await db.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'accounts'
+       ) AS exists`,
+    );
+    if (rows[0]?.exists) {
+      await ensureMigrationsTable();
+
       const { rows: existing } = await db.query(
         `SELECT 1 FROM drizzle."__drizzle_migrations" LIMIT 1`,
       );
       if (existing.length === 0) {
-        const { readFile } = await import("fs/promises");
-        const { createHash } = await import("crypto");
-        // Read the journal to get each entry's timestamp and corresponding SQL hash
-        const journalRaw = await readFile(
-          path.join(migrationsFolder, "meta/_journal.json"),
-          "utf8",
+        // Empty table: baseline migrations 0 and 1 only.
+        // Leave 0002 (affiliate tables) unrecorded so migrate() creates them
+        // on first run (they cannot be assumed to exist yet on a fresh DB).
+        const AFFILIATE_TABLES_IDX = 2;
+        const baselineEntries = journal.entries.filter(
+          (e) => e.idx < AFFILIATE_TABLES_IDX,
         );
-        const journal = JSON.parse(journalRaw) as {
-          entries: Array<{ tag: string; when: number }>;
-        };
-        for (const entry of journal.entries) {
-          const sqlContent = await readFile(
-            path.join(migrationsFolder, `${entry.tag}.sql`),
-            "utf8",
-          );
-          const hash = createHash("sha256").update(sqlContent).digest("hex");
+        for (const entry of baselineEntries) {
+          const { hash } = await migrationHash(entry.tag);
           await db.query(
             `INSERT INTO drizzle."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
             [hash, entry.when],
           );
         }
         logger.info(
-          { count: journal.entries.length },
+          { count: baselineEntries.length },
           "[Migrations] Baselined Drizzle migrations on existing database",
         );
       }
-      // Fall through — migrate() will now see the baseline rows and skip any
-      // already-applied migrations; only genuinely new ones will run.
+
+      // ── Per-migration reconciliation (runs even when table is not empty) ────
+      // These guards handle DBs where initDb() applied a schema change before
+      // the corresponding Drizzle migration was introduced. Each check is
+      // idempotent: if the record is already present with the correct timestamp,
+      // the upsert replaces it with identical data — harmless.
+
+      // Migration 0001: adds trial_ended_at + data_purged_at to accounts.
+      // initDb() adds these columns with ALTER TABLE IF NOT EXISTS, so on a DB
+      // that ran initDb() before migration 0001 was tracked, trial_ended_at will
+      // already exist. Without this reconciliation Drizzle re-runs 0001 and
+      // fails because ADD COLUMN (without IF NOT EXISTS) errors on duplicates.
+      const { rows: trialColRows } = await db.query<{ exists: boolean }>(
+        `SELECT EXISTS(
+           SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'accounts' AND column_name = 'trial_ended_at'
+         ) AS exists`,
+      );
+      if (trialColRows[0]?.exists) {
+        const entry = journal.entries.find((e) => e.idx === 1);
+        if (entry) {
+          const { hash } = await migrationHash(entry.tag);
+          await upsertMigrationRecord(hash, entry.when);
+          logger.info("[Migrations] Reconciled migration 0001 (trial_ended_at)");
+        }
+      }
+
+      // Migration 0002: creates affiliate tables.
+      // If the tables already exist, reconcile the record so migrate() skips it.
+      // If they don't exist yet (DB was in a stuck state where migration 0002 never
+      // committed), run the SQL inline NOW — before the non-transactional handler
+      // pre-records migration 0004, which would otherwise raise the `created_at`
+      // ceiling past 0002 and cause migrate() to skip it permanently.
+      const entry0002 = journal.entries.find((e) => e.idx === 2);
+      if (entry0002) {
+        const { hash: hash0002, sql: sql0002 } = await migrationHash(entry0002.tag);
+        const { rows: affiliateTableRows } = await db.query<{ exists: boolean }>(
+          `SELECT EXISTS(
+             SELECT 1 FROM information_schema.tables
+              WHERE table_schema = 'public' AND table_name = 'affiliates'
+           ) AS exists`,
+        );
+        if (affiliateTableRows[0]?.exists) {
+          // Tables already exist — just ensure the record is present/correct.
+          await upsertMigrationRecord(hash0002, entry0002.when);
+          logger.info("[Migrations] Reconciled migration 0002 (affiliate tables)");
+        } else {
+          // Tables missing on an existing DB — apply the migration inline.
+          const { rows: m2Applied } = await db.query<{ id: number }>(
+            `SELECT id FROM drizzle."__drizzle_migrations" WHERE hash = $1`,
+            [hash0002],
+          );
+          if (m2Applied.length === 0) {
+            logger.info("[Migrations] Applying migration 0002 (affiliate tables) inline");
+            const stmts0002 = sql0002.split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+            for (const stmt of stmts0002) {
+              await db.query(stmt);
+            }
+            await upsertMigrationRecord(hash0002, entry0002.when);
+            logger.info("[Migrations] Migration 0002 (affiliate tables) applied successfully");
+          }
+        }
+      }
+
+      // Migration 0003: adds pdf_gcs_key to docufill_package_documents.
+      // Same dual pattern: reconcile if the column exists, apply inline if not.
+      const entry0003 = journal.entries.find((e) => e.idx === 3);
+      if (entry0003) {
+        const { hash: hash0003, sql: sql0003 } = await migrationHash(entry0003.tag);
+        const { rows: gcsColRows } = await db.query<{ exists: boolean }>(
+          `SELECT EXISTS(
+             SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'docufill_package_documents' AND column_name = 'pdf_gcs_key'
+           ) AS exists`,
+        );
+        if (gcsColRows[0]?.exists) {
+          await upsertMigrationRecord(hash0003, entry0003.when);
+          logger.info("[Migrations] Reconciled migration 0003 (pdf_gcs_key)");
+        } else {
+          const { rows: m3Applied } = await db.query<{ id: number }>(
+            `SELECT id FROM drizzle."__drizzle_migrations" WHERE hash = $1`,
+            [hash0003],
+          );
+          if (m3Applied.length === 0) {
+            logger.info("[Migrations] Applying migration 0003 (pdf_gcs_key) inline");
+            const stmts0003 = sql0003.split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+            for (const stmt of stmts0003) {
+              await db.query(stmt);
+            }
+            await upsertMigrationRecord(hash0003, entry0003.when);
+            logger.info("[Migrations] Migration 0003 (pdf_gcs_key) applied successfully");
+          }
+        }
+      }
+
+      // ── Non-transactional (CONCURRENTLY) migrations ──────────────────────────
+      // CREATE INDEX CONCURRENTLY cannot run inside a transaction. Drizzle's
+      // migrate() wraps every migration in BEGIN/COMMIT. Migrations marked with
+      // the `-- DRIZZLE:RUN-CONCURRENT` header comment are detected here and
+      // executed outside that wrapper on existing databases (where the indexed
+      // tables are known to exist). The record is inserted into
+      // __drizzle_migrations so migrate() treats it as already applied and
+      // skips it.
+      //
+      // On fresh databases this block is skipped entirely (the enclosing
+      // `if (rows[0]?.exists)` guard is false), so migrate() runs these
+      // migrations as plain CREATE INDEX IF NOT EXISTS inside its transaction —
+      // safe because newly created tables are small and hold no write load.
+      for (const entry of journal.entries) {
+        let sqlContent: string;
+        try {
+          sqlContent = await readFile(
+            path.join(migrationsFolder, `${entry.tag}.sql`),
+            "utf8",
+          );
+        } catch {
+          continue;
+        }
+        if (!sqlContent.includes("DRIZZLE:RUN-CONCURRENT")) continue;
+
+        const hash = createHash("sha256").update(sqlContent).digest("hex");
+        const { rows: alreadyApplied } = await db.query<{ id: number }>(
+          `SELECT id FROM drizzle."__drizzle_migrations" WHERE hash = $1`,
+          [hash],
+        );
+        if (alreadyApplied.length > 0) continue;
+
+        logger.info({ tag: entry.tag }, "[Migrations] Applying non-transactional migration");
+        const rawStatements = sqlContent
+          .split("--> statement-breakpoint")
+          .map((s) =>
+            s
+              .split("\n")
+              .filter((line) => !line.trim().startsWith("--"))
+              .join("\n")
+              .trim(),
+          )
+          .filter(Boolean);
+        for (const stmt of rawStatements) {
+          // Inject CONCURRENTLY after CREATE INDEX so that the index build
+          // does not acquire a ShareLock on the existing table.
+          const concurrentStmt = stmt.replace(
+            /^CREATE INDEX IF NOT EXISTS/i,
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS",
+          );
+          await db.query(concurrentStmt);
+        }
+        await db.query(
+          `INSERT INTO drizzle."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
+          [hash, entry.when],
+        );
+        logger.info({ tag: entry.tag }, "[Migrations] Non-transactional migration applied");
+      }
+
+      // Fall through — migrate() will now see all reconciled records and skip
+      // any migrations whose schema changes are already present.
     }
 
     const ormDb = drizzle(db);
@@ -113,6 +334,7 @@ export async function runDrizzleMigrations(): Promise<void> {
     logger.warn({ err }, "[Migrations] Migration run skipped — schema may already be managed or DATABASE_URL absent");
   }
 }
+
 
 export async function initDb(): Promise<void> {
   const db = getDb();
@@ -606,6 +828,11 @@ export async function initDb(): Promise<void> {
     ALTER TABLE docufill_package_documents
     ADD COLUMN IF NOT EXISTS page_sizes JSONB NOT NULL DEFAULT '[]'::jsonb
   `);
+  // GCS key for template PDFs — new writes go to GCS; pdf_data kept for legacy reads
+  await db.query(`ALTER TABLE docufill_package_documents ADD COLUMN IF NOT EXISTS pdf_gcs_key TEXT`);
+  await db.query(`ALTER TABLE docufill_package_documents ALTER COLUMN pdf_data DROP NOT NULL`);
+  // AES-256-GCM encrypted form of pdf_data (SOC 2 CC6.1) — same envelope-encryption scheme as answers_ciphertext
+  await db.query(`ALTER TABLE docufill_package_documents ADD COLUMN IF NOT EXISTS pdf_data_ciphertext TEXT`);
   await db.query(`
     ALTER TABLE docufill_packages
     ADD COLUMN IF NOT EXISTS transaction_scope TEXT NOT NULL DEFAULT ''
@@ -1466,219 +1693,6 @@ export async function initDb(): Promise<void> {
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 
-  // ── Scheduled data retention ──────────────────────────────────────────────
-  // Keeps the audit tables from growing unboundedly.
-  // booking_attempts can accumulate quickly (every booking attempt writes a row).
-  // Run once on startup (to catch any backlog) and then every 24 hours.
-  async function pruneAuditTables(): Promise<void> {
-    try {
-      const db = getDb();
-      const { rowCount } = await db.query(`
-        DELETE FROM booking_attempts WHERE attempted_at < NOW() - INTERVAL '90 days'
-      `);
-      if ((rowCount ?? 0) > 0) {
-        logger.info({ rowCount }, "[DB] Pruned old booking_attempts rows");
-      }
-    } catch (err) {
-      logger.error({ err }, "[DB] booking_attempts prune failed (non-fatal)");
-    }
-  }
-
-  pruneAuditTables().catch(() => {});
-  setInterval(() => pruneAuditTables().catch(() => {}), 24 * 60 * 60 * 1000).unref();
-
-  // ── Submission retention: delete sessions older than the account's policy ─────
-  async function pruneRetainedSubmissions(): Promise<void> {
-    try {
-      const retentionDb = getDb();
-      const { rowCount } = await retentionDb.query(`
-        DELETE FROM docufill_interview_sessions dis
-        USING accounts a
-        WHERE dis.account_id = a.id
-          AND a.submission_retention_days IS NOT NULL
-          AND dis.created_at < NOW() - (a.submission_retention_days || ' days')::INTERVAL
-      `);
-      if ((rowCount ?? 0) > 0) {
-        logger.info({ rowCount }, "[DB] Pruned old interview sessions per retention policy");
-      }
-    } catch (err) {
-      logger.error({ err }, "[DB] Submission retention prune failed (non-fatal)");
-    }
-  }
-
-  pruneRetainedSubmissions().catch(() => {});
-  setInterval(() => pruneRetainedSubmissions().catch(() => {}), 24 * 60 * 60 * 1000).unref();
-
-  // ── Session & login-history retention ─────────────────────────────────────────
-  // Keeps user_active_sessions and user_login_history from growing unboundedly.
-  // Sessions inactive for 30+ days are deleted; login history older than 90 days
-  // is pruned. Runs once on startup (to clear any backlog) and every 24 hours.
-  async function pruneSessionData(): Promise<void> {
-    try {
-      const pruneDb = getDb();
-      const { rowCount: sessionRows } = await pruneDb.query(`
-        DELETE FROM user_active_sessions
-         WHERE last_active_at < NOW() - INTERVAL '30 days'
-      `);
-      if ((sessionRows ?? 0) > 0) {
-        logger.info({ rowCount: sessionRows }, "[DB] Pruned inactive user_active_sessions");
-      }
-      const { rowCount: historyRows } = await pruneDb.query(`
-        DELETE FROM user_login_history
-         WHERE created_at < NOW() - INTERVAL '90 days'
-      `);
-      if ((historyRows ?? 0) > 0) {
-        logger.info({ rowCount: historyRows }, "[DB] Pruned old user_login_history rows");
-      }
-    } catch (err) {
-      logger.error({ err }, "[DB] Session data prune failed (non-fatal)");
-    }
-  }
-
-  pruneSessionData().catch(() => {});
-  setInterval(() => pruneSessionData().catch(() => {}), 24 * 60 * 60 * 1000).unref();
-
-  // ── Account deletion: hard-delete accounts past their 7-day grace period ──────
-  // Uses explicit ordered deletes inside a transaction to avoid FK violations on
-  // tables that do NOT have ON DELETE CASCADE on their account_id foreign key
-  // (docufill_custodians, docufill_depositories, docufill_groups, docufill_packages,
-  // and docufill_interview_sessions all have account_id without CASCADE).
-  async function processScheduledDeletions(): Promise<void> {
-    try {
-      const delDb = getDb();
-      const { rows } = await delDb.query<{ id: number; name: string }>(
-        `SELECT id, name FROM accounts
-         WHERE deletion_requested_at IS NOT NULL
-           AND deletion_requested_at < NOW() - INTERVAL '7 days'`,
-      );
-      for (const account of rows) {
-        const client = await delDb.connect();
-        try {
-          await client.query("BEGIN");
-          // 1. Delete per-account reference data: custodians and depositories have
-          //    account_id NOT NULL (enforced by account_id_isolation_v1 migration),
-          //    so they must be deleted — not nulled. Their FKs from docufill_packages
-          //    (custodian_id / depository_id) are ON DELETE SET NULL, so deleting
-          //    these rows safely clears the package references first.
-          await client.query(`DELETE FROM docufill_custodians   WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM docufill_depositories WHERE account_id = $1`, [account.id]);
-          // 2. Delete interview sessions (account_id FK lacks CASCADE on accounts)
-          await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
-          // 3. Delete packages (cascades: sessions via package_id, webhook_deliveries, package_documents)
-          await client.query(`DELETE FROM docufill_packages WHERE account_id = $1`, [account.id]);
-          // 4. Delete groups (account_id FK lacks CASCADE)
-          await client.query(`DELETE FROM docufill_groups   WHERE account_id = $1`, [account.id]);
-          // 5. Delete the account — remaining tables (account_users, usage_events, api_keys,
-          //    audit_log, notification_prefs, plan_limit_alerts, data_export_requests, etc.)
-          //    all have ON DELETE CASCADE and will be handled automatically.
-          await client.query(`DELETE FROM accounts WHERE id = $1`, [account.id]);
-          await client.query("COMMIT");
-          logger.info({ accountId: account.id, name: account.name }, "[DB] Hard-deleted account after grace period");
-        } catch (deleteErr) {
-          await client.query("ROLLBACK");
-          logger.error({ err: deleteErr, accountId: account.id }, "[DB] Account hard-delete failed, rolled back");
-        } finally {
-          client.release();
-        }
-      }
-    } catch (err) {
-      logger.error({ err }, "[DB] Account deletion processing failed (non-fatal)");
-    }
-  }
-
-  processScheduledDeletions().catch(() => {});
-  setInterval(() => processScheduledDeletions().catch(() => {}), 6 * 60 * 60 * 1000).unref();
-
-  // ── Post-trial data purge: delete org content for lapsed trials after 7 days ──
-  // Preserves the account row (email, name, created_at, plan_tier) for marketing.
-  // Only content is removed: packages, sessions, custodians, depositories, groups.
-  // Runs every 6 hours; accounts are excluded once data_purged_at is set.
-  async function purgeExpiredTrialData(): Promise<void> {
-    try {
-      const purgeDb = getDb();
-      // Defense-in-depth: exclude any account that is currently active or trialing
-      // even if trial_ended_at was somehow not cleared (e.g., webhook ordering edge case).
-      const { rows } = await purgeDb.query<{ id: number; name: string }>(
-        `SELECT id, name FROM accounts
-         WHERE trial_ended_at IS NOT NULL
-           AND trial_ended_at < NOW() - INTERVAL '7 days'
-           AND data_purged_at IS NULL
-           AND (subscription_status IS NULL OR subscription_status NOT IN ('active', 'trialing'))`,
-      );
-      for (const account of rows) {
-        const client = await purgeDb.connect();
-        try {
-          await client.query("BEGIN");
-          // Non-CASCADE docufill content — must be deleted explicitly
-          await client.query(`DELETE FROM docufill_custodians        WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM docufill_depositories      WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM docufill_fields            WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
-          // Packages cascade to: package_documents, webhook_deliveries, package_groups
-          await client.query(`DELETE FROM docufill_packages          WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM docufill_groups            WHERE account_id = $1`, [account.id]);
-          // Revoke access — API keys and account_users (users cascade to sessions/devices/history)
-          await client.query(`DELETE FROM account_api_keys           WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM account_users              WHERE account_id = $1`, [account.id]);
-          // docufill_signing_events has account_id with no FK/cascade
-          await client.query(`DELETE FROM docufill_signing_events    WHERE account_id = $1`, [account.id]);
-          // docufill_transaction_types has account_id with cascade but account row is preserved
-          await client.query(`DELETE FROM docufill_transaction_types WHERE account_id = $1`, [account.id]);
-          // Remaining account-scoped tables that have ON DELETE CASCADE on accounts
-          // but won't auto-cascade since the account row is preserved
-          await client.query(`DELETE FROM usage_events               WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM submission_bank            WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM pack_subscriptions         WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM pdf_audit_events           WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM data_export_requests       WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM user_notification_prefs    WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM user_in_app_notifications  WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM plan_limit_alerts          WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM org_audit_log              WHERE account_id = $1`, [account.id]);
-          await client.query(
-            `UPDATE accounts SET data_purged_at = NOW() WHERE id = $1`,
-            [account.id],
-          );
-          await client.query("COMMIT");
-          logger.info({ accountId: account.id, name: account.name }, "[DB] Purged org content for lapsed trial account");
-        } catch (purgeErr) {
-          await client.query("ROLLBACK");
-          logger.error({ err: purgeErr, accountId: account.id }, "[DB] Trial data purge failed, rolled back");
-        } finally {
-          client.release();
-        }
-      }
-    } catch (err) {
-      logger.error({ err }, "[DB] Trial data purge job failed (non-fatal)");
-    }
-  }
-
-  purgeExpiredTrialData().catch(() => {});
-  setInterval(() => purgeExpiredTrialData().catch(() => {}), 6 * 60 * 60 * 1000).unref();
-
-  // ── Data export cleanup — clear export payloads after link expiry ────────────
-  // Removes sensitive archive payloads from data_export_requests once the
-  // 48-hour download window has passed, minimising sensitive data retention.
-  async function purgeExpiredExports(): Promise<void> {
-    try {
-      const cleanDb = getDb();
-      const result = await cleanDb.query(
-        `UPDATE data_export_requests
-            SET export_json = NULL, status = 'expired'
-          WHERE expires_at < NOW()
-            AND export_json IS NOT NULL`,
-      );
-      if ((result.rowCount ?? 0) > 0) {
-        logger.info({ purged: result.rowCount }, "[DB] Cleared export payloads from expired data_export_requests rows");
-      }
-    } catch (err) {
-      logger.error({ err }, "[DB] Export payload purge failed (non-fatal)");
-    }
-  }
-
-  purgeExpiredExports().catch(() => {});
-  setInterval(() => purgeExpiredExports().catch(() => {}), 6 * 60 * 60 * 1000).unref();
-
   // ── Super-admin account notes ─────────────────────────────────────────────────
   await db.query(`
     CREATE TABLE IF NOT EXISTS account_admin_notes (
@@ -1697,6 +1711,9 @@ export async function initDb(): Promise<void> {
   // ── Encryption at rest — PII fields ──────────────────────────────────────────
   // Per-account data-encryption key, wrapped by ENCRYPTION_MASTER_KEY env var.
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS encrypted_dek TEXT`);
+  // DEK version counter — incremented by rotate-master-key.mjs on each rotation.
+  // Allows verifying which accounts have been migrated to a new master key.
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS dek_version INTEGER NOT NULL DEFAULT 1`);
 
   // ── Package channel defaults ──────────────────────────────────────────────────
   // These org-level flags determine which output channels are enabled by default
@@ -1831,6 +1848,194 @@ export async function initDb(): Promise<void> {
 
   // ── Mandate preview: require signers to view the filled PDF before signing ──
   await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS require_preview BOOLEAN NOT NULL DEFAULT FALSE`);
+
+  // ── Mandate full scroll: require signers to scroll through the entire document ──
+  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS require_scroll_confirmation BOOLEAN NOT NULL DEFAULT FALSE`);
+
+  // ── Server-side scroll confirmation: persisted timestamp when signer attests full scroll ──
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS scroll_confirmed_at TIMESTAMPTZ`);
+
+  // ── Submission-scale composite indexes (task #592) ───────────────────────────
+  // These are also created by Drizzle migration 0004_submission_scale_indexes.
+  // Running them here with CONCURRENTLY ensures large production tables get a
+  // non-blocking build. IF NOT EXISTS makes each call idempotent — on a fresh
+  // DB the migration creates them first and these become no-ops.
+  // CONCURRENTLY cannot run inside a transaction, so these must remain outside
+  // the transactional migration path.
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS dis_account_created_idx
+    ON docufill_interview_sessions (account_id, created_at DESC NULLS LAST)`);
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS dis_account_package_idx
+    ON docufill_interview_sessions (account_id, package_id)`);
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS dis_account_status_idx
+    ON docufill_interview_sessions (account_id, status)`);
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS dis_account_expires_idx
+    ON docufill_interview_sessions (account_id, expires_at)`);
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS docufill_packages_account_created_idx
+    ON docufill_packages (account_id, created_at DESC NULLS LAST)`);
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS webhook_deliveries_account_created_idx
+    ON webhook_deliveries (account_id, created_at DESC NULLS LAST)`);
+  // Ensure the session_id column exists before creating the session index.
+  // Migration 0004 adds this column; this guard protects the fallback path.
+  await db.query(`ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS session_id INTEGER REFERENCES docufill_interview_sessions(id) ON DELETE SET NULL`);
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS webhook_deliveries_session_created_idx
+    ON webhook_deliveries (session_id, created_at DESC NULLS LAST)`);
+}
+
+// ── Scheduler functions (exported for BullMQ worker) ─────────────────────────
+// These were previously nested inside initDb() as setInterval callbacks.
+// They are now top-level exports so the worker can call them as repeatable-job
+// processors. initDb() still calls each one once on startup (see above) to
+// clear any backlog accumulated while the worker was down.
+
+export async function pruneAuditTables(): Promise<void> {
+  try {
+    const db = getDb();
+    const { rowCount } = await db.query(`
+      DELETE FROM booking_attempts WHERE attempted_at < NOW() - INTERVAL '90 days'
+    `);
+    if ((rowCount ?? 0) > 0) {
+      logger.info({ rowCount }, "[DB] Pruned old booking_attempts rows");
+    }
+  } catch (err) {
+    logger.error({ err }, "[DB] booking_attempts prune failed (non-fatal)");
+  }
+}
+
+export async function pruneRetainedSubmissions(): Promise<void> {
+  try {
+    const db = getDb();
+    const { rowCount } = await db.query(`
+      DELETE FROM docufill_interview_sessions dis
+      USING accounts a
+      WHERE dis.account_id = a.id
+        AND a.submission_retention_days IS NOT NULL
+        AND dis.created_at < NOW() - (a.submission_retention_days || ' days')::INTERVAL
+    `);
+    if ((rowCount ?? 0) > 0) {
+      logger.info({ rowCount }, "[DB] Pruned old interview sessions per retention policy");
+    }
+  } catch (err) {
+    logger.error({ err }, "[DB] Submission retention prune failed (non-fatal)");
+  }
+}
+
+export async function pruneSessionData(): Promise<void> {
+  try {
+    const db = getDb();
+    const { rowCount: sessionRows } = await db.query(`
+      DELETE FROM user_active_sessions
+       WHERE last_active_at < NOW() - INTERVAL '30 days'
+    `);
+    if ((sessionRows ?? 0) > 0) {
+      logger.info({ rowCount: sessionRows }, "[DB] Pruned inactive user_active_sessions");
+    }
+    const { rowCount: historyRows } = await db.query(`
+      DELETE FROM user_login_history
+       WHERE created_at < NOW() - INTERVAL '90 days'
+    `);
+    if ((historyRows ?? 0) > 0) {
+      logger.info({ rowCount: historyRows }, "[DB] Pruned old user_login_history rows");
+    }
+  } catch (err) {
+    logger.error({ err }, "[DB] Session data prune failed (non-fatal)");
+  }
+}
+
+export async function processScheduledDeletions(): Promise<void> {
+  try {
+    const db = getDb();
+    const { rows } = await db.query<{ id: number; name: string }>(
+      `SELECT id, name FROM accounts
+       WHERE deletion_requested_at IS NOT NULL
+         AND deletion_requested_at < NOW() - INTERVAL '7 days'`,
+    );
+    for (const account of rows) {
+      const client = await db.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(`DELETE FROM docufill_custodians   WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_depositories WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_packages WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_groups   WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM accounts WHERE id = $1`, [account.id]);
+        await client.query("COMMIT");
+        logger.info({ accountId: account.id, name: account.name }, "[DB] Hard-deleted account after grace period");
+      } catch (deleteErr) {
+        await client.query("ROLLBACK");
+        logger.error({ err: deleteErr, accountId: account.id }, "[DB] Account hard-delete failed, rolled back");
+      } finally {
+        client.release();
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, "[DB] Account deletion processing failed (non-fatal)");
+  }
+}
+
+export async function purgeExpiredTrialData(): Promise<void> {
+  try {
+    const db = getDb();
+    const { rows } = await db.query<{ id: number; name: string }>(
+      `SELECT id, name FROM accounts
+       WHERE trial_ended_at IS NOT NULL
+         AND trial_ended_at < NOW() - INTERVAL '7 days'
+         AND data_purged_at IS NULL
+         AND (subscription_status IS NULL OR subscription_status NOT IN ('active', 'trialing'))`,
+    );
+    for (const account of rows) {
+      const client = await db.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(`DELETE FROM docufill_custodians        WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_depositories      WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_fields            WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_packages          WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_groups            WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM account_api_keys           WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM account_users              WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_signing_events    WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_transaction_types WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM usage_events               WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM submission_bank            WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM pack_subscriptions         WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM pdf_audit_events           WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM data_export_requests       WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM user_notification_prefs    WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM user_in_app_notifications  WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM plan_limit_alerts          WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM org_audit_log              WHERE account_id = $1`, [account.id]);
+        await client.query(`UPDATE accounts SET data_purged_at = NOW() WHERE id = $1`, [account.id]);
+        await client.query("COMMIT");
+        logger.info({ accountId: account.id, name: account.name }, "[DB] Purged org content for lapsed trial account");
+      } catch (purgeErr) {
+        await client.query("ROLLBACK");
+        logger.error({ err: purgeErr, accountId: account.id }, "[DB] Trial data purge failed, rolled back");
+      } finally {
+        client.release();
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, "[DB] Trial data purge job failed (non-fatal)");
+  }
+}
+
+export async function purgeExpiredExports(): Promise<void> {
+  try {
+    const db = getDb();
+    const result = await db.query(
+      `UPDATE data_export_requests
+          SET export_json = NULL, status = 'expired'
+        WHERE expires_at < NOW()
+          AND export_json IS NOT NULL`,
+    );
+    if ((result.rowCount ?? 0) > 0) {
+      logger.info({ purged: result.rowCount }, "[DB] Cleared export payloads from expired data_export_requests rows");
+    }
+  } catch (err) {
+    logger.error({ err }, "[DB] Export payload purge failed (non-fatal)");
+  }
 }
 
 /**

@@ -18,7 +18,7 @@ import {
 import { lockAndExecuteTrade }   from "../lib/fiztrade";
 import { generateInvoicePdf }   from "../lib/invoice-pdf";
 import { saveDealPdfToDrive }   from "../lib/google-drive";
-import { isRateLimited }        from "../lib/ratelimit";
+import { isRateLimited }        from "../lib/ratelimit-redis";
 import { DealCreateBodySchema, TrackingBodySchema, EmptyBodySchema, PreviewInvoiceBodySchema } from "./schemas";
 
 const router: IRouter = Router();
@@ -66,7 +66,7 @@ function normalizeEntityId(value: number | string | null | undefined): number | 
 router.post("/", async (req, res) => {
   const ip = String(req.ip ?? "unknown");
   const operatorEmail = String((req as unknown as { internalEmail?: string }).internalEmail ?? ip);
-  if (isRateLimited(`deals:${operatorEmail}`, 10, 10 * 60 * 1000)) {
+  if (await isRateLimited(`deals:${operatorEmail}`, 10, 10 * 60 * 1000)) {
     res.status(429).json({ error: "Too many deal submissions — please wait a few minutes." });
     return;
   }

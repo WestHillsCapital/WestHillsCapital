@@ -137,7 +137,34 @@ export function DocuFillInterviewPanel({ token, getAuthHeaders }: Props) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? "Could not generate packet");
       }
-      setPacketUrl(`${API_BASE}/api/internal/docufill/sessions/${token}/packet.pdf`);
+      if (res.status === 202) {
+        const { jobId } = await res.json() as { jobId: string };
+        const POLL_INTERVAL = 2000;
+        const MAX_POLLS = 90;
+        let ready = false;
+        for (let i = 0; i < MAX_POLLS; i++) {
+          await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL));
+          const sr = await fetch(
+            `${API_BASE}/api/internal/docufill/sessions/${token}/generate-status?jobId=${encodeURIComponent(jobId)}`,
+            { headers: { ...getAuthHeaders() } },
+          );
+          if (!sr.ok) continue;
+          const sd = await sr.json() as { status: string; error?: string };
+          if (sd.status === "ready") {
+            setPacketUrl(`${API_BASE}/api/internal/docufill/sessions/${token}/packet.pdf`);
+            ready = true;
+            break;
+          }
+          if (sd.status === "failed") {
+            throw new Error(sd.error ?? "Document generation failed. Please try again.");
+          }
+        }
+        if (!ready) {
+          throw new Error("Generation is taking longer than expected. The document may still be processing — please refresh the page.");
+        }
+      } else {
+        setPacketUrl(`${API_BASE}/api/internal/docufill/sessions/${token}/packet.pdf`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not generate packet");
     } finally {

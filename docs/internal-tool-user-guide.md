@@ -88,7 +88,7 @@ After execution, the Fulfillment Panel shows the deal's milestone timeline. Each
 - **Important**: no API endpoint exists in Fiztrade for ACH payment — this milestone is manual. You must actually submit payment on the Fiztrade site; this button only records the date.
 
 ### Step 3: Label Created / Shipped
-- Tracking number is auto-populated by the background sync (checks DG every 15 minutes with a 2-minute offset, so up to ~17 minutes after DG marks it shipped)
+- Tracking number is auto-populated by the background sync (checks DG every 15 minutes via BullMQ worker job, so up to ~15 minutes after DG marks it shipped)
 - Or enter the tracking number manually and click "Save Tracking #"
 - Saving a tracking number automatically schedules the shipping notification email for 24 hours later
 

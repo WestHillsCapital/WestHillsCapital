@@ -63,6 +63,25 @@ export function decryptAnswers(ciphertext: string, dek: Buffer): Record<string, 
   return JSON.parse(json) as Record<string, unknown>;
 }
 
+// ── Binary data encryption (PDFs and other raw buffers) ────────────────────────
+
+/**
+ * Encrypt a raw Buffer with the given DEK.
+ * Returns the AES-256-GCM ciphertext as a hex string: "ivHex:tagHex:ctHex".
+ * Store the result in a TEXT column (e.g. pdf_data_ciphertext).
+ */
+export function encryptBuffer(buf: Buffer, dek: Buffer): string {
+  return aesEncrypt(buf, dek);
+}
+
+/**
+ * Decrypt a raw Buffer previously encrypted with encryptBuffer.
+ * Accepts the "ivHex:tagHex:ctHex" string produced by encryptBuffer.
+ */
+export function decryptBuffer(ciphertext: string, dek: Buffer): Buffer {
+  return aesDecrypt(ciphertext, dek);
+}
+
 // ── In-process DEK cache + auto-provision ─────────────────────────────────────
 // DEKs are cached per account so the DB is only hit once per process lifetime
 // per account. On server restart the cache is warm-filled on first access.

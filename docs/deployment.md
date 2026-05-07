@@ -9,7 +9,90 @@ The application is deployed from the Replit workspace using Replit's built-in pu
 - The API server and web frontend are hosted under path-based routing
 - The Replit-managed PostgreSQL database is automatically available in production
 
-There is no separate CI/CD pipeline. Deployments are triggered manually from the Replit interface.
+**Deployments require a passing CI run and at least one approved pull request review** — see the CI/CD section below.
+
+---
+
+## Penetration testing
+
+Annual third-party penetration testing is required for SOC 2 CC7.1. The test scope and rules of engagement are defined in [`docs/pentest-scope.md`](pentest-scope.md). The vendor shortlist, test history, and remediation tracking are in [`docs/pentest-tracking.md`](pentest-tracking.md).
+
+---
+
+## Business continuity and disaster recovery
+
+Recovery objectives and step-by-step runbooks for all failure scenarios are documented in the [Business Continuity & Disaster Recovery Plan](business-continuity-plan.md) (SOC 2 CC9.1, A1.2, A1.3). The plan covers: RTO/RPO targets per service component, recovery runbooks for API server crashes, DB failure/corruption, frontend outages, full environment loss, and Redis failures, plus known gaps and compensating controls.
+
+---
+
+## Vendor inventory and sub-processors
+
+All third-party vendors and sub-processors with access to production systems or customer data are documented in the [Vendor Inventory](vendor-inventory.md) (SOC 2 CC9.2). It includes compliance status, DPA status, and the data each vendor can access. The vendor review procedure for onboarding new vendors is also defined there.
+
+---
+
+## Information security policies
+
+The organization's core security policy suite is in [`docs/policies/`](policies/):
+
+| Document | Coverage |
+|---|---|
+| [Information Security Policy](policies/information-security-policy.md) | Top-level commitment, guiding principles, roles (SOC 2 CC1.1–CC1.5) |
+| [Acceptable Use Policy](policies/acceptable-use-policy.md) | Employee and contractor use of systems, devices, and data (CC1.4, CC6.1, CC6.6) |
+| [Data Classification Policy](policies/data-classification-policy.md) | Four tiers (Public / Internal / Confidential / Restricted); full data inventory mapped to tiers (CC3.2, CC6.1, CC6.5) |
+| [Access Control Policy](policies/access-control-policy.md) | Provisioning, de-provisioning, quarterly access review for all systems (CC6.1–CC6.3) |
+| [Log Retention Policy](policies/log-retention-policy.md) | Retention windows for all log types; 12-month minimum for security-relevant logs (CC7.2, A1.2) |
+
+---
+
+## Incident response
+
+Security incidents and significant outages are handled according to the [Incident Response Plan](incident-response-plan.md) (SOC 2 CC7.3–CC7.5). The IRP defines severity tiers (P0–P3), detection sources, response steps, notification timelines, and the post-mortem process.
+
+---
+
+## CI/CD pipeline and branch protection (SOC 2 CC8.1)
+
+All changes to `main` go through a controlled change management process:
+
+```
+feature-branch → Pull Request → CI checks pass → 1 approved review → merge → Replit/Railway deploy
+```
+
+### GitHub Actions CI workflow
+
+Every push to `main` and every PR targeting `main` triggers `.github/workflows/ci.yml`, which runs three gates in sequence:
+
+| Step | Command | Fails on |
+|---|---|---|
+| Typecheck | `pnpm run typecheck` | Any TypeScript type error across the monorepo |
+| Dependency audit | `pnpm audit --audit-level=high` | Any high or critical CVE in the dependency tree |
+| Build | `pnpm -r --filter '!@workspace/mockup-sandbox' --if-present run build` | Any compilation or bundling failure |
+
+A failed CI run blocks merge. The CI badge in the repository README reflects the current `main` branch status.
+
+### Branch protection on GitHub
+
+Branch protection is configured via a GitHub **Ruleset** named `main-branch-protection` (ruleset ID 16109303) on the `WestHillsCapital/WestHillsCapital` repository. It is **already active** — no manual setup is needed.
+
+The active rules are:
+
+| Rule | Setting |
+|---|---|
+| Pull request required | 1 approved review, stale approvals dismissed |
+| Required status check | `CI / Typecheck, Audit & Build` (must be up to date) |
+| Conversation resolution | Required before merge |
+
+To view or modify: **GitHub → Settings → Rules → Rulesets → main-branch-protection**.
+
+### Hotfix bypass procedure
+
+If a critical production issue requires bypassing branch protection:
+
+1. A repository admin temporarily disables the "Do not allow bypassing" rule
+2. The admin documents the reason in the PR description with the tag `[HOTFIX-BYPASS]`
+3. The bypass must be re-enabled immediately after the merge
+4. The incident is recorded in the change log / incident tracker
 
 ---
 
@@ -28,6 +111,7 @@ Both services run in the same Replit deployment context. The API server connects
 
 Before deploying a new version:
 
+- [ ] Run `pnpm audit --audit-level=high` — must exit 0 (no high/critical vulnerabilities) before deploying
 - [ ] All three workflows start cleanly with no errors in the console
 - [ ] API server logs show "Database ready — all systems operational"
 - [ ] Test `GET /api/health` — should return `{ "status": "ok", "db": "ready" }`
@@ -36,6 +120,26 @@ Before deploying a new version:
 - [ ] Verify `FIZTRADE_DRY_RUN` is NOT set to `true` in production secrets
 - [ ] Verify `INTERNAL_ALLOWED_EMAILS` includes all authorized staff
 - [ ] Verify `FRONTEND_URL` is set to the production URL
+
+---
+
+## Dependency vulnerability status (SOC 2 CC7.1)
+
+Run `pnpm run audit` (alias for `pnpm audit --audit-level=high`) before every deployment. It is also the first step of the automated `build` script. The command exits 0 when no high/critical vulnerabilities are present.
+
+### Current findings — as of May 2026 (all low/moderate, no blocking issues)
+
+| Severity | Package | Finding | Location | Risk acceptance |
+|---|---|---|---|---|
+| LOW | `tmp` | Symlink arbitrary write via `dir` param | `zapier-platform-cli` transitive (dev/tooling) | No production code path; dev tooling only |
+| LOW | `diff` (jsdiff) | DoS in `parsePatch` / `applyPatch` | `zapier-platform-cli` transitive (dev/tooling) | No production code path; dev tooling only |
+| LOW | `@tootallnate/once` | Incorrect control flow scoping | `@google-cloud/storage` transitive | Resolved when GCS client releases an update |
+| MODERATE | `brace-expansion` | Zero-step sequence causes ReDoS/memory hang | `archiver` transitive | Not reachable from untrusted input in current use; will be resolved by upstream update |
+| MODERATE | `yaml` | Stack overflow on deeply nested YAML | `knip` dev-only transitive | Dev tool only; no production exposure |
+| MODERATE | `postcss` | XSS via unescaped `</style>` in CSS stringify | `vite` transitive | Build-time only; no runtime exposure |
+| MODERATE | `ip-address` | XSS in `Address6` HTML-emitting methods | `geoip-lite` + MCP SDK transitive | HTML-emitting methods not called in our code |
+
+All findings are in transitive dependencies. Dependabot is configured to open automatic update PRs when parent packages release fixes.
 
 ---
 
@@ -78,11 +182,249 @@ If a DB migration caused data loss, restore from the Replit database backup (con
 
 ## Background processes in production
 
-In production, the two background schedulers run continuously as part of the API server process:
+All scheduled jobs run in the **worker process** (not the API server) as BullMQ repeatable jobs. BullMQ's distributed lock ensures each job runs exactly once regardless of how many worker instances are active.
 
-- `runScheduler()`: every 15 minutes — handles shipping emails, follow-up emails, status sync
-- `runTrackingSync()`: every 15 minutes (2-minute offset) — polls DG for tracking numbers
+| Job name | Cadence | What it does |
+|---|---|---|
+| `prune:sessions` | every 15 min | Deletes expired `internal_sessions` rows |
+| `scheduler:fulfillment` | every 15 min | Shipping emails, follow-up emails, Ops status sync |
+| `scheduler:tracking-sync` | every 15 min | Polls DG for tracking numbers on unshipped deals |
+| `prune:audit-tables` | every 24 h | Deletes `booking_attempts` rows > 90 days old |
+| `prune:submissions` | every 24 h | Deletes interview sessions past each account's retention policy |
+| `prune:session-data` | every 24 h | Prunes `user_active_sessions` (30 d) and `user_login_history` (90 d) |
+| `purge:scheduled-deletions` | every 6 h | Hard-deletes accounts past their 7-day deletion grace period |
+| `purge:trial-data` | every 6 h | Purges org content for lapsed trial accounts |
+| `expire:exports` | every 6 h | Clears `export_json` payloads after the 48-hour download window |
 
-These run as long as the API server is running. If the server is restarted, both schedulers restart immediately after DB initialization.
+Jobs are registered idempotently via `queue.upsertJobScheduler()` on every worker startup. The API server does **not** run any scheduler logic — it handles HTTP requests only.
 
-There is no separate worker process or job queue. Both schedulers share the API server process.
+On worker startup, each scheduler function also runs once immediately as a backlog-clear pass (to process any rows that accumulated while the worker was down). This is done in the worker's init path, not in `initDb()`, so the API server is never involved.
+
+### Inspecting scheduler run history
+
+- `GET /api/internal/queue-status` (internal auth required) — includes the `scheduler` queue, showing waiting / active / completed / failed job counts
+- **BullMQ Board**: connect a BullMQ Board instance to your Redis URL for a visual dashboard of all queues, repeatable job schedules, and per-job run history. See the [BullMQ Board docs](https://github.com/felixmosh/bull-board) for setup instructions.
+- In Railway worker logs, look for `[Scheduler] Job scheduler registered` (registration complete) and job-specific log lines (e.g. `[Scheduler] Fulfillment scheduler tick complete`) to confirm jobs are running
+
+---
+
+## GCS object storage (template PDFs)
+
+Template PDFs uploaded by users are stored in Google Cloud Storage. Signed/generated session PDFs (`generated_pdf_storage_key`) have always used GCS; template PDFs (`docufill_package_documents.pdf_gcs_key`) were migrated in Task #590.
+
+### Bucket structure
+
+| Path prefix | Content |
+|---|---|
+| `pdfs/{accountId}/{packageId}/{documentId}.pdf` | Template PDF uploaded by the user for a package document |
+| `signed-pdfs/{sessionToken}.pdf` | Signed/generated PDF for a completed interview session |
+
+Both paths live under the bucket configured in `PRIVATE_OBJECT_DIR` (e.g. `gs://my-bucket/private`). The `pdf_gcs_key` column stores the `/objects/...` reference used by the API server.
+
+### Fallback behaviour
+
+Rows that pre-date the migration continue to have `pdf_data` set in Postgres. All read paths check `pdf_gcs_key` first and fall back to `pdf_data` transparently.
+
+### Migrating existing rows
+
+Run the one-time migration script to upload existing Postgres blobs to GCS:
+
+```bash
+# Dry run — see what would be migrated
+node artifacts/api-server/scripts/migrate-pdfs-to-gcs.mjs --dry-run
+
+# Live run — upload and write back pdf_gcs_key (keeps pdf_data as fallback)
+node artifacts/api-server/scripts/migrate-pdfs-to-gcs.mjs
+
+# Live run + reclaim Postgres storage after upload
+node artifacts/api-server/scripts/migrate-pdfs-to-gcs.mjs --null-pdf-data
+```
+
+Required env vars: `DATABASE_URL`, `PRIVATE_OBJECT_DIR`.
+
+---
+
+## Job queue (BullMQ + Redis)
+
+The job queue infrastructure powers background processing for PDF generation, webhook delivery, and scheduled jobs. It consists of two independent processes:
+
+| Process | Railway service config | Purpose |
+|---|---|---|
+| API server | `railway.toml` | Enqueues jobs; serves `/api/internal/queue-status` |
+| Worker | `railway.worker.toml` | Processes jobs from all queues |
+
+### Setting up Redis on Railway
+
+1. In your Railway project, click **+ New** → **Database** → **Redis**
+2. Once provisioned, Railway automatically injects `REDIS_URL` into any service that has it set as a variable reference. Alternatively, copy the connection URL from the Redis service's **Variables** tab.
+3. Set `REDIS_URL` on both the API server service and the worker service.
+
+### Adding the worker as a second Railway service
+
+1. In your Railway project, click **+ New** → **GitHub Repo** (same repo)
+2. In the service settings, set **Config file path** to `railway.worker.toml`
+3. Set environment variables: `REDIS_URL`, `DATABASE_URL`, `SENTRY_DSN`, `NODE_ENV=production`, `ENCRYPTION_MASTER_KEY`
+4. Deploy — the worker will start and log `[Worker] All processors registered — listening for jobs`
+
+### Monitoring queue health
+
+- `GET /api/internal/queue-status` (internal auth required) — returns live queue depth (waiting / active / completed / failed) for all queues
+- On startup, the API server enqueues a ping job; the worker logs `[Worker:Ping] Ping job processed` when it completes, confirming the round-trip works
+
+### Adding new job types
+
+1. Add payload schema and type to `lib/queues/src/jobTypes.ts`
+2. Add the queue name to `lib/queues/src/queueNames.ts`
+3. Export the new queue from `artifacts/api-server/src/lib/queue.ts`
+4. Add a processor in `artifacts/worker/src/processors/`
+5. Register the processor in `artifacts/worker/src/index.ts`
+
+### Graceful degradation
+
+When `REDIS_URL` is not set (e.g. in the Replit development environment), all queue operations are skipped with a warning log. The API server and all existing features continue to work normally — jobs simply do not run.
+
+---
+
+## Encryption key rotation (SOC 2 CC6.1)
+
+PII (interview answers) is encrypted with per-account Data Encryption Keys (DEKs). Each DEK is itself encrypted by a single `ENCRYPTION_MASTER_KEY` stored as a secret. This envelope-encryption scheme means rotating the master key re-protects all customer data without touching the answer ciphertext.
+
+### When to rotate
+
+- **Annually** — as part of the SOC 2 annual review cycle
+- **On suspected compromise** — immediately, if you have reason to believe `ENCRYPTION_MASTER_KEY` may have been exposed
+- **On staff offboarding** — if a departing team member had access to the production secrets
+
+### How to generate a new master key
+
+```bash
+# Generate a cryptographically random 32-byte key (64 hex chars)
+node -e "const {randomBytes}=require('crypto'); console.log(randomBytes(32).toString('hex'))"
+```
+
+### Rotation procedure
+
+1. **Dry run first** — verify the account count and that the old key decrypts every DEK correctly:
+
+   ```bash
+   OLD_ENCRYPTION_MASTER_KEY=<current key> \
+   NEW_ENCRYPTION_MASTER_KEY=<new key> \
+   DATABASE_URL=<production url> \
+   node artifacts/api-server/scripts/rotate-master-key.mjs --dry-run
+   ```
+
+   The output lists each account ID with its `dek_version` increment. If any account shows `FAILED`, stop — the old key does not match `ENCRYPTION_MASTER_KEY`.
+
+2. **Live run** — re-encrypt all DEKs in a single serializable transaction with row-level locks:
+
+   ```bash
+   OLD_ENCRYPTION_MASTER_KEY=<current key> \
+   NEW_ENCRYPTION_MASTER_KEY=<new key> \
+   DATABASE_URL=<production url> \
+   node artifacts/api-server/scripts/rotate-master-key.mjs
+   ```
+
+3. **Catch stragglers** — re-run the same command immediately. If any accounts were created during step 2, they will still be at `dek_version = 1` and will be rotated now. When the output reads "Nothing to rotate", all accounts are migrated.
+
+4. **Update the secret** — set `ENCRYPTION_MASTER_KEY` to the new key value in Replit's Secrets panel.
+
+5. **Restart services** — restart the API server and worker workflows so they pick up the new secret.
+
+6. **Verify** — check startup logs for normal operation and no decryption errors.
+
+7. **Remove the old key** — delete `OLD_ENCRYPTION_MASTER_KEY` from secrets. Do not leave it in place.
+
+To target a specific DEK generation (e.g., a second rotation), pass `--from-version N`:
+
+```bash
+node artifacts/api-server/scripts/rotate-master-key.mjs --from-version 2
+```
+
+### What the script does
+
+- Filters accounts by `dek_version = N` (default: 1) so only DEKs at the expected generation are touched
+- Opens a single serializable transaction and acquires row-level locks (`SELECT … FOR UPDATE`) on all matched accounts, preventing concurrent DEK writes from interleaving
+- Decrypts each DEK using `OLD_ENCRYPTION_MASTER_KEY` (AES-256-GCM); aborts the entire transaction on any failure
+- Re-encrypts each DEK using `NEW_ENCRYPTION_MASTER_KEY` with a fresh random IV per account
+- Increments `dek_version` on every updated row so the migration is auditable
+- Commits all updates atomically — if anything fails, no rows are changed
+
+**Idempotency**: re-running after a completed rotation finds 0 rows at the target version and exits cleanly. The answer ciphertext is never touched — only the DEK wrapper changes.
+
+---
+
+## PDF data encryption at rest (SOC 2 CC6.1)
+
+Template PDFs stored in the `docufill_package_documents.pdf_data` column (the GCS fallback path) are encrypted with AES-256-GCM using the same per-account DEK envelope-encryption scheme as interview answers. Encrypted blobs are stored in the `pdf_data_ciphertext TEXT` column; the plaintext `pdf_data BYTEA` column is nulled out after successful encryption.
+
+### Scope
+
+| Storage path | Encrypted? |
+|---|---|
+| Template PDFs in GCS (`pdf_gcs_key`) | At-rest encryption handled by GCS |
+| Template PDFs in DB (`pdf_data` / `pdf_data_ciphertext`) | AES-256-GCM via `encryptBuffer` / `decryptBuffer` |
+| Generated session PDFs in GCS (`generated_pdf_storage_key`) | At-rest encryption handled by GCS |
+
+New demo-package PDFs written to the DB fallback path are encrypted automatically when `ENCRYPTION_MASTER_KEY` is set. Existing plaintext rows written before this feature was deployed must be migrated with the one-time script below.
+
+### One-time migration for existing rows
+
+```bash
+# Dry run — preview affected accounts and validate DEK availability
+DATABASE_URL=<production url> \
+ENCRYPTION_MASTER_KEY=<current key> \
+node artifacts/api-server/scripts/encrypt-existing-pdfs.mjs --dry-run
+
+# Live run — encrypt all unencrypted pdf_data rows and null out the plaintext
+DATABASE_URL=<production url> \
+ENCRYPTION_MASTER_KEY=<current key> \
+node artifacts/api-server/scripts/encrypt-existing-pdfs.mjs
+```
+
+The script is safe to re-run — rows with `pdf_data_ciphertext IS NOT NULL` are skipped. After a successful run, verify with:
+
+```sql
+SELECT COUNT(*)
+  FROM docufill_package_documents
+ WHERE pdf_data IS NOT NULL AND pdf_data_ciphertext IS NULL;
+-- Should return 0
+```
+
+Required env vars: `DATABASE_URL`, `ENCRYPTION_MASTER_KEY`.
+
+---
+
+## Database SSL (SOC 2 CC6.7)
+
+The API server enforces TLS certificate validation for all production database connections (`rejectUnauthorized: true`). This applies to every pg Pool used by the server — the main pool (`db.ts`), the shared Drizzle pool (`lib/db`), and the StripeSync pool.
+
+### Standard setup (Replit-managed or Railway Postgres)
+
+No extra configuration is needed. Both Replit-managed Neon and Railway Postgres use publicly-trusted certificates (Let's Encrypt / DigiCert). The Node.js system CA bundle validates them automatically.
+
+At startup, the API server logs the active SSL mode:
+
+```
+[DB] SSL configuration  { sslEnabled: true, rejectUnauthorized: true, customCa: false }
+```
+
+### Private-CA environments (self-hosted Postgres)
+
+If your database uses a certificate issued by a private CA (e.g. a self-signed cert from a self-hosted Postgres), set the `DB_SSL_CA` secret to the base64-encoded PEM of the CA certificate:
+
+```bash
+# Encode the CA cert
+base64 -w 0 /path/to/ca.crt
+```
+
+Paste the output as the value for `DB_SSL_CA` in Replit's Secrets panel. The connection will then use `rejectUnauthorized: true` with that CA as the trust anchor. The startup log will show `customCa: true`.
+
+### Troubleshooting SSL connection failures
+
+If the API server fails to connect after a deployment with errors like `SELF_SIGNED_CERT_IN_CHAIN` or `unable to verify the first certificate`:
+
+1. Obtain the CA certificate from your DB provider's dashboard.
+2. Base64-encode it and set `DB_SSL_CA` as described above.
+3. Restart the API server workflow.
+
+If you are on a provider that explicitly requires `rejectUnauthorized: false` (not recommended), contact your DB provider to obtain a valid CA cert instead — disabling validation removes SOC 2 CC6.7 compliance.

@@ -64,7 +64,9 @@ export function InternalAuthProvider({ children }: { children: ReactNode }) {
         // Keep session if it expires more than 5 minutes from now and has a token
         if (session.expiresAt > Date.now() + 5 * 60 * 1000 && session.sessionToken) {
           setUser(session);
-          Sentry.setUser({ email: session.email });
+          // Internal-auth users have no opaque non-PII identifier; omit user
+          // context rather than sending a raw email to Sentry (SOC 2 CC6.1).
+          Sentry.setUser(null);
         } else {
           localStorage.removeItem(STORAGE_KEY);
         }
@@ -96,7 +98,9 @@ export function InternalAuthProvider({ children }: { children: ReactNode }) {
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
       setUser(session);
-      Sentry.setUser({ email: session.email });
+      // Internal-auth users have no opaque non-PII identifier; omit user
+      // context rather than sending a raw email to Sentry (SOC 2 CC6.1).
+      Sentry.setUser(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Sign-in failed";
       setError(msg);

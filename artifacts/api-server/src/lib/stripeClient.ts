@@ -69,8 +69,25 @@ async function getStripePublishableKey(): Promise<string> {
 export async function getStripeSync() {
   const { StripeSync } = await import("stripe-replit-sync");
   const { secretKey } = await getCredentials();
+
+  // Apply the same SSL policy as the main pool: rejectUnauthorized: true in
+  // production, disabled in development. DB_SSL_CA is honoured here too.
+  const sslConfig: false | { rejectUnauthorized: boolean; ca?: string } =
+    process.env.NODE_ENV !== "production"
+      ? false
+      : process.env.DB_SSL_CA
+        ? {
+            rejectUnauthorized: true,
+            ca: Buffer.from(process.env.DB_SSL_CA, "base64").toString("utf8"),
+          }
+        : { rejectUnauthorized: true };
+
   return new StripeSync({
-    poolConfig: { connectionString: process.env.DATABASE_URL!, max: 2 },
+    poolConfig: {
+      connectionString: process.env.DATABASE_URL!,
+      max: 2,
+      ssl: sslConfig,
+    },
     stripeSecretKey: secretKey,
   });
 }

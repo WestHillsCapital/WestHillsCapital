@@ -19,21 +19,9 @@ export interface SessionPayload {
   accountId: number;
 }
 
-// ── Automatic expiry cleanup ──────────────────────────────────────────────────
-// Runs every 15 minutes to prevent the table from accumulating stale rows.
-setInterval(async () => {
-  try {
-    const db = getDb();
-    const { rowCount } = await db.query(`DELETE FROM internal_sessions WHERE expires_at <= NOW()`);
-    if ((rowCount ?? 0) > 0) {
-      logger.debug({ purged: rowCount }, "[Sessions] Expired sessions purged");
-    }
-  } catch {
-    // Non-fatal — DB might not be ready yet on the very first tick
-  }
-}, 15 * 60 * 1000).unref();
-
 // ── Public API ────────────────────────────────────────────────────────────────
+// Automatic expiry cleanup is handled by the "prune:sessions" BullMQ repeatable
+// job in the worker process (every 15 min). See lib/schedulers.ts + worker.ts.
 
 // Internal portal sessions last 30 days regardless of the short-lived Google
 // token that was used to authenticate. The Google token is only used to prove
