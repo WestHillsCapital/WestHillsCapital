@@ -266,7 +266,7 @@ node -e "const {randomBytes}=require('crypto'); console.log(randomBytes(32).toSt
 
 ### Rotation procedure
 
-1. **Dry run first** — verify the old key decrypts all accounts correctly:
+1. **Dry run first** — verify the account count and that the old key decrypts every DEK correctly:
 
    ```bash
    OLD_ENCRYPTION_MASTER_KEY=<current key> \
@@ -275,9 +275,9 @@ node -e "const {randomBytes}=require('crypto'); console.log(randomBytes(32).toSt
    node artifacts/api-server/scripts/rotate-master-key.mjs --dry-run
    ```
 
-   The output shows each account ID and its new `dek_version`. If any account fails, **stop** — the old key may not match.
+   The output lists each account ID with its `dek_version` increment. If any account shows `FAILED`, stop — the old key does not match `ENCRYPTION_MASTER_KEY`.
 
-2. **Live run** — re-encrypt all DEKs in a single serializable transaction:
+2. **Live run** — re-encrypt all DEKs in a single serializable transaction with row-level locks:
 
    ```bash
    OLD_ENCRYPTION_MASTER_KEY=<current key> \
@@ -286,24 +286,32 @@ node -e "const {randomBytes}=require('crypto'); console.log(randomBytes(32).toSt
    node artifacts/api-server/scripts/rotate-master-key.mjs
    ```
 
-3. **Update the secret** — set `ENCRYPTION_MASTER_KEY` to the new key value in Replit's Secrets panel.
+3. **Catch stragglers** — re-run the same command immediately. If any accounts were created during step 2, they will still be at `dek_version = 1` and will be rotated now. When the output reads "Nothing to rotate", all accounts are migrated.
 
-4. **Restart services** — restart the API server and worker workflows so they pick up the new secret.
+4. **Update the secret** — set `ENCRYPTION_MASTER_KEY` to the new key value in Replit's Secrets panel.
 
-5. **Verify** — check startup logs for normal operation and no decryption errors.
+5. **Restart services** — restart the API server and worker workflows so they pick up the new secret.
 
-6. **Remove the old key** — delete `OLD_ENCRYPTION_MASTER_KEY` from secrets. Do not leave it in place.
+6. **Verify** — check startup logs for normal operation and no decryption errors.
+
+7. **Remove the old key** — delete `OLD_ENCRYPTION_MASTER_KEY` from secrets. Do not leave it in place.
+
+To target a specific DEK generation (e.g., a second rotation), pass `--from-version N`:
+
+```bash
+node artifacts/api-server/scripts/rotate-master-key.mjs --from-version 2
+```
 
 ### What the script does
 
-- Reads every `accounts` row where `encrypted_dek IS NOT NULL`
-- Decrypts each DEK using `OLD_ENCRYPTION_MASTER_KEY` (AES-256-GCM)
-- Re-encrypts the same DEK using `NEW_ENCRYPTION_MASTER_KEY` (fresh IV for each row)
-- Writes all updates in a single serializable transaction — if anything fails, no rows are changed
-- Increments `dek_version` on each account so the migration can be audited
+- Filters accounts by `dek_version = N` (default: 1) so only DEKs at the expected generation are touched
+- Opens a single serializable transaction and acquires row-level locks (`SELECT … FOR UPDATE`) on all matched accounts, preventing concurrent DEK writes from interleaving
+- Decrypts each DEK using `OLD_ENCRYPTION_MASTER_KEY` (AES-256-GCM); aborts the entire transaction on any failure
+- Re-encrypts each DEK using `NEW_ENCRYPTION_MASTER_KEY` with a fresh random IV per account
+- Increments `dek_version` on every updated row so the migration is auditable
+- Commits all updates atomically — if anything fails, no rows are changed
 
-The script is **idempotent**: running it twice with the same keys is harmless.  
-The answer ciphertext is **not touched** — only the DEK wrapper changes.
+**Idempotency**: re-running after a completed rotation finds 0 rows at the target version and exits cleanly. The answer ciphertext is never touched — only the DEK wrapper changes.
 
 ---
 
