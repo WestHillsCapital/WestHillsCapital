@@ -106,6 +106,7 @@ export const requireApiKeyAuth: RequestHandler = async (req, res, next) => {
   }
 
   req.internalAccountId = accountId;
+  Sentry.getCurrentScope().setUser({ id: String(accountId) });
   Sentry.getCurrentScope().setTag("account_id", String(accountId));
   next();
 };
