@@ -13,6 +13,12 @@ The application is deployed from the Replit workspace using Replit's built-in pu
 
 ---
 
+## Vendor inventory and sub-processors
+
+All third-party vendors and sub-processors with access to production systems or customer data are documented in the [Vendor Inventory](vendor-inventory.md) (SOC 2 CC9.2). It includes compliance status, DPA status, and the data each vendor can access. The vendor review procedure for onboarding new vendors is also defined there.
+
+---
+
 ## Information security policies
 
 The organization's core security policy suite is in [`docs/policies/`](policies/):
