@@ -13,6 +13,12 @@ The application is deployed from the Replit workspace using Replit's built-in pu
 
 ---
 
+## Incident response
+
+Security incidents and significant outages are handled according to the [Incident Response Plan](incident-response-plan.md) (SOC 2 CC7.3–CC7.5). The IRP defines severity tiers (P0–P3), detection sources, response steps, notification timelines, and the post-mortem process.
+
+---
+
 ## CI/CD pipeline and branch protection (SOC 2 CC8.1)
 
 All changes to `main` go through a controlled change management process:
