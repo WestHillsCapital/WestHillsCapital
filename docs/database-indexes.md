@@ -128,7 +128,9 @@ The triple-redundancy guarantees that the index exists regardless of which start
 
 File: `artifacts/api-server/drizzle/0004_submission_scale_indexes.sql`
 
-Contains six `CREATE INDEX IF NOT EXISTS` statements (one per new index). All use btree and `DESC NULLS LAST` ordering for the `created_at` / `expires_at` columns. A `-- DRIZZLE:RUN-CONCURRENT` header signals `runDrizzleMigrations()` to execute them with `CONCURRENTLY` injected (outside any transaction) on existing databases.
+Contains one `ALTER TABLE … ADD COLUMN IF NOT EXISTS` statement (adding `session_id` to `webhook_deliveries`) and seven `CREATE INDEX IF NOT EXISTS` statements (one per new index). All indexes use btree and `DESC NULLS LAST` ordering for the `created_at` / `expires_at` columns. A `-- DRIZZLE:RUN-CONCURRENT` header signals `runDrizzleMigrations()` to execute the `CREATE INDEX` statements with `CONCURRENTLY` injected (outside any transaction) on existing databases. The `ALTER TABLE` statement runs as-is (column DDL has no CONCURRENTLY restriction) and is also idempotent via `IF NOT EXISTS`.
+
+**Why `session_id` is added here:** Linking a webhook delivery back to the originating interview session was required to satisfy the `(session_id, created_at DESC)` index goal. Adding the FK column and index in the same migration keeps schema and index in sync and keeps the change atomic — no separate column-only migration needed.
 
 ### How CONCURRENTLY index builds work in this codebase
 
