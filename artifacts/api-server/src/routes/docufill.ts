@@ -1742,32 +1742,27 @@ async function upsertPackageDocument(params: {
     if (existingBytes + params.pdf.length > MAX_PACKAGE_PDF_BYTES) {
       throw new PdfUploadError("Package PDF storage is limited to 100 MB");
     }
-    let pdfGcsKey: string | null = null;
-    let pdfDataForDb: Buffer | null = params.pdf;
-    try {
-      pdfGcsKey = await objectStorage.uploadBuffer(
-        `pdfs/${params.accountId}/${params.packageId}/${documentId}.pdf`,
-        params.pdf,
-        "application/pdf",
-      );
-      pdfDataForDb = null;
-    } catch (gcsErr) {
-      logger.warn({ err: gcsErr, documentId }, "[DocuFill] GCS upload failed — falling back to DB storage for template PDF");
-    }
+    // Upload to GCS — required for new records. Throws on failure so the caller
+    // receives a clear error rather than silently storing a DB blob.
+    const pdfGcsKey = await objectStorage.uploadBuffer(
+      `pdfs/${params.accountId}/${params.packageId}/${documentId}.pdf`,
+      params.pdf,
+      "application/pdf",
+    );
     await client.query(
       `INSERT INTO docufill_package_documents
          (package_id, document_id, filename, content_type, byte_size, page_count, page_sizes, pdf_data, pdf_gcs_key)
-       VALUES ($1,$2,$3,'application/pdf',$4,$5,$6::jsonb,$7,$8)
+       VALUES ($1,$2,$3,'application/pdf',$4,$5,$6::jsonb,NULL,$7)
        ON CONFLICT (package_id, document_id) DO UPDATE SET
          filename=EXCLUDED.filename,
          content_type=EXCLUDED.content_type,
          byte_size=EXCLUDED.byte_size,
          page_count=EXCLUDED.page_count,
          page_sizes=EXCLUDED.page_sizes,
-         pdf_data=EXCLUDED.pdf_data,
+         pdf_data=NULL,
          pdf_gcs_key=EXCLUDED.pdf_gcs_key,
          updated_at=NOW()`,
-      [params.packageId, documentId, filename, params.pdf.length, pageCount, JSON.stringify(pageSizes), pdfDataForDb, pdfGcsKey],
+      [params.packageId, documentId, filename, params.pdf.length, pageCount, JSON.stringify(pageSizes), pdfGcsKey],
     );
     const documents = parseDocuments(existing.documents);
     const priorDoc = documents.find((item) => item.id === documentId);
