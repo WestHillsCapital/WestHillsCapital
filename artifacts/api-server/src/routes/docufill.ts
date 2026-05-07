@@ -55,6 +55,8 @@ import {
   decryptAnswers,
   isEncryptionEnabled,
 } from "../lib/encryption";
+import { createQueueWorker, QUEUE_NAMES, type GeneratePdfJobPayload, type Worker } from "@workspace/queues";
+import { generatePdfQueue, enqueueGeneratePdfJob, isQueueEnabled } from "../lib/queue";
 import {
   EmptyBodySchema,
   PdfUploadHeaderSchema,
@@ -4917,6 +4919,14 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
   try {
     const _parse = GenerateSessionBodySchema.safeParse(req.body ?? {});
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
+    // Require queue to be available — fail clearly rather than hanging.
+    if (!isQueueEnabled()) {
+      res.status(503).json({
+        error: "PDF generation is temporarily unavailable. Please try again shortly.",
+        code: "queue_unavailable",
+      });
+      return;
+    }
     const db = getDb();
     const session = await getSession(req.params.token, db);
     if (!session) {
@@ -4980,239 +4990,87 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
       res.status(400).json({ error: "Packet is missing required or valid fields", ...validation });
       return;
     }
-    const generated = buildDocuFillPacketSummary(session);
-    let pdfBuffer = await buildPacketPdfBuffer(session, db, {
-      signatureImage: esignSignatureImage ?? undefined,
-      signerName: esignSignerName ?? undefined,
-      initialsImage: esignInitialsImage ?? undefined,
-    });
-    const generatedAt = new Date().toISOString();
-    let driveResult: { fileId: string; webViewLink: string } | null = null;
-    let driveWarning: string | null = null;
-    const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID;
-    if (rootFolderId) {
-      try {
-        const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-        driveResult = await saveDocuFillPacketToDrive(pdfBuffer, {
-          dealId: Number(session.deal_id) || null,
-          firstName: cleanText(prefill.firstName),
-          lastName: cleanText(prefill.lastName),
-          packageName: String(session.package_name ?? "Docuplete"),
-          generatedAt,
-        }, rootFolderId);
-      } catch (err) {
-        driveWarning = err instanceof Error ? err.message : "Could not save packet to Google Drive";
-        logger.error({ err, token: req.params.token }, "[DocuFill] Failed to save public packet to Drive");
-      }
-    }
-    // Per-account cloud storage upload (enable_gdrive channel — now provider-agnostic)
-    if (!driveResult && session.enable_gdrive === true) {
-      const storageProvider = typeof session.storage_provider === "string" ? session.storage_provider : null;
-      const storageAccessToken = typeof session.storage_access_token === "string" ? session.storage_access_token : null;
-      const storageRefreshToken = typeof session.storage_refresh_token === "string" ? session.storage_refresh_token : null;
-      const storageFolderId = typeof session.storage_folder_id === "string" ? session.storage_folder_id : null;
-      const accessToken = storageAccessToken ?? (typeof session.gdrive_access_token === "string" ? session.gdrive_access_token : null);
-      const refreshToken = storageRefreshToken ?? (typeof session.gdrive_refresh_token === "string" ? session.gdrive_refresh_token : null);
-      const folderId = storageFolderId ?? (typeof session.gdrive_folder_id === "string" ? session.gdrive_folder_id : null);
-      const provider = storageProvider ?? (accessToken && refreshToken && folderId ? "gdrive" : null);
-      if (provider && accessToken && refreshToken && folderId) {
-        try {
-          const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-          driveResult = await uploadToStorageProvider(
-            { storage_provider: provider, storage_access_token: accessToken, storage_refresh_token: refreshToken, storage_folder_id: folderId },
-            pdfBuffer,
-            {
-              firstName: cleanText(prefill.firstName),
-              lastName: cleanText(prefill.lastName),
-              packageName: String(session.package_name ?? "Docuplete"),
-              generatedAt,
-            },
-          );
-        } catch (err) {
-          driveWarning = err instanceof Error ? err.message : "Could not save packet to cloud storage";
-          logger.error({ err, token: req.params.token, provider }, "[DocuFill] Per-account storage upload failed (public submit)");
-        }
-      }
-    }
-    // ── HubSpot contact upsert ───────────────────────────────────────────────
-    let hubspotWarning: string | undefined;
-    if (session.enable_hubspot === true) {
-      const hsAccessToken  = typeof session.hubspot_access_token  === "string" ? session.hubspot_access_token  : null;
-      const hsRefreshToken = typeof session.hubspot_refresh_token === "string" ? session.hubspot_refresh_token : null;
-      if (hsAccessToken && hsRefreshToken) {
-        try {
-          const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-          const fields  = Array.isArray(session.fields) ? (session.fields as Array<{ id: string; label: string; source?: string; type?: string }>) : [];
-          const answers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
-          const props   = extractHubSpotProperties(prefill, fields, answers);
-          const packageAccountId = typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id);
-          const result  = await upsertHubSpotContact(hsAccessToken, hsRefreshToken, props);
-          if (result.newAccessToken) {
-            await db.query(`UPDATE accounts SET hubspot_access_token=$1 WHERE id=$2`, [result.newAccessToken, packageAccountId]);
-          }
-          logger.info({ contactId: result.contactId, created: result.created }, "[DocuFill] HubSpot contact upserted (public)");
-        } catch (err) {
-          hubspotWarning = err instanceof Error ? err.message : "Could not sync contact to HubSpot";
-          logger.error({ err, token: req.params.token }, "[DocuFill] HubSpot upsert failed (public submit)");
-        }
-      }
-    }
-    // ── E-sign v1: append signing certificate page, compute PDF hash, RFC 3161 timestamp ──
-    let pdfSha256: string | null = null;
-    let tsaTokenB64: string | null = null;
-    let tsaUrlUsed: string | null = null;
-    let pdfStorageKey: string | null = null;
-    const signedAt = esignEmail ? new Date() : null;
-    // Capture signer context at the moment of signing
+    // Capture signer context at request time — not available in the worker
     const signerIp  = req.ip ?? req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ?? null;
     const signerUa  = req.headers["user-agent"] ?? null;
     const signerGeo = resolveGeo(signerIp);
-    if (esignEmail && esignSignerName) {
-      // Use the primary TSA URL as the "intended" authority shown in the cert page.
-      // The actual TSA that responds (may be a fallback) is stored separately.
-      const intendedTsaUrl = TSA_ENDPOINTS[0];
-      try {
-        pdfBuffer = await appendSigningCertificatePage(pdfBuffer, {
-          signerName: esignSignerName,
-          signerEmail: esignEmail,
-          packageName: String(session.package_name ?? "Document Package"),
-          signedAt: signedAt!,
-          tsaUrl: intendedTsaUrl,
-          sessionToken: req.params.token,
-          signatureImage: esignSignatureImage,
-          signerIp,
-          signerUa,
-          signerGeo,
-        });
-      } catch (certErr) {
-        logger.warn({ certErr }, "[E-sign] Failed to append certificate page — using base PDF");
-      }
-      pdfSha256 = hashPdfBuffer(pdfBuffer);
-      // Request RFC 3161 timestamp of the final PDF hash (fire-and-forget on failure)
-      try {
-        const tsaResult = await requestTimestamp(pdfSha256);
-        tsaTokenB64 = tsaResult.tokenB64;
-        tsaUrlUsed  = tsaResult.tsaUrl;
-        logger.info({ tsaUrl: tsaUrlUsed, token: req.params.token }, "[E-sign] RFC 3161 timestamp obtained");
-      } catch (tsaErr) {
-        logger.warn({ tsaErr, token: req.params.token }, "[E-sign] RFC 3161 timestamp failed — proceeding without TSA token");
-      }
-    }
-    // Store final PDF (signed or unsigned) in object storage for instant downloads
-    try {
-      pdfStorageKey = await objectStorage.uploadBuffer(
-        `signed-pdfs/${req.params.token}.pdf`,
-        pdfBuffer,
-        "application/pdf",
-      );
-      logger.info({ storageKey: pdfStorageKey, token: req.params.token }, "[DocuFill] PDF stored in object storage");
-    } catch (storageErr) {
-      logger.warn({ storageErr, token: req.params.token }, "[DocuFill] Object storage upload failed — download will regenerate");
-    }
-    await db.query(
-      `UPDATE docufill_interview_sessions
-          SET status='generated',
-              generated_packet=$1::jsonb,
-              generated_pdf_drive_id=$2,
-              generated_pdf_url=$3,
-              generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
-              submitted_at=CASE WHEN submitted_at IS NULL THEN NOW() ELSE submitted_at END,
-              signer_email=$5,
-              signer_name=$6,
-              signed_at=$7,
-              pdf_sha256=$8,
-              tsa_token_b64=$9,
-              tsa_url=$10,
-              generated_pdf_storage_key=$11,
-              signer_ip=COALESCE(signer_ip, $12),
-              signer_ua=COALESCE(signer_ua, $13),
-              signer_geo=COALESCE(signer_geo, $14),
-              updated_at=NOW()
-        WHERE token=$4`,
-      [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token,
-       esignEmail, esignSignerName, signedAt, pdfSha256, tsaTokenB64, tsaUrlUsed, pdfStorageKey,
-       esignEmail ? (signerIp ?? null) : null,
-       esignEmail ? (signerUa ?? null) : null,
-       esignEmail ? (signerGeo ?? null) : null],
-    );
-    // Append-only signing audit event (fire-and-forget)
-    if (esignEmail) {
-      const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
-      db.query(
-        `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
-         VALUES ($1, $2, 'signed', $3, $4, $5, $6::jsonb)`,
-        [req.params.token, pkgAccountId, esignEmail, signerIp ?? null, signerUa ?? null,
-         JSON.stringify({
-           signerName: esignSignerName,
-           packageName: session.package_name,
-           pdfSha256,
-           signedAt: signedAt?.toISOString(),
-           tsaUrl: tsaUrlUsed,
-           tsaTokenObtained: tsaTokenB64 !== null,
-           signerGeo,
-           scrollConfirmationRequired: session.require_scroll_confirmation === true,
-           scrollConfirmedAt: session.scroll_confirmed_at ?? null,
-         })],
-      ).catch((err) => logger.warn({ err, token: req.params.token, accountId: pkgAccountId }, "[DocuFill] E-sign signed event insert failed"));
-      // Send confirmation email with signed PDF to signer (fire-and-forget)
-      sendSignerConfirmationEmail({
-        signerEmail:   esignEmail,
-        signerName:    esignSignerName!,
-        packageName:   String(session.package_name ?? "Document Package"),
-        signedAt:      signedAt!,
-        pdfSha256:     pdfSha256 ?? "",
-        pdfBuffer,
-        orgName:       typeof session.org_name === "string" ? session.org_name : null,
-        orgBrandColor: typeof session.org_brand_color === "string" ? session.org_brand_color : null,
-      }).then(() => {
-        logger.info({ to: esignEmail, token: req.params.token }, "[E-sign] Confirmation email sent to signer");
-      }).catch((err) => {
-        logger.warn({ err, to: esignEmail, token: req.params.token }, "[E-sign] Confirmation email failed (non-fatal)");
-      });
-    }
-    const allPublicWarnings = [...(driveWarning ? [driveWarning] : []), ...(hubspotWarning ? [hubspotWarning] : [])];
-    res.json({
-      packet: generated,
-      downloadUrl: `/api/v1/docufill/public/sessions/${req.params.token}/packet.pdf`,
-      drive: driveResult ? { fileId: driveResult.fileId, url: driveResult.webViewLink } : null,
-      warnings: allPublicWarnings,
-      signed: esignEmail ? { signerName: esignSignerName, signedAt: signedAt?.toISOString(), pdfSha256 } : null,
+    // Enqueue the generation job and return 202 immediately
+    const jobId = await enqueueGeneratePdfJob({
+      sessionToken: req.params.token,
+      type: esignEmail ? "signed" : "packet",
+      esignEmail:          esignEmail ?? undefined,
+      esignSignerName:     esignSignerName ?? undefined,
+      esignSignatureImage: esignSignatureImage ?? undefined,
+      esignInitialsImage:  esignInitialsImage ?? undefined,
+      signerIp:  signerIp ?? undefined,
+      signerUa:  signerUa ?? undefined,
+      signerGeo: signerGeo ?? undefined,
     });
-    const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
-    if (session.webhook_enabled === true && webhookUrl) {
-      fireWebhookAsync(
-        db,
-        typeof session.package_id === "number" ? session.package_id : Number(session.package_id),
-        typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id),
-        webhookUrl,
-        buildWebhookPayload(session),
-      );
-    }
-    const publicSlackWebhookUrl = typeof session.account_slack_webhook_url === "string" ? session.account_slack_webhook_url : null;
-    if (session.slack_notifications_enabled === true && publicSlackWebhookUrl) {
-      const pkgName = typeof session.package_name === "string" ? session.package_name : "Package";
-      fetch(publicSlackWebhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: `New submission received for *${pkgName}* — just now.` }),
-      }).catch((err) => {
-        logger.warn({ err, token: req.params.token }, "[DocuFill] Slack notification failed (non-fatal)");
-      });
-    }
-    // ── Task #195: fire submission notification emails asynchronously ──────────
-    if (session.notify_staff_on_submit === true || session.notify_client_on_submit === true) {
-      fireSubmissionEmailsAsync(session, pdfBuffer, req.params.token, db).catch((err) => {
-        logger.error({ err, token: req.params.token }, "[DocuFill] Submission emails failed (non-fatal)");
-      });
-    }
-    // Record PDF generation usage event (fire-and-forget)
+    res.status(202).json({ jobId, status: "pending" });
+    // Record PDF generation usage event at enqueue time (fire-and-forget)
     const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
-    if (pkgAccountId) {
-      void recordPdfGenerationEvent(pkgAccountId);
-    }
+    if (pkgAccountId) void recordPdfGenerationEvent(pkgAccountId);
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to generate public packet");
-    res.status(500).json({ error: "Failed to generate packet" });
+    logger.error({ err }, "[DocuFill] Failed to enqueue generate job");
+    if (!res.headersSent) res.status(500).json({ error: "Failed to start document generation" });
+  }
+});
+
+/**
+ * GET /docufill/public/sessions/{token}/generate-status
+ * Polls the status of a background PDF generation job.
+ * The DB session status is the authoritative source; BullMQ job state provides
+ * finer-grained intermediate status (pending → processing → ready | failed).
+ */
+publicDocufillRouter.get("/sessions/:token/generate-status", async (req, res) => {
+  try {
+    const jobId = typeof req.query.jobId === "string" ? req.query.jobId : null;
+    const db = getDb();
+    // DB is authoritative — check session status first
+    const { rows } = await db.query<{ status: string }>(
+      `SELECT status FROM docufill_interview_sessions WHERE token = $1`,
+      [req.params.token],
+    );
+    const row = rows[0];
+    if (!row) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+    if (row.status === "generated") {
+      res.json({
+        status: "ready",
+        downloadUrl: `/api/v1/docufill/public/sessions/${req.params.token}/packet.pdf`,
+      });
+      return;
+    }
+    // Check BullMQ job state for finer-grained status
+    if (jobId && generatePdfQueue) {
+      try {
+        const job = await generatePdfQueue.getJob(jobId);
+        if (job) {
+          const state = await job.getState();
+          if (state === "completed") {
+            res.json({
+              status: "ready",
+              downloadUrl: `/api/v1/docufill/public/sessions/${req.params.token}/packet.pdf`,
+            });
+            return;
+          }
+          if (state === "failed") {
+            res.json({ status: "failed", error: "Document generation failed. Please try submitting again." });
+            return;
+          }
+          res.json({ status: state === "active" ? "processing" : "pending" });
+          return;
+        }
+      } catch (queueErr) {
+        logger.warn({ queueErr, jobId }, "[DocuFill] Failed to check BullMQ job state (non-fatal)");
+      }
+    }
+    res.json({ status: "pending" });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to get generate status");
+    res.status(500).json({ error: "Failed to check generation status" });
   }
 });
 
@@ -5480,5 +5338,282 @@ publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
     if (!res.headersSent) res.status(500).json({ error: "Failed to preview packet" });
   }
 });
+
+// ── Background PDF Generation Worker ─────────────────────────────────────────
+// Registers a BullMQ Worker in the api-server process so it has access to all
+// PDF-building helpers (buildPacketPdfBuffer, appendSigningCertificatePage, …)
+// without needing to extract them into a shared library.
+// Called once from index.ts after the database is ready.
+
+export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | null {
+  const worker = createQueueWorker<GeneratePdfJobPayload, void>(
+    QUEUE_NAMES.GENERATE_PDF,
+    async (job) => {
+      const {
+        sessionToken,
+        esignEmail   = null,
+        esignSignerName   = null,
+        esignSignatureImage = null,
+        esignInitialsImage  = null,
+        signerIp  = null,
+        signerUa  = null,
+        signerGeo = null,
+      } = job.data;
+
+      logger.info({ jobId: job.id, sessionToken, type: job.data.type }, "[GeneratePdf] Processing job");
+
+      const db = getDb();
+      const session = await getSession(sessionToken, db);
+      if (!session) throw new Error(`[GeneratePdf] Session not found: ${sessionToken}`);
+
+      const generated = buildDocuFillPacketSummary(session);
+      let pdfBuffer = await buildPacketPdfBuffer(session, db, {
+        signatureImage: esignSignatureImage ?? undefined,
+        signerName:     esignSignerName     ?? undefined,
+        initialsImage:  esignInitialsImage  ?? undefined,
+      });
+      const generatedAt = new Date().toISOString();
+
+      // ── Google Drive upload (root/shared folder) ───────────────────────────
+      let driveResult: { fileId: string; webViewLink: string } | null = null;
+      const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID;
+      if (rootFolderId) {
+        try {
+          const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+          driveResult = await saveDocuFillPacketToDrive(pdfBuffer, {
+            dealId:      Number(session.deal_id) || null,
+            firstName:   cleanText(prefill.firstName),
+            lastName:    cleanText(prefill.lastName),
+            packageName: String(session.package_name ?? "Docuplete"),
+            generatedAt,
+          }, rootFolderId);
+        } catch (err) {
+          logger.error({ err, sessionToken }, "[GeneratePdf] Shared Drive upload failed (non-fatal)");
+        }
+      }
+
+      // ── Per-account cloud storage upload ──────────────────────────────────
+      if (!driveResult && session.enable_gdrive === true) {
+        const storageProvider    = typeof session.storage_provider     === "string" ? session.storage_provider     : null;
+        const storageAccessToken = typeof session.storage_access_token  === "string" ? session.storage_access_token  : null;
+        const storageRefreshToken = typeof session.storage_refresh_token === "string" ? session.storage_refresh_token : null;
+        const storageFolderId    = typeof session.storage_folder_id    === "string" ? session.storage_folder_id    : null;
+        const accessToken  = storageAccessToken  ?? (typeof session.gdrive_access_token  === "string" ? session.gdrive_access_token  : null);
+        const refreshToken = storageRefreshToken ?? (typeof session.gdrive_refresh_token === "string" ? session.gdrive_refresh_token : null);
+        const folderId     = storageFolderId     ?? (typeof session.gdrive_folder_id     === "string" ? session.gdrive_folder_id     : null);
+        const provider     = storageProvider     ?? (accessToken && refreshToken && folderId ? "gdrive" : null);
+        if (provider && accessToken && refreshToken && folderId) {
+          try {
+            const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+            driveResult = await uploadToStorageProvider(
+              { storage_provider: provider, storage_access_token: accessToken, storage_refresh_token: refreshToken, storage_folder_id: folderId },
+              pdfBuffer,
+              { firstName: cleanText(prefill.firstName), lastName: cleanText(prefill.lastName), packageName: String(session.package_name ?? "Docuplete"), generatedAt },
+            );
+          } catch (err) {
+            logger.error({ err, sessionToken, provider }, "[GeneratePdf] Per-account storage upload failed (non-fatal)");
+          }
+        }
+      }
+
+      // ── HubSpot contact upsert ─────────────────────────────────────────────
+      if (session.enable_hubspot === true) {
+        const hsAccessToken  = typeof session.hubspot_access_token  === "string" ? session.hubspot_access_token  : null;
+        const hsRefreshToken = typeof session.hubspot_refresh_token === "string" ? session.hubspot_refresh_token : null;
+        if (hsAccessToken && hsRefreshToken) {
+          try {
+            const prefill  = typeof session.prefill  === "object" && session.prefill  ? session.prefill  as Record<string, unknown> : {};
+            const fields   = Array.isArray(session.fields) ? (session.fields as Array<{ id: string; label: string; source?: string; type?: string }>) : [];
+            const answers  = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
+            const props    = extractHubSpotProperties(prefill, fields, answers);
+            const pkgAccId = typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id);
+            const result   = await upsertHubSpotContact(hsAccessToken, hsRefreshToken, props);
+            if (result.newAccessToken) {
+              await db.query(`UPDATE accounts SET hubspot_access_token=$1 WHERE id=$2`, [result.newAccessToken, pkgAccId]);
+            }
+            logger.info({ contactId: result.contactId, created: result.created, sessionToken }, "[GeneratePdf] HubSpot contact upserted");
+          } catch (err) {
+            logger.error({ err, sessionToken }, "[GeneratePdf] HubSpot upsert failed (non-fatal)");
+          }
+        }
+      }
+
+      // ── E-sign: append cert page, hash, RFC 3161 timestamp ────────────────
+      let pdfSha256:   string | null = null;
+      let tsaTokenB64: string | null = null;
+      let tsaUrlUsed:  string | null = null;
+      let pdfStorageKey: string | null = null;
+      const signedAt = esignEmail ? new Date() : null;
+
+      if (esignEmail && esignSignerName) {
+        const intendedTsaUrl = TSA_ENDPOINTS[0];
+        try {
+          pdfBuffer = await appendSigningCertificatePage(pdfBuffer, {
+            signerName:     esignSignerName,
+            signerEmail:    esignEmail,
+            packageName:    String(session.package_name ?? "Document Package"),
+            signedAt:       signedAt!,
+            tsaUrl:         intendedTsaUrl,
+            sessionToken,
+            signatureImage: esignSignatureImage,
+            signerIp,
+            signerUa,
+            signerGeo,
+          });
+        } catch (certErr) {
+          logger.warn({ certErr, sessionToken }, "[GeneratePdf] Cert page failed — using base PDF");
+        }
+        pdfSha256 = hashPdfBuffer(pdfBuffer);
+        try {
+          const tsaResult = await requestTimestamp(pdfSha256);
+          tsaTokenB64 = tsaResult.tokenB64;
+          tsaUrlUsed  = tsaResult.tsaUrl;
+          logger.info({ tsaUrl: tsaUrlUsed, sessionToken }, "[GeneratePdf] RFC 3161 timestamp obtained");
+        } catch (tsaErr) {
+          logger.warn({ tsaErr, sessionToken }, "[GeneratePdf] RFC 3161 timestamp failed — proceeding without TSA token");
+        }
+      }
+
+      // ── Store PDF in object storage ────────────────────────────────────────
+      try {
+        pdfStorageKey = await objectStorage.uploadBuffer(
+          `signed-pdfs/${sessionToken}.pdf`,
+          pdfBuffer,
+          "application/pdf",
+        );
+        logger.info({ storageKey: pdfStorageKey, sessionToken }, "[GeneratePdf] PDF stored in object storage");
+      } catch (storageErr) {
+        logger.warn({ storageErr, sessionToken }, "[GeneratePdf] Object storage upload failed — download will regenerate");
+      }
+
+      // ── Update DB ──────────────────────────────────────────────────────────
+      await db.query(
+        `UPDATE docufill_interview_sessions
+            SET status='generated',
+                generated_packet=$1::jsonb,
+                generated_pdf_drive_id=$2,
+                generated_pdf_url=$3,
+                generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
+                submitted_at=CASE WHEN submitted_at IS NULL THEN NOW() ELSE submitted_at END,
+                signer_email=$5,
+                signer_name=$6,
+                signed_at=$7,
+                pdf_sha256=$8,
+                tsa_token_b64=$9,
+                tsa_url=$10,
+                generated_pdf_storage_key=$11,
+                signer_ip=COALESCE(signer_ip, $12),
+                signer_ua=COALESCE(signer_ua, $13),
+                signer_geo=COALESCE(signer_geo, $14),
+                updated_at=NOW()
+          WHERE token=$4`,
+        [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, sessionToken,
+         esignEmail, esignSignerName, signedAt, pdfSha256, tsaTokenB64, tsaUrlUsed, pdfStorageKey,
+         esignEmail ? (signerIp ?? null) : null,
+         esignEmail ? (signerUa ?? null) : null,
+         esignEmail ? (signerGeo ?? null) : null],
+      );
+
+      // ── E-sign signing event + signer confirmation email ──────────────────
+      if (esignEmail) {
+        const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
+        db.query(
+          `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
+           VALUES ($1, $2, 'signed', $3, $4, $5, $6::jsonb)`,
+          [sessionToken, pkgAccountId, esignEmail, signerIp ?? null, signerUa ?? null,
+           JSON.stringify({
+             signerName: esignSignerName,
+             packageName: session.package_name,
+             pdfSha256,
+             signedAt: signedAt?.toISOString(),
+             tsaUrl: tsaUrlUsed,
+             tsaTokenObtained: tsaTokenB64 !== null,
+             signerGeo,
+             scrollConfirmationRequired: session.require_scroll_confirmation === true,
+             scrollConfirmedAt: session.scroll_confirmed_at ?? null,
+           })],
+        ).catch((err) => logger.warn({ err, sessionToken, pkgAccountId }, "[GeneratePdf] E-sign signed event insert failed"));
+
+        sendSignerConfirmationEmail({
+          signerEmail:   esignEmail,
+          signerName:    esignSignerName!,
+          packageName:   String(session.package_name ?? "Document Package"),
+          signedAt:      signedAt!,
+          pdfSha256:     pdfSha256 ?? "",
+          pdfBuffer,
+          orgName:       typeof session.org_name       === "string" ? session.org_name       : null,
+          orgBrandColor: typeof session.org_brand_color === "string" ? session.org_brand_color : null,
+        }).then(() => {
+          logger.info({ to: esignEmail, sessionToken }, "[GeneratePdf] Confirmation email sent to signer");
+        }).catch((err) => {
+          logger.warn({ err, to: esignEmail, sessionToken }, "[GeneratePdf] Confirmation email failed (non-fatal)");
+        });
+      }
+
+      // ── Webhook ────────────────────────────────────────────────────────────
+      const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
+      if (session.webhook_enabled === true && webhookUrl) {
+        fireWebhookAsync(
+          db,
+          typeof session.package_id         === "number" ? session.package_id         : Number(session.package_id),
+          typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id),
+          webhookUrl,
+          buildWebhookPayload(session),
+        );
+      }
+
+      // ── Slack notification ────────────────────────────────────────────────
+      const slackUrl = typeof session.account_slack_webhook_url === "string" ? session.account_slack_webhook_url : null;
+      if (session.slack_notifications_enabled === true && slackUrl) {
+        const pkgName = typeof session.package_name === "string" ? session.package_name : "Package";
+        fetch(slackUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: `New submission received for *${pkgName}* — just now.` }),
+        }).catch((err) => {
+          logger.warn({ err, sessionToken }, "[GeneratePdf] Slack notification failed (non-fatal)");
+        });
+      }
+
+      // ── Submission notification emails ────────────────────────────────────
+      if (session.notify_staff_on_submit === true || session.notify_client_on_submit === true) {
+        fireSubmissionEmailsAsync(session, pdfBuffer, sessionToken, db).catch((err) => {
+          logger.error({ err, sessionToken }, "[GeneratePdf] Submission emails failed (non-fatal)");
+        });
+      }
+
+      // ── PDF audit event ───────────────────────────────────────────────────
+      recordPdfAuditEvent({
+        accountId:   typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id),
+        sessionToken,
+        eventType:   esignEmail ? "signed" : "generated",
+        actorType:   "signer",
+        actorEmail:  esignEmail ?? null,
+        actorIp:     signerIp ?? null,
+        actorUa:     signerUa ?? null,
+        metadata: {
+          packageId:   session.package_id,
+          packageName: session.package_name,
+          driveFileId: driveResult?.fileId ?? null,
+        },
+      }).catch((err) => logger.warn({ err, sessionToken }, "[GeneratePdf] recordPdfAuditEvent failed (non-fatal)"));
+
+      logger.info({ jobId: job.id, sessionToken }, "[GeneratePdf] Job completed successfully");
+    },
+    { concurrency: 2 },
+  );
+
+  if (!worker) return null;
+
+  worker.on("completed", (job: { id?: string }) => {
+    logger.info({ jobId: job.id }, "[GeneratePdf] Worker completed job");
+  });
+  worker.on("failed", (job: { id?: string } | undefined, err: unknown) => {
+    logger.error({ jobId: job?.id, err }, "[GeneratePdf] Worker failed job");
+  });
+
+  logger.info("[GeneratePdf] Worker registered — listening for generate-pdf jobs");
+  return worker;
+}
 
 export default router;

@@ -760,12 +760,46 @@ export default function DocuFillCustomer() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(genBody),
       });
-      const genData = await genRes.json();
+      if (genRes.status === 202) {
+        const { jobId } = await genRes.json() as { jobId: string };
+        // Poll for job completion (max 90 s, 1.5 s interval)
+        const MAX_WAIT_MS   = 90_000;
+        const POLL_INTERVAL = 1_500;
+        const startedAt = Date.now();
+        let done = false;
+        while (!done && Date.now() - startedAt < MAX_WAIT_MS) {
+          await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL));
+          try {
+            const sr = await fetch(`${SESSION_BASE}/${token}/generate-status?jobId=${encodeURIComponent(jobId)}`);
+            const sd = await sr.json() as { status: string; error?: string };
+            if (sd.status === "ready") {
+              setDownloadUrl(`${SESSION_BASE}/${token}/packet.pdf`);
+              setPageStatus("generated");
+              done = true;
+            } else if (sd.status === "failed") {
+              setErrorMsg(sd.error ?? "Document generation failed. Please try again.");
+              setPageStatus("ready");
+              done = true;
+            }
+            // "pending" | "processing" — keep polling
+          } catch {
+            // Network error — keep polling
+          }
+        }
+        if (!done) {
+          setErrorMsg("Document generation is taking longer than expected. Your answers have been saved — please try refreshing in a moment.");
+          setPageStatus("ready");
+        }
+        return;
+      }
+      // Non-202 response (validation error, queue unavailable, etc.)
+      const genData = await genRes.json() as { error?: string };
       if (!genRes.ok) {
         setErrorMsg(genData.error ?? "Could not generate your documents.");
         setPageStatus("ready");
         return;
       }
+      // Synchronous fallback (should not occur when queue is enabled)
       setDownloadUrl(`${SESSION_BASE}/${token}/packet.pdf`);
       setPageStatus("generated");
     } catch {

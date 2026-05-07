@@ -3,6 +3,7 @@ import {
   createQueue,
   QUEUE_NAMES,
   type PingJobPayload,
+  type GeneratePdfJobPayload,
 } from "@workspace/queues";
 import { logger } from "./logger.js";
 
@@ -11,6 +12,7 @@ import { logger } from "./logger.js";
 // All queues are null when REDIS_URL is not configured (disabled / dev mode).
 
 export const pingQueue = createQueue<PingJobPayload>(QUEUE_NAMES.PING);
+export const generatePdfQueue = createQueue<GeneratePdfJobPayload>(QUEUE_NAMES.GENERATE_PDF);
 
 // ── Startup probe ─────────────────────────────────────────────────────────────
 // Enqueues a no-op ping job to verify the queue round-trip is working.
@@ -31,23 +33,55 @@ export async function enqueuePingJob(): Promise<void> {
   }
 }
 
+// ── Generate PDF job enqueue ──────────────────────────────────────────────────
+// Throws if the queue is unavailable — callers must handle this and return 503.
+export async function enqueueGeneratePdfJob(payload: GeneratePdfJobPayload): Promise<string> {
+  if (!isQueueEnabled() || !generatePdfQueue) {
+    throw new Error("Job queue is not available. REDIS_URL is not configured.");
+  }
+  const job = await generatePdfQueue.add(QUEUE_NAMES.GENERATE_PDF, payload, {
+    attempts: 3,
+    backoff: { type: "exponential", delay: 5_000 },
+    removeOnComplete: { count: 1_000 },
+    removeOnFail: { count: 500 },
+  });
+  return job.id!;
+}
+
+// Re-export so route files can use without importing @workspace/queues directly
+export { isQueueEnabled };
+
 // ── Queue status (for /api/internal/queue-status) ────────────────────────────
 export async function getQueueStatus(): Promise<Record<string, unknown>> {
-  if (!isQueueEnabled() || !pingQueue) {
+  if (!isQueueEnabled()) {
     return { enabled: false, reason: "REDIS_URL not configured" };
   }
   try {
-    const [waiting, active, completed, failed, delayed] = await Promise.all([
-      pingQueue.getWaitingCount(),
-      pingQueue.getActiveCount(),
-      pingQueue.getCompletedCount(),
-      pingQueue.getFailedCount(),
-      pingQueue.getDelayedCount(),
+    const [pingCounts, pdfCounts] = await Promise.all([
+      pingQueue
+        ? Promise.all([
+            pingQueue.getWaitingCount(),
+            pingQueue.getActiveCount(),
+            pingQueue.getCompletedCount(),
+            pingQueue.getFailedCount(),
+            pingQueue.getDelayedCount(),
+          ]).then(([waiting, active, completed, failed, delayed]) => ({ waiting, active, completed, failed, delayed }))
+        : null,
+      generatePdfQueue
+        ? Promise.all([
+            generatePdfQueue.getWaitingCount(),
+            generatePdfQueue.getActiveCount(),
+            generatePdfQueue.getCompletedCount(),
+            generatePdfQueue.getFailedCount(),
+            generatePdfQueue.getDelayedCount(),
+          ]).then(([waiting, active, completed, failed, delayed]) => ({ waiting, active, completed, failed, delayed }))
+        : null,
     ]);
     return {
       enabled: true,
       queues: {
-        [QUEUE_NAMES.PING]: { waiting, active, completed, failed, delayed },
+        ...(pingCounts ? { [QUEUE_NAMES.PING]: pingCounts } : {}),
+        ...(pdfCounts ? { [QUEUE_NAMES.GENERATE_PDF]: pdfCounts } : {}),
       },
     };
   } catch (err) {
