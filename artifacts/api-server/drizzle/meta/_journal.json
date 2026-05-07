@@ -29,6 +29,13 @@
       "when": 1778184000000,
       "tag": "0003_pdf_gcs_key",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778270400000,
+      "tag": "0004_submission_scale_indexes",
+      "breakpoints": true
     }
   ]
 }

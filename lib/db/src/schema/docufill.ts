@@ -135,6 +135,7 @@ export const docufillPackages = pgTable("docufill_packages", {
   index("docufill_packages_account_idx").on(t.accountId),
   index("docufill_packages_combo_idx").on(t.accountId, t.status),
   index("docufill_packages_workflow_idx").on(t.accountId, t.webhookEnabled),
+  index("docufill_packages_account_created_idx").on(t.accountId, t.createdAt.desc()),
 ]);
 
 export const docufillPackageDocuments = pgTable("docufill_package_documents", {
@@ -209,6 +210,10 @@ export const docufillInterviewSessions = pgTable("docufill_interview_sessions", 
   index("dis_batch_run_idx")
     .on(t.batchRunId)
     .where(sql`batch_run_id IS NOT NULL`),
+  index("dis_account_created_idx").on(t.accountId, t.createdAt.desc()),
+  index("dis_account_package_idx").on(t.accountId, t.packageId),
+  index("dis_account_status_idx").on(t.accountId, t.status),
+  index("dis_account_expires_idx").on(t.accountId, t.expiresAt.asc()),
 ]);
 
 export const webhookDeliveries = pgTable("webhook_deliveries", {
@@ -226,6 +231,7 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
 }, (t) => [
   index("webhook_deliveries_package_created_idx").on(t.packageId, t.createdAt),
   index("webhook_deliveries_account_idx").on(t.accountId),
+  index("webhook_deliveries_account_created_idx").on(t.accountId, t.createdAt.desc()),
 ]);
 
 export const docufillEsignOtps = pgTable("docufill_esign_otps", {
