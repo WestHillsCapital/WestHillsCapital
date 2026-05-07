@@ -717,14 +717,15 @@ export default function DocuFill() {
   // Outer container dimensions grow with zoom up to the available space, then scroll.
   const mapperViewW = Math.min(Math.round(nativePageW * effectiveScale), mapperMaxW);
   const mapperViewH = Math.min(Math.round(nativePageH * effectiveScale), mapperMaxH);
-  type PageMappingMeta = { id: string; fieldId: string; format?: string; recipientId?: string };
-  const pageMappingMetas = useDocuFillStore(
-    useShallow((s): PageMappingMeta[] => {
+  // Return only primitive IDs so useShallow can compare with Object.is (string equality).
+  // Returning objects caused getSnapshot to see new references every call → React error #185.
+  const pageMappingIds = useDocuFillStore(
+    useShallow((s): string[] => {
       if (!selectedDocument) return [];
       const knownFieldIds = new Set(selectedPackage?.fields.map((f) => f.id) ?? []);
       return s.mappings
         .filter((m) => m.documentId === selectedDocument.id && (m.page ?? 1) === selectedPage && knownFieldIds.has(m.fieldId))
-        .map(({ id, fieldId, format, recipientId }) => ({ id, fieldId, format, recipientId }));
+        .map((m) => m.id);
     }),
   );
   const { beginMappingPointer } = useDocuFillPointer({
@@ -1043,8 +1044,8 @@ export default function DocuFill() {
 
   useEffect(() => {
     if (!selectedMappingId) return;
-    if (!pageMappingMetas.some((meta) => meta.id === selectedMappingId)) setSelectedMappingId(null);
-  }, [pageMappingMetas, selectedMappingId]);
+    if (!pageMappingIds.includes(selectedMappingId)) setSelectedMappingId(null);
+  }, [pageMappingIds, selectedMappingId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -4648,37 +4649,39 @@ export default function DocuFill() {
                       </div>
                     );
                   })}
-                  {pageMappingMetas.map((meta) => {
+                  {pageMappingIds.map((mappingId) => {
+                    const meta = storeMappings.find((m) => m.id === mappingId);
+                    if (!meta) return null;
                     const field = selectedPackage.fields.find((f) => f.id === meta.fieldId);
                     const recipient = meta.recipientId ? storeRecipientList.find((r) => r.id === meta.recipientId) : undefined;
                     const fieldColor = recipient?.color ?? (isSystemEsignFieldId(meta.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
                     const isFullyDefined = Boolean(field?.name && !field.name.match(/^Field \d+$/i) && (field.libraryFieldId || field.interviewMode));
                     return (
                       <MappingButton
-                        key={meta.id}
-                        mappingId={meta.id}
+                        key={mappingId}
+                        mappingId={mappingId}
                         fieldName={field?.name ?? "Field"}
                         sampleValue={sampleValueForMapping(field, meta.format)}
                         formatLabel={labelForMappingFormat(meta.format)}
                         fieldColor={fieldColor}
                         recipient={recipient}
                         isFullyDefined={isFullyDefined}
-                        onMoveStart={(e) => beginMappingPointer(e, meta.id, "move")}
-                        onResizeStart={(e) => beginMappingPointer(e, meta.id, "resize")}
+                        onMoveStart={(e) => beginMappingPointer(e, mappingId, "move")}
+                        onResizeStart={(e) => beginMappingPointer(e, mappingId, "resize")}
                         onClick={() => {
-                          setSelectedMappingId(meta.id);
+                          setSelectedMappingId(mappingId);
                           setSelectedFieldId(meta.fieldId);
                           if (inspectorMode === "panel") {
-                            const fullM = useDocuFillStore.getState().mappings.find((m) => m.id === meta.id);
-                            setPlacementModal({ mappingId: meta.id, pdfX: fullM?.x ?? 0, pdfY: fullM?.y ?? 0 });
+                            const fullM = useDocuFillStore.getState().mappings.find((m) => m.id === mappingId);
+                            setPlacementModal({ mappingId, pdfX: fullM?.x ?? 0, pdfY: fullM?.y ?? 0 });
                             setPlacementModalPos(null);
                           }
                         }}
                         onContextMenu={(e) => {
                           e.preventDefault(); e.stopPropagation();
-                          setSelectedMappingId(meta.id); setSelectedFieldId(meta.fieldId);
-                          const fullM = useDocuFillStore.getState().mappings.find((m) => m.id === meta.id);
-                          setPlacementModal({ mappingId: meta.id, pdfX: fullM?.x ?? 0, pdfY: fullM?.y ?? 0 });
+                          setSelectedMappingId(mappingId); setSelectedFieldId(meta.fieldId);
+                          const fullM = useDocuFillStore.getState().mappings.find((m) => m.id === mappingId);
+                          setPlacementModal({ mappingId, pdfX: fullM?.x ?? 0, pdfY: fullM?.y ?? 0 });
                           setPlacementModalPos(null);
                         }}
                       />
