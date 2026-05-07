@@ -9,7 +9,51 @@ The application is deployed from the Replit workspace using Replit's built-in pu
 - The API server and web frontend are hosted under path-based routing
 - The Replit-managed PostgreSQL database is automatically available in production
 
-There is no separate CI/CD pipeline. Deployments are triggered manually from the Replit interface.
+**Deployments require a passing CI run and at least one approved pull request review** — see the CI/CD section below.
+
+---
+
+## CI/CD pipeline and branch protection (SOC 2 CC8.1)
+
+All changes to `main` go through a controlled change management process:
+
+```
+feature-branch → Pull Request → CI checks pass → 1 approved review → merge → Replit/Railway deploy
+```
+
+### GitHub Actions CI workflow
+
+Every push to `main` and every PR targeting `main` triggers `.github/workflows/ci.yml`, which runs three gates in sequence:
+
+| Step | Command | Fails on |
+|---|---|---|
+| Typecheck | `pnpm run typecheck` | Any TypeScript type error across the monorepo |
+| Dependency audit | `pnpm audit --audit-level=high` | Any high or critical CVE in the dependency tree |
+| Build | `pnpm -r --filter '!@workspace/mockup-sandbox' --if-present run build` | Any compilation or bundling failure |
+
+A failed CI run blocks merge. The CI badge in the repository README reflects the current `main` branch status.
+
+### Setting up branch protection on GitHub
+
+Configure these rules in **GitHub → Settings → Branches → Branch protection rules → Add rule** for the pattern `main`:
+
+- [x] **Require a pull request before merging**
+  - [x] Require approvals: **1**
+  - [x] Dismiss stale pull request approvals when new commits are pushed
+- [x] **Require status checks to pass before merging**
+  - [x] Require branches to be up to date before merging
+  - Status check to add: **`ci`** (the job name from `ci.yml`)
+- [x] **Require conversation resolution before merging**
+- [x] **Do not allow bypassing the above settings** (optional but recommended for SOC 2)
+
+### Hotfix bypass procedure
+
+If a critical production issue requires bypassing branch protection:
+
+1. A repository admin temporarily disables the "Do not allow bypassing" rule
+2. The admin documents the reason in the PR description with the tag `[HOTFIX-BYPASS]`
+3. The bypass must be re-enabled immediately after the merge
+4. The incident is recorded in the change log / incident tracker
 
 ---
 
