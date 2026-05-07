@@ -203,7 +203,7 @@ export async function upsertHubSpotContact(
  * matching is used as a fallback for fields that have no source key or whose
  * source key is not in this map.
  */
-const SOURCE_KEY_TO_HUBSPOT: Record<string, keyof HubSpotContactProperties> = {
+export const SOURCE_KEY_TO_HUBSPOT: Record<string, keyof HubSpotContactProperties> = {
   email:        "email",
   phone:        "phone",
   mobilePhone:  "phone",

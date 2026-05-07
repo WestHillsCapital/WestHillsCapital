@@ -22,6 +22,7 @@ import { requireAccountId } from "../middleware/requireAccountId";
 import { requireApiKeyAuth } from "../middleware/requireApiKeyAuth";
 import affiliatesAdminRouter, { publicAffiliateRouter } from "./affiliates";
 import headlessSessionsRouter from "./headlessSessions";
+import developerRouter from "./developer";
 
 const router: IRouter = Router();
 
@@ -86,6 +87,7 @@ v1Router.use("/product/settings",  requireProductAuth, settingsRouter);
 v1Router.use("/product/merlin",    requireProductAuth, requireAccountId, merlinRouter);
 v1Router.use("/packages",          requireApiKeyAuth,  requireAccountId, apiKeyDocufillRouter);
 v1Router.use("/sessions",          headlessSessionsRouter);
+v1Router.use("/product/developer", requireProductAuth, requireAccountId, developerRouter);
 
 router.use("/v1", v1Router);
 
