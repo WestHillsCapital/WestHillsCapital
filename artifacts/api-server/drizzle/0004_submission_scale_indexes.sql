@@ -11,4 +11,5 @@ CREATE INDEX IF NOT EXISTS "dis_account_status_idx" ON "docufill_interview_sessi
 CREATE INDEX IF NOT EXISTS "dis_account_expires_idx" ON "docufill_interview_sessions" USING btree ("account_id","expires_at");--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "docufill_packages_account_created_idx" ON "docufill_packages" USING btree ("account_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS "webhook_deliveries_account_created_idx" ON "webhook_deliveries" USING btree ("account_id","created_at" DESC NULLS LAST);--> statement-breakpoint
-CREATE INDEX IF NOT EXISTS "webhook_deliveries_session_created_idx" ON "webhook_deliveries" USING btree ("session_id","created_at" DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS "webhook_deliveries_session_created_idx" ON "webhook_deliveries" USING btree ("session_id","created_at" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "org_audit_log_account_created_idx" ON "org_audit_log" USING btree ("account_id","created_at" DESC NULLS LAST);

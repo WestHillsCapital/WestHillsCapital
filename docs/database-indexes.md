@@ -114,13 +114,13 @@ Index Scan using webhook_deliveries_account_created_idx
 |---|---|---|
 | `org_audit_log_account_created_idx` | `(account_id, created_at DESC)` | Paginated audit log per account |
 
-**Status:** This index predates the Drizzle migration system. It is:
+**Status:** This index is present in all environments via three complementary mechanisms:
 
-1. Defined in the Drizzle schema (`lib/db/src/schema/notifications.ts`) so `drizzle-kit` tracks it.
-2. Created imperatively in `initDb()` (`db.ts` line ~1386) with `CREATE INDEX IF NOT EXISTS` for backward compatibility with pre-Drizzle environments.
-3. Not included in migration `0004` because it was already present in all target environments before that migration was written.
+1. Defined in the Drizzle schema (`lib/db/src/schema/notifications.ts`).
+2. Added explicitly to migration `0004_submission_scale_indexes.sql` with `CREATE INDEX IF NOT EXISTS` — a safe no-op on any environment where it was already created by `initDb()`.
+3. Created imperatively in `initDb()` with `CREATE INDEX IF NOT EXISTS` for full backward compatibility.
 
-It does not need to be re-created. Any environment that ran `initDb()` at any point already has this index.
+The triple-redundancy guarantees that the index exists regardless of which startup path was taken on any given environment.
 
 ---
 

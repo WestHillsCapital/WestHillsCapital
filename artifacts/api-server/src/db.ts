@@ -1830,6 +1830,9 @@ export async function initDb(): Promise<void> {
     ON docufill_packages (account_id, created_at DESC NULLS LAST)`);
   await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS webhook_deliveries_account_created_idx
     ON webhook_deliveries (account_id, created_at DESC NULLS LAST)`);
+  // Ensure the session_id column exists before creating the session index.
+  // Migration 0004 adds this column; this guard protects the fallback path.
+  await db.query(`ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS session_id INTEGER REFERENCES docufill_interview_sessions(id) ON DELETE SET NULL`);
   await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS webhook_deliveries_session_created_idx
     ON webhook_deliveries (session_id, created_at DESC NULLS LAST)`);
 }
