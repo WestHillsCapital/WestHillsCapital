@@ -897,6 +897,11 @@ export default function DocuFillCustomer() {
   const brandTextColor = getBrandTextColor(brandColor);
   const requiredCount = visibleFields.filter((f) => fieldIsRequired(f) && f.interviewMode !== "readonly").length;
   const answeredCount = visibleFields.filter((f) => fieldIsRequired(f) && f.interviewMode !== "readonly" && currentValue(f, answers, session!.prefill).trim()).length;
+  // Sandbox progress widget counts ALL non-readonly interview fields (required or optional)
+  // so the widget shows meaningful progress even when fields are marked optional.
+  const widgetTotal = visibleFields.filter((f) => f.interviewMode !== "readonly" && f.interviewMode !== "omitted").length;
+  const widgetAnswered = visibleFields.filter((f) => f.interviewMode !== "readonly" && f.interviewMode !== "omitted" && currentValue(f, answers, session!.prefill).trim()).length;
+  const widgetPct = widgetTotal > 0 ? Math.round((widgetAnswered / widgetTotal) * 100) : 100;
   const hasErrors = Object.keys(fieldErrors).length > 0;
   // Determine the most recently entered valid 5-digit ZIP (used for city soft-check)
   const activeZip = (() => {
@@ -1800,13 +1805,13 @@ export default function DocuFillCustomer() {
             <div className="w-full bg-amber-100 rounded-full h-1.5 overflow-hidden">
               <div
                 className="h-full rounded-full transition-all duration-500"
-                style={{ width: `${progressPct}%`, backgroundColor: "#C49A38" }}
+                style={{ width: `${widgetPct}%`, backgroundColor: "#C49A38" }}
               />
             </div>
             <p className="text-[11px] text-amber-700">
-              {answeredCount} of {requiredCount} answers captured
-              {answeredCount > 0 && (
-                <> · <span className="font-semibold">{answeredCount * Math.ceil(requiredCount > 0 ? 430 / requiredCount : 54)}</span> field insertions queued</>
+              {widgetAnswered} of {widgetTotal} answers captured
+              {widgetAnswered > 0 && (
+                <> · <span className="font-semibold">{widgetAnswered * Math.ceil(widgetTotal > 0 ? 430 / widgetTotal : 54)}</span> field insertions queued</>
               )}
             </p>
           </div>
