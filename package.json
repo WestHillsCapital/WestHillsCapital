@@ -11,7 +11,8 @@
     "build": "pnpm run typecheck && pnpm -r --filter '!@workspace/mockup-sandbox' --if-present run build",
     "typecheck:libs": "tsc --build",
     "typecheck": "pnpm run typecheck:libs && pnpm -r --filter \"./artifacts/**\" --filter \"./scripts\" --if-present run typecheck",
-    "knip": "knip"
+    "knip": "knip",
+    "audit": "pnpm audit --audit-level=high"
   },
   "private": true,
   "devDependencies": {

@@ -28,6 +28,7 @@ Both services run in the same Replit deployment context. The API server connects
 
 Before deploying a new version:
 
+- [ ] Run `pnpm audit --audit-level=high` — must exit 0 (no high/critical vulnerabilities) before deploying
 - [ ] All three workflows start cleanly with no errors in the console
 - [ ] API server logs show "Database ready — all systems operational"
 - [ ] Test `GET /api/health` — should return `{ "status": "ok", "db": "ready" }`
