@@ -84,9 +84,16 @@ export async function runDrizzleMigrations(): Promise<void> {
           "utf8",
         );
         const journal = JSON.parse(journalRaw) as {
-          entries: Array<{ tag: string; when: number }>;
+          entries: Array<{ idx: number; tag: string; when: number }>;
         };
-        for (const entry of journal.entries) {
+        // Only baseline entries that predate the affiliate tables migration
+        // (idx 0 and 1). Leaving idx 2 unrecorded lets migrate() run it and
+        // create the affiliate tables instead of silently skipping it.
+        const AFFILIATE_TABLES_IDX = 2;
+        const baselineEntries = journal.entries.filter(
+          (e) => e.idx < AFFILIATE_TABLES_IDX,
+        );
+        for (const entry of baselineEntries) {
           const sqlContent = await readFile(
             path.join(migrationsFolder, `${entry.tag}.sql`),
             "utf8",
@@ -98,8 +105,43 @@ export async function runDrizzleMigrations(): Promise<void> {
           );
         }
         logger.info(
-          { count: journal.entries.length },
+          { count: baselineEntries.length },
           "[Migrations] Baselined Drizzle migrations on existing database",
+        );
+      }
+      // Reconcile the affiliate tables migration record.
+      // Prior to this fix the baseline logic recorded ALL journal entries,
+      // including 0002_affiliate_tables (old `when` = 1746648000000). That
+      // timestamp is lower than entries 0 and 1, so Drizzle's migrator
+      // (which checks `lastDbMigration.created_at < migration.folderMillis`)
+      // would try to re-run 0002 on any DB that was previously over-baselined,
+      // failing because the tables already exist and blocking future migrations.
+      // Fix: if the affiliates table already exists, ensure the 0002 record is
+      // present with the corrected `created_at` = 1778020000000 so that
+      // migrate() treats it as already applied.
+      const AFFILIATE_MIGRATION_HASH =
+        "557bb7719577d0dcc9122bb7ebc0d26279cb1233c24837a0a0c1f6f21e2051d1";
+      const AFFILIATE_MIGRATION_TIMESTAMP = 1778020000000;
+      const { rows: affiliateTableRows } = await db.query<{ exists: boolean }>(
+        `SELECT EXISTS(
+           SELECT 1 FROM information_schema.tables
+            WHERE table_schema = 'public' AND table_name = 'affiliates'
+         ) AS exists`,
+      );
+      if (affiliateTableRows[0]?.exists) {
+        // Upsert: remove any stale record for this hash (wrong timestamp) and
+        // re-insert with the canonical timestamp so `ORDER BY created_at DESC`
+        // returns it as the last-applied migration.
+        await db.query(
+          `DELETE FROM drizzle."__drizzle_migrations" WHERE hash = $1`,
+          [AFFILIATE_MIGRATION_HASH],
+        );
+        await db.query(
+          `INSERT INTO drizzle."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
+          [AFFILIATE_MIGRATION_HASH, AFFILIATE_MIGRATION_TIMESTAMP],
+        );
+        logger.info(
+          "[Migrations] Reconciled affiliate tables migration record",
         );
       }
       // Fall through — migrate() will now see the baseline rows and skip any
