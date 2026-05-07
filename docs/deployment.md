@@ -247,6 +247,66 @@ When `REDIS_URL` is not set (e.g. in the Replit development environment), all qu
 
 ---
 
+## Encryption key rotation (SOC 2 CC6.1)
+
+PII (interview answers) is encrypted with per-account Data Encryption Keys (DEKs). Each DEK is itself encrypted by a single `ENCRYPTION_MASTER_KEY` stored as a secret. This envelope-encryption scheme means rotating the master key re-protects all customer data without touching the answer ciphertext.
+
+### When to rotate
+
+- **Annually** — as part of the SOC 2 annual review cycle
+- **On suspected compromise** — immediately, if you have reason to believe `ENCRYPTION_MASTER_KEY` may have been exposed
+- **On staff offboarding** — if a departing team member had access to the production secrets
+
+### How to generate a new master key
+
+```bash
+# Generate a cryptographically random 32-byte key (64 hex chars)
+node -e "const {randomBytes}=require('crypto'); console.log(randomBytes(32).toString('hex'))"
+```
+
+### Rotation procedure
+
+1. **Dry run first** — verify the old key decrypts all accounts correctly:
+
+   ```bash
+   OLD_ENCRYPTION_MASTER_KEY=<current key> \
+   NEW_ENCRYPTION_MASTER_KEY=<new key> \
+   DATABASE_URL=<production url> \
+   node artifacts/api-server/scripts/rotate-master-key.mjs --dry-run
+   ```
+
+   The output shows each account ID and its new `dek_version`. If any account fails, **stop** — the old key may not match.
+
+2. **Live run** — re-encrypt all DEKs in a single serializable transaction:
+
+   ```bash
+   OLD_ENCRYPTION_MASTER_KEY=<current key> \
+   NEW_ENCRYPTION_MASTER_KEY=<new key> \
+   DATABASE_URL=<production url> \
+   node artifacts/api-server/scripts/rotate-master-key.mjs
+   ```
+
+3. **Update the secret** — set `ENCRYPTION_MASTER_KEY` to the new key value in Replit's Secrets panel.
+
+4. **Restart services** — restart the API server and worker workflows so they pick up the new secret.
+
+5. **Verify** — check startup logs for normal operation and no decryption errors.
+
+6. **Remove the old key** — delete `OLD_ENCRYPTION_MASTER_KEY` from secrets. Do not leave it in place.
+
+### What the script does
+
+- Reads every `accounts` row where `encrypted_dek IS NOT NULL`
+- Decrypts each DEK using `OLD_ENCRYPTION_MASTER_KEY` (AES-256-GCM)
+- Re-encrypts the same DEK using `NEW_ENCRYPTION_MASTER_KEY` (fresh IV for each row)
+- Writes all updates in a single serializable transaction — if anything fails, no rows are changed
+- Increments `dek_version` on each account so the migration can be audited
+
+The script is **idempotent**: running it twice with the same keys is harmless.  
+The answer ciphertext is **not touched** — only the DEK wrapper changes.
+
+---
+
 ## Database SSL (SOC 2 CC6.7)
 
 The API server enforces TLS certificate validation for all production database connections (`rejectUnauthorized: true`). This applies to every pg Pool used by the server — the main pool (`db.ts`), the shared Drizzle pool (`lib/db`), and the StripeSync pool.

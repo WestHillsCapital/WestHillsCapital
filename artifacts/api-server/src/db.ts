@@ -1709,6 +1709,9 @@ export async function initDb(): Promise<void> {
   // ── Encryption at rest — PII fields ──────────────────────────────────────────
   // Per-account data-encryption key, wrapped by ENCRYPTION_MASTER_KEY env var.
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS encrypted_dek TEXT`);
+  // DEK version counter — incremented by rotate-master-key.mjs on each rotation.
+  // Allows verifying which accounts have been migrated to a new master key.
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS dek_version INTEGER NOT NULL DEFAULT 1`);
 
   // ── Package channel defaults ──────────────────────────────────────────────────
   // These org-level flags determine which output channels are enabled by default
