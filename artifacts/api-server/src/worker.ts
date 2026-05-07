@@ -3,7 +3,7 @@ import * as Sentry from "@sentry/node";
 import { isQueueEnabled } from "./lib/queue.js";
 import { logger } from "./lib/logger.js";
 import { initDb, runDrizzleMigrations } from "./db.js";
-import { registerGeneratePdfProcessor } from "./routes/docufill.js";
+import { registerGeneratePdfProcessor, registerDeliverWebhookProcessor } from "./routes/docufill.js";
 
 if (!isQueueEnabled()) {
   logger.error(
@@ -13,7 +13,7 @@ if (!isQueueEnabled()) {
   process.exit(1);
 }
 
-logger.info("[PDFWorker] Starting PDF generation worker...");
+logger.info("[PDFWorker] Starting worker...");
 
 const shouldMigrate =
   process.env.NODE_ENV !== "production" || process.env.RUN_MIGRATIONS === "true";
@@ -21,25 +21,39 @@ const shouldMigrate =
 (shouldMigrate ? runDrizzleMigrations() : Promise.resolve())
   .then(() => initDb())
   .then(() => {
-    logger.info("[PDFWorker] Database ready — registering generate-pdf processor");
-    const worker = registerGeneratePdfProcessor();
-    if (!worker) {
-      logger.error("[PDFWorker] Failed to register processor — queue not available");
+    logger.info("[PDFWorker] Database ready — registering processors");
+
+    // ── generate-pdf processor ──────────────────────────────────────────────
+    const pdfWorker = registerGeneratePdfProcessor();
+    if (!pdfWorker) {
+      logger.error("[PDFWorker] Failed to register generate-pdf processor — queue not available");
       process.exit(1);
     }
 
-    worker.on("completed", (job: { id?: string }) => {
-      logger.info({ jobId: job.id }, "[PDFWorker] Job completed");
+    pdfWorker.on("completed", (job: { id?: string }) => {
+      logger.info({ jobId: job.id }, "[PDFWorker] generate-pdf job completed");
     });
-
-    worker.on("failed", (job: { id?: string } | undefined, err: unknown) => {
-      logger.error({ jobId: job?.id, err }, "[PDFWorker] Job failed");
+    pdfWorker.on("failed", (job: { id?: string } | undefined, err: unknown) => {
+      logger.error({ jobId: job?.id, err }, "[PDFWorker] generate-pdf job failed");
       Sentry.captureException(err instanceof Error ? err : new Error(String(err)), {
         tags: { queue: "generate-pdf" },
       });
     });
 
-    logger.info("[PDFWorker] PDF generation worker ready — listening for generate-pdf jobs");
+    // ── deliver-webhook processor ───────────────────────────────────────────
+    const webhookWorker = registerDeliverWebhookProcessor();
+    if (!webhookWorker) {
+      logger.warn("[PDFWorker] deliver-webhook processor not registered — queue not available");
+    } else {
+      webhookWorker.on("failed", (job: { id?: string } | undefined, err: unknown) => {
+        logger.error({ jobId: job?.id, err }, "[PDFWorker] deliver-webhook job exhausted all retries");
+        Sentry.captureException(err instanceof Error ? err : new Error(String(err)), {
+          tags: { queue: "deliver-webhook" },
+        });
+      });
+    }
+
+    logger.info("[PDFWorker] All workers ready");
   })
   .catch((err: unknown) => {
     logger.error({ err }, "[PDFWorker] Startup failed");

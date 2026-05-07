@@ -4,6 +4,7 @@ import {
   QUEUE_NAMES,
   type PingJobPayload,
   type GeneratePdfJobPayload,
+  type DeliverWebhookJobPayload,
 } from "@workspace/queues";
 import { logger } from "./logger.js";
 
@@ -13,6 +14,7 @@ import { logger } from "./logger.js";
 
 export const pingQueue = createQueue<PingJobPayload>(QUEUE_NAMES.PING);
 export const generatePdfQueue = createQueue<GeneratePdfJobPayload>(QUEUE_NAMES.GENERATE_PDF);
+export const deliverWebhookQueue = createQueue<DeliverWebhookJobPayload>(QUEUE_NAMES.DELIVER_WEBHOOK);
 
 // ── Startup probe ─────────────────────────────────────────────────────────────
 // Enqueues a no-op ping job to verify the queue round-trip is working.
@@ -48,6 +50,29 @@ export async function enqueueGeneratePdfJob(payload: GeneratePdfJobPayload): Pro
   return job.id!;
 }
 
+// ── Deliver Webhook job enqueue ───────────────────────────────────────────────
+// Non-throwing: returns null when queue unavailable so callers can fall back
+// to the synchronous fireWebhookAsync path.
+export async function enqueueDeliverWebhookJob(
+  payload: DeliverWebhookJobPayload,
+): Promise<string | null> {
+  if (!isQueueEnabled() || !deliverWebhookQueue) {
+    return null;
+  }
+  try {
+    const job = await deliverWebhookQueue.add(QUEUE_NAMES.DELIVER_WEBHOOK, payload, {
+      attempts: 3,
+      backoff: { type: "exponential", delay: 30_000 },
+      removeOnComplete: { count: 500 },
+      removeOnFail: { count: 500 },
+    });
+    return job.id!;
+  } catch (err) {
+    logger.error({ err }, "[Queue] Failed to enqueue deliver-webhook job");
+    return null;
+  }
+}
+
 // Re-export so route files can use without importing @workspace/queues directly
 export { isQueueEnabled };
 
@@ -57,31 +82,34 @@ export async function getQueueStatus(): Promise<Record<string, unknown>> {
     return { enabled: false, reason: "REDIS_URL not configured" };
   }
   try {
-    const [pingCounts, pdfCounts] = await Promise.all([
-      pingQueue
+    const getCounts = async (q: { getWaitingCount(): Promise<number>; getActiveCount(): Promise<number>; getCompletedCount(): Promise<number>; getFailedCount(): Promise<number>; getDelayedCount(): Promise<number> } | null) =>
+      q
         ? Promise.all([
-            pingQueue.getWaitingCount(),
-            pingQueue.getActiveCount(),
-            pingQueue.getCompletedCount(),
-            pingQueue.getFailedCount(),
-            pingQueue.getDelayedCount(),
-          ]).then(([waiting, active, completed, failed, delayed]) => ({ waiting, active, completed, failed, delayed }))
-        : null,
-      generatePdfQueue
-        ? Promise.all([
-            generatePdfQueue.getWaitingCount(),
-            generatePdfQueue.getActiveCount(),
-            generatePdfQueue.getCompletedCount(),
-            generatePdfQueue.getFailedCount(),
-            generatePdfQueue.getDelayedCount(),
-          ]).then(([waiting, active, completed, failed, delayed]) => ({ waiting, active, completed, failed, delayed }))
-        : null,
+            q.getWaitingCount(),
+            q.getActiveCount(),
+            q.getCompletedCount(),
+            q.getFailedCount(),
+            q.getDelayedCount(),
+          ]).then(([waiting, active, completed, failed, delayed]) => ({
+            waiting,
+            active,
+            completed,
+            failed,
+            delayed,
+          }))
+        : null;
+
+    const [pingCounts, pdfCounts, webhookCounts] = await Promise.all([
+      getCounts(pingQueue),
+      getCounts(generatePdfQueue),
+      getCounts(deliverWebhookQueue),
     ]);
     return {
       enabled: true,
       queues: {
-        ...(pingCounts ? { [QUEUE_NAMES.PING]: pingCounts } : {}),
-        ...(pdfCounts ? { [QUEUE_NAMES.GENERATE_PDF]: pdfCounts } : {}),
+        ...(pingCounts    ? { [QUEUE_NAMES.PING]:            pingCounts    } : {}),
+        ...(pdfCounts     ? { [QUEUE_NAMES.GENERATE_PDF]:    pdfCounts     } : {}),
+        ...(webhookCounts ? { [QUEUE_NAMES.DELIVER_WEBHOOK]: webhookCounts } : {}),
       },
     };
   } catch (err) {

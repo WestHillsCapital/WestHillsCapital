@@ -55,8 +55,8 @@ import {
   decryptAnswers,
   isEncryptionEnabled,
 } from "../lib/encryption";
-import { createQueueWorker, QUEUE_NAMES, type GeneratePdfJobPayload, type Worker } from "@workspace/queues";
-import { generatePdfQueue, enqueueGeneratePdfJob, isQueueEnabled } from "../lib/queue";
+import { createQueueWorker, QUEUE_NAMES, type GeneratePdfJobPayload, type DeliverWebhookJobPayload, type Worker } from "@workspace/queues";
+import { generatePdfQueue, enqueueGeneratePdfJob, enqueueDeliverWebhookJob, isQueueEnabled } from "../lib/queue";
 import {
   EmptyBodySchema,
   PdfUploadHeaderSchema,
@@ -5662,13 +5662,30 @@ export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | 
       // ── Webhook ────────────────────────────────────────────────────────────
       const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
       if (session.webhook_enabled === true && webhookUrl) {
-        fireWebhookAsync(
-          db,
-          typeof session.package_id         === "number" ? session.package_id         : Number(session.package_id),
-          typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id),
+        const webhookPkgId  = typeof session.package_id         === "number" ? session.package_id         : Number(session.package_id);
+        const webhookAcctId = typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id);
+        const webhookPayload = buildWebhookPayload(session);
+        // Enqueue to deliver-webhook queue for durable, retried delivery.
+        // Falls back to in-process fireWebhookAsync when the queue is unavailable.
+        enqueueDeliverWebhookJob({
+          sessionToken,
+          packageId:  webhookPkgId,
+          accountId:  webhookAcctId,
+          eventType:  "interview.submitted",
           webhookUrl,
-          buildWebhookPayload(session),
-        );
+          payload:    webhookPayload,
+        }).then((jobId) => {
+          if (jobId) {
+            logger.info({ jobId, sessionToken, webhookPkgId }, "[GeneratePdf] Webhook delivery enqueued");
+          } else {
+            // Queue unavailable — fall back to in-process delivery with retries
+            logger.warn({ sessionToken, webhookPkgId }, "[GeneratePdf] Queue unavailable — falling back to inline webhook delivery");
+            fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, webhookPayload);
+          }
+        }).catch((enqueueErr) => {
+          logger.error({ enqueueErr, sessionToken, webhookPkgId }, "[GeneratePdf] Failed to enqueue webhook — falling back to inline delivery");
+          fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, webhookPayload);
+        });
       }
 
       // ── Slack notification ────────────────────────────────────────────────
@@ -5722,6 +5739,84 @@ export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | 
   });
 
   logger.info("[GeneratePdf] Worker registered — listening for generate-pdf jobs");
+  return worker;
+}
+
+/**
+ * BullMQ worker processor for the `deliver-webhook` queue.
+ *
+ * Each job attempt calls `doWebhookDelivery` once and records the result
+ * in `webhook_deliveries`.  If the HTTP delivery fails, the job throws so
+ * BullMQ retries with exponential backoff (configured at enqueue time:
+ * 3 attempts — immediate, +30 s, +60 s).  On final exhaustion the
+ * `failed` event surfaces in worker.ts where Sentry is notified.
+ */
+export function registerDeliverWebhookProcessor(): Worker<DeliverWebhookJobPayload> | null {
+  const worker = createQueueWorker<DeliverWebhookJobPayload>(
+    QUEUE_NAMES.DELIVER_WEBHOOK,
+    async (job) => {
+      const { sessionToken, packageId, accountId, eventType, webhookUrl, payload } = job.data;
+      const attempt = job.attemptsMade + 1;
+
+      logger.info({ jobId: job.id, sessionToken, packageId, attempt }, "[DeliverWebhook] Processing job");
+
+      const db = getDb();
+      const bodyStr    = JSON.stringify(payload);
+      const payloadHash = createHash("sha256").update(bodyStr).digest("hex").slice(0, 16);
+
+      // Fetch signing secret at delivery time — fail-closed if unavailable.
+      let secret: string | null = null;
+      try {
+        const { rows } = await db.query<{ webhook_secret: string }>(
+          `SELECT webhook_secret FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+          [packageId, accountId],
+        );
+        secret = rows[0]?.webhook_secret ?? null;
+        if (!secret) throw new Error("webhook_secret is missing or null");
+      } catch (err) {
+        logger.error({ err, packageId, accountId, sessionToken }, "[DeliverWebhook] Cannot fetch webhook_secret — aborting attempt");
+        db.query(
+          `INSERT INTO webhook_deliveries
+             (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms, payload_json)
+           VALUES ($1, $2, $3, $4, $5, NULL, $6, 0, $7)`,
+          [packageId, accountId, eventType, payloadHash, attempt, "Secret unavailable — delivery aborted", bodyStr],
+        ).catch((e) => {
+          if (e?.code === "23503" && e?.constraint === "webhook_deliveries_package_id_fkey") return;
+          logger.error({ e }, "[DeliverWebhook] Failed to log aborted delivery");
+        });
+        // Do not retry when the secret is missing — throw a non-retryable error
+        // by setting attemptsMade to max so BullMQ exhausts the job immediately.
+        throw Object.assign(
+          new Error(`[DeliverWebhook] Webhook secret unavailable for package ${packageId} — will not retry`),
+          { failedJobsHistoryLength: 0 },
+        );
+      }
+
+      const ok = await doWebhookDelivery(
+        db, packageId, accountId, webhookUrl, secret, bodyStr, attempt, eventType, payloadHash,
+      );
+
+      if (!ok) {
+        throw new Error(
+          `[DeliverWebhook] Delivery failed (attempt ${attempt}) for package ${packageId} — will retry if attempts remain`,
+        );
+      }
+
+      logger.info({ jobId: job.id, sessionToken, packageId, attempt }, "[DeliverWebhook] Delivery succeeded");
+    },
+    { concurrency: 5 },
+  );
+
+  if (!worker) return null;
+
+  worker.on("completed", (job: { id?: string }) => {
+    logger.info({ jobId: job.id }, "[DeliverWebhook] Worker completed job");
+  });
+  worker.on("failed", (job: { id?: string } | undefined, err: unknown) => {
+    logger.error({ jobId: job?.id, err }, "[DeliverWebhook] Worker failed job after all retries");
+  });
+
+  logger.info("[DeliverWebhook] Worker registered — listening for deliver-webhook jobs");
   return worker;
 }
 
