@@ -12,14 +12,53 @@ let pool: Pool | null = null;
 export let dbReady = false;
 export let dbError: string | null = null;
 
+/**
+ * Builds the SSL configuration for pg Pool connections.
+ *
+ * In development (NODE_ENV !== "production") SSL is disabled so the local
+ * Replit-managed dev database (which does not serve TLS) can connect without
+ * extra config.
+ *
+ * In production:
+ *   - rejectUnauthorized: true  — certificate chain is verified against the
+ *     Node.js system CA bundle (SOC 2 CC6.7 — authenticated connections).
+ *     Both Replit-managed Neon and Railway Postgres use publicly-trusted certs
+ *     (Let's Encrypt / DigiCert), so no custom CA is needed in standard setups.
+ *   - DB_SSL_CA (optional, base64-encoded PEM) — if the database provider uses
+ *     a private CA cert (e.g. a self-hosted Postgres), encode the cert as
+ *     base64 and set this variable. The cert is decoded at startup and passed
+ *     as the `ca` option to TLS, while rejectUnauthorized remains true.
+ */
+function buildDbSslConfig(): false | { rejectUnauthorized: boolean; ca?: string } {
+  if (process.env.NODE_ENV !== "production") return false;
+
+  const caPem = process.env.DB_SSL_CA
+    ? Buffer.from(process.env.DB_SSL_CA, "base64").toString("utf8")
+    : undefined;
+
+  return {
+    rejectUnauthorized: true,
+    ...(caPem ? { ca: caPem } : {}),
+  };
+}
+
 export function getDb(): Pool {
   if (!pool) {
     if (!process.env.DATABASE_URL) {
       throw new Error("DATABASE_URL environment variable is not set");
     }
+    const sslConfig = buildDbSslConfig();
+    logger.info(
+      {
+        sslEnabled: sslConfig !== false,
+        rejectUnauthorized: sslConfig !== false ? sslConfig.rejectUnauthorized : false,
+        customCa: sslConfig !== false && "ca" in sslConfig && !!sslConfig.ca,
+      },
+      "[DB] SSL configuration",
+    );
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      ssl: sslConfig,
       // Sane pool limits: enough for concurrent requests, not so many that we
       // exhaust Railway's Postgres connection limit.
       max: 10,

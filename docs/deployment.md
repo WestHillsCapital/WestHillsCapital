@@ -178,3 +178,40 @@ The job queue infrastructure powers background processing for PDF generation, we
 ### Graceful degradation
 
 When `REDIS_URL` is not set (e.g. in the Replit development environment), all queue operations are skipped with a warning log. The API server and all existing features continue to work normally — jobs simply do not run.
+
+---
+
+## Database SSL (SOC 2 CC6.7)
+
+The API server enforces TLS certificate validation for all production database connections (`rejectUnauthorized: true`). This applies to every pg Pool used by the server — the main pool (`db.ts`), the shared Drizzle pool (`lib/db`), and the StripeSync pool.
+
+### Standard setup (Replit-managed or Railway Postgres)
+
+No extra configuration is needed. Both Replit-managed Neon and Railway Postgres use publicly-trusted certificates (Let's Encrypt / DigiCert). The Node.js system CA bundle validates them automatically.
+
+At startup, the API server logs the active SSL mode:
+
+```
+[DB] SSL configuration  { sslEnabled: true, rejectUnauthorized: true, customCa: false }
+```
+
+### Private-CA environments (self-hosted Postgres)
+
+If your database uses a certificate issued by a private CA (e.g. a self-signed cert from a self-hosted Postgres), set the `DB_SSL_CA` secret to the base64-encoded PEM of the CA certificate:
+
+```bash
+# Encode the CA cert
+base64 -w 0 /path/to/ca.crt
+```
+
+Paste the output as the value for `DB_SSL_CA` in Replit's Secrets panel. The connection will then use `rejectUnauthorized: true` with that CA as the trust anchor. The startup log will show `customCa: true`.
+
+### Troubleshooting SSL connection failures
+
+If the API server fails to connect after a deployment with errors like `SELF_SIGNED_CERT_IN_CHAIN` or `unable to verify the first certificate`:
+
+1. Obtain the CA certificate from your DB provider's dashboard.
+2. Base64-encode it and set `DB_SSL_CA` as described above.
+3. Restart the API server workflow.
+
+If you are on a provider that explicitly requires `rejectUnauthorized: false` (not recommended), contact your DB provider to obtain a valid CA cert instead — disabling validation removes SOC 2 CC6.7 compliance.
