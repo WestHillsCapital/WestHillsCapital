@@ -15,6 +15,13 @@
       "when": 1778018071798,
       "tag": "0001_sudden_onslaught",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1746648000000,
+      "tag": "0002_affiliate_tables",
+      "breakpoints": true
     }
   ]
 }

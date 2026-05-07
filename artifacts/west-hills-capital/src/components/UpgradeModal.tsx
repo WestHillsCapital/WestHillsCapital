@@ -133,6 +133,7 @@ export function UpgradeModal() {
           interval,
           extraSeats:           extraSeats,
           extraSubmissionPacks: planChoice === "pro" ? extraPacks : 0,
+          referralCode:         localStorage.getItem("docuplete_referral_code") ?? undefined,
         }),
       });
       const data = await res.json() as { url?: string; error?: string };

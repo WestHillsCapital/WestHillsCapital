@@ -20,6 +20,7 @@ import { requireInternalAuth } from "../middleware/requireInternalAuth";
 import { requireProductAuth } from "../middleware/requireProductAuth";
 import { requireAccountId } from "../middleware/requireAccountId";
 import { requireApiKeyAuth } from "../middleware/requireApiKeyAuth";
+import affiliatesAdminRouter, { publicAffiliateRouter } from "./affiliates";
 
 const router: IRouter = Router();
 
@@ -35,6 +36,9 @@ router.use("/leads",        leadsRouter);
 router.use("/calendar-setup",    calendarSetupRouter);
 router.use("/sheets-backfill",   sheetsBackfillRouter);
 router.use("/content",           publicContentRouter);
+
+// ── Public affiliate application ──────────────────────────────────────────────
+router.use("/affiliates", publicAffiliateRouter);
 
 // ── Internal auth (public sign-in/signout endpoints) ──────────────────────────
 router.use("/internal/auth", internalAuthRouter);
@@ -64,6 +68,9 @@ router.use("/internal/content", requireInternalAuth, contentRouter);
 
 // ── Org settings (internal tool — require auth) ───────────────────────────────
 router.use("/internal/settings", requireInternalAuth, settingsRouter);
+
+// ── Affiliates admin (internal tool — require auth) ───────────────────────────
+router.use("/internal/affiliates", requireInternalAuth, affiliatesAdminRouter);
 
 // ── v1 API: versioned product + public docufill routes ────────────────────────
 // All externally-published product API endpoints live under /api/v1/...

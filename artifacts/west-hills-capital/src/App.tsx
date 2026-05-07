@@ -41,7 +41,8 @@ const Privacy       = lazy(() => import("@/pages/Privacy"));
 const Insights      = lazy(() => import("@/pages/Insights"));
 const InsightArticle = lazy(() => import("@/pages/InsightArticle"));
 const FAQ           = lazy(() => import("@/pages/FAQ"));
-const NotFound      = lazy(() => import("@/pages/not-found"));
+const NotFound       = lazy(() => import("@/pages/not-found"));
+const AffiliateApply = lazy(() => import("@/pages/AffiliateApply"));
 const Verify        = lazy(() => import("@/pages/Verify"));
 
 // ── Programmatic SEO pages (lazy-loaded) ──────────────────────────────────────
@@ -140,6 +141,16 @@ function Router() {
   const isCustomerForm = location.startsWith("/docuplete/public/");
   const isApp         = location.startsWith("/app");
 
+  // Capture referral code from ?ref= URL param and persist to localStorage
+  // so it survives navigation before the user reaches the checkout flow.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("ref");
+    if (ref && ref.trim()) {
+      localStorage.setItem("docuplete_referral_code", ref.trim().toUpperCase());
+    }
+  }, [location]);
+
   if (isInternal) {
     return (
       <div className="docuplete-app">
@@ -198,6 +209,7 @@ function Router() {
           <Route path="/insights/:slug"  component={InsightArticle} />
           <Route path="/faq"             component={FAQ}            />
           <Route path="/verify"          component={Verify}         />
+          <Route path="/become-an-affiliate" component={AffiliateApply} />
           <Route path="/ira/rollovers"            component={IraRolloversHubPage} />
           <Route path="/ira/rollover/:accountType" component={IraRolloverPage} />
           <Route path="/ira/custodians"            component={CustodiansHubPage} />

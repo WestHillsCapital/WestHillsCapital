@@ -1497,11 +1497,18 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
       acct.subscription_status === "canceled" ||
       acct.subscription_status === "cancelled";
 
+    const referralCode = typeof body.referralCode === "string" && body.referralCode.trim()
+      ? body.referralCode.trim().toUpperCase()
+      : null;
+
     const subscriptionData: {
       trial_period_days?: number;
       metadata: Record<string, string>;
     } = {
-      metadata: { account_id: String(accountId) },
+      metadata: {
+        account_id: String(accountId),
+        ...(referralCode ? { referral_code: referralCode } : {}),
+      },
     };
     if (isNewSubscriber) {
       subscriptionData.trial_period_days = 14;

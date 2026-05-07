@@ -612,6 +612,414 @@ function DetailPanel({
   );
 }
 
+// ── Affiliate types ────────────────────────────────────────────────────────────
+
+interface AffiliateRow {
+  id: number;
+  name: string;
+  email: string;
+  company: string | null;
+  referral_code: string;
+  status: string;
+  stripe_account_id: string | null;
+  stripe_account_status: string | null;
+  commission_rate: string;
+  commission_months: number;
+  created_at: string;
+  referral_count: string;
+  pending_cents: string;
+  paid_cents: string;
+}
+
+interface CommissionRow {
+  id: number;
+  affiliate_id: number;
+  referral_id: number;
+  amount_cents: number;
+  status: string;
+  due_date: string | null;
+  paid_at: string | null;
+  stripe_transfer_id: string | null;
+  period_label: string | null;
+  stripe_subscription_id: string | null;
+  plan_type: string;
+}
+
+const AFFILIATE_BASE = `${API_BASE}/api/internal/affiliates`;
+
+function affiliateStatusBadge(status: string) {
+  const map: Record<string, string> = {
+    pending:   "bg-yellow-50 text-yellow-700 border-yellow-200",
+    approved:  "bg-blue-50 text-blue-700 border-blue-200",
+    active:    "bg-green-50 text-green-700 border-green-200",
+    suspended: "bg-red-50 text-red-600 border-red-200",
+  };
+  return (
+    <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${map[status] ?? "bg-gray-100 text-gray-500 border-gray-200"}`}>
+      {status}
+    </span>
+  );
+}
+
+function AffiliatesTab({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
+  const [affiliates, setAffiliates] = useState<AffiliateRow[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [error,       setError]       = useState<string | null>(null);
+  const [selected,    setSelected]    = useState<AffiliateRow | null>(null);
+  const [commissions, setCommissions] = useState<CommissionRow[]>([]);
+  const [commLoading, setCommLoading] = useState(false);
+  const [actionMsg,   setActionMsg]   = useState<string | null>(null);
+  const [showInvite,  setShowInvite]  = useState(false);
+  const [invite,      setInvite]      = useState({ name: "", email: "", company: "", notes: "" });
+  const [inviting,    setInviting]    = useState(false);
+
+  function load() {
+    setLoading(true);
+    fetch(`${AFFILIATE_BASE}/`, { headers: getAuthHeaders() })
+      .then(async (r) => {
+        const data = await r.json() as { affiliates?: AffiliateRow[]; error?: string };
+        if (!r.ok) { setError(data.error ?? "Failed to load"); return; }
+        setAffiliates(data.affiliates ?? []);
+      })
+      .catch(() => setError("Network error"))
+      .finally(() => setLoading(false));
+  }
+
+  useEffect(() => { load(); }, []);
+
+  function loadCommissions(affiliateId: number) {
+    setCommLoading(true);
+    fetch(`${AFFILIATE_BASE}/${affiliateId}/commissions`, { headers: getAuthHeaders() })
+      .then(async (r) => {
+        const data = await r.json() as { commissions?: CommissionRow[] };
+        setCommissions(data.commissions ?? []);
+      })
+      .catch(() => {})
+      .finally(() => setCommLoading(false));
+  }
+
+  function selectAffiliate(a: AffiliateRow) {
+    setSelected(a);
+    setCommissions([]);
+    setActionMsg(null);
+    loadCommissions(a.id);
+  }
+
+  async function handleApprove(a: AffiliateRow) {
+    setActionMsg(null);
+    try {
+      const res = await fetch(`${AFFILIATE_BASE}/${a.id}`, {
+        method: "PATCH",
+        headers: { ...(getAuthHeaders() as Record<string, string>), "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "approved" }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setAffiliates((prev) => prev.map((x) => x.id === a.id ? { ...x, status: "approved" } : x));
+      if (selected?.id === a.id) setSelected((p) => p ? { ...p, status: "approved" } : p);
+      setActionMsg("Affiliate approved.");
+    } catch { setActionMsg("Failed to approve."); }
+  }
+
+  async function handleConnect(a: AffiliateRow) {
+    setActionMsg(null);
+    try {
+      const res = await fetch(`${AFFILIATE_BASE}/${a.id}/connect`, {
+        method: "POST",
+        headers: { ...(getAuthHeaders() as Record<string, string>), "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const data = await res.json() as { url?: string; error?: string; stripe_account_id?: string };
+      if (!res.ok || !data.url) { setActionMsg(data.error ?? "Failed to create Connect link."); return; }
+      window.open(data.url, "_blank");
+      setActionMsg("Stripe Connect onboarding link opened in new tab.");
+      if (data.stripe_account_id) {
+        setAffiliates((prev) => prev.map((x) => x.id === a.id ? { ...x, stripe_account_id: data.stripe_account_id ?? null } : x));
+        if (selected?.id === a.id) setSelected((p) => p ? { ...p, stripe_account_id: data.stripe_account_id ?? null } : p);
+      }
+    } catch { setActionMsg("Failed to create Connect link."); }
+  }
+
+  async function handleSuspend(a: AffiliateRow) {
+    setActionMsg(null);
+    const newStatus = a.status === "suspended" ? "approved" : "suspended";
+    try {
+      const res = await fetch(`${AFFILIATE_BASE}/${a.id}`, {
+        method: "PATCH",
+        headers: { ...(getAuthHeaders() as Record<string, string>), "Content-Type": "application/json" },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      setAffiliates((prev) => prev.map((x) => x.id === a.id ? { ...x, status: newStatus } : x));
+      if (selected?.id === a.id) setSelected((p) => p ? { ...p, status: newStatus } : p);
+      setActionMsg(newStatus === "suspended" ? "Affiliate suspended." : "Affiliate reinstated.");
+    } catch { setActionMsg("Failed to update."); }
+  }
+
+  async function handlePayCommission(commission: CommissionRow) {
+    if (!selected) return;
+    setActionMsg(null);
+    if (!selected.stripe_account_id) {
+      setActionMsg("Affiliate has not completed Stripe Connect onboarding.");
+      return;
+    }
+    try {
+      const res = await fetch(`${AFFILIATE_BASE}/${selected.id}/commissions/${commission.id}/pay`, {
+        method: "POST",
+        headers: { ...(getAuthHeaders() as Record<string, string>), "Content-Type": "application/json" },
+        body: "{}",
+      });
+      const data = await res.json() as { ok?: boolean; error?: string; transfer_id?: string };
+      if (!res.ok) { setActionMsg(data.error ?? "Failed to pay."); return; }
+      setCommissions((prev) => prev.map((c) => c.id === commission.id ? { ...c, status: "paid", stripe_transfer_id: data.transfer_id ?? null } : c));
+      setActionMsg(`Paid — Stripe Transfer ID: ${data.transfer_id}`);
+    } catch { setActionMsg("Failed to process payment."); }
+  }
+
+  async function handleInvite() {
+    if (!invite.name.trim() || !invite.email.trim()) return;
+    setInviting(true); setActionMsg(null);
+    try {
+      const res = await fetch(`${AFFILIATE_BASE}/`, {
+        method: "POST",
+        headers: { ...(getAuthHeaders() as Record<string, string>), "Content-Type": "application/json" },
+        body: JSON.stringify(invite),
+      });
+      const data = await res.json() as { affiliate?: { referral_code: string }; error?: string };
+      if (!res.ok) { setActionMsg(data.error ?? "Failed to invite."); return; }
+      setInvite({ name: "", email: "", company: "", notes: "" });
+      setShowInvite(false);
+      load();
+      setActionMsg(`Affiliate invited — referral code: ${data.affiliate?.referral_code ?? "—"}`);
+    } catch { setActionMsg("Failed to invite."); }
+    finally { setInviting(false); }
+  }
+
+  const totalPending = affiliates.reduce((s, a) => s + parseInt(a.pending_cents, 10), 0);
+  const totalPaid    = affiliates.reduce((s, a) => s + parseInt(a.paid_cents,    10), 0);
+  const activeCount  = affiliates.filter((a) => a.status === "active").length;
+  const pendingApprovals = affiliates.filter((a) => a.status === "pending").length;
+
+  return (
+    <div>
+      {/* Summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: "Total affiliates",     value: affiliates.length },
+          { label: "Active",               value: activeCount },
+          { label: "Pending payouts",      value: formatMoney(totalPending), warn: totalPending > 0 },
+          { label: "All-time paid",        value: formatMoney(totalPaid) },
+        ].map(({ label, value, warn }) => (
+          <div key={label} className={`rounded-xl border bg-white px-5 py-4 ${warn ? "border-orange-200" : "border-gray-200"}`}>
+            <p className={`text-2xl font-semibold ${warn ? "text-orange-600" : "text-[#0F1C3F]"}`}>{value}</p>
+            <p className="text-xs text-[#8A9BB8] mt-0.5">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {pendingApprovals > 0 && (
+        <div className="rounded-lg border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm text-yellow-800 mb-4">
+          {pendingApprovals} affiliate application{pendingApprovals !== 1 ? "s" : ""} pending review.
+        </div>
+      )}
+
+      {actionMsg && (
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 mb-4">{actionMsg}</div>
+      )}
+
+      {/* Header row */}
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-sm font-semibold text-gray-700">Affiliates</h3>
+        <button type="button" onClick={() => setShowInvite(!showInvite)}
+          className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors">
+          + Invite affiliate
+        </button>
+      </div>
+
+      {/* Invite form */}
+      {showInvite && (
+        <div className="rounded-xl border border-gray-200 bg-white p-5 mb-4">
+          <p className="text-sm font-semibold text-gray-700 mb-3">Invite affiliate (admin-created, pre-approved)</p>
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            {[
+              { key: "name",    label: "Full name *",     type: "text" },
+              { key: "email",   label: "Email address *", type: "email" },
+              { key: "company", label: "Company",         type: "text" },
+              { key: "notes",   label: "Internal notes",  type: "text" },
+            ].map(({ key, label, type }) => (
+              <div key={key}>
+                <label className="block text-[10px] text-gray-500 mb-1">{label}</label>
+                <input type={type} value={(invite as Record<string, string>)[key]}
+                  onChange={(e) => setInvite((p) => ({ ...p, [key]: e.target.value }))}
+                  className="w-full rounded border border-gray-200 px-2 py-1.5 text-xs text-gray-800 focus:outline-none focus:ring-1 focus:ring-[#C49A38]/50" />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <button type="button" disabled={inviting || !invite.name.trim() || !invite.email.trim()}
+              onClick={() => { void handleInvite(); }}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-[#0F1C3F] text-white hover:bg-[#1a2d5a] disabled:opacity-40 transition-colors">
+              {inviting ? "Inviting…" : "Generate referral code"}
+            </button>
+            <button type="button" onClick={() => setShowInvite(false)}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {error && <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 mb-4">{error}</div>}
+      {loading && <div className="flex justify-center py-16"><div className="w-6 h-6 border-2 border-gray-200 border-t-[#C49A38] rounded-full animate-spin" /></div>}
+
+      {!loading && !error && (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+          {/* Affiliates list */}
+          <div className="lg:col-span-2 rounded-xl border border-gray-200 bg-white overflow-hidden">
+            {affiliates.length === 0 ? (
+              <div className="px-5 py-12 text-center">
+                <p className="text-sm text-gray-400">No affiliates yet.</p>
+                <p className="text-xs text-gray-300 mt-1">Use the invite button above or share the public apply page.</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {affiliates.map((a) => (
+                  <div key={a.id} onClick={() => selectAffiliate(a)}
+                    className={`px-4 py-3 cursor-pointer transition-colors hover:bg-[#C49A38]/5 ${selected?.id === a.id ? "bg-[#C49A38]/10" : ""}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">{a.name}</p>
+                        <p className="text-[11px] text-gray-400 truncate">{a.email}</p>
+                        <p className="text-[10px] font-mono text-[#C49A38] mt-0.5">Ref: {a.referral_code}</p>
+                      </div>
+                      {affiliateStatusBadge(a.status)}
+                    </div>
+                    <div className="mt-1.5 flex gap-3 text-[10px] text-gray-500">
+                      <span>{a.referral_count} referral{a.referral_count !== "1" ? "s" : ""}</span>
+                      {parseInt(a.pending_cents, 10) > 0 && (
+                        <span className="text-orange-600 font-medium">{formatMoney(parseInt(a.pending_cents, 10))} pending</span>
+                      )}
+                      {parseInt(a.paid_cents, 10) > 0 && (
+                        <span className="text-green-600">{formatMoney(parseInt(a.paid_cents, 10))} paid</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Detail panel */}
+          <div className="lg:col-span-3">
+            {selected ? (
+              <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                {/* Header */}
+                <div className="px-5 py-4 border-b border-gray-100 flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-gray-900">{selected.name}</p>
+                    <p className="text-xs text-gray-400">{selected.email}{selected.company ? ` · ${selected.company}` : ""}</p>
+                    <p className="text-[11px] font-mono text-[#C49A38] mt-0.5">
+                      Code: <strong>{selected.referral_code}</strong>
+                      {" · "}
+                      <a href={`/become-an-affiliate?ref=${selected.referral_code}`} target="_blank" rel="noreferrer"
+                        className="text-blue-500 hover:underline">
+                        Share link
+                      </a>
+                    </p>
+                  </div>
+                  {affiliateStatusBadge(selected.status)}
+                </div>
+
+                {/* Actions */}
+                <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap gap-2 items-center">
+                  {selected.status === "pending" && (
+                    <button type="button" onClick={() => { void handleApprove(selected); }}
+                      className="px-3 py-1.5 text-xs font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors">
+                      Approve
+                    </button>
+                  )}
+                  <button type="button" onClick={() => { void handleConnect(selected); }}
+                    className="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors">
+                    {selected.stripe_account_id ? "Refresh Stripe Connect link" : "Set up Stripe Connect"}
+                  </button>
+                  <button type="button" onClick={() => { void handleSuspend(selected); }}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${selected.status === "suspended" ? "border-green-200 bg-green-50 text-green-700 hover:bg-green-100" : "border-red-200 bg-red-50 text-red-700 hover:bg-red-100"}`}>
+                    {selected.status === "suspended" ? "Reinstate" : "Suspend"}
+                  </button>
+                  {selected.stripe_account_id && (
+                    <span className="text-[10px] text-gray-400 font-mono ml-1" title="Stripe account ID">
+                      {selected.stripe_account_id}
+                    </span>
+                  )}
+                </div>
+
+                {/* Stats row */}
+                <div className="px-5 py-3 border-b border-gray-100 grid grid-cols-3 gap-3 text-[11px] text-gray-600">
+                  <div><span className="text-gray-400 block mb-0.5">Commission rate</span>{(parseFloat(selected.commission_rate) * 100).toFixed(0)}%</div>
+                  <div><span className="text-gray-400 block mb-0.5">Duration</span>{selected.commission_months} months</div>
+                  <div><span className="text-gray-400 block mb-0.5">Member since</span>{formatDate(selected.created_at)}</div>
+                </div>
+
+                {/* Commissions */}
+                <div className="px-5 py-4">
+                  <p className="text-xs font-semibold text-gray-700 mb-3">Commissions</p>
+                  {commLoading ? (
+                    <div className="flex justify-center py-6">
+                      <div className="w-5 h-5 border-2 border-gray-200 border-t-[#C49A38] rounded-full animate-spin" />
+                    </div>
+                  ) : commissions.length === 0 ? (
+                    <p className="text-xs text-gray-400 py-4 text-center">No commissions yet. They appear here when referred customers are billed.</p>
+                  ) : (
+                    <div className="rounded-lg border border-gray-200 overflow-auto">
+                      <table className="w-full text-xs">
+                        <thead>
+                          <tr className="bg-gray-50 border-b border-gray-100">
+                            {["Period", "Amount", "Status", "Due date", "Action"].map((h) => (
+                              <th key={h} className="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100">
+                          {commissions.map((c) => (
+                            <tr key={c.id}>
+                              <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{c.period_label ?? "—"}</td>
+                              <td className="px-3 py-2 font-medium text-gray-900">{formatMoney(c.amount_cents)}</td>
+                              <td className="px-3 py-2">{statusBadge(c.status)}</td>
+                              <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.due_date ? formatDate(c.due_date) : "—"}</td>
+                              <td className="px-3 py-2">
+                                {c.status === "pending" && (
+                                  <button type="button" onClick={() => { void handlePayCommission(c); }}
+                                    className="px-2 py-1 text-[10px] font-medium rounded border border-green-200 bg-green-50 text-green-700 hover:bg-green-100 transition-colors whitespace-nowrap">
+                                    Pay now
+                                  </button>
+                                )}
+                                {c.status === "paid" && c.stripe_transfer_id && (
+                                  <a href={`https://dashboard.stripe.com/transfers/${c.stripe_transfer_id}`}
+                                    target="_blank" rel="noreferrer"
+                                    className="text-[10px] text-blue-500 hover:underline font-mono" title={c.stripe_transfer_id}>
+                                    {c.stripe_transfer_id.slice(0, 14)}…
+                                  </a>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-gray-200 bg-white px-5 py-12 text-center text-sm text-gray-400">
+                Select an affiliate from the list to view details and manage commissions.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main page ──────────────────────────────────────────────────────────────────
 
 export default function SuperAdmin() {
@@ -621,6 +1029,7 @@ export default function SuperAdmin() {
   const [error,    setError]    = useState<string | null>(null);
   const [selected, setSelected] = useState<AccountRow | null>(null);
   const [search,   setSearch]   = useState("");
+  const [tab,      setTab]      = useState<"accounts" | "affiliates">("accounts");
 
   useEffect(() => {
     fetch(`${ADMIN_BASE}/accounts`, { headers: getAuthHeaders() })
@@ -678,20 +1087,36 @@ export default function SuperAdmin() {
   return (
     <div className="max-w-screen-xl mx-auto px-4 py-8">
 
-      {/* Header */}
-      <div className="flex items-start justify-between mb-6">
+      {/* Header + tab navigation */}
+      <div className="flex items-start justify-between mb-4">
         <div>
           <h1 className="text-xl font-semibold text-[#0F1C3F]">Super Admin</h1>
-          <p className="text-sm text-[#8A9BB8] mt-0.5">All Docuplete accounts — internal use only</p>
+          <p className="text-sm text-[#8A9BB8] mt-0.5">Internal use only</p>
         </div>
-        <input
-          type="search"
-          placeholder="Search accounts…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-[#C49A38]/50 w-52"
-        />
+        {tab === "accounts" && (
+          <input
+            type="search"
+            placeholder="Search accounts…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="text-sm rounded-lg border border-gray-200 px-3 py-1.5 bg-white text-gray-800 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-[#C49A38]/50 w-52"
+          />
+        )}
       </div>
+
+      {/* Tab switcher */}
+      <div className="flex gap-1 border border-gray-200 rounded-lg p-1 bg-gray-50 w-fit mb-6">
+        {(["accounts", "affiliates"] as const).map((t) => (
+          <button key={t} type="button" onClick={() => setTab(t)}
+            className={`px-4 py-1.5 text-xs font-semibold rounded-md capitalize transition-colors ${tab === t ? "bg-white shadow-sm text-[#0F1C3F]" : "text-gray-500 hover:text-gray-700"}`}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {tab === "affiliates" && <AffiliatesTab getAuthHeaders={getAuthHeaders} />}
+
+      {tab === "accounts" && <>
 
       {/* Monitoring test panel */}
       <details className="mb-6 rounded-xl border border-gray-200 bg-white overflow-hidden">
@@ -839,6 +1264,8 @@ export default function SuperAdmin() {
           onAccountUpdated={handleAccountUpdated}
         />
       )}
+
+      </>}
     </div>
   );
 }

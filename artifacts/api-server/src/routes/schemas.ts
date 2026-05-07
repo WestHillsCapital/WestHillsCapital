@@ -207,6 +207,7 @@ export const BillingCheckoutBodySchema = z.object({
   interval: z.string().optional(),
   extraSeats: z.number().optional(),
   extraSubmissionPacks: z.number().optional(),
+  referralCode: z.string().max(20).optional(),
 }).passthrough();
 export type BillingCheckoutBody = z.infer<typeof BillingCheckoutBodySchema>;
 

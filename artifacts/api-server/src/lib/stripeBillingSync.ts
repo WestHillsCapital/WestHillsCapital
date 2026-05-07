@@ -15,6 +15,7 @@ type StripeSubscriptionObject = {
   id: string;
   customer: string;
   status: string;
+  metadata?: Record<string, string> | null;
   current_period_start?: number;
   current_period_end?: number;
   items?: {
@@ -23,6 +24,8 @@ type StripeSubscriptionObject = {
       price?: {
         id?: string;
         product?: string;
+        unit_amount?: number;
+        recurring?: { interval?: string; interval_count?: number };
       };
     }>;
   };
@@ -34,6 +37,15 @@ type StripeInvoiceObject = {
   subscription?: string | null;
   status?: string;
   paid?: boolean;
+  amount_paid?: number;
+};
+
+type StripeDisputeObject = {
+  id: string;
+  charge: string;
+  amount: number;
+  currency: string;
+  payment_intent?: string | null;
 };
 
 type StripeCheckoutSession = {
@@ -201,6 +213,63 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
       })();
     }
 
+    // ── Affiliate referral creation (new subscriptions with a referral code) ────
+    if (event.type === "customer.subscription.created" && sub.metadata?.referral_code) {
+      const referralCode = sub.metadata.referral_code;
+      try {
+        const { rows: affRows } = await db.query<{
+          id: number; commission_rate: string; commission_months: number;
+        }>(
+          `SELECT id, commission_rate, commission_months FROM affiliates WHERE referral_code = $1 AND status IN ('approved', 'active')`,
+          [referralCode],
+        );
+        const aff = affRows[0];
+        if (aff) {
+          const priceItem  = sub.items?.data?.[0];
+          const interval   = priceItem?.price?.recurring?.interval ?? "month";
+          const unitAmount = priceItem?.price?.unit_amount ?? 0;
+          const planType   = interval === "year" ? "annual" : "monthly";
+          const monthlyAmt = planType === "annual" ? Math.round(unitAmount / 12) : unitAmount;
+          const commCents  = Math.round(monthlyAmt * parseFloat(aff.commission_rate));
+
+          const { rows: refRows } = await db.query<{ id: number }>(
+            `INSERT INTO affiliate_referrals
+               (affiliate_id, stripe_customer_id, stripe_subscription_id, plan_type, monthly_amount_cents, commission_months_total)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id`,
+            [aff.id, sub.customer, sub.id, planType, monthlyAmt, aff.commission_months],
+          );
+          const referralId = refRows[0]?.id;
+
+          if (referralId && planType === "annual" && commCents > 0) {
+            const now = new Date();
+            const inserts = Array.from({ length: aff.commission_months }, (_, i) => {
+              const dueDate = new Date(now);
+              dueDate.setMonth(dueDate.getMonth() + i + 1);
+              const periodLabel = dueDate.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+              return db.query(
+                `INSERT INTO affiliate_commissions
+                   (affiliate_id, referral_id, amount_cents, status, due_date, period_label)
+                 VALUES ($1, $2, $3, 'pending', $4, $5)`,
+                [aff.id, referralId, commCents, dueDate, periodLabel],
+              );
+            });
+            await Promise.all(inserts);
+            logger.info({ affiliateId: aff.id, referralId, commCents, months: aff.commission_months }, "[BillingSync] Annual affiliate referral + commissions created");
+          } else if (referralId) {
+            logger.info({ affiliateId: aff.id, referralId, planType }, "[BillingSync] Monthly affiliate referral created");
+          }
+
+          await db.query(
+            `UPDATE affiliates SET status = 'active', updated_at = NOW() WHERE id = $1 AND status = 'approved'`,
+            [aff.id],
+          );
+        }
+      } catch (refErr) {
+        logger.error({ err: refErr }, "[BillingSync] Non-fatal: failed to create affiliate referral");
+      }
+    }
+
     return;
   }
 
@@ -238,6 +307,46 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
         expiresAt,
       });
     }
+
+    // ── Monthly affiliate commission ──────────────────────────────────────────
+    if (inv.subscription) {
+      try {
+        const { rows: refRows } = await db.query<{
+          id: number; affiliate_id: number; monthly_amount_cents: number;
+          commission_months_total: number; commission_months_paid: number;
+          plan_type: string;
+        }>(
+          `SELECT * FROM affiliate_referrals WHERE stripe_subscription_id = $1 AND status = 'active' AND plan_type = 'monthly'`,
+          [inv.subscription],
+        );
+        const ref = refRows[0];
+        if (ref && ref.commission_months_paid < ref.commission_months_total) {
+          const { rows: affRows } = await db.query<{ commission_rate: string }>(
+            `SELECT commission_rate FROM affiliates WHERE id = $1`, [ref.affiliate_id],
+          );
+          const rate      = parseFloat(affRows[0]?.commission_rate ?? "0.2");
+          const commCents = Math.round(ref.monthly_amount_cents * rate);
+          const now       = new Date();
+          const month     = now.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+          await db.query(
+            `INSERT INTO affiliate_commissions
+               (affiliate_id, referral_id, amount_cents, status, due_date, period_label, stripe_invoice_id)
+             VALUES ($1, $2, $3, 'pending', NOW(), $4, $5)`,
+            [ref.affiliate_id, ref.id, commCents, month, inv.id],
+          );
+          const newPaid   = ref.commission_months_paid + 1;
+          const newStatus = newPaid >= ref.commission_months_total ? "completed" : "active";
+          await db.query(
+            `UPDATE affiliate_referrals SET commission_months_paid = $1, status = $2, updated_at = NOW() WHERE id = $3`,
+            [newPaid, newStatus, ref.id],
+          );
+          logger.info({ affiliateId: ref.affiliate_id, referralId: ref.id, commCents, newPaid }, "[BillingSync] Monthly affiliate commission created");
+        }
+      } catch (commErr) {
+        logger.error({ err: commErr }, "[BillingSync] Non-fatal: failed to create monthly affiliate commission");
+      }
+    }
+
     return;
   }
 
@@ -326,6 +435,16 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
     if (sub.id) {
       await removePackSubscription(sub.id);
     }
+    return;
+  }
+
+  // ── Charge dispute: log for admin review ─────────────────────────────────────
+  if (event.type === "charge.dispute.created") {
+    const dispute = event.data.object as StripeDisputeObject;
+    logger.warn(
+      { disputeId: dispute.id, charge: dispute.charge, amount: dispute.amount },
+      "[BillingSync] Dispute created — admin should review and manually cancel affiliate commissions for this customer",
+    );
     return;
   }
 }

@@ -53,6 +53,8 @@ The project is structured as a pnpm monorepo using TypeScript, comprising severa
 
 *   **Billing (Stripe):** Manages plan tiers (Starter, Pro, Enterprise) and submission-based quotas. Integrates with Stripe for product seeding, checkout, and portal flows, displaying current plan and usage.
 
+*   **Affiliate Program:** Full affiliate system with 20% commission for 12 months. Public apply page at `/become-an-affiliate`. DB tables: `affiliates`, `affiliate_referrals`, `affiliate_commissions`. API routes: public `POST /api/affiliates/apply`; admin `GET|POST /api/internal/affiliates`, `PATCH /:id`, `POST /:id/connect` (Stripe Connect Express onboarding), `POST /:id/commissions/:id/pay` (Stripe Transfer). `?ref=CODE` captured in `localStorage.docuplete_referral_code`, passed through Stripe checkout as `subscription_data.metadata.referral_code`. Webhook: `customer.subscription.created` creates referral + schedules annual commissions; `invoice.paid` creates monthly commissions; `charge.dispute.created` logs for admin review. Super Admin "Affiliates" tab manages the full lifecycle.
+
 *   **Submission Bank:** Enables accounts to purchase extra submission packs (one-off, monthly, annual). Bank credits roll over for 12 months. Enforces usage limits by drawing from the plan pool then the submission bank. Stripe webhooks handle deposits for purchases.
 
 *   **Merlin (AI Assistant):** A Claude-powered assistant. Internal Merlin (staff) provides a floating chat widget with tool access for session/package management and billing. Customer Merlin (Phase 2) offers conversational interview guidance, extracting field values to auto-fill forms.

@@ -4,3 +4,4 @@ export * from "./docufill";
 export * from "./notifications";
 export * from "./security";
 export * from "./misc";
+export * from "./affiliates";
