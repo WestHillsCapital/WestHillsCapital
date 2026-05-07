@@ -13,6 +13,12 @@ The application is deployed from the Replit workspace using Replit's built-in pu
 
 ---
 
+## Penetration testing
+
+Annual third-party penetration testing is required for SOC 2 CC7.1. The test scope and rules of engagement are defined in [`docs/pentest-scope.md`](pentest-scope.md). The vendor shortlist, test history, and remediation tracking are in [`docs/pentest-tracking.md`](pentest-tracking.md).
+
+---
+
 ## Business continuity and disaster recovery
 
 Recovery objectives and step-by-step runbooks for all failure scenarios are documented in the [Business Continuity & Disaster Recovery Plan](business-continuity-plan.md) (SOC 2 CC9.1, A1.2, A1.3). The plan covers: RTO/RPO targets per service component, recovery runbooks for API server crashes, DB failure/corruption, frontend outages, full environment loss, and Redis failures, plus known gaps and compensating controls.
