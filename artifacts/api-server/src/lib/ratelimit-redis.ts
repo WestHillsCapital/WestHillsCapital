@@ -1,46 +1,45 @@
 /**
  * Redis-backed rate limiter.
  *
- * Uses Redis INCR + PEXPIRE for atomic per-key counters that survive server
- * restarts and are shared across multiple API-server instances.
+ * Uses an atomic Lua script (INCR + PEXPIRE in a single Redis round-trip) for
+ * per-key sliding-window counters that survive server restarts and are shared
+ * across multiple API-server instances.
  *
- * Falls back gracefully: when REDIS_URL is not set, or when any Redis call
- * fails, both functions return false (fail-open) so that a Redis outage never
- * blocks legitimate traffic.
+ * The Redis client is the shared singleton from @workspace/queues so that all
+ * Redis consumers (queues, rate limiting) share a single connection and
+ * configuration path.
+ *
+ * Fallback: when REDIS_URL is not set (local dev / no Redis sidecar) the
+ * functions delegate to the in-memory ratelimit.ts implementation so that
+ * behaviour is preserved in all environments.
+ *
+ * Fail-open: Redis call failures are caught, logged with logger.error, and
+ * treated as "not rate limited" so an outage never blocks legitimate traffic.
  */
 
-import Redis from "ioredis";
+import { getSharedRedisClient } from "@workspace/queues";
 import { logger } from "./logger.js";
+import {
+  isRateLimited as inMemoryIsRateLimited,
+  isCurrentlyBlocked as inMemoryIsCurrentlyBlocked,
+} from "./ratelimit.js";
 
-// ── Lazy singleton ────────────────────────────────────────────────────────────
+// ── Lua script: atomic INCR + conditional PEXPIRE ─────────────────────────────
+// Executed as a single atomic operation by Redis (Lua scripts are single-threaded
+// in Redis). Sets the TTL only on the first hit so the window anchors to the
+// first request, matching the prior in-memory implementation.
+const INCR_AND_EXPIRE_SCRIPT = `
+local current = redis.call('INCR', KEYS[1])
+if current == 1 then
+  redis.call('PEXPIRE', KEYS[1], ARGV[1])
+end
+return current
+`;
 
-let _client: Redis | null = null;
-let _initAttempted = false;
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function getRedisClient(): Redis | null {
-  if (_initAttempted) return _client;
-  _initAttempted = true;
-
-  const url = process.env["REDIS_URL"];
-  if (!url) return null;
-
-  try {
-    _client = new Redis(url, {
-      // Don't retry aggressively — rate limit operations are best-effort.
-      maxRetriesPerRequest: 1,
-      enableReadyCheck: false,
-      lazyConnect: false,
-    });
-
-    _client.on("error", (err: Error) => {
-      logger.error({ err }, "[RateLimit] Redis client error");
-    });
-
-    return _client;
-  } catch (err) {
-    logger.error({ err }, "[RateLimit] Failed to initialise Redis client — rate limiting will fail-open");
-    return null;
-  }
+function redisKey(key: string): string {
+  return `rl:${key}`;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -48,11 +47,13 @@ function getRedisClient(): Redis | null {
 /**
  * Returns true if the request should be blocked, and increments the counter.
  *
- * Uses INCR + PEXPIRE: the TTL is only set on the first hit of each window so
- * the window anchors to the first request, matching the behaviour of the
- * previous in-memory implementation.
+ * When Redis is configured: uses an atomic Lua script (INCR + PEXPIRE) so
+ * there is no race between setting the counter and its expiry.
  *
- * Fails open (returns false) when Redis is unavailable.
+ * When Redis is not configured: delegates to the in-memory implementation in
+ * ratelimit.ts so local-dev environments still get rate limiting.
+ *
+ * Fails open (returns false) on Redis errors.
  *
  * @param key      Unique key (e.g. IP, or "ip:email")
  * @param maxHits  Maximum allowed hits within windowMs
@@ -63,15 +64,18 @@ export async function isRateLimited(
   maxHits: number,
   windowMs: number,
 ): Promise<boolean> {
-  const redis = getRedisClient();
-  if (!redis) return false;
+  const redis = getSharedRedisClient();
+  if (!redis) {
+    return inMemoryIsRateLimited(key, maxHits, windowMs);
+  }
 
   try {
-    const count = await redis.incr(`rl:${key}`);
-    if (count === 1) {
-      // First hit — set the expiry for this window.
-      await redis.pexpire(`rl:${key}`, windowMs);
-    }
+    const count = (await redis.eval(
+      INCR_AND_EXPIRE_SCRIPT,
+      1,
+      redisKey(key),
+      String(windowMs),
+    )) as number;
     return count > maxHits;
   } catch (err) {
     logger.error({ err, key }, "[RateLimit] Redis error in isRateLimited — failing open");
@@ -84,18 +88,21 @@ export async function isRateLimited(
  * incrementing the counter.  Use as a pre-check to skip expensive operations
  * (e.g. DB lookups) for callers already known to be rate-limited.
  *
- * Fails open (returns false) when Redis is unavailable.
+ * Falls back to in-memory implementation when Redis is not configured.
+ * Fails open on Redis errors.
  */
 export async function isCurrentlyBlocked(
   key: string,
   maxHits: number,
-  _windowMs: number,
+  windowMs: number,
 ): Promise<boolean> {
-  const redis = getRedisClient();
-  if (!redis) return false;
+  const redis = getSharedRedisClient();
+  if (!redis) {
+    return inMemoryIsCurrentlyBlocked(key, maxHits, windowMs);
+  }
 
   try {
-    const raw = await redis.get(`rl:${key}`);
+    const raw = await redis.get(redisKey(key));
     if (raw === null) return false;
     return Number(raw) > maxHits;
   } catch (err) {
@@ -109,14 +116,14 @@ export async function isCurrentlyBlocked(
  * key does not exist.  Used by middleware that needs to populate a Retry-After
  * header.
  *
- * Fails open (returns 0) when Redis is unavailable.
+ * Returns 0 when Redis is unavailable (in-memory TTLs are not exposed).
  */
 export async function getRateLimitTtlMs(key: string): Promise<number> {
-  const redis = getRedisClient();
+  const redis = getSharedRedisClient();
   if (!redis) return 0;
 
   try {
-    const ttlMs = await redis.pttl(`rl:${key}`);
+    const ttlMs = await redis.pttl(redisKey(key));
     return ttlMs > 0 ? ttlMs : 0;
   } catch (err) {
     logger.error({ err, key }, "[RateLimit] Redis error in getRateLimitTtlMs — returning 0");

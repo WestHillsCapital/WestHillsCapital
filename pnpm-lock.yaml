@@ -242,9 +242,6 @@ importers:
       helmet:
         specifier: ^8.1.0
         version: 8.1.0
-      ioredis:
-        specifier: ^5.10.1
-        version: 5.10.1
       otplib:
         specifier: ^13.4.0
         version: 13.4.0
@@ -1074,6 +1071,9 @@ importers:
       bullmq:
         specifier: ^5.0.0
         version: 5.76.6
+      ioredis:
+        specifier: ^5.10.1
+        version: 5.10.1
       zod:
         specifier: 3.24.2
         version: 3.24.2
