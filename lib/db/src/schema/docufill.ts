@@ -220,6 +220,7 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   id: serial("id").primaryKey(),
   packageId: integer("package_id").notNull().references(() => docufillPackages.id, { onDelete: "cascade" }),
   accountId: integer("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  sessionId: integer("session_id").references(() => docufillInterviewSessions.id, { onDelete: "set null" }),
   eventType: text("event_type").notNull().default("interview.submitted"),
   payloadHash: text("payload_hash").notNull(),
   attemptNumber: integer("attempt_number").notNull().default(1),
@@ -232,6 +233,7 @@ export const webhookDeliveries = pgTable("webhook_deliveries", {
   index("webhook_deliveries_package_created_idx").on(t.packageId, t.createdAt),
   index("webhook_deliveries_account_idx").on(t.accountId),
   index("webhook_deliveries_account_created_idx").on(t.accountId, t.createdAt.desc()),
+  index("webhook_deliveries_session_created_idx").on(t.sessionId, t.createdAt.desc()),
 ]);
 
 export const docufillEsignOtps = pgTable("docufill_esign_otps", {

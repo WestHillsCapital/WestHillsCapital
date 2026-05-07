@@ -260,8 +260,14 @@ export async function runDrizzleMigrations(): Promise<void> {
         logger.info({ tag: entry.tag }, "[Migrations] Applying non-transactional migration");
         const rawStatements = sqlContent
           .split("--> statement-breakpoint")
-          .map((s) => s.trim())
-          .filter((s) => s && !s.startsWith("--"));
+          .map((s) =>
+            s
+              .split("\n")
+              .filter((line) => !line.trim().startsWith("--"))
+              .join("\n")
+              .trim(),
+          )
+          .filter(Boolean);
         for (const stmt of rawStatements) {
           // Inject CONCURRENTLY after CREATE INDEX so that the index build
           // does not acquire a ShareLock on the existing table.
@@ -1824,6 +1830,8 @@ export async function initDb(): Promise<void> {
     ON docufill_packages (account_id, created_at DESC NULLS LAST)`);
   await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS webhook_deliveries_account_created_idx
     ON webhook_deliveries (account_id, created_at DESC NULLS LAST)`);
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS webhook_deliveries_session_created_idx
+    ON webhook_deliveries (session_id, created_at DESC NULLS LAST)`);
 }
 
 // ── Scheduler functions (exported for BullMQ worker) ─────────────────────────

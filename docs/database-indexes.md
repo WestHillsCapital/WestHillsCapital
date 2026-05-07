@@ -86,8 +86,9 @@ Index Scan using docufill_packages_account_created_idx
 | `webhook_deliveries_package_created_idx` | `(package_id, created_at)` | Per-package delivery log ordered by date |
 | `webhook_deliveries_account_idx` | `(account_id)` | Baseline per-account scans |
 | `webhook_deliveries_account_created_idx` | `(account_id, created_at DESC)` | Cross-package delivery log for an account |
+| `webhook_deliveries_session_created_idx` | `(session_id, created_at DESC)` | All deliveries for a given interview session |
 
-**Schema note:** `webhook_deliveries` does not have a `session_id` column. The task specification originally listed `(session_id, created_at DESC)` as the target index, but no such column exists on this table (columns: `id`, `package_id`, `account_id`, `event_type`, `payload_hash`, `attempt_number`, `http_status`, `response_body`, `duration_ms`, `created_at`, `payload_json`). `(account_id, created_at DESC)` was used instead; it serves cross-package delivery history queries scoped to an account. If a `session_id` foreign key is added to this table in the future, a separate index on `(session_id, created_at DESC)` should be added at that time.
+**Schema change:** Migration `0004` adds a nullable `session_id` integer column (FK → `docufill_interview_sessions.id ON DELETE SET NULL`) to `webhook_deliveries`. Existing rows have `session_id = NULL`. Routes that trigger webhook delivery can populate this field to enable per-session delivery history lookups. The `(session_id, created_at DESC)` index serves those lookups efficiently while `IF NOT EXISTS` / `NULLS LAST` keep it safe in all environments.
 
 **Representative query plan (10 k deliveries, 120 for this account):**
 
