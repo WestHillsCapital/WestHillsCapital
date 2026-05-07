@@ -230,6 +230,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
     enable_hubspot: (pkg as PackageItem & Record<string, unknown>).enable_hubspot === true,
     auth_level: (pkg as PackageItem & Record<string, unknown>).auth_level === "email_otp" ? "email_otp" as const : "none" as const,
     require_preview: (pkg as PackageItem & Record<string, unknown>).require_preview === true,
+    require_scroll_confirmation: (pkg as PackageItem & Record<string, unknown>).require_scroll_confirmation === true,
     tags: Array.isArray((pkg as PackageItem & { tags?: unknown }).tags)
       ? ((pkg as PackageItem & { tags?: unknown }).tags as unknown[]).map((t) => (typeof t === "string" ? t.trim() : "")).filter(Boolean)
       : [],
@@ -1343,6 +1344,7 @@ export default function DocuFill() {
           enableHubspot: pkg.enable_hubspot,
           authLevel: pkg.auth_level,
           requirePreview: pkg.require_preview,
+          requireScrollConfirmation: pkg.require_scroll_confirmation,
         }),
       });
       const data = await res.json();

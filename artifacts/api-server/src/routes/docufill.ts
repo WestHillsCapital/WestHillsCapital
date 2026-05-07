@@ -205,6 +205,7 @@ type PackageInput = {
   enableHubspot?: boolean;
   authLevel?: "none" | "email_otp";
   requirePreview?: boolean;
+  requireScrollConfirmation?: boolean;
 };
 
 type DocItem = {
@@ -1095,7 +1096,7 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
             p.notify_staff_on_submit, p.notify_client_on_submit,
             p.enable_embed, p.embed_key,
             p.enable_gdrive, p.enable_hubspot,
-            p.auth_level, p.require_preview,
+            p.auth_level, p.require_preview, p.require_scroll_confirmation,
             p.account_id AS package_account_id,
             c.name AS custodian_name, d.name AS depository_name, g.name AS group_name,
             a.name AS org_name,
@@ -2725,8 +2726,9 @@ router.patch("/packages/:id", async (req, res) => {
           auth_level=$24,
           slack_notifications_enabled=$25,
           require_preview=$26,
+          require_scroll_confirmation=$27,
           version=version+1, updated_at=NOW()
-        WHERE id=$27 AND account_id=$28
+        WHERE id=$28 AND account_id=$29
         RETURNING *`,
       [
         name,
@@ -2770,6 +2772,8 @@ router.patch("/packages/:id", async (req, res) => {
         body.slackNotificationsEnabled === undefined ? (existing.slack_notifications_enabled ?? false) : Boolean(body.slackNotificationsEnabled),
         // $26 require_preview
         body.requirePreview === undefined ? (existing.require_preview ?? false) : Boolean(body.requirePreview),
+        // $27 require_scroll_confirmation
+        body.requireScrollConfirmation === undefined ? (existing.require_scroll_confirmation ?? false) : Boolean(body.requireScrollConfirmation),
         id,
         accountId,
       ],
@@ -4554,6 +4558,46 @@ publicDocufillRouter.post("/sessions/:token/preview-pdf", async (req, res) => {
 
 /**
  * @openapi
+ * /docufill/public/sessions/{token}/scroll-confirm:
+ *   post:
+ *     tags:
+ *       - Docuplete — Public (no auth)
+ *     summary: Record that the signer has scrolled through the entire document
+ *     description: |
+ *       Persists a server-side timestamp (scroll_confirmed_at) for the session once
+ *       the signer attests they have scrolled to the end of the preview PDF. The
+ *       generate endpoint refuses to finalise a session that requires scroll
+ *       confirmation unless this endpoint has been called first.
+ */
+publicDocufillRouter.post("/sessions/:token/scroll-confirm", async (req, res) => {
+  try {
+    const db = getDb();
+    const session = await getSession(req.params.token, db);
+    if (!session) {
+      res.status(404).json({ error: "Interview session not found" });
+      return;
+    }
+    if (session.status === "generated" || session.status === "voided") {
+      res.status(409).json({ error: "Session is already finalised" });
+      return;
+    }
+    if (!session.require_scroll_confirmation) {
+      res.status(400).json({ error: "This session does not require scroll confirmation" });
+      return;
+    }
+    await db.query(
+      `UPDATE docufill_interview_sessions SET scroll_confirmed_at = NOW() WHERE token = $1`,
+      [req.params.token],
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to record scroll confirmation");
+    if (!res.headersSent) res.status(500).json({ error: "Failed to record scroll confirmation" });
+  }
+});
+
+/**
+ * @openapi
  * /docufill/public/sessions/{token}:
  *   patch:
  *     tags:
@@ -4914,6 +4958,14 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
         esignInitialsImage = rawInitialsImage;
       }
     }
+    // Enforce scroll confirmation server-side: check the DB-persisted timestamp
+    // that is set by POST /sessions/:token/scroll-confirm (called by the signer UI
+    // once they reach the 95% scroll threshold). Client body is intentionally ignored
+    // so the gate cannot be bypassed by crafting a direct API request.
+    if (session.require_scroll_confirmation === true && !session.scroll_confirmed_at) {
+      res.status(403).json({ error: "Full document scroll is required before signing. Please scroll through the entire document." });
+      return;
+    }
     const validation = validateSessionAnswers(session);
     if (!validation.valid) {
       res.status(400).json({ error: "Packet is missing required or valid fields", ...validation });
@@ -5089,6 +5141,8 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
            tsaUrl: tsaUrlUsed,
            tsaTokenObtained: tsaTokenB64 !== null,
            signerGeo,
+           scrollConfirmationRequired: session.require_scroll_confirmation === true,
+           scrollConfirmedAt: session.scroll_confirmed_at ?? null,
          })],
       ).catch((err) => logger.warn({ err, token: req.params.token, accountId: pkgAccountId }, "[DocuFill] E-sign signed event insert failed"));
       // Send confirmation email with signed PDF to signer (fire-and-forget)

@@ -1831,6 +1831,12 @@ export async function initDb(): Promise<void> {
 
   // ── Mandate preview: require signers to view the filled PDF before signing ──
   await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS require_preview BOOLEAN NOT NULL DEFAULT FALSE`);
+
+  // ── Mandate full scroll: require signers to scroll through the entire document ──
+  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS require_scroll_confirmation BOOLEAN NOT NULL DEFAULT FALSE`);
+
+  // ── Server-side scroll confirmation: persisted timestamp when signer attests full scroll ──
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS scroll_confirmed_at TIMESTAMPTZ`);
 }
 
 /**

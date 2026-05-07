@@ -805,6 +805,14 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
                         </div>
                         <p className="text-xs text-[#6B7A99]">Require the signer to open and view the filled PDF before the signing step becomes available.</p>
                       </button>
+                      <button type="button" onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, require_scroll_confirmation: !pkg.require_scroll_confirmation }))} className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.require_scroll_confirmation ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <svg className={`w-4 h-4 shrink-0 ${selectedPackage.require_scroll_confirmation ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" /><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 4.5l-7.5 7.5-7.5-7.5" /></svg>
+                          <span className={`text-sm font-semibold ${selectedPackage.require_scroll_confirmation ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Require full scroll through document</span>
+                          <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.require_scroll_confirmation ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>{selectedPackage.require_scroll_confirmation ? "Required" : "Off"}</span>
+                        </div>
+                        <p className="text-xs text-[#6B7A99]">Signer must scroll to the bottom of the document before "Proceed to sign" becomes available. Enables the inline PDF renderer with scroll tracking.</p>
+                      </button>
                       <button type="button" onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, enable_customer_link: !pkg.enable_customer_link }))} className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.enable_customer_link ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}>
                         <div className="flex items-center gap-2 mb-1.5">
                           <svg className={`w-4 h-4 shrink-0 ${selectedPackage.enable_customer_link ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>
