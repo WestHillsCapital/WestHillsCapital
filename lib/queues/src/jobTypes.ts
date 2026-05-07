@@ -22,6 +22,10 @@ export type PingJobPayload = z.infer<typeof PingJobPayloadSchema>;
 // the signing secret and write to webhook_deliveries.
 // The pre-built payload is captured at submission time (answers already redacted).
 
+// Note on payload shape: `webhookSecret` is intentionally omitted.
+// Storing the signing secret in Redis (even temporarily) widens its exposure;
+// instead the worker fetches it from the DB at delivery time — the same
+// fail-closed model used by the legacy in-process fireWebhookAsync path.
 export const DeliverWebhookJobPayloadSchema = z.object({
   sessionToken: z.string(),
   packageId: z.number().int(),

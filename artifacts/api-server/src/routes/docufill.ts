@@ -5824,11 +5824,10 @@ export function registerDeliverWebhookProcessor(): Worker<DeliverWebhookJobPaylo
 
   if (!worker) return null;
 
+  // Only the "completed" listener lives here; the "failed" listener with
+  // Sentry capture is registered once in worker.ts to avoid duplicate telemetry.
   worker.on("completed", (job: { id?: string }) => {
     logger.info({ jobId: job.id }, "[DeliverWebhook] Worker completed job");
-  });
-  worker.on("failed", (job: { id?: string } | undefined, err: unknown) => {
-    logger.error({ jobId: job?.id, err }, "[DeliverWebhook] Worker failed job after all retries");
   });
 
   logger.info("[DeliverWebhook] Worker registered — listening for deliver-webhook jobs");
