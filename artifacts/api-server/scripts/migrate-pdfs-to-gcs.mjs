@@ -25,6 +25,42 @@ const { Storage } = require("@google-cloud/storage");
 const DRY_RUN = process.argv.includes("--dry-run");
 const NULL_PDF_DATA = process.argv.includes("--null-pdf-data");
 
+const REPLIT_SIDECAR_ENDPOINT = "http://127.0.0.1:1106";
+
+/**
+ * Build a GCS Storage client using the same credential strategy as objectStorage.ts:
+ *  1. Replit sidecar (REPL_ID or REPLIT_DOMAINS set)
+ *  2. GOOGLE_SERVICE_ACCOUNT_KEY JSON string
+ *  3. Bare ADC fallback (only valid if explicit GCP credentials are in the environment)
+ */
+function buildStorageClient() {
+  if (process.env.REPL_ID || process.env.REPLIT_DOMAINS) {
+    console.log("Auth: Replit managed sidecar");
+    return new Storage({
+      credentials: {
+        audience: "replit",
+        subject_token_type: "access_token",
+        token_url: `${REPLIT_SIDECAR_ENDPOINT}/token`,
+        type: "external_account",
+        credential_source: {
+          url: `${REPLIT_SIDECAR_ENDPOINT}/credential`,
+          format: { type: "json", subject_token_field_name: "access_token" },
+        },
+        universe_domain: "googleapis.com",
+      },
+      projectId: "",
+    });
+  }
+  const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  if (serviceAccountKey) {
+    console.log("Auth: GOOGLE_SERVICE_ACCOUNT_KEY");
+    const credentials = JSON.parse(serviceAccountKey);
+    return new Storage({ credentials, projectId: credentials.project_id });
+  }
+  console.warn("WARN: Neither REPL_ID/REPLIT_DOMAINS nor GOOGLE_SERVICE_ACCOUNT_KEY is set — falling back to ADC");
+  return new Storage();
+}
+
 /**
  * Parse PRIVATE_OBJECT_DIR using the same logic as the runtime's parseObjectPath:
  *   gs://bucket/prefix  →  { bucketName: "bucket", prefix: "prefix" }
@@ -56,7 +92,7 @@ async function uploadToGcs(storage, bucketName, prefix, objectId, buffer) {
 async function main() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const { bucketName, prefix } = parsePrivateObjectDir(process.env.PRIVATE_OBJECT_DIR);
-  const storage = new Storage();
+  const storage = buildStorageClient();
 
   console.log(`GCS bucket: ${bucketName}, prefix: ${prefix || "(none)"}`);
   console.log(`Mode: ${DRY_RUN ? "DRY RUN" : "LIVE"}${NULL_PDF_DATA ? " + null pdf_data after upload" : ""}`);
