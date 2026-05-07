@@ -4623,6 +4623,10 @@ publicDocufillRouter.get("/sessions/:token/preview-pdf/download", async (req, re
         res.status(404).json({ error: "Session not found" });
         return;
       }
+      if (session.status === "generated" || session.status === "voided") {
+        res.status(409).json({ error: "Session is already finalized" });
+        return;
+      }
       const pdfBuffer = await buildPacketPdfBuffer(session, db);
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `inline; filename=preview-${req.params.token}.pdf`);
