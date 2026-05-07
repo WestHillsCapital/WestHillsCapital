@@ -46,24 +46,31 @@ export async function runDrizzleMigrations(): Promise<void> {
   try {
     const { drizzle } = await import("drizzle-orm/node-postgres");
     const { migrate } = await import("drizzle-orm/node-postgres/migrator");
+    const { readFile } = await import("fs/promises");
+    const { createHash } = await import("crypto");
 
     const migrationsFolder = path.resolve(
       path.dirname(fileURLToPath(import.meta.url)),
       "../drizzle",
     );
 
-    // Baseline check: if the accounts table already exists this is a running
-    // production database — mark the initial migration as applied without
-    // executing it so future incremental migrations can run normally.
-    const { rows } = await db.query<{ exists: boolean }>(
-      `SELECT EXISTS(
-         SELECT 1 FROM information_schema.tables
-          WHERE table_schema = 'public' AND table_name = 'accounts'
-       ) AS exists`,
+    // Read journal once — used by both baseline and concurrent-migration logic.
+    const journalRaw = await readFile(
+      path.join(migrationsFolder, "meta/_journal.json"),
+      "utf8",
     );
-    if (rows[0]?.exists) {
-      // Ensure the drizzle schema and migrations table exist (drizzle-orm creates
-      // these automatically on a fresh DB; we replicate it for the baseline path).
+    const journal = JSON.parse(journalRaw) as {
+      entries: Array<{ idx: number; tag: string; when: number }>;
+    };
+
+    // Helper: compute the SHA-256 hash Drizzle uses for tracking a migration.
+    const migrationHash = async (tag: string) => {
+      const sql = await readFile(path.join(migrationsFolder, `${tag}.sql`), "utf8");
+      return { hash: createHash("sha256").update(sql).digest("hex"), sql };
+    };
+
+    // Helper: ensure the drizzle tracking table exists before any reads/writes.
+    const ensureMigrationsTable = async () => {
       await db.query(`CREATE SCHEMA IF NOT EXISTS drizzle`);
       await db.query(`
         CREATE TABLE IF NOT EXISTS drizzle."__drizzle_migrations" (
@@ -72,33 +79,47 @@ export async function runDrizzleMigrations(): Promise<void> {
           created_at BIGINT
         )
       `);
+    };
+
+    // Helper: upsert a migration record by its canonical timestamp.
+    // Uses created_at as the identity key because Drizzle's migrator orders by
+    // it to determine the "last applied" migration — not by hash.
+    const upsertMigrationRecord = async (hash: string, when: number) => {
+      await db.query(
+        `DELETE FROM drizzle."__drizzle_migrations" WHERE hash = $1 OR created_at = $2`,
+        [hash, when],
+      );
+      await db.query(
+        `INSERT INTO drizzle."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
+        [hash, when],
+      );
+    };
+
+    // ── Baseline + per-migration reconciliation ────────────────────────────────
+    // Only runs when the accounts table already exists (i.e. production or dev
+    // DBs that were set up before Drizzle migrations were introduced).
+    const { rows } = await db.query<{ exists: boolean }>(
+      `SELECT EXISTS(
+         SELECT 1 FROM information_schema.tables
+          WHERE table_schema = 'public' AND table_name = 'accounts'
+       ) AS exists`,
+    );
+    if (rows[0]?.exists) {
+      await ensureMigrationsTable();
+
       const { rows: existing } = await db.query(
         `SELECT 1 FROM drizzle."__drizzle_migrations" LIMIT 1`,
       );
       if (existing.length === 0) {
-        const { readFile } = await import("fs/promises");
-        const { createHash } = await import("crypto");
-        // Read the journal to get each entry's timestamp and corresponding SQL hash
-        const journalRaw = await readFile(
-          path.join(migrationsFolder, "meta/_journal.json"),
-          "utf8",
-        );
-        const journal = JSON.parse(journalRaw) as {
-          entries: Array<{ idx: number; tag: string; when: number }>;
-        };
-        // Only baseline entries that predate the affiliate tables migration
-        // (idx 0 and 1). Leaving idx 2 unrecorded lets migrate() run it and
-        // create the affiliate tables instead of silently skipping it.
+        // Empty table: baseline migrations 0 and 1 only.
+        // Leave 0002 (affiliate tables) unrecorded so migrate() creates them
+        // on first run (they cannot be assumed to exist yet on a fresh DB).
         const AFFILIATE_TABLES_IDX = 2;
         const baselineEntries = journal.entries.filter(
           (e) => e.idx < AFFILIATE_TABLES_IDX,
         );
         for (const entry of baselineEntries) {
-          const sqlContent = await readFile(
-            path.join(migrationsFolder, `${entry.tag}.sql`),
-            "utf8",
-          );
-          const hash = createHash("sha256").update(sqlContent).digest("hex");
+          const { hash } = await migrationHash(entry.tag);
           await db.query(
             `INSERT INTO drizzle."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
             [hash, entry.when],
@@ -109,43 +130,144 @@ export async function runDrizzleMigrations(): Promise<void> {
           "[Migrations] Baselined Drizzle migrations on existing database",
         );
       }
-      // Reconcile the affiliate tables migration record.
-      // Prior to this fix the baseline logic recorded ALL journal entries,
-      // including 0002_affiliate_tables (old `when` = 1746648000000). That
-      // timestamp is lower than entries 0 and 1, so Drizzle's migrator
-      // (which checks `lastDbMigration.created_at < migration.folderMillis`)
-      // would try to re-run 0002 on any DB that was previously over-baselined,
-      // failing because the tables already exist and blocking future migrations.
-      // Fix: if the affiliates table already exists, ensure the 0002 record is
-      // present with the corrected `created_at` = 1778020000000 so that
-      // migrate() treats it as already applied.
-      const AFFILIATE_MIGRATION_HASH =
-        "557bb7719577d0dcc9122bb7ebc0d26279cb1233c24837a0a0c1f6f21e2051d1";
-      const AFFILIATE_MIGRATION_TIMESTAMP = 1778020000000;
-      const { rows: affiliateTableRows } = await db.query<{ exists: boolean }>(
+
+      // ── Per-migration reconciliation (runs even when table is not empty) ────
+      // These guards handle DBs where initDb() applied a schema change before
+      // the corresponding Drizzle migration was introduced. Each check is
+      // idempotent: if the record is already present with the correct timestamp,
+      // the upsert replaces it with identical data — harmless.
+
+      // Migration 0001: adds trial_ended_at + data_purged_at to accounts.
+      // initDb() adds these columns with ALTER TABLE IF NOT EXISTS, so on a DB
+      // that ran initDb() before migration 0001 was tracked, trial_ended_at will
+      // already exist. Without this reconciliation Drizzle re-runs 0001 and
+      // fails because ADD COLUMN (without IF NOT EXISTS) errors on duplicates.
+      const { rows: trialColRows } = await db.query<{ exists: boolean }>(
         `SELECT EXISTS(
-           SELECT 1 FROM information_schema.tables
-            WHERE table_schema = 'public' AND table_name = 'affiliates'
+           SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'accounts' AND column_name = 'trial_ended_at'
          ) AS exists`,
       );
-      if (affiliateTableRows[0]?.exists) {
-        // Upsert: remove any stale record for this hash (wrong timestamp) and
-        // re-insert with the canonical timestamp so `ORDER BY created_at DESC`
-        // returns it as the last-applied migration.
-        await db.query(
-          `DELETE FROM drizzle."__drizzle_migrations" WHERE hash = $1`,
-          [AFFILIATE_MIGRATION_HASH],
-        );
-        await db.query(
-          `INSERT INTO drizzle."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
-          [AFFILIATE_MIGRATION_HASH, AFFILIATE_MIGRATION_TIMESTAMP],
-        );
-        logger.info(
-          "[Migrations] Reconciled affiliate tables migration record",
-        );
+      if (trialColRows[0]?.exists) {
+        const entry = journal.entries.find((e) => e.idx === 1);
+        if (entry) {
+          const { hash } = await migrationHash(entry.tag);
+          await upsertMigrationRecord(hash, entry.when);
+          logger.info("[Migrations] Reconciled migration 0001 (trial_ended_at)");
+        }
       }
-      // Fall through — migrate() will now see the baseline rows and skip any
-      // already-applied migrations; only genuinely new ones will run.
+
+      // Migration 0002: creates affiliate tables.
+      // If the tables already exist, reconcile the record so migrate() skips it.
+      // If they don't exist yet (DB was in a stuck state where migration 0002 never
+      // committed), run the SQL inline NOW — before the non-transactional handler
+      // pre-records migration 0004, which would otherwise raise the `created_at`
+      // ceiling past 0002 and cause migrate() to skip it permanently.
+      const entry0002 = journal.entries.find((e) => e.idx === 2);
+      if (entry0002) {
+        const { hash: hash0002, sql: sql0002 } = await migrationHash(entry0002.tag);
+        const { rows: affiliateTableRows } = await db.query<{ exists: boolean }>(
+          `SELECT EXISTS(
+             SELECT 1 FROM information_schema.tables
+              WHERE table_schema = 'public' AND table_name = 'affiliates'
+           ) AS exists`,
+        );
+        if (affiliateTableRows[0]?.exists) {
+          // Tables already exist — just ensure the record is present/correct.
+          await upsertMigrationRecord(hash0002, entry0002.when);
+          logger.info("[Migrations] Reconciled migration 0002 (affiliate tables)");
+        } else {
+          // Tables missing on an existing DB — apply the migration inline.
+          const { rows: m2Applied } = await db.query<{ id: number }>(
+            `SELECT id FROM drizzle."__drizzle_migrations" WHERE hash = $1`,
+            [hash0002],
+          );
+          if (m2Applied.length === 0) {
+            logger.info("[Migrations] Applying migration 0002 (affiliate tables) inline");
+            const stmts0002 = sql0002.split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+            for (const stmt of stmts0002) {
+              await db.query(stmt);
+            }
+            await upsertMigrationRecord(hash0002, entry0002.when);
+            logger.info("[Migrations] Migration 0002 (affiliate tables) applied successfully");
+          }
+        }
+      }
+
+      // Migration 0003: adds pdf_gcs_key to docufill_package_documents.
+      // Same dual pattern: reconcile if the column exists, apply inline if not.
+      const entry0003 = journal.entries.find((e) => e.idx === 3);
+      if (entry0003) {
+        const { hash: hash0003, sql: sql0003 } = await migrationHash(entry0003.tag);
+        const { rows: gcsColRows } = await db.query<{ exists: boolean }>(
+          `SELECT EXISTS(
+             SELECT 1 FROM information_schema.columns
+              WHERE table_name = 'docufill_package_documents' AND column_name = 'pdf_gcs_key'
+           ) AS exists`,
+        );
+        if (gcsColRows[0]?.exists) {
+          await upsertMigrationRecord(hash0003, entry0003.when);
+          logger.info("[Migrations] Reconciled migration 0003 (pdf_gcs_key)");
+        } else {
+          const { rows: m3Applied } = await db.query<{ id: number }>(
+            `SELECT id FROM drizzle."__drizzle_migrations" WHERE hash = $1`,
+            [hash0003],
+          );
+          if (m3Applied.length === 0) {
+            logger.info("[Migrations] Applying migration 0003 (pdf_gcs_key) inline");
+            const stmts0003 = sql0003.split("--> statement-breakpoint").map((s) => s.trim()).filter(Boolean);
+            for (const stmt of stmts0003) {
+              await db.query(stmt);
+            }
+            await upsertMigrationRecord(hash0003, entry0003.when);
+            logger.info("[Migrations] Migration 0003 (pdf_gcs_key) applied successfully");
+          }
+        }
+      }
+
+      // Fall through — migrate() will now see all reconciled records and skip
+      // any migrations whose schema changes are already present.
+    }
+
+    // ── Non-transactional (CONCURRENTLY) migrations ────────────────────────────
+    // CREATE INDEX CONCURRENTLY cannot run inside a transaction. Drizzle's
+    // migrate() wraps every migration in BEGIN/COMMIT, so any migration whose
+    // SQL contains CONCURRENTLY is detected here and executed outside that
+    // wrapper. The record is inserted into __drizzle_migrations immediately so
+    // migrate() treats it as already applied and skips it.
+    await ensureMigrationsTableOnDb(db);
+    for (const entry of journal.entries) {
+      let sqlContent: string;
+      try {
+        sqlContent = await readFile(
+          path.join(migrationsFolder, `${entry.tag}.sql`),
+          "utf8",
+        );
+      } catch {
+        continue;
+      }
+      if (!sqlContent.includes("CONCURRENTLY")) continue;
+
+      const hash = createHash("sha256").update(sqlContent).digest("hex");
+      const { rows: alreadyApplied } = await db.query<{ id: number }>(
+        `SELECT id FROM drizzle."__drizzle_migrations" WHERE hash = $1`,
+        [hash],
+      );
+      if (alreadyApplied.length > 0) continue;
+
+      logger.info({ tag: entry.tag }, "[Migrations] Applying non-transactional migration");
+      const statements = sqlContent
+        .split("--> statement-breakpoint")
+        .map((s) => s.trim())
+        .filter(Boolean);
+      for (const stmt of statements) {
+        await db.query(stmt);
+      }
+      await db.query(
+        `INSERT INTO drizzle."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
+        [hash, entry.when],
+      );
+      logger.info({ tag: entry.tag }, "[Migrations] Non-transactional migration applied");
     }
 
     const ormDb = drizzle(db);
@@ -154,6 +276,19 @@ export async function runDrizzleMigrations(): Promise<void> {
   } catch (err) {
     logger.warn({ err }, "[Migrations] Migration run skipped — schema may already be managed or DATABASE_URL absent");
   }
+}
+
+// Thin helper used by runDrizzleMigrations before the local ensureMigrationsTable
+// closure is available (the concurrent-migration loop runs after the closure scope).
+async function ensureMigrationsTableOnDb(db: import("pg").Pool): Promise<void> {
+  await db.query(`CREATE SCHEMA IF NOT EXISTS drizzle`);
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS drizzle."__drizzle_migrations" (
+      id         SERIAL PRIMARY KEY,
+      hash       TEXT    NOT NULL,
+      created_at BIGINT
+    )
+  `);
 }
 
 export async function initDb(): Promise<void> {
