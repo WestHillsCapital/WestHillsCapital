@@ -42,7 +42,19 @@ const server: Server = app.listen(port, () => {
     return;
   }
 
-  // ── 3b. Storage readiness probe ───────────────────────────────────────────
+  // ── 3b. Sentry monitoring assertion ───────────────────────────────────────
+  // instrument.ts already emits console.error before pino is available. This
+  // structured logger.error fires once the logger is ready so the absence of
+  // error monitoring is visible as a distinct ERROR-level entry in Railway logs
+  // and in any log-based alerting (SOC 2 CC6.1 compliance).
+  if (process.env.NODE_ENV === "production" && !process.env.SENTRY_DSN) {
+    logger.error(
+      "[Sentry] SENTRY_DSN is not set — error monitoring is disabled in production. " +
+      "Set SENTRY_DSN in environment variables to enable Sentry error reporting."
+    );
+  }
+
+  // ── 3c. Storage readiness probe ───────────────────────────────────────────
   // Non-fatal: warns immediately if PRIVATE_OBJECT_DIR or GCS credentials are
   // absent so the issue is visible in Railway logs at deploy time rather than
   // surfacing silently as a 500 when someone first tries to upload a logo.
@@ -78,7 +90,7 @@ const server: Server = app.listen(port, () => {
     );
   }
 
-  // ── 3c. Encryption-at-rest key probe ──────────────────────────────────────
+  // ── 3e. Encryption-at-rest key probe ──────────────────────────────────────
   if (!process.env.ENCRYPTION_MASTER_KEY) {
     logger.warn(
       "[Encryption] ENCRYPTION_MASTER_KEY is not set — PII fields will be stored in plaintext. " +
