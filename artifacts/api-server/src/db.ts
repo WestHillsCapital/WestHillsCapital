@@ -1669,6 +1669,26 @@ export async function initDb(): Promise<void> {
 
   // ── Server-side scroll confirmation: persisted timestamp when signer attests full scroll ──
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS scroll_confirmed_at TIMESTAMPTZ`);
+
+  // ── Submission-scale composite indexes (task #592) ───────────────────────────
+  // These are also created by Drizzle migration 0004_submission_scale_indexes.
+  // Running them here with CONCURRENTLY ensures large production tables get a
+  // non-blocking build. IF NOT EXISTS makes each call idempotent — on a fresh
+  // DB the migration creates them first and these become no-ops.
+  // CONCURRENTLY cannot run inside a transaction, so these must remain outside
+  // the transactional migration path.
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS dis_account_created_idx
+    ON docufill_interview_sessions (account_id, created_at DESC NULLS LAST)`);
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS dis_account_package_idx
+    ON docufill_interview_sessions (account_id, package_id)`);
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS dis_account_status_idx
+    ON docufill_interview_sessions (account_id, status)`);
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS dis_account_expires_idx
+    ON docufill_interview_sessions (account_id, expires_at)`);
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS docufill_packages_account_created_idx
+    ON docufill_packages (account_id, created_at DESC NULLS LAST)`);
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS webhook_deliveries_account_created_idx
+    ON webhook_deliveries (account_id, created_at DESC NULLS LAST)`);
 }
 
 // ── Scheduler functions (exported for BullMQ worker) ─────────────────────────
