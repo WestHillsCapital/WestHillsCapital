@@ -1,5 +1,5 @@
 import { randomBytes, createCipheriv, createDecipheriv } from "node:crypto";
-import type { Pool } from "pg";
+import type { Pool, PoolClient } from "pg";
 
 // ── Key material ───────────────────────────────────────────────────────────────
 
@@ -88,7 +88,7 @@ export function decryptBuffer(ciphertext: string, dek: Buffer): Buffer {
 
 const dekCache = new Map<number, Buffer>();
 
-export async function getOrCreateAccountDek(accountId: number, db: Pool): Promise<Buffer> {
+export async function getOrCreateAccountDek(accountId: number, db: Pool | PoolClient): Promise<Buffer> {
   const cached = dekCache.get(accountId);
   if (cached) return cached;
 
