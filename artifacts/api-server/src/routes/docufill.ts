@@ -4260,6 +4260,14 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
   try {
     const _parse = EmptyBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
+    // Require queue to be available — fail clearly rather than hanging.
+    if (!isQueueEnabled()) {
+      res.status(503).json({
+        error: "PDF generation is temporarily unavailable. Please try again shortly.",
+        code: "queue_unavailable",
+      });
+      return;
+    }
     const db = getDb();
     const session = await getSession(String(req.params.token), db, acctId(req));
     if (!session) {
@@ -4271,138 +4279,80 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
       res.status(400).json({ error: "Packet is missing required or valid fields", ...validation });
       return;
     }
-    const generated = buildDocuFillPacketSummary(session);
-    const pdfBuffer = await buildPacketPdfBuffer(session, db);
-    const generatedAt = new Date().toISOString();
-    let driveResult: { fileId: string; webViewLink: string } | null = null;
-    let driveWarning: string | null = null;
-    const rootFolderId = process.env.GOOGLE_DRIVE_DEALS_FOLDER_ID;
-    if (rootFolderId) {
-      try {
-        const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-        driveResult = await saveDocuFillPacketToDrive(pdfBuffer, {
-          dealId: Number(session.deal_id) || null,
-          firstName: cleanText(prefill.firstName),
-          lastName: cleanText(prefill.lastName),
-          packageName: String(session.package_name ?? "Docuplete"),
-          generatedAt,
-        }, rootFolderId);
-      } catch (err) {
-        driveWarning = err instanceof Error ? err.message : "Could not save packet to Google Drive";
-        logger.error({ err, token: req.params.token }, "[DocuFill] Failed to save packet to Drive");
-      }
-    }
-    // Per-account cloud storage upload (enable_gdrive channel — now provider-agnostic)
-    if (!driveResult && session.enable_gdrive === true) {
-      const storageProvider = typeof session.storage_provider === "string" ? session.storage_provider : null;
-      const storageAccessToken = typeof session.storage_access_token === "string" ? session.storage_access_token : null;
-      const storageRefreshToken = typeof session.storage_refresh_token === "string" ? session.storage_refresh_token : null;
-      const storageFolderId = typeof session.storage_folder_id === "string" ? session.storage_folder_id : null;
-      // Fall back to legacy gdrive_* columns for accounts not yet migrated
-      const accessToken = storageAccessToken ?? (typeof session.gdrive_access_token === "string" ? session.gdrive_access_token : null);
-      const refreshToken = storageRefreshToken ?? (typeof session.gdrive_refresh_token === "string" ? session.gdrive_refresh_token : null);
-      const folderId = storageFolderId ?? (typeof session.gdrive_folder_id === "string" ? session.gdrive_folder_id : null);
-      const provider = storageProvider ?? (accessToken && refreshToken && folderId ? "gdrive" : null);
-      if (provider && accessToken && refreshToken && folderId) {
-        try {
-          const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-          driveResult = await uploadToStorageProvider(
-            { storage_provider: provider, storage_access_token: accessToken, storage_refresh_token: refreshToken, storage_folder_id: folderId },
-            pdfBuffer,
-            {
-              firstName: cleanText(prefill.firstName),
-              lastName: cleanText(prefill.lastName),
-              packageName: String(session.package_name ?? "Docuplete"),
-              generatedAt,
-            },
-          );
-        } catch (err) {
-          driveWarning = err instanceof Error ? err.message : "Could not save packet to cloud storage";
-          logger.error({ err, token: req.params.token, provider }, "[DocuFill] Per-account storage upload failed");
-        }
-      }
-    }
-    // ── HubSpot contact upsert ───────────────────────────────────────────────
-    let hubspotWarning: string | undefined;
-    if (session.enable_hubspot === true) {
-      const hsAccessToken  = typeof session.hubspot_access_token  === "string" ? session.hubspot_access_token  : null;
-      const hsRefreshToken = typeof session.hubspot_refresh_token === "string" ? session.hubspot_refresh_token : null;
-      if (hsAccessToken && hsRefreshToken) {
-        try {
-          const prefill  = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-          const fields   = Array.isArray(session.fields) ? (session.fields as Array<{ id: string; label: string; source?: string; type?: string }>) : [];
-          const answers  = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
-          const props    = extractHubSpotProperties(prefill, fields, answers);
-          const result   = await upsertHubSpotContact(hsAccessToken, hsRefreshToken, props);
-          if (result.newAccessToken) {
-            await db.query(`UPDATE accounts SET hubspot_access_token=$1 WHERE id=$2`, [result.newAccessToken, acctId(req)]);
-          }
-          logger.info({ contactId: result.contactId, created: result.created }, "[DocuFill] HubSpot contact upserted");
-        } catch (err) {
-          hubspotWarning = err instanceof Error ? err.message : "Could not sync contact to HubSpot";
-          logger.error({ err, token: req.params.token }, "[DocuFill] HubSpot upsert failed");
-        }
-      }
-    }
-    await db.query(
-      `UPDATE docufill_interview_sessions
-          SET status='generated',
-              generated_packet=$1::jsonb,
-              generated_pdf_drive_id=$2,
-              generated_pdf_url=$3,
-              generated_pdf_saved_at=CASE WHEN $3::text IS NULL THEN generated_pdf_saved_at ELSE NOW() END,
-              updated_at=NOW()
-        WHERE token=$4
-          AND account_id = $5`,
-      [JSON.stringify(generated), driveResult?.fileId ?? null, driveResult?.webViewLink ?? null, req.params.token, acctId(req)],
-    );
-    const allWarnings = [...(driveWarning ? [driveWarning] : []), ...(hubspotWarning ? [hubspotWarning] : [])];
-    res.json({
-      packet: generated,
-      downloadUrl: `/api/internal/docufill/sessions/${req.params.token}/packet.pdf`,
-      drive: driveResult ? { fileId: driveResult.fileId, url: driveResult.webViewLink } : null,
-      warnings: allWarnings,
-    });
-    // Audit trail — non-blocking
-    const { actorIp, actorUa } = actorContextFromRequest(req);
-    recordPdfAuditEvent({
-      accountId:    acctId(req),
+    // Enqueue the generation job and return 202 immediately.
+    const jobId = await enqueueGeneratePdfJob({
       sessionToken: String(req.params.token),
-      eventType:    "generated",
-      actorType:    req.internalEmail ? "staff" : "api",
-      actorEmail:   req.internalEmail ?? null,
-      actorIp,
-      actorUa,
-      metadata: {
-        packageId:   session.package_id,
-        packageName: session.package_name,
-        driveFileId: driveResult?.fileId ?? null,
-      },
-    }).catch((err) => logger.warn({ err, token: req.params.token }, "[DocuFill] recordPdfAuditEvent failed after generate"));
-    const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
-    if (session.webhook_enabled === true && webhookUrl) {
-      fireWebhookAsync(
-        db,
-        typeof session.package_id === "number" ? session.package_id : Number(session.package_id),
-        typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id),
-        webhookUrl,
-        buildWebhookPayload(session),
-      );
-    }
-    const slackWebhookUrl = typeof session.account_slack_webhook_url === "string" ? session.account_slack_webhook_url : null;
-    if (session.slack_notifications_enabled === true && slackWebhookUrl) {
-      const pkgName = typeof session.package_name === "string" ? session.package_name : "Package";
-      fetch(slackWebhookUrl, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: `New submission received for *${pkgName}* — just now.` }),
-      }).catch((err) => {
-        logger.warn({ err, token: req.params.token }, "[DocuFill] Slack notification failed (non-fatal)");
-      });
-    }
+      type: "packet",
+    });
+    res.status(202).json({ jobId, status: "pending" });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to generate packet");
-    res.status(500).json({ error: "Failed to generate packet" });
+    logger.error({ err }, "[DocuFill] Failed to enqueue operator generate job");
+    const isConnectivityError = err instanceof Error && (
+      err.message.includes("ECONNREFUSED") ||
+      err.message.includes("ENOTFOUND") ||
+      err.message.includes("not available") ||
+      err.message.includes("connect ETIMEDOUT")
+    );
+    if (!res.headersSent) {
+      if (isConnectivityError) {
+        res.status(503).json({
+          error: "PDF generation is temporarily unavailable. Please try again shortly.",
+          code: "queue_unavailable",
+        });
+      } else {
+        res.status(500).json({ error: "Failed to start document generation" });
+      }
+    }
+  }
+});
+
+router.get("/sessions/:token/generate-status", requireMemberRole, async (req, res) => {
+  try {
+    const jobId = typeof req.query.jobId === "string" ? req.query.jobId : null;
+    const db = getDb();
+    const { rows } = await db.query<{ status: string }>(
+      `SELECT status FROM docufill_interview_sessions WHERE token = $1 AND account_id = $2`,
+      [req.params.token, acctId(req)],
+    );
+    const row = rows[0];
+    if (!row) {
+      res.status(404).json({ error: "Session not found" });
+      return;
+    }
+    if (row.status === "generated") {
+      res.json({
+        status: "ready",
+        downloadUrl: `/api/internal/docufill/sessions/${req.params.token}/packet.pdf`,
+      });
+      return;
+    }
+    if (jobId && generatePdfQueue) {
+      try {
+        const job = await generatePdfQueue.getJob(jobId);
+        if (job) {
+          const state = await job.getState();
+          if (state === "completed") {
+            res.json({
+              status: "ready",
+              downloadUrl: `/api/internal/docufill/sessions/${req.params.token}/packet.pdf`,
+            });
+            return;
+          }
+          if (state === "failed") {
+            res.json({ status: "failed", error: "Document generation failed. Please try submitting again." });
+            return;
+          }
+          res.json({ status: state === "active" ? "processing" : "pending" });
+          return;
+        }
+      } catch (queueErr) {
+        logger.warn({ queueErr, jobId }, "[DocuFill] Failed to check BullMQ job state (non-fatal)");
+      }
+    }
+    res.json({ status: "pending" });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to get operator generate status");
+    res.status(500).json({ error: "Failed to check generation status" });
   }
 });
 
@@ -5012,7 +4962,22 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
     if (pkgAccountId) void recordPdfGenerationEvent(pkgAccountId);
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to enqueue generate job");
-    if (!res.headersSent) res.status(500).json({ error: "Failed to start document generation" });
+    const isConnectivityError = err instanceof Error && (
+      err.message.includes("ECONNREFUSED") ||
+      err.message.includes("ENOTFOUND") ||
+      err.message.includes("not available") ||
+      err.message.includes("connect ETIMEDOUT")
+    );
+    if (!res.headersSent) {
+      if (isConnectivityError) {
+        res.status(503).json({
+          error: "PDF generation is temporarily unavailable. Please try again shortly.",
+          code: "queue_unavailable",
+        });
+      } else {
+        res.status(500).json({ error: "Failed to start document generation" });
+      }
+    }
   }
 });
 

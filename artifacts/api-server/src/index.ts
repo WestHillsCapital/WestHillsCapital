@@ -14,7 +14,6 @@ import {
 } from "./lib/email";
 import { getShippingStatus } from "./lib/fiztrade";
 import { enqueuePingJob } from "./lib/queue";
-import { registerGeneratePdfProcessor } from "./routes/docufill";
 
 // ── 1. Resolve port ───────────────────────────────────────────────────────────
 const rawPort = process.env["PORT"];
@@ -120,8 +119,6 @@ const server: Server = app.listen(port, () => {
       startCustomDomainCors();
       // Verify job queue round-trip on startup (non-fatal if Redis not configured)
       void enqueuePingJob();
-      // Register the background PDF generation worker (runs in this process)
-      registerGeneratePdfProcessor();
       // Initialize Stripe after DB is ready (non-fatal if it fails)
       void initStripe();
       // Run every 15 minutes to keep milestone states fresh
