@@ -648,6 +648,9 @@ export async function initDb(): Promise<void> {
     ALTER TABLE docufill_package_documents
     ADD COLUMN IF NOT EXISTS page_sizes JSONB NOT NULL DEFAULT '[]'::jsonb
   `);
+  // GCS key for template PDFs — new writes go to GCS; pdf_data kept for legacy reads
+  await db.query(`ALTER TABLE docufill_package_documents ADD COLUMN IF NOT EXISTS pdf_gcs_key TEXT`);
+  await db.query(`ALTER TABLE docufill_package_documents ALTER COLUMN pdf_data DROP NOT NULL`);
   await db.query(`
     ALTER TABLE docufill_packages
     ADD COLUMN IF NOT EXISTS transaction_scope TEXT NOT NULL DEFAULT ''

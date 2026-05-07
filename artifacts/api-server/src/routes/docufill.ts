@@ -247,7 +247,8 @@ type StoredDocumentRow = {
   byte_size: number;
   page_count: number;
   page_sizes?: Array<{ width: number; height: number }>;
-  pdf_data?: Buffer;
+  pdf_data?: Buffer | null;
+  pdf_gcs_key?: string | null;
   created_at?: Date | string;
   updated_at?: Date | string;
 };
@@ -1334,7 +1335,7 @@ async function buildPacketPdfBuffer(
   const storedDocuments = parseDocuments(session.documents).filter((sourceDoc) => sourceDoc.pdfStored);
   const storedRowsResult = Number.isInteger(packageId) && storedDocuments.length > 0
     ? await client.query(
-      `SELECT document_id, filename, content_type, byte_size, page_count, pdf_data, created_at, updated_at
+      `SELECT document_id, filename, content_type, byte_size, page_count, pdf_data, pdf_gcs_key, created_at, updated_at
          FROM docufill_package_documents
         WHERE package_id=$1 AND document_id = ANY($2::text[])`,
       [packageId, storedDocuments.map((doc) => doc.id)],
@@ -1355,8 +1356,19 @@ async function buildPacketPdfBuffer(
     const storedRowById = new Map(storedRows.map((row) => [row.document_id, row]));
     for (const sourceDoc of storedDocuments) {
       const row = storedRowById.get(sourceDoc.id);
-      if (!row?.pdf_data) continue;
-      const sourcePdf = await PdfLibDocument.load(row.pdf_data, { ignoreEncryption: true });
+      let pdfBuffer: Buffer | undefined;
+      if (row?.pdf_gcs_key) {
+        try {
+          pdfBuffer = await objectStorage.downloadObjectToBuffer(row.pdf_gcs_key);
+        } catch (gcsErr) {
+          logger.warn({ err: gcsErr, documentId: sourceDoc.id }, "[DocuFill] GCS fetch failed for package PDF — falling back to DB");
+          pdfBuffer = row.pdf_data ?? undefined;
+        }
+      } else {
+        pdfBuffer = row?.pdf_data ?? undefined;
+      }
+      if (!pdfBuffer) continue;
+      const sourcePdf = await PdfLibDocument.load(pdfBuffer, { ignoreEncryption: true });
       const copiedPages = await merged.copyPages(sourcePdf, sourcePdf.getPageIndices());
       copiedPages.forEach((page) => merged.addPage(page));
       const documentMappings = mappingsByDocument.get(sourceDoc.id) ?? [];
@@ -1730,10 +1742,22 @@ async function upsertPackageDocument(params: {
     if (existingBytes + params.pdf.length > MAX_PACKAGE_PDF_BYTES) {
       throw new PdfUploadError("Package PDF storage is limited to 100 MB");
     }
+    let pdfGcsKey: string | null = null;
+    let pdfDataForDb: Buffer | null = params.pdf;
+    try {
+      pdfGcsKey = await objectStorage.uploadBuffer(
+        `pdfs/${params.accountId}/${params.packageId}/${documentId}.pdf`,
+        params.pdf,
+        "application/pdf",
+      );
+      pdfDataForDb = null;
+    } catch (gcsErr) {
+      logger.warn({ err: gcsErr, documentId }, "[DocuFill] GCS upload failed — falling back to DB storage for template PDF");
+    }
     await client.query(
       `INSERT INTO docufill_package_documents
-         (package_id, document_id, filename, content_type, byte_size, page_count, page_sizes, pdf_data)
-       VALUES ($1,$2,$3,'application/pdf',$4,$5,$6::jsonb,$7)
+         (package_id, document_id, filename, content_type, byte_size, page_count, page_sizes, pdf_data, pdf_gcs_key)
+       VALUES ($1,$2,$3,'application/pdf',$4,$5,$6::jsonb,$7,$8)
        ON CONFLICT (package_id, document_id) DO UPDATE SET
          filename=EXCLUDED.filename,
          content_type=EXCLUDED.content_type,
@@ -1741,8 +1765,9 @@ async function upsertPackageDocument(params: {
          page_count=EXCLUDED.page_count,
          page_sizes=EXCLUDED.page_sizes,
          pdf_data=EXCLUDED.pdf_data,
+         pdf_gcs_key=EXCLUDED.pdf_gcs_key,
          updated_at=NOW()`,
-      [params.packageId, documentId, filename, params.pdf.length, pageCount, JSON.stringify(pageSizes), params.pdf],
+      [params.packageId, documentId, filename, params.pdf.length, pageCount, JSON.stringify(pageSizes), pdfDataForDb, pdfGcsKey],
     );
     const documents = parseDocuments(existing.documents);
     const priorDoc = documents.find((item) => item.id === documentId);
@@ -3081,14 +3106,47 @@ router.get("/packages/:id/documents/:documentId.pdf", async (req, res) => {
     }
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT d.filename, d.content_type, d.byte_size, d.pdf_data
+      `SELECT d.filename, d.content_type, d.byte_size, d.pdf_data, d.pdf_gcs_key
          FROM docufill_package_documents d
          JOIN docufill_packages p ON p.id = d.package_id
         WHERE d.package_id=$1 AND d.document_id=$2 AND p.account_id=$3`,
       [packageId, req.params.documentId, acctId(req)],
     );
-    const row = rows[0] as { filename: string; content_type: string; byte_size: number; pdf_data: Buffer } | undefined;
+    const row = rows[0] as { filename: string; content_type: string; byte_size: number; pdf_data: Buffer | null; pdf_gcs_key: string | null } | undefined;
     if (!row) {
+      res.status(404).json({ error: "Package document PDF not found" });
+      return;
+    }
+    if (row.pdf_gcs_key) {
+      try {
+        const gcsFile = await objectStorage.getObjectEntityFile(row.pdf_gcs_key);
+        const storageRes = await objectStorage.downloadObject(gcsFile, 0);
+        res.setHeader("Content-Type", "application/pdf");
+        res.setHeader("X-Content-Type-Options", "nosniff");
+        res.setHeader("Content-Disposition", `inline; filename="${safePdfFilename(row.filename)}"`);
+        res.setHeader("Cache-Control", "private, no-store");
+        const contentLength = storageRes.headers.get("Content-Length");
+        if (contentLength) res.setHeader("Content-Length", contentLength);
+        const reader = storageRes.body!.getReader();
+        const pump = async (): Promise<void> => {
+          const { done, value } = await reader.read();
+          if (done) { res.end(); return; }
+          res.write(value);
+          await pump();
+        };
+        await pump();
+        return;
+      } catch (storageErr) {
+        if (!(storageErr instanceof ObjectNotFoundError)) {
+          logger.warn({ err: storageErr }, "[DocuFill] GCS read failed for package PDF — falling back to DB");
+        }
+        if (!row.pdf_data) {
+          res.status(404).json({ error: "Package document PDF not found" });
+          return;
+        }
+      }
+    }
+    if (!row.pdf_data) {
       res.status(404).json({ error: "Package document PDF not found" });
       return;
     }
@@ -3129,8 +3187,14 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
       : [];
     const db = getDb();
     const client = await db.connect();
+    let deletedGcsKey: string | null = null;
     try {
       await client.query("BEGIN");
+      const { rows: docKeyRows } = await client.query(
+        "SELECT pdf_gcs_key FROM docufill_package_documents WHERE package_id=$1 AND document_id=$2",
+        [packageId, req.params.documentId],
+      );
+      deletedGcsKey = docKeyRows[0]?.pdf_gcs_key ?? null;
       await client.query("DELETE FROM docufill_package_documents WHERE package_id=$1 AND document_id=$2", [packageId, req.params.documentId]);
       await client.query(
         `UPDATE docufill_packages
@@ -3144,6 +3208,11 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
       throw err;
     } finally {
       client.release();
+    }
+    if (deletedGcsKey) {
+      objectStorage.getObjectEntityFile(deletedGcsKey)
+        .then((f) => f.delete({ ignoreNotFound: true }))
+        .catch((err) => logger.warn({ err, gcsKey: deletedGcsKey }, "[DocuFill] GCS cleanup failed for deleted document (non-fatal)"));
     }
     const pkg = await getPackage(packageId, getDb(), true, requestAccountId);
     res.json({ package: pkg ? sanitizePackageForClient(pkg) : null });

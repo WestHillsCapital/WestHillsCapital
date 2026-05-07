@@ -104,6 +104,42 @@ On worker startup, each scheduler function also runs once immediately as a backl
 
 ---
 
+## GCS object storage (template PDFs)
+
+Template PDFs uploaded by users are stored in Google Cloud Storage. Signed/generated session PDFs (`generated_pdf_storage_key`) have always used GCS; template PDFs (`docufill_package_documents.pdf_gcs_key`) were migrated in Task #590.
+
+### Bucket structure
+
+| Path prefix | Content |
+|---|---|
+| `pdfs/{accountId}/{packageId}/{documentId}.pdf` | Template PDF uploaded by the user for a package document |
+| `signed-pdfs/{sessionToken}.pdf` | Signed/generated PDF for a completed interview session |
+
+Both paths live under the bucket configured in `PRIVATE_OBJECT_DIR` (e.g. `gs://my-bucket/private`). The `pdf_gcs_key` column stores the `/objects/...` reference used by the API server.
+
+### Fallback behaviour
+
+Rows that pre-date the migration continue to have `pdf_data` set in Postgres. All read paths check `pdf_gcs_key` first and fall back to `pdf_data` transparently.
+
+### Migrating existing rows
+
+Run the one-time migration script to upload existing Postgres blobs to GCS:
+
+```bash
+# Dry run — see what would be migrated
+node artifacts/api-server/scripts/migrate-pdfs-to-gcs.mjs --dry-run
+
+# Live run — upload and write back pdf_gcs_key (keeps pdf_data as fallback)
+node artifacts/api-server/scripts/migrate-pdfs-to-gcs.mjs
+
+# Live run + reclaim Postgres storage after upload
+node artifacts/api-server/scripts/migrate-pdfs-to-gcs.mjs --null-pdf-data
+```
+
+Required env vars: `DATABASE_URL`, `PRIVATE_OBJECT_DIR`.
+
+---
+
 ## Job queue (BullMQ + Redis)
 
 The job queue infrastructure powers background processing for PDF generation, webhook delivery, and scheduled jobs. It consists of two independent processes:

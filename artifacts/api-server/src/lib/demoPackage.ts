@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import type { Pool } from "pg";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { logger } from "./logger";
+import { ObjectStorageService } from "./objectStorage";
 
 // ── Demo fields (explicit stable ids so mapping references are reliable) ───────
 const DEMO_FIELDS = [
@@ -179,11 +180,26 @@ export async function seedDemoPackage(db: Pool, accountId: number): Promise<void
 
     const packageId = pkgResult.rows[0].id;
 
+    const pdfBuf = Buffer.from(pdfBytes);
+    let pdfGcsKey: string | null = null;
+    let pdfDataForDb: Buffer | null = pdfBuf;
+    try {
+      const objectStorage = new ObjectStorageService();
+      pdfGcsKey = await objectStorage.uploadBuffer(
+        `pdfs/${accountId}/${packageId}/${documentId}.pdf`,
+        pdfBuf,
+        "application/pdf",
+      );
+      pdfDataForDb = null;
+    } catch {
+      // GCS not configured or unavailable — fall back to DB storage
+    }
+
     await db.query(
       `INSERT INTO docufill_package_documents
-         (package_id, document_id, filename, content_type, byte_size, page_count, page_sizes, pdf_data)
-       VALUES ($1,$2,$3,'application/pdf',$4,$5,$6::jsonb,$7)`,
-      [packageId, documentId, filename, pdfBytes.length, pageCount, JSON.stringify(pageSizes), Buffer.from(pdfBytes)],
+         (package_id, document_id, filename, content_type, byte_size, page_count, page_sizes, pdf_data, pdf_gcs_key)
+       VALUES ($1,$2,$3,'application/pdf',$4,$5,$6::jsonb,$7,$8)`,
+      [packageId, documentId, filename, pdfBytes.length, pageCount, JSON.stringify(pageSizes), pdfDataForDb, pdfGcsKey],
     );
 
     logger.info({ accountId, packageId }, "[DemoPackage] Demo package seeded");

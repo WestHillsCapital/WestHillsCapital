@@ -22,6 +22,13 @@
       "when": 1778020000000,
       "tag": "0002_affiliate_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1778184000000,
+      "tag": "0003_pdf_gcs_key",
+      "breakpoints": true
     }
   ]
 }
