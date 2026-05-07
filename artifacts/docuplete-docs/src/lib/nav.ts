@@ -97,6 +97,15 @@ export const NAV: NavItem[] = [
     ],
   },
   {
+    title: "Developer API",
+    slug: "developer",
+    children: [
+      { title: "Authentication & API Keys", slug: "developer/authentication" },
+      { title: "Quickstart: Create a Session", slug: "developer/quickstart-session" },
+      { title: "Quickstart: Handling Webhooks", slug: "developer/quickstart-webhooks" },
+    ],
+  },
+  {
     title: "Account & Settings",
     slug: "account",
     children: [

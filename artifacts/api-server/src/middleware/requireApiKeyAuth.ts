@@ -9,7 +9,7 @@ import { isIpAllowed } from "../lib/cidr";
 const APIKEY_FAIL_MAX = 10;
 const APIKEY_FAIL_WINDOW_MS = 60 * 1000;
 
-const API_KEY_PREFIX = "sk_live_";
+const API_KEY_PREFIX = "dp_live_";
 
 /**
  * Hash a raw API key with SHA-256.
@@ -60,7 +60,7 @@ export const requireApiKeyAuth: RequestHandler = async (req, res, next) => {
     if (isRateLimited(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
       return void res.status(429).json({ error: "Too many failed authentication attempts. Please wait before trying again." });
     }
-    return void res.status(401).json({ error: "Authentication required. Provide an API key via Authorization: Bearer sk_live_…" });
+    return void res.status(401).json({ error: "Authentication required. Provide an API key via Authorization: Bearer dp_live_…" });
   }
 
   const token = authHeader.slice(7).trim();
@@ -68,7 +68,7 @@ export const requireApiKeyAuth: RequestHandler = async (req, res, next) => {
     if (isRateLimited(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
       return void res.status(429).json({ error: "Too many failed authentication attempts. Please wait before trying again." });
     }
-    return void res.status(401).json({ error: "Invalid API key format. Keys must start with sk_live_." });
+    return void res.status(401).json({ error: "Invalid API key format. Keys must start with dp_live_." });
   }
 
   if (isCurrentlyBlocked(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {

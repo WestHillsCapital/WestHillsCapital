@@ -49,7 +49,7 @@ function parseUserAgentLabel(ua: string | null): { browser: string; os: string }
 
 const router = Router();
 
-const API_KEY_PREFIX = "sk_live_";
+const API_KEY_PREFIX = "dp_live_";
 const MAX_KEYS_PER_ACCOUNT = 25;
 
 /**

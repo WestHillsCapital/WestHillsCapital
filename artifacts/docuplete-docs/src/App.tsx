@@ -53,6 +53,10 @@ import Branding from "@/pages/docs/account/Branding";
 import Channels from "@/pages/docs/account/Channels";
 import ApiKeys from "@/pages/docs/account/ApiKeys";
 
+import DeveloperAuthentication from "@/pages/docs/developer/Authentication";
+import QuickstartSession from "@/pages/docs/developer/QuickstartSession";
+import QuickstartWebhooks from "@/pages/docs/developer/QuickstartWebhooks";
+
 function NotFound() {
   return (
     <div className="docs-content">
@@ -125,6 +129,11 @@ function Router() {
         {/* Integrations */}
         <Route path="/integrations/google-drive" component={GoogleDrive} />
         <Route path="/integrations/hubspot" component={HubSpot} />
+
+        {/* Developer API */}
+        <Route path="/developer/authentication" component={DeveloperAuthentication} />
+        <Route path="/developer/quickstart-session" component={QuickstartSession} />
+        <Route path="/developer/quickstart-webhooks" component={QuickstartWebhooks} />
 
         {/* Account & Settings */}
         <Route path="/account/billing" component={Billing} />
