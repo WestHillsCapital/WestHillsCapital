@@ -15,8 +15,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",
-    "@bull-board/api": "^7.0.0",
-    "@bull-board/express": "^7.0.0",
     "@clerk/express": "^2.1.9",
     "@google-cloud/storage": "^7.19.0",
     "@sentry/node": "^10.50.0",
