@@ -1466,218 +1466,17 @@ export async function initDb(): Promise<void> {
   dbReady = true;
   logger.info("Database tables and indexes verified / created");
 
-  // ── Scheduled data retention ──────────────────────────────────────────────
-  // Keeps the audit tables from growing unboundedly.
-  // booking_attempts can accumulate quickly (every booking attempt writes a row).
-  // Run once on startup (to catch any backlog) and then every 24 hours.
-  async function pruneAuditTables(): Promise<void> {
-    try {
-      const db = getDb();
-      const { rowCount } = await db.query(`
-        DELETE FROM booking_attempts WHERE attempted_at < NOW() - INTERVAL '90 days'
-      `);
-      if ((rowCount ?? 0) > 0) {
-        logger.info({ rowCount }, "[DB] Pruned old booking_attempts rows");
-      }
-    } catch (err) {
-      logger.error({ err }, "[DB] booking_attempts prune failed (non-fatal)");
-    }
-  }
-
+  // ── Scheduled data retention — startup backlog runs ──────────────────────────
+  // Run once on startup to clear any backlog accumulated while the worker was down.
+  // The repeatable cadence (24 h / 6 h) is handled by BullMQ job schedulers in
+  // the worker process (upsertJobScheduler in worker.ts), which ensures
+  // exactly-once execution regardless of how many instances are running.
   pruneAuditTables().catch(() => {});
-  setInterval(() => pruneAuditTables().catch(() => {}), 24 * 60 * 60 * 1000).unref();
-
-  // ── Submission retention: delete sessions older than the account's policy ─────
-  async function pruneRetainedSubmissions(): Promise<void> {
-    try {
-      const retentionDb = getDb();
-      const { rowCount } = await retentionDb.query(`
-        DELETE FROM docufill_interview_sessions dis
-        USING accounts a
-        WHERE dis.account_id = a.id
-          AND a.submission_retention_days IS NOT NULL
-          AND dis.created_at < NOW() - (a.submission_retention_days || ' days')::INTERVAL
-      `);
-      if ((rowCount ?? 0) > 0) {
-        logger.info({ rowCount }, "[DB] Pruned old interview sessions per retention policy");
-      }
-    } catch (err) {
-      logger.error({ err }, "[DB] Submission retention prune failed (non-fatal)");
-    }
-  }
-
   pruneRetainedSubmissions().catch(() => {});
-  setInterval(() => pruneRetainedSubmissions().catch(() => {}), 24 * 60 * 60 * 1000).unref();
-
-  // ── Session & login-history retention ─────────────────────────────────────────
-  // Keeps user_active_sessions and user_login_history from growing unboundedly.
-  // Sessions inactive for 30+ days are deleted; login history older than 90 days
-  // is pruned. Runs once on startup (to clear any backlog) and every 24 hours.
-  async function pruneSessionData(): Promise<void> {
-    try {
-      const pruneDb = getDb();
-      const { rowCount: sessionRows } = await pruneDb.query(`
-        DELETE FROM user_active_sessions
-         WHERE last_active_at < NOW() - INTERVAL '30 days'
-      `);
-      if ((sessionRows ?? 0) > 0) {
-        logger.info({ rowCount: sessionRows }, "[DB] Pruned inactive user_active_sessions");
-      }
-      const { rowCount: historyRows } = await pruneDb.query(`
-        DELETE FROM user_login_history
-         WHERE created_at < NOW() - INTERVAL '90 days'
-      `);
-      if ((historyRows ?? 0) > 0) {
-        logger.info({ rowCount: historyRows }, "[DB] Pruned old user_login_history rows");
-      }
-    } catch (err) {
-      logger.error({ err }, "[DB] Session data prune failed (non-fatal)");
-    }
-  }
-
   pruneSessionData().catch(() => {});
-  setInterval(() => pruneSessionData().catch(() => {}), 24 * 60 * 60 * 1000).unref();
-
-  // ── Account deletion: hard-delete accounts past their 7-day grace period ──────
-  // Uses explicit ordered deletes inside a transaction to avoid FK violations on
-  // tables that do NOT have ON DELETE CASCADE on their account_id foreign key
-  // (docufill_custodians, docufill_depositories, docufill_groups, docufill_packages,
-  // and docufill_interview_sessions all have account_id without CASCADE).
-  async function processScheduledDeletions(): Promise<void> {
-    try {
-      const delDb = getDb();
-      const { rows } = await delDb.query<{ id: number; name: string }>(
-        `SELECT id, name FROM accounts
-         WHERE deletion_requested_at IS NOT NULL
-           AND deletion_requested_at < NOW() - INTERVAL '7 days'`,
-      );
-      for (const account of rows) {
-        const client = await delDb.connect();
-        try {
-          await client.query("BEGIN");
-          // 1. Delete per-account reference data: custodians and depositories have
-          //    account_id NOT NULL (enforced by account_id_isolation_v1 migration),
-          //    so they must be deleted — not nulled. Their FKs from docufill_packages
-          //    (custodian_id / depository_id) are ON DELETE SET NULL, so deleting
-          //    these rows safely clears the package references first.
-          await client.query(`DELETE FROM docufill_custodians   WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM docufill_depositories WHERE account_id = $1`, [account.id]);
-          // 2. Delete interview sessions (account_id FK lacks CASCADE on accounts)
-          await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
-          // 3. Delete packages (cascades: sessions via package_id, webhook_deliveries, package_documents)
-          await client.query(`DELETE FROM docufill_packages WHERE account_id = $1`, [account.id]);
-          // 4. Delete groups (account_id FK lacks CASCADE)
-          await client.query(`DELETE FROM docufill_groups   WHERE account_id = $1`, [account.id]);
-          // 5. Delete the account — remaining tables (account_users, usage_events, api_keys,
-          //    audit_log, notification_prefs, plan_limit_alerts, data_export_requests, etc.)
-          //    all have ON DELETE CASCADE and will be handled automatically.
-          await client.query(`DELETE FROM accounts WHERE id = $1`, [account.id]);
-          await client.query("COMMIT");
-          logger.info({ accountId: account.id, name: account.name }, "[DB] Hard-deleted account after grace period");
-        } catch (deleteErr) {
-          await client.query("ROLLBACK");
-          logger.error({ err: deleteErr, accountId: account.id }, "[DB] Account hard-delete failed, rolled back");
-        } finally {
-          client.release();
-        }
-      }
-    } catch (err) {
-      logger.error({ err }, "[DB] Account deletion processing failed (non-fatal)");
-    }
-  }
-
   processScheduledDeletions().catch(() => {});
-  setInterval(() => processScheduledDeletions().catch(() => {}), 6 * 60 * 60 * 1000).unref();
-
-  // ── Post-trial data purge: delete org content for lapsed trials after 7 days ──
-  // Preserves the account row (email, name, created_at, plan_tier) for marketing.
-  // Only content is removed: packages, sessions, custodians, depositories, groups.
-  // Runs every 6 hours; accounts are excluded once data_purged_at is set.
-  async function purgeExpiredTrialData(): Promise<void> {
-    try {
-      const purgeDb = getDb();
-      // Defense-in-depth: exclude any account that is currently active or trialing
-      // even if trial_ended_at was somehow not cleared (e.g., webhook ordering edge case).
-      const { rows } = await purgeDb.query<{ id: number; name: string }>(
-        `SELECT id, name FROM accounts
-         WHERE trial_ended_at IS NOT NULL
-           AND trial_ended_at < NOW() - INTERVAL '7 days'
-           AND data_purged_at IS NULL
-           AND (subscription_status IS NULL OR subscription_status NOT IN ('active', 'trialing'))`,
-      );
-      for (const account of rows) {
-        const client = await purgeDb.connect();
-        try {
-          await client.query("BEGIN");
-          // Non-CASCADE docufill content — must be deleted explicitly
-          await client.query(`DELETE FROM docufill_custodians        WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM docufill_depositories      WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM docufill_fields            WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
-          // Packages cascade to: package_documents, webhook_deliveries, package_groups
-          await client.query(`DELETE FROM docufill_packages          WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM docufill_groups            WHERE account_id = $1`, [account.id]);
-          // Revoke access — API keys and account_users (users cascade to sessions/devices/history)
-          await client.query(`DELETE FROM account_api_keys           WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM account_users              WHERE account_id = $1`, [account.id]);
-          // docufill_signing_events has account_id with no FK/cascade
-          await client.query(`DELETE FROM docufill_signing_events    WHERE account_id = $1`, [account.id]);
-          // docufill_transaction_types has account_id with cascade but account row is preserved
-          await client.query(`DELETE FROM docufill_transaction_types WHERE account_id = $1`, [account.id]);
-          // Remaining account-scoped tables that have ON DELETE CASCADE on accounts
-          // but won't auto-cascade since the account row is preserved
-          await client.query(`DELETE FROM usage_events               WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM submission_bank            WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM pack_subscriptions         WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM pdf_audit_events           WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM data_export_requests       WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM user_notification_prefs    WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM user_in_app_notifications  WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM plan_limit_alerts          WHERE account_id = $1`, [account.id]);
-          await client.query(`DELETE FROM org_audit_log              WHERE account_id = $1`, [account.id]);
-          await client.query(
-            `UPDATE accounts SET data_purged_at = NOW() WHERE id = $1`,
-            [account.id],
-          );
-          await client.query("COMMIT");
-          logger.info({ accountId: account.id, name: account.name }, "[DB] Purged org content for lapsed trial account");
-        } catch (purgeErr) {
-          await client.query("ROLLBACK");
-          logger.error({ err: purgeErr, accountId: account.id }, "[DB] Trial data purge failed, rolled back");
-        } finally {
-          client.release();
-        }
-      }
-    } catch (err) {
-      logger.error({ err }, "[DB] Trial data purge job failed (non-fatal)");
-    }
-  }
-
   purgeExpiredTrialData().catch(() => {});
-  setInterval(() => purgeExpiredTrialData().catch(() => {}), 6 * 60 * 60 * 1000).unref();
-
-  // ── Data export cleanup — clear export payloads after link expiry ────────────
-  // Removes sensitive archive payloads from data_export_requests once the
-  // 48-hour download window has passed, minimising sensitive data retention.
-  async function purgeExpiredExports(): Promise<void> {
-    try {
-      const cleanDb = getDb();
-      const result = await cleanDb.query(
-        `UPDATE data_export_requests
-            SET export_json = NULL, status = 'expired'
-          WHERE expires_at < NOW()
-            AND export_json IS NOT NULL`,
-      );
-      if ((result.rowCount ?? 0) > 0) {
-        logger.info({ purged: result.rowCount }, "[DB] Cleared export payloads from expired data_export_requests rows");
-      }
-    } catch (err) {
-      logger.error({ err }, "[DB] Export payload purge failed (non-fatal)");
-    }
-  }
-
   purgeExpiredExports().catch(() => {});
-  setInterval(() => purgeExpiredExports().catch(() => {}), 6 * 60 * 60 * 1000).unref();
 
   // ── Super-admin account notes ─────────────────────────────────────────────────
   await db.query(`
@@ -1837,6 +1636,163 @@ export async function initDb(): Promise<void> {
 
   // ── Server-side scroll confirmation: persisted timestamp when signer attests full scroll ──
   await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS scroll_confirmed_at TIMESTAMPTZ`);
+}
+
+// ── Scheduler functions (exported for BullMQ worker) ─────────────────────────
+// These were previously nested inside initDb() as setInterval callbacks.
+// They are now top-level exports so the worker can call them as repeatable-job
+// processors. initDb() still calls each one once on startup (see above) to
+// clear any backlog accumulated while the worker was down.
+
+export async function pruneAuditTables(): Promise<void> {
+  try {
+    const db = getDb();
+    const { rowCount } = await db.query(`
+      DELETE FROM booking_attempts WHERE attempted_at < NOW() - INTERVAL '90 days'
+    `);
+    if ((rowCount ?? 0) > 0) {
+      logger.info({ rowCount }, "[DB] Pruned old booking_attempts rows");
+    }
+  } catch (err) {
+    logger.error({ err }, "[DB] booking_attempts prune failed (non-fatal)");
+  }
+}
+
+export async function pruneRetainedSubmissions(): Promise<void> {
+  try {
+    const db = getDb();
+    const { rowCount } = await db.query(`
+      DELETE FROM docufill_interview_sessions dis
+      USING accounts a
+      WHERE dis.account_id = a.id
+        AND a.submission_retention_days IS NOT NULL
+        AND dis.created_at < NOW() - (a.submission_retention_days || ' days')::INTERVAL
+    `);
+    if ((rowCount ?? 0) > 0) {
+      logger.info({ rowCount }, "[DB] Pruned old interview sessions per retention policy");
+    }
+  } catch (err) {
+    logger.error({ err }, "[DB] Submission retention prune failed (non-fatal)");
+  }
+}
+
+export async function pruneSessionData(): Promise<void> {
+  try {
+    const db = getDb();
+    const { rowCount: sessionRows } = await db.query(`
+      DELETE FROM user_active_sessions
+       WHERE last_active_at < NOW() - INTERVAL '30 days'
+    `);
+    if ((sessionRows ?? 0) > 0) {
+      logger.info({ rowCount: sessionRows }, "[DB] Pruned inactive user_active_sessions");
+    }
+    const { rowCount: historyRows } = await db.query(`
+      DELETE FROM user_login_history
+       WHERE created_at < NOW() - INTERVAL '90 days'
+    `);
+    if ((historyRows ?? 0) > 0) {
+      logger.info({ rowCount: historyRows }, "[DB] Pruned old user_login_history rows");
+    }
+  } catch (err) {
+    logger.error({ err }, "[DB] Session data prune failed (non-fatal)");
+  }
+}
+
+export async function processScheduledDeletions(): Promise<void> {
+  try {
+    const db = getDb();
+    const { rows } = await db.query<{ id: number; name: string }>(
+      `SELECT id, name FROM accounts
+       WHERE deletion_requested_at IS NOT NULL
+         AND deletion_requested_at < NOW() - INTERVAL '7 days'`,
+    );
+    for (const account of rows) {
+      const client = await db.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(`DELETE FROM docufill_custodians   WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_depositories WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_packages WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_groups   WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM accounts WHERE id = $1`, [account.id]);
+        await client.query("COMMIT");
+        logger.info({ accountId: account.id, name: account.name }, "[DB] Hard-deleted account after grace period");
+      } catch (deleteErr) {
+        await client.query("ROLLBACK");
+        logger.error({ err: deleteErr, accountId: account.id }, "[DB] Account hard-delete failed, rolled back");
+      } finally {
+        client.release();
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, "[DB] Account deletion processing failed (non-fatal)");
+  }
+}
+
+export async function purgeExpiredTrialData(): Promise<void> {
+  try {
+    const db = getDb();
+    const { rows } = await db.query<{ id: number; name: string }>(
+      `SELECT id, name FROM accounts
+       WHERE trial_ended_at IS NOT NULL
+         AND trial_ended_at < NOW() - INTERVAL '7 days'
+         AND data_purged_at IS NULL
+         AND (subscription_status IS NULL OR subscription_status NOT IN ('active', 'trialing'))`,
+    );
+    for (const account of rows) {
+      const client = await db.connect();
+      try {
+        await client.query("BEGIN");
+        await client.query(`DELETE FROM docufill_custodians        WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_depositories      WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_fields            WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_packages          WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_groups            WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM account_api_keys           WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM account_users              WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_signing_events    WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docufill_transaction_types WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM usage_events               WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM submission_bank            WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM pack_subscriptions         WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM pdf_audit_events           WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM data_export_requests       WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM user_notification_prefs    WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM user_in_app_notifications  WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM plan_limit_alerts          WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM org_audit_log              WHERE account_id = $1`, [account.id]);
+        await client.query(`UPDATE accounts SET data_purged_at = NOW() WHERE id = $1`, [account.id]);
+        await client.query("COMMIT");
+        logger.info({ accountId: account.id, name: account.name }, "[DB] Purged org content for lapsed trial account");
+      } catch (purgeErr) {
+        await client.query("ROLLBACK");
+        logger.error({ err: purgeErr, accountId: account.id }, "[DB] Trial data purge failed, rolled back");
+      } finally {
+        client.release();
+      }
+    }
+  } catch (err) {
+    logger.error({ err }, "[DB] Trial data purge job failed (non-fatal)");
+  }
+}
+
+export async function purgeExpiredExports(): Promise<void> {
+  try {
+    const db = getDb();
+    const result = await db.query(
+      `UPDATE data_export_requests
+          SET export_json = NULL, status = 'expired'
+        WHERE expires_at < NOW()
+          AND export_json IS NOT NULL`,
+    );
+    if ((result.rowCount ?? 0) > 0) {
+      logger.info({ purged: result.rowCount }, "[DB] Cleared export payloads from expired data_export_requests rows");
+    }
+  } catch (err) {
+    logger.error({ err }, "[DB] Export payload purge failed (non-fatal)");
+  }
 }
 
 /**

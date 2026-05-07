@@ -5,6 +5,7 @@ import {
   type PingJobPayload,
   type GeneratePdfJobPayload,
   type DeliverWebhookJobPayload,
+  type SchedulerJobPayload,
 } from "@workspace/queues";
 import { logger } from "./logger.js";
 
@@ -15,6 +16,10 @@ import { logger } from "./logger.js";
 export const pingQueue = createQueue<PingJobPayload>(QUEUE_NAMES.PING);
 export const generatePdfQueue = createQueue<GeneratePdfJobPayload>(QUEUE_NAMES.GENERATE_PDF);
 export const deliverWebhookQueue = createQueue<DeliverWebhookJobPayload>(QUEUE_NAMES.DELIVER_WEBHOOK);
+// Scheduler queue — repeatable jobs registered via upsertJobScheduler in worker.ts.
+// Exported here so the worker can call upsertJobScheduler without creating a
+// separate queue instance (avoids duplicate Redis connections).
+export const schedulerQueue = createQueue<SchedulerJobPayload>(QUEUE_NAMES.SCHEDULER);
 
 // ── Startup probe ─────────────────────────────────────────────────────────────
 // Enqueues a no-op ping job to verify the queue round-trip is working.
@@ -102,17 +107,19 @@ export async function getQueueStatus(): Promise<Record<string, unknown>> {
           }))
         : null;
 
-    const [pingCounts, pdfCounts, webhookCounts] = await Promise.all([
+    const [pingCounts, pdfCounts, webhookCounts, schedulerCounts] = await Promise.all([
       getCounts(pingQueue),
       getCounts(generatePdfQueue),
       getCounts(deliverWebhookQueue),
+      getCounts(schedulerQueue),
     ]);
     return {
       enabled: true,
       queues: {
-        ...(pingCounts    ? { [QUEUE_NAMES.PING]:            pingCounts    } : {}),
-        ...(pdfCounts     ? { [QUEUE_NAMES.GENERATE_PDF]:    pdfCounts     } : {}),
-        ...(webhookCounts ? { [QUEUE_NAMES.DELIVER_WEBHOOK]: webhookCounts } : {}),
+        ...(pingCounts      ? { [QUEUE_NAMES.PING]:            pingCounts      } : {}),
+        ...(pdfCounts       ? { [QUEUE_NAMES.GENERATE_PDF]:    pdfCounts       } : {}),
+        ...(webhookCounts   ? { [QUEUE_NAMES.DELIVER_WEBHOOK]: webhookCounts   } : {}),
+        ...(schedulerCounts ? { [QUEUE_NAMES.SCHEDULER]:       schedulerCounts } : {}),
       },
     };
   } catch (err) {

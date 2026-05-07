@@ -78,12 +78,26 @@ If a DB migration caused data loss, restore from the Replit database backup (con
 
 ## Background processes in production
 
-In production, the two background schedulers run continuously as part of the API server process:
+All scheduled jobs run in the **worker process** (not the API server) as BullMQ repeatable jobs. BullMQ's distributed lock ensures each job runs exactly once regardless of how many worker instances are active.
 
-- `runScheduler()`: every 15 minutes — handles shipping emails, follow-up emails, status sync
-- `runTrackingSync()`: every 15 minutes (2-minute offset) — polls DG for tracking numbers
+| Job name | Cadence | What it does |
+|---|---|---|
+| `prune:sessions` | every 15 min | Deletes expired `internal_sessions` rows |
+| `scheduler:fulfillment` | every 15 min | Shipping emails, follow-up emails, Ops status sync |
+| `scheduler:tracking-sync` | every 15 min | Polls DG for tracking numbers on unshipped deals |
+| `prune:audit-tables` | every 24 h | Deletes `booking_attempts` rows > 90 days old |
+| `prune:submissions` | every 24 h | Deletes interview sessions past each account's retention policy |
+| `prune:session-data` | every 24 h | Prunes `user_active_sessions` (30 d) and `user_login_history` (90 d) |
+| `purge:scheduled-deletions` | every 6 h | Hard-deletes accounts past their 7-day deletion grace period |
+| `purge:trial-data` | every 6 h | Purges org content for lapsed trial accounts |
+| `expire:exports` | every 6 h | Clears `export_json` payloads after the 48-hour download window |
 
-These run as long as the API server is running. If the server is restarted, both schedulers restart immediately after DB initialization.
+Jobs are registered idempotently via `queue.upsertJobScheduler()` on every worker startup. The API server still calls each function once on startup (to clear any backlog), but the repeatable schedule is worker-only.
+
+### Inspecting scheduler run history
+
+- `GET /api/internal/queue-status` now includes the `scheduler` queue, showing waiting / active / completed / failed counts
+- In Railway, check worker logs for `[Scheduler] Job scheduler registered` and `[Scheduler] Starting fulfillment scheduler tick` to confirm jobs are running
 
 ---
 

@@ -50,3 +50,18 @@ export const GeneratePdfJobPayloadSchema = z.object({
   signerGeo: z.string().nullable().optional(),
 });
 export type GeneratePdfJobPayload = z.infer<typeof GeneratePdfJobPayloadSchema>;
+
+// ── Scheduler (repeatable jobs) ───────────────────────────────────────────────
+// Shared empty payload for all scheduler trigger jobs. Job names are used
+// to differentiate processors within the single "scheduler" queue:
+//   "prune:sessions"            – every 15 min
+//   "prune:audit-tables"        – every 24 h
+//   "prune:submissions"         – every 24 h
+//   "prune:session-data"        – every 24 h
+//   "purge:scheduled-deletions" – every 6 h
+//   "purge:trial-data"          – every 6 h
+//   "expire:exports"            – every 6 h
+//   "scheduler:fulfillment"     – every 15 min
+//   "scheduler:tracking-sync"   – every 15 min
+export const SchedulerJobPayloadSchema = z.object({});
+export type SchedulerJobPayload = z.infer<typeof SchedulerJobPayloadSchema>;
