@@ -745,6 +745,7 @@ export default function DocuFillCustomer() {
       const genBody: Record<string, unknown> = {};
       if (identityToken) genBody.esignToken = identityToken;
       if (signerName.trim()) genBody.signerName = signerName.trim();
+      if (session?.require_scroll_confirmation) genBody.scrollConfirmed = scrollConfirmed;
       if (sigMode === "draw") {
         const dataUrl = sigPadRef.current?.getDataUrl();
         if (dataUrl) genBody.signatureImage = dataUrl;
@@ -1492,6 +1493,7 @@ export default function DocuFillCustomer() {
               {/* Scrollable page canvas list */}
               <div
                 ref={scrollViewRef}
+                data-testid="scroll-view"
                 className="overflow-y-auto bg-[#525659]"
                 style={{ height: 520 }}
                 onScroll={(e) => {
