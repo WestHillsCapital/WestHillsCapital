@@ -13,6 +13,7 @@ import { logger } from "./lib/logger";
 import { errorHandler } from "./middleware/errorHandler";
 import { requireInternalAuth } from "./middleware/requireInternalAuth";
 import { dbReady, dbError, getDb } from "./db";
+import { getQueueStatus } from "./lib/queue";
 import { CLERK_PROXY_PATH, clerkProxyMiddleware } from "./middlewares/clerkProxyMiddleware";
 import { WebhookHandlers, verifyAndParseWebhook } from "./lib/stripeWebhookHandlers";
 import { handleStripeSubscriptionEvent } from "./lib/stripeBillingSync";
@@ -309,6 +310,14 @@ app.use("/api", router);
 // Gated behind internal auth so external callers cannot spam Sentry events.
 app.get("/api/debug-sentry", requireInternalAuth, (_req, _res) => {
   throw new Error("Sentry test error — if you see this in Sentry, the integration is working.");
+});
+
+// ── Queue status — internal monitoring ────────────────────────────────────────
+// Returns live queue depth metrics for all BullMQ queues.
+// Gated behind internal auth so only portal staff can access it.
+app.get("/api/internal/queue-status", requireInternalAuth, async (_req, res) => {
+  const status = await getQueueStatus();
+  res.json(status);
 });
 
 // ── 404 catch-all ─────────────────────────────────────────────────────────────

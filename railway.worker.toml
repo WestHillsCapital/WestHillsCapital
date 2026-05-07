@@ -1,0 +1,19 @@
+# Railway service definition for the background job worker.
+# In Railway, create a second service in the same project pointing to this repo
+# and set the config path to "railway.worker.toml".
+#
+# Required environment variables for the worker service:
+#   REDIS_URL          — Railway Redis plugin URL (copy from Redis service)
+#   DATABASE_URL       — Same as the API server
+#   SENTRY_DSN         — Same as the API server
+#   NODE_ENV           — "production"
+#   ENCRYPTION_MASTER_KEY — Same as the API server (for future job types that decrypt PII)
+
+[build]
+builder = "nixpacks"
+buildCommand = "pnpm --filter @workspace/worker build"
+
+[deploy]
+startCommand = "node --enable-source-maps ./artifacts/worker/dist/index.mjs"
+healthcheckPath = ""
+restartPolicyType = "on_failure"

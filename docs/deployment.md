@@ -85,4 +85,43 @@ In production, the two background schedulers run continuously as part of the API
 
 These run as long as the API server is running. If the server is restarted, both schedulers restart immediately after DB initialization.
 
-There is no separate worker process or job queue. Both schedulers share the API server process.
+---
+
+## Job queue (BullMQ + Redis)
+
+The job queue infrastructure powers background processing for PDF generation, webhook delivery, and scheduled jobs. It consists of two independent processes:
+
+| Process | Railway service config | Purpose |
+|---|---|---|
+| API server | `railway.toml` | Enqueues jobs; serves `/api/internal/queue-status` |
+| Worker | `railway.worker.toml` | Processes jobs from all queues |
+
+### Setting up Redis on Railway
+
+1. In your Railway project, click **+ New** → **Database** → **Redis**
+2. Once provisioned, Railway automatically injects `REDIS_URL` into any service that has it set as a variable reference. Alternatively, copy the connection URL from the Redis service's **Variables** tab.
+3. Set `REDIS_URL` on both the API server service and the worker service.
+
+### Adding the worker as a second Railway service
+
+1. In your Railway project, click **+ New** → **GitHub Repo** (same repo)
+2. In the service settings, set **Config file path** to `railway.worker.toml`
+3. Set environment variables: `REDIS_URL`, `DATABASE_URL`, `SENTRY_DSN`, `NODE_ENV=production`, `ENCRYPTION_MASTER_KEY`
+4. Deploy — the worker will start and log `[Worker] All processors registered — listening for jobs`
+
+### Monitoring queue health
+
+- `GET /api/internal/queue-status` (internal auth required) — returns live queue depth (waiting / active / completed / failed) for all queues
+- On startup, the API server enqueues a ping job; the worker logs `[Worker:Ping] Ping job processed` when it completes, confirming the round-trip works
+
+### Adding new job types
+
+1. Add payload schema and type to `lib/queues/src/jobTypes.ts`
+2. Add the queue name to `lib/queues/src/queueNames.ts`
+3. Export the new queue from `artifacts/api-server/src/lib/queue.ts`
+4. Add a processor in `artifacts/worker/src/processors/`
+5. Register the processor in `artifacts/worker/src/index.ts`
+
+### Graceful degradation
+
+When `REDIS_URL` is not set (e.g. in the Replit development environment), all queue operations are skipped with a warning log. The API server and all existing features continue to work normally — jobs simply do not run.

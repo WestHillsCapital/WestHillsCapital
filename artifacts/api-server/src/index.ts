@@ -13,6 +13,7 @@ import {
   sendFollowUp30DayEmail,
 } from "./lib/email";
 import { getShippingStatus } from "./lib/fiztrade";
+import { enqueuePingJob } from "./lib/queue";
 
 // ── 1. Resolve port ───────────────────────────────────────────────────────────
 const rawPort = process.env["PORT"];
@@ -116,6 +117,8 @@ const server: Server = app.listen(port, () => {
       logger.info("Database ready — all systems operational");
       // Seed CORS custom-domain cache immediately and start 60-second refresh.
       startCustomDomainCors();
+      // Verify job queue round-trip on startup (non-fatal if Redis not configured)
+      void enqueuePingJob();
       // Initialize Stripe after DB is ready (non-fatal if it fails)
       void initStripe();
       // Run every 15 minutes to keep milestone states fresh
