@@ -146,7 +146,7 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
       req.internalAccountId = result.rows[0].account_id;
       req.productUserRole   = result.rows[0].role;
       req.productUserEmail  = result.rows[0].email;
-      Sentry.getCurrentScope().setUser({ email: result.rows[0].email, id: String(result.rows[0].account_id) });
+      Sentry.getCurrentScope().setUser({ id: String(result.rows[0].account_id) });
       Sentry.getCurrentScope().setTag("account_id", String(result.rows[0].account_id));
 
       // Fire-and-forget: stamp last_seen_at and upsert the session record
@@ -194,7 +194,7 @@ export const requireProductAuth: RequestHandler = async (req, res, next) => {
       req.internalAccountId = linked.account_id;
       req.productUserRole   = linked.role;
       req.productUserEmail  = linked.email;
-      Sentry.getCurrentScope().setUser({ email: linked.email, id: String(linked.account_id) });
+      Sentry.getCurrentScope().setUser({ id: String(linked.account_id) });
       Sentry.getCurrentScope().setTag("account_id", String(linked.account_id));
       return next();
     }

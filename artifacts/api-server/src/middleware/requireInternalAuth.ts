@@ -76,7 +76,7 @@ export const requireInternalAuth: RequestHandler = async (req, res, next) => {
 
   req.internalEmail     = session.email;
   req.internalAccountId = session.accountId;
-  Sentry.getCurrentScope().setUser({ email: session.email });
+  Sentry.getCurrentScope().setUser({ id: String(session.accountId) });
   Sentry.getCurrentScope().setTag("account_id", String(session.accountId));
   next();
 };
