@@ -33,18 +33,19 @@ Every push to `main` and every PR targeting `main` triggers `.github/workflows/c
 
 A failed CI run blocks merge. The CI badge in the repository README reflects the current `main` branch status.
 
-### Setting up branch protection on GitHub
+### Branch protection on GitHub
 
-Configure these rules in **GitHub → Settings → Branches → Branch protection rules → Add rule** for the pattern `main`:
+Branch protection is configured via a GitHub **Ruleset** named `main-branch-protection` (ruleset ID 16109303) on the `WestHillsCapital/WestHillsCapital` repository. It is **already active** — no manual setup is needed.
 
-- [x] **Require a pull request before merging**
-  - [x] Require approvals: **1**
-  - [x] Dismiss stale pull request approvals when new commits are pushed
-- [x] **Require status checks to pass before merging**
-  - [x] Require branches to be up to date before merging
-  - Status check to add: **`ci`** (the job name from `ci.yml`)
-- [x] **Require conversation resolution before merging**
-- [x] **Do not allow bypassing the above settings** (optional but recommended for SOC 2)
+The active rules are:
+
+| Rule | Setting |
+|---|---|
+| Pull request required | 1 approved review, stale approvals dismissed |
+| Required status check | `CI / Typecheck, Audit & Build` (must be up to date) |
+| Conversation resolution | Required before merge |
+
+To view or modify: **GitHub → Settings → Rules → Rulesets → main-branch-protection**.
 
 ### Hotfix bypass procedure
 
