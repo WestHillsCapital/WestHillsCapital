@@ -55,6 +55,10 @@ import {
   tryAutoFix,
   autoFixLabel,
 } from "@/lib/docufill-field-utils";
+import { DocuFillBuilderPanel } from "./DocuFillBuilderPanel";
+import { DocuFillMapperPanel } from "./DocuFillMapperPanel";
+import { DocuFillInterviewPanel } from "./DocuFillInterviewPanel";
+import { DocuFillCsvPanel } from "./DocuFillCsvPanel";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
 
@@ -677,11 +681,6 @@ export default function DocuFill() {
   const selectedFieldIsShared = Boolean(selectedField?.libraryFieldId);
   const storeMappings = useDocuFillStore((s) => s.mappings);
   const storeRecipientList = useDocuFillStore((s) => s.recipientList);
-  const selectedMapping = useDocuFillStore((s) => s.mappings.find((m) => m.id === s.selectedMappingId) ?? null);
-  const storeDragGuides = useDocuFillStore((s) => s.dragGuides);
-  const storeResizeDim = useDocuFillStore((s) => s.resizeDim);
-  const selectedMappingField = selectedMapping ? selectedPackage?.fields.find((field) => field.id === selectedMapping.fieldId) : undefined;
-  const selectedMappingFormatOptions = mappingFormatOptionsForField(selectedMappingField);
   const selectedPageSize = selectedDocument?.pageSizes?.[selectedPage - 1] ?? selectedDocument?.pageSizes?.[0];
   const labelForTransactionScope = (scope: string | null | undefined) => transactionTypes.find((item) => item.scope === scope)?.label ?? transactionScopeLabel(scope);
   const selectedPageAspect = selectedPageSize && selectedPageSize.width > 0 && selectedPageSize.height > 0
@@ -700,15 +699,6 @@ export default function DocuFill() {
   const mapperViewH = Math.min(Math.round(nativePageH * effectiveScale), mapperMaxH);
   // Return only primitive IDs so useShallow can compare with Object.is (string equality).
   // Returning objects caused getSnapshot to see new references every call → React error #185.
-  const pageMappingIds = useDocuFillStore(
-    useShallow((s): string[] => {
-      if (!selectedDocument) return [];
-      const knownFieldIds = new Set(selectedPackage?.fields.map((f) => f.id) ?? []);
-      return s.mappings
-        .filter((m) => m.documentId === selectedDocument.id && (m.page ?? 1) === selectedPage && knownFieldIds.has(m.fieldId))
-        .map((m) => m.id);
-    }),
-  );
   const { beginMappingPointer } = useDocuFillPointer({
     pageFrameRef,
     snapGrid,
@@ -1023,10 +1013,6 @@ export default function DocuFill() {
     if (selectedPage < 1) setSelectedPage(1);
   }, [selectedDocument?.id, selectedDocument?.pages, selectedPage]);
 
-  useEffect(() => {
-    if (!selectedMappingId) return;
-    if (!pageMappingIds.includes(selectedMappingId)) setSelectedMappingId(null);
-  }, [pageMappingIds, selectedMappingId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -2546,6 +2532,7 @@ export default function DocuFill() {
   }
 
   function updateSelectedMapping(patch: Partial<MappingItem>) {
+    const selectedMapping = useDocuFillStore.getState().mappings.find((m) => m.id === selectedMappingId) ?? null;
     if (!selectedMapping) return;
     useDocuFillStore.getState().updateMapping(selectedMapping.id, (m) => ({ ...m, ...patch }));
   }
@@ -2556,6 +2543,7 @@ export default function DocuFill() {
   }
 
   function removeSelectedMapping() {
+    const selectedMapping = useDocuFillStore.getState().mappings.find((m) => m.id === selectedMappingId) ?? null;
     if (!selectedMapping) return;
     useDocuFillStore.getState().removeMapping(selectedMapping.id);
     setSelectedMappingId(null);
@@ -2992,2151 +2980,264 @@ export default function DocuFill() {
       />
 
       {tab === "packages" && (
-        <div>
-          <section className="bg-white border border-[#DDD5C4] rounded-lg p-5">
-            {!selectedPackage ? (
-              bootstrapLoaded && packages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-14 px-6 text-center">
-                  <div className="w-14 h-14 bg-[#F0EBE4] rounded-2xl flex items-center justify-center mb-5 shrink-0">
-                    <svg className="w-7 h-7 text-[#8A6A20]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-                    </svg>
-                  </div>
-                  <h2 className="text-lg font-semibold text-[#0F1C3F] mb-1.5">You're all set — let's build something</h2>
-                  <p className="text-sm text-[#6B7A99] mb-7 max-w-sm leading-relaxed">
-                    Load a pre-built sample package to explore all the features, or jump straight in and create your first package from scratch.
-                  </p>
-                  <div className="flex flex-col sm:flex-row items-center gap-3">
-                    <button
-                      type="button"
-                      onClick={handleSeedDemo}
-                      disabled={seedingDemo}
-                      className="flex items-center gap-2 bg-[#C49A38] hover:bg-[#A8832E] disabled:opacity-60 text-white text-sm font-medium rounded-lg px-5 py-2.5 transition-colors"
-                    >
-                      {seedingDemo ? (
-                        <>
-                          <svg className="w-4 h-4 animate-spin shrink-0" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                          Loading sample…
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
-                          Load sample package
-                        </>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAddingPackage(true)}
-                      className="flex items-center gap-2 bg-white border border-[#DDD5C4] hover:border-[#C49A38] hover:text-[#0F1C3F] text-[#6B7A99] text-sm font-medium rounded-lg px-5 py-2.5 transition-colors"
-                    >
-                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
-                      New Package
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <EmptyState message="Create a package to begin." />
-              )
-            ) : selectedPackage.name.startsWith("Demo") && demoUiState !== "dismissed" ? (
-              <DemoWelcomeBanner
-                demoUiState={demoUiState}
-                demoSessionLoading={demoSessionLoading}
-                onDismiss={dismissDemoUi}
-                onOpenInterview={handleOpenDemoInterview}
-              />
-            ) : (
-              <div className="space-y-5">
-                <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4">
-                  <h2 className="text-lg font-semibold">{BUILDER_STEPS.find((step) => step.value === builderStep)?.label}</h2>
-                  <p className="text-sm text-[#6B7A99] mt-1">
-                    {builderStep === "documents" && "Upload the PDF forms that belong in this package and drag them into the order they should be filled out."}
-                    {builderStep === "mapping" && "Use the document list on the left and the field list on the right to drag each question onto the correct spot on the PDF."}
-                    {(builderStep === "interview" || builderStep === "finalize") && "Review the interview questions, choose your output options, then activate the package so it's ready to use."}
-                  </p>
-                </div>
-                {builderStep === "documents" && (
-                  <div className="space-y-4">
-                    <div className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-                      <LabeledInput
-                        label="Package name"
-                        value={selectedPackage.name}
-                        onChange={(value) => updateSelectedPackage((pkg) => ({ ...pkg, name: value }))}
-                      />
-                      <p className="mt-2 text-xs text-[#8A9BB8]">This is the reusable package name staff will choose later when launching a customer interview.</p>
-                    </div>
-                    <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-                      <summary className="cursor-pointer text-sm font-semibold">Optional settings and notes</summary>
-                      <p className="mt-1 text-xs text-[#8A9BB8]">Set status, assign optional groupings, and add any notes that staff should see before starting an interview.</p>
-                      <div className="mt-4">
-                        <label className="block text-sm">
-                          <span className="block text-xs text-[#6B7A99] mb-1">Status</span>
-                          <select value={selectedPackage.status} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, status: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
-                            <option value="draft">Draft</option>
-                            <option value="active">Active</option>
-                            <option value="inactive">Inactive</option>
-                          </select>
-                        </label>
-                      </div>
-                      {/* One dropdown per distinct group category */}
-                      {(() => {
-                        const activeGroups = groups.filter((g) => g.active !== false);
-                        const categories = [...new Set(activeGroups.map((g) => g.kind ?? "general"))].sort();
-                        const groupsSection = (
-                          <div className="mt-4">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs text-[#6B7A99]">Groups</span>
-                              {groups.length > 0 && !inlineAddGroupOpen && (
-                                <button type="button" onClick={() => { setInlineAddGroupOpen(true); setInlineAddGroupName(""); setInlineAddGroupError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add group</button>
-                              )}
-                            </div>
-                            {inlineAddGroupOpen && (
-                              <div className="mb-2 flex items-center gap-2">
-                                <input
-                                  autoFocus
-                                  type="text"
-                                  placeholder="Group name…"
-                                  value={inlineAddGroupName}
-                                  onChange={(e) => setInlineAddGroupName(e.target.value)}
-                                  onKeyDown={async (e) => {
-                                    if (e.key === "Enter" && inlineAddGroupName.trim()) {
-                                      e.preventDefault();
-                                      setInlineAddGroupLoading(true);
-                                      setInlineAddGroupError(null);
-                                      const result = await createGroupNamed(inlineAddGroupName.trim());
-                                      setInlineAddGroupLoading(false);
-                                      if (typeof result === "string") {
-                                        setInlineAddGroupError(result);
-                                      } else {
-                                        if (result.id) updateSelectedPackage((pkg) => ({ ...pkg, group_ids: [...(pkg.group_ids ?? []), result.id], group_id: pkg.group_id ?? result.id }));
-                                        setInlineAddGroupOpen(false);
-                                        setInlineAddGroupName("");
-                                      }
-                                    } else if (e.key === "Escape") {
-                                      setInlineAddGroupOpen(false);
-                                    }
-                                  }}
-                                  className="flex-1 border border-[#D4C9B5] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#C49A38]"
-                                />
-                                <button
-                                  type="button"
-                                  disabled={!inlineAddGroupName.trim() || inlineAddGroupLoading}
-                                  onClick={async () => {
-                                    setInlineAddGroupLoading(true);
-                                    setInlineAddGroupError(null);
-                                    const result = await createGroupNamed(inlineAddGroupName.trim());
-                                    setInlineAddGroupLoading(false);
-                                    if (typeof result === "string") {
-                                      setInlineAddGroupError(result);
-                                    } else {
-                                      if (result.id) updateSelectedPackage((pkg) => ({ ...pkg, group_ids: [...(pkg.group_ids ?? []), result.id], group_id: pkg.group_id ?? result.id }));
-                                      setInlineAddGroupOpen(false);
-                                      setInlineAddGroupName("");
-                                    }
-                                  }}
-                                  className="text-xs bg-[#C49A38] text-white rounded px-2 py-1.5 disabled:opacity-40"
-                                >{inlineAddGroupLoading ? "Adding…" : "Add"}</button>
-                                <button type="button" onClick={() => setInlineAddGroupOpen(false)} className="text-xs text-[#8A9BB8] hover:text-[#4A5568]">Cancel</button>
-                              </div>
-                            )}
-                            {inlineAddGroupError && <p className="mb-1 text-xs text-red-600">{inlineAddGroupError}</p>}
-                          </div>
-                        );
-                        if (categories.length === 0) return groupsSection;
-                        return (<>
-                          {groupsSection}
-                          {categories.map((cat) => {
-                            const catGroups = activeGroups.filter((g) => (g.kind ?? "general") === cat && g.name?.trim());
-                            if (catGroups.length === 0) return null;
-                            const selectedInCat = (selectedPackage.group_ids ?? []).find((gid) => catGroups.some((g) => g.id === gid));
-                            return (
-                              <label key={cat} className="block text-sm mt-2">
-                                {cat !== "general" && <span className="block text-xs text-[#6B7A99] mb-1 capitalize">{cat}</span>}
-                                <select
-                                  value={selectedInCat ?? ""}
-                                  onChange={(e) => {
-                                    const chosenId = e.target.value ? Number(e.target.value) : null;
-                                    updateSelectedPackage((pkg) => {
-                                      const otherIds = (pkg.group_ids ?? []).filter((gid) => !catGroups.some((g) => g.id === gid));
-                                      const nextIds = chosenId ? [...otherIds, chosenId] : otherIds;
-                                      return { ...pkg, group_ids: nextIds, group_id: nextIds[0] ?? null };
-                                    });
-                                  }}
-                                  className="w-full border border-[#D4C9B5] rounded px-3 py-2"
-                                >
-                                  <option value="">None</option>
-                                  {catGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                                </select>
-                              </label>
-                            );
-                          })}
-                        </>);
-                      })()}
-                      <div className="mt-4 text-sm">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs text-[#6B7A99]">Type <span className="text-[#8A9BB8] font-normal">(optional)</span></span>
-                          {!inlineAddTypeOpen && (
-                            <button type="button" onClick={() => { setInlineAddTypeOpen(true); setInlineAddTypeName(""); setInlineAddTypeError(null); }} className="text-xs text-[#C49A38] hover:underline">+ Add type</button>
-                          )}
-                        </div>
-                        <select value={selectedPackage.transaction_scope ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: e.target.value }))} className="w-full border border-[#D4C9B5] rounded px-3 py-2">
-                          <option value="">Not specified</option>
-                          {transactionTypes.filter((item) => item.active || item.scope === selectedPackage.transaction_scope).map((item) => <option key={item.scope} value={item.scope}>{item.label}</option>)}
-                        </select>
-                        {inlineAddTypeOpen && (
-                          <div className="mt-2 flex items-center gap-2">
-                            <input
-                              autoFocus
-                              type="text"
-                              placeholder="Type name…"
-                              value={inlineAddTypeName}
-                              onChange={(e) => setInlineAddTypeName(e.target.value)}
-                              onKeyDown={async (e) => {
-                                if (e.key === "Enter" && inlineAddTypeName.trim()) {
-                                  e.preventDefault();
-                                  setInlineAddTypeLoading(true);
-                                  setInlineAddTypeError(null);
-                                  const result = await createTransactionTypeNamed(inlineAddTypeName.trim());
-                                  setInlineAddTypeLoading(false);
-                                  if (typeof result === "string") {
-                                    setInlineAddTypeError(result);
-                                  } else {
-                                    updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: result.scope }));
-                                    setInlineAddTypeOpen(false);
-                                    setInlineAddTypeName("");
-                                  }
-                                } else if (e.key === "Escape") {
-                                  setInlineAddTypeOpen(false);
-                                }
-                              }}
-                              className="flex-1 border border-[#D4C9B5] rounded px-2 py-1.5 text-xs focus:outline-none focus:border-[#C49A38]"
-                            />
-                            <button
-                              type="button"
-                              disabled={!inlineAddTypeName.trim() || inlineAddTypeLoading}
-                              onClick={async () => {
-                                setInlineAddTypeLoading(true);
-                                setInlineAddTypeError(null);
-                                const result = await createTransactionTypeNamed(inlineAddTypeName.trim());
-                                setInlineAddTypeLoading(false);
-                                if (typeof result === "string") {
-                                  setInlineAddTypeError(result);
-                                } else {
-                                  updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: result.scope }));
-                                  setInlineAddTypeOpen(false);
-                                  setInlineAddTypeName("");
-                                }
-                              }}
-                              className="text-xs bg-[#C49A38] text-white rounded px-2 py-1.5 disabled:opacity-40"
-                            >{inlineAddTypeLoading ? "Adding…" : "Add"}</button>
-                            <button type="button" onClick={() => setInlineAddTypeOpen(false)} className="text-xs text-[#8A9BB8] hover:text-[#4A5568]">Cancel</button>
-                          </div>
-                        )}
-                        {inlineAddTypeError && <p className="mt-1 text-xs text-red-600">{inlineAddTypeError}</p>}
-                        {transactionTypes.length > 0 && (
-                          <div className="mt-2">
-                            <button type="button" onClick={() => setTypeManageOpen((o) => !o)} className="text-xs text-[#8A9BB8] hover:text-[#6B7A99]">
-                              {typeManageOpen ? "▾ Hide type list" : "▸ Manage types"}
-                            </button>
-                            {typeManageOpen && (
-                              <div className="mt-2 border border-[#DDD5C4] rounded divide-y divide-[#EFE8D8]">
-                                {transactionTypes.map((item) => (
-                                  <div key={item.scope} className="flex items-center gap-2 px-2 py-1.5">
-                                    <input
-                                      type="text"
-                                      value={item.label}
-                                      onChange={(e) => updateTransactionTypeLocal(item.scope, { label: e.target.value })}
-                                      onBlur={() => saveTransactionType(item)}
-                                      onKeyDown={(e) => { if (e.key === "Enter") { e.currentTarget.blur(); } }}
-                                      className="flex-1 text-xs border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-[#C49A38] rounded px-1 py-0.5"
-                                    />
-                                    <button
-                                      type="button"
-                                      disabled={typeDeletingScope === item.scope}
-                                      onClick={async () => {
-                                        if (!confirm(`Delete type "${item.label}"? This cannot be undone.`)) return;
-                                        setTypeDeletingScope(item.scope);
-                                        await deleteTransactionType(item.scope);
-                                        setTypeDeletingScope(null);
-                                      }}
-                                      className="shrink-0 text-[#8A9BB8] hover:text-red-500 disabled:opacity-40 transition-colors"
-                                      title="Delete type"
-                                    >
-                                      {typeDeletingScope === item.scope ? (
-                                        <svg className="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>
-                                      ) : (
-                                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                                      )}
-                                    </button>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                      <label className="mt-4 block">
-                        <span className="block text-xs text-[#6B7A99] mb-1">Description / interview notes</span>
-                        <Textarea value={selectedPackage.description ?? ""} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, description: e.target.value }))} />
-                      </label>
-                      <div className="mt-4">
-                        <div className="flex items-center gap-1 mb-1">
-                          <span className="text-xs text-[#6B7A99]">Tags</span>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="flex items-center justify-center w-4 h-4 rounded-full border border-[#C4B99A] text-[#8A9BB8] text-[10px] leading-none cursor-help select-none">?</span>
-                            </TooltipTrigger>
-                            <TooltipContent side="right" className="max-w-60">
-                              Tags appear as filter chips above the package list — click any tag there to show only matching packages. Add multiple tags to a package to make it show up under any of them.
-                            </TooltipContent>
-                          </Tooltip>
-                        </div>
-                        <p className="text-[11px] text-[#8A9BB8] mb-2">Free-form labels for organizing and filtering packages. Press Enter or comma to add.</p>
-                        <TagChipInput
-                          tags={selectedPackage.tags ?? []}
-                          onChange={(tags) => updateSelectedPackage((pkg) => ({ ...pkg, tags }))}
-                        />
-                      </div>
-                    </details>
-                    <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-                      <summary className="cursor-pointer text-sm font-semibold">Advanced lists and reusable fields</summary>
-                      <p className="mt-1 text-xs text-[#8A9BB8]">Manage groups, types, and the shared field library.</p>
-                      <div className="mt-4 space-y-4">
-                        <EntityPanel
-                          title="Groups"
-                          items={groups}
-                          onAdd={createGroup}
-                          onChange={(id, patch) => updateGroupLocal(id, patch)}
-                          onSave={saveGroup}
-                          onDelete={deleteGroup}
-                        />
-                        <TransactionTypesPanel
-                          items={transactionTypes}
-                          onAdd={createTransactionType}
-                          onChange={updateTransactionTypeLocal}
-                          onSave={saveTransactionType}
-                          onDelete={deleteTransactionType}
-                        />
-                      </div>
-                      <div className="mt-4">
-                        <FieldLibraryPanel
-                          items={fieldLibrary}
-                          onAdd={createFieldLibraryItem}
-                          onChange={updateFieldLibraryLocal}
-                          onSave={saveFieldLibraryItem}
-                          onUse={addLibraryFieldToPackage}
-                          onDelete={deleteFieldLibraryItem}
-                        />
-                      </div>
-                    </details>
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                      <div>
-                        <h2 className="text-sm font-semibold">Package documents</h2>
-                        <p className="text-xs text-[#8A9BB8]">The order below becomes the order of the generated paperwork packet.</p>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button type="button" variant="outline" size="sm" onClick={addDocument}>Add placeholder</Button>
-                        <label className={`${buttonVariants({ size: "sm" })} cursor-pointer`}>
-                          Upload PDFs
-                          <input
-                            type="file"
-                            accept="application/pdf"
-                            multiple
-                            className="sr-only"
-                            onChange={(e) => {
-                              if (e.target.files?.length) uploadDocuments(e.target.files);
-                              e.target.value = "";
-                            }}
-                          />
-                        </label>
-                      </div>
-                    </div>
-                    <div
-                      onDragEnter={(e: ReactDragEvent<HTMLDivElement>) => {
-                        e.preventDefault();
-                        setIsDocumentDropActive(true);
-                      }}
-                      onDragOver={(e: ReactDragEvent<HTMLDivElement>) => {
-                        e.preventDefault();
-                        e.dataTransfer.dropEffect = "copy";
-                        setIsDocumentDropActive(true);
-                      }}
-                      onDragLeave={(e: ReactDragEvent<HTMLDivElement>) => {
-                        e.preventDefault();
-                        setIsDocumentDropActive(false);
-                      }}
-                      onDrop={(e: ReactDragEvent<HTMLDivElement>) => {
-                        e.preventDefault();
-                        setIsDocumentDropActive(false);
-                        uploadDocuments(e.dataTransfer.files);
-                      }}
-                      className={`rounded-xl border-2 border-dashed p-6 text-center transition ${isDocumentDropActive ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#D4C9B5] bg-[#F8F6F0]"}`}
-                    >
-                      <div className="text-sm font-semibold text-[#0F1C3F]">Drag and drop multiple PDFs here</div>
-                      <p className="mt-1 text-xs text-[#6B7A99]">Drop all paperwork documents at once. Docuplete will upload them in order and add each file to this package.</p>
-                      <label className={`mt-3 ${buttonVariants({ variant: "outline", size: "sm" })} ${isUploadingDocument ? "opacity-50 pointer-events-none cursor-not-allowed" : "cursor-pointer"}`}>
-                        {isUploadingDocument ? "Uploading…" : "Browse PDF files"}
-                        <input
-                          type="file"
-                          accept="application/pdf"
-                          multiple
-                          disabled={isUploadingDocument}
-                          className="sr-only"
-                          onChange={(e) => {
-                            if (e.target.files?.length) uploadDocuments(e.target.files);
-                            e.target.value = "";
-                          }}
-                        />
-                      </label>
-                    </div>
-                    {isUploadingDocument && <div className="text-xs text-[#6B7A99]">Uploading PDF documents, please wait…</div>}
-                    {selectedPackage.documents.length === 0 ? (
-                      <EmptyState message="Upload PDFs here, then arrange them into the order customers should receive them." />
-                    ) : (
-                      <DndContext
-                        sensors={sortSensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={(event: DragEndEvent) => {
-                          const { active, over } = event;
-                          if (!over || active.id === over.id) return;
-                          updateSelectedPackage((pkg) => {
-                            const oldIdx = pkg.documents.findIndex((d) => d.id === active.id);
-                            const newIdx = pkg.documents.findIndex((d) => d.id === over.id);
-                            return { ...pkg, documents: arrayMove(pkg.documents, oldIdx, newIdx) };
-                          });
-                        }}
-                      >
-                        <SortableContext items={selectedPackage.documents.map((d) => d.id)} strategy={rectSortingStrategy}>
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                            {selectedPackage.documents.map((doc, index) => (
-                              <SortableItem key={doc.id} id={doc.id}>
-                                {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
-                                  <div
-                                    ref={wrapperRef}
-                                    style={wrapperStyle}
-                                    {...handleProps}
-                                    className={`rounded-lg border bg-white flex flex-col transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-2xl scale-95" : "hover:shadow-md"} ${selectedDocument?.id === doc.id ? "border-[#C49A38] ring-2 ring-[#C49A38]/20" : "border-[#DDD5C4]"}`}
-                                  >
-                                    <DocumentPreviewTile
-                                      packageId={selectedPackage.id}
-                                      doc={doc}
-                                      order={index + 1}
-                                      selected={selectedDocument?.id === doc.id}
-                                      getAuthHeaders={getAuthHeaders}
-                                      docufillApiPath={docufillApiPath}
-                                      previewCache={documentPreviewCache}
-                                      previewCacheOrder={documentPreviewCacheOrder}
-                                      onSelect={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }}
-                                      previewHeight="h-52"
-                                    />
-                                    <div className="p-2.5 flex flex-col gap-1.5 border-t border-[#EFE8D8]">
-                                      <Input
-                                        value={doc.title}
-                                        onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))}
-                                        className="h-7 text-xs px-2"
-                                        placeholder="Document title"
-                                      />
-                                      <div className="text-[10px] text-[#8A9BB8] truncate">{doc.pages} page{doc.pages === 1 ? "" : "s"}{doc.fileName ? ` · ${doc.fileName}` : ""}</div>
-                                      <div className="flex gap-2 items-center">
-                                        <label className={`text-[10px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer hover:underline"}`}>
-                                          {isUploadingDocument ? "Uploading…" : "Replace"}
-                                          <input type="file" accept="application/pdf" disabled={isUploadingDocument} className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadDocument(file, doc.id); e.target.value = ""; }} />
-                                        </label>
-                                        <button onClick={() => removeDocument(doc.id)} className="ml-auto text-[10px] text-red-500 hover:underline">Remove</button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </SortableItem>
-                            ))}
-                          </div>
-                        </SortableContext>
-                      </DndContext>
-                    )}
-                    <div className="flex flex-wrap items-center gap-2 pt-1">
-                      <Button
-                        onClick={async () => { await savePackage(selectedPackage); goBuilderStep("mapping"); }}
-                        disabled={isSaving || selectedPackage.documents.length === 0}
-                        
-                      >
-                        {isSaving ? "Saving…" : "Save & Continue →"}
-                      </Button>
-                      <span className="text-xs text-[#8A9BB8]">Step 1 of 3 · add your PDFs above, then continue</span>
-                    </div>
-                  </div>
-                )}
-                {(builderStep === "interview" || builderStep === "finalize") && (() => {
-                  const unmappedInterviewFields = packageInterviewFields.filter((f) => !packageMappedFieldIds.has(f.id));
-                  return (
-                  <div className="space-y-6">
-                    {/* ── Interview order + live preview ── */}
-                    <div className="grid lg:grid-cols-2 gap-4">
-                      {/* Left: drag-to-reorder */}
-                      <div className="rounded-lg border border-[#DDD5C4] bg-white p-4 flex flex-col gap-3 overflow-y-auto max-h-[520px]">
-                        <div className="flex items-center justify-between">
-                          <h2 className="text-sm font-semibold">Interview order</h2>
-                          {packageInterviewFields.length > 1 && (
-                            <button type="button" onClick={() => goBuilderStep("interview", { autoSort: true })} className="text-xs text-[#6B7A99] border border-[#DDD5C4] rounded px-2 py-1 hover:border-[#C49A38] hover:text-[#C49A38] transition-colors">Sort by PDF order</button>
-                          )}
-                        </div>
-                        <p className="text-xs text-[#8A9BB8] -mt-1">Questions staff will be asked, top to bottom. Drag to reorder — the preview updates live.</p>
-                        {packageInterviewFields.length === 0 ? (
-                          <EmptyState message="No interview questions yet. Go to Data + Fields View and mark fields that require input." />
-                        ) : (
-                          <DndContext
-                            sensors={sortSensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={(event: DragEndEvent) => {
-                              const { active, over } = event;
-                              if (!over || active.id === over.id || !selectedPackage) return;
-                              const oldIdx = selectedPackage.fields.findIndex((f) => f.id === active.id);
-                              const newIdx = selectedPackage.fields.findIndex((f) => f.id === over.id);
-                              if (oldIdx < 0 || newIdx < 0) return;
-                              const reordered = { ...selectedPackage, fields: arrayMove(selectedPackage.fields, oldIdx, newIdx) };
-                              setPackages((prev) => prev.map((pkg) => pkg.id === reordered.id ? reordered : pkg));
-                              void savePackage(reordered);
-                            }}
-                          >
-                            <SortableContext items={packageInterviewFields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                              <div className="space-y-1">
-                                {packageInterviewFields.map((field, index) => (
-                                <SortableItem key={field.id} id={field.id}>
-                                {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
-                                <div
-                                  ref={wrapperRef}
-                                  style={wrapperStyle}
-                                  {...handleProps}
-                                  className={`rounded border p-3 flex items-center gap-3 transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-lg border-[#C49A38] bg-[#FDF8EE]" : "border-[#EFE8D8] bg-[#F8F6F0]"}`}
-                                >
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
-                                      <span>{index + 1}. {field.name}</span>
-                                      {!packageMappedFieldIds.has(field.id) && (
-                                        <span className="text-[10px] font-normal bg-orange-50 border border-orange-300 text-orange-700 rounded px-1.5 py-0.5 leading-none">Not on PDF</span>
-                                      )}
-                                    </div>
-                                    <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.validationType && field.validationType !== "none" ? ` · ${field.validationType}` : ""}{field.sensitive ? " · masked" : ""}</div>
-                                  </div>
-                                </div>
-                                )}
-                                </SortableItem>
-                                ))}
-                              </div>
-                            </SortableContext>
-                          </DndContext>
-                        )}
-                        {packageFixedOrHiddenFields.length > 0 && (
-                          <details className="border-t border-[#EFE8D8] pt-3">
-                            <summary className="text-xs font-semibold text-[#6B7A99] cursor-pointer select-none">{packageFixedOrHiddenFields.length} field{packageFixedOrHiddenFields.length !== 1 ? "s" : ""} hidden from interview</summary>
-                            <div className="space-y-1 mt-2 text-xs">
-                              {packageFixedOrHiddenFields.map((field) => (
-                                <div key={field.id} className={`rounded border px-2 py-1 ${isSystemEsignFieldId(field.id) ? "border-indigo-200 bg-indigo-50" : "border-[#EFE8D8]"}`}>
-                                  <div className="font-medium flex items-center gap-1.5">
-                                    {field.name}
-                                    {isSystemEsignFieldId(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-indigo-100 text-indigo-600 border border-indigo-200 px-1 py-0.5 font-semibold">E-Sign</span>}
-                                  </div>
-                                  <div className="text-[#6B7A99]">
-                                    {isSystemEsignFieldId(field.id) ? "System field — always omitted" : `Omitted${field.defaultValue ? " · has default value" : " · no default"}${field.sensitive ? " · masked" : ""}`}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </details>
-                        )}
-                        <div className="pt-1">
-                          <Button onClick={() => goBuilderStep("mapping")} variant="outline" className="text-xs">Edit Mapping Rules</Button>
-                        </div>
-                      </div>
-
-                      {/* Right: live preview */}
-                      <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] p-4 flex flex-col gap-3 overflow-y-auto max-h-[520px]">
-                        <div>
-                          <h2 className="text-sm font-semibold">Interview preview</h2>
-                          <p className="text-xs text-[#8A9BB8] mt-0.5">How this will appear to staff during an interview. Updates as you reorder.</p>
-                        </div>
-                        {packageInterviewFields.length === 0 ? (
-                          <p className="text-xs text-[#8A9BB8] italic">No questions to preview yet.</p>
-                        ) : (
-                          <div className="space-y-2">
-                            {packageInterviewFields.map((field, index) => {
-                              const mode = field.interviewMode ?? "optional";
-                              return (
-                              <div key={field.id} className="rounded-lg border border-[#DDD5C4] bg-white p-3 shadow-sm">
-                                <div className="flex items-start justify-between gap-2 mb-2">
-                                  <span className="text-sm font-medium leading-snug">{index + 1}. {field.name}</span>
-                                  <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wide border ${
-                                    mode === "required" ? "bg-red-50 text-red-700 border-red-100"
-                                    : mode === "readonly" ? "bg-blue-50 text-blue-700 border-blue-100"
-                                    : "bg-[#F8F6F0] text-[#6B7A99] border-[#EFE8D8]"
-                                  }`}>{mode === "required" ? "Required" : mode === "readonly" ? "Read only" : "Optional"}</span>
-                                </div>
-                                {field.type === "radio" || field.type === "checkbox" ? (
-                                  <div className="space-y-1.5">
-                                    {(field.options?.length ? field.options : ["Option A", "Option B"]).slice(0, 3).map((opt) => (
-                                      <div key={opt} className="flex items-center gap-2 text-xs text-[#6B7A99]">
-                                        <div className={`w-3 h-3 flex-shrink-0 border border-[#C4B99A] ${field.type === "checkbox" ? "rounded-sm" : "rounded-full"}`} />
-                                        {opt}
-                                      </div>
-                                    ))}
-                                  </div>
-                                ) : field.type === "dropdown" ? (
-                                  <div className="flex items-center justify-between border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#8A9BB8] bg-white">
-                                    <span>Select…</span>
-                                    <svg className="w-3 h-3 text-[#8A9BB8]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" /></svg>
-                                  </div>
-                                ) : (
-                                  <div className="border border-[#D4C9B5] rounded px-2.5 py-1.5 text-xs text-[#8A9BB8] bg-white">
-                                    {field.type === "date" ? "mm / dd / yyyy" : field.sensitive ? "••••••••" : `Enter ${field.name.toLowerCase()}…`}
-                                  </div>
-                                )}
-                              </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* ── Divider ── */}
-                    <div className="border-t border-[#DDD5C4]" />
-
-                    {/* ── Output & activation ── */}
-                    <div className="space-y-4">
-                      {unmappedInterviewFields.length > 0 && (
-                        <div className="rounded-lg border border-orange-200 bg-orange-50 p-4">
-                          <div className="flex items-start gap-2">
-                            <svg className="w-4 h-4 text-orange-600 mt-0.5 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>
-                            <div>
-                              <div className="text-sm font-semibold text-orange-800 mb-1">
-                                {unmappedInterviewFields.length} interview {unmappedInterviewFields.length === 1 ? "field" : "fields"} {unmappedInterviewFields.length === 1 ? "has" : "have"} no PDF placement
-                              </div>
-                              <p className="text-xs text-orange-700 mb-2">
-                                Staff will be asked these questions during the interview, but the answers <strong>will not be printed on any PDF</strong> in the packet. Go to Data + Fields View and place each field in the correct row on the form before activating.
-                              </p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {unmappedInterviewFields.map((f) => (
-                                  <button key={f.id} type="button" onClick={() => { setSelectedFieldId(f.id); goBuilderStep("mapping"); }} className="text-xs bg-white border border-orange-300 text-orange-800 rounded px-2 py-0.5 hover:bg-orange-100 transition-colors">
-                                    {f.name} →
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      <div>
-                        <h3 className="text-sm font-semibold mb-1">Output channels</h3>
-                        <p className="text-xs text-[#8A9BB8] mb-3">Choose how completed interviews are delivered. PDF generation is always included. Toggle channels on or off per package.</p>
-                        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                          {/* PDF Packet — always on */}
-                          <div className="rounded-lg border-2 border-[#C49A38] bg-white p-3">
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <svg className="w-4 h-4 text-[#C49A38] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
-                              <span className="text-sm font-semibold">Filled PDF Packet</span>
-                              <span className="ml-auto text-[10px] bg-[#FDF8EE] text-[#8A6A20] border border-[#C49A38]/40 rounded px-1.5 py-0.5 shrink-0">Always on</span>
-                            </div>
-                            <p className="text-xs text-[#6B7A99]">Generates a completed, print-ready PDF packet when any interview on this package is submitted.</p>
-                          </div>
-                          {/* Staff Interview — toggleable */}
-                          <button
-                            type="button"
-                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, enable_interview: !pkg.enable_interview }))}
-                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.enable_interview ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
-                          >
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.enable_interview ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
-                              <span className={`text-sm font-semibold ${selectedPackage.enable_interview ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Staff Interview</span>
-                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.enable_interview ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
-                                {selectedPackage.enable_interview ? "Enabled" : "Off"}
-                              </span>
-                            </div>
-                            <p className="text-xs text-[#6B7A99]">Staff can launch guided interviews from the Interviews tab and Deal Builder. History and past sessions stay in the Interviews tab.</p>
-                          </button>
-                          {/* Batch CSV — toggleable */}
-                          <button
-                            type="button"
-                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, enable_csv: !pkg.enable_csv }))}
-                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.enable_csv ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
-                          >
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.enable_csv ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375z" /></svg>
-                              <span className={`text-sm font-semibold ${selectedPackage.enable_csv ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Batch CSV</span>
-                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.enable_csv ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
-                                {selectedPackage.enable_csv ? "Enabled" : "Off"}
-                              </span>
-                            </div>
-                            <p className="text-xs text-[#6B7A99]">Staff can fill many packets at once by uploading a CSV. Full run history stays in the Batch CSV tab.</p>
-                          </button>
-                          {/* Google Drive — toggleable */}
-                          <div className={`rounded-lg border-2 p-3 transition-colors ${selectedPackage.enable_gdrive ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}>
-                            <button
-                              type="button"
-                              onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, enable_gdrive: !pkg.enable_gdrive }))}
-                              className="w-full text-left"
-                            >
-                              <div className="flex items-center gap-2 mb-1.5">
-                                <svg className={`w-4 h-4 shrink-0 ${selectedPackage.enable_gdrive ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} viewBox="0 0 24 24" fill="currentColor"><path d="M6.18 17.01a5.09 5.09 0 01-3.6-1.49A5.12 5.12 0 011.1 12a5.07 5.07 0 011.49-3.6A5.07 5.07 0 016.18 6.9h2.18V9H6.18a3.01 3.01 0 000 6.02h2.18v2.09H6.18zm11.64 0h-2.18v-2.09h2.18a3.01 3.01 0 000-6.02h-2.18V6.9h2.18a5.07 5.07 0 013.6 1.49A5.09 5.09 0 0122.91 12a5.12 5.12 0 01-1.49 3.52 5.07 5.07 0 01-3.6 1.49zM8.09 13.09v-2.18h7.82v2.18H8.09z" /></svg>
-                                <span className={`text-sm font-semibold ${selectedPackage.enable_gdrive ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Google Drive</span>
-                                <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.enable_gdrive ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
-                                  {selectedPackage.enable_gdrive ? "Enabled" : "Off"}
-                                </span>
-                              </div>
-                              <p className="text-xs text-[#6B7A99]">Automatically push the completed packet to your connected Google Drive folder after submission.</p>
-                            </button>
-                            {selectedPackage.enable_gdrive && (
-                              <div className="mt-2 flex items-start gap-1.5 rounded bg-amber-50 border border-amber-200 px-2 py-1.5">
-                                <svg className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                <p className="text-[11px] text-amber-800 leading-snug">
-                                  Requires Google Drive connected in <a href="/app/settings?tab=integrations" className="underline font-medium" target="_blank" rel="noopener noreferrer">Settings → Integrations</a>.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                          {/* HubSpot CRM — toggleable */}
-                          <div className={`rounded-lg border-2 p-3 transition-colors ${selectedPackage.enable_hubspot ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}>
-                            <button
-                              type="button"
-                              onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, enable_hubspot: !pkg.enable_hubspot }))}
-                              className="w-full text-left"
-                            >
-                              <div className="flex items-center gap-2 mb-1.5">
-                                <svg className={`w-4 h-4 shrink-0 ${selectedPackage.enable_hubspot ? "text-[#FF7A59]" : "text-[#8A9BB8]"}`} viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M16.5 8.25V5.87A2.25 2.25 0 0 0 15 3.75H15a2.25 2.25 0 0 0-2.25 2.25v2.37a4.5 4.5 0 0 0-1.31.73L8.1 7.2A3.75 3.75 0 1 0 6.75 9.9l3.26 1.9a4.47 4.47 0 0 0 0 2.44L6.75 16.1A3.75 3.75 0 1 0 8.1 18.8l3.34-1.85a4.5 4.5 0 1 0 5.06-8.7ZM6.75 11.25a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm0 6a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3Zm9-5.25a2.25 2.25 0 1 1 0-4.5 2.25 2.25 0 0 1 0 4.5Z" />
-                                </svg>
-                                <span className={`text-sm font-semibold ${selectedPackage.enable_hubspot ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>HubSpot CRM</span>
-                                <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.enable_hubspot ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
-                                  {selectedPackage.enable_hubspot ? "Enabled" : "Off"}
-                                </span>
-                              </div>
-                              <p className="text-xs text-[#6B7A99]">Create or update a HubSpot CRM contact with the submitter's details when this packet is completed.</p>
-                            </button>
-                            {selectedPackage.enable_hubspot && (
-                              <div className="mt-2 flex items-start gap-1.5 rounded bg-amber-50 border border-amber-200 px-2 py-1.5">
-                                <svg className="w-3.5 h-3.5 text-amber-600 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                <p className="text-[11px] text-amber-800 leading-snug">
-                                  Requires HubSpot connected in <a href="/app/settings?tab=integrations" className="underline font-medium" target="_blank" rel="noopener noreferrer">Settings → Integrations</a>.
-                                </p>
-                              </div>
-                            )}
-                          </div>
-                          {/* E-sign: identity verification level */}
-                          <button
-                            type="button"
-                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, auth_level: pkg.auth_level === "email_otp" ? "none" : "email_otp" }))}
-                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.auth_level === "email_otp" ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
-                          >
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.auth_level === "email_otp" ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
-                              <span className={`text-sm font-semibold ${selectedPackage.auth_level === "email_otp" ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>E-sign — Email Verification</span>
-                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.auth_level === "email_otp" ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
-                                {selectedPackage.auth_level === "email_otp" ? "Required" : "Off"}
-                              </span>
-                            </div>
-                            <p className="text-xs text-[#6B7A99]">Require the customer to verify their email with a one-time code before submitting. Their name is captured as a typed legal signature and a signing certificate page is appended to the PDF.</p>
-                          </button>
-                          {/* Require document preview before signing */}
-                          <button
-                            type="button"
-                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, require_preview: !pkg.require_preview }))}
-                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.require_preview ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
-                          >
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.require_preview ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                              <span className={`text-sm font-semibold ${selectedPackage.require_preview ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Require document preview before signing</span>
-                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.require_preview ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
-                                {selectedPackage.require_preview ? "Required" : "Off"}
-                              </span>
-                            </div>
-                            <p className="text-xs text-[#6B7A99]">Require the signer to open and view the filled PDF before the signing step becomes available. When off, signers can still preview but may also proceed directly to signing.</p>
-                          </button>
-                          {/* Customer Link — toggleable */}
-                          <button
-                            type="button"
-                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, enable_customer_link: !pkg.enable_customer_link }))}
-                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.enable_customer_link ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
-                          >
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.enable_customer_link ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>
-                              <span className={`text-sm font-semibold ${selectedPackage.enable_customer_link ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Customer Link</span>
-                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.enable_customer_link ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
-                                {selectedPackage.enable_customer_link ? "Enabled" : "Off"}
-                              </span>
-                            </div>
-                            <p className="text-xs text-[#6B7A99]">Send a time-limited, branded link directly to the customer. They fill it out on their own device — no login needed.</p>
-                          </button>
-                          {/* Webhook — toggleable */}
-                          <div className={`rounded-lg border-2 p-3 transition-colors ${selectedPackage.webhook_enabled ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const enabling = !selectedPackage.webhook_enabled;
-                                updateSelectedPackage((pkg) => ({ ...pkg, webhook_enabled: enabling }));
-                                setWebhookTestStatus(null);
-                                if (enabling && selectedPackage.id) {
-                                  void fetchWebhookDeliveries(selectedPackage.id);
-                                }
-                              }}
-                              className="w-full text-left"
-                            >
-                              <div className="flex items-center gap-2 mb-1.5">
-                                <svg className={`w-4 h-4 shrink-0 ${selectedPackage.webhook_enabled ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.5 16.875h3.375m0 0h3.375m-3.375 0V13.5m0 3.375v3.375M6 10.5h2.25a2.25 2.25 0 002.25-2.25V6a2.25 2.25 0 00-2.25-2.25H6A2.25 2.25 0 003.75 6v2.25A2.25 2.25 0 006 10.5zm0 9.75h2.25A2.25 2.25 0 0010.5 18v-2.25a2.25 2.25 0 00-2.25-2.25H6a2.25 2.25 0 00-2.25 2.25V18A2.25 2.25 0 006 20.25zm9.75-9.75H18a2.25 2.25 0 002.25-2.25V6A2.25 2.25 0 0018 3.75h-2.25A2.25 2.25 0 0013.5 6v2.25a2.25 2.25 0 002.25 2.25z" /></svg>
-                                <span className={`text-sm font-semibold ${selectedPackage.webhook_enabled ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Webhook / Make.com</span>
-                                <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.webhook_enabled ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
-                                  {selectedPackage.webhook_enabled ? "Enabled" : "Off"}
-                                </span>
-                              </div>
-                              <p className="text-xs text-[#6B7A99]">Fire a POST request to any URL when an interview or customer form is completed. Connects to Make.com, Zapier, or any CRM or automation platform.</p>
-                            </button>
-                            {selectedPackage.webhook_enabled && (
-                              <div className="mt-3 space-y-3">
-                                {/* Endpoint URL + send test */}
-                                <div className="flex gap-2 items-center">
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <input
-                                        type="url"
-                                        placeholder="https://your-endpoint.com/webhook"
-                                        value={selectedPackage.webhook_url ?? ""}
-                                        onChange={(e) => { updateSelectedPackage((pkg) => ({ ...pkg, webhook_url: e.target.value || null })); setWebhookTestStatus(null); }}
-                                        onKeyDown={(e) => { if (e.key === "Enter" && selectedPackage.webhook_url) void sendTestWebhook(selectedPackage.id); }}
-                                        className="flex-1 min-w-0 text-xs rounded border border-[#DDD5C4] bg-white px-2 py-1.5 text-[#0F1C3F] placeholder:text-[#B0A898] focus:outline-none focus:ring-1 focus:ring-[#0F1C3F]"
-                                      />
-                                    </TooltipTrigger>
-                                    <TooltipContent side="top">URL must be HTTPS. A POST request is sent each time an interview or customer form is submitted.</TooltipContent>
-                                  </Tooltip>
-                                  <button
-                                    type="button"
-                                    disabled={!selectedPackage.webhook_url}
-                                    onClick={() => { void sendTestWebhook(selectedPackage.id); }}
-                                    className="shrink-0 text-xs rounded border border-[#DDD5C4] bg-white px-2.5 py-1.5 text-[#0F1C3F] hover:bg-[#EAF0FB] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                                  >
-                                    Send test
-                                  </button>
-                                </div>
-                                {webhookTestStatus && (
-                                  <p className={`text-xs ${webhookTestStatus.ok ? "text-green-700" : "text-red-600"}`}>
-                                    {webhookTestStatus.ok ? "✓" : "✗"} {webhookTestStatus.message}
-                                  </p>
-                                )}
-                                <p className="text-[11px] text-[#8A9BB8]">Payload: <code className="font-mono">{"{ event, package_id, package_name, token, submitted_at, answers }"}</code>. Sensitive fields are redacted. Each request includes an <code className="font-mono">X-Docuplete-Signature</code> header for verification.</p>
-                                {/* Webhook secret */}
-                                <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-2.5 py-2 space-y-1.5">
-                                  <p className="text-[11px] font-medium text-[#0F1C3F]">Signing secret</p>
-                                  <div className="flex items-center gap-1.5">
-                                    <code className="flex-1 min-w-0 font-mono text-[10px] break-all text-[#0F1C3F] bg-white border border-[#E8E0D0] rounded px-1.5 py-1">
-                                      {webhookSecretRevealed && webhookSecret ? webhookSecret : "•".repeat(40)}
-                                    </code>
-                                    <button
-                                      type="button"
-                                      disabled={webhookSecretLoading}
-                                      onClick={() => {
-                                        if (!webhookSecretRevealed) {
-                                          setWebhookSecretRevealed(true);
-                                          if (!webhookSecret && selectedPackage.id) {
-                                            void fetchWebhookSecret(selectedPackage.id);
-                                          }
-                                        } else {
-                                          setWebhookSecretRevealed(false);
-                                        }
-                                      }}
-                                      className="shrink-0 text-[10px] border border-[#DDD5C4] bg-white rounded px-2 py-1 text-[#0F1C3F] hover:bg-[#EAF0FB] disabled:opacity-40 transition-colors"
-                                    >
-                                      {webhookSecretLoading ? "Loading…" : webhookSecretRevealed ? "Hide" : "Reveal"}
-                                    </button>
-                                    {webhookSecretRevealed && webhookSecret && (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          if (!webhookSecret) return;
-                                          void navigator.clipboard.writeText(webhookSecret).then(() => {
-                                            setWebhookSecretCopied(true);
-                                            setTimeout(() => setWebhookSecretCopied(false), 2000);
-                                          });
-                                        }}
-                                        className="shrink-0 text-[10px] border border-[#DDD5C4] bg-white rounded px-2 py-1 text-[#0F1C3F] hover:bg-[#EAF0FB] transition-colors"
-                                      >
-                                        {webhookSecretCopied ? "Copied ✓" : "Copy"}
-                                      </button>
-                                    )}
-                                  </div>
-                                  <p className="text-[10px] text-[#8A9BB8]">Use this to verify <code className="font-mono">X-Docuplete-Signature: sha256=…</code> on incoming requests. Compute <code className="font-mono">HMAC-SHA256(secret, rawBody)</code> and compare.</p>
-                                </div>
-                                {/* Recent deliveries */}
-                                <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-2.5 py-2 space-y-1.5">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-[11px] font-medium text-[#0F1C3F]">Recent deliveries</p>
-                                    <button
-                                      type="button"
-                                      onClick={() => { void fetchWebhookDeliveries(selectedPackage.id); }}
-                                      className="text-[10px] text-[#6B7A99] hover:text-[#0F1C3F] transition-colors"
-                                    >
-                                      Refresh
-                                    </button>
-                                  </div>
-                                  {webhookDeliveriesLoading && <p className="text-[10px] text-[#8A9BB8]">Loading…</p>}
-                                  {!webhookDeliveriesLoading && webhookDeliveries.length === 0 && (
-                                    <p className="text-[10px] text-[#8A9BB8]">No deliveries yet. Send a test to see your first entry.</p>
-                                  )}
-                                  {!webhookDeliveriesLoading && webhookDeliveries.length > 0 && (
-                                    <div className="space-y-1 max-h-48 overflow-y-auto">
-                                      {webhookDeliveries.map((d) => {
-                                        const isOk = d.http_status !== null && d.http_status >= 200 && d.http_status < 300;
-                                        const isFailed = !isOk;
-                                        const isExpanded = expandedDelivery === d.id;
-                                        const isRetrying = retryingDelivery === d.id;
-                                        const canRetry = isFailed && d.has_payload;
-                                        return (
-                                          <div key={d.id} className="bg-white border border-[#E8E0D0] rounded px-2 py-1.5">
-                                            <div className="flex items-center gap-2">
-                                              <button
-                                                type="button"
-                                                onClick={() => setExpandedDelivery(isExpanded ? null : d.id)}
-                                                className="flex-1 min-w-0 text-left flex items-center gap-2"
-                                              >
-                                                <span className={`text-[10px] font-mono font-bold shrink-0 w-8 text-center rounded px-1 ${isOk ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                                                  {d.http_status ?? "ERR"}
-                                                </span>
-                                                <span className="text-[10px] text-[#6B7A99] flex-1 min-w-0 truncate">{d.event_type}</span>
-                                                {d.attempt_number > 1 && (
-                                                  <span className="text-[9px] text-amber-600 shrink-0">retry #{d.attempt_number}</span>
-                                                )}
-                                                <span className="text-[10px] text-[#B0A898] shrink-0">{d.duration_ms}ms</span>
-                                                <span className="text-[10px] text-[#B0A898] shrink-0">{formatOrgTime(d.created_at, getCachedOrg())}</span>
-                                              </button>
-                                              {canRetry && (
-                                                <button
-                                                  type="button"
-                                                  disabled={isRetrying}
-                                                  onClick={() => { void retryDelivery(selectedPackage.id, d.id); }}
-                                                  className="shrink-0 text-[10px] border border-red-200 bg-red-50 text-red-700 rounded px-1.5 py-0.5 hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                                >
-                                                  {isRetrying ? "Retrying…" : "Retry"}
-                                                </button>
-                                              )}
-                                            </div>
-                                            {isExpanded && d.response_body && (
-                                              <pre className="mt-1.5 text-[9px] font-mono text-[#6B7A99] bg-[#F8F6F0] rounded p-1.5 overflow-x-auto whitespace-pre-wrap break-all max-h-20 overflow-y-auto">{d.response_body}</pre>
-                                            )}
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          {/* Slack — toggleable */}
-                          <div className={`rounded-lg border-2 p-3 transition-colors ${selectedPackage.slack_notifications_enabled ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}>
-                            <button
-                              type="button"
-                              onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, slack_notifications_enabled: !pkg.slack_notifications_enabled }))}
-                              className="w-full text-left"
-                            >
-                              <div className="flex items-center gap-2 mb-1.5">
-                                <svg className={`w-4 h-4 shrink-0 ${selectedPackage.slack_notifications_enabled ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} viewBox="0 0 24 24" fill="currentColor"><path d="M5.042 15.165a2.528 2.528 0 0 1-2.52 2.523A2.528 2.528 0 0 1 0 15.165a2.527 2.527 0 0 1 2.522-2.52h2.52v2.52zM6.313 15.165a2.527 2.527 0 0 1 2.521-2.52 2.527 2.527 0 0 1 2.521 2.52v6.313A2.528 2.528 0 0 1 8.834 24a2.528 2.528 0 0 1-2.521-2.522v-6.313zM8.834 5.042a2.528 2.528 0 0 1-2.521-2.52A2.528 2.528 0 0 1 8.834 0a2.528 2.528 0 0 1 2.521 2.522v2.52H8.834zM8.834 6.313a2.528 2.528 0 0 1 2.521 2.521 2.528 2.528 0 0 1-2.521 2.521H2.522A2.528 2.528 0 0 1 0 8.834a2.528 2.528 0 0 1 2.522-2.521h6.312zM18.956 8.834a2.528 2.528 0 0 1 2.522-2.521A2.528 2.528 0 0 1 24 8.834a2.528 2.528 0 0 1-2.522 2.521h-2.522V8.834zM17.688 8.834a2.528 2.528 0 0 1-2.523 2.521 2.527 2.527 0 0 1-2.52-2.521V2.522A2.527 2.527 0 0 1 15.165 0a2.528 2.528 0 0 1 2.523 2.522v6.312zM15.165 18.956a2.528 2.528 0 0 1 2.523 2.522A2.528 2.528 0 0 1 15.165 24a2.527 2.527 0 0 1-2.52-2.522v-2.522h2.52zM15.165 17.688a2.527 2.527 0 0 1-2.52-2.523 2.526 2.526 0 0 1 2.52-2.52h6.313A2.527 2.527 0 0 1 24 15.165a2.528 2.528 0 0 1-2.522 2.523h-6.313z"/></svg>
-                                <span className={`text-sm font-semibold ${selectedPackage.slack_notifications_enabled ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Slack</span>
-                                <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.slack_notifications_enabled ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
-                                  {selectedPackage.slack_notifications_enabled ? "Enabled" : "Off"}
-                                </span>
-                              </div>
-                              <p className="text-xs text-[#6B7A99]">Post a message to your connected Slack channel whenever an interview or customer form is completed.</p>
-                            </button>
-                            {selectedPackage.slack_notifications_enabled && !slackConnected && (
-                              <p className="mt-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2.5 py-1.5">
-                                Slack is not connected yet.{" "}
-                                <a href="/app/settings?tab=integrations" className="underline font-medium hover:text-amber-900" target="_blank" rel="noopener noreferrer">Connect Slack in Settings → Integrations</a>{" "}to enable notifications.
-                              </p>
-                            )}
-                          </div>
-                          {/* Staff email on submit — toggleable */}
-                          <button
-                            type="button"
-                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, notify_staff_on_submit: !pkg.notify_staff_on_submit }))}
-                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.notify_staff_on_submit ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
-                          >
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.notify_staff_on_submit ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" /></svg>
-                              <span className={`text-sm font-semibold ${selectedPackage.notify_staff_on_submit ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Staff notification</span>
-                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.notify_staff_on_submit ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
-                                {selectedPackage.notify_staff_on_submit ? "Enabled" : "Off"}
-                              </span>
-                            </div>
-                            <p className="text-xs text-[#6B7A99]">Email all account staff when a client submits an interview. Includes a link to the session and the filled PDF attached.</p>
-                          </button>
-                          {/* Client confirmation on submit — toggleable */}
-                          <button
-                            type="button"
-                            onClick={() => updateSelectedPackage((pkg) => ({ ...pkg, notify_client_on_submit: !pkg.notify_client_on_submit }))}
-                            className={`text-left rounded-lg border-2 p-3 transition-colors ${selectedPackage.notify_client_on_submit ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}
-                          >
-                            <div className="flex items-center gap-2 mb-1.5">
-                              <svg className={`w-4 h-4 shrink-0 ${selectedPackage.notify_client_on_submit ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
-                              <span className={`text-sm font-semibold ${selectedPackage.notify_client_on_submit ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Client confirmation</span>
-                              <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.notify_client_on_submit ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
-                                {selectedPackage.notify_client_on_submit ? "Enabled" : "Off"}
-                              </span>
-                            </div>
-                            <p className="text-xs text-[#6B7A99]">Send the client a branded receipt email after they submit. Requires a client email address in the session (from customer link or email field).</p>
-                          </button>
-                          {/* Embed channel */}
-                          <div className={`rounded-lg border-2 p-3 transition-colors ${selectedPackage.enable_embed ? "border-[#0F1C3F] bg-white" : "border-[#DDD5C4] bg-[#F8F6F0]"}`}>
-                            <button
-                              type="button"
-                              className="w-full text-left"
-                              onClick={() => {
-                                const next = !selectedPackage.enable_embed;
-                                updateSelectedPackage((pkg) => ({ ...pkg, enable_embed: next }));
-                              }}
-                            >
-                              <div className="flex items-center gap-2 mb-1.5">
-                                <svg className={`w-4 h-4 shrink-0 ${selectedPackage.enable_embed ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75L22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3l-4.5 16.5" /></svg>
-                                <span className={`text-sm font-semibold ${selectedPackage.enable_embed ? "text-[#0F1C3F]" : "text-[#8A9BB8]"}`}>Embed</span>
-                                <span className={`ml-auto text-[10px] rounded px-1.5 py-0.5 shrink-0 border ${selectedPackage.enable_embed ? "bg-[#EAF0FB] text-[#0F1C3F] border-[#0F1C3F]/20" : "bg-[#F8F6F0] text-[#8A9BB8] border-[#EFE8D8]"}`}>
-                                  {selectedPackage.enable_embed ? "Enabled" : "Off"}
-                                </span>
-                              </div>
-                              <p className="text-xs text-[#6B7A99]">Drop a JavaScript snippet onto any webpage. Customers complete the form inline without leaving your site.</p>
-                            </button>
-                            {selectedPackage.enable_embed && (
-                              <EmbedSnippetPanel
-                                embedKey={selectedPackage.embed_key}
-                                apiBase={API_BASE}
-                              />
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-wrap items-center gap-2 border-t border-[#DDD5C4] pt-4">
-                        <Button onClick={() => goBuilderStep("mapping")} variant="outline" className="text-[#6B7A99]">← Back to Mapping</Button>
-                        {selectedPackage.status !== "active" && (
-                          <Button onClick={() => savePackage({ ...selectedPackage, status: "active" })} disabled={isSaving || selectedPackage.documents.length === 0 || storeMappings.length === 0} >{isSaving ? "Saving…" : "Activate Package"}</Button>
-                        )}
-                        <Button onClick={() => savePackage(selectedPackage)} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save"}</Button>
-                        {selectedPackage.status !== "active" && selectedPackage.id && (
-                          <Button onClick={() => launchTestInterview(selectedPackage)} disabled={isSaving || selectedPackage.documents.length === 0} variant="outline" className="text-[#6B7A99] border-dashed">
-                            Preview Interview
-                          </Button>
-                        )}
-                        {selectedPackage.status === "active" && <Button onClick={() => { setStandalonePackageId(String(selectedPackage.id)); setTab("interview"); }} variant="outline">Go to Interviews →</Button>}
-                        {selectedPackage.id && isAdmin && (
-                          <button type="button" onClick={() => deletePackage(selectedPackage)} disabled={isDeletingPackage} className="ml-auto text-xs text-red-500 hover:text-red-700 disabled:opacity-50 transition-colors">
-                            {isDeletingPackage ? "Deleting…" : "Delete package"}
-                          </button>
-                        )}
-                        {selectedPackage.id && !isAdmin && (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <span className="ml-auto">
-                                <button type="button" disabled className="text-xs text-red-400 opacity-40 cursor-not-allowed">
-                                  Delete package
-                                </button>
-                              </span>
-                            </TooltipTrigger>
-                            <TooltipContent>Contact your admin to delete packages.</TooltipContent>
-                          </Tooltip>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  );
-                })()}
-              </div>
-            )}
-          </section>
-        </div>
+        <DocuFillBuilderPanel
+          selectedPackage={selectedPackage}
+          bootstrapLoaded={bootstrapLoaded}
+          packages={packages}
+          groups={groups}
+          transactionTypes={transactionTypes}
+          storeMappings={storeMappings}
+          packageInterviewFields={packageInterviewFields}
+          packageFixedOrHiddenFields={packageFixedOrHiddenFields}
+          packageMappedFieldIds={packageMappedFieldIds}
+          inlineAddTypeOpen={inlineAddTypeOpen}
+          setInlineAddTypeOpen={setInlineAddTypeOpen}
+          inlineAddTypeName={inlineAddTypeName}
+          setInlineAddTypeName={setInlineAddTypeName}
+          inlineAddTypeLoading={inlineAddTypeLoading}
+          setInlineAddTypeLoading={setInlineAddTypeLoading}
+          inlineAddTypeError={inlineAddTypeError}
+          setInlineAddTypeError={setInlineAddTypeError}
+          inlineAddGroupOpen={inlineAddGroupOpen}
+          setInlineAddGroupOpen={setInlineAddGroupOpen}
+          inlineAddGroupName={inlineAddGroupName}
+          setInlineAddGroupName={setInlineAddGroupName}
+          inlineAddGroupLoading={inlineAddGroupLoading}
+          setInlineAddGroupLoading={setInlineAddGroupLoading}
+          inlineAddGroupError={inlineAddGroupError}
+          setInlineAddGroupError={setInlineAddGroupError}
+          typeManageOpen={typeManageOpen}
+          setTypeManageOpen={setTypeManageOpen}
+          typeDeletingScope={typeDeletingScope}
+          setTypeDeletingScope={setTypeDeletingScope}
+          fieldLibrary={fieldLibrary}
+          isSaving={isSaving}
+          isUploadingDocument={isUploadingDocument}
+          isDocumentDropActive={isDocumentDropActive}
+          setIsDocumentDropActive={setIsDocumentDropActive}
+          isDeletingPackage={isDeletingPackage}
+          isAdmin={isAdmin}
+          builderStep={builderStep}
+          seedingDemo={seedingDemo}
+          demoUiState={demoUiState}
+          demoSessionLoading={demoSessionLoading}
+          selectedDocument={selectedDocument}
+          selectedDocumentId={selectedDocumentId}
+          setSelectedDocumentId={setSelectedDocumentId}
+          selectedPage={selectedPage}
+          setSelectedPage={setSelectedPage}
+          addingPackage={addingPackage}
+          setAddingPackage={setAddingPackage}
+          sortSensors={sortSensors}
+          documentPreviewCache={documentPreviewCache}
+          documentPreviewCacheOrder={documentPreviewCacheOrder}
+          getAuthHeaders={getAuthHeaders}
+          docufillApiPath={docufillApiPath}
+          slackConnected={slackConnected}
+          webhookTestStatus={webhookTestStatus}
+          webhookSecret={webhookSecret}
+          webhookSecretLoading={webhookSecretLoading}
+          webhookSecretRevealed={webhookSecretRevealed}
+          webhookSecretCopied={webhookSecretCopied}
+          setWebhookTestStatus={setWebhookTestStatus}
+          setWebhookSecretRevealed={setWebhookSecretRevealed}
+          setWebhookSecretCopied={setWebhookSecretCopied}
+          webhookDeliveries={webhookDeliveries}
+          webhookDeliveriesLoading={webhookDeliveriesLoading}
+          expandedDelivery={expandedDelivery}
+          setExpandedDelivery={setExpandedDelivery}
+          retryingDelivery={retryingDelivery}
+          goBuilderStep={stableGoBuilderStep}
+          savePackage={stableSavePackage}
+          updateSelectedPackage={updateSelectedPackage}
+          uploadDocuments={uploadDocuments}
+          uploadDocument={uploadDocument}
+          addDocument={addDocument}
+          removeDocument={removeDocument}
+          deletePackage={deletePackage}
+          createGroup={createGroup}
+          updateGroupLocal={updateGroupLocal}
+          saveGroup={saveGroup}
+          deleteGroup={deleteGroup}
+          createGroupNamed={createGroupNamed}
+          createTransactionType={createTransactionType}
+          updateTransactionTypeLocal={updateTransactionTypeLocal}
+          saveTransactionType={saveTransactionType}
+          deleteTransactionType={deleteTransactionType}
+          createTransactionTypeNamed={createTransactionTypeNamed}
+          createFieldLibraryItem={createFieldLibraryItem}
+          updateFieldLibraryLocal={updateFieldLibraryLocal}
+          saveFieldLibraryItem={saveFieldLibraryItem}
+          deleteFieldLibraryItem={deleteFieldLibraryItem}
+          addLibraryFieldToPackage={addLibraryFieldToPackage}
+          launchTestInterview={launchTestInterview}
+          openFieldEditorForAdd={openFieldEditorForAdd}
+          openFieldEditorForEdit={openFieldEditorForEdit}
+          removeField={removeField}
+          setSelectedFieldId={setSelectedFieldId}
+          setPackages={setPackages}
+          dismissDemoUi={dismissDemoUi}
+          handleOpenDemoInterview={handleOpenDemoInterview}
+          handleSeedDemo={handleSeedDemo}
+          setStandalonePackageId={setStandalonePackageId}
+          setTab={setTab}
+          sendTestWebhook={sendTestWebhook}
+          fetchWebhookDeliveries={fetchWebhookDeliveries}
+          fetchWebhookSecret={fetchWebhookSecret}
+          retryDelivery={retryDelivery}
+        />
       )}
 
       {tab === "mapper" && (
-        !selectedPackage ? <EmptyState message="Create or select a package first." /> : (
-          <div className="grid lg:grid-cols-[190px_1fr_260px] gap-4 min-h-[720px] items-start">
-            <section className="bg-white border border-[#DDD5C4] rounded-lg p-3 flex flex-col gap-3">
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <button type="button" onClick={() => setRecipientsExpanded((v) => !v)} className="flex items-center gap-1 text-sm font-semibold text-[#0F1C3F] hover:text-[#C49A38] transition-colors">
-                    <svg className={`w-3 h-3 transition-transform ${recipientsExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
-                    Recipients
-                  </button>
-                  <button type="button" onClick={() => setRecipientPickerOpen(true)} className="text-xs text-[#C49A38] hover:underline">Add</button>
-                </div>
-                {recipientsExpanded && (
-                  <div className="space-y-1">
-                    {storeRecipientList.length === 0 ? (
-                      <p className="text-[11px] text-[#8A9BB8] italic px-1">No recipients yet.</p>
-                    ) : (
-                      storeRecipientList.map((r) => (
-                        <div key={r.id} className="rounded border border-[#EFE8D8] bg-[#F8F6F0] overflow-hidden">
-                          <div className="flex items-center gap-1.5 px-1.5 py-1">
-                            <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: r.color }} />
-                            <span className="text-[11px] text-[#0F1C3F] font-medium truncate flex-1">{r.label}</span>
-                            <span className="text-[10px] text-[#8A9BB8] capitalize flex-shrink-0">{r.type === "customer" ? "cust." : r.type.slice(0, 4) + "."}</span>
-                            <button type="button" onClick={() => removeRecipient(r.id)} className="text-[#8A9BB8] hover:text-red-500 flex-shrink-0 ml-0.5" title="Remove">
-                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-                            </button>
-                          </div>
-                          <div className="border-t border-[#EFE8D8] px-1.5 py-1">
-                            <input
-                              type="email"
-                              value={r.email ?? ""}
-                              onChange={(e) => updateRecipient(r.id, { email: e.target.value })}
-                              placeholder="Email address"
-                              className="w-full bg-transparent text-[11px] text-[#0F1C3F] placeholder-[#B0BAD0] outline-none focus:placeholder-[#D4C9B5]"
-                            />
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="border-t border-[#EFE8D8]" />
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <h2 className="text-sm font-semibold">Documents</h2>
-                  <label className={`text-xs ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
-                    {isUploadingDocument ? "Uploading…" : "Add"}
-                    <input
-                      type="file"
-                      accept="application/pdf"
-                      disabled={isUploadingDocument}
-                      className="sr-only"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) {
-                          return;
-                        }
-                        uploadDocument(file);
-                        e.target.value = "";
-                      }}
-                    />
-                  </label>
-                </div>
-              </div>
-              <DndContext
-                sensors={sortSensors}
-                collisionDetection={closestCenter}
-                onDragEnd={(event: DragEndEvent) => {
-                  const { active, over } = event;
-                  if (!over || active.id === over.id) return;
-                  updateSelectedPackage((pkg) => {
-                    const oldIdx = pkg.documents.findIndex((d) => d.id === active.id);
-                    const newIdx = pkg.documents.findIndex((d) => d.id === over.id);
-                    return { ...pkg, documents: arrayMove(pkg.documents, oldIdx, newIdx) };
-                  });
-                }}
-              >
-                <SortableContext items={selectedPackage.documents.map((d) => d.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2 overflow-y-auto flex-1">
-                    {selectedPackage.documents.map((doc, index) => (
-                      <SortableItem key={doc.id} id={doc.id}>
-                        {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
-                          <div
-                            ref={wrapperRef}
-                            style={wrapperStyle}
-                            {...handleProps}
-                            className={`border rounded p-2 transition-shadow cursor-grab active:cursor-grabbing select-none ${isDragging ? "opacity-40 shadow-lg" : ""} ${selectedDocument?.id === doc.id ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#DDD5C4]"}`}
-                          >
-                            <DocumentPreviewTile
-                              packageId={selectedPackage.id}
-                              doc={doc}
-                              order={index + 1}
-                              selected={selectedDocument?.id === doc.id}
-                              getAuthHeaders={getAuthHeaders}
-                              docufillApiPath={docufillApiPath}
-                              previewCache={documentPreviewCache}
-                              previewCacheOrder={documentPreviewCacheOrder}
-                              onSelect={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }}
-                            />
-                            <Input value={doc.title} onChange={(e) => updateSelectedPackage((pkg) => ({ ...pkg, documents: pkg.documents.map((d) => d.id === doc.id ? { ...d, title: e.target.value } : d) }))} className="mt-2 h-8 text-xs" />
-                            <div className="mt-1 text-[10px] text-[#8A9BB8] truncate">{doc.fileName ?? "Metadata only"}</div>
-                            <div className="flex gap-1 mt-1 items-center">
-                              <label className={`text-[11px] ${isUploadingDocument ? "text-[#6B7A99] pointer-events-none opacity-50" : "text-[#C49A38] cursor-pointer"}`}>
-                                {isUploadingDocument ? "Uploading…" : "Replace"}
-                                <input type="file" accept="application/pdf" disabled={isUploadingDocument} className="sr-only" onChange={(e) => { const file = e.target.files?.[0]; if (file) uploadDocument(file, doc.id); e.target.value = ""; }} />
-                              </label>
-                              <button onClick={() => removeDocument(doc.id)} className="ml-auto text-[11px] text-red-600">Remove</button>
-                            </div>
-                          </div>
-                        )}
-                      </SortableItem>
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            </section>
-
-            <section ref={setMapperContainerEl} className="bg-white border border-[#DDD5C4] rounded-lg p-4">
-              <div className="mb-2">
-                <h2 className="text-sm font-semibold">Assign Package Fields and Rules</h2>
-                <p className="text-xs text-[#8A9BB8]">Place fields on PDFs, then decide which are required, fixed/defaulted, validated, or omitted from the generated interview.</p>
-              </div>
-
-              {/* ── Toolbar ─────────────────────────────────────────── */}
-              <div className="sticky top-0 z-20 flex items-center bg-white border border-[#E0D8CC] rounded-lg px-2.5 py-1.5 mb-3 shadow-sm">
-
-                {/* Left — Page Navigation (fixed, anchors left edge) */}
-                <div className="shrink-0 flex items-center border border-[#DDD5C4] rounded-md overflow-hidden">
-                  <button type="button" title="Prev page [←]" onClick={() => setSelectedPage((p) => Math.max(1, p - 1))} disabled={!selectedDocument || selectedPage <= 1} className={`w-7 h-[26px] flex items-center justify-center text-[#6B7A8A] bg-white hover:bg-[#F8F5F0] transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${mapperScrollMode ? "invisible" : ""}`}>
-                    <ChevronLeft className="w-3.5 h-3.5" />
-                  </button>
-                  <span className="text-[11px] font-medium text-[#4A5B6A] tabular-nums whitespace-nowrap select-none min-w-[3.2rem] text-center px-1 border-x border-[#DDD5C4] h-[26px] flex items-center justify-center">{selectedPage} / {Math.max(selectedDocument?.pages ?? 1, 1)}</span>
-                  <button type="button" title="Next page [→]" onClick={() => setSelectedPage((p) => Math.min(Math.max(selectedDocument?.pages ?? 1, 1), p + 1))} disabled={!selectedDocument || selectedPage >= Math.max(selectedDocument?.pages ?? 1, 1)} className={`w-7 h-[26px] flex items-center justify-center text-[#6B7A8A] bg-white hover:bg-[#F8F5F0] transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${mapperScrollMode ? "invisible" : ""}`}>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Center — all controls, truly centered between the two fixed ends */}
-                <div className="flex-1 flex items-center justify-center gap-2 flex-wrap">
-
-                {/* Group 2 — Single / Scroll toggle */}
-                <div className="flex items-center border border-[#DDD5C4] rounded-md overflow-hidden shrink-0 text-[11px] font-medium" title="Toggle between viewing one page at a time or all pages stacked">
-                  <button type="button" onClick={() => setMapperScrollMode(false)} className={`flex items-center gap-1 px-2.5 h-[26px] leading-none transition-all ${!mapperScrollMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
-                    <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="2" width="12" height="12" rx="1.5" /></svg>
-                    Single
-                  </button>
-                  <div className="w-px h-full bg-[#DDD5C4] shrink-0" />
-                  <button type="button" onClick={() => setMapperScrollMode(true)} className={`flex items-center gap-1 px-2.5 h-[26px] leading-none transition-all ${mapperScrollMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
-                    <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 16 16" stroke="currentColor" strokeWidth={1.5}><rect x="2" y="1" width="12" height="5" rx="1" /><rect x="2" y="10" width="12" height="5" rx="1" /></svg>
-                    Scroll
-                  </button>
-                </div>
-
-                {/* Group 3 — Zoom */}
-                <div className="flex items-center border border-[#DDD5C4] rounded-md overflow-hidden shrink-0 text-[11px] font-medium">
-                  <button type="button" onClick={() => setUserZoom((z) => Math.max(0.25, parseFloat((z - 0.25).toFixed(2))))} className="w-7 h-[26px] flex items-center justify-center text-[#6B7A8A] bg-white hover:bg-[#F8F5F0] transition-colors" title="Zoom out [−]">−</button>
-                  <button type="button" onClick={() => setUserZoom(1)} className="px-1.5 h-[26px] flex items-center justify-center text-[#4A5B6A] bg-white hover:bg-[#F8F5F0] transition-colors tabular-nums min-w-[2.6rem] text-center border-x border-[#DDD5C4]" title="Reset zoom">{Math.round(userZoom * 100)}%</button>
-                  <button type="button" onClick={() => setUserZoom((z) => Math.min(4, parseFloat((z + 0.25).toFixed(2))))} className="w-7 h-[26px] flex items-center justify-center text-[#6B7A8A] bg-white hover:bg-[#F8F5F0] transition-colors" title="Zoom in [+]">+</button>
-                </div>
-
-                {/* Group 4 — Text / Labels toggle */}
-                <div className="flex items-center border border-[#DDD5C4] rounded-md overflow-hidden shrink-0 text-[11px] font-medium">
-                  <button type="button" onClick={() => setMapperTextMode(true)} className={`px-2.5 h-[26px] leading-none transition-all ${mapperTextMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>Text</button>
-                  <div className="w-px h-full bg-[#DDD5C4] shrink-0" />
-                  <button type="button" onClick={() => setMapperTextMode(false)} className={`px-2.5 h-[26px] leading-none transition-all ${!mapperTextMode ? "bg-white text-[#1C2B4A] font-medium shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>Labels</button>
-                </div>
-
-                {/* Group 5 — Snap toggle */}
-                <button
-                  type="button"
-                  title={snapGrid ? "Snap to grid on — click to turn off [S]" : "Snap to grid off — click to turn on (4 pt grid) [S]"}
-                  onClick={() => setSnapGrid((v) => !v)}
-                  className={`flex items-center gap-1.5 text-[11px] font-medium border border-[#DDD5C4] rounded-md px-2.5 h-[26px] leading-none transition-all shrink-0 ${snapGrid ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}
-                >
-                  <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                    <line x1="4" y1="0" x2="4" y2="16"/><line x1="8" y1="0" x2="8" y2="16"/><line x1="12" y1="0" x2="12" y2="16"/>
-                    <line x1="0" y1="4" x2="16" y2="4"/><line x1="0" y1="8" x2="16" y2="8"/><line x1="0" y1="12" x2="16" y2="12"/>
-                  </svg>
-                  Snap
-                </button>
-
-                {/* Conditional — PDF annotations */}
-                {documentPreviewUrl && acroAnnotations.length > 0 && (
-                  <>
-                    <button type="button" onClick={() => setShowAcroLayer((v) => !v)} className={`text-[11px] font-medium border border-[#DDD5C4] rounded-md px-2.5 h-[26px] leading-none transition-all shrink-0 ${showAcroLayer ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}>
-                      PDF Fields
-                    </button>
-                    {selectedDocument && (mappingStartedDocIds.has(selectedDocument.id) || (selectedPackage?.fields.length ?? 0) > 0) && (
-                      <button
-                        type="button"
-                        title={`Auto-create mappings from ${acroAnnotations.length} detected PDF form field${acroAnnotations.length === 1 ? "" : "s"} on this page`}
-                        onClick={autoMapFromPdfFields}
-                        className="flex items-center gap-1.5 text-[11px] font-medium border border-[#D4B96A] rounded-md px-2.5 h-[26px] leading-none bg-[#FEF3C7] text-[#92400E] hover:bg-[#FDE68A] transition-colors shrink-0"
-                      >
-                        <svg className="w-3 h-3 shrink-0" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6}>
-                          <path d="M2 8h5M10 8h4M7 5l3 3-3 3" strokeLinecap="round" strokeLinejoin="round"/>
-                        </svg>
-                        Auto-map
-                      </button>
-                    )}
-                  </>
-                )}
-
-                </div>{/* end center */}
-
-                {/* Right — Inspector + shortcuts (fixed, anchors right edge) */}
-                <div className="shrink-0 flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    title={inspectorMode === "panel" ? "Switch to floating popup" : "Switch to side panel"}
-                    onClick={() => {
-                      const next = inspectorMode === "panel" ? "modal" : "panel";
-                      setInspectorMode(next);
-                      localStorage.setItem("docufill-inspector-mode", next);
-                      setPlacementModal(null);
-                    }}
-                    className="flex items-center gap-1.5 text-[11px] font-medium border border-[#DDD5C4] rounded-md px-2.5 h-[26px] leading-none bg-white text-[#6B7A8A] hover:bg-[#F8F5F0] hover:text-[#3A4A5A] transition-colors"
-                  >
-                    {inspectorMode === "panel" ? (
-                      <>
-                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="3" y="3" width="18" height="18" rx="2" /><path d="M15 3v18" /></svg>
-                        <span>Panel</span>
-                      </>
-                    ) : (
-                      <>
-                        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}><rect x="5" y="5" width="14" height="14" rx="2" /><path strokeLinecap="round" d="M5 9h14" /></svg>
-                        <span>Popup</span>
-                      </>
-                    )}
-                  </button>
-
-                  <div ref={shortcutsPopoverRef} className="relative">
-                  <button
-                    type="button"
-                    title="Keyboard shortcuts"
-                    onClick={() => setShowShortcutsPopover((v) => !v)}
-                    className={`w-[26px] h-[26px] flex items-center justify-center rounded-md text-[11px] font-semibold border border-[#DDD5C4] transition-all ${showShortcutsPopover ? "bg-white text-[#1C2B4A] shadow-[inset_0_-2px_0_#C49A38]" : "bg-white text-[#8A9BB8] hover:bg-[#F8F5F0] hover:text-[#3A4A5A]"}`}
-                  >
-                    ?
-                  </button>
-                  {showShortcutsPopover && (
-                    <div className="absolute right-0 top-full mt-2 z-50 w-64 bg-white border border-[#DDD5C4] rounded-xl shadow-lg p-3 text-[11px]">
-                      <div className="font-semibold text-[#3A2E1A] mb-2 pb-1.5 border-b border-[#EAE3D8]">Keyboard Shortcuts</div>
-                      <div className="flex flex-col gap-1.5">
-                        {[
-                          { keys: ["←", "→"], label: "Previous / next page" },
-                          { keys: ["+", "−"], label: "Zoom in / out" },
-                          { keys: ["S"], label: "Toggle snap to grid" },
-                          { keys: ["Esc"], label: "Close popover / deselect" },
-                          { keys: ["Delete", "Backspace"], label: "Remove selected field" },
-                        ].map(({ keys, label }) => (
-                          <div key={label} className="flex items-center justify-between gap-2">
-                            <span className="text-[#6B7A99]">{label}</span>
-                            <div className="flex items-center gap-1 shrink-0">
-                              {keys.map((k) => (
-                                <kbd key={k} className="inline-flex items-center justify-center min-w-[1.5rem] h-5 px-1.5 rounded bg-[#F0EDE6] border border-[#DDD5C4] text-[#3A2E1A] font-mono text-[10px] leading-none">{k}</kbd>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  </div>
-                </div>
-
-              </div>
-              {isUploadingDocument && <div className="mb-2 text-xs text-[#6B7A99]">Uploading PDF…</div>}
-              {mapperScrollMode && selectedDocument && documentPreviewUrl && (
-                <div
-                  ref={scrollContainerRef}
-                  className="bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-y-auto"
-                  style={{ width: mapperViewW, height: mapperViewH }}
-                  onScroll={(e) => {
-                    const container = e.currentTarget;
-                    const scaledPageH = Math.round(nativePageH * effectiveScale);
-                    // Each page group: scaledPageH + 16px flex-gap between groups (label removed)
-                    const itemH = scaledPageH + 16;
-                    const topPad = 16;
-                    // Use the midpoint of the visible viewport to determine current page
-                    const scrollMid = container.scrollTop + container.clientHeight / 2;
-                    const idx = Math.floor((scrollMid - topPad) / itemH);
-                    const totalPages = Math.max(selectedDocument.pages ?? 1, 1);
-                    setSelectedPage(Math.max(1, Math.min(totalPages, idx + 1)));
-                  }}
-                >
-                  <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "16px 0", alignItems: "flex-start" }}>
-                    {Array.from({ length: Math.max(selectedDocument.pages ?? 1, 1) }, (_, i) => i + 1).map((pageNum) => {
-                      const _knownFieldIds = new Set((selectedPackage?.fields ?? []).map((f) => f.id));
-                      const pageMs = storeMappings.filter(
-                        (m) => m.documentId === selectedDocument.id && m.page === pageNum && _knownFieldIds.has(m.fieldId)
-                      );
-                      return (
-                        <div key={pageNum} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                          <div
-                            style={{ width: Math.round(nativePageW * effectiveScale), height: Math.round(nativePageH * effectiveScale), position: "relative", flexShrink: 0 }}
-                          >
-                            <div
-                              onDragOver={(e) => e.preventDefault()}
-                              onDrop={(e) => dropFieldOnPage(e, e.currentTarget, pageNum)}
-                              onClick={() => { setSelectedPage(pageNum); setPlacementModal(null); }}
-                              className="absolute top-0 left-0 bg-white border border-[#D4C9B5] shadow-sm overflow-hidden"
-                              style={{
-                                width: nativePageW,
-                                height: nativePageH,
-                                transform: `scale(${effectiveScale})`,
-                                transformOrigin: "top left",
-                              }}
-                            >
-                              <ScrollPageCanvas
-                                pageNum={pageNum}
-                                pdfDoc={scrollPdfDoc}
-                                nativeW={nativePageW}
-                                nativeH={nativePageH}
-                              />
-                              {pageMs.map((m) => {
-                                const field = selectedPackage?.fields.find((f) => f.id === m.fieldId);
-                                const recipient = m.recipientId ? storeRecipientList.find((r) => r.id === m.recipientId) : undefined;
-                                const fieldColor = recipient?.color ?? (isSystemEsignFieldId(m.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
-                                return (
-                                  <MappingButton
-                                    key={m.id}
-                                    mappingId={m.id}
-                                    fieldName={field?.name ?? "Field"}
-                                    sampleValue={sampleValueForMapping(field, m.format)}
-                                    formatLabel={labelForMappingFormat(m.format)}
-                                    fieldColor={fieldColor}
-                                    recipient={recipient}
-                                    onMoveStart={(e) => beginMappingPointer(e, m.id, "move", e.currentTarget.parentElement as HTMLElement)}
-                                    onResizeStart={(e) => beginMappingPointer(e, m.id, "resize", e.currentTarget.parentElement?.parentElement as HTMLElement)}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setSelectedPage(pageNum);
-                                      setSelectedMappingId(m.id);
-                                      setSelectedFieldId(m.fieldId);
-                                      if (inspectorMode === "panel") {
-                                        setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
-                                        setPlacementModalPos(null);
-                                      }
-                                    }}
-                                    onContextMenu={(e) => {
-                                      e.preventDefault(); e.stopPropagation();
-                                      setSelectedPage(pageNum);
-                                      setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId);
-                                      setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
-                                      setPlacementModalPos(null);
-                                    }}
-                                  />
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              {mapperScrollMode && (!selectedDocument || !documentPreviewUrl) && (
-                <div
-                  className="bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner flex items-center justify-center"
-                  style={{ width: mapperViewW, height: mapperViewH }}
-                >
-                  <p className="text-xs text-[#8A9BB8]">{selectedDocument ? "Upload a PDF to enable scroll view." : "Select a document to get started."}</p>
-                </div>
-              )}
-              {!mapperScrollMode && <div
-                className="relative bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-auto"
-                style={{ width: mapperViewW, height: mapperViewH }}
-              >
-                <div style={{ width: Math.round(nativePageW * effectiveScale), height: Math.round(nativePageH * effectiveScale), position: "relative", flexShrink: 0 }}>
-                <div
-                  ref={pageFrameRef}
-                  onDragOver={(e) => e.preventDefault()}
-                  onDrop={dropFieldOnPage}
-                  onClick={() => setPlacementModal(null)}
-                  className="absolute top-0 left-0 bg-white border border-[#D4C9B5] shadow-sm overflow-hidden"
-                  style={{
-                    width: nativePageW,
-                    height: nativePageH,
-                    transform: `scale(${effectiveScale})`,
-                    transformOrigin: "top left",
-                  }}
-                >
-                  {documentPreviewUrl ? (
-                    <>
-                      <canvas
-                        ref={canvasRef}
-                        className="absolute inset-0 pointer-events-none"
-                        style={{ width: nativePageW, height: nativePageH }}
-                      />
-                      {isPdfRendering && (
-                        <div className="absolute inset-0 bg-white/60 flex items-center justify-center pointer-events-none">
-                          <div className="w-6 h-6 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
-                        </div>
-                      )}
-                      {pdfRenderError && !isPdfRendering && (
-                        <div className="absolute inset-0 bg-white/90 flex flex-col items-center justify-center gap-2 pointer-events-none">
-                          <svg className="w-6 h-6 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 3a9 9 0 110 18A9 9 0 0112 3z" /></svg>
-                          <span className="text-xs text-red-600 text-center px-4">{pdfRenderError}</span>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div className="absolute inset-0 p-6 text-xs text-[#6B7A99]">
-                      <div className="font-semibold text-[#0F1C3F] mb-3">{selectedDocument?.title ?? "No document selected"}</div>
-                      {selectedDocument ? (
-                        <div className="rounded border border-dashed border-[#D4C9B5] p-5 text-center">Upload or replace this package document with a PDF to show a true page preview.</div>
-                      ) : (
-                        Array.from({ length: 18 }).map((_, i) => <div key={i} className="h-2 bg-[#EFE8D8] rounded mb-3" style={{ width: `${70 + (i % 4) * 7}%` }} />)
-                      )}
-                    </div>
-                  )}
-                  {showAcroLayer && !isPdfRendering && acroAnnotations.map((ann, i) => {
-                    const [x1, y1, x2, y2] = ann.rect;
-                    return (
-                      <div
-                        key={i}
-                        className="absolute pointer-events-none"
-                        style={{
-                          left: `${(x1 / nativePageW) * 100}%`,
-                          top: `${((nativePageH - y2) / nativePageH) * 100}%`,
-                          width: `${((x2 - x1) / nativePageW) * 100}%`,
-                          height: `${((y2 - y1) / nativePageH) * 100}%`,
-                          border: "1px dashed rgba(37,99,235,0.45)",
-                          backgroundColor: "rgba(37,99,235,0.04)",
-                          boxSizing: "border-box",
-                          zIndex: 1,
-                        }}
-                        title={ann.fieldName || `PDF ${ann.fieldType || "field"}`}
-                      >
-                        {ann.fieldName ? (
-                          <span className="block overflow-hidden whitespace-nowrap select-none leading-none" style={{ fontSize: "6px", color: "rgba(37,99,235,0.6)", paddingLeft: "1px", paddingTop: "1px" }}>
-                            {ann.fieldName}
-                          </span>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                  {pageMappingIds.map((mappingId) => {
-                    const meta = storeMappings.find((m) => m.id === mappingId);
-                    if (!meta) return null;
-                    const field = selectedPackage.fields.find((f) => f.id === meta.fieldId);
-                    const recipient = meta.recipientId ? storeRecipientList.find((r) => r.id === meta.recipientId) : undefined;
-                    const fieldColor = recipient?.color ?? (isSystemEsignFieldId(meta.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
-                    const isFullyDefined = Boolean(field?.name && !field.name.match(/^Field \d+$/i) && (field.libraryFieldId || field.interviewMode));
-                    return (
-                      <MappingButton
-                        key={mappingId}
-                        mappingId={mappingId}
-                        fieldName={field?.name ?? "Field"}
-                        sampleValue={sampleValueForMapping(field, meta.format)}
-                        formatLabel={labelForMappingFormat(meta.format)}
-                        fieldColor={fieldColor}
-                        recipient={recipient}
-                        isFullyDefined={isFullyDefined}
-                        onMoveStart={(e) => beginMappingPointer(e, mappingId, "move")}
-                        onResizeStart={(e) => beginMappingPointer(e, mappingId, "resize")}
-                        onClick={() => {
-                          setSelectedMappingId(mappingId);
-                          setSelectedFieldId(meta.fieldId);
-                          if (inspectorMode === "panel") {
-                            const fullM = useDocuFillStore.getState().mappings.find((m) => m.id === mappingId);
-                            setPlacementModal({ mappingId, pdfX: fullM?.x ?? 0, pdfY: fullM?.y ?? 0 });
-                            setPlacementModalPos(null);
-                          }
-                        }}
-                        onContextMenu={(e) => {
-                          e.preventDefault(); e.stopPropagation();
-                          setSelectedMappingId(mappingId); setSelectedFieldId(meta.fieldId);
-                          const fullM = useDocuFillStore.getState().mappings.find((m) => m.id === mappingId);
-                          setPlacementModal({ mappingId, pdfX: fullM?.x ?? 0, pdfY: fullM?.y ?? 0 });
-                          setPlacementModalPos(null);
-                        }}
-                      />
-                    );
-                  })}
-                  <DragGuideLines dragGuides={storeDragGuides} />
-                  {selectedMapping && (
-                    <ResizeDimTooltip
-                      x={selectedMapping.x ?? 0}
-                      y={selectedMapping.y ?? 0}
-                      w={selectedMapping.w ?? 26}
-                      h={selectedMapping.h ?? 6}
-                      resizeDim={storeResizeDim}
-                    />
-                  )}
-                </div>
-                </div>
-              </div>}
-              <div className="mt-4 flex flex-wrap justify-end gap-2">
-                <Button onClick={() => goBuilderStep("interview", { autoSort: true })} variant="outline">Review Generated Interview</Button>
-                <Button
-                  onClick={() => savePackage(selectedPackage)}
-                  disabled={isSaving || (selectedPackage.fields.length === 0 && storeMappings.length === 0)}
-                >
-                  {isSaving ? "Saving…" : `Save ${selectedPackage.fields.length} Fields / ${storeMappings.length} Placements`}
-                </Button>
-              </div>
-            </section>
-
-            <section className="bg-white border border-[#DDD5C4] rounded-lg flex flex-col min-h-0 overflow-hidden">
-              {inspectorMode === "panel" && placementModal && selectedPackage && (() => {
-                const mapping = storeMappings.find((item) => item.id === placementModal.mappingId);
-                if (!mapping) return null;
-                const field = selectedPackage.fields.find((item) => item.id === mapping.fieldId);
-                return (
-                  <FieldCard
-                    mapping={mapping}
-                    field={field}
-                    recipients={storeRecipientList}
-                    onClose={() => setPlacementModal(null)}
-                    onUpdateField={updateFieldInPackage}
-                    onUpdateMapping={updateSelectedMapping}
-                    onChooseMappingFormat={chooseMappingFormat}
-                    onCopyField={copyField}
-                    onDuplicateMapping={duplicateMapping}
-                    onRemoveMapping={() => { removeSelectedMapping(); setPlacementModal(null); }}
-                    onOpenFieldEditor={openFieldEditorForEdit}
-                  />
-                );
-              })()}
-              <div className="p-3 flex flex-col min-h-0 flex-1">
-                  <div className="flex items-center justify-between mb-2 flex-shrink-0">
-                    <h2 className="text-sm font-semibold">Fields</h2>
-                    <button onClick={openFieldEditorForAdd} className="text-xs text-[#C49A38]">Add</button>
-                  </div>
-                  {(() => {
-                    const usedLibraryIds = new Set(selectedPackage.fields.map((f) => f.libraryFieldId).filter(Boolean));
-                    const availableLibraryFields = fieldLibrary.filter((item) => item.active && !usedLibraryIds.has(item.id));
-                    const esignPkgIds = new Set(selectedPackage.fields.filter((f) => f.source === "esign-system").map((f) => f.id));
-                    const availableEsignFields = SYSTEM_ESIGN_FIELDS.filter((sf) => !esignPkgIds.has(sf.id));
-                    if (availableLibraryFields.length === 0 && availableEsignFields.length === 0) return null;
-                    return (
-                      <label className="block mb-2 flex-shrink-0">
-                        <span className="block text-[11px] text-[#6B7A99] mb-1">Add from shared library</span>
-                        <select
-                          value=""
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (!val) return;
-                            if (isSystemEsignFieldId(val)) {
-                              updateSelectedPackage((pkg) => {
-                                if (pkg.fields.find((f) => f.id === val)) return pkg;
-                                const newField = makeSystemEsignFieldItem(val, pkg.fields.map((f) => f.color));
-                                let fields = [newField, ...pkg.fields];
-                                const needsAutoDate = (val === ESIGN_FIELD_ID_SIGNATURE || val === ESIGN_FIELD_ID_INITIALS);
-                                if (needsAutoDate && !fields.find((f) => f.id === ESIGN_FIELD_ID_DATE)) {
-                                  const autoDate = makeSystemEsignFieldItem(ESIGN_FIELD_ID_DATE, fields.map((f) => f.color));
-                                  fields = [autoDate, ...fields];
-                                }
-                                return { ...pkg, fields };
-                              });
-                            } else {
-                              const libraryField = fieldLibrary.find((item) => item.id === val);
-                              if (libraryField) addLibraryFieldToPackage(libraryField);
-                            }
-                          }}
-                          className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
-                        >
-                          <option value="">Select reusable field</option>
-                          {availableLibraryFields.length > 0 && (
-                            <optgroup label="Shared Library">
-                              {availableLibraryFields.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
-                            </optgroup>
-                          )}
-                          {availableEsignFields.length > 0 && (
-                            <optgroup label="E-Sign Fields">
-                              {availableEsignFields.map((sf) => <option key={sf.id} value={sf.id}>{sf.name}</option>)}
-                            </optgroup>
-                          )}
-                        </select>
-                      </label>
-                    );
-                  })()}
-                  {inspectorMode === "panel" && storeMappings.length > 0 && (
-                    <p className="mb-2 text-[10px] text-[#8A9BB8] italic flex-shrink-0">Click a placement on the document to inspect it.</p>
-                  )}
-                  <div className="flex-1 min-h-0 flex flex-col">
-                  {(() => {
-                    return (
-                  <DndContext
-                    sensors={sortSensors}
-                    collisionDetection={closestCenter}
-                    onDragEnd={(event: DragEndEvent) => {
-                      const { active, over } = event;
-                      if (!over || active.id === over.id) return;
-                      updateSelectedPackage((pkg) => {
-                        const oldIdx = pkg.fields.findIndex((f) => f.id === active.id);
-                        const newIdx = pkg.fields.findIndex((f) => f.id === over.id);
-                        return { ...pkg, fields: arrayMove(pkg.fields, oldIdx, newIdx) };
-                      });
-                    }}
-                  >
-                    <SortableContext items={selectedPackage.fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                      <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
-                        {selectedPackage.fields.length === 0 && (
-                          <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
-                            <svg className="w-6 h-6 text-[#C49A38]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                            <p className="text-xs text-[#8A9BB8] leading-snug italic">No fields yet. Click <strong className="not-italic font-semibold text-[#C49A38]">Add</strong> above to create your first field, then drag it onto the document to place it.</p>
-                          </div>
-                        )}
-                        {selectedPackage.fields.map((field) => (
-                          <SortableItem key={field.id} id={field.id}>
-                            {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
-                              <div
-                                ref={wrapperRef}
-                                style={{ ...wrapperStyle, borderColor: field.color }}
-                                draggable
-                                onDragStart={(e) => {
-                                  if (fieldDragFromHandle.current) { e.preventDefault(); return; }
-                                  e.dataTransfer.setData("text/field", field.id);
-                                }}
-                                onDoubleClick={() => openFieldEditorForEdit(field.id)}
-                                className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isDragging ? "opacity-40 shadow-lg" : ""} ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
-                              >
-                                <div className="flex items-start justify-between gap-2">
-                                  <div className="flex items-start gap-2 flex-1 min-w-0">
-                                    <div
-                                      {...handleProps}
-                                      onPointerDown={(e) => {
-                                        fieldDragFromHandle.current = true;
-                                        (handleProps.onPointerDown as React.PointerEventHandler<HTMLDivElement>)?.(e);
-                                      }}
-                                      onPointerUp={() => { fieldDragFromHandle.current = false; }}
-                                      onPointerCancel={() => { fieldDragFromHandle.current = false; }}
-                                      title="Drag to reorder"
-                                      className="mt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing p-0.5 text-[#C4B89A] hover:text-[#A89878]"
-                                    >
-                                      <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
-                                        <circle cx="5" cy="4" r="1.2"/><circle cx="11" cy="4" r="1.2"/>
-                                        <circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/>
-                                        <circle cx="5" cy="12" r="1.2"/><circle cx="11" cy="12" r="1.2"/>
-                                      </svg>
-                                    </div>
-                                    <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1 min-w-0">
-                                      <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
-                                        <span>{field.name}</span>
-                                        {isSystemEsignFieldId(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5">E-Sign</span>}
-                                        {!isSystemEsignFieldId(field.id) && field.libraryFieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>}
-                                        {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
-                                        {(field.condition?.fieldId || field.condition2?.fieldId) && <span className="text-[10px] uppercase tracking-wide rounded bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5">Conditional</span>}
-                                        {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
-                                      </div>
-                                      <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
-                                    </button>
-                                  </div>
-                                  {!isSystemEsignFieldId(field.id) && <button
-                                    type="button"
-                                    onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
-                                    className="rounded border border-red-200 px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50 hover:border-red-300 flex-shrink-0"
-                                    title="Remove field"
-                                  >✕</button>}
-                                </div>
-                              </div>
-                            )}
-                          </SortableItem>
-                        ))}
-                      </div>
-                    </SortableContext>
-                  </DndContext>
-                    );
-                  })()}
-                  </div>
-                </div>
-            </section>
-          </div>
+        !selectedPackage ? (
+          <EmptyState message="Create or select a package first." />
+        ) : (
+          <DocuFillMapperPanel
+            selectedPackage={selectedPackage}
+            selectedDocument={selectedDocument}
+            selectedDocumentId={selectedDocumentId}
+            setSelectedDocumentId={setSelectedDocumentId}
+            selectedPage={selectedPage}
+            setSelectedPage={setSelectedPage}
+            nativePageW={nativePageW}
+            nativePageH={nativePageH}
+            effectiveScale={effectiveScale}
+            mapperViewW={mapperViewW}
+            mapperViewH={mapperViewH}
+            mapperScrollMode={mapperScrollMode}
+            setMapperScrollMode={setMapperScrollMode}
+            userZoom={userZoom}
+            setUserZoom={setUserZoom}
+            snapGrid={snapGrid}
+            setSnapGrid={setSnapGrid}
+            documentPreviewUrl={documentPreviewUrl}
+            acroAnnotations={acroAnnotations}
+            showAcroLayer={showAcroLayer}
+            setShowAcroLayer={setShowAcroLayer}
+            isPdfRendering={isPdfRendering}
+            pdfRenderError={pdfRenderError}
+            fieldLibrary={fieldLibrary}
+            inspectorMode={inspectorMode}
+            setInspectorMode={setInspectorMode}
+            placementModal={placementModal}
+            setPlacementModal={setPlacementModal}
+            placementModalPos={placementModalPos}
+            setPlacementModalPos={setPlacementModalPos}
+            recipientsExpanded={recipientsExpanded}
+            setRecipientsExpanded={setRecipientsExpanded}
+            setRecipientPickerOpen={setRecipientPickerOpen}
+            sortSensors={sortSensors}
+            isUploadingDocument={isUploadingDocument}
+            isSaving={isSaving}
+            showShortcutsPopover={showShortcutsPopover}
+            setShowShortcutsPopover={setShowShortcutsPopover}
+            shortcutsPopoverRef={shortcutsPopoverRef}
+            beginMappingPointer={beginMappingPointer}
+            mappingStartedDocIds={mappingStartedDocIds}
+            selectedField={selectedField}
+            fieldDragFromHandle={fieldDragFromHandle}
+            setSelectedFieldId={setSelectedFieldId}
+            scrollContainerRef={scrollContainerRef}
+            scrollPdfDoc={scrollPdfDoc}
+            canvasRef={canvasRef}
+            pageFrameRef={pageFrameRef}
+            setMapperContainerEl={setMapperContainerEl}
+            goBuilderStep={stableGoBuilderStep}
+            savePackage={stableSavePackage}
+            updateSelectedPackage={updateSelectedPackage}
+            uploadDocument={uploadDocument}
+            removeDocument={removeDocument}
+            removeField={removeField}
+            removeSelectedMapping={removeSelectedMapping}
+            updateSelectedMapping={updateSelectedMapping}
+            chooseMappingFormat={chooseMappingFormat}
+            duplicateMapping={duplicateMapping}
+            openFieldEditorForEdit={openFieldEditorForEdit}
+            openFieldEditorForAdd={openFieldEditorForAdd}
+            autoMapFromPdfFields={autoMapFromPdfFields}
+            dropFieldOnPage={dropFieldOnPage}
+            updateFieldInPackage={updateFieldInPackage}
+            copyField={copyField}
+            addLibraryFieldToPackage={addLibraryFieldToPackage}
+            removeRecipient={removeRecipient}
+            updateRecipient={updateRecipient}
+            getAuthHeaders={getAuthHeaders}
+            docufillApiPath={docufillApiPath}
+            documentPreviewCache={documentPreviewCache}
+            documentPreviewCacheOrder={documentPreviewCacheOrder}
+          />
         )
       )}
 
       {tab === "interview" && (
-        <section className="bg-white border border-[#DDD5C4] rounded-lg max-w-4xl mx-auto overflow-hidden">
-          {!session ? (
-            isPublicSession ? <div className="p-5"><EmptyState message="This interview link is invalid or expired." /></div> : (
-              <>
-              <div className="flex border-b border-[#DDD5C4]">
-                {(["interviews", "dashboard"] as const).map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setInterviewSubTab(t)}
-                    className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
-                      interviewSubTab === t
-                        ? "border-[#0F1C3F] text-[#0F1C3F]"
-                        : "border-transparent text-[#8A9BB8] hover:text-[#0F1C3F] hover:border-[#DDD5C4]"
-                    }`}
-                  >
-                    {t === "interviews" ? "Interviews" : "Interview Dashboard"}
-                  </button>
-                ))}
-              </div>
-              {interviewSubTab === "interviews" && <div className="p-5 space-y-6">
-                {(() => {
-                  const hasStaff = activePackages.some((p) => p.enable_interview);
-                  const hasCustomerLink = activePackages.some((p) => p.enable_customer_link);
-                  if (!hasStaff && !hasCustomerLink) {
-                    return (
-                      <div className="text-center py-8 space-y-3">
-                        <p className="text-sm text-[#6B7A99]">No packages are ready for interviews yet.</p>
-                        <Button onClick={() => { goBuilderStep("interview"); setTab("packages"); }} variant="outline">
-                          Go to Package Builder →
-                        </Button>
-                      </div>
-                    );
-                  }
-                  return (
-                    <div className="space-y-5">
-                      {/* Staff Interview — always shown if any package has it enabled */}
-                      {hasStaff && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <svg className="w-4 h-4 text-[#0F1C3F] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
-                            <h3 className="text-sm font-semibold">Staff Interview</h3>
-                            <span className="text-xs text-[#8A9BB8]">— walk a client through their paperwork</span>
-                          </div>
-                          <div className="space-y-2">
-                            <PackagePickerWithTags
-                              packages={activePackages.filter((p) => p.enable_interview)}
-                              value={standalonePackageId}
-                              onChange={setStandalonePackageId}
-                              transactionLabel={labelForTransactionScope}
-                            />
-                            <Button onClick={launchStandaloneInterview} disabled={!standalonePackageId || isSaving} >{isSaving ? "Launching…" : "Start Interview"}</Button>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Divider between the two if both are available */}
-                      {hasStaff && hasCustomerLink && <div className="border-t border-[#EFE8D8]" />}
-
-                      {/* Customer Link — always shown if any package has it enabled */}
-                      {hasCustomerLink && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <svg className="w-4 h-4 text-[#0F1C3F] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" /></svg>
-                            <h3 className="text-sm font-semibold">Customer Link</h3>
-                            <span className="text-xs text-[#8A9BB8]">— customer fills the form themselves</span>
-                          </div>
-                          <div className="space-y-2">
-                            <PackagePickerWithTags
-                              packages={activePackages.filter((p) => p.enable_customer_link)}
-                              value={customerLinkPackageId}
-                              onChange={(id) => { setCustomerLinkPackageId(id); setGeneratedCustomerLink(null); setGeneratedCustomerLinkToken(null); setLinkEmailSent(null); setShowSendLinkForm(false); }}
-                              transactionLabel={labelForTransactionScope}
-                            />
-                            {customerLinkPackageId && activePackages.find((p) => String(p.id) === customerLinkPackageId)?.tags.includes("Demo") && (
-                              <div className="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
-                                <svg className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
-                                <p className="text-xs text-amber-800">
-                                  <strong>Demo package</strong> — this is the pre-loaded sample package for testing only. Remove the "Demo" tag or create a new package before sending links to real clients.
-                                </p>
-                              </div>
-                            )}
-                            <div className="grid sm:grid-cols-3 gap-2">
-                              <Input placeholder="First name (optional)" value={customerLinkFirstName} onChange={(e) => setCustomerLinkFirstName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm" />
-                              <Input placeholder="Last name (optional)" value={customerLinkLastName} onChange={(e) => setCustomerLinkLastName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm" />
-                              <Input placeholder="Email (optional)" value={customerLinkEmail} onChange={(e) => setCustomerLinkEmail(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && customerLinkPackageId && !isGeneratingLink) generateCustomerLink(); }} className="text-sm" />
-                            </div>
-                            <Button onClick={generateCustomerLink} disabled={!customerLinkPackageId || isGeneratingLink} >
-                              {isGeneratingLink ? "Generating…" : "Generate Link"}
-                            </Button>
-                            {generatedCustomerLink && (
-                              <div className="rounded border border-green-200 bg-green-50 p-3 space-y-2">
-                                <div className="text-xs font-semibold text-green-800">Link ready</div>
-                                <div className="flex items-center gap-2">
-                                  <code className="flex-1 text-xs bg-white border border-green-200 rounded px-2 py-1.5 text-[#0F1C3F] break-all">{generatedCustomerLink}</code>
-                                  <button type="button" onClick={copyCustomerLink} className="shrink-0 text-xs border border-green-300 bg-white text-green-800 rounded px-3 py-1.5 hover:bg-green-100 transition-colors">
-                                    {linkCopied ? "Copied ✓" : "Copy"}
-                                  </button>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <button
-                                    type="button"
-                                    onClick={() => { setShowSendLinkForm((v) => { if (v) setShowRecipientOverride(false); return !v; }); setLinkEmailError(null); }}
-                                    className="text-xs border border-green-300 bg-white text-green-800 rounded px-3 py-1.5 hover:bg-green-100 transition-colors flex items-center gap-1.5"
-                                  >
-                                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
-                                    {showSendLinkForm ? "Cancel" : "Send by email"}
-                                  </button>
-                                  {linkEmailSent && !showSendLinkForm && (
-                                    <span className="text-[11px] text-green-700">✓ Sent to {linkEmailSent}</span>
-                                  )}
-                                </div>
-                                {showSendLinkForm && (
-                                  <div className="border-t border-green-200 pt-2 space-y-2">
-                                    {/* Recipient row — show inputs only when email wasn't pre-filled or staff wants to change it */}
-                                    {sendLinkEmail.trim() && !showRecipientOverride ? (
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs text-[#6B7A99]">To:</span>
-                                        <span className="text-xs font-medium text-[#0F1C3F]">
-                                          {sendLinkName.trim() ? `${sendLinkName.trim()} <${sendLinkEmail.trim()}>` : sendLinkEmail.trim()}
-                                        </span>
-                                        <button
-                                          type="button"
-                                          onClick={() => setShowRecipientOverride(true)}
-                                          className="text-[11px] text-green-700 hover:underline ml-auto shrink-0"
-                                        >
-                                          Change
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <div className="grid sm:grid-cols-2 gap-2">
-                                        <Input
-                                          placeholder="Client email *"
-                                          type="email"
-                                          value={sendLinkEmail}
-                                          onChange={(e) => setSendLinkEmail(e.target.value)}
-                                          onKeyDown={(e) => { if (e.key === "Enter" && sendLinkEmail.trim() && !isSendingLink) void handleSendLinkByEmail(); }}
-                                          className="text-sm"
-                                        />
-                                        <Input
-                                          placeholder="Client name (optional)"
-                                          value={sendLinkName}
-                                          onChange={(e) => setSendLinkName(e.target.value)}
-                                          onKeyDown={(e) => { if (e.key === "Enter" && sendLinkEmail.trim() && !isSendingLink) void handleSendLinkByEmail(); }}
-                                          className="text-sm"
-                                        />
-                                      </div>
-                                    )}
-                                    <textarea
-                                      placeholder="Add a personal message (optional)"
-                                      value={sendLinkMessage}
-                                      onChange={(e) => setSendLinkMessage(e.target.value)}
-                                      rows={2}
-                                      className="w-full text-sm border border-green-200 rounded px-2 py-1.5 bg-white resize-none focus:outline-none focus:ring-1 focus:ring-green-400"
-                                    />
-                                    {linkEmailError && <p className="text-[11px] text-red-600">{linkEmailError}</p>}
-                                    <Button
-                                      onClick={handleSendLinkByEmail}
-                                      disabled={!sendLinkEmail.trim() || isSendingLink}
-                                      className="text-xs h-8 px-4"
-                                    >
-                                      {isSendingLink ? "Sending…" : "Send Email"}
-                                    </Button>
-                                  </div>
-                                )}
-                                <p className="text-[11px] text-green-700">Expires in 90 days. When the customer submits, you'll receive the completed packet.</p>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>}
-              {interviewSubTab === "dashboard" && (
-                <div className="p-5 space-y-4">
-                  <div>
-                    <h2 className="text-base font-semibold">Interview Session History</h2>
-                    <p className="text-xs text-[#8A9BB8] mt-0.5">All customer-link and staff interview sessions. CSV batch sessions are tracked separately in the Batch CSV tab.</p>
-                  </div>
-                  {(() => {
-                    const total  = portalSessions.length;
-                    const sent   = portalSessions.filter((s) => s.link_emailed_at).length;
-                    const submitted = portalSessions.filter((s) => s.submitted_at || s.status === "generated" || s.status === "signed").length;
-                    const signed = portalSessions.filter((s) => s.status === "signed" || s.status === "generated").length;
-                    return (
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        {[
-                          { label: "Total", value: total,     cls: "text-[#0F1C3F]" },
-                          { label: "Link Sent", value: sent,  cls: "text-blue-700" },
-                          { label: "Submitted", value: submitted, cls: "text-violet-700" },
-                          { label: "Completed", value: signed, cls: "text-emerald-700" },
-                        ].map(({ label, value, cls }) => (
-                          <div key={label} className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-3 text-center">
-                            <div className={`text-2xl font-bold ${cls}`}>{value}</div>
-                            <div className="text-xs text-[#8A9BB8] mt-0.5">{label}</div>
-                          </div>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                  {portalLoading && (
-                    <div className="flex justify-center py-10">
-                      <div className="w-5 h-5 border-2 border-[#0F1C3F] border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  )}
-                  {portalError && <div className="text-sm text-red-600">{portalError}</div>}
-                  {!portalLoading && !portalError && portalSessions.length === 0 && (
-                    <div className="text-center py-10 text-sm text-[#8A9BB8]">No interview sessions yet — start one from the Interviews tab.</div>
-                  )}
-                  {!portalLoading && portalSessions.length > 0 && (
-                    <div className="overflow-x-auto rounded-lg border border-[#DDD5C4]">
-                      <table className="min-w-full divide-y divide-[#F0EDE6]">
-                        <thead className="bg-[#F8F6F0]">
-                          <tr>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Package</th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Recipient</th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Status</th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">PDF</th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Sent</th>
-                            <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Submitted</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-[#F0EDE6] bg-white">
-                          {portalSessions.map((s) => {
-                            const recipient = s.signer_name || s.link_email_recipient || s.signer_email || "—";
-                            const statusMap: Record<string, { label: string; cls: string }> = {
-                              draft:     { label: "Draft",     cls: "bg-gray-100 text-gray-500" },
-                              generated: { label: "Completed", cls: "bg-emerald-50 text-emerald-700" },
-                              signed:    { label: "Signed",    cls: "bg-emerald-50 text-emerald-700" },
-                              submitted: { label: "Submitted", cls: "bg-violet-50 text-violet-700" },
-                              voided:    { label: "Voided",    cls: "bg-red-50 text-red-600" },
-                            };
-                            const statusInfo = statusMap[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-500" };
-                            const pdfUrl = `${API_BASE}${docufillApiPath}/sessions/${s.token}/packet.pdf`;
-                            const isCompleted = s.status === "generated" || s.status === "signed";
-                            return (
-                              <tr key={s.token} className="hover:bg-[#FAFAF8]">
-                                <td className="px-4 py-2 text-xs text-[#0F1C3F] max-w-[160px] truncate" title={s.package_name}>{s.package_name}</td>
-                                <td className="px-4 py-2 text-sm text-[#0F1C3F] max-w-[180px] truncate" title={recipient}>{recipient}</td>
-                                <td className="px-4 py-2">
-                                  <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>{statusInfo.label}</span>
-                                </td>
-                                <td className="px-4 py-2">
-                                  {isCompleted ? (
-                                    <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#0F1C3F] underline underline-offset-2 hover:text-[#C49A38]">
-                                      <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                      PDF
-                                    </a>
-                                  ) : <span className="text-xs text-[#C0CBDA]">—</span>}
-                                </td>
-                                <td className="px-4 py-2 text-xs text-[#8A9BB8]">{s.link_emailed_at ? new Date(s.link_emailed_at).toLocaleDateString() : "—"}</td>
-                                <td className="px-4 py-2 text-xs">
-                                  {s.submitted_at
-                                    ? <span className="text-violet-700 font-medium">{new Date(s.submitted_at).toLocaleDateString()}</span>
-                                    : isCompleted
-                                      ? <span className="text-emerald-600 font-medium">Submitted</span>
-                                      : <span className="text-[#C0CBDA]">Pending</span>}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                      {portalTotal > portalSessions.length && (
-                        <div className="px-4 py-2 text-xs text-[#8A9BB8] text-center border-t border-[#F0EDE6]">Showing {portalSessions.length} of {portalTotal} sessions</div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-              </>
-            )
-          ) : (
-            <div className="p-5 space-y-5">
-              <div>
-                <h2 className="text-xl font-semibold">{session.package_name}</h2>
-                <p className="text-sm text-[#6B7A99]">
-                  {[session.group_name, session.custodian_name, session.depository_name, labelForTransactionScope(session.transaction_scope)].filter(Boolean).join(" · ") || "No additional info"}
-                </p>
-                <p className="text-xs text-[#8A9BB8] mt-1">{answeredFieldCount} of {visibleInterviewFields.length} interview fields answered. Your progress is saved when you click Save Interview.</p>
-              </div>
-              {missingRequiredFields.length > 0 && (
-                <div className="rounded border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                  <div className="font-semibold mb-1">Missing required fields</div>
-                  <div className="flex flex-wrap gap-1">
-                    {missingRequiredFields.map((name) => <span key={name} className="rounded bg-white border border-amber-200 px-2 py-0.5 text-xs">{name}</span>)}
-                  </div>
-                </div>
-              )}
-              <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] p-4">
-                <h3 className="text-sm font-semibold mb-2">Prefilled from Deal Builder</h3>
-                <div className="grid sm:grid-cols-2 gap-2 text-xs text-[#6B7A99]">
-                  {Object.entries(session.prefill ?? {}).filter(([, value]) => String(value ?? "").trim()).map(([key, value]) => (
-                    <div key={key}><span className="font-medium text-[#0F1C3F]">{key}:</span> {getDocuFillPrefillDisplayValue(key, value, session.fields)}</div>
-                  ))}
-                </div>
-              </div>
-              <div className="space-y-3">
-                {visibleInterviewFields.map((field) => {
-                  const mode = field.interviewMode ?? (fieldIsRequired(field) ? "required" : "optional");
-                  const isReadonly = mode === "readonly";
-                  const currentValue = interviewFieldValue(field, answers, session.prefill);
-                  const fieldError = fieldErrors[field.id];
-                  return (
-                  <div key={field.id} className={`block border rounded p-3 ${isReadonly ? "opacity-75" : ""} ${fieldError ? "border-red-400" : ""}`} style={fieldError ? undefined : { borderColor: field.color }}>
-                    <span className="flex items-center justify-between gap-2 text-sm font-medium mb-1">
-                      <span>{field.name}</span>
-                      <span className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${
-                        mode === "required" ? "bg-red-50 text-red-700 border border-red-100"
-                        : mode === "readonly" ? "bg-blue-50 text-blue-700 border border-blue-100"
-                        : "bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8]"
-                      }`}>{mode === "required" ? "Required" : mode === "readonly" ? "Read only" : "Optional"}</span>
-                    </span>
-                    {isReadonly ? (
-                      <div className="px-3 py-2 text-sm bg-[#F8F6F0] rounded border border-[#DDD5C4] text-[#334155]">
-                        {currentValue || <span className="text-[#8A9BB8] italic">—</span>}
-                      </div>
-                    ) : field.type === "dropdown" ? (
-                      <select
-                        data-interview-input
-                        value={currentValue}
-                        onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                        onBlur={(e) => handleInterviewFieldBlur(field, e.target.value)}
-                        className={`w-full border rounded px-3 py-2 ${fieldError ? "border-red-400" : "border-[#D4C9B5]"}`}
-                      >
-                        <option value="">{mode === "required" ? "— select —" : "Select"}</option>
-                        {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
-                      </select>
-                    ) : field.type === "radio" ? (
-                      <div className="space-y-1 pt-1">
-                        {((field.options ?? []).length ? field.options ?? [] : []).map((option) => (
-                          <label key={option} className="flex items-center gap-2 text-sm cursor-pointer">
-                            <input
-                              data-interview-input
-                              type="radio"
-                              name={field.id}
-                              value={option}
-                              checked={currentValue === option}
-                              onChange={() => { setAnswers((prev) => ({ ...prev, [field.id]: option })); handleInterviewFieldBlur(field, option); }}
-                            />
-                            {option}
-                          </label>
-                        ))}
-                        {currentValue && (
-                          <button type="button" onClick={() => { setAnswers((prev) => ({ ...prev, [field.id]: "" })); handleInterviewFieldBlur(field, ""); }} className="text-[11px] text-[#8A9BB8] hover:text-[#334155]">Clear selection</button>
-                        )}
-                      </div>
-                    ) : field.type === "checkbox" ? (
-                      <div className="space-y-1 pt-1">{((field.options ?? []).length ? field.options ?? [] : ["Yes"]).map((option) => {
-                        const parseChecked = (v: string) => v.split(",").map((s) => s.trim()).filter(Boolean);
-                        return (
-                          <label key={option} className="flex items-center gap-2 text-sm cursor-pointer">
-                            <input
-                              data-interview-input
-                              type="checkbox"
-                              checked={parseChecked(currentValue).includes(option)}
-                              onChange={(e) => setAnswers((prev) => {
-                                const existing = parseChecked(interviewFieldValue(field, prev, session.prefill));
-                                const updated = e.target.checked ? [...existing.filter((v) => v !== option), option] : existing.filter((v) => v !== option);
-                                const next = { ...prev, [field.id]: updated.join(", ") };
-                                handleInterviewFieldBlur(field, next[field.id]);
-                                return next;
-                              })}
-                            />
-                            {option}
-                          </label>
-                        );
-                      })}</div>
-                    ) : (
-                      <Input
-                        data-interview-input
-                        type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"}
-                        value={currentValue}
-                        onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                        onBlur={(e) => handleInterviewFieldBlur(field, e.target.value)}
-                        className={fieldError ? "border-red-400 focus-visible:ring-red-300" : ""}
-                      />
-                    )}
-                    {fieldError && <p className="mt-1 text-xs text-red-600">{fieldError}</p>}
-                    {(() => {
-                      const hint = fieldFormatHint(field.validationType, field.validationMessage ?? undefined);
-                      const hasValidValue = currentValue.trim() !== "" && validateFieldValue(field, currentValue) === null;
-                      return hint && !fieldError && !hasValidValue ? (
-                        <p className="mt-1 text-[11px] text-[#8A9BB8]">Format: {hint}</p>
-                      ) : null;
-                    })()}
-                  </div>
-                  );
-                })}
-              </div>
-              <div className="rounded border border-[#DDD5C4] bg-white p-4">
-                <h3 className="text-sm font-semibold mb-2">Preview before send</h3>
-                <div className="grid sm:grid-cols-2 gap-2 text-xs text-[#6B7A99]">
-                  {visibleInterviewFields.map((field) => {
-                    const value = interviewFieldValue(field, answers, session.prefill).trim();
-                    return <div key={field.id}><span className="font-medium text-[#0F1C3F]">{field.name}:</span> {value ? safeInterviewDisplayValue(field, value) : <span className="text-[#B58B2B]">{field.interviewMode === "required" ? "Missing" : "Not provided"}</span>}</div>;
-                  })}
-                </div>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button onClick={() => saveAnswers()} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save Interview"}</Button>
-                <Button onClick={generatePacket} disabled={isSaving || missingRequiredFields.length > 0 || Object.keys(fieldErrors).length > 0} className="disabled:opacity-60">{isSaving ? "Generating…" : "Generate Packet"}</Button>
-                <Button onClick={handleDownloadInterviewCsv} variant="outline" className="text-[#6B7A99] border-[#DDD5C4]">Download CSV</Button>
-                {generatedUrl && (
-                  <button type="button" onClick={downloadGeneratedPacket} disabled={isDownloading} className="text-sm text-[#C49A38] underline disabled:opacity-60">
-                    {isDownloading ? "Downloading…" : "Download packet PDF"}
-                  </button>
-                )}
-                {driveUrl && <a href={driveUrl} target="_blank" rel="noreferrer" className="text-sm text-[#C49A38] underline">Open saved Drive packet</a>}
-              </div>
-              {driveWarnings.length > 0 && <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{driveWarnings.join(" ")}</div>}
-            </div>
-          )}
-        </section>
+        <DocuFillInterviewPanel
+          session={session}
+          isPublicSession={isPublicSession}
+          isSaving={isSaving}
+          activePackages={activePackages}
+          packages={packages}
+          standalonePackageId={standalonePackageId}
+          setStandalonePackageId={setStandalonePackageId}
+          customerLinkPackageId={customerLinkPackageId}
+          setCustomerLinkPackageId={setCustomerLinkPackageId}
+          customerLinkFirstName={customerLinkFirstName}
+          setCustomerLinkFirstName={setCustomerLinkFirstName}
+          customerLinkLastName={customerLinkLastName}
+          setCustomerLinkLastName={setCustomerLinkLastName}
+          customerLinkEmail={customerLinkEmail}
+          setCustomerLinkEmail={setCustomerLinkEmail}
+          isGeneratingLink={isGeneratingLink}
+          generatedCustomerLink={generatedCustomerLink}
+          generatedCustomerLinkToken={generatedCustomerLinkToken}
+          setGeneratedCustomerLink={setGeneratedCustomerLink}
+          setGeneratedCustomerLinkToken={setGeneratedCustomerLinkToken}
+          linkCopied={linkCopied}
+          linkEmailSent={linkEmailSent}
+          setLinkEmailSent={setLinkEmailSent}
+          showSendLinkForm={showSendLinkForm}
+          setShowSendLinkForm={setShowSendLinkForm}
+          showRecipientOverride={showRecipientOverride}
+          setShowRecipientOverride={setShowRecipientOverride}
+          sendLinkEmail={sendLinkEmail}
+          setSendLinkEmail={setSendLinkEmail}
+          sendLinkName={sendLinkName}
+          setSendLinkName={setSendLinkName}
+          sendLinkMessage={sendLinkMessage}
+          setSendLinkMessage={setSendLinkMessage}
+          linkEmailError={linkEmailError}
+          setLinkEmailError={setLinkEmailError}
+          isSendingLink={isSendingLink}
+          interviewSubTab={interviewSubTab}
+          setInterviewSubTab={setInterviewSubTab}
+          portalSessions={portalSessions}
+          portalLoading={portalLoading}
+          portalError={portalError}
+          portalTotal={portalTotal}
+          answers={answers}
+          setAnswers={setAnswers}
+          fieldErrors={fieldErrors}
+          visibleInterviewFields={visibleInterviewFields}
+          missingRequiredFields={missingRequiredFields}
+          answeredFieldCount={answeredFieldCount}
+          generatedUrl={generatedUrl}
+          driveUrl={driveUrl}
+          driveWarnings={driveWarnings}
+          isDownloading={isDownloading}
+          docufillApiPath={docufillApiPath}
+          labelForTransactionScope={labelForTransactionScope}
+          fieldIsRequired={fieldIsRequired}
+          goBuilderStep={stableGoBuilderStep}
+          setTab={setTab}
+          launchStandaloneInterview={launchStandaloneInterview}
+          generateCustomerLink={generateCustomerLink}
+          copyCustomerLink={copyCustomerLink}
+          handleSendLinkByEmail={handleSendLinkByEmail}
+          saveAnswers={saveAnswers}
+          generatePacket={generatePacket}
+          handleDownloadInterviewCsv={handleDownloadInterviewCsv}
+          downloadGeneratedPacket={downloadGeneratedPacket}
+          handleInterviewFieldBlur={handleInterviewFieldBlur}
+        />
       )}
 
       {!isPublicSession && tab === "groups" && (
@@ -5157,1135 +3258,67 @@ export default function DocuFill() {
       )}
 
       {!isPublicSession && tab === "csv" && (
-        <section className="bg-white border border-[#DDD5C4] rounded-lg max-w-4xl mx-auto overflow-hidden">
-          {/* Sub-tab bar */}
-          <div className="flex border-b border-[#DDD5C4]">
-            {(["import", "dashboard"] as const).map((t) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setCsvDashboardTab(t)}
-                className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${
-                  csvDashboardTab === t
-                    ? "border-[#0F1C3F] text-[#0F1C3F]"
-                    : "border-transparent text-[#8A9BB8] hover:text-[#0F1C3F] hover:border-[#DDD5C4]"
-                }`}
-              >
-                {t === "import" ? "Import" : "Batch Dashboard"}
-              </button>
-            ))}
-          </div>
-
-          {/* ── Batch Dashboard ── */}
-          {csvDashboardTab === "dashboard" && (
-            <div className="p-5 space-y-4">
-              <div>
-                <h2 className="text-base font-semibold">Batch Run History</h2>
-                <p className="text-xs text-[#8A9BB8] mt-0.5">All past CSV batch runs. Expand a run to see per-row status and PDF links.</p>
-              </div>
-              {csvDashLoading && (
-                <div className="flex justify-center py-10">
-                  <div className="w-5 h-5 border-2 border-[#0F1C3F] border-t-transparent rounded-full animate-spin" />
-                </div>
-              )}
-              {csvDashError && <div className="text-sm text-red-600">{csvDashError}</div>}
-              {!csvDashLoading && !csvDashError && csvDashBatchRuns.length === 0 && (
-                <div className="text-center py-10 text-sm text-[#8A9BB8]">No batch runs yet — switch to Import to upload your first CSV.</div>
-              )}
-              {!csvDashLoading && csvDashBatchRuns.length > 0 && (
-                <div className="space-y-2">
-                  {csvDashBatchRuns.map((run) => {
-                    const total     = Number(run.total);
-                    const pending   = Number(run.pending);
-                    const completed = Number(run.completed);
-                    const emailed   = Number(run.emailed);
-                    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
-                    const isExpanded = csvDashExpanded === run.batch_run_id;
-                    const rowSessions = csvDashRunSessions[run.batch_run_id] ?? [];
-                    const rowLoading  = csvDashRunLoading[run.batch_run_id] ?? false;
-                    return (
-                      <div key={run.batch_run_id} className="border border-[#DDD5C4] rounded-lg overflow-hidden">
-                        <button
-                          type="button"
-                          className="w-full flex items-center justify-between px-4 py-3 text-left hover:bg-[#F8F6F0] transition-colors"
-                          onClick={() => {
-                            const next = isExpanded ? null : run.batch_run_id;
-                            setCsvDashExpanded(next);
-                            if (next && !csvDashRunSessions[run.batch_run_id]) {
-                              setCsvDashRunLoading((p) => ({ ...p, [run.batch_run_id]: true }));
-                              fetch(`${API_BASE}${docufillApiPath}/batch-runs/${run.batch_run_id}`, { headers: getAuthHeaders() })
-                                .then((r) => r.json())
-                                .then((d: { sessions: typeof rowSessions }) => setCsvDashRunSessions((p) => ({ ...p, [run.batch_run_id]: d.sessions ?? [] })))
-                                .catch(() => {})
-                                .finally(() => setCsvDashRunLoading((p) => ({ ...p, [run.batch_run_id]: false })));
-                            }
-                          }}
-                        >
-                          <div className="flex items-center gap-3 min-w-0">
-                            <svg className={`w-3.5 h-3.5 shrink-0 text-[#8A9BB8] transition-transform ${isExpanded ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                            </svg>
-                            <div className="min-w-0">
-                              <div className="text-sm font-semibold text-[#0F1C3F] truncate">{run.package_name}</div>
-                              <div className="text-xs text-[#8A9BB8]">
-                                {new Date(run.run_started_at).toLocaleString(undefined, { month: "short", day: "numeric", year: "numeric", hour: "numeric", minute: "2-digit" })}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-5 shrink-0 ml-4 text-center">
-                            <div><div className="text-sm font-semibold text-[#0F1C3F]">{total}</div><div className="text-xs text-[#8A9BB8]">Rows</div></div>
-                            <div><div className="text-sm font-semibold text-blue-700">{emailed}</div><div className="text-xs text-[#8A9BB8]">Emailed</div></div>
-                            <div><div className="text-sm font-semibold text-amber-600">{pending}</div><div className="text-xs text-[#8A9BB8]">Pending</div></div>
-                            <div><div className="text-sm font-semibold text-emerald-700">{completed}</div><div className="text-xs text-[#8A9BB8]">Completed</div></div>
-                            <div>
-                              <div className={`text-sm font-bold ${pct >= 75 ? "text-emerald-600" : pct >= 40 ? "text-amber-600" : "text-[#8A9BB8]"}`}>{pct}%</div>
-                              <div className="text-xs text-[#8A9BB8]">Done</div>
-                            </div>
-                          </div>
-                        </button>
-                        {isExpanded && (
-                          <div className="border-t border-[#DDD5C4]">
-                            {rowLoading && (
-                              <div className="flex justify-center py-5">
-                                <div className="w-4 h-4 border-2 border-[#0F1C3F] border-t-transparent rounded-full animate-spin" />
-                              </div>
-                            )}
-                            {!rowLoading && rowSessions.length > 0 && (
-                              <div className="overflow-x-auto">
-                                <table className="min-w-full divide-y divide-[#F0EDE6]">
-                                  <thead className="bg-[#F8F6F0]">
-                                    <tr>
-                                      <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">#</th>
-                                      <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Recipient</th>
-                                      <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Status</th>
-                                      <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">PDF</th>
-                                      <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Emailed</th>
-                                      <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Submitted</th>
-                                    </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-[#F0EDE6] bg-white">
-                                    {rowSessions.map((s, idx) => {
-                                      const recipient = s.signer_name || s.link_email_recipient || "—";
-                                      const statusMap: Record<string, { label: string; cls: string }> = {
-                                        generated: { label: "Generated", cls: "bg-emerald-50 text-emerald-700" },
-                                        draft:     { label: "Pending",   cls: "bg-gray-100 text-gray-500" },
-                                        submitted: { label: "Submitted", cls: "bg-blue-50 text-blue-700" },
-                                        voided:    { label: "Voided",    cls: "bg-red-50 text-red-600" },
-                                      };
-                                      const statusInfo = statusMap[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-500" };
-                                      const pdfUrl = `${API_BASE}${docufillApiPath}/sessions/${s.token}/packet.pdf`;
-                                      return (
-                                        <tr key={s.token} className="hover:bg-[#FAFAF8]">
-                                          <td className="px-4 py-2 text-xs text-[#8A9BB8]">{idx + 1}</td>
-                                          <td className="px-4 py-2 text-sm text-[#0F1C3F] max-w-[200px] truncate" title={recipient}>{recipient}</td>
-                                          <td className="px-4 py-2">
-                                            <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>{statusInfo.label}</span>
-                                          </td>
-                                          <td className="px-4 py-2">
-                                            <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#0F1C3F] underline underline-offset-2 hover:text-[#C49A38]">
-                                              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                              PDF
-                                            </a>
-                                          </td>
-                                          <td className="px-4 py-2 text-xs text-[#8A9BB8]">{s.link_emailed_at ? new Date(s.link_emailed_at).toLocaleDateString() : "—"}</td>
-                                          <td className="px-4 py-2 text-xs">
-                                            {s.submitted_at
-                                              ? <span className="text-violet-700 font-medium">{new Date(s.submitted_at).toLocaleDateString()}</span>
-                                              : (s.status === "generated" || s.status === "signed")
-                                                ? <span className="text-emerald-600 font-medium">Submitted</span>
-                                                : <span className="text-[#C0CBDA]">Pending</span>}
-                                          </td>
-                                        </tr>
-                                      );
-                                    })}
-                                  </tbody>
-                                </table>
-                              </div>
-                            )}
-                            {!rowLoading && rowSessions.length === 0 && (
-                              <div className="text-center py-5 text-sm text-[#8A9BB8]">No sessions found.</div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ── Import tab ── */}
-          {csvDashboardTab === "import" && <div className="p-5 space-y-5">
-          <div>
-            <h2 className="text-lg font-semibold">Batch CSV Import</h2>
-            <p className="text-sm text-[#6B7A99] mt-1">Select a package, upload a filled CSV, and generate one packet per row.</p>
-          </div>
-
-          <div className="space-y-3">
-            <div>
-              <label className="block text-sm font-medium mb-1">Package</label>
-              <select
-                value={csvBatchPackageId}
-                onChange={(e) => {
-                  setCsvBatchPackageId(e.target.value);
-                  setCsvBatchMismatch(false);
-                  setCsvBatchResults(null);
-                  setCsvBatchError(null);
-                  setShowCsvFieldKey(false);
-                  setCsvEditingCell(null);
-                  if (csvCorrectedDownloadedTimerRef.current) {
-                    clearTimeout(csvCorrectedDownloadedTimerRef.current);
-                    csvCorrectedDownloadedTimerRef.current = null;
-                  }
-                  setCsvCorrectedDownloaded(false);
-                  if (csvBatchRows.length > 0 && e.target.value) {
-                    const pkg = packages.find((p) => String(p.id) === e.target.value);
-                    if (pkg) {
-                      const pkgFieldNames = new Set(pkg.fields.filter((f) => f.interviewMode !== "omitted").map((f) => f.name.toLowerCase().trim()));
-                      const hasMatch = csvBatchHeaders.some((h) => {
-                        const n = h.toLowerCase().trim();
-                        return n !== "__package_id__" && n !== "__package_name__" && pkgFieldNames.has(n);
-                      });
-                      setCsvBatchMismatch(!hasMatch);
-                    }
-                  }
-                }}
-                className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-sm bg-white"
-              >
-                <option value="">Select active package</option>
-                {activePackages.map((pkg) => (
-                  <option key={pkg.id} value={pkg.id}>{pkg.name}{pkg.transaction_scope ? ` · ${labelForTransactionScope(pkg.transaction_scope)}` : ""}</option>
-                ))}
-              </select>
-            </div>
-
-            {csvBatchPackageId && (
-              <div className="space-y-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const pkg = packages.find((p) => String(p.id) === csvBatchPackageId);
-                    if (!pkg) return;
-                    const date = new Date().toISOString().slice(0, 10);
-                    const safeName = pkg.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase();
-                    const csv = packageTemplateToCsv(pkg.id, pkg.name, pkg.fields);
-                    downloadCsv(csv, `docuplete-template-${safeName}-${date}.csv`);
-                  }}
-                  className="text-sm text-[#C49A38] underline hover:text-[#b58c31]"
-                >
-                  Download blank template
-                </button>
-
-                {/* Field Reference Key */}
-                {(() => {
-                  const keyFields = [...csvBatchFieldMap.values()];
-                  const selectedPkg = packages.find((p) => String(p.id) === csvBatchPackageId);
-                  return (
-                    <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0]">
-                      <button
-                        type="button"
-                        onClick={() => setShowCsvFieldKey((v) => !v)}
-                        className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-[#0F1C3F] hover:bg-[#EFE8D8] rounded"
-                      >
-                        <span>{showCsvFieldKey ? "▲ Hide field reference" : "▼ Show field reference"} ({keyFields.length} field{keyFields.length === 1 ? "" : "s"})</span>
-                      </button>
-                      {showCsvFieldKey && (
-                        <div className="border-t border-[#DDD5C4] overflow-x-auto">
-                          <table className="text-xs min-w-full">
-                            <tbody>
-                              {selectedPkg && (
-                                <>
-                                  <tr className="bg-[#F0EDE5]">
-                                    <td className="px-3 py-2 text-[#6B7A99] font-medium whitespace-nowrap">Package Name</td>
-                                    <td className="px-3 py-2 text-[#0F1C3F] font-medium" colSpan={3}>{selectedPkg.name}</td>
-                                  </tr>
-                                  <tr className="bg-[#F0EDE5] border-t border-[#DDD5C4]">
-                                    <td className="px-3 py-2 text-[#6B7A99] font-medium whitespace-nowrap">Package ID</td>
-                                    <td className="px-3 py-2 font-mono text-[#0F1C3F]" colSpan={3}>{selectedPkg.id}</td>
-                                  </tr>
-                                  <tr className="bg-[#EFE8D8] border-t-2 border-[#DDD5C4]">
-                                    <td className="px-3 py-2 text-left font-medium text-[#6B7A99] whitespace-nowrap">Field Name (CSV column header)</td>
-                                    <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Required?</td>
-                                    <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Type</td>
-                                    <td className="px-3 py-2 text-left font-medium text-[#6B7A99]">Accepted Values</td>
-                                  </tr>
-                                  <tr className="border-t border-[#DDD5C4]">
-                                    <td colSpan={4} className="px-3 py-1 text-[10px] text-[#6B7A99] uppercase tracking-wide font-medium bg-[#EFE8D8]">Fields</td>
-                                  </tr>
-                                </>
-                              )}
-                              {keyFields.map((f) => (
-                                <tr key={f.id} className="border-t border-[#EFE8D8]">
-                                  <td className="px-3 py-2 font-mono text-[#0F1C3F] whitespace-nowrap">
-                                    {f.name}
-                                    {f.sensitive && <span className="ml-1.5 text-[10px] text-red-600" title="Sensitive field">🔒</span>}
-                                  </td>
-                                  <td className="px-3 py-2 whitespace-nowrap">
-                                    {f.interviewMode === "required"
-                                      ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-red-100 text-red-700">Required</span>
-                                      : f.interviewMode === "readonly"
-                                        ? <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-blue-100 text-blue-700">Read only</span>
-                                        : <span className="inline-block rounded-full px-2 py-0.5 text-[10px] font-medium bg-[#EFE8D8] text-[#6B7A99]">Optional</span>
-                                    }
-                                  </td>
-                                  <td className="px-3 py-2 capitalize text-[#334155]">{f.type}</td>
-                                  <td className="px-3 py-2 text-[#334155]">
-                                    {(f.type === "dropdown" || f.type === "radio" || f.type === "checkbox") && (f.options ?? []).length > 0
-                                      ? <span className="flex flex-wrap gap-1">
-                                          {(f.options ?? []).map((opt) => (
-                                            <span key={opt} className="inline-block rounded bg-white border border-[#D4C9B5] px-1.5 py-0.5 font-mono text-[10px] text-[#0F1C3F]">{opt}</span>
-                                          ))}
-                                        </span>
-                                      : f.type === "date"
-                                        ? <span className="font-mono text-[#6B7A99]">MM/DD/YYYY</span>
-                                        : <span className="text-[#6B7A99]">{validationTypeHint(f.validationType, f.validationMessage)}</span>
-                                    }
-                                  </td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
-          </div>
-
-          <div
-            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${csvBatchFile ? "border-[#C49A38] bg-[#FDFAF4]" : "border-[#D4C9B5] bg-[#F8F6F0]"}`}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => {
-              e.preventDefault();
-              const file = e.dataTransfer.files[0];
-              if (file) handleCsvBatchFileChange(file);
-            }}
-          >
-            <input
-              ref={csvBatchFileInputRef}
-              type="file"
-              accept=".csv"
-              className="hidden"
-              onChange={(e) => handleCsvBatchFileChange(e.target.files?.[0] ?? null)}
-            />
-            {csvBatchFile ? (
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-[#0F1C3F]">{csvBatchFile.name}</p>
-                <p className="text-xs text-[#6B7A99]">{csvBatchRows.length} data row{csvBatchRows.length === 1 ? "" : "s"} · {csvBatchHeaders.length} column{csvBatchHeaders.length === 1 ? "" : "s"}</p>
-                <button type="button" onClick={() => { handleCsvBatchFileChange(null); if (csvBatchFileInputRef.current) csvBatchFileInputRef.current.value = ""; }} className="text-xs text-[#8A9BB8] underline hover:text-[#0F1C3F]">Remove file</button>
-              </div>
-            ) : (
-              <div>
-                <p className="text-sm text-[#6B7A99] mb-2">Drag a CSV file here or</p>
-                <button type="button" onClick={() => csvBatchFileInputRef.current?.click()} className="text-sm text-[#C49A38] underline hover:text-[#b58c31]">Browse to upload</button>
-              </div>
-            )}
-          </div>
-
-          {csvBatchMismatch && (
-            <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              Warning: no column headers in this CSV match field names for the selected package. Please check that you selected the correct package and template.
-            </div>
-          )}
-
-          {csvBatchHeaders.length > 0 && csvBatchRows.length > 0 && (
-            <div>
-              {(() => {
-                const errorRowsAbovePreview = csvBatchRows
-                  .map((row, idx) => ({ row, idx }))
-                  .filter(({ row, idx }) => {
-                    if (idx < 5) return false;
-                    return csvBatchHeaders.some((h) => {
-                      const isMetadata = h === "__package_id__" || h === "__package_name__";
-                      const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
-                      if (!matchedField || isMetadata) return false;
-                      const cellVal = row[h] ?? "";
-                      const validity = validateCellValue(matchedField, cellVal);
-                      return validity === "invalid" || validity === "empty-required";
-                    });
-                  });
-                const previewCount = Math.min(5, csvBatchRows.length);
-                const headingExtra = errorRowsAbovePreview.length > 0
-                  ? ` + ${errorRowsAbovePreview.length} row${errorRowsAbovePreview.length === 1 ? "" : "s"} with errors`
-                  : "";
-                const maxVisibleCols = 8;
-                const hasOverflowCols = csvBatchHeaders.length > maxVisibleCols;
-                const visibleHeaders = csvColumnsExpanded ? csvBatchHeaders : csvBatchHeaders.slice(0, maxVisibleCols);
-                const colCount = visibleHeaders.length + 1 + (hasOverflowCols ? 1 : 0);
-
-                const allDisplayedRows = [
-                  ...csvBatchRows.slice(0, 5).map((row, idx) => ({ row, idx })),
-                  ...errorRowsAbovePreview,
-                ];
-                const allEditableCells: { rowIdx: number; header: string }[] = [];
-                for (const { row, idx } of allDisplayedRows) {
-                  for (const hh of visibleHeaders) {
-                    const isMetadata = hh === "__package_id__" || hh === "__package_name__";
-                    const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(hh.toLowerCase().trim()) : undefined;
-                    const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
-                    const cellVal = row[hh] ?? "";
-                    const validity = matchedField ? validateCellValue(matchedField, cellVal) : "ok";
-                    if (!willSkip && (validity === "invalid" || validity === "empty-required")) {
-                      allEditableCells.push({ rowIdx: idx, header: hh });
-                    }
-                  }
-                }
-
-                const renderBodyRow = (row: Record<string, string>, rowIdx: number, isErrorRow: boolean) => (
-                  <tr key={rowIdx} className={`border-b border-[#EFE8D8] last:border-0${isErrorRow ? " bg-[#FAFAF8]" : ""}`}>
-                    <td className="px-2 py-1 text-[#9AAAC0] font-mono text-[10px] text-right select-none border-r border-[#EFE8D8] whitespace-nowrap">
-                      {rowIdx + 1}
-                    </td>
-                    {visibleHeaders.map((h) => {
-                      const isMetadata = h === "__package_id__" || h === "__package_name__";
-                      const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
-                      const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
-                      const cellVal = row[h] ?? "";
-                      const validity = matchedField ? validateCellValue(matchedField, cellVal) : "ok";
-                      const isEditing = csvEditingCell?.rowIdx === rowIdx && csvEditingCell?.header === h;
-                      const originalCellVal = csvBatchOriginalRows.length > 0 ? (csvBatchOriginalRows[rowIdx]?.[h] ?? "") : cellVal;
-                      const isCellModified = csvBatchOriginalRows.length > 0 && originalCellVal !== cellVal;
-                      const isEditable = !willSkip && (validity === "invalid" || validity === "empty-required" || isCellModified);
-
-                      const revertCell = (e: React.MouseEvent | React.KeyboardEvent) => {
-                        e.stopPropagation();
-                        const newRows = csvBatchRows.map((r, i) => {
-                          if (i !== rowIdx) return r;
-                          return { ...r, [h]: originalCellVal };
-                        });
-                        setCsvBatchRows(newRows);
-                        const stillHasEdits = newRows.some((r, i) => {
-                          const orig = csvBatchOriginalRows[i];
-                          if (!orig) return false;
-                          const allKeys = new Set([...Object.keys(r), ...Object.keys(orig)]);
-                          return [...allKeys].some((k) => (r[k] ?? "") !== (orig[k] ?? ""));
-                        });
-                        setCsvBatchHasEdits(stillHasEdits);
-                        if (csvEditingCell?.rowIdx === rowIdx && csvEditingCell?.header === h) {
-                          setCsvEditingCell(null);
-                        }
-                      };
-
-                      const commitEdit = (newVal: string, navigateDelta = 0) => {
-                        setCsvBatchRows((prev) => {
-                          const updated = [...prev];
-                          updated[rowIdx] = { ...updated[rowIdx], [h]: newVal };
-                          return updated;
-                        });
-                        setCsvBatchHasEdits(true);
-                        if (navigateDelta !== 0 && allEditableCells.length > 0) {
-                          const currentIdx = allEditableCells.findIndex((c) => c.rowIdx === rowIdx && c.header === h);
-                          const fixedThisCell = matchedField
-                            ? (() => { const v = validateCellValue(matchedField, newVal); return v !== "invalid" && v !== "empty-required"; })()
-                            : false;
-                          const len = allEditableCells.length;
-                          let nextCell: { rowIdx: number; header: string } | null = null;
-                          for (let step = 1; step <= len; step++) {
-                            const checkIdx = ((currentIdx + navigateDelta * step) % len + len) % len;
-                            const candidate = allEditableCells[checkIdx];
-                            if (fixedThisCell && candidate.rowIdx === rowIdx && candidate.header === h) continue;
-                            nextCell = candidate;
-                            break;
-                          }
-                          setCsvEditingCell(nextCell);
-                        } else {
-                          setCsvEditingCell(null);
-                        }
-                      };
-
-                      const tdCls = willSkip
-                        ? "px-3 py-1 text-[#9AAAC0] max-w-[200px]"
-                        : validity === "invalid"
-                          ? "px-3 py-1 bg-red-50 text-red-700 max-w-[200px]"
-                          : validity === "empty-required"
-                            ? "px-3 py-1 bg-amber-50 text-amber-700 max-w-[200px]"
-                            : isCellModified
-                              ? "px-3 py-2 bg-blue-50 text-[#334155] max-w-[200px] truncate"
-                              : "px-3 py-2 text-[#334155] max-w-[200px] truncate";
-
-                      if (isEditing) {
-                        const hasOptions = matchedField && (matchedField.type === "dropdown" || matchedField.type === "radio") && (matchedField.options ?? []).length > 0;
-                        return (
-                          <td key={h} className={tdCls}>
-                            {hasOptions ? (
-                              <select
-                                autoFocus
-                                defaultValue={cellVal}
-                                className="w-full text-xs border border-blue-400 rounded px-1 py-0.5 bg-white text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                onChange={(e) => commitEdit(e.target.value)}
-                                onBlur={() => { csvEditNavigatingRef.current = false; }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Tab") { e.preventDefault(); csvEditNavigatingRef.current = true; commitEdit((e.target as HTMLSelectElement).value, e.shiftKey ? -1 : 1); }
-                                  if (e.key === "Enter") { e.preventDefault(); csvEditNavigatingRef.current = true; commitEdit((e.target as HTMLSelectElement).value, 1); }
-                                  if (e.key === "Escape") setCsvEditingCell(null);
-                                }}
-                              >
-                                <option value="">— select —</option>
-                                {(matchedField!.options ?? []).map((opt) => (
-                                  <option key={opt} value={opt}>{opt}</option>
-                                ))}
-                              </select>
-                            ) : (
-                              <input
-                                autoFocus
-                                defaultValue={cellVal}
-                                className="w-full text-xs border border-blue-400 rounded px-1 py-0.5 bg-white text-[#0F1C3F] focus:outline-none focus:ring-1 focus:ring-blue-400"
-                                onBlur={(e) => {
-                                  if (csvEditNavigatingRef.current) { csvEditNavigatingRef.current = false; return; }
-                                  commitEdit(e.target.value);
-                                }}
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") { e.preventDefault(); csvEditNavigatingRef.current = true; commitEdit((e.target as HTMLInputElement).value, 1); }
-                                  if (e.key === "Tab") { e.preventDefault(); csvEditNavigatingRef.current = true; commitEdit((e.target as HTMLInputElement).value, e.shiftKey ? -1 : 1); }
-                                  if (e.key === "Escape") setCsvEditingCell(null);
-                                }}
-                              />
-                            )}
-                          </td>
-                        );
-                      }
-
-                      const cellTitle = validity === "invalid"
-                        ? `Click to edit — invalid value for "${h}"${isCellModified ? ` (original: "${originalCellVal}")` : ""}`
-                        : validity === "empty-required"
-                          ? `Click to edit — "${h}" is required`
-                          : isCellModified
-                            ? `Modified — original value: "${originalCellVal}"`
-                            : willSkip
-                              ? "Column will be skipped"
-                              : undefined;
-
-                      return (
-                        <td
-                          key={h}
-                          className={`${tdCls}${(isEditable || isCellModified) ? " group" : ""}${isEditable ? " cursor-pointer focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-400" : ""}`}
-                          title={cellTitle}
-                          onClick={isEditable ? () => setCsvEditingCell({ rowIdx, header: h }) : undefined}
-                          {...(isEditable ? {
-                            tabIndex: 0,
-                            onKeyDown: (e: React.KeyboardEvent<HTMLTableCellElement>) => {
-                              if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setCsvEditingCell({ rowIdx, header: h }); }
-                              if (e.key === "Tab") {
-                                e.preventDefault();
-                                if (allEditableCells.length > 0) {
-                                  const currentIdx = allEditableCells.findIndex((c) => c.rowIdx === rowIdx && c.header === h);
-                                  const delta = e.shiftKey ? -1 : 1;
-                                  const nextIdx = (currentIdx + delta + allEditableCells.length) % allEditableCells.length;
-                                  setCsvEditingCell(allEditableCells[nextIdx]);
-                                }
-                              }
-                            },
-                          } : {})}
-                        >
-                          <span className="truncate block max-w-[200px]">{cellVal}</span>
-                          {isEditable && (
-                            <span className="ml-1 text-[10px] opacity-60 group-hover:opacity-100">✎</span>
-                          )}
-                          {isCellModified && (
-                            <button
-                              type="button"
-                              title={`Revert this cell to its original value: "${originalCellVal}"`}
-                              aria-label={`Revert "${h}" to original value`}
-                              className="ml-1 text-[10px] opacity-0 group-hover:opacity-100 focus:opacity-100 text-blue-500 hover:text-blue-700 focus:text-blue-700 transition-opacity leading-none focus:outline-none focus:ring-1 focus:ring-blue-400 rounded"
-                              onClick={revertCell}
-                              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); revertCell(e); } }}
-                            >
-                              ↩
-                            </button>
-                          )}
-                        </td>
-                      );
-                    })}
-                    {hasOverflowCols && (
-                      csvColumnsExpanded
-                        ? <td className="px-3 py-2" />
-                        : <td className="px-3 py-2 text-[#8A9BB8]">…</td>
-                    )}
-                  </tr>
-                );
-
-                return (
-                  <>
-                    <h3 className="text-sm font-semibold mb-2">
-                      Preview (first {previewCount} row{previewCount === 1 ? "" : "s"}{headingExtra})
-                    </h3>
-                    <div className="overflow-x-auto rounded border border-[#DDD5C4]">
-                      <table className="text-xs min-w-full">
-                        <thead className="bg-[#F8F6F0] border-b border-[#DDD5C4]">
-                          <tr>
-                            <th className="px-2 py-2 text-left font-medium text-[#9AAAC0] border-r border-[#DDD5C4] w-8">#</th>
-                            {visibleHeaders.map((h) => {
-                        const isMetadata = h === "__package_id__" || h === "__package_name__";
-                        const matchedField = csvBatchPackageId ? csvBatchFieldMap.get(h.toLowerCase().trim()) : undefined;
-                        const willSkip = csvBatchPackageId && !isMetadata && !matchedField;
-                        const fieldIssue = csvBatchValidationSummary?.fieldIssues.find((fi) => fi.label.toLowerCase().trim() === h.toLowerCase().trim());
-                        const invalidCount = fieldIssue?.invalid.length ?? 0;
-                        const emptyRequiredCount = fieldIssue?.emptyRequired.length ?? 0;
-                        const hasIssues = invalidCount > 0 || emptyRequiredCount > 0;
-                        const handleHeaderClick = () => {
-                          if (!hasIssues) return;
-                          setCsvBatchFieldBreakdownOpen(true);
-                          setCsvBreakdownHighlightedField(fieldIssue!.label);
-                          setTimeout(() => {
-                            const row = csvBatchBreakdownRef.current?.querySelector<HTMLElement>(`[data-field="${CSS.escape(fieldIssue!.label)}"]`);
-                            if (row) {
-                              row.scrollIntoView({ behavior: "smooth", block: "nearest" });
-                            }
-                          }, 80);
-                        };
-                        return (
-                          <th
-                            key={h}
-                            className={`px-3 py-2 text-left font-medium whitespace-nowrap ${willSkip ? "text-[#9AAAC0] line-through" : "text-[#6B7A99]"} ${hasIssues ? "cursor-pointer hover:bg-amber-50 select-none focus:outline-none focus:ring-2 focus:ring-amber-400 focus:ring-inset" : ""}`}
-                            {...(hasIssues ? {
-                              role: "button",
-                              tabIndex: 0,
-                              onClick: handleHeaderClick,
-                              onKeyDown: (e: React.KeyboardEvent) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleHeaderClick(); } },
-                            } : {})}
-                          >
-                            <span className="inline-flex items-center gap-1 flex-wrap">
-                              {matchedField ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="cursor-default">{h}</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs">
-                                    {matchedField.type === "date" ? "Format: MM/DD/YYYY" : matchedField.validationType && matchedField.validationType !== "none" ? `Format: ${validationTypeHint(matchedField.validationType, matchedField.validationMessage ?? undefined)}` : matchedField.type === "checkbox" || matchedField.type === "radio" || matchedField.type === "dropdown" ? `Type: ${matchedField.type}${matchedField.options?.length ? ` — options: ${matchedField.options.slice(0, 3).join(", ")}${matchedField.options.length > 3 ? "…" : ""}` : ""}` : "Type: text"}
-                                  </TooltipContent>
-                                </Tooltip>
-                              ) : willSkip ? (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="cursor-default">{h}</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">This column does not match any field in the selected package and will be skipped on import.</TooltipContent>
-                                </Tooltip>
-                              ) : (
-                                <span>{h}</span>
-                              )}
-                              {matchedField?.interviewMode === "required" && !willSkip && (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="text-red-500 font-bold cursor-default">*</span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top">Required field — must have a value for every row</TooltipContent>
-                                </Tooltip>
-                              )}
-                              {invalidCount > 0 && (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="inline-flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold leading-none px-1.5 py-0.5 min-w-[16px] cursor-default">
-                                      {invalidCount}
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs">
-                                    {`Invalid value${invalidCount === 1 ? "" : "s"} in row${fieldIssue!.invalid.length === 1 ? "" : "s"}: ${fieldIssue!.invalid.slice(0, 10).join(", ")}${fieldIssue!.invalid.length > 10 ? ` … +${fieldIssue!.invalid.length - 10} more` : ""}`}
-                                    {matchedField && matchedField.validationType && matchedField.validationType !== "none" ? ` — expected format: ${validationTypeHint(matchedField.validationType, matchedField.validationMessage ?? undefined)}` : ""}
-                                  </TooltipContent>
-                                </Tooltip>
-                              )}
-                              {emptyRequiredCount > 0 && (
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <span className="inline-flex items-center justify-center rounded-full bg-amber-500 text-white text-[9px] font-bold leading-none px-1.5 py-0.5 min-w-[16px] cursor-default">
-                                      {emptyRequiredCount}
-                                    </span>
-                                  </TooltipTrigger>
-                                  <TooltipContent side="top" className="max-w-xs">
-                                    {`Required field is empty in row${fieldIssue!.emptyRequired.length === 1 ? "" : "s"}: ${fieldIssue!.emptyRequired.slice(0, 10).join(", ")}${fieldIssue!.emptyRequired.length > 10 ? ` … +${fieldIssue!.emptyRequired.length - 10} more` : ""}`}
-                                  </TooltipContent>
-                                </Tooltip>
-                              )}
-                            </span>
-                            {matchedField && invalidCount > 0 && autoFixLabel(matchedField) && (
-                              <button
-                                type="button"
-                                className="mt-1 block text-[10px] text-[#C49A38] hover:text-[#b58c31] underline whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-[#C49A38] rounded"
-                                title={`Auto-convert all invalid values in this column to the expected format`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setCsvBatchRows((prev) =>
-                                    prev.map((row) => {
-                                      const val = row[h] ?? "";
-                                      if (validateCellValue(matchedField, val) !== "invalid") return row;
-                                      const fixed = tryAutoFix(matchedField, val);
-                                      return fixed ? { ...row, [h]: fixed } : row;
-                                    })
-                                  );
-                                  setCsvBatchHasEdits(true);
-                                }}
-                              >
-                                {autoFixLabel(matchedField)}
-                              </button>
-                            )}
-                          </th>
-                        );
-                      })}
-                      {hasOverflowCols && (
-                        <th className="px-3 py-2 text-left font-medium">
-                          <button
-                            type="button"
-                            className="text-[#C49A38] hover:text-[#b58c31] underline text-xs whitespace-nowrap focus:outline-none focus:ring-1 focus:ring-[#C49A38] rounded"
-                            onClick={() => setCsvColumnsExpanded((prev) => !prev)}
-                          >
-                            {csvColumnsExpanded ? "← Show less" : `+${csvBatchHeaders.length - maxVisibleCols} more`}
-                          </button>
-                        </th>
-                      )}
-                    </tr>
-                  </thead>
-                        <tbody>
-                          {csvBatchRows.slice(0, 5).map((row, idx) => renderBodyRow(row, idx, false))}
-                          {errorRowsAbovePreview.length > 0 && (
-                            <tr>
-                              <td
-                                colSpan={colCount}
-                                className="px-3 py-1.5 text-[10px] font-semibold text-[#6B7A99] bg-[#F3F0E8] border-t border-b border-[#DDD5C4] tracking-wide"
-                              >
-                                Rows with errors beyond preview
-                              </td>
-                            </tr>
-                          )}
-                          {errorRowsAbovePreview.map(({ row, idx }) => renderBodyRow(row, idx, true))}
-                        </tbody>
-                      </table>
-                    </div>
-                    {csvBatchPackageId && (
-                      <div className="mt-2 flex items-center gap-4 text-[10px] text-[#6B7A99]">
-                        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-red-100 border border-red-200" /> Invalid value <span className="text-[#9AAAC0]">(click to fix)</span></span>
-                        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-amber-100 border border-amber-200" /> Required but empty <span className="text-[#9AAAC0]">(click to fix)</span></span>
-                        <span className="flex items-center gap-1.5"><span className="inline-block w-3 h-3 rounded bg-[#F8F6F0] border border-[#DDD5C4] line-through" /><span className="line-through">Column</span> will be skipped</span>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-            </div>
-          )}
-
-          {csvBatchValidationSummary && (csvBatchValidationSummary.invalidRows.length > 0 || csvBatchValidationSummary.emptyRequiredRows.length > 0) && (
-            <div className="rounded border border-amber-200 bg-amber-50 px-4 py-3 text-sm space-y-2">
-              <p className="font-semibold text-amber-900">
-                Validation issues found across all {csvBatchValidationSummary.total} data row{csvBatchValidationSummary.total === 1 ? "" : "s"}
-              </p>
-              <ul className="space-y-1 text-amber-800 text-xs list-none">
-                {csvBatchValidationSummary.invalidRows.length > 0 && (
-                  <li>
-                    <span className="font-medium">{csvBatchValidationSummary.invalidRows.length} data row{csvBatchValidationSummary.invalidRows.length === 1 ? "" : "s"} with invalid values:</span>{" "}
-                    <span className="font-mono">
-                      {csvBatchValidationSummary.invalidRows.length <= 20
-                        ? csvBatchValidationSummary.invalidRows.join(", ")
-                        : csvBatchValidationSummary.invalidRows.slice(0, 20).join(", ") + ` … +${csvBatchValidationSummary.invalidRows.length - 20} more`}
-                    </span>
-                  </li>
-                )}
-                {csvBatchValidationSummary.emptyRequiredRows.length > 0 && (
-                  <li>
-                    <span className="font-medium">{csvBatchValidationSummary.emptyRequiredRows.length} data row{csvBatchValidationSummary.emptyRequiredRows.length === 1 ? "" : "s"} with empty required fields:</span>{" "}
-                    <span className="font-mono">
-                      {csvBatchValidationSummary.emptyRequiredRows.length <= 20
-                        ? csvBatchValidationSummary.emptyRequiredRows.join(", ")
-                        : csvBatchValidationSummary.emptyRequiredRows.slice(0, 20).join(", ") + ` … +${csvBatchValidationSummary.emptyRequiredRows.length - 20} more`}
-                    </span>
-                  </li>
-                )}
-              </ul>
-              {csvBatchValidationSummary.fieldIssues.length > 0 && (
-                <div>
-                  <button
-                    type="button"
-                    onClick={() => setCsvBatchFieldBreakdownOpen((v) => !v)}
-                    className="flex items-center gap-1 text-[11px] font-medium text-amber-800 hover:text-amber-900 focus:outline-none"
-                  >
-                    <svg className={`w-3 h-3 transition-transform ${csvBatchFieldBreakdownOpen ? "rotate-90" : ""}`} viewBox="0 0 12 12" fill="currentColor">
-                      <path d="M4 2l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                    {csvBatchFieldBreakdownOpen ? "Hide" : "Show"} field-by-field breakdown ({csvBatchValidationSummary.fieldIssues.length} field{csvBatchValidationSummary.fieldIssues.length === 1 ? "" : "s"} affected)
-                  </button>
-                  {csvBatchFieldBreakdownOpen && (
-                    <div ref={csvBatchBreakdownRef} className="mt-2 rounded border border-amber-200 bg-white overflow-hidden">
-                      <table className="w-full text-[11px]">
-                        <thead>
-                          <tr className="bg-amber-100 text-amber-900">
-                            <th className="text-left px-3 py-1.5 font-semibold">Field</th>
-                            <th className="text-left px-3 py-1.5 font-semibold">Issue</th>
-                            <th className="text-left px-3 py-1.5 font-semibold">Rows affected</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {csvBatchValidationSummary.fieldIssues.flatMap((f) => {
-                            const isHighlighted = csvBreakdownHighlightedField === f.label;
-                            const rows: ReactNode[] = [];
-                            if (f.invalid.length > 0) {
-                              rows.push(
-                                <tr key={`${f.label}-invalid`} data-field={f.label} className={`border-t border-amber-100 transition-colors ${isHighlighted ? "bg-amber-100 outline outline-2 outline-amber-400" : ""}`}>
-                                  <td className="px-3 py-1.5 font-medium text-amber-900 align-top">{f.label}</td>
-                                  <td className="px-3 py-1.5 text-red-700 align-top whitespace-nowrap">Invalid value</td>
-                                  <td className="px-3 py-1.5 font-mono text-amber-800 align-top">
-                                    {f.invalid.length <= 20
-                                      ? f.invalid.join(", ")
-                                      : f.invalid.slice(0, 20).join(", ") + ` … +${f.invalid.length - 20} more`}
-                                  </td>
-                                </tr>
-                              );
-                            }
-                            if (f.emptyRequired.length > 0) {
-                              rows.push(
-                                <tr key={`${f.label}-empty`} data-field={f.label} className={`border-t border-amber-100 transition-colors ${isHighlighted ? "bg-amber-100 outline outline-2 outline-amber-400" : ""}`}>
-                                  <td className="px-3 py-1.5 font-medium text-amber-900 align-top">{f.invalid.length > 0 ? "" : f.label}</td>
-                                  <td className="px-3 py-1.5 text-amber-700 align-top whitespace-nowrap">Required but empty</td>
-                                  <td className="px-3 py-1.5 font-mono text-amber-800 align-top">
-                                    {f.emptyRequired.length <= 20
-                                      ? f.emptyRequired.join(", ")
-                                      : f.emptyRequired.slice(0, 20).join(", ") + ` … +${f.emptyRequired.length - 20} more`}
-                                  </td>
-                                </tr>
-                              );
-                            }
-                            return rows;
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              )}
-              <p className="text-[11px] text-amber-700">Row numbers count from 1, not including the header row. Click any highlighted cell in the preview above to fix it inline, or correct your spreadsheet and re-upload.</p>
-            </div>
-          )}
-
-          {csvBatchValidationSummary && csvBatchValidationSummary.invalidRows.length === 0 && csvBatchValidationSummary.emptyRequiredRows.length === 0 && (
-            <div className="rounded border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
-              All {csvBatchValidationSummary.total} row{csvBatchValidationSummary.total === 1 ? "" : "s"} passed validation.
-            </div>
-          )}
-
-          {csvBatchError && (
-            <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">{csvBatchError}</div>
-          )}
-
-          {csvBatchRows.length > CSV_BATCH_MAX && (
-            <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
-              This file has {csvBatchRows.length} rows — the limit is {CSV_BATCH_MAX} per batch. Please split the file and upload separately.
-            </div>
-          )}
-
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button
-              onClick={() => handleCsvBatchImport()}
-              disabled={!csvBatchPackageId || csvBatchRows.length === 0 || csvBatchIsImporting || csvBatchRows.length > CSV_BATCH_MAX}
-              className="disabled:opacity-60"
-            >
-              {csvBatchIsImporting ? "Importing…" : `Import & Generate ${csvBatchRows.length > 0 ? csvBatchRows.length : ""} row${csvBatchRows.length === 1 ? "" : "s"}`}
-            </Button>
-            {csvBatchHasEdits && csvBatchRows.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const q = (v: string) => /[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-                  const lines = [
-                    csvBatchHeaders.map(q).join(","),
-                    ...csvBatchRows.map((row) => csvBatchHeaders.map((h) => q(row[h] ?? "")).join(",")),
-                  ];
-                  const dateStr = new Date().toISOString().slice(0, 10);
-                  const baseName = csvBatchFile?.name.replace(/\.csv$/i, "") ?? "corrected";
-                  downloadCsv(lines.join("\n"), `${baseName}-corrected-${dateStr}.csv`);
-                  if (csvCorrectedDownloadedTimerRef.current) clearTimeout(csvCorrectedDownloadedTimerRef.current);
-                  setCsvCorrectedDownloaded(true);
-                  csvCorrectedDownloadedTimerRef.current = setTimeout(() => setCsvCorrectedDownloaded(false), 2000);
-                }}
-                className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
-              >
-                {csvCorrectedDownloaded ? (
-                  <span className="flex items-center gap-1.5">
-                    <svg className="w-3.5 h-3.5 text-green-600" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M2 7l3.5 3.5L12 3" />
-                    </svg>
-                    <span className="text-green-700">Downloaded!</span>
-                  </span>
-                ) : (
-                  "Download corrected CSV"
-                )}
-              </Button>
-            )}
-            {csvBatchHasEdits && csvBatchRows.length > 0 && csvBatchOriginalRows.length > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (!window.confirm("Discard all inline edits and restore the original uploaded data?")) return;
-                  setCsvBatchRows(csvBatchOriginalRows.map((r) => ({ ...r })));
-                  setCsvBatchHasEdits(false);
-                  setCsvEditingCell(null);
-                  if (csvCorrectedDownloadedTimerRef.current) {
-                    clearTimeout(csvCorrectedDownloadedTimerRef.current);
-                    csvCorrectedDownloadedTimerRef.current = null;
-                  }
-                  setCsvCorrectedDownloaded(false);
-                }}
-                className="border-red-200 text-red-700 hover:bg-red-50"
-              >
-                Discard edits
-              </Button>
-            )}
-            {csvBatchHasEdits && csvBatchOriginalRows.length > 0 && (() => {
-              const count = csvBatchRows.reduce((total, row, rowIdx) => {
-                const orig = csvBatchOriginalRows[rowIdx];
-                if (!orig) return total;
-                return total + csvBatchHeaders.filter((h) => (orig[h] ?? "") !== (row[h] ?? "")).length;
-              }, 0);
-              return count > 0 ? (
-                <span className="text-xs text-[#6B7A99]">{count} cell{count === 1 ? "" : "s"} edited</span>
-              ) : null;
-            })()}
-            {csvBatchIsImporting && <span className="text-xs text-[#6B7A99]">Processing rows sequentially, please wait…</span>}
-          </div>
-
-          {csvBatchResults && (
-            <div>
-              <h3 className="text-sm font-semibold mb-2">
-                {csvBatchIsImporting
-                  ? `Processing ${csvBatchResults.length} row${csvBatchResults.length === 1 ? "" : "s"}…`
-                  : `Results — ${csvBatchResults.filter((r) => r.status === "created").length} created · ${csvBatchResults.filter((r) => r.status === "error").length} failed`
-                }
-              </h3>
-              <div className="overflow-x-auto rounded border border-[#DDD5C4]">
-                <table className="text-xs min-w-full">
-                  <thead className="bg-[#F8F6F0] border-b border-[#DDD5C4]">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Row #</th>
-                      <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Status</th>
-                      <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Token</th>
-                      <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Session</th>
-                      <th className="px-3 py-2 text-left font-medium text-[#6B7A99]">Error</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {csvBatchResults.map((result) => (
-                      <tr key={result.rowIndex} className="border-b border-[#EFE8D8] last:border-0">
-                        <td className="px-3 py-2 text-[#334155]">{result.rowIndex + 1}</td>
-                        <td className="px-3 py-2">
-                          {result.status === "processing"
-                            ? <span className="flex items-center gap-1.5 text-[#6B7A99]"><span className="inline-block w-3 h-3 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />Processing</span>
-                            : result.status === "created"
-                              ? <span className="text-green-700 font-medium">Created</span>
-                              : <span className="text-red-700 font-medium">Error</span>
-                          }
-                        </td>
-                        <td className="px-3 py-2 text-[#6B7A99] font-mono text-[10px] max-w-[160px] truncate">{result.token ?? "—"}</td>
-                        <td className="px-3 py-2">
-                          {result.status === "created" && result.token
-                            ? <a href={`/internal/docufill?session=${result.token}`} target="_blank" rel="noreferrer" className="text-[#C49A38] underline">Open session</a>
-                            : <span className="text-[#8A9BB8]">—</span>
-                          }
-                        </td>
-                        <td className="px-3 py-2 text-red-700 max-w-[300px] truncate">{result.error ?? ""}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              {!csvBatchIsImporting && (() => {
-                const generatedResults = csvBatchResults!.filter((r) => r.status === "created" && r.token);
-                const csvEmailHeader = csvBatchHeaders.find((h) => {
-                  const f = csvBatchFieldMap.get(h.toLowerCase().trim());
-                  return f && (f.validationType === "email" || h.toLowerCase().trim() === "email");
-                });
-                const csvNameHeader = csvBatchHeaders.find((h) => {
-                  const f = csvBatchFieldMap.get(h.toLowerCase().trim());
-                  return f && (f.validationType === "name" || h.toLowerCase().trim() === "name" || h.toLowerCase().trim().includes("full name"));
-                });
-                const inviteableRows = csvEmailHeader
-                  ? generatedResults.filter((r) => (csvBatchRows[r.rowIndex]?.[csvEmailHeader!] ?? "").trim() !== "")
-                  : [];
-                const sentCount = Object.values(csvInviteResults).filter((r) => r.status === "sent").length;
-                const errCount  = Object.values(csvInviteResults).filter((r) => r.status === "error").length;
-                const failedTokenSet = new Set(
-                  Object.entries(csvInviteResults).filter(([, v]) => v.status === "error").map(([k]) => k),
-                );
-                const retryableRows = inviteableRows.filter((r) => r.token && failedTokenSet.has(r.token!));
-
-                return (
-                  <>
-                    {generatedResults.length > 0 && (
-                      <div className="mt-4 border border-[#DDD5C4] rounded bg-[#F8F6F0]">
-                        <button
-                          type="button"
-                          className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-[#0F1C3F] hover:bg-[#EFE8D8] rounded"
-                          onClick={() => setCsvInviteOpen((v) => !v)}
-                        >
-                          <span>📨 Send interview invitations</span>
-                          <span className="text-[#6B7A99] text-xs">
-                            {Object.keys(csvInviteResults).length > 0
-                              ? `${sentCount} sent · ${errCount} failed`
-                              : csvEmailHeader
-                                ? `${inviteableRows.length} of ${generatedResults.length} rows have an email`
-                                : "No email column detected"
-                            }
-                          </span>
-                        </button>
-                        {csvInviteOpen && (
-                          <div className="border-t border-[#DDD5C4] px-4 py-3 space-y-3">
-                            {!csvEmailHeader ? (
-                              <p className="text-xs text-[#6B7A99]">No email field found in this CSV. Make sure your package has a field with email validation and that column is present in the uploaded file.</p>
-                            ) : (
-                              <>
-                                <p className="text-xs text-[#6B7A99]">
-                                  Each client will receive their personal interview link at the address in the <span className="font-mono text-[#0F1C3F]">{csvEmailHeader}</span> column.
-                                  {csvNameHeader && <> Their name will be taken from <span className="font-mono text-[#0F1C3F]">{csvNameHeader}</span>.</>}
-                                </p>
-                                <div>
-                                  <label className="block text-xs font-medium text-[#6B7A99] mb-1">Custom message (optional)</label>
-                                  <textarea
-                                    rows={2}
-                                    className="w-full border border-[#D4C9B5] rounded px-3 py-2 text-xs bg-white resize-none focus:outline-none focus:ring-1 focus:ring-[#C49A38]"
-                                    placeholder="Add a personal note to include in the email…"
-                                    value={csvInviteMessage}
-                                    onChange={(e) => setCsvInviteMessage(e.target.value)}
-                                    disabled={csvInviteSending}
-                                  />
-                                </div>
-                                <div className="flex items-center gap-3 flex-wrap">
-                                  <Button
-                                    size="sm"
-                                    disabled={csvInviteSending || inviteableRows.length === 0}
-                                    onClick={async () => {
-                                      if (!csvEmailHeader) return;
-                                      setCsvInviteSending(true);
-                                      const invitations = inviteableRows.map((r) => ({
-                                        token: r.token!,
-                                        recipientEmail: (csvBatchRows[r.rowIndex]?.[csvEmailHeader!] ?? "").trim(),
-                                        recipientName: csvNameHeader ? (csvBatchRows[r.rowIndex]?.[csvNameHeader] ?? "").trim() : "",
-                                      }));
-                                      try {
-                                        const res = await fetch(`${API_BASE}${docufillApiPath}/batch/send-links`, {
-                                          method: "POST",
-                                          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-                                          body: JSON.stringify({ invitations, customMessage: csvInviteMessage || null }),
-                                        });
-                                        const data = await res.json();
-                                        if (!res.ok) throw new Error(data.error ?? "Failed to send invitations");
-                                        const resultMap: typeof csvInviteResults = {};
-                                        for (const r of (data.results as Array<{ token: string; status: "sent" | "error"; sentTo?: string; error?: string }>)) {
-                                          resultMap[r.token] = { status: r.status, sentTo: r.sentTo, error: r.error };
-                                        }
-                                        setCsvInviteResults(resultMap);
-                                      } catch (err) {
-                                        console.error("[Batch invite]", err);
-                                      } finally {
-                                        setCsvInviteSending(false);
-                                      }
-                                    }}
-                                    
-                                  >
-                                    {csvInviteSending
-                                      ? "Sending…"
-                                      : `Send ${inviteableRows.length} invitation${inviteableRows.length === 1 ? "" : "s"}`
-                                    }
-                                  </Button>
-                                  {sentCount > 0 && <span className="text-xs text-green-700">{sentCount} sent</span>}
-                                  {errCount  > 0 && (
-                                    <span className="text-xs text-red-600 flex items-center gap-2">
-                                      {errCount} failed
-                                      <button
-                                        type="button"
-                                        disabled={csvInviteSending || retryableRows.length === 0}
-                                        onClick={async () => {
-                                          if (!csvEmailHeader) return;
-                                          setCsvInviteSending(true);
-                                          const retryInvitations = retryableRows.map((r) => ({
-                                            token: r.token!,
-                                            recipientEmail: (csvBatchRows[r.rowIndex]?.[csvEmailHeader!] ?? "").trim(),
-                                            recipientName: csvNameHeader ? (csvBatchRows[r.rowIndex]?.[csvNameHeader] ?? "").trim() : "",
-                                          }));
-                                          try {
-                                            const res = await fetch(`${API_BASE}${docufillApiPath}/batch/send-links`, {
-                                              method: "POST",
-                                              headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-                                              body: JSON.stringify({ invitations: retryInvitations, customMessage: csvInviteMessage || null }),
-                                            });
-                                            const data = await res.json();
-                                            if (!res.ok) throw new Error(data.error ?? "Failed to retry");
-                                            const retryResultMap: typeof csvInviteResults = { ...csvInviteResults };
-                                            for (const r of (data.results as Array<{ token: string; status: "sent" | "error"; sentTo?: string; error?: string }>)) {
-                                              retryResultMap[r.token] = { status: r.status, sentTo: r.sentTo, error: r.error };
-                                            }
-                                            setCsvInviteResults(retryResultMap);
-                                          } catch (err) {
-                                            console.error("[Batch invite retry]", err);
-                                          } finally {
-                                            setCsvInviteSending(false);
-                                          }
-                                        }}
-                                        className="text-xs font-medium text-red-700 underline underline-offset-2 hover:text-red-900 disabled:opacity-40 disabled:no-underline"
-                                      >
-                                        {csvInviteSending ? "Retrying…" : `Retry ${retryableRows.length}`}
-                                      </button>
-                                    </span>
-                                  )}
-                                </div>
-                                {errCount > 0 && Object.entries(csvInviteResults).some(([, v]) => v.status === "error" && v.error) && (
-                                  <div className="mt-1 space-y-0.5">
-                                    {Object.entries(csvInviteResults)
-                                      .filter(([, v]) => v.status === "error" && v.error)
-                                      .map(([token, v]) => {
-                                        const row = inviteableRows.find((r) => r.token === token);
-                                        const email = row && csvEmailHeader ? (csvBatchRows[row.rowIndex]?.[csvEmailHeader] ?? "") : token.slice(0, 12) + "…";
-                                        return (
-                                          <p key={token} className="text-xs text-red-600">
-                                            <span className="font-medium">{email}</span>: {v.error}
-                                          </p>
-                                        );
-                                      })}
-                                  </div>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {(() => {
-                      const failedRows = (csvBatchResults ?? []).filter((r) => r.status === "error").map((r) => r.rowIndex);
-                      return (
-                        <div className="mt-3 flex items-center gap-2 flex-wrap justify-end">
-                          {failedRows.length > 0 && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={csvBatchIsImporting}
-                              onClick={() => handleCsvBatchImport(failedRows)}
-                              className="border-amber-300 text-amber-800 hover:bg-amber-50"
-                            >
-                              {csvBatchIsImporting ? "Retrying…" : `↺ Retry ${failedRows.length} failed row${failedRows.length === 1 ? "" : "s"}`}
-                            </Button>
-                          )}
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              const dateStr = new Date().toISOString().slice(0, 10);
-                              downloadCsv(batchResultsToCsv(csvBatchResults, API_BASE, csvBatchHeaders, csvBatchRows), `docuplete-batch-results-${dateStr}.csv`);
-                            }}
-                            className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
-                          >
-                            Download Results CSV
-                          </Button>
-                        </div>
-                      );
-                    })()}
-                  </>
-                );
-              })()}
-            </div>
-          )}
-          </div>}
-        </section>
+        <DocuFillCsvPanel
+          packages={packages}
+          activePackages={activePackages}
+          csvDashboardTab={csvDashboardTab}
+          setCsvDashboardTab={setCsvDashboardTab}
+          csvDashLoading={csvDashLoading}
+          csvDashError={csvDashError}
+          csvDashBatchRuns={csvDashBatchRuns}
+          csvDashExpanded={csvDashExpanded}
+          setCsvDashExpanded={setCsvDashExpanded}
+          csvDashRunSessions={csvDashRunSessions}
+          setCsvDashRunSessions={setCsvDashRunSessions}
+          csvDashRunLoading={csvDashRunLoading}
+          setCsvDashRunLoading={setCsvDashRunLoading}
+          csvBatchPackageId={csvBatchPackageId}
+          setCsvBatchPackageId={setCsvBatchPackageId}
+          csvBatchFieldMap={csvBatchFieldMap}
+          csvBatchValidationSummary={csvBatchValidationSummary}
+          csvBatchFile={csvBatchFile}
+          csvBatchHeaders={csvBatchHeaders}
+          csvBatchRows={csvBatchRows}
+          setCsvBatchRows={setCsvBatchRows}
+          csvBatchOriginalRows={csvBatchOriginalRows}
+          csvBatchHasEdits={csvBatchHasEdits}
+          setCsvBatchHasEdits={setCsvBatchHasEdits}
+          csvBatchMismatch={csvBatchMismatch}
+          setCsvBatchMismatch={setCsvBatchMismatch}
+          csvBatchError={csvBatchError}
+          setCsvBatchError={setCsvBatchError}
+          csvBatchResults={csvBatchResults}
+          csvBatchIsImporting={csvBatchIsImporting}
+          csvEditingCell={csvEditingCell}
+          setCsvEditingCell={setCsvEditingCell}
+          csvEditNavigatingRef={csvEditNavigatingRef}
+          csvBatchFileInputRef={csvBatchFileInputRef}
+          csvBatchBreakdownRef={csvBatchBreakdownRef}
+          csvCorrectedDownloadedTimerRef={csvCorrectedDownloadedTimerRef}
+          csvColumnsExpanded={csvColumnsExpanded}
+          setCsvColumnsExpanded={setCsvColumnsExpanded}
+          csvBatchFieldBreakdownOpen={csvBatchFieldBreakdownOpen}
+          setCsvBatchFieldBreakdownOpen={setCsvBatchFieldBreakdownOpen}
+          csvBreakdownHighlightedField={csvBreakdownHighlightedField}
+          setCsvBreakdownHighlightedField={setCsvBreakdownHighlightedField}
+          csvCorrectedDownloaded={csvCorrectedDownloaded}
+          setCsvCorrectedDownloaded={setCsvCorrectedDownloaded}
+          showCsvFieldKey={showCsvFieldKey}
+          setShowCsvFieldKey={setShowCsvFieldKey}
+          csvInviteOpen={csvInviteOpen}
+          setCsvInviteOpen={setCsvInviteOpen}
+          csvInviteMessage={csvInviteMessage}
+          setCsvInviteMessage={setCsvInviteMessage}
+          csvInviteSending={csvInviteSending}
+          setCsvInviteSending={setCsvInviteSending}
+          csvInviteResults={csvInviteResults}
+          setCsvInviteResults={setCsvInviteResults}
+          labelForTransactionScope={labelForTransactionScope}
+          getAuthHeaders={getAuthHeaders}
+          docufillApiPath={docufillApiPath}
+          handleCsvBatchFileChange={handleCsvBatchFileChange}
+          handleCsvBatchImport={handleCsvBatchImport}
+        />
       )}
 
       {inspectorMode === "modal" && placementModal && selectedPackage && (() => {
