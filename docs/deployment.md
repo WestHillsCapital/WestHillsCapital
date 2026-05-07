@@ -40,6 +40,26 @@ Before deploying a new version:
 
 ---
 
+## Dependency vulnerability status (SOC 2 CC7.1)
+
+Run `pnpm run audit` (alias for `pnpm audit --audit-level=high`) before every deployment. It is also the first step of the automated `build` script. The command exits 0 when no high/critical vulnerabilities are present.
+
+### Current findings — as of May 2026 (all low/moderate, no blocking issues)
+
+| Severity | Package | Finding | Location | Risk acceptance |
+|---|---|---|---|---|
+| LOW | `tmp` | Symlink arbitrary write via `dir` param | `zapier-platform-cli` transitive (dev/tooling) | No production code path; dev tooling only |
+| LOW | `diff` (jsdiff) | DoS in `parsePatch` / `applyPatch` | `zapier-platform-cli` transitive (dev/tooling) | No production code path; dev tooling only |
+| LOW | `@tootallnate/once` | Incorrect control flow scoping | `@google-cloud/storage` transitive | Resolved when GCS client releases an update |
+| MODERATE | `brace-expansion` | Zero-step sequence causes ReDoS/memory hang | `archiver` transitive | Not reachable from untrusted input in current use; will be resolved by upstream update |
+| MODERATE | `yaml` | Stack overflow on deeply nested YAML | `knip` dev-only transitive | Dev tool only; no production exposure |
+| MODERATE | `postcss` | XSS via unescaped `</style>` in CSS stringify | `vite` transitive | Build-time only; no runtime exposure |
+| MODERATE | `ip-address` | XSS in `Address6` HTML-emitting methods | `geoip-lite` + MCP SDK transitive | HTML-emitting methods not called in our code |
+
+All findings are in transitive dependencies. Dependabot is configured to open automatic update PRs when parent packages release fixes.
+
+---
+
 ## Environment variables in production
 
 Production secrets are set in Replit's Secrets panel (same panel as development). Both environments share the same secret store.
