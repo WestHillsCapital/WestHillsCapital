@@ -630,7 +630,7 @@ export default function DocuFill() {
   const [csvDashRunSessions, setCsvDashRunSessions] = useState<Record<string, Array<{ token: string; status: string; submitted_at: string | null; link_emailed_at: string | null; link_email_recipient: string | null; signer_name: string | null }>>>({});
   const [csvDashRunLoading, setCsvDashRunLoading] = useState<Record<string, boolean>>({});
   const [interviewSubTab, setInterviewSubTab] = useState<"interviews" | "dashboard">("interviews");
-  type PortalSession = { token: string; package_id: number; package_name: string; status: string; source: string; created_at: string; signer_name: string | null; signer_email: string | null; signed_at: string | null; submitted_at: string | null; link_emailed_at: string | null; link_email_recipient: string | null; };
+  type PortalSession = { token: string; package_id: number; package_name: string; status: string; source: string; created_at: string; signer_name: string | null; signer_email: string | null; signed_at: string | null; submitted_at: string | null; link_emailed_at: string | null; link_email_recipient: string | null; signing_scroll_required: boolean | null; signing_scroll_confirmed_at: string | null; };
   const [portalSessions, setPortalSessions] = useState<PortalSession[]>([]);
   const [portalLoading, setPortalLoading] = useState(false);
   const [portalError, setPortalError] = useState<string | null>(null);

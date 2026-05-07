@@ -73,6 +73,8 @@ type PortalSession = {
   link_emailed_at?: string | null;
   submitted_at?: string | null;
   status: string;
+  signing_scroll_required?: boolean | null;
+  signing_scroll_confirmed_at?: string | null;
 };
 
 export interface DocuFillInterviewPanelProps {
@@ -398,12 +400,29 @@ export const DocuFillInterviewPanel = React.memo(function DocuFillInterviewPanel
                         const statusInfo = statusMap[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-500" };
                         const pdfUrl = `${API_BASE}${docufillApiPath}/sessions/${s.token}/packet.pdf`;
                         const isCompleted = s.status === "generated" || s.status === "signed";
+                        const signingScrollRequired = s.signing_scroll_required === true;
+                        const signingScrollConfirmed = signingScrollRequired && Boolean(s.signing_scroll_confirmed_at);
+                        const isTerminal = s.status === "generated" || s.status === "signed" || s.status === "voided";
                         return (
                           <tr key={s.token} className="hover:bg-[#FAFAF8]">
                             <td className="px-4 py-2 text-xs text-[#0F1C3F] max-w-[160px] truncate" title={s.package_name}>{s.package_name}</td>
                             <td className="px-4 py-2 text-sm text-[#0F1C3F] max-w-[180px] truncate" title={recipient}>{recipient}</td>
                             <td className="px-4 py-2">
-                              <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>{statusInfo.label}</span>
+                              <div className="flex flex-col gap-1 items-start">
+                                <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>{statusInfo.label}</span>
+                                {signingScrollRequired && signingScrollConfirmed && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                                    Scroll confirmed
+                                  </span>
+                                )}
+                                {signingScrollRequired && !signingScrollConfirmed && isTerminal && (
+                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-100">
+                                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                                    Scroll not confirmed
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td className="px-4 py-2">
                               {isCompleted ? (

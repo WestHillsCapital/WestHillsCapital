@@ -3572,9 +3572,18 @@ router.get("/sessions/portal-list", async (req, res) => {
                 s.link_email_recipient,
                 s.voided_at, s.voided_reason,
                 s.batch_run_id,
-                p.name AS package_name
+                p.name AS package_name,
+                (signing_evt.metadata->>'scrollConfirmationRequired')::boolean AS signing_scroll_required,
+                signing_evt.metadata->>'scrollConfirmedAt' AS signing_scroll_confirmed_at
            FROM docufill_interview_sessions s
            JOIN docufill_packages p ON p.id = s.package_id
+           LEFT JOIN LATERAL (
+             SELECT metadata
+               FROM docufill_signing_events
+              WHERE session_token = s.token AND event_type = 'signed'
+              ORDER BY id DESC
+              LIMIT 1
+           ) signing_evt ON true
           WHERE ${where}
           ORDER BY s.updated_at DESC, s.id DESC
           LIMIT $${(params.push(limit), params.length)} OFFSET $${(params.push(offset), params.length)}`,
