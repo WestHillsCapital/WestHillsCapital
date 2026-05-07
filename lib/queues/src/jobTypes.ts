@@ -18,7 +18,8 @@ export type PingJobPayload = z.infer<typeof PingJobPayloadSchema>;
 
 export const GeneratePdfJobPayloadSchema = z.object({
   sessionToken: z.string(),
-  type: z.enum(["packet", "signed"]),
+  type: z.enum(["packet", "signed", "preview"]),
+  accountId: z.string().nullable().optional(),
   esignEmail: z.string().nullable().optional(),
   esignSignerName: z.string().nullable().optional(),
   esignSignatureImage: z.string().nullable().optional(),

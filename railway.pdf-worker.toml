@@ -1,0 +1,24 @@
+# Railway service definition for the PDF generation worker.
+# The PDF worker uses the api-server's dedicated worker entry point (src/worker.ts)
+# which has access to all PDF-building helpers without requiring a shared-lib extraction.
+# In Railway: create a second service in the same project pointing to this repo
+# and set the config path to "railway.pdf-worker.toml".
+#
+# Required environment variables (copy from the API server service):
+#   REDIS_URL             — Railway Redis plugin URL
+#   DATABASE_URL          — Same database as the API server
+#   SENTRY_DSN            — Same as the API server
+#   NODE_ENV              — "production"
+#   ENCRYPTION_MASTER_KEY — Same as the API server
+#   PRIVATE_OBJECT_DIR    — Or GCS credentials (for preview PDF storage)
+#   GOOGLE_DRIVE_DEALS_FOLDER_ID — (optional) for Drive uploads
+#   GOOGLE_SERVICE_ACCOUNT_JSON  — (optional) for Drive/GCS
+
+[build]
+builder = "nixpacks"
+buildCommand = "pnpm --filter @workspace/api-server build"
+
+[deploy]
+startCommand = "node --enable-source-maps ./artifacts/api-server/dist/worker.mjs"
+healthcheckPath = ""
+restartPolicyType = "on_failure"

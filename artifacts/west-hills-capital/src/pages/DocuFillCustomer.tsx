@@ -382,7 +382,36 @@ export default function DocuFillCustomer() {
           const d = await resp.json().catch(() => ({}));
           throw new Error((d as { error?: string }).error ?? "Failed to load preview");
         }
-        const blob = await resp.blob();
+        // Async path: server returned 202 with a jobId — poll until ready, then download
+        let blob: Blob;
+        if (resp.status === 202) {
+          const { jobId } = await resp.json() as { jobId: string };
+          const POLL_INTERVAL = 1500;
+          const MAX_POLLS = 60; // up to ~90 s
+          let downloadUrl: string | null = null;
+          for (let i = 0; i < MAX_POLLS; i++) {
+            await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL));
+            const sr = await fetch(
+              `${SESSION_BASE}/${token}/preview-pdf/status?jobId=${encodeURIComponent(jobId)}`,
+            );
+            if (!sr.ok) continue;
+            const sd = await sr.json() as { status: string; downloadUrl?: string; error?: string };
+            if (sd.status === "ready" && sd.downloadUrl) {
+              downloadUrl = sd.downloadUrl;
+              break;
+            }
+            if (sd.status === "failed") {
+              throw new Error(sd.error ?? "Preview generation failed. Please try again.");
+            }
+          }
+          if (!downloadUrl) throw new Error("Preview is taking too long to load. Please try again.");
+          const dlResp = await fetch(`${API_BASE}${downloadUrl}`);
+          if (!dlResp.ok) throw new Error("Failed to download preview");
+          blob = await dlResp.blob();
+        } else {
+          // Synchronous fallback (queue disabled or connectivity fallback)
+          blob = await resp.blob();
+        }
         const url = URL.createObjectURL(blob);
         setPreviewObjectUrl(url);
         // When scroll confirmation is required, also render all pages via pdfjs
