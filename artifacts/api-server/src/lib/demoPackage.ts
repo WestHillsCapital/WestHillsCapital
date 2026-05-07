@@ -50,9 +50,10 @@ const H3_PCT = 3;                                        // 3 % ≈ 24 pt  (one 
 
 /** Build the demo PDF. */
 export async function buildDemoPdf(): Promise<{ bytes: Uint8Array; pageSizes: Array<{ width: number; height: number }> }> {
-  const doc  = await PDFDocument.create();
-  const bold = await doc.embedFont(StandardFonts.HelveticaBold);
-  const reg  = await doc.embedFont(StandardFonts.Helvetica);
+  const doc    = await PDFDocument.create();
+  const bold   = await doc.embedFont(StandardFonts.HelveticaBold);
+  const reg    = await doc.embedFont(StandardFonts.Helvetica);
+  const italic = await doc.embedFont(StandardFonts.HelveticaOblique);
 
   const page = doc.addPage([W, H]);
   const gray  = rgb(0.4, 0.4, 0.4);
@@ -60,7 +61,6 @@ export async function buildDemoPdf(): Promise<{ bytes: Uint8Array; pageSizes: Ar
   const amber = rgb(0.6, 0.4, 0.1);
   const navy  = rgb(0.07, 0.11, 0.25);
   const line  = rgb(0.75, 0.75, 0.75);
-  const light = rgb(0.94, 0.94, 0.94);
 
   // Header
   page.drawText("Client Information Form", { x: 50, y: H - 60, size: 22, font: bold, color: dark });
@@ -82,6 +82,36 @@ export async function buildDemoPdf(): Promise<{ bytes: Uint8Array; pageSizes: Ar
     page.drawText(row.label, { x: 50, y: row.y + 14, size: 9, font: reg, color: gray });
     page.drawLine({ start: { x: 50, y: row.y }, end: { x: W - 50, y: row.y }, thickness: 0.5, color: line });
   }
+
+  // ── E-sign section ───────────────────────────────────────────────────────────
+  // Separator
+  const SEP_Y = 212;
+  page.drawLine({ start: { x: 50, y: SEP_Y }, end: { x: W - 50, y: SEP_Y }, thickness: 0.5, color: line });
+
+  // Section heading
+  page.drawText("ELECTRONIC SIGNATURE", { x: 50, y: 198, size: 7, font: reg, color: gray });
+
+  // Signature box (outline only — field is not captured in the sandbox demo)
+  const BOX_X = 50; const BOX_Y = 105; const BOX_W = 310; const BOX_H = 72;
+  page.drawRectangle({ x: BOX_X, y: BOX_Y, width: BOX_W, height: BOX_H, borderColor: navy, borderWidth: 0.75, opacity: 0 });
+  page.drawText("Signature", { x: BOX_X + 6, y: BOX_Y + BOX_H - 14, size: 8, font: reg, color: gray });
+
+  // Date area (right of signature box)
+  const DATE_X = 380;
+  page.drawText("Date", { x: DATE_X, y: BOX_Y + BOX_H - 14, size: 8, font: reg, color: gray });
+  page.drawLine({ start: { x: DATE_X, y: BOX_Y + BOX_H - 28 }, end: { x: W - 50, y: BOX_Y + BOX_H - 28 }, thickness: 0.5, color: line });
+
+  // Disclosure note
+  page.drawText(
+    "Note: E-sign fields are not part of the sandbox demo.",
+    { x: 50, y: 83, size: 8, font: italic, color: amber },
+  );
+
+  // Fine print
+  page.drawText(
+    "By signing above, the client confirms the information provided is accurate and authorizes processing.",
+    { x: 50, y: 63, size: 7, font: reg, color: gray },
+  );
 
   const bytes = await doc.save();
   return { bytes, pageSizes: [{ width: W, height: H }] };
