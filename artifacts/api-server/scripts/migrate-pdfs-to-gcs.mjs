@@ -25,18 +25,24 @@ const { Storage } = require("@google-cloud/storage");
 const DRY_RUN = process.argv.includes("--dry-run");
 const NULL_PDF_DATA = process.argv.includes("--null-pdf-data");
 
+/**
+ * Parse PRIVATE_OBJECT_DIR using the same logic as the runtime's parseObjectPath:
+ *   gs://bucket/prefix  →  { bucketName: "bucket", prefix: "prefix" }
+ *   /bucket/prefix      →  { bucketName: "bucket", prefix: "prefix" }
+ *   bucket/prefix       →  { bucketName: "bucket", prefix: "prefix" }
+ *   bucket              →  { bucketName: "bucket", prefix: "" }
+ */
 function parsePrivateObjectDir(envVal) {
   if (!envVal) throw new Error("PRIVATE_OBJECT_DIR is not set");
-  // Accept gs://bucket/prefix or bucket/prefix
-  const withoutGs = envVal.replace(/^gs:\/\//, "");
-  const slashIdx = withoutGs.indexOf("/");
-  if (slashIdx === -1) {
-    return { bucketName: withoutGs, prefix: "" };
-  }
-  return {
-    bucketName: withoutGs.slice(0, slashIdx),
-    prefix: withoutGs.slice(slashIdx + 1),
-  };
+  // Strip gs:// scheme if present, then ensure leading slash for uniform parsing.
+  let normalized = envVal.replace(/^gs:\/\//, "");
+  if (!normalized.startsWith("/")) normalized = `/${normalized}`;
+  const parts = normalized.split("/");
+  // parts[0] is always "" (before the leading slash)
+  const bucketName = parts[1] ?? "";
+  const prefix = parts.slice(2).join("/");
+  if (!bucketName) throw new Error(`PRIVATE_OBJECT_DIR "${envVal}" does not contain a valid bucket name`);
+  return { bucketName, prefix };
 }
 
 async function uploadToGcs(storage, bucketName, prefix, objectId, buffer) {
