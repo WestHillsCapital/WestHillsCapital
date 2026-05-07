@@ -315,6 +315,47 @@ node artifacts/api-server/scripts/rotate-master-key.mjs --from-version 2
 
 ---
 
+## PDF data encryption at rest (SOC 2 CC6.1)
+
+Template PDFs stored in the `docufill_package_documents.pdf_data` column (the GCS fallback path) are encrypted with AES-256-GCM using the same per-account DEK envelope-encryption scheme as interview answers. Encrypted blobs are stored in the `pdf_data_ciphertext TEXT` column; the plaintext `pdf_data BYTEA` column is nulled out after successful encryption.
+
+### Scope
+
+| Storage path | Encrypted? |
+|---|---|
+| Template PDFs in GCS (`pdf_gcs_key`) | At-rest encryption handled by GCS |
+| Template PDFs in DB (`pdf_data` / `pdf_data_ciphertext`) | AES-256-GCM via `encryptBuffer` / `decryptBuffer` |
+| Generated session PDFs in GCS (`generated_pdf_storage_key`) | At-rest encryption handled by GCS |
+
+New demo-package PDFs written to the DB fallback path are encrypted automatically when `ENCRYPTION_MASTER_KEY` is set. Existing plaintext rows written before this feature was deployed must be migrated with the one-time script below.
+
+### One-time migration for existing rows
+
+```bash
+# Dry run — preview affected accounts and validate DEK availability
+DATABASE_URL=<production url> \
+ENCRYPTION_MASTER_KEY=<current key> \
+node artifacts/api-server/scripts/encrypt-existing-pdfs.mjs --dry-run
+
+# Live run — encrypt all unencrypted pdf_data rows and null out the plaintext
+DATABASE_URL=<production url> \
+ENCRYPTION_MASTER_KEY=<current key> \
+node artifacts/api-server/scripts/encrypt-existing-pdfs.mjs
+```
+
+The script is safe to re-run — rows with `pdf_data_ciphertext IS NOT NULL` are skipped. After a successful run, verify with:
+
+```sql
+SELECT COUNT(*)
+  FROM docufill_package_documents
+ WHERE pdf_data IS NOT NULL AND pdf_data_ciphertext IS NULL;
+-- Should return 0
+```
+
+Required env vars: `DATABASE_URL`, `ENCRYPTION_MASTER_KEY`.
+
+---
+
 ## Database SSL (SOC 2 CC6.7)
 
 The API server enforces TLS certificate validation for all production database connections (`rejectUnauthorized: true`). This applies to every pg Pool used by the server — the main pool (`db.ts`), the shared Drizzle pool (`lib/db`), and the StripeSync pool.

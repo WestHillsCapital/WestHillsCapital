@@ -53,6 +53,7 @@ import {
   getOrCreateAccountDek,
   encryptAnswers,
   decryptAnswers,
+  decryptBuffer,
   isEncryptionEnabled,
 } from "../lib/encryption";
 import { createQueueWorker, QUEUE_NAMES, UnrecoverableError, type GeneratePdfJobPayload, type DeliverWebhookJobPayload, type Worker } from "@workspace/queues";
@@ -249,6 +250,7 @@ type StoredDocumentRow = {
   page_sizes?: Array<{ width: number; height: number }>;
   pdf_data?: Buffer | null;
   pdf_gcs_key?: string | null;
+  pdf_data_ciphertext?: string | null;
   created_at?: Date | string;
   updated_at?: Date | string;
 };
@@ -499,6 +501,27 @@ function buildWebhookPayload(session: Record<string, unknown>): Record<string, u
 /** Compute HMAC-SHA256 signature for an outgoing webhook body. */
 function signWebhookPayload(secret: string, body: string): string {
   return "sha256=" + createHmac("sha256", secret).update(body).digest("hex");
+}
+
+/**
+ * Resolve the raw PDF bytes from a docufill_package_documents row.
+ * Priority: encrypted ciphertext → plaintext pdf_data.
+ * Encryption is per-account (DEK), so accountId is required to decrypt.
+ */
+async function decryptPdfFromDb(
+  row: StoredDocumentRow,
+  accountId: number | null,
+  client: QueryClient,
+): Promise<Buffer | undefined> {
+  if (row.pdf_data_ciphertext && isEncryptionEnabled() && accountId) {
+    try {
+      const dek = await getOrCreateAccountDek(accountId, client);
+      return decryptBuffer(row.pdf_data_ciphertext, dek);
+    } catch (err) {
+      logger.warn({ err, accountId }, "[DocuFill] PDF decryption failed — falling back to plaintext pdf_data");
+    }
+  }
+  return row.pdf_data ?? undefined;
 }
 
 /**
@@ -1335,7 +1358,7 @@ async function buildPacketPdfBuffer(
   const storedDocuments = parseDocuments(session.documents).filter((sourceDoc) => sourceDoc.pdfStored);
   const storedRowsResult = Number.isInteger(packageId) && storedDocuments.length > 0
     ? await client.query(
-      `SELECT document_id, filename, content_type, byte_size, page_count, pdf_data, pdf_gcs_key, created_at, updated_at
+      `SELECT document_id, filename, content_type, byte_size, page_count, pdf_data, pdf_gcs_key, pdf_data_ciphertext, created_at, updated_at
          FROM docufill_package_documents
         WHERE package_id=$1 AND document_id = ANY($2::text[])`,
       [packageId, storedDocuments.map((doc) => doc.id)],
@@ -1357,15 +1380,16 @@ async function buildPacketPdfBuffer(
     for (const sourceDoc of storedDocuments) {
       const row = storedRowById.get(sourceDoc.id);
       let pdfBuffer: Buffer | undefined;
+      const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
       if (row?.pdf_gcs_key) {
         try {
           pdfBuffer = await objectStorage.downloadObjectToBuffer(row.pdf_gcs_key);
         } catch (gcsErr) {
           logger.warn({ err: gcsErr, documentId: sourceDoc.id }, "[DocuFill] GCS fetch failed for package PDF — falling back to DB");
-          pdfBuffer = row.pdf_data ?? undefined;
+          pdfBuffer = row ? await decryptPdfFromDb(row, pkgAccountId, client) : undefined;
         }
       } else {
-        pdfBuffer = row?.pdf_data ?? undefined;
+        pdfBuffer = row ? await decryptPdfFromDb(row, pkgAccountId, client) : undefined;
       }
       if (!pdfBuffer) continue;
       const sourcePdf = await PdfLibDocument.load(pdfBuffer, { ignoreEncryption: true });
@@ -3101,13 +3125,13 @@ router.get("/packages/:id/documents/:documentId.pdf", async (req, res) => {
     }
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT d.filename, d.content_type, d.byte_size, d.pdf_data, d.pdf_gcs_key
+      `SELECT d.filename, d.content_type, d.byte_size, d.pdf_data, d.pdf_gcs_key, d.pdf_data_ciphertext
          FROM docufill_package_documents d
          JOIN docufill_packages p ON p.id = d.package_id
         WHERE d.package_id=$1 AND d.document_id=$2 AND p.account_id=$3`,
       [packageId, req.params.documentId, acctId(req)],
     );
-    const row = rows[0] as { filename: string; content_type: string; byte_size: number; pdf_data: Buffer | null; pdf_gcs_key: string | null } | undefined;
+    const row = rows[0] as { filename: string; content_type: string; byte_size: number; pdf_data: Buffer | null; pdf_gcs_key: string | null; pdf_data_ciphertext: string | null } | undefined;
     if (!row) {
       res.status(404).json({ error: "Package document PDF not found" });
       return;
@@ -3135,22 +3159,27 @@ router.get("/packages/:id/documents/:documentId.pdf", async (req, res) => {
         if (!(storageErr instanceof ObjectNotFoundError)) {
           logger.warn({ err: storageErr }, "[DocuFill] GCS read failed for package PDF — falling back to DB");
         }
-        if (!row.pdf_data) {
+        if (!row.pdf_data && !row.pdf_data_ciphertext) {
           res.status(404).json({ error: "Package document PDF not found" });
           return;
         }
       }
     }
-    if (!row.pdf_data) {
+    if (!row.pdf_data && !row.pdf_data_ciphertext) {
+      res.status(404).json({ error: "Package document PDF not found" });
+      return;
+    }
+    const pdfBytes = await decryptPdfFromDb(row as StoredDocumentRow, acctId(req), db);
+    if (!pdfBytes) {
       res.status(404).json({ error: "Package document PDF not found" });
       return;
     }
     res.setHeader("Content-Type", row.content_type || "application/pdf");
     res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("Content-Length", String(row.byte_size));
+    res.setHeader("Content-Length", String(pdfBytes.length));
     res.setHeader("Content-Disposition", `inline; filename="${safePdfFilename(row.filename)}"`);
     res.setHeader("Cache-Control", "private, no-store");
-    res.end(row.pdf_data);
+    res.end(pdfBytes);
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load package PDF");
     if (!res.headersSent) res.status(500).json({ error: "Failed to load package PDF" });

@@ -3,6 +3,7 @@ import type { Pool } from "pg";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { logger } from "./logger";
 import { ObjectStorageService } from "./objectStorage";
+import { isEncryptionEnabled, getOrCreateAccountDek, encryptBuffer } from "./encryption";
 
 // ── Demo fields (explicit stable ids so mapping references are reliable) ───────
 const DEMO_FIELDS = [
@@ -182,7 +183,8 @@ export async function seedDemoPackage(db: Pool, accountId: number): Promise<void
 
     const pdfBuf = Buffer.from(pdfBytes);
     let pdfGcsKey: string | null = null;
-    let pdfDataForDb: Buffer | null = pdfBuf;
+    let pdfDataForDb: Buffer | null = null;
+    let pdfCiphertextForDb: string | null = null;
     try {
       const objectStorage = new ObjectStorageService();
       pdfGcsKey = await objectStorage.uploadBuffer(
@@ -190,20 +192,30 @@ export async function seedDemoPackage(db: Pool, accountId: number): Promise<void
         pdfBuf,
         "application/pdf",
       );
-      pdfDataForDb = null;
     } catch (gcsErr) {
       // GCS not configured or unavailable during seed — fall back to DB storage.
       // In production, ensure PRIVATE_OBJECT_DIR and GCS credentials are set so
       // demo packages also land in GCS. This fallback is intentional only for
       // environments without object storage (e.g. local development without GCS).
       logger.warn({ err: gcsErr, accountId, packageId }, "[DemoPackage] GCS upload failed — storing demo PDF in DB as fallback (set PRIVATE_OBJECT_DIR to avoid this)");
+      if (isEncryptionEnabled()) {
+        try {
+          const dek = await getOrCreateAccountDek(accountId, db);
+          pdfCiphertextForDb = encryptBuffer(pdfBuf, dek);
+        } catch (encErr) {
+          logger.warn({ err: encErr, accountId, packageId }, "[DemoPackage] PDF encryption failed — storing plaintext in DB");
+          pdfDataForDb = pdfBuf;
+        }
+      } else {
+        pdfDataForDb = pdfBuf;
+      }
     }
 
     await db.query(
       `INSERT INTO docufill_package_documents
-         (package_id, document_id, filename, content_type, byte_size, page_count, page_sizes, pdf_data, pdf_gcs_key)
-       VALUES ($1,$2,$3,'application/pdf',$4,$5,$6::jsonb,$7,$8)`,
-      [packageId, documentId, filename, pdfBytes.length, pageCount, JSON.stringify(pageSizes), pdfDataForDb, pdfGcsKey],
+         (package_id, document_id, filename, content_type, byte_size, page_count, page_sizes, pdf_data, pdf_gcs_key, pdf_data_ciphertext)
+       VALUES ($1,$2,$3,'application/pdf',$4,$5,$6::jsonb,$7,$8,$9)`,
+      [packageId, documentId, filename, pdfBytes.length, pageCount, JSON.stringify(pageSizes), pdfDataForDb, pdfGcsKey, pdfCiphertextForDb],
     );
 
     logger.info({ accountId, packageId }, "[DemoPackage] Demo package seeded");
