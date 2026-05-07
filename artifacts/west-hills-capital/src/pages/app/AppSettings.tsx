@@ -5583,6 +5583,106 @@ function ProfileSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
 
 // ── Source Key Mapping Dashboard ──────────────────────────────────────────────
 
+type PendingRename = {
+  fieldId:         string;
+  oldKey:          string;
+  newKey:          string;
+  packageCount:    number;
+  sessionCount:    number;
+  hubspotProperty: string | null;
+};
+
+function RenameConfirmModal({
+  pending, bc, saving, onConfirm, onCancel,
+}: {
+  pending:   PendingRename;
+  bc:        string;
+  saving:    boolean;
+  onConfirm: () => void;
+  onCancel:  () => void;
+}) {
+  const { oldKey, newKey, packageCount, sessionCount, hubspotProperty } = pending;
+  const isHighImpact = packageCount >= 10 || sessionCount >= 50;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.35)" }}>
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+        {/* Header */}
+        <div className={`px-6 pt-5 pb-4 border-b ${isHighImpact ? "border-amber-100 bg-amber-50/60" : "border-gray-100"}`}>
+          <div className="flex items-start gap-3">
+            {isHighImpact ? (
+              <div className="mt-0.5 flex-shrink-0 rounded-full bg-amber-100 p-1.5">
+                <svg className="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+            ) : (
+              <div className="mt-0.5 flex-shrink-0 rounded-full bg-blue-50 p-1.5">
+                <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2 2 0 002-2V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 3.375 3.375 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
+                </svg>
+              </div>
+            )}
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Review source key rename</h3>
+              <p className="mt-0.5 text-xs text-gray-500">Make sure downstream integrations are updated after saving.</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Rename preview */}
+        <div className="px-6 py-4 flex items-center gap-3">
+          <code className="flex-1 rounded-lg bg-gray-100 px-3 py-2 font-mono text-xs text-gray-700 text-center truncate">{oldKey}</code>
+          <svg className="w-4 h-4 text-gray-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+          </svg>
+          <code className="flex-1 rounded-lg px-3 py-2 font-mono text-xs text-center truncate" style={{ background: `${bc}14`, color: bc }}>{newKey || <span className="italic text-gray-400">(empty)</span>}</code>
+        </div>
+
+        {/* Impact summary */}
+        <div className="px-6 pb-4">
+          <div className={`rounded-lg border px-4 py-3 text-xs space-y-2 ${isHighImpact ? "border-amber-200 bg-amber-50" : "border-gray-100 bg-gray-50"}`}>
+            <p className={`font-medium ${isHighImpact ? "text-amber-800" : "text-gray-700"}`}>
+              {isHighImpact ? "⚠\u00a0 " : ""}This change will affect{" "}
+              <strong>{packageCount.toLocaleString()} {packageCount === 1 ? "package" : "packages"}</strong>
+              {sessionCount > 0 && (
+                <> and <strong>{sessionCount.toLocaleString()} active {sessionCount === 1 ? "session" : "sessions"}</strong></>
+              )}.
+            </p>
+            {hubspotProperty && (
+              <p className="text-gray-600 flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 text-orange-500 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M18.164 7.931V5.085a2.153 2.153 0 10-2.14 0v2.846a5.12 5.12 0 00-2.263 1.356L8.34 6.48a2.153 2.153 0 10-1.017 1.802l5.42 2.807a5.164 5.164 0 00-.16 1.257 5.12 5.12 0 002.31 4.299l-1.594 2.76a2.153 2.153 0 101.741.982l1.594-2.76a5.164 5.164 0 001.53.232 5.133 5.133 0 10-1-10.928z" />
+                </svg>
+                HubSpot sync active — this key maps to <strong>{hubspotProperty}</strong>. Renaming will break the sync until updated.
+              </p>
+            )}
+            <p className="text-gray-500">Any API prefill calls using <code className="font-mono bg-white/70 px-1 rounded">{oldKey}</code> will stop working until updated.</p>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="px-6 pb-5 flex justify-end gap-2">
+          <button
+            onClick={onCancel}
+            className="rounded-lg border border-gray-200 px-4 py-2 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={saving}
+            className="rounded-lg px-4 py-2 text-xs font-medium text-white transition-colors disabled:opacity-50"
+            style={{ backgroundColor: isHighImpact ? "#d97706" : bc }}
+          >
+            {saving ? "Saving…" : "Confirm rename"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function UsageBadge({ packageCount, sessionCount }: { packageCount: number; sessionCount: number }) {
   const isHigh   = sessionCount >= 50;
   const isMedium = sessionCount >= 10 && !isHigh;
@@ -5632,12 +5732,13 @@ function SourceKeyMappingSection({
   const [selPkg,       setSelPkg]       = useState<number | null>(null);
   const [mappings,     setMappings]     = useState<SkMappings>({ hubspot: {}, csv: {} });
   const [localMappings,setLocalMappings]= useState<SkMappings>({ hubspot: {}, csv: {} });
-  const [editing,      setEditing]      = useState<{ fieldId: string; value: string } | null>(null);
-  const [saving,       setSaving]       = useState(false);
-  const [savingMaps,   setSavingMaps]   = useState(false);
-  const [savedId,      setSavedId]      = useState<string | null>(null);
-  const [mapsSaved,    setMapsSaved]    = useState(false);
-  const [copyId,       setCopyId]       = useState<string | null>(null);
+  const [editing,       setEditing]       = useState<{ fieldId: string; value: string } | null>(null);
+  const [saving,        setSaving]        = useState(false);
+  const [savingMaps,    setSavingMaps]    = useState(false);
+  const [savedId,       setSavedId]       = useState<string | null>(null);
+  const [mapsSaved,     setMapsSaved]     = useState(false);
+  const [copyId,        setCopyId]        = useState<string | null>(null);
+  const [pendingRename, setPendingRename] = useState<PendingRename | null>(null);
 
   function load() {
     setLoading(true); setErr(null);
@@ -5660,9 +5761,33 @@ function SourceKeyMappingSection({
     ? groups.flatMap((g) =>
         g.fields
           .filter((f) => f.packageId === selPkg)
-          .map((f) => ({ ...f, sourceKey: g.sourceKey, sessionCount: g.sessionCount, packageCount: g.packageCount })),
+          .map((f) => ({
+            ...f,
+            sourceKey:           g.sourceKey,
+            sessionCount:        g.sessionCount,
+            packageCount:        g.packageCount,
+            builtinHubspotProp:  g.builtinHubspotProperty,
+          })),
       )
     : [];
+
+  /** Open the review modal; called by both Save button and Enter key. */
+  function openRenameModal(f: typeof pkgFields[number]) {
+    if (!editing || editing.value === f.sourceKey || !editing.value.trim()) return;
+    const hubspotProperty =
+      mappings.hubspot[f.sourceKey] ||
+      localMappings.hubspot[f.sourceKey] ||
+      f.builtinHubspotProp ||
+      null;
+    setPendingRename({
+      fieldId:      f.fieldId,
+      oldKey:       f.sourceKey,
+      newKey:       editing.value,
+      packageCount: f.packageCount,
+      sessionCount: f.sessionCount,
+      hubspotProperty,
+    });
+  }
 
   async function handleSaveField() {
     if (!editing || !selPkg) return;
@@ -5925,7 +6050,7 @@ function SourceKeyMappingSection({
                                   autoFocus
                                   value={editing.value}
                                   onChange={(e) => setEditing({ ...editing, value: e.target.value.replace(/[^a-zA-Z0-9_]/g, "") })}
-                                  onKeyDown={(e) => { if (e.key === "Enter") void handleSaveField(); if (e.key === "Escape") setEditing(null); }}
+                                  onKeyDown={(e) => { if (e.key === "Enter") openRenameModal(f); if (e.key === "Escape") setEditing(null); }}
                                   placeholder="e.g. firstName"
                                   className="rounded border border-blue-300 bg-white px-2 py-0.5 text-xs font-mono text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-400 w-40"
                                 />
@@ -5956,12 +6081,12 @@ function SourceKeyMappingSection({
                               {isEditing ? (
                                 <div className="flex items-center gap-1.5">
                                   <button
-                                    onClick={() => void handleSaveField()}
+                                    onClick={() => openRenameModal(f)}
                                     disabled={saving}
                                     className="rounded px-2 py-1 text-[10px] font-medium text-white transition-colors disabled:opacity-50"
                                     style={{ backgroundColor: bc }}
                                   >
-                                    {saving ? "…" : "Save"}
+                                    Save
                                   </button>
                                   <button
                                     onClick={() => setEditing(null)}
@@ -6106,6 +6231,15 @@ function SourceKeyMappingSection({
         </div>
       )}
 
+      {pendingRename && (
+        <RenameConfirmModal
+          pending={pendingRename}
+          bc={bc}
+          saving={saving}
+          onConfirm={() => { void handleSaveField(); setPendingRename(null); }}
+          onCancel={() => setPendingRename(null)}
+        />
+      )}
     </section>
   );
 }
