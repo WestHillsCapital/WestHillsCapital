@@ -225,49 +225,61 @@ export async function runDrizzleMigrations(): Promise<void> {
         }
       }
 
+      // ── Non-transactional (CONCURRENTLY) migrations ──────────────────────────
+      // CREATE INDEX CONCURRENTLY cannot run inside a transaction. Drizzle's
+      // migrate() wraps every migration in BEGIN/COMMIT. Migrations marked with
+      // the `-- DRIZZLE:RUN-CONCURRENT` header comment are detected here and
+      // executed outside that wrapper on existing databases (where the indexed
+      // tables are known to exist). The record is inserted into
+      // __drizzle_migrations so migrate() treats it as already applied and
+      // skips it.
+      //
+      // On fresh databases this block is skipped entirely (the enclosing
+      // `if (rows[0]?.exists)` guard is false), so migrate() runs these
+      // migrations as plain CREATE INDEX IF NOT EXISTS inside its transaction —
+      // safe because newly created tables are small and hold no write load.
+      for (const entry of journal.entries) {
+        let sqlContent: string;
+        try {
+          sqlContent = await readFile(
+            path.join(migrationsFolder, `${entry.tag}.sql`),
+            "utf8",
+          );
+        } catch {
+          continue;
+        }
+        if (!sqlContent.includes("DRIZZLE:RUN-CONCURRENT")) continue;
+
+        const hash = createHash("sha256").update(sqlContent).digest("hex");
+        const { rows: alreadyApplied } = await db.query<{ id: number }>(
+          `SELECT id FROM drizzle."__drizzle_migrations" WHERE hash = $1`,
+          [hash],
+        );
+        if (alreadyApplied.length > 0) continue;
+
+        logger.info({ tag: entry.tag }, "[Migrations] Applying non-transactional migration");
+        const rawStatements = sqlContent
+          .split("--> statement-breakpoint")
+          .map((s) => s.trim())
+          .filter((s) => s && !s.startsWith("--"));
+        for (const stmt of rawStatements) {
+          // Inject CONCURRENTLY after CREATE INDEX so that the index build
+          // does not acquire a ShareLock on the existing table.
+          const concurrentStmt = stmt.replace(
+            /^CREATE INDEX IF NOT EXISTS/i,
+            "CREATE INDEX CONCURRENTLY IF NOT EXISTS",
+          );
+          await db.query(concurrentStmt);
+        }
+        await db.query(
+          `INSERT INTO drizzle."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
+          [hash, entry.when],
+        );
+        logger.info({ tag: entry.tag }, "[Migrations] Non-transactional migration applied");
+      }
+
       // Fall through — migrate() will now see all reconciled records and skip
       // any migrations whose schema changes are already present.
-    }
-
-    // ── Non-transactional (CONCURRENTLY) migrations ────────────────────────────
-    // CREATE INDEX CONCURRENTLY cannot run inside a transaction. Drizzle's
-    // migrate() wraps every migration in BEGIN/COMMIT, so any migration whose
-    // SQL contains CONCURRENTLY is detected here and executed outside that
-    // wrapper. The record is inserted into __drizzle_migrations immediately so
-    // migrate() treats it as already applied and skips it.
-    await ensureMigrationsTableOnDb(db);
-    for (const entry of journal.entries) {
-      let sqlContent: string;
-      try {
-        sqlContent = await readFile(
-          path.join(migrationsFolder, `${entry.tag}.sql`),
-          "utf8",
-        );
-      } catch {
-        continue;
-      }
-      if (!sqlContent.includes("CONCURRENTLY")) continue;
-
-      const hash = createHash("sha256").update(sqlContent).digest("hex");
-      const { rows: alreadyApplied } = await db.query<{ id: number }>(
-        `SELECT id FROM drizzle."__drizzle_migrations" WHERE hash = $1`,
-        [hash],
-      );
-      if (alreadyApplied.length > 0) continue;
-
-      logger.info({ tag: entry.tag }, "[Migrations] Applying non-transactional migration");
-      const statements = sqlContent
-        .split("--> statement-breakpoint")
-        .map((s) => s.trim())
-        .filter(Boolean);
-      for (const stmt of statements) {
-        await db.query(stmt);
-      }
-      await db.query(
-        `INSERT INTO drizzle."__drizzle_migrations" (hash, created_at) VALUES ($1, $2)`,
-        [hash, entry.when],
-      );
-      logger.info({ tag: entry.tag }, "[Migrations] Non-transactional migration applied");
     }
 
     const ormDb = drizzle(db);
@@ -278,18 +290,6 @@ export async function runDrizzleMigrations(): Promise<void> {
   }
 }
 
-// Thin helper used by runDrizzleMigrations before the local ensureMigrationsTable
-// closure is available (the concurrent-migration loop runs after the closure scope).
-async function ensureMigrationsTableOnDb(db: import("pg").Pool): Promise<void> {
-  await db.query(`CREATE SCHEMA IF NOT EXISTS drizzle`);
-  await db.query(`
-    CREATE TABLE IF NOT EXISTS drizzle."__drizzle_migrations" (
-      id         SERIAL PRIMARY KEY,
-      hash       TEXT    NOT NULL,
-      created_at BIGINT
-    )
-  `);
-}
 
 export async function initDb(): Promise<void> {
   const db = getDb();

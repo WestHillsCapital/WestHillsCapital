@@ -127,20 +127,22 @@ It does not need to be re-created. Any environment that ran `initDb()` at any po
 
 File: `artifacts/api-server/drizzle/0004_submission_scale_indexes.sql`
 
-Contains six `CREATE INDEX CONCURRENTLY IF NOT EXISTS` statements (one per new index). All use btree and `DESC NULLS LAST` ordering for the `created_at` / `expires_at` columns.
+Contains six `CREATE INDEX IF NOT EXISTS` statements (one per new index). All use btree and `DESC NULLS LAST` ordering for the `created_at` / `expires_at` columns. A `-- DRIZZLE:RUN-CONCURRENT` header signals `runDrizzleMigrations()` to execute them with `CONCURRENTLY` injected (outside any transaction) on existing databases.
 
-### Why CONCURRENTLY in the migration file
+### How CONCURRENTLY index builds work in this codebase
 
 `CREATE INDEX CONCURRENTLY` builds the index without holding a write lock, avoiding visible latency spikes on tables with sustained write load. Standard `CREATE INDEX` (inside a transaction) acquires a `ShareLock` for the entire build duration.
 
-`CONCURRENTLY` **cannot run inside a transaction block**. Drizzle's `migrate()` function wraps every migration in `BEGIN`/`COMMIT`. To resolve this constraint, `runDrizzleMigrations()` contains a **non-transactional pre-handler** that runs before `migrate()`:
+`CONCURRENTLY` **cannot run inside a transaction block**. Drizzle's `migrate()` wraps every migration in `BEGIN`/`COMMIT`. This migration uses a two-path strategy to support both fresh and existing databases:
 
-1. Scans the migration journal for any migration whose SQL contains `CONCURRENTLY`.
-2. For each such migration, if it is not yet recorded in `__drizzle_migrations`, runs the SQL statements directly via `pool.query()` (auto-committed, outside any transaction).
-3. Inserts the migration's hash into `__drizzle_migrations` immediately after.
-4. When `migrate()` runs subsequently, it sees the migration as already applied and skips it.
+**Existing databases** (production, any DB where the `accounts` table already exists):
+`runDrizzleMigrations()` contains a **non-transactional pre-handler** that detects this migration's `-- DRIZZLE:RUN-CONCURRENT` header and, before calling `migrate()`:
+1. Runs each `CREATE INDEX IF NOT EXISTS` statement directly via `pool.query()` with `CONCURRENTLY` injected (auto-committed, outside any transaction).
+2. Records the migration's hash in `__drizzle_migrations`.
+3. `migrate()` then sees it as already applied and skips it.
 
-This means the migration file correctly says `CONCURRENTLY` and is executed correctly outside a transaction. The `IF NOT EXISTS` guard ensures the statement is a no-op on any environment where the indexes were already created manually or by a prior run.
+**Fresh databases** (new installs):
+The pre-handler is guarded by `if (accounts_table_exists)` and does not run. `migrate()` runs the migration as plain `CREATE INDEX IF NOT EXISTS` inside its transaction. Newly created tables hold no write load, so a transactional build completes instantly without blocking anyone.
 
 ### `initDb()` CONCURRENTLY guards
 
