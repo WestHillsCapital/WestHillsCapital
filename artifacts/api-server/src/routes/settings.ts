@@ -4433,10 +4433,10 @@ router.post("/security/2fa/enable", async (req, res) => {
     );
 
     const actorEmail = await getActorEmail(accountId, clerkUserId);
-    void insertAuditLog({
+    await insertAuditLog({
       accountId, actorEmail, actorUserId: clerkUserId,
       action: "security.2fa_enabled", resourceType: "user",
-    });
+    }, { critical: true });
 
     res.json({ success: true, backupCodes: backupCodesPlain });
   } catch (err) {
@@ -4491,10 +4491,10 @@ router.delete("/security/2fa", async (req, res) => {
     );
 
     const actorEmail = await getActorEmail(accountId, clerkUserId);
-    void insertAuditLog({
+    await insertAuditLog({
       accountId, actorEmail, actorUserId: clerkUserId,
       action: "security.2fa_disabled", resourceType: "user",
-    });
+    }, { critical: true });
 
     res.json({ success: true });
   } catch (err) {
@@ -4589,11 +4589,11 @@ router.delete("/security/sessions/:sessionId", async (req, res) => {
     );
 
     const actorEmail = await getActorEmail(accountId, clerkUserId);
-    void insertAuditLog({
+    await insertAuditLog({
       accountId, actorEmail, actorUserId: clerkUserId,
       action: "security.session_revoked", resourceType: "session",
       resourceId: String(sessionDbId),
-    });
+    }, { critical: true });
 
     res.json({ success: true });
   } catch (err) {
@@ -4667,11 +4667,11 @@ router.delete("/security/trusted-devices/:deviceId", async (req, res) => {
     if ((rowCount ?? 0) === 0) { res.status(404).json({ error: "Trusted device not found." }); return; }
 
     const actorEmail = await getActorEmail(accountId, clerkUserId);
-    void insertAuditLog({
+    await insertAuditLog({
       accountId, actorEmail, actorUserId: clerkUserId,
       action: "security.trusted_device_revoked", resourceType: "trusted_device",
       resourceId: String(deviceId),
-    });
+    }, { critical: true });
 
     res.json({ success: true });
   } catch (err) {

@@ -49,7 +49,19 @@ type AuditEntryFor<A extends KnownAuditAction> =
 
 export type AuditEntry = { [A in KnownAuditAction]: AuditEntryFor<A> }[KnownAuditAction];
 
-export async function insertAuditLog(entry: AuditEntry): Promise<void> {
+export interface AuditLogOptions {
+  /**
+   * When true, a DB write failure causes the function to re-throw instead of
+   * swallowing the error. Use for security-sensitive events (API key
+   * create/revoke, session revocation, 2FA changes) where a missing audit
+   * record would violate SOC 2 CC7.2 audit trail integrity requirements.
+   * The calling route's outer try/catch will then return a 500 to the client
+   * rather than silently completing without a record.
+   */
+  critical?: boolean;
+}
+
+export async function insertAuditLog(entry: AuditEntry, options?: AuditLogOptions): Promise<void> {
   try {
     await getDb().query(
       `INSERT INTO org_audit_log
@@ -67,6 +79,10 @@ export async function insertAuditLog(entry: AuditEntry): Promise<void> {
       ],
     );
   } catch (err) {
+    if (options?.critical) {
+      logger.error({ err, action: entry.action }, "[AuditLog] Failed to write critical audit entry — aborting request");
+      throw err;
+    }
     logger.warn({ err }, "[AuditLog] Failed to write audit entry (non-fatal)");
   }
 }
