@@ -26,12 +26,39 @@ export type Session = components["schemas"]["DocuFillSession"] & {
 
 export type Account = components["schemas"]["AccountInfo"];
 
+export type SupportedLocale = "en" | "es" | "fr" | "de" | "pt" | "zh" | "ja" | "ko" | "ar";
+
 export interface CreateSessionParams {
+  /** ID of the active package to use for this session. */
   packageId: number;
-  prefill?: Record<string, unknown>;
-  recipientEmail?: string;
-  transactionScope?: string;
-  source?: string;
+  /**
+   * Optional map of field source key → string value to pre-populate before
+   * the client sees the interview. Source keys are the short identifiers
+   * shown in the field editor (e.g. `firstName`, `email`, `ssn`).
+   */
+  prefill?: Record<string, string>;
+  /**
+   * Days until the interview link expires (1–3650).
+   * Pass `null` for a link that never expires.
+   * Omit to use your organisation's default setting.
+   */
+  linkExpiryDays?: number | null;
+  /**
+   * Interview language locale.
+   * Omit to use your organisation's default locale.
+   */
+  locale?: SupportedLocale;
+}
+
+export interface CreateSessionResult {
+  /** Unique session token — use this to poll status or void the session. */
+  sessionToken: string;
+  /** Ready-to-use interview URL — send or redirect your client here. */
+  interviewUrl: string;
+  /**
+   * ISO-8601 expiry timestamp, or `null` if the link never expires.
+   */
+  expiresAt: string | null;
 }
 
 export interface GenerateSessionResult {

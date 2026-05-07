@@ -23,25 +23,25 @@ const client = new Docuplete({ apiKey: process.env.DOCUPLETE_API_KEY! });
 
 // 1. Pick a package
 const packages = await client.packages.list();
-const pkg = packages[0];
+const pkg = packages.find(p => p.active)!;
 
-// 2. Create an interview session and send the link to your client
-const { token, interviewUrl } = await client.sessions.create({
+// 2. Create a session — returns a ready-to-use interview URL
+const { sessionToken, interviewUrl, expiresAt } = await client.sessions.create({
   packageId: pkg.id,
-  prefill: { firstName: "Jane", lastName: "Smith" },
+  prefill: {
+    firstName: "Jane",
+    lastName:  "Smith",
+    email:     "jane@example.com",
+  },
+  linkExpiryDays: 7,
 });
 
-// Option A — send them to the hosted interview URL
-console.log("Send client to:", interviewUrl);
+// Send the client to their interview
+console.log("Interview URL:", interviewUrl);
+console.log("Expires at:", expiresAt);
 
-// Option B — send the link via your own email system
-await client.sessions.sendLink(token, {
-  recipientEmail: "jane@example.com",
-  recipientName:  "Jane Smith",
-});
-
-// 3. Wait for submission (poll or use webhooks)
-const session = await client.sessions.get(token);
+// 3. Poll or use webhooks to detect completion
+const session = await client.sessions.get(sessionToken);
 if (session.status === "generated") {
   console.log("Answers:", session.answers);
 }
@@ -51,13 +51,15 @@ if (session.status === "generated") {
 
 ## Authentication
 
-Create an API key in the Docuplete dashboard under **Settings → API Keys**, then pass it to the constructor:
+Generate an API key in the Docuplete dashboard under **Settings → Developer**, then
+pass it to the constructor:
 
 ```ts
-const client = new Docuplete({ apiKey: "sk_live_..." });
+const client = new Docuplete({ apiKey: "dp_live_..." });
 ```
 
-API keys are prefixed with `sk_live_`. Store them in environment variables — never hard-code them.
+API keys are prefixed with `dp_live_`. Store them in environment variables — never
+hard-code them in source files or client-side JavaScript.
 
 ### Custom base URL
 
@@ -76,7 +78,7 @@ const client = new Docuplete({
 
 #### `packages.list()`
 
-Returns all packages configured for your account.
+Returns all active packages for your account.
 
 ```ts
 const packages = await client.packages.list();
@@ -97,30 +99,31 @@ const pkg = await client.packages.get(42);
 
 #### `sessions.create(params)`
 
-Creates a new interview session. Returns the session, a bearer token, and a ready-to-use `interviewUrl`.
+Creates a new interview session via the headless API. Returns a `sessionToken` and
+a ready-to-use `interviewUrl`. Prefill values use **field source keys** as keys.
 
 ```ts
-const { session, token, interviewUrl } = await client.sessions.create({
-  packageId:        42,                        // required
-  prefill: {                                   // optional: pre-populate fields
-    firstName:      "Jane",
-    lastName:       "Smith",
-    accountNumber:  "ACC-12345",
+const { sessionToken, interviewUrl, expiresAt } = await client.sessions.create({
+  packageId: 42,                     // required
+  prefill: {                         // optional — source key → value
+    firstName:     "Jane",
+    lastName:      "Smith",
+    email:         "jane@example.com",
+    accountNumber: "ACC-12345",
   },
-  recipientEmail:   "jane@example.com",        // optional
-  transactionScope: "IRA rollover",            // optional
-  source:           "crm-integration",         // optional label for your records
+  linkExpiryDays: 7,                 // optional — null for no expiry
+  locale:         "en",             // optional — defaults to org setting
 });
 ```
 
-#### `sessions.get(token)`
+#### `sessions.get(sessionToken)`
 
 Fetches the current state of a session by its token.
 
 ```ts
 const session = await client.sessions.get("df_abc123");
-// session.status: "draft" | "in_progress" | "generated"
-// session.answers: Record<string, unknown>   (filled once submitted)
+// session.status:  "draft" | "in_progress" | "generated"
+// session.answers: Record<string, unknown>  — filled once submitted
 ```
 
 #### `sessions.list(params?)`
@@ -129,46 +132,56 @@ Lists sessions with optional filters.
 
 ```ts
 const { sessions, total } = await client.sessions.list({
-  packageId: 42,            // optional
-  status:    "generated",   // optional: "draft" | "in_progress" | "generated"
-  limit:     25,            // optional (default 50)
-  offset:    0,             // optional (for pagination)
+  packageId: 42,           // optional
+  status:    "generated",  // optional: "draft" | "in_progress" | "generated"
+  limit:     25,           // optional (default 50)
+  offset:    0,            // optional (pagination)
 });
 ```
 
-#### `sessions.sendLink(token, params)`
+#### `sessions.void(sessionToken)`
 
-Sends (or re-sends) the interview link email to a recipient from your organisation's address.
+Immediately invalidates the interview link. Cannot be undone.
 
 ```ts
-await client.sessions.sendLink(token, {
+await client.sessions.void("df_abc123");
+```
+
+#### `sessions.sendLink(sessionToken, params)`
+
+Sends (or re-sends) the interview link email from your org's address.
+
+```ts
+await client.sessions.sendLink("df_abc123", {
   recipientEmail: "jane@example.com",           // required
   recipientName:  "Jane Smith",                 // optional
   customMessage:  "Please complete at your earliest convenience.", // optional
 });
 ```
 
-#### `sessions.updateAnswers(token, answers)`
+#### `sessions.updateAnswers(sessionToken, answers)`
 
-Saves interview answers programmatically — useful when you are filling the form on behalf of the client rather than sending them the URL.
+Saves interview answers programmatically — use this when filling the form on behalf
+of the client instead of sending them the interview URL.
 
 ```ts
-const session = await client.sessions.updateAnswers(token, {
-  first_name:     "Jane",
-  last_name:      "Smith",
-  ira_amount:     "50000",
+const session = await client.sessions.updateAnswers("df_abc123", {
+  firstName:  "Jane",
+  lastName:   "Smith",
+  iraAmount:  "50000",
 });
 ```
 
-#### `sessions.generate(token)`
+#### `sessions.generate(sessionToken)`
 
-Triggers final PDF packet generation and fires any enabled integrations (Google Drive, HubSpot, webhooks). Call this after `updateAnswers` if you are filling the session programmatically.
+Triggers final PDF generation and fires integrations (Google Drive, HubSpot, webhooks).
+Call this after `updateAnswers` when submitting programmatically.
 
 ```ts
-const result = await client.sessions.generate(token);
-// result.downloadUrl   — URL to download the PDF
-// result.drive         — { fileId, url } if Google Drive is enabled, else null
-// result.warnings      — any non-fatal integration warnings
+const result = await client.sessions.generate("df_abc123");
+// result.downloadUrl — URL to download the PDF packet
+// result.drive       — { fileId, url } if Google Drive is enabled, else null
+// result.warnings    — non-fatal integration warnings
 ```
 
 ---
@@ -177,7 +190,7 @@ const result = await client.sessions.generate(token);
 
 #### `account.get()`
 
-Returns the account and user associated with the API key.
+Returns the account associated with the API key.
 
 ```ts
 const account = await client.account.get();
@@ -188,11 +201,13 @@ const account = await client.account.get();
 
 ## Webhooks
 
-Docuplete sends a signed `interview.submitted` event to your webhook URL whenever a session is completed. Always verify the signature before processing.
+Docuplete sends a signed `interview.submitted` event to your webhook URL when a
+session is completed. **Always verify the signature before processing.**
 
 ### Verifying signatures
 
-Use `verifyWebhookSignature` (returns a boolean) or `constructWebhookEvent` (throws on failure).
+Use `verifyWebhookSignature` (returns a boolean) or `constructWebhookEvent`
+(throws on invalid signature):
 
 ```ts
 import express from "express";
@@ -224,10 +239,10 @@ app.post(
 
 ### Getting your webhook secret
 
-Retrieve the signing secret for a package from the Docuplete dashboard under **DocuFill → [Package] → Webhook**, or via the API:
+Find the signing secret for a package in **Settings → Webhooks**, or via the API:
 
 ```bash
-curl -H "Authorization: Bearer sk_live_..." \
+curl -H "Authorization: Bearer dp_live_..." \
      https://app.docuplete.com/api/v1/packages/42/webhook-secret
 ```
 
@@ -250,7 +265,7 @@ interface WebhookPayload {
 
 ## Error handling
 
-All methods throw a `DocupleteError` on non-2xx responses.
+All methods throw `DocupleteError` on non-2xx responses.
 
 ```ts
 import { Docuplete, DocupleteError } from "@docuplete/sdk";
@@ -279,32 +294,36 @@ import type {
   SessionStatus,
   Account,
   CreateSessionParams,
+  CreateSessionResult,
   GenerateSessionResult,
   WebhookPayload,
+  SupportedLocale,
 } from "@docuplete/sdk";
 ```
 
 ---
 
-## Programmatic session flow (no interview URL)
+## Programmatic flow (server-side only, no interview URL)
 
-Use this pattern when you want to fill and generate a packet entirely server-side without the client completing a form:
+Use this pattern when you want to fill and generate a packet entirely server-side
+without the client completing a form:
 
 ```ts
 const client = new Docuplete({ apiKey: process.env.DOCUPLETE_API_KEY! });
 
 // Create session
-const { token } = await client.sessions.create({ packageId: 42 });
+const { sessionToken } = await client.sessions.create({ packageId: 42 });
 
-// Fill answers
-await client.sessions.updateAnswers(token, {
-  client_name:    "Jane Smith",
-  account_number: "ACC-12345",
-  ira_amount:     "50000",
+// Fill answers programmatically
+await client.sessions.updateAnswers(sessionToken, {
+  firstName:     "Jane",
+  lastName:      "Smith",
+  accountNumber: "ACC-12345",
+  iraAmount:     "50000",
 });
 
-// Generate the PDF
-const { downloadUrl, warnings } = await client.sessions.generate(token);
+// Generate the PDF and fire integrations
+const { downloadUrl, warnings } = await client.sessions.generate(sessionToken);
 console.log("PDF ready at:", downloadUrl);
 if (warnings.length) console.warn("Warnings:", warnings);
 ```

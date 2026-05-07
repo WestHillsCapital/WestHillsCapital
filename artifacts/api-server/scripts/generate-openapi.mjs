@@ -33,13 +33,13 @@ const definition = {
       "|-------|--------|---------------|",
       "| Public routes | None | N/A |",
       "| Product portal (SaaS) | `Authorization: Bearer <clerk_jwt>` | Clerk front-end SDK |",
-      "| Product portal (API key) | `Authorization: Bearer sk_live_…` | `POST /api/v1/product/auth/api-keys` |",
+      "| Product portal (API key) | `Authorization: Bearer dp_live_…` | `POST /api/v1/product/auth/api-keys` |",
       "| Internal (WHC staff) | `Authorization: Bearer <session_token>` | `POST /api/internal/auth/sign-in` |",
       "",
       "## API Key Authentication",
       "",
       "External integration partners can authenticate using a long-lived API key instead of a Clerk JWT. API keys:",
-      "- Are prefixed with `sk_live_`",
+      "- Are prefixed with `dp_live_`",
       "- Are stored hashed (SHA-256) — the plaintext is returned only once on creation",
       "- Can be named, listed, and revoked via `/api/v1/product/auth/api-keys`",
       "- Are accepted wherever a Clerk JWT is accepted on product routes",
@@ -67,10 +67,10 @@ const definition = {
       apiKeyAuth: {
         type: "http",
         scheme: "bearer",
-        bearerFormat: "API Key (sk_live_…)",
+        bearerFormat: "API Key (dp_live_…)",
         description:
           "Long-lived API key issued by `POST /api/v1/product/auth/api-keys`. For external integration partners. " +
-          "Keys are prefixed with `sk_live_` and are stored hashed — the plaintext is shown only once on creation.",
+          "Keys are prefixed with `dp_live_` and are stored hashed — the plaintext is shown only once on creation.",
       },
     },
     schemas: {
@@ -299,6 +299,7 @@ const spec = swaggerJsdoc({
     `${routesDir}/docufill.ts`,
     `${routesDir}/deals.ts`,
     `${routesDir}/product-auth.ts`,
+    `${routesDir}/headlessSessions.ts`,
   ],
 });
 

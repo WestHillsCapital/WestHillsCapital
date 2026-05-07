@@ -3,15 +3,10 @@ import type {
   Session,
   SessionListItem,
   CreateSessionParams,
+  CreateSessionResult,
   ListSessionsParams,
   GenerateSessionResult,
 } from "../types.js";
-
-export interface CreateSessionResult {
-  session: Session;
-  token: string;
-  interviewUrl: string;
-}
 
 interface GetSessionResponse {
   session: Session;
@@ -31,25 +26,43 @@ export interface SendLinkParams {
 export class SessionsResource {
   constructor(private readonly client: DocupleteClient) {}
 
-  /** Create a new interview session. Returns the session, bearer token, and ready-to-use interview URL. */
+  /**
+   * Create a new interview session via the headless API.
+   *
+   * Returns a `sessionToken` and a ready-to-use `interviewUrl` your client
+   * can be sent to or redirected at.
+   *
+   * Prefill values should use field **source keys** as keys
+   * (e.g. `{ firstName: "Jane", email: "jane@example.com" }`).
+   */
   async create(params: CreateSessionParams): Promise<CreateSessionResult> {
     const body: Record<string, unknown> = { packageId: params.packageId };
-    if (params.prefill)          body.prefill          = params.prefill;
-    if (params.recipientEmail)   body.recipientEmail   = params.recipientEmail;
-    if (params.transactionScope) body.transactionScope = params.transactionScope;
-    if (params.source)           body.source           = params.source;
+    if (params.prefill !== undefined)         body.prefill         = params.prefill;
+    if (params.linkExpiryDays !== undefined)  body.linkExpiryDays  = params.linkExpiryDays;
+    if (params.locale !== undefined)          body.locale          = params.locale;
 
-    return this.client.post<CreateSessionResult>("/product/docufill/sessions", body);
+    return this.client.post<CreateSessionResult>("/sessions", body);
   }
 
-  /** Fetch the current state of a session by its token. Use this to poll for completion. */
+  /**
+   * Fetch the current state of a session by its token.
+   * Use this to poll for completion (`status === "generated"`) or
+   * to retrieve submitted answers.
+   */
   async get(token: string): Promise<Session> {
-    const res = await this.client.get<GetSessionResponse>(`/product/docufill/sessions/${token}`);
+    const res = await this.client.get<GetSessionResponse>(
+      `/product/docufill/sessions/${token}`,
+    );
     return res.session;
   }
 
-  /** List sessions for your account with optional filters. */
-  async list(params: ListSessionsParams = {}): Promise<{ sessions: SessionListItem[]; total: number }> {
+  /**
+   * List sessions for your account with optional filters.
+   * Returns sessions in descending creation order.
+   */
+  async list(
+    params: ListSessionsParams = {},
+  ): Promise<{ sessions: SessionListItem[]; total: number }> {
     return this.client.get<ListSessionsResponse>("/product/docufill/sessions", {
       packageId: params.packageId,
       status:    params.status,
@@ -59,11 +72,14 @@ export class SessionsResource {
   }
 
   /**
-   * Save interview answers for a session in progress.
-   * Useful when you want to programmatically fill answers instead of
-   * sending the recipient to the interview URL.
+   * Save interview answers for a session programmatically.
+   * Useful when you want to fill the form on behalf of the client rather than
+   * sending them to the interview URL.
    */
-  async updateAnswers(token: string, answers: Record<string, unknown>): Promise<Session> {
+  async updateAnswers(
+    token: string,
+    answers: Record<string, unknown>,
+  ): Promise<Session> {
     const res = await this.client.patch<GetSessionResponse>(
       `/product/docufill/sessions/${token}`,
       { answers },
@@ -72,9 +88,11 @@ export class SessionsResource {
   }
 
   /**
-   * Generate the final PDF packet for a completed session.
-   * Returns the packet data, a download URL, and any integration warnings
-   * (e.g. if Drive or HubSpot sync failed non-fatally).
+   * Trigger final PDF packet generation for a completed session.
+   * Fires any enabled integrations (Google Drive, HubSpot, webhooks).
+   * Call this after `updateAnswers` when filling the session programmatically.
+   *
+   * Returns the packet data, a download URL, and any non-fatal integration warnings.
    */
   async generate(token: string): Promise<GenerateSessionResult> {
     return this.client.post<GenerateSessionResult>(
@@ -85,8 +103,8 @@ export class SessionsResource {
 
   /**
    * Send (or re-send) the interview link email to a recipient.
-   * The email is sent from your organisation's configured address and includes
-   * the unique interview URL for this session.
+   * The email is sent from your organisation's configured address
+   * and includes the unique interview URL for this session.
    */
   async sendLink(token: string, params: SendLinkParams): Promise<{ success: boolean }> {
     return this.client.post(`/product/docufill/sessions/${token}/send-link`, {
@@ -94,5 +112,13 @@ export class SessionsResource {
       recipientName:  params.recipientName,
       customMessage:  params.customMessage,
     });
+  }
+
+  /**
+   * Void a session, immediately invalidating its interview link.
+   * Voided sessions cannot be submitted. This cannot be undone.
+   */
+  async void(token: string): Promise<{ success: boolean }> {
+    return this.client.post(`/product/docufill/sessions/${token}/void`, {});
   }
 }

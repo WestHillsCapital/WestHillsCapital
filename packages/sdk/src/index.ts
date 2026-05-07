@@ -3,7 +3,7 @@ import { PackagesResource } from "./resources/packages.js";
 import { SessionsResource } from "./resources/sessions.js";
 import { AccountResource } from "./resources/account.js";
 
-export type { DocupleteClientOptions } from "./types.js";
+export type { DocupleteClientOptions, SupportedLocale } from "./types.js";
 export type {
   Package,
   Session,
@@ -11,17 +11,33 @@ export type {
   SessionStatus,
   Account,
   CreateSessionParams,
+  CreateSessionResult,
   ListSessionsParams,
   GenerateSessionResult,
 } from "./types.js";
 export { DocupleteError } from "./client.js";
-export type { CreateSessionResult, SendLinkParams } from "./resources/sessions.js";
+export type { SendLinkParams } from "./resources/sessions.js";
 export {
   verifyWebhookSignature,
   constructWebhookEvent,
   type WebhookPayload,
 } from "./webhooks.js";
 
+/**
+ * The Docuplete API client.
+ *
+ * @example
+ * ```ts
+ * import { Docuplete } from "@docuplete/sdk";
+ *
+ * const client = new Docuplete({ apiKey: process.env.DOCUPLETE_API_KEY! });
+ *
+ * const { sessionToken, interviewUrl } = await client.sessions.create({
+ *   packageId: 42,
+ *   prefill: { firstName: "Jane", email: "jane@example.com" },
+ * });
+ * ```
+ */
 export class Docuplete {
   readonly packages: PackagesResource;
   readonly sessions: SessionsResource;
