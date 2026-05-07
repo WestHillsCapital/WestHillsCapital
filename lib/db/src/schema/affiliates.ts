@@ -1,5 +1,5 @@
 import {
-  pgTable, serial, text, integer, timestamp, numeric, index,
+  pgTable, serial, text, integer, timestamp, numeric, index, unique,
 } from "drizzle-orm/pg-core";
 
 export const affiliates = pgTable("affiliates", {
@@ -38,6 +38,7 @@ export const affiliateReferrals = pgTable("affiliate_referrals", {
   index("affiliate_referrals_affiliate_idx").on(t.affiliateId),
   index("affiliate_referrals_customer_idx").on(t.stripeCustomerId),
   index("affiliate_referrals_subscription_idx").on(t.stripeSubscriptionId),
+  unique("affiliate_referrals_subscription_unique").on(t.stripeSubscriptionId),
 ]);
 
 export const affiliateCommissions = pgTable("affiliate_commissions", {
@@ -56,4 +57,5 @@ export const affiliateCommissions = pgTable("affiliate_commissions", {
   index("affiliate_commissions_affiliate_idx").on(t.affiliateId),
   index("affiliate_commissions_referral_idx").on(t.referralId),
   index("affiliate_commissions_status_idx").on(t.status),
+  unique("affiliate_commissions_invoice_unique").on(t.stripeInvoiceId),
 ]);

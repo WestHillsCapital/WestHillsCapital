@@ -236,6 +236,7 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
             `INSERT INTO affiliate_referrals
                (affiliate_id, stripe_customer_id, stripe_subscription_id, plan_type, monthly_amount_cents, commission_months_total)
              VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (stripe_subscription_id) DO NOTHING
              RETURNING id`,
             [aff.id, sub.customer, sub.id, planType, monthlyAmt, aff.commission_months],
           );
@@ -331,7 +332,8 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
           await db.query(
             `INSERT INTO affiliate_commissions
                (affiliate_id, referral_id, amount_cents, status, due_date, period_label, stripe_invoice_id)
-             VALUES ($1, $2, $3, 'pending', NOW(), $4, $5)`,
+             VALUES ($1, $2, $3, 'pending', NOW(), $4, $5)
+             ON CONFLICT (stripe_invoice_id) DO NOTHING`,
             [ref.affiliate_id, ref.id, commCents, month, inv.id],
           );
           const newPaid   = ref.commission_months_paid + 1;
