@@ -191,8 +191,12 @@ export async function seedDemoPackage(db: Pool, accountId: number): Promise<void
         "application/pdf",
       );
       pdfDataForDb = null;
-    } catch {
-      // GCS not configured or unavailable — fall back to DB storage
+    } catch (gcsErr) {
+      // GCS not configured or unavailable during seed — fall back to DB storage.
+      // In production, ensure PRIVATE_OBJECT_DIR and GCS credentials are set so
+      // demo packages also land in GCS. This fallback is intentional only for
+      // environments without object storage (e.g. local development without GCS).
+      logger.warn({ err: gcsErr, accountId, packageId }, "[DemoPackage] GCS upload failed — storing demo PDF in DB as fallback (set PRIVATE_OBJECT_DIR to avoid this)");
     }
 
     await db.query(
