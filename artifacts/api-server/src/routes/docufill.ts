@@ -4315,7 +4315,7 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
       if (hsAccessToken && hsRefreshToken) {
         try {
           const prefill  = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-          const fields   = Array.isArray(session.fields) ? (session.fields as Array<{ id: string; label: string; type?: string }>) : [];
+          const fields   = Array.isArray(session.fields) ? (session.fields as Array<{ id: string; label: string; source?: string; type?: string }>) : [];
           const answers  = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
           const props    = extractHubSpotProperties(prefill, fields, answers);
           const result   = await upsertHubSpotContact(hsAccessToken, hsRefreshToken, props);
@@ -4981,7 +4981,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
       if (hsAccessToken && hsRefreshToken) {
         try {
           const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-          const fields  = Array.isArray(session.fields) ? (session.fields as Array<{ id: string; label: string; type?: string }>) : [];
+          const fields  = Array.isArray(session.fields) ? (session.fields as Array<{ id: string; label: string; source?: string; type?: string }>) : [];
           const answers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
           const props   = extractHubSpotProperties(prefill, fields, answers);
           const packageAccountId = typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id);
