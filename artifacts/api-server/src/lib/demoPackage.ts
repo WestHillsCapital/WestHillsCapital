@@ -48,22 +48,8 @@ const X_PCT  = parseFloat((50 / W * 100).toFixed(1));   // 8.2 %
 const W_PCT  = parseFloat((512 / W * 100).toFixed(1));  // 83.7 %
 const H3_PCT = 3;                                        // 3 % ≈ 24 pt  (one text line)
 
-// Signature section
-const SIG_BOX_Y_BOTTOM = 80;   // pdf bottom-origin bottom of sig box
-const SIG_BOX_Y_TOP    = 175;  // pdf bottom-origin top of sig box  (95 pt tall)
-const SIG_X_RIGHT      = 350;  // pdf x of right edge of sig box
-
-const SIG_MAP_Y_PCT  = parseFloat(((H - SIG_BOX_Y_TOP)  / H * 100).toFixed(1)); // ≈ 78.0
-const SIG_MAP_H_PCT  = parseFloat(((SIG_BOX_Y_TOP - SIG_BOX_Y_BOTTOM) / H * 100).toFixed(1)); // ≈ 12.0
-const SIG_MAP_W_PCT  = parseFloat(((SIG_X_RIGHT - 50) / W * 100).toFixed(1)); // ≈ 49.0
-
-const DATE_LINE_X = 368;
-const DATE_MAP_Y_PCT = parseFloat(((H - (SIG_BOX_Y_BOTTOM + 21.6)) / H * 100).toFixed(1)); // ≈ 87.0
-const DATE_MAP_X_PCT = parseFloat((DATE_LINE_X / W * 100).toFixed(1));                      // ≈ 60.1
-const DATE_MAP_W_PCT = parseFloat(((W - 50 - DATE_LINE_X) / W * 100).toFixed(1));           // ≈ 31.7
-
 /** Build the demo PDF. */
-async function buildDemoPdf(): Promise<{ bytes: Uint8Array; pageSizes: Array<{ width: number; height: number }> }> {
+export async function buildDemoPdf(): Promise<{ bytes: Uint8Array; pageSizes: Array<{ width: number; height: number }> }> {
   const doc  = await PDFDocument.create();
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
   const reg  = await doc.embedFont(StandardFonts.Helvetica);
@@ -96,32 +82,6 @@ async function buildDemoPdf(): Promise<{ bytes: Uint8Array; pageSizes: Array<{ w
     page.drawText(row.label, { x: 50, y: row.y + 14, size: 9, font: reg, color: gray });
     page.drawLine({ start: { x: 50, y: row.y }, end: { x: W - 50, y: row.y }, thickness: 0.5, color: line });
   }
-
-  // Divider above signature section
-  page.drawLine({ start: { x: 50, y: 205 }, end: { x: W - 50, y: 205 }, thickness: 0.5, color: line });
-  page.drawText("ELECTRONIC SIGNATURE", { x: 50, y: 190, size: 7.5, font: bold, color: rgb(0.5, 0.5, 0.5) });
-
-  // Signature box
-  page.drawRectangle({
-    x: 50, y: SIG_BOX_Y_BOTTOM,
-    width: SIG_X_RIGHT - 50, height: SIG_BOX_Y_TOP - SIG_BOX_Y_BOTTOM,
-    borderColor: light, borderWidth: 1, color: rgb(0.98, 0.98, 0.98),
-  });
-  page.drawText("Signature", { x: 55, y: SIG_BOX_Y_TOP - 13, size: 7.5, font: reg, color: gray });
-
-  // Date label + line
-  page.drawText("Date", { x: DATE_LINE_X, y: SIG_BOX_Y_BOTTOM + 16, size: 9, font: reg, color: gray });
-  page.drawLine({
-    start: { x: DATE_LINE_X, y: SIG_BOX_Y_BOTTOM },
-    end:   { x: W - 50,      y: SIG_BOX_Y_BOTTOM },
-    thickness: 0.5, color: line,
-  });
-
-  // Agree text
-  page.drawText(
-    "By signing above I confirm the information provided is accurate and authorize processing.",
-    { x: 50, y: 60, size: 7, font: reg, color: rgb(0.6, 0.6, 0.6) },
-  );
 
   const bytes = await doc.save();
   return { bytes, pageSizes: [{ width: W, height: H }] };
@@ -157,24 +117,6 @@ export async function seedDemoPackage(db: Pool, accountId: number): Promise<void
         x: X_PCT, y: FIELD_Y_PCT[i], w: W_PCT, h: H3_PCT,
         fontSize: 11, align: "left", format: "as-entered",
       })),
-      // E-sign: signature drawing area
-      {
-        id: "dm_signature",
-        fieldId: "__signature__",
-        documentId,
-        page: 1,
-        x: X_PCT, y: SIG_MAP_Y_PCT, w: SIG_MAP_W_PCT, h: SIG_MAP_H_PCT,
-        fontSize: 14, align: "left", format: "signature",
-      },
-      // E-sign: signer date (auto-filled with today's date)
-      {
-        id: "dm_signer_date",
-        fieldId: "__signer_date__",
-        documentId,
-        page: 1,
-        x: DATE_MAP_X_PCT, y: DATE_MAP_Y_PCT, w: DATE_MAP_W_PCT, h: H3_PCT,
-        fontSize: 11, align: "left", format: "as-entered",
-      },
     ];
 
     const pkgResult = await db.query<{ id: number }>(
