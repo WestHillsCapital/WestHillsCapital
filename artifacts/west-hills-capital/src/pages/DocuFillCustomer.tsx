@@ -337,6 +337,29 @@ export default function DocuFillCustomer() {
     return () => { if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl); };
   }, [previewObjectUrl]);
 
+  // Auto-fetch the preview PDF whenever we enter the previewing state with previewLoading=true.
+  // Triggered both on initial navigation ("Review Document" button) and on retry.
+  useEffect(() => {
+    if (pageStatus !== "previewing" || !previewLoading || previewObjectUrl) return;
+    void (async () => {
+      try {
+        const resp = await fetch(`${SESSION_BASE}/${token}/preview-pdf`, { method: "POST" });
+        if (!resp.ok) {
+          const d = await resp.json().catch(() => ({}));
+          throw new Error((d as { error?: string }).error ?? "Failed to load preview");
+        }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        setPreviewObjectUrl(url);
+      } catch (err) {
+        setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
+      } finally {
+        setPreviewLoading(false);
+      }
+    })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageStatus, previewLoading]);
+
   useLayoutEffect(() => {
     if (!isEmbed) return;
     const el = rootRef.current ?? document.documentElement;
@@ -1362,7 +1385,17 @@ export default function DocuFillCustomer() {
           </div>
 
           {previewError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{previewError}</div>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800 flex items-center justify-between gap-3">
+              <span>{previewError}</span>
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0 border-red-300 text-red-700 hover:bg-red-100 text-xs"
+                onClick={() => { setPreviewError(""); setPreviewLoading(true); }}
+              >
+                Retry
+              </Button>
+            </div>
           )}
 
           {previewLoading && (
@@ -1383,12 +1416,6 @@ export default function DocuFillCustomer() {
             </div>
           )}
 
-          {!previewObjectUrl && !previewLoading && !previewError && (
-            <div className="rounded-lg border border-[#DDD5C4] bg-white flex items-center justify-center" style={{ height: 480 }}>
-              <p className="text-sm text-[#6B7A99]">Click "Load Preview" to render your document.</p>
-            </div>
-          )}
-
           <div className="flex gap-3">
             <Button
               type="button"
@@ -1401,30 +1428,6 @@ export default function DocuFillCustomer() {
             >
               Back to form
             </Button>
-            {!previewObjectUrl && !previewLoading && (
-              <Button
-                type="button"
-                variant="outline"
-                className="border-[#DDD5C4] text-[#0F1C3F] hover:bg-[#F8F6F0]"
-                onClick={async () => {
-                  setPreviewLoading(true);
-                  setPreviewError("");
-                  try {
-                    const resp = await fetch(`${SESSION_BASE}/${token}/preview-pdf`, { method: "POST" });
-                    if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error((d as { error?: string }).error ?? "Failed to load preview"); }
-                    const blob = await resp.blob();
-                    const url = URL.createObjectURL(blob);
-                    setPreviewObjectUrl(url);
-                  } catch (err) {
-                    setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
-                  } finally {
-                    setPreviewLoading(false);
-                  }
-                }}
-              >
-                Load Preview
-              </Button>
-            )}
             <Button
               type="button"
               disabled={session!.require_preview && !previewViewed}
@@ -1843,28 +1846,17 @@ export default function DocuFillCustomer() {
                 setPreviewError("");
                 setPreviewViewed(false);
                 setPreviewObjectUrl(null);
-                setPageStatus("previewing");
+                // Flush the current answers to the server before rendering the preview
+                // so the draft PDF reflects unsaved edits (autosave is debounced).
+                await fetch(`${SESSION_BASE}/${token}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ answers }),
+                }).catch(() => {});
+                // Setting previewLoading=true then pageStatus="previewing" triggers the
+                // auto-load useEffect which fetches the preview PDF.
                 setPreviewLoading(true);
-                try {
-                  // Flush the current answers to the server before rendering the preview
-                  // so the draft PDF reflects unsaved edits (autosave is debounced).
-                  await fetch(`${SESSION_BASE}/${token}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ answers }),
-                  });
-                  const resp = await fetch(`${SESSION_BASE}/${token}/preview-pdf`, { method: "POST" });
-                  if (!resp.ok) { const d = await resp.json().catch(() => ({})); throw new Error((d as { error?: string }).error ?? "Failed to load preview"); }
-                  const blob = await resp.blob();
-                  const url = URL.createObjectURL(blob);
-                  setPreviewObjectUrl(url);
-                } catch (err) {
-                  setPreviewLoading(false);
-                  setPreviewError(err instanceof Error ? err.message : "Failed to load preview");
-                  setPageStatus("ready");
-                  return;
-                }
-                setPreviewLoading(false);
+                setPageStatus("previewing");
               }}
             >
               Review Document
