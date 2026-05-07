@@ -136,12 +136,19 @@ export default function Sandbox() {
           </div>
 
           {/* Pre-fill tip */}
-          <div className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-4 text-left space-y-1">
+          <div className="bg-blue-50 border border-blue-100 rounded-xl px-5 py-4 text-left space-y-2">
             <p className="text-xs font-semibold text-blue-700">Developer tip — URL prefill</p>
             <p className="text-xs text-blue-600">
-              Add <code className="bg-blue-100 px-1 rounded">?firstName=Jane&amp;lastName=Smith</code> to this URL
-              and the interview opens with those fields already filled — exactly how your API integration would work.
+              Pass query params and those fields arrive pre-filled — exactly how your API integration would work.
+              Click the link below to try it:
             </p>
+            <a
+              href={`${window.location.origin}${window.location.pathname}?firstName=Jane&lastName=Smith&email=jane%40example.com`}
+              className="block text-[11px] font-mono text-blue-700 bg-blue-100 rounded-lg px-3 py-2 break-all hover:bg-blue-200 transition-colors"
+            >
+              {window.location.origin}{window.location.pathname}
+              <span className="text-blue-500">?firstName=Jane&amp;lastName=Smith&amp;email=jane@example.com</span>
+            </a>
           </div>
         </div>
       </main>
