@@ -5,15 +5,15 @@ import { logger } from "./logger";
 
 // ── Demo fields (explicit stable ids so mapping references are reliable) ───────
 const DEMO_FIELDS = [
-  { id: "client_first_name",    libraryFieldId: "client_first_name",    label: "Client first name",    type: "text", source: "firstName",    required: true,  category: "Customer identity" },
-  { id: "client_last_name",     libraryFieldId: "client_last_name",     label: "Client last name",     type: "text", source: "lastName",     required: true,  category: "Customer identity" },
-  { id: "client_email",         libraryFieldId: "client_email",         label: "Client email",         type: "text", source: "email",        required: true,  category: "Contact",
+  { id: "client_first_name",    libraryFieldId: "client_first_name",    label: "Client first name",    type: "text", source: "firstName",    required: true,  interviewMode: "required", category: "Customer identity" },
+  { id: "client_last_name",     libraryFieldId: "client_last_name",     label: "Client last name",     type: "text", source: "lastName",     required: true,  interviewMode: "required", category: "Customer identity" },
+  { id: "client_email",         libraryFieldId: "client_email",         label: "Client email",         type: "text", source: "email",        required: true,  interviewMode: "required", category: "Contact",
     validationType: "email", validationMessage: "Enter a valid email address." },
-  { id: "client_dob",           libraryFieldId: "client_dob",           label: "Client date of birth", type: "date", source: "dateOfBirth",  required: true,  category: "Customer identity" },
-  { id: "client_address_line1", libraryFieldId: "client_address_line1", label: "Client address",       type: "text", source: "addressLine1", required: true,  category: "Address" },
-  { id: "client_city",          libraryFieldId: "client_city",          label: "Client city",          type: "text", source: "city",         required: true,  category: "Address" },
-  { id: "client_state",         libraryFieldId: "client_state",         label: "Client state",         type: "text", source: "state",        required: true,  category: "Address" },
-  { id: "client_zip",           libraryFieldId: "client_zip",           label: "Client ZIP code",      type: "text", source: "zip",          required: true,  category: "Address",
+  { id: "client_dob",           libraryFieldId: "client_dob",           label: "Client date of birth", type: "date", source: "dateOfBirth",  required: true,  interviewMode: "required", category: "Customer identity" },
+  { id: "client_address_line1", libraryFieldId: "client_address_line1", label: "Client address",       type: "text", source: "addressLine1", required: true,  interviewMode: "required", category: "Address" },
+  { id: "client_city",          libraryFieldId: "client_city",          label: "Client city",          type: "text", source: "city",         required: true,  interviewMode: "required", category: "Address" },
+  { id: "client_state",         libraryFieldId: "client_state",         label: "Client state",         type: "text", source: "state",        required: true,  interviewMode: "required", category: "Address" },
+  { id: "client_zip",           libraryFieldId: "client_zip",           label: "Client ZIP code",      type: "text", source: "zip",          required: true,  interviewMode: "required", category: "Address",
     validationType: "custom", validationPattern: "^\\d{5}(-\\d{4})?$", validationMessage: "Enter a valid ZIP code." },
 ];
 
