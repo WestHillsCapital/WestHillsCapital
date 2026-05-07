@@ -5583,11 +5583,37 @@ function ProfileSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
 
 // ── Source Key Mapping Dashboard ──────────────────────────────────────────────
 
+function UsageBadge({ packageCount, sessionCount }: { packageCount: number; sessionCount: number }) {
+  const isHigh   = sessionCount >= 50;
+  const isMedium = sessionCount >= 10 && !isHigh;
+  return (
+    <div className="flex flex-col gap-0.5 min-w-[72px]">
+      <span className="text-[10px] text-gray-500">
+        {packageCount} {packageCount === 1 ? "pkg" : "pkgs"}
+      </span>
+      <span
+        className={`inline-flex items-center gap-1 text-[10px] font-medium ${
+          isHigh   ? "text-red-600"   :
+          isMedium ? "text-amber-600" :
+          sessionCount > 0 ? "text-gray-500" : "text-gray-300"
+        }`}
+      >
+        {(isHigh || isMedium) && (
+          <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+          </svg>
+        )}
+        {sessionCount.toLocaleString()} {sessionCount === 1 ? "session" : "sessions"}
+      </span>
+    </div>
+  );
+}
+
 type SkField = {
   fieldId: string; fieldLabel: string; fieldType: string; sensitive: boolean;
   packageId: number; packageName: string; packageStatus: string; interviewMode: string | null;
 };
-type SkGroup    = { sourceKey: string; fields: SkField[]; builtinHubspotProperty: string | null };
+type SkGroup    = { sourceKey: string; fields: SkField[]; builtinHubspotProperty: string | null; packageCount: number; sessionCount: number };
 type SkMappings = { hubspot: Record<string, string>; csv: Record<string, string> };
 type SkPkg      = { id: number; name: string; status: string };
 
@@ -5632,7 +5658,9 @@ function SourceKeyMappingSection({
   // Fields for the selected package (flattened for the Edit tab)
   const pkgFields = selPkg
     ? groups.flatMap((g) =>
-        g.fields.filter((f) => f.packageId === selPkg).map((f) => ({ ...f, sourceKey: g.sourceKey })),
+        g.fields
+          .filter((f) => f.packageId === selPkg)
+          .map((f) => ({ ...f, sourceKey: g.sourceKey, sessionCount: g.sessionCount, packageCount: g.packageCount })),
       )
     : [];
 
@@ -5739,6 +5767,7 @@ function SourceKeyMappingSection({
                     <th className="px-4 py-2.5 text-left font-medium">Source Key</th>
                     <th className="px-4 py-2.5 text-left font-medium">Fields</th>
                     <th className="px-4 py-2.5 text-left font-medium">Packages</th>
+                    <th className="px-4 py-2.5 text-left font-medium">Usage</th>
                     <th className="px-4 py-2.5 text-left font-medium">HubSpot</th>
                     <th className="px-4 py-2.5 w-8" />
                   </tr>
@@ -5777,6 +5806,9 @@ function SourceKeyMappingSection({
                               </span>
                             ))}
                           </div>
+                        </td>
+                        <td className="px-4 py-2.5">
+                          <UsageBadge packageCount={g.packageCount} sessionCount={g.sessionCount} />
                         </td>
                         <td className="px-4 py-2.5">
                           {hubspot ? (
@@ -5860,6 +5892,7 @@ function SourceKeyMappingSection({
                       <th className="px-4 py-2.5 text-left font-medium">Field</th>
                       <th className="px-4 py-2.5 text-left font-medium">Type</th>
                       <th className="px-4 py-2.5 text-left font-medium">Source Key</th>
+                      <th className="px-4 py-2.5 text-left font-medium">Usage</th>
                       {isAdmin && <th className="px-4 py-2.5 text-left font-medium w-28" />}
                     </tr>
                   </thead>
@@ -5887,14 +5920,24 @@ function SourceKeyMappingSection({
                           </td>
                           <td className="px-4 py-2.5">
                             {isEditing ? (
-                              <input
-                                autoFocus
-                                value={editing.value}
-                                onChange={(e) => setEditing({ ...editing, value: e.target.value.replace(/[^a-zA-Z0-9_]/g, "") })}
-                                onKeyDown={(e) => { if (e.key === "Enter") void handleSaveField(); if (e.key === "Escape") setEditing(null); }}
-                                placeholder="e.g. firstName"
-                                className="rounded border border-blue-300 bg-white px-2 py-0.5 text-xs font-mono text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-400 w-40"
-                              />
+                              <div className="flex flex-col gap-1">
+                                <input
+                                  autoFocus
+                                  value={editing.value}
+                                  onChange={(e) => setEditing({ ...editing, value: e.target.value.replace(/[^a-zA-Z0-9_]/g, "") })}
+                                  onKeyDown={(e) => { if (e.key === "Enter") void handleSaveField(); if (e.key === "Escape") setEditing(null); }}
+                                  placeholder="e.g. firstName"
+                                  className="rounded border border-blue-300 bg-white px-2 py-0.5 text-xs font-mono text-gray-800 focus:outline-none focus:ring-1 focus:ring-blue-400 w-40"
+                                />
+                                {f.sessionCount >= 10 && (
+                                  <span className={`inline-flex items-center gap-1 text-[10px] font-medium ${f.sessionCount >= 50 ? "text-red-600" : "text-amber-600"}`}>
+                                    <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                                    </svg>
+                                    Used in {f.sessionCount.toLocaleString()} sessions — renaming affects API prefill
+                                  </span>
+                                )}
+                              </div>
                             ) : (
                               <code
                                 className={`font-mono text-[11px] px-1.5 py-0.5 rounded ${
@@ -5904,6 +5947,9 @@ function SourceKeyMappingSection({
                                 {isSaved ? "✓ saved" : f.sourceKey}
                               </code>
                             )}
+                          </td>
+                          <td className="px-4 py-2.5">
+                            <UsageBadge packageCount={f.packageCount} sessionCount={f.sessionCount} />
                           </td>
                           {isAdmin && (
                             <td className="px-4 py-2.5">

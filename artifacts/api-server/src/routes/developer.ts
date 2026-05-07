@@ -99,8 +99,36 @@ router.get("/source-keys", requireMemberRole, async (req, res) => {
       }
     }
 
+    // Count sessions per package so we can surface usage per source key
+    const allPackageIds = packages.map((p) => p.id);
+    const sessionCountByPackage = new Map<number, number>();
+    if (allPackageIds.length > 0) {
+      const { rows: sessionRows } = await db.query<{ package_id: number; cnt: string }>(
+        `SELECT package_id, COUNT(*) AS cnt
+           FROM docufill_interview_sessions
+          WHERE package_id = ANY($1::int[])
+          GROUP BY package_id`,
+        [allPackageIds],
+      );
+      for (const row of sessionRows) {
+        sessionCountByPackage.set(Number(row.package_id), parseInt(row.cnt, 10));
+      }
+    }
+
     const sourceKeys = Array.from(grouped.values())
-      .map((g) => ({ ...g, builtinHubspotProperty: SOURCE_KEY_TO_HUBSPOT[g.sourceKey] ?? null }))
+      .map((g) => {
+        const uniquePkgIds = [...new Set(g.fields.map((f) => f.packageId))];
+        const sessionCount = uniquePkgIds.reduce(
+          (sum, pid) => sum + (sessionCountByPackage.get(pid) ?? 0),
+          0,
+        );
+        return {
+          ...g,
+          packageCount:           uniquePkgIds.length,
+          sessionCount,
+          builtinHubspotProperty: SOURCE_KEY_TO_HUBSPOT[g.sourceKey] ?? null,
+        };
+      })
       .sort((a, b) => a.sourceKey.localeCompare(b.sourceKey));
 
     const packageList = packages.map((p) => ({ id: p.id, name: p.name, status: p.status }));
