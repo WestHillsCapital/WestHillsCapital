@@ -68,6 +68,7 @@ const DocuFillInternal            = lazy(() => import("@/pages/internal/DocuFill
 const SettingsInternal            = lazy(() => import("@/pages/internal/Settings"));
 const SuperAdminInternal          = lazy(() => import("@/pages/internal/SuperAdmin"));
 const DocuFillCustomer            = lazy(() => import("@/pages/DocuFillCustomer"));
+const SandboxLanding              = lazy(() => import("@/pages/Sandbox"));
 
 // ── Product portal pages (Clerk-auth, lazy-loaded) ────────────────────────────
 const AppPortal  = lazy(() => import("@/pages/app/AppPortal"));
@@ -139,6 +140,7 @@ function Router() {
   const [location] = useLocation();
   const isInternal    = location.startsWith("/internal");
   const isCustomerForm = location.startsWith("/docuplete/public/");
+  const isSandboxPage  = location === "/sandbox";
   const isApp         = location.startsWith("/app");
 
   // Capture referral code from ?ref= URL param and persist to localStorage
@@ -171,6 +173,19 @@ function Router() {
         <Suspense fallback={<PageSpinner />}>
           <Switch>
             <Route path="/docuplete/public/:token" component={DocuFillCustomer} />
+          </Switch>
+        </Suspense>
+      </div>
+    );
+  }
+
+  if (isSandboxPage) {
+    return (
+      <div className="docuplete-app">
+        <ScrollToTop />
+        <Suspense fallback={<PageSpinner />}>
+          <Switch>
+            <Route path="/sandbox" component={SandboxLanding} />
           </Switch>
         </Suspense>
       </div>

@@ -23,6 +23,7 @@ import { requireApiKeyAuth } from "../middleware/requireApiKeyAuth";
 import affiliatesAdminRouter, { publicAffiliateRouter } from "./affiliates";
 import headlessSessionsRouter from "./headlessSessions";
 import developerRouter from "./developer";
+import sandboxRouter from "./sandbox";
 
 const router: IRouter = Router();
 
@@ -88,6 +89,7 @@ v1Router.use("/product/merlin",    requireProductAuth, requireAccountId, merlinR
 v1Router.use("/packages",          requireApiKeyAuth,  requireAccountId, apiKeyDocufillRouter);
 v1Router.use("/sessions",          headlessSessionsRouter);
 v1Router.use("/product/developer", requireProductAuth, requireAccountId, developerRouter);
+v1Router.use("/sandbox",           sandboxRouter);
 
 router.use("/v1", v1Router);
 

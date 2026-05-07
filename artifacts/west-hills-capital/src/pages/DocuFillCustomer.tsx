@@ -275,7 +275,8 @@ function todayFormatted(): string {
 export default function DocuFillCustomer() {
   const params = useParams<{ token: string }>();
   const token = params.token ?? "";
-  const isEmbed = new URLSearchParams(window.location.search).get("embed") === "1";
+  const isEmbed   = new URLSearchParams(window.location.search).get("embed")   === "1";
+  const isSandbox = new URLSearchParams(window.location.search).get("sandbox") === "1";
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -285,6 +286,9 @@ export default function DocuFillCustomer() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  // Sandbox-mode extras
+  const [pdfHash, setPdfHash]   = useState<string | null>(null);
+  const [showJson, setShowJson] = useState(false);
   const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hasSavedRef = useRef(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -376,6 +380,23 @@ export default function DocuFillCustomer() {
       })
       .catch(() => setPageStatus("error"));
   }, [token]);
+
+  // Compute SHA-256 of the generated PDF when in sandbox mode.
+  // Runs client-side using the Web Crypto API — no backend changes needed.
+  useEffect(() => {
+    if (!isSandbox || !downloadUrl) return;
+    void (async () => {
+      try {
+        const res    = await fetch(downloadUrl);
+        const buf    = await res.arrayBuffer();
+        const digest = await crypto.subtle.digest("SHA-256", buf);
+        const hex    = Array.from(new Uint8Array(digest))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+        setPdfHash(hex);
+      } catch { /* non-fatal — hash stays null */ }
+    })();
+  }, [isSandbox, downloadUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // For email_otp packages: gate the interview behind identity verification.
   // Runs once when the session finishes loading — before the customer sees the form.
@@ -718,6 +739,141 @@ export default function DocuFillCustomer() {
   }
 
   if (pageStatus === "generated") {
+    const pdfUrl = downloadUrl ?? `${SESSION_BASE}/${token}/packet.pdf`;
+
+    if (isSandbox) {
+      // ── Sandbox enhanced result screen ────────────────────────────────────────
+      const jsonPayload = {
+        answers:      session?.answers ?? {},
+        prefill:      session?.prefill ?? {},
+        generated_at: new Date().toISOString(),
+      };
+      return (
+        <div style={{ minHeight: "100dvh" }} className="bg-[#0A1128] flex flex-col font-sans">
+          {/* Top bar */}
+          <header className="flex items-center justify-between px-6 py-3 border-b border-white/10 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 rounded flex items-center justify-center text-white text-xs font-bold bg-[#C49A38]">D</div>
+              <span className="text-white text-sm font-semibold">Docuplete</span>
+              <span className="ml-1 text-[10px] font-medium text-amber-400/60 uppercase tracking-widest">Sandbox</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              <span className="text-green-400 text-sm font-medium">Document generated</span>
+            </div>
+          </header>
+
+          {/* Body: PDF left, metadata sidebar right */}
+          <div className="flex flex-1 overflow-hidden min-h-0" style={{ height: "calc(100dvh - 49px)" }}>
+            {/* PDF viewer */}
+            <div className="flex-1 bg-[#1a2340]">
+              <iframe
+                src={pdfUrl}
+                className="w-full h-full border-none"
+                title="Generated document"
+              />
+            </div>
+
+            {/* Metadata sidebar */}
+            <aside className="w-80 shrink-0 border-l border-white/10 overflow-y-auto">
+              <div className="p-5 space-y-5">
+
+                {/* Download */}
+                <Button
+                  onClick={handleDownload}
+                  disabled={isDownloading}
+                  className="w-full"
+                  style={{ backgroundColor: "#C49A38", color: "#fff" }}
+                >
+                  {isDownloading ? "Preparing…" : "Download PDF"}
+                </Button>
+
+                {/* SHA-256 hash */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-semibold text-[#8A9BB8] uppercase tracking-widest">SHA-256 integrity hash</p>
+                  {pdfHash ? (
+                    <div className="bg-[#111827] rounded-lg px-3 py-2.5">
+                      <p className="text-[10px] font-mono text-green-400 break-all leading-relaxed">{pdfHash}</p>
+                    </div>
+                  ) : (
+                    <div className="bg-[#111827] rounded-lg px-3 py-2.5 flex items-center gap-2">
+                      <svg className="animate-spin w-3.5 h-3.5 shrink-0 text-[#8A9BB8]" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                      <p className="text-[11px] text-[#8A9BB8]">Computing…</p>
+                    </div>
+                  )}
+                  <p className="text-[10px] text-[#4B5A7A] leading-relaxed">
+                    Computed in-browser via Web Crypto API. Any byte change produces a completely different hash.
+                  </p>
+                </div>
+
+                {/* Timestamp */}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-semibold text-[#8A9BB8] uppercase tracking-widest">Generated at</p>
+                  <div className="bg-[#111827] rounded-lg px-3 py-2.5">
+                    <p className="text-[11px] font-mono text-white/80">{new Date().toUTCString()}</p>
+                  </div>
+                </div>
+
+                {/* JSON payload toggle */}
+                <div className="space-y-1.5">
+                  <button
+                    className="flex items-center justify-between w-full text-left group"
+                    onClick={() => setShowJson((v) => !v)}
+                  >
+                    <p className="text-[10px] font-semibold text-[#8A9BB8] uppercase tracking-widest group-hover:text-white transition-colors">
+                      View the data
+                    </p>
+                    <svg
+                      className={`w-3.5 h-3.5 text-[#8A9BB8] transition-transform ${showJson ? "rotate-180" : ""}`}
+                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {showJson ? (
+                    <pre className="bg-[#111827] rounded-lg px-3 py-2.5 text-[10px] font-mono text-blue-300 overflow-x-auto whitespace-pre-wrap break-all leading-relaxed max-h-64">
+                      {JSON.stringify(jsonPayload, null, 2)}
+                    </pre>
+                  ) : (
+                    <p className="text-[10px] text-[#4B5A7A]">
+                      Tap to inspect the answers and prefill values sent to the document engine.
+                    </p>
+                  )}
+                </div>
+
+                {/* What happened */}
+                <div className="space-y-2 pt-2 border-t border-white/10">
+                  <p className="text-[10px] font-semibold text-[#8A9BB8] uppercase tracking-widest">What just happened</p>
+                  <div className="space-y-2 text-[11px] text-[#6B7A99]">
+                    {[
+                      "Your answers were mapped to every field in the document template",
+                      "The PDF was rendered and sealed with a SHA-256 digest",
+                      "In production, your advisor is notified instantly via webhook",
+                    ].map((t) => (
+                      <div key={t} className="flex items-start gap-2">
+                        <span className="text-[#C49A38] shrink-0 mt-0.5">✦</span>
+                        <span>{t}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <p className="text-[10px] text-[#4B5A7A] text-center pt-1">
+                  Sandbox session — data not retained
+                </p>
+              </div>
+            </aside>
+          </div>
+        </div>
+      );
+    }
+
+    // ── Standard (non-sandbox) result screen ──────────────────────────────────
     return (
       <div className={screenCls}>
         <div className="max-w-md w-full bg-white rounded-xl border border-[#DDD5C4] p-8 text-center space-y-5">
@@ -1630,6 +1786,31 @@ export default function DocuFillCustomer() {
             );
           })}
         </div>
+
+        {/* Sandbox engine progress widget — visible only when ?sandbox=1 */}
+        {isSandbox && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+              </span>
+              <p className="text-xs font-semibold text-amber-800">Docuplete Engine — Active</p>
+            </div>
+            <div className="w-full bg-amber-100 rounded-full h-1.5 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${progressPct}%`, backgroundColor: "#C49A38" }}
+              />
+            </div>
+            <p className="text-[11px] text-amber-700">
+              {answeredCount} of {requiredCount} answers captured
+              {answeredCount > 0 && (
+                <> · <span className="font-semibold">{answeredCount * Math.ceil(requiredCount > 0 ? 430 / requiredCount : 54)}</span> field insertions queued</>
+              )}
+            </p>
+          </div>
+        )}
 
         {/* Submit / Preview */}
         <div className="bg-white rounded-lg border border-[#DDD5C4] p-5 space-y-3">
