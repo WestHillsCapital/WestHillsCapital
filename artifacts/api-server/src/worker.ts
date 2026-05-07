@@ -99,29 +99,37 @@ const shouldMigrate =
       });
     }
 
-    // ── One-shot startup backlog clear ──────────────────────────────────────
-    // Run each scheduler once immediately to process any rows that accumulated
-    // while the worker was down (e.g. during a deploy or crash). This only
-    // runs in the worker process — the API server calls initDb() but does NOT
-    // call these functions. Fire-and-forget: failures are non-fatal.
-    void Promise.allSettled([
-      pruneInternalSessions(),
-      pruneAuditTables(),
-      pruneRetainedSubmissions(),
-      pruneSessionData(),
-      processScheduledDeletions(),
-      purgeExpiredTrialData(),
-      purgeExpiredExports(),
-      runFulfillmentScheduler(),
-      runTrackingSync(),
-    ]).then((results) => {
-      const failed = results.filter((r) => r.status === "rejected");
-      if (failed.length > 0) {
-        logger.warn({ failedCount: failed.length }, "[Scheduler] Some startup backlog runs failed (non-fatal)");
-      } else {
-        logger.info("[Scheduler] Startup backlog runs complete");
-      }
-    });
+    // ── One-shot startup backlog clear (BullMQ-deduplicated) ─────────────────
+    // Enqueue each scheduler job once with a time-windowed jobId (5-min window).
+    // If multiple worker replicas start simultaneously they all attempt the same
+    // jobId — BullMQ's atomic add deduplicates it so only one replica processes
+    // the job. This guarantees exactly-once backlog execution per deploy.
+    const sq = schedulerQueue;
+    if (sq) {
+      const backlogWindow = Math.floor(Date.now() / (5 * 60 * 1000));
+      const BACKLOG_JOB_NAMES = [
+        "prune:sessions",
+        "prune:audit-tables",
+        "prune:submissions",
+        "prune:session-data",
+        "purge:scheduled-deletions",
+        "purge:trial-data",
+        "expire:exports",
+        "scheduler:fulfillment",
+        "scheduler:tracking-sync",
+      ] as const;
+      await Promise.all(
+        BACKLOG_JOB_NAMES.map((name) =>
+          sq.add(name, {}, {
+            jobId:           `backlog-${name}-${backlogWindow}`,
+            attempts:        1,
+            removeOnComplete: { count: 100 },
+            removeOnFail:    { count: 100 },
+          })
+        )
+      );
+      logger.info("[Scheduler] Startup backlog-clear jobs enqueued (BullMQ-deduplicated)");
+    }
 
     // ── Register repeatable job schedulers ──────────────────────────────────
     // upsertJobScheduler is idempotent — safe to call on every worker restart.
