@@ -170,11 +170,13 @@ function Router() {
     return (
       <div className="docuplete-app">
         <ScrollToTop />
-        <Suspense fallback={<PageSpinner />}>
-          <Switch>
-            <Route path="/docuplete/public/:token" component={DocuFillCustomer} />
-          </Switch>
-        </Suspense>
+        <ErrorBoundary label="signing form" inline>
+          <Suspense fallback={<PageSpinner />}>
+            <Switch>
+              <Route path="/docuplete/public/:token" component={DocuFillCustomer} />
+            </Switch>
+          </Suspense>
+        </ErrorBoundary>
       </div>
     );
   }
@@ -196,13 +198,15 @@ function Router() {
     return (
       <div className="docuplete-app">
         <ScrollToTop />
-        <Suspense fallback={<PageSpinner />}>
-          <Switch>
-            <Route path="/app/sign-in/*?" component={AppSignIn} />
-            <Route path="/app/sign-up/*?" component={AppSignUp} />
-            <Route path="/app/*?"         component={AppPortal} />
-          </Switch>
-        </Suspense>
+        <ErrorBoundary label="app portal">
+          <Suspense fallback={<PageSpinner />}>
+            <Switch>
+              <Route path="/app/sign-in/*?" component={AppSignIn} />
+              <Route path="/app/sign-up/*?" component={AppSignUp} />
+              <Route path="/app/*?"         component={AppPortal} />
+            </Switch>
+          </Suspense>
+        </ErrorBoundary>
       </div>
     );
   }
