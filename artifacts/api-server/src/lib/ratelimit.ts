@@ -1,6 +1,13 @@
 /**
- * Simple in-memory rate limiter.
- * Resets on server restart — sufficient for single-instance Railway deployment.
+ * In-memory rate limiter — kept as a local-dev fallback only.
+ *
+ * Production code imports from ratelimit-redis.ts, which uses Redis INCR +
+ * EXPIRE for cross-instance, restart-safe rate limiting. This module is no
+ * longer used at runtime when REDIS_URL is configured.
+ *
+ * The 10-minute purge interval has been removed: Redis TTLs handle expiry
+ * automatically, and this fallback is only active in environments without Redis
+ * (typically local development).
  */
 
 interface RateLimitEntry {
@@ -50,11 +57,4 @@ export function isCurrentlyBlocked(
   return entry.count > maxHits;
 }
 
-// Purge stale entries every 10 minutes to prevent unbounded memory growth
-setInterval(() => {
-  const now = Date.now();
-  const MAX_WINDOW = 10 * 60 * 1000; // 10 min — largest window we use
-  for (const [key, entry] of store.entries()) {
-    if (now - entry.windowStart > MAX_WINDOW) store.delete(key);
-  }
-}, 10 * 60 * 1000);
+

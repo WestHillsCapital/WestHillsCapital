@@ -3,7 +3,7 @@ import type { RequestHandler } from "express";
 import * as Sentry from "@sentry/node";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
-import { isRateLimited, isCurrentlyBlocked } from "../lib/ratelimit";
+import { isRateLimited, isCurrentlyBlocked } from "../lib/ratelimit-redis";
 import { isIpAllowed } from "../lib/cidr";
 
 const APIKEY_FAIL_MAX = 10;
@@ -57,7 +57,7 @@ export const requireApiKeyAuth: RequestHandler = async (req, res, next) => {
 
   const authHeader = req.headers["authorization"];
   if (!authHeader?.startsWith("Bearer ")) {
-    if (isRateLimited(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
+    if (await isRateLimited(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
       return void res.status(429).json({ error: "Too many failed authentication attempts. Please wait before trying again." });
     }
     return void res.status(401).json({ error: "Authentication required. Provide an API key via Authorization: Bearer dp_live_…" });
@@ -65,19 +65,19 @@ export const requireApiKeyAuth: RequestHandler = async (req, res, next) => {
 
   const token = authHeader.slice(7).trim();
   if (!token.startsWith(API_KEY_PREFIX)) {
-    if (isRateLimited(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
+    if (await isRateLimited(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
       return void res.status(429).json({ error: "Too many failed authentication attempts. Please wait before trying again." });
     }
     return void res.status(401).json({ error: "Invalid API key format. Keys must start with dp_live_." });
   }
 
-  if (isCurrentlyBlocked(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
+  if (await isCurrentlyBlocked(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
     return void res.status(429).json({ error: "Too many failed authentication attempts. Please wait before trying again." });
   }
 
   const accountId = await resolveApiKeyAccountId(token);
   if (accountId === null) {
-    if (isRateLimited(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
+    if (await isRateLimited(rateLimitKey, APIKEY_FAIL_MAX, APIKEY_FAIL_WINDOW_MS)) {
       return void res.status(429).json({ error: "Too many failed authentication attempts. Please wait before trying again." });
     }
     return void res.status(401).json({ error: "Invalid or revoked API key." });
