@@ -355,7 +355,6 @@ export default function DocuFill() {
   const [pkgDropdownOpen, setPkgDropdownOpen] = useState(false);
   const pkgDropdownRef = useRef<HTMLDivElement>(null);
   const [fieldLibrary, setFieldLibrary] = useState<FieldLibraryItem[]>([]);
-  const [packages, setPackages] = useState<PackageItem[]>([]);
   const [bootstrapLoaded, setBootstrapLoaded] = useState(false);
   const [seedingDemo, setSeedingDemo] = useState(false);
   const [demoUiState, setDemoUiState] = useState<"try" | "open" | "dismissed">(() => {
@@ -366,13 +365,6 @@ export default function DocuFill() {
     return "try";
   });
   const [demoSessionLoading, setDemoSessionLoading] = useState(false);
-  const [selectedPackageId, setSelectedPackageId] = useState<number | null>(() => {
-    try {
-      const saved = sessionStorage.getItem("docufill:selectedPackageId");
-      if (saved) { const n = Number(saved); if (!isNaN(n) && n > 0) return n; }
-    } catch { /* sessionStorage unavailable */ }
-    return null;
-  });
   const [standalonePackageId, setStandalonePackageId] = useState("");
   const [customerLinkPackageId, setCustomerLinkPackageId] = useState("");
   const [customerLinkFirstName, setCustomerLinkFirstName] = useState("");
@@ -401,6 +393,11 @@ export default function DocuFill() {
   const setSelectedFieldId = useDocuFillStore((s) => s.setSelectedFieldId);
   const selectedMappingId = useDocuFillStore((s) => s.selectedMappingId);
   const setSelectedMappingId = useDocuFillStore((s) => s.setSelectedMappingId);
+  const packages = useDocuFillStore((s) => s.packages);
+  const selectedPackageId = useDocuFillStore((s) => s.selectedPackageId);
+  const setPackages = useDocuFillStore((s) => s.setPackages);
+  const setSelectedPackageId = useDocuFillStore((s) => s.setSelectedPackageId);
+  const updateSelectedPackage = useDocuFillStore((s) => s.updateSelectedPackage);
   const [inspectorMode, setInspectorMode] = useState<"panel" | "modal">(() => {
     const stored = localStorage.getItem("docufill-inspector-mode");
     return stored === "modal" ? "modal" : "panel";
@@ -1661,6 +1658,10 @@ export default function DocuFill() {
   }
 
   async function deleteTransactionType(scope: string): Promise<string | null> {
+    // Capture the target package ID synchronously before any awaits so that
+    // if the user switches packages while the request is in-flight the updater
+    // is still applied to the package that was selected at action-initiation time.
+    const targetId = selectedPackageId ?? undefined;
     try {
       const res = await fetch(`${API_BASE}${docufillApiPath}/transaction-types/${scope}`, {
         method: "DELETE",
@@ -1670,7 +1671,7 @@ export default function DocuFill() {
       if (!res.ok) return data.error ?? "Could not delete type";
       setTransactionTypes((prev) => prev.filter((t) => t.scope !== scope));
       if (selectedPackage?.transaction_scope === scope) {
-        updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: "" }));
+        updateSelectedPackage((pkg) => ({ ...pkg, transaction_scope: "" }), targetId);
       }
       return null;
     } catch {
@@ -1855,15 +1856,6 @@ export default function DocuFill() {
     }
     setBuilderStep(resolvedStep);
     setTab(resolvedStep === "mapping" ? "mapper" : "packages");
-  }
-
-  function updateSelectedPackage(updater: (pkg: PackageItem) => PackageItem) {
-    // Capture the ID at call-time (not inside the setPackages updater) so that
-    // if this function is called from an async callback, we always target the
-    // package that was selected when the action was initiated.
-    const targetId = selectedPackage?.id;
-    if (targetId === undefined || targetId === null) return;
-    setPackages((prev) => prev.map((pkg) => pkg.id === targetId ? updater(pkg) : pkg));
   }
 
   function evictDocumentPreview(packageId: number, docId: string) {

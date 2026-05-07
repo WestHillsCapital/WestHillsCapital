@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { type MappingItem, type RecipientItem } from "@/lib/docufill-types";
+import { type PackageItem } from "@/lib/docufill-local-types";
 
 interface DocuFillState {
   selectedMappingId: string | null;
@@ -12,6 +13,9 @@ interface DocuFillState {
 
   mappings: MappingItem[];
   recipientList: RecipientItem[];
+
+  packages: PackageItem[];
+  selectedPackageId: number | null;
 
   setSelectedMappingId: (id: string | null) => void;
   setSelectedFieldId: (id: string | null) => void;
@@ -34,6 +38,10 @@ interface DocuFillState {
   removeRecipient: (id: string) => void;
   updateRecipient: (id: string, patch: Partial<RecipientItem>) => void;
   clearRecipientFromMappings: (recipientId: string) => void;
+
+  setPackages: (arg: PackageItem[] | ((prev: PackageItem[]) => PackageItem[])) => void;
+  setSelectedPackageId: (arg: number | null | ((prev: number | null) => number | null)) => void;
+  updateSelectedPackage: (updater: (pkg: PackageItem) => PackageItem, targetId?: number) => void;
 }
 
 export const useDocuFillStore = create<DocuFillState>()((set, get) => ({
@@ -47,6 +55,15 @@ export const useDocuFillStore = create<DocuFillState>()((set, get) => ({
 
   mappings: [],
   recipientList: [],
+
+  packages: [],
+  selectedPackageId: (() => {
+    try {
+      const saved = sessionStorage.getItem("docufill:selectedPackageId");
+      if (saved) { const n = Number(saved); if (!isNaN(n) && n > 0) return n; }
+    } catch { /* sessionStorage unavailable */ }
+    return null;
+  })(),
 
   setSelectedMappingId: (id) => set({ selectedMappingId: id }),
   setSelectedFieldId: (id) => set({ selectedFieldId: id }),
@@ -99,4 +116,20 @@ export const useDocuFillStore = create<DocuFillState>()((set, get) => ({
         m.recipientId === recipientId ? { ...m, recipientId: undefined } : m,
       ),
     })),
+
+  setPackages: (arg) =>
+    set((s) => ({ packages: typeof arg === "function" ? arg(s.packages) : arg })),
+
+  setSelectedPackageId: (arg) =>
+    set((s) => ({ selectedPackageId: typeof arg === "function" ? arg(s.selectedPackageId) : arg })),
+
+  updateSelectedPackage: (updater, targetId) => {
+    const { selectedPackageId, packages } = get();
+    // Mirror the old selectedPackage derivation: explicit targetId wins,
+    // then selectedPackageId, then fall back to packages[0] (same as the
+    // `packages.find(...) ?? packages[0]` expression the local helper used).
+    const id = targetId ?? selectedPackageId ?? packages[0]?.id;
+    if (id === null || id === undefined) return;
+    set({ packages: packages.map((pkg) => pkg.id === id ? updater(pkg) : pkg) });
+  },
 }));
