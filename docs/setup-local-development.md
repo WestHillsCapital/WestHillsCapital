@@ -4,6 +4,18 @@ This project runs on Replit. The standard development environment is the Replit 
 
 ---
 
+## Security training requirement
+
+Before being granted access to any company system, all new team members and contractors must complete the security awareness training program. Read the training content and sign the acknowledgment:
+
+1. Read [`docs/security-training-content.md`](security-training-content.md) (all 7 modules, ~60 min)
+2. Read the core policies in [`docs/policies/`](policies/)
+3. Sign the acknowledgment template in [`docs/security-training.md`](security-training.md) Section 8 and send it to the Engineering Lead
+
+Access is provisioned only after training is confirmed. See [`docs/security-training.md`](security-training.md) for the complete onboarding checklist.
+
+---
+
 ## Prerequisites
 
 All of the following are pre-configured in the Replit workspace:
