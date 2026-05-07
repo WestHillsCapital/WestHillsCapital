@@ -16,6 +16,7 @@ interface DocuFillState {
 
   packages: PackageItem[];
   selectedPackageId: number | null;
+  tagFilter: string[];
 
   setSelectedMappingId: (id: string | null) => void;
   setSelectedFieldId: (id: string | null) => void;
@@ -41,6 +42,7 @@ interface DocuFillState {
 
   setPackages: (arg: PackageItem[] | ((prev: PackageItem[]) => PackageItem[])) => void;
   setSelectedPackageId: (arg: number | null | ((prev: number | null) => number | null)) => void;
+  setTagFilter: (arg: string[] | ((prev: string[]) => string[])) => void;
   updateSelectedPackage: (updater: (pkg: PackageItem) => PackageItem, targetId?: number) => void;
 }
 
@@ -64,6 +66,7 @@ export const useDocuFillStore = create<DocuFillState>()((set, get) => ({
     } catch { /* sessionStorage unavailable */ }
     return null;
   })(),
+  tagFilter: [],
 
   setSelectedMappingId: (id) => set({ selectedMappingId: id }),
   setSelectedFieldId: (id) => set({ selectedFieldId: id }),
@@ -122,6 +125,9 @@ export const useDocuFillStore = create<DocuFillState>()((set, get) => ({
 
   setSelectedPackageId: (arg) =>
     set((s) => ({ selectedPackageId: typeof arg === "function" ? arg(s.selectedPackageId) : arg })),
+
+  setTagFilter: (arg) =>
+    set((s) => ({ tagFilter: typeof arg === "function" ? arg(s.tagFilter) : arg })),
 
   updateSelectedPackage: (updater, targetId) => {
     const { selectedPackageId, packages } = get();
