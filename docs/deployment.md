@@ -13,6 +13,20 @@ The application is deployed from the Replit workspace using Replit's built-in pu
 
 ---
 
+## Information security policies
+
+The organization's core security policy suite is in [`docs/policies/`](policies/):
+
+| Document | Coverage |
+|---|---|
+| [Information Security Policy](policies/information-security-policy.md) | Top-level commitment, guiding principles, roles (SOC 2 CC1.1–CC1.5) |
+| [Acceptable Use Policy](policies/acceptable-use-policy.md) | Employee and contractor use of systems, devices, and data (CC1.4, CC6.1, CC6.6) |
+| [Data Classification Policy](policies/data-classification-policy.md) | Four tiers (Public / Internal / Confidential / Restricted); full data inventory mapped to tiers (CC3.2, CC6.1, CC6.5) |
+| [Access Control Policy](policies/access-control-policy.md) | Provisioning, de-provisioning, quarterly access review for all systems (CC6.1–CC6.3) |
+| [Log Retention Policy](policies/log-retention-policy.md) | Retention windows for all log types; 12-month minimum for security-relevant logs (CC7.2, A1.2) |
+
+---
+
 ## Incident response
 
 Security incidents and significant outages are handled according to the [Incident Response Plan](incident-response-plan.md) (SOC 2 CC7.3–CC7.5). The IRP defines severity tiers (P0–P3), detection sources, response steps, notification timelines, and the post-mortem process.
