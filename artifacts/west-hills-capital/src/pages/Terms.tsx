@@ -13,7 +13,7 @@ export default function Terms() {
       <div className="max-w-4xl mx-auto px-4 sm:px-6">
 
         <h1 className="text-4xl font-serif font-semibold mb-4">Terms of Service</h1>
-        <p className="text-sm text-foreground/50 mb-12">Effective Date: January 1, 2025 &nbsp;·&nbsp; Version 1.0</p>
+        <p className="text-sm text-foreground/50 mb-12">Effective Date: January 1, 2025 &nbsp;·&nbsp; Version 1.1</p>
 
         <div className="space-y-12 text-foreground/80 leading-relaxed">
 
@@ -118,6 +118,41 @@ export default function Terms() {
             </p>
             <p>
               These Terms constitute the entire agreement between you and West Hills Capital with respect to the subject matter hereof and supersede all prior or contemporaneous communications. We reserve the right to update these Terms at any time; continued use of our services after such updates constitutes acceptance of the revised Terms. The current version will always be available at westhillscapital.com/terms.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">15. Required Mediation</h2>
+            <p className="mb-4">
+              Before either party initiates arbitration or any other formal legal proceeding, the parties agree to attempt to resolve any dispute, claim, or controversy through good-faith mediation. Either party may initiate mediation by providing written notice to the other party describing the nature of the dispute and the relief sought. The parties shall jointly select a neutral mediator within fifteen (15) calendar days of such notice. If the parties cannot agree on a mediator, a mediator shall be selected in accordance with the mediation rules of the American Arbitration Association.
+            </p>
+            <p>
+              Mediation shall take place in Wichita, Kansas, or by video conference if agreed by both parties, and shall be completed within sixty (60) days of the initial written notice unless both parties agree in writing to extend this period. All mediation proceedings, statements, and materials shall be confidential and shall not be admissible in any subsequent arbitration or litigation. Each party shall bear its own costs and attorneys' fees in connection with mediation; mediator fees shall be shared equally. If mediation does not result in a resolution within the timeframe set forth herein, either party may then proceed to binding arbitration as described in Section 14 above.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">16. No Class Action</h2>
+            <p className="mb-4">
+              <strong>ALL DISPUTES MUST BE BROUGHT IN AN INDIVIDUAL CAPACITY AND NOT AS A PLAINTIFF OR CLASS MEMBER IN ANY PURPORTED CLASS, COLLECTIVE, CONSOLIDATED, PRIVATE ATTORNEY GENERAL, OR REPRESENTATIVE PROCEEDING.</strong>
+            </p>
+            <p className="mb-4">
+              To the fullest extent permitted by applicable law, you waive any right to participate in a class action lawsuit or class-wide arbitration against West Hills Capital. The arbitrator shall have no authority to consolidate claims of multiple individuals or entities, conduct any class, collective, or representative proceeding, or award relief to any person or entity not a party to the individual arbitration. Any claim that all or part of this class action waiver is invalid, unenforceable, unconscionable, or inapplicable shall be determined solely by a court of competent jurisdiction and not by an arbitrator.
+            </p>
+            <p>
+              If for any reason a claim proceeds in court rather than through arbitration, you and West Hills Capital each waive any right to a jury trial and agree that such claim shall be brought solely on an individual basis in a court of competent jurisdiction in Wichita, Kansas. Nothing in this section shall limit either party's right to seek individual injunctive or other equitable relief in a court of competent jurisdiction.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-2xl font-serif font-semibold text-foreground mb-4">17. All Rights Reserved</h2>
+            <p className="mb-4">
+              &copy; {new Date().getFullYear()} West Hills Capital, LLC. All rights reserved. All content, materials, text, graphics, logos, images, audio clips, digital downloads, data compilations, pricing tools, and software displayed on or accessible through this website are the exclusive property of West Hills Capital, LLC or its content licensors and are protected by United States copyright law, trademark law, trade dress, patent law, and other applicable domestic and international intellectual property laws and conventions.
+            </p>
+            <p>
+              No content from this website may be copied, reproduced, republished, uploaded, posted, transmitted, modified, distributed, or used in any way — in whole or in part — without the express prior written permission of West Hills Capital, LLC. Requests for permission to use any content should be directed to{" "}
+              <a href="mailto:info@westhillscapital.com" className="text-primary hover:underline">info@westhillscapital.com</a>.
+              Unauthorized use of any content from this website may violate copyright laws, trademark laws, and other regulations and statutes, and may subject the violator to civil and criminal penalties.
             </p>
           </section>
 
