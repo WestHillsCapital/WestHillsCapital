@@ -123,13 +123,11 @@ export default function Sandbox() {
           <div className="space-y-3">
             <button
               onClick={() => void start()}
-              disabled={status === "loading"}
-              className="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 text-sm font-semibold text-white shadow-sm disabled:opacity-60 transition-opacity hover:opacity-90"
+              className="inline-flex items-center gap-2 rounded-xl px-8 py-3.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
               style={{ backgroundColor: BRAND }}
             >
-              {status === "loading" ? <SpinnerIcon /> : null}
               Start the demo
-              {status !== "loading" && <ArrowIcon />}
+              <ArrowIcon />
             </button>
             {status === "error" && (
               <p className="text-xs text-red-600">{errorMsg}</p>
