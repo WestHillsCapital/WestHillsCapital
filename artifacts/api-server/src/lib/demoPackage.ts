@@ -126,7 +126,7 @@ export async function seedDemoPackage(db: Pool, accountId: number): Promise<void
          enable_interview, enable_customer_link, enable_csv,
          auth_level, webhook_secret
        ) VALUES ($1,$2,$3,'active',$4::jsonb,$5::jsonb,$6::jsonb,$7::jsonb,
-                 true, true, false, 'email_otp', $8)
+                 true, true, false, 'none', $8)
        RETURNING id`,
       [
         accountId,

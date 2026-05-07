@@ -61,12 +61,15 @@ async function getOrCreateSandbox(): Promise<SandboxCtx> {
   // can use its own internal mutex (docufill_migration_state ON CONFLICT).
   if (justCreated) {
     await seedDemoPackage(db, accountId);
-    // Make the sandbox package require no auth so visitors can proceed immediately
-    await db.query(
-      `UPDATE docufill_packages SET auth_level = 'none' WHERE account_id = $1`,
-      [accountId],
-    );
   }
+
+  // Always ensure the sandbox package has auth_level = 'none' (defense in depth:
+  // seedDemoPackage may run before this update, or the package may have been
+  // modified externally).
+  await db.query(
+    `UPDATE docufill_packages SET auth_level = 'none' WHERE account_id = $1 AND auth_level != 'none'`,
+    [accountId],
+  );
 
   const pkgResult = await db.query<{ id: number; version: number; transaction_scope: string | null }>(
     `SELECT id, version, transaction_scope
