@@ -719,16 +719,12 @@ export default function Home() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-white border border-[#E8EDF5] rounded-2xl p-6">
-                <div className="text-3xl font-black text-[#1B4FD8] mb-1">$150</div>
-                <div className="text-sm text-[#4B5A7A]">saved per client package in labor, resources, and error handling</div>
+                <div className="text-4xl font-black text-[#1B4FD8] mb-2">$150</div>
+                <div className="text-base font-semibold text-[#4B5A7A]">saved per client package in labor, resources, and error handling</div>
               </div>
-              <div className="bg-[#1B4FD8] rounded-2xl p-6">
-                <div className="text-2xl font-black text-white mb-1">Less friction.</div>
-                <div className="text-sm text-white/75">Reduced resistance. Repeatable wins.</div>
-              </div>
-              <div className="bg-white border border-[#E8EDF5] rounded-2xl p-6 col-span-2">
-                <div className="text-2xl font-black text-[#1B4FD8] mb-1">Zero chasing.</div>
-                <div className="text-sm text-[#4B5A7A]">Clients complete on their own time. You get a finished document.</div>
+              <div className="bg-white border border-[#E8EDF5] rounded-2xl p-6">
+                <div className="text-3xl font-black text-[#1B4FD8] mb-2">Zero chasing.</div>
+                <div className="text-base font-semibold text-[#4B5A7A]">Clients complete on their own time. You get a finished document.</div>
               </div>
             </div>
           </div>
