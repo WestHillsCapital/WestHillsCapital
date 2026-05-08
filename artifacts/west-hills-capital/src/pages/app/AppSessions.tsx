@@ -9,8 +9,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-const SESSIONS_URL = `${API_BASE}/api/v1/product/docufill/sessions/portal-list`;
-const BATCH_RUNS_URL = `${API_BASE}/api/v1/product/docufill/batch-runs`;
+const SESSIONS_URL = `${API_BASE}/api/v1/product/docuplete/sessions/portal-list`;
+const BATCH_RUNS_URL = `${API_BASE}/api/v1/product/docuplete/batch-runs`;
 
 interface PortalSession {
   token: string;
@@ -125,7 +125,7 @@ function VoidSessionModal({ session, getAuthHeaders, onClose, onVoided }: VoidMo
     setError(null);
     try {
       const res = await fetch(
-        `${API_BASE}/api/v1/product/docufill/sessions/${session.token}/void`,
+        `${API_BASE}/api/v1/product/docuplete/sessions/${session.token}/void`,
         {
           method: "POST",
           headers: { ...(getAuthHeaders() as Record<string, string>), "Content-Type": "application/json" },

@@ -35,7 +35,7 @@ function DocuFillWrapper({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
     <InternalAuthProvider>
       <DocuFillConfigProvider
         config={{
-          apiPath: "/api/v1/product/docufill",
+          apiPath: "/api/v1/product/docuplete",
           getAuthHeaders,
           isAdmin,
         }}
