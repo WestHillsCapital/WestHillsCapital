@@ -4353,18 +4353,19 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
   try {
     const _parse = EmptyBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
+    // Resolve session first so cross-tenant requests get 404 before queue checks.
+    const db = getDb();
+    const session = await getSession(String(req.params.token), db, acctId(req));
+    if (!session) {
+      res.status(404).json({ error: "Interview session not found" });
+      return;
+    }
     // Require queue to be available — fail clearly rather than hanging.
     if (!isQueueEnabled()) {
       res.status(503).json({
         error: "PDF generation is temporarily unavailable. Please try again shortly.",
         code: "queue_unavailable",
       });
-      return;
-    }
-    const db = getDb();
-    const session = await getSession(String(req.params.token), db, acctId(req));
-    if (!session) {
-      res.status(404).json({ error: "Interview session not found" });
       return;
     }
     const validation = validateSessionAnswers(session);
