@@ -723,8 +723,7 @@ export default function Home() {
                 <div className="text-sm text-[#4B5A7A]">saved per client package in labor, resources, and error handling</div>
               </div>
               <div className="bg-[#1B4FD8] rounded-2xl p-6">
-                <div className="text-2xl font-black text-white mb-1">Less friction.</div>
-                <div className="text-sm text-white/75">Reduced resistance. Repeatable wins.</div>
+                <div className="text-xl font-black text-white">Reduced resistance. Repeatable wins.</div>
               </div>
               <div className="bg-white border border-[#E8EDF5] rounded-2xl p-6 col-span-2">
                 <div className="text-2xl font-black text-[#1B4FD8] mb-1">Zero chasing.</div>
