@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Repeat, Volume2, VolumeX } from 'lucide-react';
 import VideoTemplate, { SCENE_DURATIONS } from './VideoTemplate';
 import { useSceneControls } from './useSceneControls';
-import { useBackgroundMusic } from '@/lib/video/useBackgroundMusic';
+import { useVideoAudio } from '@/lib/video/useVideoAudio';
 
 const PROGRESS_TICK_MS = 60;
 
@@ -154,7 +154,8 @@ function ControlBar({
 export default function VideoWithControls() {
   const isIframed = typeof window !== 'undefined' && window.self !== window.top;
 
-  const { muted, toggleMute } = useBackgroundMusic(
+  const { muted, toggleMute } = useVideoAudio(
+    `${import.meta.env.BASE_URL}audio/voiceover.mp3`,
     `${import.meta.env.BASE_URL}audio/background.wav`,
   );
 

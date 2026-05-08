@@ -11,15 +11,16 @@ import { Scene7 } from './video_scenes/Scene7';
 import { Scene8 } from './video_scenes/Scene8';
 import { SceneCaptions } from './SceneCaptions';
 
+// Total must equal voiceover length: 116 271 ms
 export const SCENE_DURATIONS: Record<string, number> = {
   intro:     9000,
-  problem1: 15000,
-  problem2: 15000,
-  solution1: 15000,
-  solution2: 15000,
-  solution3: 15000,
-  solution4: 15000,
-  outro:    12000,
+  problem1: 15500,
+  problem2: 15500,
+  solution1: 15500,
+  solution2: 15500,
+  solution3: 15500,
+  solution4: 15500,
+  outro:    14271,
 };
 
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
