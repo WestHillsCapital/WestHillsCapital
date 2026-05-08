@@ -308,6 +308,7 @@ export default function DocuFillCustomer() {
 
   const [session, setSession] = useState<SessionData | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [animationValues, setAnimationValues] = useState<Record<string, string>>({});
   const [pageStatus, setPageStatus] = useState<"loading" | "ready" | "expired" | "submitting" | "generated" | "error" | "previewing">("loading");
   const [errorMsg, setErrorMsg] = useState("");
   const [missingFields, setMissingFields] = useState<string[]>([]);
@@ -480,6 +481,13 @@ export default function DocuFillCustomer() {
         if (!data.session) { setPageStatus("expired"); return; }
         const s: SessionData = data.session;
         if (s.status === "generated") {
+          // Capture values for the How It Works animation from saved session data
+          const savedMap: Record<string, string> = {};
+          for (const f of (s.fields ?? [])) {
+            const val = currentValue(f, (s.answers as Record<string, string>) ?? {}, s.prefill ?? {});
+            if (val) savedMap[f.name.toLowerCase()] = val;
+          }
+          setAnimationValues(savedMap);
           setSession(s);
           setDownloadUrl(`${SESSION_BASE}/${token}/packet.pdf`);
           setPageStatus("generated");
@@ -767,6 +775,17 @@ export default function DocuFillCustomer() {
           finalAnswers[f.id] = todayFormatted();
         }
       });
+      // Capture values NOW — synchronously, before any async work — for the
+      // How It Works animation. finalAnswers has every field the user typed.
+      // currentValue fills gaps via prefill for fields shown-but-not-changed.
+      if (isSandbox) {
+        const animMap: Record<string, string> = {};
+        for (const f of (session?.fields ?? [])) {
+          const val = currentValue(f, finalAnswers, session?.prefill ?? {});
+          if (val) animMap[f.name.toLowerCase()] = val;
+        }
+        setAnimationValues(animMap);
+      }
       await fetch(`${SESSION_BASE}/${token}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -1014,14 +1033,7 @@ export default function DocuFillCustomer() {
                       </div>
                     ))}
                   </div>
-                  <HowItWorksAnimation liveValues={(() => {
-                    const map: Record<string, string> = {};
-                    for (const f of session?.fields ?? []) {
-                      const val = currentValue(f, answers, session?.prefill ?? {});
-                      if (val) map[f.name.toLowerCase()] = val;
-                    }
-                    return map;
-                  })()} />
+                  <HowItWorksAnimation liveValues={animationValues} />
                 </div>
 
                 <p className="text-[10px] text-[#4B5A7A] text-center pt-1">
