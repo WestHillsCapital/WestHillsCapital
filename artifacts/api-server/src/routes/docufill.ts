@@ -2131,6 +2131,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
     const db = getDb();
     const accountId = acctId(req);
     // Scope label uniqueness to the requesting account (excluding the field being updated).
+    // Run outside the transaction — it's a fast guard with no side effects.
     const { rows: duplicateRows } = await db.query(
       `SELECT id
          FROM docufill_fields
@@ -2143,43 +2144,70 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
       res.status(409).json({ error: "A field with that label already exists", fieldId: duplicateRows[0].id });
       return;
     }
-    const { rows } = await db.query(
-      `UPDATE docufill_fields SET
-          label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
-          sensitive=$6, required=$7, validation_type=$8, validation_pattern=$9,
-          validation_message=$10, active=$11, sort_order=$12, updated_at=NOW()
-        WHERE id=$13 AND account_id = $14
-        RETURNING id, label, category, field_type AS type, source, options, sensitive, required,
-                  validation_type AS "validationType", validation_pattern AS "validationPattern",
-                  validation_message AS "validationMessage", active, sort_order AS "sortOrder"`,
-      [
-        label,
-        cleanText(body.category) || "General",
-        normalizeFieldType(body.type),
-        cleanText(body.source) || "interview",
-        JSON.stringify(parseOptions(body.options)),
-        body.sensitive === true,
-        body.required === true,
-        normalizeValidationType(body.validationType),
-        nullableText(body.validationPattern),
-        nullableText(body.validationMessage),
-        body.active !== false,
-        normalizeSortOrder(body.sortOrder),
-        id,
-        accountId,
-      ],
-    );
-    if (!rows[0]) {
-      res.status(404).json({ error: "Field library item not found" });
-      return;
+    // Wrap the field update and version insert in a single transaction so that
+    // the audit trail is guaranteed: either both commit or neither does.
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      // Capture the pre-update state while locking the row.
+      // Storing the snapshot BEFORE the edit ensures the first edit on a field
+      // is always recoverable, even when no prior versions exist.
+      const { rows: priorRows } = await client.query(
+        `${fieldLibrarySelectSql()} WHERE id = $1 AND account_id = $2 FOR UPDATE`,
+        [id, accountId],
+      );
+      if (!priorRows[0]) {
+        await client.query("ROLLBACK");
+        res.status(404).json({ error: "Field library item not found" });
+        return;
+      }
+      const preUpdateSnapshot = priorRows[0];
+      const { rows } = await client.query(
+        `UPDATE docufill_fields SET
+            label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
+            sensitive=$6, required=$7, validation_type=$8, validation_pattern=$9,
+            validation_message=$10, active=$11, sort_order=$12, updated_at=NOW()
+          WHERE id=$13 AND account_id = $14
+          RETURNING id, label, category, field_type AS type, source, options, sensitive, required,
+                    validation_type AS "validationType", validation_pattern AS "validationPattern",
+                    validation_message AS "validationMessage", active, sort_order AS "sortOrder"`,
+        [
+          label,
+          cleanText(body.category) || "General",
+          normalizeFieldType(body.type),
+          cleanText(body.source) || "interview",
+          JSON.stringify(parseOptions(body.options)),
+          body.sensitive === true,
+          body.required === true,
+          normalizeValidationType(body.validationType),
+          nullableText(body.validationPattern),
+          nullableText(body.validationMessage),
+          body.active !== false,
+          normalizeSortOrder(body.sortOrder),
+          id,
+          accountId,
+        ],
+      );
+      // rows[0] is guaranteed — FOR UPDATE confirmed existence; if somehow absent, rollback + 404
+      if (!rows[0]) {
+        await client.query("ROLLBACK");
+        res.status(404).json({ error: "Field library item not found" });
+        return;
+      }
+      // Record the pre-update state atomically; failure rolls back the entire edit
+      await client.query(
+        `INSERT INTO docufill_field_versions (field_id, account_id, changed_by, snapshot)
+         VALUES ($1, $2, $3, $4::jsonb)`,
+        [id, accountId, callerEmail(req), JSON.stringify(preUpdateSnapshot)],
+      );
+      await client.query("COMMIT");
+      res.json({ field: rows[0] });
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
-    // Record a version snapshot — non-fatal if the insert fails
-    await db.query(
-      `INSERT INTO docufill_field_versions (field_id, account_id, changed_by, snapshot)
-       VALUES ($1, $2, $3, $4::jsonb)`,
-      [id, accountId, callerEmail(req), JSON.stringify(rows[0])],
-    ).catch((e) => logger.warn({ err: e }, "[DocuFill] Failed to record field version (non-fatal)"));
-    res.json({ field: rows[0] });
   } catch (err) {
     if (isUniqueViolation(err)) {
       res.status(409).json({ error: "A field with that label already exists" });
@@ -2227,7 +2255,8 @@ router.post("/field-library/:id/versions/:versionId/restore", requireAdminRole, 
       return;
     }
     const db = getDb();
-    // Fetch the target version — must belong to this account and field
+    // Fetch the target version outside the transaction — read-only, must be
+    // scoped to this account and field before we proceed.
     const { rows: vrows } = await db.query(
       `SELECT snapshot FROM docufill_field_versions
         WHERE id = $1 AND field_id = $2 AND account_id = $3`,
@@ -2238,45 +2267,70 @@ router.post("/field-library/:id/versions/:versionId/restore", requireAdminRole, 
       return;
     }
     const snap = vrows[0].snapshot as Record<string, unknown>;
-    // Apply snapshot back to the live field row
-    const { rows } = await db.query(
-      `UPDATE docufill_fields SET
-          label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
-          sensitive=$6, required=$7, validation_type=$8, validation_pattern=$9,
-          validation_message=$10, active=$11, sort_order=$12, updated_at=NOW()
-        WHERE id=$13 AND account_id=$14
-        RETURNING id, label, category, field_type AS type, source, options, sensitive, required,
-                  validation_type AS "validationType", validation_pattern AS "validationPattern",
-                  validation_message AS "validationMessage", active, sort_order AS "sortOrder"`,
-      [
-        snap.label,
-        snap.category ?? "General",
-        snap.type ?? "text",
-        snap.source ?? "interview",
-        JSON.stringify(snap.options ?? []),
-        snap.sensitive === true,
-        snap.required === true,
-        snap.validationType ?? "none",
-        snap.validationPattern ?? null,
-        snap.validationMessage ?? null,
-        snap.active !== false,
-        snap.sortOrder ?? 100,
-        fieldId,
-        accountId,
-      ],
-    );
-    if (!rows[0]) {
-      res.status(404).json({ error: "Field not found" });
-      return;
+    // Wrap the restore and its version insert in one transaction so the audit
+    // trail is guaranteed: either both commit or neither does.
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      // Lock and capture the pre-restore state so the restore itself can later be undone.
+      const { rows: currentRows } = await client.query(
+        `${fieldLibrarySelectSql()} WHERE id = $1 AND account_id = $2 FOR UPDATE`,
+        [fieldId, accountId],
+      );
+      if (!currentRows[0]) {
+        await client.query("ROLLBACK");
+        res.status(404).json({ error: "Field not found" });
+        return;
+      }
+      const preRestoreSnapshot = currentRows[0];
+      // Apply the snapshot back to the live field row
+      const { rows } = await client.query(
+        `UPDATE docufill_fields SET
+            label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
+            sensitive=$6, required=$7, validation_type=$8, validation_pattern=$9,
+            validation_message=$10, active=$11, sort_order=$12, updated_at=NOW()
+          WHERE id=$13 AND account_id=$14
+          RETURNING id, label, category, field_type AS type, source, options, sensitive, required,
+                    validation_type AS "validationType", validation_pattern AS "validationPattern",
+                    validation_message AS "validationMessage", active, sort_order AS "sortOrder"`,
+        [
+          snap.label,
+          snap.category ?? "General",
+          snap.type ?? "text",
+          snap.source ?? "interview",
+          JSON.stringify(snap.options ?? []),
+          snap.sensitive === true,
+          snap.required === true,
+          snap.validationType ?? "none",
+          snap.validationPattern ?? null,
+          snap.validationMessage ?? null,
+          snap.active !== false,
+          snap.sortOrder ?? 100,
+          fieldId,
+          accountId,
+        ],
+      );
+      if (!rows[0]) {
+        await client.query("ROLLBACK");
+        res.status(404).json({ error: "Field not found" });
+        return;
+      }
+      // Record the pre-restore state atomically; annotation lets admins see it
+      // was a rollback event and identify which version was the restore target.
+      await client.query(
+        `INSERT INTO docufill_field_versions (field_id, account_id, changed_by, snapshot)
+         VALUES ($1, $2, $3, $4::jsonb)`,
+        [fieldId, accountId, callerEmail(req),
+          JSON.stringify({ ...preRestoreSnapshot, restoredFromVersion: versionId })],
+      );
+      await client.query("COMMIT");
+      res.json({ field: rows[0] });
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
     }
-    // Record the rollback as a new version entry
-    await db.query(
-      `INSERT INTO docufill_field_versions (field_id, account_id, changed_by, snapshot)
-       VALUES ($1, $2, $3, $4::jsonb)`,
-      [fieldId, accountId, callerEmail(req),
-        JSON.stringify({ ...rows[0], restoredFromVersion: versionId })],
-    ).catch((e) => logger.warn({ err: e }, "[DocuFill] Failed to record version on restore (non-fatal)"));
-    res.json({ field: rows[0] });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to restore field version");
     res.status(500).json({ error: "Failed to restore field version" });
