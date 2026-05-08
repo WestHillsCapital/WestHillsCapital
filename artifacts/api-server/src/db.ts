@@ -630,6 +630,12 @@ export async function initDb(): Promise<void> {
     ).catch(() => {});
   }
 
+  // ── deals.account_id — added after accounts exists so FK can be declared ─────
+  // The deals CREATE TABLE runs before accounts (for historical ordering reasons),
+  // so account_id is added here, after accounts is guaranteed to exist.
+  await safeAdd("account_id", "INTEGER REFERENCES accounts(id)");
+  await db.query(`CREATE INDEX IF NOT EXISTS deals_account_id_idx ON deals (account_id)`);
+
   // ── Account branding columns ─────────────────────────────────────────────────
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS logo_url TEXT`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS form_logo_url TEXT`);
@@ -1888,6 +1894,73 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS session_id INTEGER REFERENCES docufill_interview_sessions(id) ON DELETE SET NULL`);
   await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS webhook_deliveries_session_created_idx
     ON webhook_deliveries (session_id, created_at DESC NULLS LAST)`);
+
+  // ── Affiliate tables (mirror of migration 0002) ───────────────────────────
+  // CREATE TABLE IF NOT EXISTS is idempotent — safe to run on every startup.
+  // runDrizzleMigrations() is skipped in production (no RUN_MIGRATIONS=true),
+  // so these tables must also be created here to ensure they exist.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS affiliates (
+      id                  SERIAL PRIMARY KEY,
+      name                TEXT NOT NULL,
+      email               TEXT NOT NULL,
+      company             TEXT,
+      website             TEXT,
+      referral_code       TEXT NOT NULL,
+      status              TEXT NOT NULL DEFAULT 'pending',
+      stripe_account_id   TEXT,
+      stripe_account_status TEXT,
+      commission_rate     NUMERIC(5,4) NOT NULL DEFAULT 0.2000,
+      commission_months   INTEGER NOT NULL DEFAULT 12,
+      invited_by_user_id  TEXT,
+      notes               TEXT,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT affiliates_email_unique      UNIQUE (email),
+      CONSTRAINT affiliates_referral_code_unique UNIQUE (referral_code)
+    )
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS affiliates_status_idx ON affiliates (status)`);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS affiliate_referrals (
+      id                       SERIAL PRIMARY KEY,
+      affiliate_id             INTEGER NOT NULL REFERENCES affiliates(id),
+      stripe_customer_id       TEXT NOT NULL,
+      stripe_subscription_id   TEXT,
+      plan_type                TEXT NOT NULL,
+      monthly_amount_cents     INTEGER NOT NULL,
+      commission_months_total  INTEGER NOT NULL DEFAULT 12,
+      commission_months_paid   INTEGER NOT NULL DEFAULT 0,
+      status                   TEXT NOT NULL DEFAULT 'active',
+      created_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at               TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT affiliate_referrals_subscription_unique UNIQUE (stripe_subscription_id)
+    )
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS affiliate_referrals_affiliate_idx ON affiliate_referrals (affiliate_id)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS affiliate_referrals_customer_idx  ON affiliate_referrals (stripe_customer_id)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS affiliate_referrals_subscription_idx ON affiliate_referrals (stripe_subscription_id)`);
+
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS affiliate_commissions (
+      id                  SERIAL PRIMARY KEY,
+      affiliate_id        INTEGER NOT NULL REFERENCES affiliates(id),
+      referral_id         INTEGER NOT NULL REFERENCES affiliate_referrals(id),
+      amount_cents        INTEGER NOT NULL,
+      status              TEXT NOT NULL DEFAULT 'pending',
+      due_date            TIMESTAMPTZ,
+      paid_at             TIMESTAMPTZ,
+      stripe_transfer_id  TEXT,
+      period_label        TEXT,
+      stripe_invoice_id   TEXT,
+      created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      CONSTRAINT affiliate_commissions_invoice_unique UNIQUE (stripe_invoice_id)
+    )
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS affiliate_commissions_affiliate_idx ON affiliate_commissions (affiliate_id)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS affiliate_commissions_referral_idx  ON affiliate_commissions (referral_id)`);
+  await db.query(`CREATE INDEX IF NOT EXISTS affiliate_commissions_status_idx    ON affiliate_commissions (status)`);
 }
 
 // ── Scheduler functions (exported for BullMQ worker) ─────────────────────────

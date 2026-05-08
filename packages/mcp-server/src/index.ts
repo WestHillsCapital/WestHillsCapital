@@ -210,24 +210,19 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 
       case "create-session": {
         const packageId = requireNumber(input, "packageId");
-        const prefill = input.prefill as Record<string, unknown> | undefined;
-        const recipientEmail = input.recipientEmail as string | undefined;
-        const transactionScope = input.transactionScope as string | undefined;
-        const source = input.source as string | undefined;
+        // prefill values must be strings per the SDK type (Record<string, string>)
+        const prefill = input.prefill as Record<string, string> | undefined;
 
         const result = await client.sessions.create({
           packageId,
           prefill,
-          recipientEmail,
-          transactionScope,
-          source,
         });
 
         const lines = [
           `Session created successfully.`,
           ``,
-          `Token: ${result.token}`,
-          `Status: ${result.session.status}`,
+          `Token: ${result.sessionToken}`,
+          ...(result.expiresAt ? [`Expires: ${result.expiresAt}`] : []),
           ``,
           `Interview URL (send this to the recipient):`,
           result.interviewUrl,
