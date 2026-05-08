@@ -183,7 +183,8 @@ const PLANS = [
       "Team seats",
       "Batch CSV import",
       "Client links & custom branding",
-      "Google Drive & HubSpot",
+      "Google Drive, Dropbox Business & OneDrive",
+      "HubSpot integration",
       "Priority support",
     ],
     cta: "Start free trial",
@@ -356,7 +357,7 @@ const PERSONAS = [
     resolutions: [
       "Webhooks and API access connect Docuplete to any system you run",
       "Full audit logs with timestamps satisfy compliance requirements",
-      "Native HubSpot and Google Drive sync keeps every record in place",
+      "Native HubSpot, Google Drive, Dropbox Business, and OneDrive sync keeps every record in place",
       "Dedicated account manager and SLA guarantee predictable delivery",
     ],
   },
