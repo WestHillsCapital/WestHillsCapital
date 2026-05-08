@@ -5100,14 +5100,6 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
   try {
     const _parse = GenerateSessionBodySchema.safeParse(req.body ?? {});
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
-    // Require queue to be available — fail clearly rather than hanging.
-    if (!isQueueEnabled()) {
-      res.status(503).json({
-        error: "PDF generation is temporarily unavailable. Please try again shortly.",
-        code: "queue_unavailable",
-      });
-      return;
-    }
     const db = getDb();
     const session = await getSession(req.params.token, db);
     if (!session) {
@@ -5175,6 +5167,33 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
     const signerIp  = req.ip ?? req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ?? null;
     const signerUa  = req.headers["user-agent"] ?? null;
     const signerGeo = resolveGeo(signerIp);
+    // When queue is unavailable (Redis down / degraded mode) fall back to
+    // synchronous generation so the signer is never blocked.
+    if (!isQueueEnabled()) {
+      const pdfBuffer = await buildPacketPdfBuffer(session, db, {
+        signatureImage: esignSignatureImage ?? undefined,
+        signerName:     esignSignerName     ?? undefined,
+        initialsImage:  esignInitialsImage  ?? undefined,
+      });
+      await db.query(
+        `UPDATE docufill_interview_sessions SET status = 'generated', updated_at = NOW() WHERE token = $1`,
+        [String(req.params.token)],
+      );
+      const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
+      if (session.webhook_enabled === true && webhookUrl) {
+        const webhookPkgId  = typeof session.package_id         === "number" ? session.package_id         : Number(session.package_id);
+        const webhookAcctId = typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id);
+        fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, buildWebhookPayload(session));
+      }
+      const tok = String(req.params.token);
+      const pkgAccountIdSync = typeof session.package_account_id === "number" ? session.package_account_id : null;
+      if (pkgAccountIdSync) void recordPdfGenerationEvent(pkgAccountIdSync);
+      res.json({
+        packet: { token: tok, status: "generated", byteSize: pdfBuffer.length },
+        downloadUrl: `/sessions/${tok}/packet.pdf`,
+      });
+      return;
+    }
     // Enqueue the generation job and return 202 immediately
     const jobId = await enqueueGeneratePdfJob({
       sessionToken: req.params.token,
