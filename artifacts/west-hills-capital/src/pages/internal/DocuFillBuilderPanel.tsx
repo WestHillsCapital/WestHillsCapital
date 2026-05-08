@@ -122,6 +122,8 @@ export interface DocuFillBuilderPanelProps {
   saveFieldLibraryItem: (item: FieldLibraryItem) => void;
   deleteFieldLibraryItem: (id: string) => void;
   addLibraryFieldToPackage: (item: FieldLibraryItem) => void;
+  loadFieldLibraryVersions?: (fieldId: string) => Promise<import("@/lib/docufill-local-types").FieldVersionRow[] | string>;
+  restoreFieldLibraryVersion?: (fieldId: string, versionId: number) => Promise<string | null>;
   launchTestInterview: (pkg: PackageItem) => void;
   openFieldEditorForAdd: () => void;
   openFieldEditorForEdit: (fieldId: string) => void;
@@ -160,7 +162,8 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
     removeDocument, deletePackage, createGroup, updateGroupLocal, saveGroup, deleteGroup, createGroupNamed,
     createTransactionType, updateTransactionTypeLocal, saveTransactionType, deleteTransactionType,
     createTransactionTypeNamed, createFieldLibraryItem, updateFieldLibraryLocal, saveFieldLibraryItem,
-    deleteFieldLibraryItem, addLibraryFieldToPackage, launchTestInterview, openFieldEditorForAdd,
+    deleteFieldLibraryItem, addLibraryFieldToPackage, loadFieldLibraryVersions, restoreFieldLibraryVersion,
+    launchTestInterview, openFieldEditorForAdd,
     openFieldEditorForEdit, removeField, setSelectedFieldId, setPackages,
     dismissDemoUi, handleOpenDemoInterview, handleSeedDemo, setStandalonePackageId, setTab,
     sendTestWebhook, fetchWebhookDeliveries, fetchWebhookSecret, retryDelivery,
@@ -494,6 +497,8 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
                       onSave={saveFieldLibraryItem as (item: FieldLibraryItem) => Promise<string | null>}
                       onUse={addLibraryFieldToPackage}
                       onDelete={deleteFieldLibraryItem as (id: string) => Promise<string | null>}
+                      onLoadVersions={loadFieldLibraryVersions}
+                      onRestoreVersion={restoreFieldLibraryVersion}
                     />
                   </div>
                 </details>

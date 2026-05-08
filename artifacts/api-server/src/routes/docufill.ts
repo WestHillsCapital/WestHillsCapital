@@ -414,6 +414,13 @@ function acctId(req: Request): number {
   return id;
 }
 
+// Extract the authenticated caller's email for audit records.
+// Works for both Clerk-authenticated product users and internal Google-auth users.
+function callerEmail(req: Request): string | null {
+  const r = req as unknown as { productUserEmail?: string; internalEmail?: string };
+  return r.productUserEmail ?? r.internalEmail ?? null;
+}
+
 // Strip server-internal fields before returning a session on the public endpoint.
 // webhook config, drive references, and internal FK ids are not needed by clients.
 function publicSessionView(session: Record<string, unknown>): Record<string, unknown> {
@@ -2166,6 +2173,12 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
       res.status(404).json({ error: "Field library item not found" });
       return;
     }
+    // Record a version snapshot — non-fatal if the insert fails
+    await db.query(
+      `INSERT INTO docufill_field_versions (field_id, account_id, changed_by, snapshot)
+       VALUES ($1, $2, $3, $4::jsonb)`,
+      [id, accountId, callerEmail(req), JSON.stringify(rows[0])],
+    ).catch((e) => logger.warn({ err: e }, "[DocuFill] Failed to record field version (non-fatal)"));
     res.json({ field: rows[0] });
   } catch (err) {
     if (isUniqueViolation(err)) {
@@ -2174,6 +2187,99 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
     }
     logger.error({ err }, "[DocuFill] Failed to update field library item");
     res.status(500).json({ error: "Failed to update field library item" });
+  }
+});
+
+// GET /field-library/:id/versions — newest-first version history for a library field
+router.get("/field-library/:id/versions", requireAdminRole, async (req, res) => {
+  try {
+    const id        = cleanText(req.params.id);
+    const accountId = acctId(req);
+    if (!id) { res.status(400).json({ error: "Field ID is required" }); return; }
+    const db = getDb();
+    const { rows } = await db.query(
+      `SELECT id,
+              field_id   AS "fieldId",
+              changed_by AS "changedBy",
+              changed_at AS "changedAt",
+              snapshot
+         FROM docufill_field_versions
+        WHERE field_id = $1 AND account_id = $2
+        ORDER BY changed_at DESC
+        LIMIT 50`,
+      [id, accountId],
+    );
+    res.json({ versions: rows });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to fetch field versions");
+    res.status(500).json({ error: "Failed to fetch field versions" });
+  }
+});
+
+// POST /field-library/:id/versions/:versionId/restore — roll a field back to a prior snapshot
+router.post("/field-library/:id/versions/:versionId/restore", requireAdminRole, async (req, res) => {
+  try {
+    const fieldId   = cleanText(req.params.id);
+    const versionId = parseInt(String(req.params.versionId), 10);
+    const accountId = acctId(req);
+    if (!fieldId || isNaN(versionId)) {
+      res.status(400).json({ error: "Invalid field or version ID" });
+      return;
+    }
+    const db = getDb();
+    // Fetch the target version — must belong to this account and field
+    const { rows: vrows } = await db.query(
+      `SELECT snapshot FROM docufill_field_versions
+        WHERE id = $1 AND field_id = $2 AND account_id = $3`,
+      [versionId, fieldId, accountId],
+    );
+    if (!vrows[0]) {
+      res.status(404).json({ error: "Version not found" });
+      return;
+    }
+    const snap = vrows[0].snapshot as Record<string, unknown>;
+    // Apply snapshot back to the live field row
+    const { rows } = await db.query(
+      `UPDATE docufill_fields SET
+          label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
+          sensitive=$6, required=$7, validation_type=$8, validation_pattern=$9,
+          validation_message=$10, active=$11, sort_order=$12, updated_at=NOW()
+        WHERE id=$13 AND account_id=$14
+        RETURNING id, label, category, field_type AS type, source, options, sensitive, required,
+                  validation_type AS "validationType", validation_pattern AS "validationPattern",
+                  validation_message AS "validationMessage", active, sort_order AS "sortOrder"`,
+      [
+        snap.label,
+        snap.category ?? "General",
+        snap.type ?? "text",
+        snap.source ?? "interview",
+        JSON.stringify(snap.options ?? []),
+        snap.sensitive === true,
+        snap.required === true,
+        snap.validationType ?? "none",
+        snap.validationPattern ?? null,
+        snap.validationMessage ?? null,
+        snap.active !== false,
+        snap.sortOrder ?? 100,
+        fieldId,
+        accountId,
+      ],
+    );
+    if (!rows[0]) {
+      res.status(404).json({ error: "Field not found" });
+      return;
+    }
+    // Record the rollback as a new version entry
+    await db.query(
+      `INSERT INTO docufill_field_versions (field_id, account_id, changed_by, snapshot)
+       VALUES ($1, $2, $3, $4::jsonb)`,
+      [fieldId, accountId, callerEmail(req),
+        JSON.stringify({ ...rows[0], restoredFromVersion: versionId })],
+    ).catch((e) => logger.warn({ err: e }, "[DocuFill] Failed to record version on restore (non-fatal)"));
+    res.json({ field: rows[0] });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to restore field version");
+    res.status(500).json({ error: "Failed to restore field version" });
   }
 });
 

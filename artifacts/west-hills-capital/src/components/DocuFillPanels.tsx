@@ -3,7 +3,7 @@ import { Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import type { Entity, TransactionType, FieldLibraryItem } from "@/lib/docufill-local-types";
+import type { Entity, TransactionType, FieldLibraryItem, FieldVersionRow } from "@/lib/docufill-local-types";
 import type { FieldItem } from "@/lib/docufill-types";
 
 export function EmptyState({ message }: { message: string }) {
@@ -256,6 +256,49 @@ export function TransactionTypesPanel({
   );
 }
 
+function relativeTime(iso: string): string {
+  const ms = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(ms / 60_000);
+  if (mins < 1)  return "just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days < 30) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
+function diffSummary(
+  older: Partial<FieldLibraryItem> | undefined,
+  newer: Partial<FieldLibraryItem> & { restoredFromVersion?: number },
+): string {
+  if (!older) return "Initial save";
+  const changed: string[] = [];
+  const checks: Array<[keyof FieldLibraryItem, string]> = [
+    ["label",          "label"],
+    ["category",       "category"],
+    ["type",           "type"],
+    ["source",         "prefill"],
+    ["sensitive",      "sensitive"],
+    ["required",       "required"],
+    ["active",         "active"],
+    ["validationType", "validation"],
+    ["sortOrder",      "order"],
+  ];
+  for (const [key, name] of checks) {
+    if (JSON.stringify(older[key]) !== JSON.stringify(newer[key])) changed.push(name);
+  }
+  if (JSON.stringify(older.options) !== JSON.stringify(newer.options)) changed.push("options");
+  if (
+    older.validationPattern !== newer.validationPattern ||
+    older.validationMessage !== newer.validationMessage
+  ) {
+    if (!changed.includes("validation")) changed.push("validation");
+  }
+  if (newer.restoredFromVersion != null) return `Restored from v${newer.restoredFromVersion}`;
+  return changed.length > 0 ? changed.join(", ") : "minor changes";
+}
+
 export function FieldLibraryPanel({
   items,
   onAdd,
@@ -263,6 +306,8 @@ export function FieldLibraryPanel({
   onSave,
   onUse,
   onDelete,
+  onLoadVersions,
+  onRestoreVersion,
 }: {
   items: FieldLibraryItem[];
   onAdd: () => Promise<string | null>;
@@ -270,6 +315,8 @@ export function FieldLibraryPanel({
   onSave: (item: FieldLibraryItem) => Promise<string | null>;
   onUse: (item: FieldLibraryItem) => void;
   onDelete?: (id: string) => Promise<string | null>;
+  onLoadVersions?: (fieldId: string) => Promise<FieldVersionRow[] | string>;
+  onRestoreVersion?: (fieldId: string, versionId: number) => Promise<string | null>;
 }) {
   const [adding, setAdding] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -277,6 +324,11 @@ export function FieldLibraryPanel({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
   const [showHints, setShowHints] = useState(false);
+  const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
+  const [historyMap, setHistoryMap] = useState<Map<string, FieldVersionRow[]>>(() => new Map());
+  const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null);
 
   async function handleAdd() {
     setAdding(true);
@@ -310,6 +362,39 @@ export function FieldLibraryPanel({
     const err = await onDelete(item.id);
     setDeletingId(null);
     if (err) setPanelError(err);
+  }
+
+  async function toggleHistory(fieldId: string) {
+    if (historyOpenId === fieldId) {
+      setHistoryOpenId(null);
+      return;
+    }
+    setHistoryOpenId(fieldId);
+    if (historyMap.has(fieldId) || !onLoadVersions) return;
+    setHistoryLoadingId(fieldId);
+    setHistoryError(null);
+    const result = await onLoadVersions(fieldId);
+    setHistoryLoadingId(null);
+    if (typeof result === "string") {
+      setHistoryError(result);
+    } else {
+      setHistoryMap((prev) => new Map(prev).set(fieldId, result));
+    }
+  }
+
+  async function handleRestore(fieldId: string, versionId: number) {
+    if (!onRestoreVersion) return;
+    setRestoringVersionId(versionId);
+    setHistoryError(null);
+    const err = await onRestoreVersion(fieldId, versionId);
+    setRestoringVersionId(null);
+    if (err) {
+      setHistoryError(err);
+    } else {
+      // Invalidate cached history for this field so it reloads fresh
+      setHistoryMap((prev) => { const m = new Map(prev); m.delete(fieldId); return m; });
+      setHistoryOpenId(null);
+    }
   }
 
   return (
@@ -472,6 +557,60 @@ export function FieldLibraryPanel({
                 </label>
               </div>
             </div>
+            {onLoadVersions && (
+              <div className="pt-1">
+                <button
+                  type="button"
+                  onClick={() => void toggleHistory(item.id)}
+                  className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors"
+                >
+                  {historyOpenId === item.id ? "▲ Hide history" : "▾ History"}
+                </button>
+                {historyOpenId === item.id && (
+                  <div className="mt-1.5 rounded border border-[#E8E0D4] bg-[#F8F5EF] p-2 text-[11px]">
+                    {historyLoadingId === item.id && (
+                      <p className="text-[#8A9BB8]">Loading history…</p>
+                    )}
+                    {historyError && historyOpenId === item.id && (
+                      <p className="text-red-500">{historyError}</p>
+                    )}
+                    {!historyLoadingId && !historyError && (() => {
+                      const versions = historyMap.get(item.id) ?? [];
+                      if (versions.length === 0) return <p className="text-[#8A9BB8]">No saved versions yet.</p>;
+                      return (
+                        <ul className="space-y-1">
+                          {versions.map((v, idx) => {
+                            const prevSnap = versions[idx + 1]?.snapshot;
+                            const summary  = diffSummary(prevSnap, v.snapshot);
+                            const author   = v.changedBy ?? "unknown";
+                            return (
+                              <li key={v.id} className="flex items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <span className="font-medium text-[#0B1220]">{relativeTime(v.changedAt)}</span>
+                                  {" · "}
+                                  <span className="text-[#6B7A99] truncate max-w-[140px] inline-block align-bottom">{author}</span>
+                                  <div className="text-[10px] text-[#8A9BB8] truncate">{summary}</div>
+                                </div>
+                                {onRestoreVersion && (
+                                  <button
+                                    type="button"
+                                    disabled={restoringVersionId === v.id}
+                                    onClick={() => void handleRestore(item.id, v.id)}
+                                    className="shrink-0 text-[10px] text-[#C49A38] hover:text-[#A07820] disabled:opacity-50"
+                                  >
+                                    {restoringVersionId === v.id ? "Restoring…" : "Restore"}
+                                  </button>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      );
+                    })()}
+                  </div>
+                )}
+              </div>
+            )}
             <div className="flex items-center justify-between">
               <span className="text-[10px] text-[#8A9BB8]">{item.id}</span>
               <div className="flex gap-2">

@@ -47,6 +47,14 @@ export type FieldLibraryItem = {
   sortOrder: number;
 };
 
+export type FieldVersionRow = {
+  id: number;
+  fieldId: string;
+  changedBy: string | null;
+  changedAt: string;
+  snapshot: Partial<FieldLibraryItem> & { restoredFromVersion?: number };
+};
+
 export type PackageItem = {
   id: number;
   name: string;

@@ -32,7 +32,7 @@ import { FieldCard } from "@/components/FieldCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { DocumentPreviewTile } from "@/components/DocumentPreviewTile";
 import { EmptyState, SummaryCard, LabeledInput, EntityPanel, TransactionTypesPanel, FieldLibraryPanel } from "@/components/DocuFillPanels";
-import type { Entity, TransactionType, DocItem, FieldLibraryItem, PackageItem } from "@/lib/docufill-local-types";
+import type { Entity, TransactionType, DocItem, FieldLibraryItem, FieldVersionRow, PackageItem } from "@/lib/docufill-local-types";
 import { FieldEditorModal, type FieldEditorDraft } from "@/components/FieldEditorModal";
 import { TagChipInput, PackagePickerWithTags, ScrollPageCanvas, EmbedSnippetPanel } from "@/components/DocuFillWidgets";
 import { PackagePickerSidebar, type BuilderStep, BUILDER_STEPS } from "@/components/PackagePickerSidebar";
@@ -1808,6 +1808,36 @@ export default function DocuFill() {
     }
   }
 
+  async function loadFieldVersions(fieldId: string): Promise<FieldVersionRow[] | string> {
+    try {
+      const res = await fetch(
+        `${API_BASE}${docufillApiPath}/field-library/${fieldId}/versions`,
+        { headers: getAuthHeaders() },
+      );
+      if (!res.ok) return "Could not load version history";
+      const data = await res.json().catch(() => ({})) as { versions?: FieldVersionRow[] };
+      return data.versions ?? [];
+    } catch {
+      return "Network error — could not load version history";
+    }
+  }
+
+  async function restoreFieldVersion(fieldId: string, versionId: number): Promise<string | null> {
+    try {
+      const res = await fetch(
+        `${API_BASE}${docufillApiPath}/field-library/${fieldId}/versions/${versionId}/restore`,
+        { method: "POST", headers: getAuthHeaders() },
+      );
+      const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+      if (!res.ok) return (data.error as string | undefined) ?? "Could not restore version";
+      flashStatus("Restored.");
+      await loadBootstrap();
+      return null;
+    } catch {
+      return "Network error — could not restore version";
+    }
+  }
+
   function addLibraryFieldToPackage(libraryField: FieldLibraryItem) {
     updateSelectedPackage((pkg) => {
       const existingField = pkg.fields.find((field) => field.libraryFieldId === libraryField.id);
@@ -3110,6 +3140,8 @@ export default function DocuFill() {
           updateFieldLibraryLocal={updateFieldLibraryLocal}
           saveFieldLibraryItem={saveFieldLibraryItem}
           deleteFieldLibraryItem={deleteFieldLibraryItem}
+          loadFieldLibraryVersions={loadFieldVersions}
+          restoreFieldLibraryVersion={restoreFieldVersion}
           addLibraryFieldToPackage={addLibraryFieldToPackage}
           launchTestInterview={launchTestInterview}
           openFieldEditorForAdd={openFieldEditorForAdd}

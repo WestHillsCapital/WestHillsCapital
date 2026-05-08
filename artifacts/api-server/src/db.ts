@@ -808,6 +808,25 @@ export async function initDb(): Promise<void> {
        AND validation_pattern IS NULL
   `);
 
+  // ── Field version history ──────────────────────────────────────────────────
+  // One row per save of a library field definition (including rollbacks).
+  // account_id is denormalized here so history is queryable without joining
+  // docufill_fields (which may have been deleted).
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_field_versions (
+      id          SERIAL PRIMARY KEY,
+      field_id    TEXT NOT NULL,
+      account_id  INTEGER NOT NULL,
+      changed_by  TEXT,
+      changed_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      snapshot    JSONB NOT NULL
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS docufill_field_versions_field_idx
+      ON docufill_field_versions (field_id, account_id, changed_at DESC)
+  `);
+
   await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_packages (
       id                SERIAL PRIMARY KEY,
