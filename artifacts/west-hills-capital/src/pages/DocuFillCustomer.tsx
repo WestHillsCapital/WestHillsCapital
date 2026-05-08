@@ -6,6 +6,7 @@ import { validateFieldValue, fieldFormatHint, buildSensitiveMask } from "@/lib/v
 import { ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE } from "@/lib/docufill-redaction";
 import SignaturePad, { type SignaturePadRef } from "@/components/SignaturePad";
 import { MerlinCustomerChat } from "@/components/MerlinCustomerChat";
+import { HowItWorksAnimation } from "@/components/HowItWorksAnimation";
 import * as pdfjsLib from "pdfjs-dist";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
@@ -1013,6 +1014,7 @@ export default function DocuFillCustomer() {
                       </div>
                     ))}
                   </div>
+                  <HowItWorksAnimation />
                 </div>
 
                 <p className="text-[10px] text-[#4B5A7A] text-center pt-1">
