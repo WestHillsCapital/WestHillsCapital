@@ -10,6 +10,7 @@ import {
   processScheduledDeletions,
   purgeExpiredTrialData,
   purgeExpiredExports,
+  pruneExpiredDocufillSessions,
 } from "./db.js";
 import { schedulerQueue } from "./lib/queue.js";
 import { pruneInternalSessions, runFulfillmentScheduler, runTrackingSync } from "./lib/schedulers.js";
@@ -76,6 +77,7 @@ const shouldMigrate =
           case "prune:audit-tables":        return pruneAuditTables();
           case "prune:submissions":         return pruneRetainedSubmissions();
           case "prune:session-data":        return pruneSessionData();
+          case "prune:expired-sessions":    return pruneExpiredDocufillSessions();
           case "purge:scheduled-deletions": return processScheduledDeletions();
           case "purge:trial-data":          return purgeExpiredTrialData();
           case "expire:exports":            return purgeExpiredExports();
@@ -112,6 +114,7 @@ const shouldMigrate =
         "prune:audit-tables",
         "prune:submissions",
         "prune:session-data",
+        "prune:expired-sessions",
         "purge:scheduled-deletions",
         "purge:trial-data",
         "expire:exports",
@@ -140,6 +143,7 @@ const shouldMigrate =
         { id: "prune:audit-tables",        every: 24 * 60 * 60 * 1000  },
         { id: "prune:submissions",         every: 24 * 60 * 60 * 1000  },
         { id: "prune:session-data",        every: 24 * 60 * 60 * 1000  },
+        { id: "prune:expired-sessions",    every: 24 * 60 * 60 * 1000  },
         { id: "purge:scheduled-deletions", every:  6 * 60 * 60 * 1000  },
         { id: "purge:trial-data",          every:  6 * 60 * 60 * 1000  },
         { id: "expire:exports",            every:  6 * 60 * 60 * 1000  },

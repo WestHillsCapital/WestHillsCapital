@@ -4,6 +4,9 @@ import { fileURLToPath } from "url";
 import path from "path";
 import { logger } from "./lib/logger";
 import { appendBookingAttemptToSheet } from "./lib/google-sheets";
+import { ObjectStorageService } from "./lib/objectStorage";
+
+const objectStorage = new ObjectStorageService();
 
 let pool: Pool | null = null;
 
@@ -1986,6 +1989,27 @@ export async function pruneAuditTables(): Promise<void> {
 export async function pruneRetainedSubmissions(): Promise<void> {
   try {
     const db = getDb();
+    // Collect GCS keys before deleting so object storage stays in sync
+    const { rows: keyRows } = await db.query<{ generated_pdf_storage_key: string | null }>(
+      `SELECT dis.generated_pdf_storage_key
+       FROM docufill_interview_sessions dis
+       JOIN accounts a ON dis.account_id = a.id
+       WHERE a.submission_retention_days IS NOT NULL
+         AND dis.created_at < NOW() - (a.submission_retention_days || ' days')::INTERVAL
+         AND dis.generated_pdf_storage_key IS NOT NULL`,
+    );
+    const gcsKeys = keyRows.map((r) => r.generated_pdf_storage_key).filter((k): k is string => !!k);
+    if (gcsKeys.length > 0) {
+      await Promise.allSettled(
+        gcsKeys.map((key) =>
+          objectStorage
+            .getObjectEntityFile(key)
+            .then((f) => f.delete({ ignoreNotFound: true }))
+            .catch((err) => logger.warn({ err, key }, "[DB] GCS cleanup for retained submission failed (non-fatal)")),
+        ),
+      );
+      logger.info({ count: gcsKeys.length }, "[DB] GCS objects deleted for retention-pruned sessions");
+    }
     const { rowCount } = await db.query(`
       DELETE FROM docufill_interview_sessions dis
       USING accounts a
@@ -2037,6 +2061,23 @@ export async function processScheduledDeletions(): Promise<void> {
         await client.query("BEGIN");
         await client.query(`DELETE FROM docufill_custodians   WHERE account_id = $1`, [account.id]);
         await client.query(`DELETE FROM docufill_depositories WHERE account_id = $1`, [account.id]);
+        // Clean up GCS objects before removing session rows
+        const { rows: sessionKeyRows } = await client.query<{ generated_pdf_storage_key: string | null }>(
+          `SELECT generated_pdf_storage_key FROM docufill_interview_sessions
+           WHERE account_id = $1 AND generated_pdf_storage_key IS NOT NULL`,
+          [account.id],
+        );
+        const sessionGcsKeys = sessionKeyRows.map((r) => r.generated_pdf_storage_key).filter((k): k is string => !!k);
+        if (sessionGcsKeys.length > 0) {
+          await Promise.allSettled(
+            sessionGcsKeys.map((key) =>
+              objectStorage
+                .getObjectEntityFile(key)
+                .then((f) => f.delete({ ignoreNotFound: true }))
+                .catch((err) => logger.warn({ err, key, accountId: account.id }, "[DB] GCS cleanup for deleted account session failed (non-fatal)")),
+            ),
+          );
+        }
         await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
         await client.query(`DELETE FROM docufill_packages WHERE account_id = $1`, [account.id]);
         await client.query(`DELETE FROM docufill_groups   WHERE account_id = $1`, [account.id]);
@@ -2072,6 +2113,23 @@ export async function purgeExpiredTrialData(): Promise<void> {
         await client.query(`DELETE FROM docufill_custodians        WHERE account_id = $1`, [account.id]);
         await client.query(`DELETE FROM docufill_depositories      WHERE account_id = $1`, [account.id]);
         await client.query(`DELETE FROM docufill_fields            WHERE account_id = $1`, [account.id]);
+        // Clean up GCS objects before removing session rows
+        const { rows: trialSessionKeyRows } = await client.query<{ generated_pdf_storage_key: string | null }>(
+          `SELECT generated_pdf_storage_key FROM docufill_interview_sessions
+           WHERE account_id = $1 AND generated_pdf_storage_key IS NOT NULL`,
+          [account.id],
+        );
+        const trialGcsKeys = trialSessionKeyRows.map((r) => r.generated_pdf_storage_key).filter((k): k is string => !!k);
+        if (trialGcsKeys.length > 0) {
+          await Promise.allSettled(
+            trialGcsKeys.map((key) =>
+              objectStorage
+                .getObjectEntityFile(key)
+                .then((f) => f.delete({ ignoreNotFound: true }))
+                .catch((err) => logger.warn({ err, key, accountId: account.id }, "[DB] GCS cleanup for lapsed trial session failed (non-fatal)")),
+            ),
+          );
+        }
         await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
         await client.query(`DELETE FROM docufill_packages          WHERE account_id = $1`, [account.id]);
         await client.query(`DELETE FROM docufill_groups            WHERE account_id = $1`, [account.id]);
@@ -2117,6 +2175,42 @@ export async function purgeExpiredExports(): Promise<void> {
     }
   } catch (err) {
     logger.error({ err }, "[DB] Export payload purge failed (non-fatal)");
+  }
+}
+
+export async function pruneExpiredDocufillSessions(): Promise<void> {
+  try {
+    const db = getDb();
+    // Collect GCS keys for sessions that have passed their expiry without completing
+    const { rows: keyRows } = await db.query<{ generated_pdf_storage_key: string | null }>(
+      `SELECT generated_pdf_storage_key
+       FROM docufill_interview_sessions
+       WHERE expires_at < NOW()
+         AND status IN ('draft', 'in_progress')
+         AND generated_pdf_storage_key IS NOT NULL`,
+    );
+    const gcsKeys = keyRows.map((r) => r.generated_pdf_storage_key).filter((k): k is string => !!k);
+    if (gcsKeys.length > 0) {
+      await Promise.allSettled(
+        gcsKeys.map((key) =>
+          objectStorage
+            .getObjectEntityFile(key)
+            .then((f) => f.delete({ ignoreNotFound: true }))
+            .catch((err) => logger.warn({ err, key }, "[DB] GCS cleanup for expired draft session failed (non-fatal)")),
+        ),
+      );
+      logger.info({ count: gcsKeys.length }, "[DB] GCS objects deleted for expired draft/in_progress sessions");
+    }
+    const { rowCount } = await db.query(
+      `DELETE FROM docufill_interview_sessions
+       WHERE expires_at < NOW()
+         AND status IN ('draft', 'in_progress')`,
+    );
+    if ((rowCount ?? 0) > 0) {
+      logger.info({ rowCount }, "[DB] Pruned expired draft/in_progress interview sessions");
+    }
+  } catch (err) {
+    logger.error({ err }, "[DB] Expired docufill session prune failed (non-fatal)");
   }
 }
 
