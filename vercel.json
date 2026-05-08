@@ -2,18 +2,38 @@
   "installCommand": "pnpm install",
   "buildCommand": "pnpm --filter @workspace/west-hills-capital build",
   "outputDirectory": "artifacts/west-hills-capital/dist/public",
-  "rewrites": [
+  "routes": [
     {
-      "source": "/api/(.*)",
-      "destination": "https://workspaceapi-server-production-987b.up.railway.app/api/$1"
+      "src": "^/api/(.*)",
+      "dest": "https://workspaceapi-server-production-987b.up.railway.app/api/$1"
     },
-    {
-      "source": "/email-signature.html",
-      "destination": "/email-signature.html"
-    },
-    {
-      "source": "/(.*)",
-      "destination": "/index.html"
-    }
+
+    { "src": "^/contact/?$",               "status": 410, "dest": "/index.html" },
+    { "src": "^/home/?$",                   "status": 410, "dest": "/index.html" },
+    { "src": "^/retirement-options/?$",     "status": 410, "dest": "/index.html" },
+    { "src": "^/retirement/?$",             "status": 410, "dest": "/index.html" },
+    { "src": "^/privacy-policy/?$",         "status": 410, "dest": "/index.html" },
+    { "src": "^/new-to-whc/?$",             "status": 410, "dest": "/index.html" },
+    { "src": "^/free-shipping/?$",          "status": 410, "dest": "/index.html" },
+    { "src": "^/m/new-to-whc/?$",          "status": 410, "dest": "/index.html" },
+    { "src": "^/cart/?$",                   "status": 410, "dest": "/index.html" },
+    { "src": "^/my-account/?$",             "status": 410, "dest": "/index.html" },
+    { "src": "^/new-to-precious-metals/?$", "status": 410, "dest": "/index.html" },
+    { "src": "^/new-home-page/?$",          "status": 410, "dest": "/index.html" },
+    { "src": "^/terms-and-conditions/?$",   "status": 410, "dest": "/index.html" },
+
+    { "src": "^/product(/.*)?$",            "status": 410, "dest": "/index.html" },
+    { "src": "^/product-category(/.*)?$",   "status": 410, "dest": "/index.html" },
+    { "src": "^/_2016(/.*)?$",              "status": 410, "dest": "/index.html" },
+    { "src": "^/author(/.*)?$",             "status": 410, "dest": "/index.html" },
+
+    { "src": "^/products/australian-gold-kangaroo(/.*)?$",  "status": 410, "dest": "/index.html" },
+    { "src": "^/products/austrian-gold-philharmonic(/.*)?$","status": 410, "dest": "/index.html" },
+    { "src": "^/products/canadian-gold-maple-leaf(/.*)?$",  "status": 410, "dest": "/index.html" },
+    { "src": "^/products/canadian-silver-maple-leaf(/.*)?$","status": 410, "dest": "/index.html" },
+    { "src": "^/products/south-african-krugerrand(/.*)?$",  "status": 410, "dest": "/index.html" },
+
+    { "handle": "filesystem" },
+    { "src": "/(.*)", "dest": "/index.html" }
   ]
 }

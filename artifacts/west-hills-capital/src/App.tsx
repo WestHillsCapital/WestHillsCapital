@@ -42,6 +42,7 @@ const Insights      = lazy(() => import("@/pages/Insights"));
 const InsightArticle = lazy(() => import("@/pages/InsightArticle"));
 const FAQ           = lazy(() => import("@/pages/FAQ"));
 const NotFound       = lazy(() => import("@/pages/not-found"));
+const Gone           = lazy(() => import("@/pages/Gone"));
 const AffiliateApply = lazy(() => import("@/pages/AffiliateApply"));
 const Verify        = lazy(() => import("@/pages/Verify"));
 
@@ -235,6 +236,37 @@ function Router() {
           <Route path="/ira/custodians/:custodianSlug" component={CustodianPage} />
           <Route path="/ira/depositories"          component={DepositoriesHubPage} />
           <Route path="/ira/depositories/:depositorySlug" component={DepositoryPage} />
+          {/* 410 Gone — old WordPress site paths */}
+          <Route path="/contact"                component={Gone} />
+          <Route path="/home"                   component={Gone} />
+          <Route path="/retirement-options"     component={Gone} />
+          <Route path="/retirement"             component={Gone} />
+          <Route path="/privacy-policy"         component={Gone} />
+          <Route path="/new-to-whc"             component={Gone} />
+          <Route path="/free-shipping"          component={Gone} />
+          <Route path="/m/new-to-whc"           component={Gone} />
+          <Route path="/cart"                   component={Gone} />
+          <Route path="/my-account"             component={Gone} />
+          <Route path="/new-to-precious-metals" component={Gone} />
+          <Route path="/new-home-page"          component={Gone} />
+          <Route path="/terms-and-conditions"   component={Gone} />
+          <Route path="/product/:rest*"         component={Gone} />
+          <Route path="/product-category/:rest*" component={Gone} />
+          <Route path="/_2016/:rest*"           component={Gone} />
+          <Route path="/author/:rest*"          component={Gone} />
+
+          {/* 410 Gone — products not sold (must be before /products/:coinSlug) */}
+          <Route path="/products/australian-gold-kangaroo"       component={Gone} />
+          <Route path="/products/australian-gold-kangaroo/:year" component={Gone} />
+          <Route path="/products/austrian-gold-philharmonic"       component={Gone} />
+          <Route path="/products/austrian-gold-philharmonic/:year" component={Gone} />
+          <Route path="/products/canadian-gold-maple-leaf"       component={Gone} />
+          <Route path="/products/canadian-gold-maple-leaf/:year" component={Gone} />
+          <Route path="/products/canadian-silver-maple-leaf"       component={Gone} />
+          <Route path="/products/canadian-silver-maple-leaf/:year" component={Gone} />
+          <Route path="/products/south-african-krugerrand"       component={Gone} />
+          <Route path="/products/south-african-krugerrand/:year" component={Gone} />
+
           <Route path="/products"                  component={CoinsHubPage} />
           <Route path="/products/:coinSlug/:year"  component={CoinYearPage} />
           <Route path="/products/:coinSlug"        component={CoinYearPage} />
