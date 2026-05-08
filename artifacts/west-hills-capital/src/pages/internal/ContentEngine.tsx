@@ -703,6 +703,25 @@ const GAP_TOPICS: Record<string, GapTopic[]> = {
 
 // ─── COVERAGE PANEL ───────────────────────────────────────────────────────────
 
+const STOP_WORDS = new Set([
+  "what","when","where","which","with","that","this","from","have","into",
+  "than","then","they","them","their","does","will","your","should","would",
+  "could","about","these","there","after","before","between","during","within",
+  "while","being","been","were","some","more","most","also","over","under",
+]);
+
+function sigWords(text: string): string[] {
+  return text.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/)
+    .filter((w) => w.length >= 4 && !STOP_WORDS.has(w));
+}
+
+function topicsOverlap(articleTitle: string, gapTopic: string): boolean {
+  const titleWords = new Set(sigWords(articleTitle));
+  const gapWords = sigWords(gapTopic);
+  const matches = gapWords.filter((w) => titleWords.has(w)).length;
+  return matches >= 3;
+}
+
 function CoveragePanel({ onDraft }: { onDraft: (topic: string) => void }) {
   const { getAuthHeaders } = useInternalAuth();
 
@@ -716,13 +735,16 @@ function CoveragePanel({ onDraft }: { onDraft: (topic: string) => void }) {
     },
   });
 
-  const publishedByGroup = (groupId: string) => {
-    const dynamicPublished = (data?.articles ?? []).filter(
-      (a) => a.status === "published" && a.group_id === groupId,
-    );
+  const allArticles = data?.articles ?? [];
+
+  const articlesByGroup = (groupId: string) => {
+    const dynamic = allArticles.filter((a) => a.group_id === groupId);
     const staticInGroup = INSIGHTS.filter((a) => a.group === groupId && !a.foundersPerspective);
-    return { dynamic: dynamicPublished, static: staticInGroup };
+    return { dynamic, static: staticInGroup };
   };
+
+  const isGapCovered = (gapTopic: string, dynamic: SavedArticle[]): boolean =>
+    dynamic.some((a) => topicsOverlap(a.title, gapTopic));
 
   return (
     <div className="space-y-8">
@@ -739,8 +761,9 @@ function CoveragePanel({ onDraft }: { onDraft: (topic: string) => void }) {
       </div>
 
       {INSIGHT_GROUPS.map((group) => {
-        const { dynamic, static: staticArticles } = publishedByGroup(group.id);
-        const gaps = GAP_TOPICS[group.id] ?? [];
+        const { dynamic, static: staticArticles } = articlesByGroup(group.id);
+        const allGaps = GAP_TOPICS[group.id] ?? [];
+        const openGaps = allGaps.filter((g) => !isGapCovered(g.topic, dynamic));
         const totalCovered = staticArticles.length + dynamic.length;
 
         return (
@@ -756,7 +779,7 @@ function CoveragePanel({ onDraft }: { onDraft: (topic: string) => void }) {
             </div>
 
             <div className="divide-y divide-[#DDD5C4]/50">
-              {/* Covered */}
+              {/* In library */}
               <div className="px-5 py-3">
                 <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8A9BB8] mb-2">In library</p>
                 <ul className="space-y-1">
@@ -768,9 +791,15 @@ function CoveragePanel({ onDraft }: { onDraft: (topic: string) => void }) {
                   ))}
                   {dynamic.map((a) => (
                     <li key={a.slug} className="text-xs text-[#4A5B7A] flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-green-400 shrink-0" />
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                        a.status === "published" ? "bg-green-400" : "bg-amber-400"
+                      }`} />
                       {a.title}
-                      <span className="text-[10px] text-green-600 font-medium">(Content Engine)</span>
+                      <span className={`text-[10px] font-medium ${
+                        a.status === "published" ? "text-green-600" : "text-amber-600"
+                      }`}>
+                        {a.status === "published" ? "(Published)" : "(Draft)"}
+                      </span>
                     </li>
                   ))}
                   {totalCovered === 0 && (
@@ -779,11 +808,21 @@ function CoveragePanel({ onDraft }: { onDraft: (topic: string) => void }) {
                 </ul>
               </div>
 
-              {/* Gaps */}
+              {/* Gaps to fill */}
               <div className="px-5 py-3">
-                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8A9BB8] mb-2">Gaps to fill</p>
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-[#8A9BB8] mb-2">
+                  Gaps to fill
+                  {openGaps.length < allGaps.length && (
+                    <span className="ml-2 normal-case font-normal text-green-600">
+                      {allGaps.length - openGaps.length} covered
+                    </span>
+                  )}
+                </p>
                 <ul className="space-y-1.5">
-                  {gaps.map(({ topic, volume, priority }) => (
+                  {openGaps.length === 0 && (
+                    <li className="text-xs text-green-600 italic">All gaps covered</li>
+                  )}
+                  {openGaps.map(({ topic, volume, priority }) => (
                     <li key={topic}>
                       <button
                         onClick={() => onDraft(topic)}
