@@ -1755,11 +1755,17 @@ export default function DocuFill() {
   async function saveFieldLibraryItem(item: FieldLibraryItem): Promise<string | null> {
     try {
       // ── Impact check: warn if other packages/sessions will be affected ────────
-      const impactRes = await fetch(
-        `${API_BASE}${docufillApiPath}/field-library/${item.id}/impact`,
-        { headers: getAuthHeaders() },
-      );
-      if (impactRes.ok) {
+      // Fail closed: if the impact count cannot be retrieved, block the save
+      // so the admin never silently overwrites data without knowing the blast radius.
+      let impactOk = false;
+      try {
+        const impactRes = await fetch(
+          `${API_BASE}${docufillApiPath}/field-library/${item.id}/impact`,
+          { headers: getAuthHeaders() },
+        );
+        if (!impactRes.ok) {
+          return "Could not compute impact — please retry.";
+        }
         const impact = await impactRes.json() as { packageCount?: number; sessionCount?: number };
         const pkgs  = impact.packageCount  ?? 0;
         const sess  = impact.sessionCount  ?? 0;
@@ -1773,7 +1779,11 @@ export default function DocuFill() {
           );
           if (!confirmed) return null;
         }
+        impactOk = true;
+      } catch {
+        return "Could not reach the server to compute impact — please retry.";
       }
+      if (!impactOk) return "Could not compute impact — please retry.";
       // ─────────────────────────────────────────────────────────────────────────
 
       const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/${item.id}`, {
