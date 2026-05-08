@@ -630,6 +630,12 @@ export async function initDb(): Promise<void> {
     ).catch(() => {});
   }
 
+  // ── deals.account_id — added after accounts exists so FK can be declared ─────
+  // The deals CREATE TABLE runs before accounts (for historical ordering reasons),
+  // so account_id is added here, after accounts is guaranteed to exist.
+  await safeAdd("account_id", "INTEGER REFERENCES accounts(id)");
+  await db.query(`CREATE INDEX IF NOT EXISTS deals_account_id_idx ON deals (account_id)`);
+
   // ── Account branding columns ─────────────────────────────────────────────────
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS logo_url TEXT`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS form_logo_url TEXT`);
