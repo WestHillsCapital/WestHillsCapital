@@ -1,5 +1,28 @@
 uploads = []
-generated = []
+
+[[generated]]
+id = "RFHfZn0SckMSzF9ik1pZt"
+uri = "file://artifacts/docuplete-explainer/public/images/sally.png"
+type = "image"
+title = "Sally advisor avatar"
+
+[[generated]]
+id = "FQglrSGs_Z-qmFXD2j6ES"
+uri = "file://artifacts/docuplete-explainer/public/images/tom.png"
+type = "image"
+title = "Tom client avatar"
+
+[[generated]]
+id = "lOH6kLfFaMzfKaJpDiQZC"
+uri = "file://artifacts/docuplete-explainer/public/images/chaos.png"
+type = "image"
+title = "Chaotic paperwork illustration"
+
+[[generated]]
+id = "Nx-dq1XHHS2u2PMf9HqDP"
+uri = "file://artifacts/docuplete-explainer/public/images/clean_ui.png"
+type = "image"
+title = "Clean UI illustration"
 
 [[outputs]]
 id = "GCU-49Xo_-dL_FdO1rV_U"

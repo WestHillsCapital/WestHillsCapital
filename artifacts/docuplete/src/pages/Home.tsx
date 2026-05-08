@@ -1,5 +1,88 @@
 import { useState } from "react";
 
+function VideoSection() {
+  const [open, setOpen] = useState(false);
+  return (
+    <section className="py-20 px-6 bg-white">
+      <div className="max-w-4xl mx-auto text-center">
+        <p className="text-[#1B4FD8] text-sm font-semibold uppercase tracking-widest mb-3">See it in action</p>
+        <h2 className="text-3xl sm:text-4xl font-bold text-[#0B1220] mb-4">From chaos to done — in 60 seconds</h2>
+        <p className="text-[#4B5A7A] max-w-xl mx-auto mb-10">
+          Meet Sally and Tom. See how one questionnaire replaces six documents, fifty fields, and hours of back-and-forth.
+        </p>
+
+        {/* Thumbnail */}
+        <button
+          onClick={() => setOpen(true)}
+          className="group relative w-full max-w-3xl mx-auto rounded-2xl overflow-hidden shadow-2xl border border-[#E8EDF5] block focus:outline-none focus:ring-4 focus:ring-[#1B4FD8]/30"
+          aria-label="Play explainer video"
+        >
+          {/* Dark gradient thumbnail */}
+          <div className="relative w-full aspect-video bg-[#0B1220] flex items-center justify-center overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1B4FD8]/30 via-[#0B1220] to-[#C49A38]/20" />
+            {/* Decorative floating elements */}
+            <div className="absolute top-8 left-10 w-24 h-32 bg-white/5 rounded-lg border border-white/10 rotate-[-8deg]" />
+            <div className="absolute top-6 left-20 w-24 h-32 bg-white/5 rounded-lg border border-white/10 rotate-[4deg]" />
+            <div className="absolute bottom-10 right-12 w-20 h-28 bg-[#1B4FD8]/20 rounded-lg border border-[#1B4FD8]/30 rotate-[6deg]" />
+            <div className="absolute bottom-8 right-20 w-20 h-28 bg-white/5 rounded-lg border border-white/10 rotate-[-3deg]" />
+            {/* Center label */}
+            <div className="relative z-10 flex flex-col items-center gap-5">
+              <div className="w-20 h-20 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/20 transition-all duration-300 group-hover:scale-110">
+                <svg className="w-8 h-8 text-white ml-1" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
+              <div className="text-center">
+                <p className="text-white font-bold text-xl">Sally &amp; Tom's Story</p>
+                <p className="text-white/50 text-sm mt-1">~75 seconds · No sound needed</p>
+              </div>
+            </div>
+            {/* Bottom bar */}
+            <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-black/60 to-transparent flex items-end px-6 pb-3">
+              <div className="flex gap-1.5">
+                {[...Array(8)].map((_, i) => (
+                  <div
+                    key={i}
+                    className="h-1 rounded-full bg-white/30 flex-1"
+                    style={{ opacity: i === 0 ? 1 : 0.4 }}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </button>
+      </div>
+
+      {/* Fullscreen modal */}
+      {open && (
+        <div
+          className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center"
+          onClick={() => setOpen(false)}
+        >
+          <button
+            className="absolute top-5 right-6 text-white/60 hover:text-white text-4xl leading-none font-light z-10"
+            onClick={() => setOpen(false)}
+            aria-label="Close video"
+          >
+            ×
+          </button>
+          <div
+            className="w-full max-w-6xl aspect-video"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <iframe
+              src="/docuplete-explainer/"
+              className="w-full h-full rounded-xl border border-white/10"
+              allow="autoplay"
+              title="Docuplete Explainer Video"
+            />
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 const NAV_SIGNUP = "https://app.docuplete.com/signup";
 
 function Logo({ light = false }: { light?: boolean }) {
@@ -419,6 +502,9 @@ export default function Home() {
           <span>Built for Finance · Insurance · Real Estate · Legal · Healthcare</span>
         </div>
       </section>
+
+      {/* ── EXPLAINER VIDEO ─────────────────────────────────── */}
+      <VideoSection />
 
       {/* ── HOW IT WORKS ────────────────────────────────────── */}
       <section id="how-it-works" className="py-24 px-6">
