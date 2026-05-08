@@ -53,8 +53,8 @@ export function Scene4() {
           animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
           transition={{ duration: 0.6, delay: 0.1 }}
         >
-          Sally creates a{' '}
-          <span className="text-[var(--color-primary)]">Docuplete package.</span>
+          Sally creates a package,{' '}
+          <span className="text-[var(--color-primary)]">once.</span>
         </motion.h2>
 
         <motion.p
@@ -63,7 +63,7 @@ export function Scene4() {
           animate={phase >= 2 ? { opacity: 1 } : { opacity: 0 }}
           transition={{ duration: 0.5 }}
         >
-          Once. For every client, forever.
+          For each process, forever.
         </motion.p>
 
         {/* Steps */}

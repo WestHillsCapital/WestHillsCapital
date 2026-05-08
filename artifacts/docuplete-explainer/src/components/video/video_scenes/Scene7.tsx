@@ -89,8 +89,9 @@ export function Scene7() {
             animate={phase >= 1 ? { opacity: 1, y: 0 } : { opacity: 0, y: 20 }}
             transition={{ duration: 0.5 }}
           >
-            Documents done.<br />
-            <span className="text-green-400">Accurate. Complete. Sealed.</span>
+            Accurate. Sealed.<br />
+            <span className="text-green-400">Documents Complete.</span>{' '}
+            <span className="text-[var(--color-primary)]">Docuplete.</span>
           </motion.h2>
 
           <div className="space-y-4 mb-8">
