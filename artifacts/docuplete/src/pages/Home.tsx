@@ -56,26 +56,32 @@ function VideoSection() {
       {/* Fullscreen modal */}
       {open && (
         <div
-          className="fixed inset-0 z-[200] bg-black/95 flex items-center justify-center"
+          className="fixed inset-0 z-[9999] bg-black flex flex-col"
           onClick={() => setOpen(false)}
         >
-          <button
-            className="absolute top-5 right-6 text-white/60 hover:text-white text-4xl leading-none font-light z-10"
-            onClick={() => setOpen(false)}
-            aria-label="Close video"
-          >
-            ×
-          </button>
+          {/* Top bar with close button — sits above the video */}
+          <div className="shrink-0 flex items-center justify-end px-6 py-3 z-10">
+            <button
+              className="text-white/60 hover:text-white text-4xl leading-none font-light"
+              onClick={() => setOpen(false)}
+              aria-label="Close video"
+            >
+              ×
+            </button>
+          </div>
+          {/* Video fills remaining space */}
           <div
-            className="w-full max-w-6xl aspect-video"
+            className="flex-1 flex items-center justify-center px-4 pb-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <iframe
-              src="/docuplete-explainer/"
-              className="w-full h-full rounded-xl border border-white/10"
-              allow="autoplay"
-              title="Docuplete Explainer Video"
-            />
+            <div className="w-full max-w-7xl" style={{ aspectRatio: '16/9' }}>
+              <iframe
+                src="/docuplete-explainer/"
+                className="w-full h-full rounded-xl border border-white/10"
+                allow="autoplay"
+                title="Docuplete Explainer Video"
+              />
+            </div>
           </div>
         </div>
       )}
@@ -373,7 +379,7 @@ const COMPARISON_FEATURES = [
   },
   {
     label: "Batch CSV sending",
-    docuplete: true,
+    docuplete: false,
     docusign: false,
     pandadoc: false,
     type: "bool" as const,
@@ -394,7 +400,7 @@ const COMPARISON_FEATURES = [
   },
   {
     label: "Custom branding",
-    docuplete: true,
+    docuplete: false,
     docusign: false,
     pandadoc: false,
     type: "bool" as const,

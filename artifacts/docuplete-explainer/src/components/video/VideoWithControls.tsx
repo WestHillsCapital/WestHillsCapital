@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ChevronDown, ChevronUp, Repeat } from 'lucide-react';
+import { ChevronDown, ChevronUp, Repeat, Volume2, VolumeX } from 'lucide-react';
 import VideoTemplate, { SCENE_DURATIONS } from './VideoTemplate';
 import { useSceneControls } from './useSceneControls';
 import { useBackgroundMusic } from '@/lib/video/useBackgroundMusic';
@@ -60,11 +60,13 @@ interface ControlBarProps {
   visible: boolean;
   collapsed: boolean;
   locked: boolean;
+  muted: boolean;
   sceneKeys: string[];
   activeIndex: number;
   activeDuration: number;
   tick: number;
   onToggleLock: () => void;
+  onToggleSound: () => void;
   onJumpTo: (index: number) => void;
   onToggleCollapsed: () => void;
 }
@@ -73,11 +75,13 @@ function ControlBar({
   visible,
   collapsed,
   locked,
+  muted,
   sceneKeys,
   activeIndex,
   activeDuration,
   tick,
   onToggleLock,
+  onToggleSound,
   onJumpTo,
   onToggleCollapsed,
 }: ControlBarProps) {
@@ -90,6 +94,7 @@ function ControlBar({
       }`}
       aria-hidden={!visible}
     >
+      {/* Scene lock */}
       <button
         onClick={onToggleLock}
         className={`w-14 h-14 flex items-center justify-center transition-colors rounded-lg shrink-0 ${
@@ -102,6 +107,21 @@ function ControlBar({
         aria-pressed={locked}
       >
         <Repeat className="w-8 h-8" />
+      </button>
+
+      {/* Sound toggle */}
+      <button
+        onClick={onToggleSound}
+        className={`w-14 h-14 flex items-center justify-center transition-colors rounded-lg shrink-0 ${
+          !muted
+            ? 'text-white bg-white/15 hover:bg-white/25'
+            : 'text-white/60 hover:text-white hover:bg-white/10'
+        }`}
+        title={muted ? 'Click to play music' : 'Mute music'}
+        aria-label={muted ? 'Click to play music' : 'Mute music'}
+        aria-pressed={!muted}
+      >
+        {muted ? <VolumeX className="w-8 h-8" /> : <Volume2 className="w-8 h-8" />}
       </button>
 
       <div className="w-px self-stretch bg-white/15" aria-hidden="true" />
@@ -134,7 +154,9 @@ function ControlBar({
 export default function VideoWithControls() {
   const isIframed = typeof window !== 'undefined' && window.self !== window.top;
 
-  useBackgroundMusic(true, `${import.meta.env.BASE_URL}audio/background.wav`);
+  const { muted, toggleMute } = useBackgroundMusic(
+    `${import.meta.env.BASE_URL}audio/background.wav`,
+  );
 
   const {
     sceneKeys,
@@ -213,11 +235,13 @@ export default function VideoWithControls() {
           visible={barVisible}
           collapsed={collapsed}
           locked={locked}
+          muted={muted}
           sceneKeys={sceneKeys}
           activeIndex={activeIndex}
           activeDuration={activeDuration}
           tick={tick}
           onToggleLock={toggleLock}
+          onToggleSound={toggleMute}
           onJumpTo={jumpTo}
           onToggleCollapsed={handleToggleCollapsed}
         />

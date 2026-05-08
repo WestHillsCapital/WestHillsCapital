@@ -1,50 +1,52 @@
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
-export function useBackgroundMusic(enabled = true, src: string = '') {
+export function useBackgroundMusic(src: string) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [muted, setMuted] = useState(true);
+  const [started, setStarted] = useState(false);
 
   useEffect(() => {
-    if (!enabled || !src) return;
-
+    if (!src) return;
     const audio = new Audio(src);
     audio.loop = true;
     audio.volume = 0;
-    audioRef.current = audio;
-
-    // Attempt autoplay — browsers allow muted autoplay
     audio.muted = true;
-    const playPromise = audio.play();
+    audioRef.current = audio;
+    return () => {
+      audio.pause();
+      audio.src = '';
+      audioRef.current = null;
+    };
+  }, [src]);
 
-    if (playPromise !== undefined) {
-      playPromise
-        .then(() => {
-          // Playback started: unmute and fade in volume
-          audio.muted = false;
-          fadeVolume(audio, 0, 0.18, 3000);
-        })
-        .catch(() => {
-          // Autoplay blocked — resume on first user interaction
-          audio.muted = false;
-          const resume = () => {
-            audio.play().then(() => {
-              fadeVolume(audio, 0, 0.18, 3000);
-            }).catch(() => {});
-            document.removeEventListener('pointerdown', resume);
-            document.removeEventListener('keydown', resume);
-          };
-          document.addEventListener('pointerdown', resume, { once: true });
-          document.addEventListener('keydown', resume, { once: true });
-        });
+  const toggleMute = useCallback(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+
+    if (!started) {
+      // First click: start playback and unmute
+      audio.muted = false;
+      audio.play().then(() => {
+        fadeVolume(audio, 0, 0.22, 1500);
+        setMuted(false);
+        setStarted(true);
+      }).catch(() => {});
+      return;
     }
 
-    return () => {
-      fadeVolume(audio, audio.volume, 0, 1500, () => {
-        audio.pause();
-        audio.src = '';
-        audioRef.current = null;
+    if (muted) {
+      audio.muted = false;
+      fadeVolume(audio, 0, 0.22, 500);
+      setMuted(false);
+    } else {
+      fadeVolume(audio, audio.volume, 0, 400, () => {
+        audio.muted = true;
       });
-    };
-  }, [enabled, src]);
+      setMuted(true);
+    }
+  }, [muted, started]);
+
+  return { muted, toggleMute };
 }
 
 function fadeVolume(
@@ -54,7 +56,7 @@ function fadeVolume(
   durationMs: number,
   onComplete?: () => void,
 ) {
-  const steps = 30;
+  const steps = 20;
   const stepMs = durationMs / steps;
   const delta = (to - from) / steps;
   let step = 0;
