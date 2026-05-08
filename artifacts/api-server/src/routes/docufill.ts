@@ -2423,7 +2423,7 @@ router.patch("/depositories/:id", requireAdminRole, async (req, res) => {
 
 /**
  * @openapi
- * /product/docufill/packages:
+ * /product/docuplete/packages:
  *   get:
  *     tags:
  *       - Product Portal — Docuplete Packages
@@ -2493,7 +2493,7 @@ router.get("/packages", requireMemberRole, async (req, res) => {
 
 /**
  * @openapi
- * /product/docufill/packages/{id}:
+ * /product/docuplete/packages/{id}:
  *   get:
  *     tags:
  *       - Product Portal — Docuplete Packages
@@ -3411,7 +3411,7 @@ router.get("/batch-runs/:runId", requireMemberRole, async (req, res) => {
 
 /**
  * @openapi
- * /product/docufill/sessions:
+ * /product/docuplete/sessions:
  *   get:
  *     tags:
  *       - Product Portal — Docuplete Sessions
@@ -3848,7 +3848,7 @@ router.post("/sessions/:token/void", requireAdminRole, async (req, res) => {
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Error'
- * /product/docufill/sessions:
+ * /product/docuplete/sessions:
  *   post:
  *     tags:
  *       - Product Portal — Docuplete Sessions
@@ -4086,7 +4086,7 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
 
 /**
  * @openapi
- * /product/docufill/sessions/{token}:
+ * /product/docuplete/sessions/{token}:
  *   get:
  *     tags:
  *       - Product Portal — Docuplete Sessions

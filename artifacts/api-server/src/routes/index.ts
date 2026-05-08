@@ -75,14 +75,18 @@ router.use("/internal/settings", requireInternalAuth, settingsRouter);
 // ── Affiliates admin (internal tool — require auth) ───────────────────────────
 router.use("/internal/affiliates", requireInternalAuth, affiliatesAdminRouter);
 
-// ── v1 API: versioned product + public docufill routes ────────────────────────
+// ── v1 API: versioned product + public Docuplete routes ───────────────────────
 // All externally-published product API endpoints live under /api/v1/...
 // The old unversioned paths below redirect 301 → v1 for backward compatibility.
 const v1Router: IRouter = Router();
 
-v1Router.use("/docufill/public",   publicDocufillRouter);
-v1Router.use("/docufill/public",   publicMerlinRouter);
-v1Router.use("/product/docufill",  requireProductAuth, requireAccountId, docufillRouter);
+v1Router.use("/docuplete/public",  publicDocufillRouter);
+v1Router.use("/docuplete/public",  publicMerlinRouter);
+v1Router.use("/product/docuplete", requireProductAuth, requireAccountId, docufillRouter);
+// Backward compat: /api/v1/product/docufill → /api/v1/product/docuplete (301)
+v1Router.use("/product/docufill",  v1Redirect("/product/docuplete"));
+// Backward compat: /api/v1/docufill/public → /api/v1/docuplete/public (301)
+v1Router.use("/docufill/public",   v1Redirect("/docuplete/public"));
 v1Router.use("/product/auth",      productAuthRouter);
 v1Router.use("/product/settings",  requireProductAuth, settingsRouter);
 v1Router.use("/product/merlin",    requireProductAuth, requireAccountId, merlinRouter);
@@ -93,20 +97,35 @@ v1Router.use("/sandbox",           sandboxRouter);
 
 router.use("/v1", v1Router);
 
-// ── Legacy redirects: /api/product/... → /api/v1/product/... (301) ────────────
-// Preserves backward compatibility for any integrations built against the
-// unversioned paths. New code should target /api/v1/... directly.
-function legacyRedirect(prefix: string) {
+// ── Redirect helpers ──────────────────────────────────────────────────────────
+
+// Redirects unversioned /api/<prefix> → /api/v1/<newPrefix> (301).
+// Used for legacy paths that pre-date the /v1 namespace.
+function legacyRedirect(newPrefix: string) {
   return (req: Request, res: Response) => {
     const qs = req.originalUrl.includes("?")
       ? req.originalUrl.slice(req.originalUrl.indexOf("?"))
       : "";
-    res.redirect(301, `/api/v1${prefix}${req.path === "/" ? "" : req.path}${qs}`);
+    res.redirect(301, `/api/v1${newPrefix}${req.path === "/" ? "" : req.path}${qs}`);
   };
 }
 
-router.use("/docufill/public",  legacyRedirect("/docufill/public"));
-router.use("/product/docufill", legacyRedirect("/product/docufill"));
+// Redirects within the v1 namespace: /api/v1/<old> → /api/v1/<newPrefix> (301).
+// Used when a path is renamed but old clients should still be redirected.
+function v1Redirect(newPrefix: string) {
+  return (req: Request, res: Response) => {
+    const qs = req.originalUrl.includes("?")
+      ? req.originalUrl.slice(req.originalUrl.indexOf("?"))
+      : "";
+    res.redirect(301, `/api/v1${newPrefix}${req.path === "/" ? "" : req.path}${qs}`);
+  };
+}
+
+// ── Legacy redirects: /api/product/... → /api/v1/product/... (301) ────────────
+// Preserves backward compatibility for any integrations built against the
+// unversioned paths. New code should target /api/v1/... directly.
+router.use("/docufill/public",  legacyRedirect("/docuplete/public"));
+router.use("/product/docufill", legacyRedirect("/product/docuplete"));
 router.use("/product/auth",     legacyRedirect("/product/auth"));
 router.use("/product/settings", legacyRedirect("/product/settings"));
 

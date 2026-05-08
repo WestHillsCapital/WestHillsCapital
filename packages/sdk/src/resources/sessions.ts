@@ -64,7 +64,7 @@ export class SessionsResource {
    */
   async get(token: string): Promise<Session> {
     const res = await this.client.get<GetSessionResponse>(
-      `/product/docufill/sessions/${token}`,
+      `/product/docuplete/sessions/${token}`,
     );
     return res.session;
   }
@@ -86,7 +86,7 @@ export class SessionsResource {
       offset:       params.offset,
       updatedAfter: params.updatedAfter,
     };
-    return this.client.get<ListSessionsResponse>("/product/docufill/sessions", query);
+    return this.client.get<ListSessionsResponse>("/product/docuplete/sessions", query);
   }
 
   /**
@@ -99,7 +99,7 @@ export class SessionsResource {
     answers: Record<string, unknown>,
   ): Promise<Session> {
     const res = await this.client.patch<GetSessionResponse>(
-      `/product/docufill/sessions/${token}`,
+      `/product/docuplete/sessions/${token}`,
       { answers },
     );
     return res.session;
@@ -118,7 +118,7 @@ export class SessionsResource {
    */
   async generate(token: string): Promise<GenerateSessionResult> {
     return this.client.post<GenerateSessionResult>(
-      `/product/docufill/sessions/${token}/generate`,
+      `/product/docuplete/sessions/${token}/generate`,
       {},
     );
   }
@@ -149,7 +149,7 @@ export class SessionsResource {
    */
   async getGenerateStatus(token: string, jobId?: string): Promise<GenerateStatusResult> {
     return this.client.get<GenerateStatusResult>(
-      `/product/docufill/sessions/${token}/generate-status`,
+      `/product/docuplete/sessions/${token}/generate-status`,
       jobId ? { jobId } : undefined,
     );
   }
@@ -161,7 +161,7 @@ export class SessionsResource {
    */
   async sendLink(token: string, params: SendLinkParams): Promise<{ ok: boolean; sentTo: string }> {
     return this.client.post<{ ok: boolean; sentTo: string }>(
-      `/product/docufill/sessions/${token}/send-link`,
+      `/product/docuplete/sessions/${token}/send-link`,
       {
         recipientEmail: params.recipientEmail,
         recipientName:  params.recipientName,
@@ -181,7 +181,7 @@ export class SessionsResource {
     params?: VoidSessionParams,
   ): Promise<{ ok: boolean; token: string; voidedAt: string }> {
     return this.client.post<{ ok: boolean; token: string; voidedAt: string }>(
-      `/product/docufill/sessions/${token}/void`,
+      `/product/docuplete/sessions/${token}/void`,
       { reason: params?.reason, notifySigner: params?.notifySigner ?? false },
     );
   }

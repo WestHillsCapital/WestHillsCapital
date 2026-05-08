@@ -23,7 +23,7 @@ export class PackagesResource {
    * Returns all packages for your account ordered by most-recently updated.
    */
   async list(): Promise<Package[]> {
-    const res = await this.client.get<ListPackagesResponse>("/product/docufill/packages");
+    const res = await this.client.get<ListPackagesResponse>("/product/docuplete/packages");
     return res.packages;
   }
 
@@ -31,7 +31,7 @@ export class PackagesResource {
    * Returns a single package by its numeric ID.
    */
   async get(id: number): Promise<Package> {
-    const res = await this.client.get<GetPackageResponse>(`/product/docufill/packages/${id}`);
+    const res = await this.client.get<GetPackageResponse>(`/product/docuplete/packages/${id}`);
     return res.package;
   }
 

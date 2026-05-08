@@ -610,7 +610,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/product/docufill/packages": {
+    "/product/docuplete/packages": {
         parameters: {
             query?: never;
             header?: never;
@@ -660,7 +660,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/product/docufill/packages/{id}": {
+    "/product/docuplete/packages/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -722,7 +722,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/product/docufill/sessions": {
+    "/product/docuplete/sessions": {
         parameters: {
             query?: never;
             header?: never;
@@ -997,7 +997,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/product/docufill/sessions/{token}": {
+    "/product/docuplete/sessions/{token}": {
         parameters: {
             query?: never;
             header?: never;

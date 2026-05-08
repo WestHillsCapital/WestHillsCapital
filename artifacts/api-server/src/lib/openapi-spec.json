@@ -1118,7 +1118,7 @@
         }
       }
     },
-    "/product/docufill/packages": {
+    "/product/docuplete/packages": {
       "get": {
         "tags": [
           "Product Portal — Docuplete Packages"
@@ -1168,7 +1168,7 @@
         }
       }
     },
-    "/product/docufill/packages/{id}": {
+    "/product/docuplete/packages/{id}": {
       "get": {
         "tags": [
           "Product Portal — Docuplete Packages"
@@ -1236,7 +1236,7 @@
         }
       }
     },
-    "/product/docufill/sessions": {
+    "/product/docuplete/sessions": {
       "get": {
         "tags": [
           "Product Portal — Docuplete Sessions"
@@ -1607,7 +1607,7 @@
         }
       }
     },
-    "/product/docufill/sessions/{token}": {
+    "/product/docuplete/sessions/{token}": {
       "get": {
         "tags": [
           "Product Portal — Docuplete Sessions"
