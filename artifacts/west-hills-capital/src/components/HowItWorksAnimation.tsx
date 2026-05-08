@@ -1,14 +1,14 @@
 import { useState, useEffect, useRef } from "react";
 
 const FIELDS = [
-  { label: "First name",     value: "Jane",             color: "#E67E56" },
-  { label: "Last name",      value: "Smith",            color: "#C49A38" },
-  { label: "Email address",  value: "jane@example.com", color: "#5BA8E6" },
-  { label: "Date of birth",  value: "01/01/2025",       color: "#9B7DE6" },
-  { label: "Address",        value: "123 Abc",          color: "#56C49A" },
-  { label: "City",           value: "Wichita",          color: "#E67E9B" },
-  { label: "State",          value: "KS",               color: "#5BE6D8" },
-  { label: "ZIP code",       value: "67206",            color: "#E6B856" },
+  { label: "First name",     source: "firstName",    value: "Jane",             color: "#E67E56" },
+  { label: "Last name",      source: "lastName",     value: "Smith",            color: "#C49A38" },
+  { label: "Email address",  source: "email",        value: "jane@example.com", color: "#5BA8E6" },
+  { label: "Date of birth",  source: "dateOfBirth",  value: "01/01/2025",       color: "#9B7DE6" },
+  { label: "Address",        source: "addressLine1", value: "123 Abc",          color: "#56C49A" },
+  { label: "City",           source: "city",         value: "Wichita",          color: "#E67E9B" },
+  { label: "State",          source: "state",        value: "KS",               color: "#5BE6D8" },
+  { label: "ZIP code",       source: "zip",          value: "67206",            color: "#E6B856" },
 ];
 
 // Layout constants (all in px, within the 256px inner width of the p-3 container)
@@ -188,7 +188,7 @@ export function HowItWorksAnimation({ liveValues }: { liveValues?: Record<string
                         animation: "howItWorksReveal 0.35s ease forwards",
                       }}
                     >
-                      {liveValues?.[field.label.toLowerCase()] ?? field.value}
+                      {liveValues?.[field.source] ?? field.value}
                     </span>
                   )}
                 </div>

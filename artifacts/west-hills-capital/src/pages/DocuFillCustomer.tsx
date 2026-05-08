@@ -481,11 +481,13 @@ export default function DocuFillCustomer() {
         if (!data.session) { setPageStatus("expired"); return; }
         const s: SessionData = data.session;
         if (s.status === "generated") {
-          // Capture values for the How It Works animation from saved session data
+          // Capture values for the How It Works animation from saved session data.
+          // Keyed by f.source to match animation FIELDS[].source.
           const savedMap: Record<string, string> = {};
           for (const f of (s.fields ?? [])) {
+            if (!f.source) continue;
             const val = currentValue(f, (s.answers as Record<string, string>) ?? {}, s.prefill ?? {});
-            if (val) savedMap[f.name.toLowerCase()] = val;
+            if (val) savedMap[f.source] = val;
           }
           setAnimationValues(savedMap);
           setSession(s);
@@ -778,11 +780,14 @@ export default function DocuFillCustomer() {
       // Capture values NOW — synchronously, before any async work — for the
       // How It Works animation. finalAnswers has every field the user typed.
       // currentValue fills gaps via prefill for fields shown-but-not-changed.
+      // Keyed by f.source (e.g. "firstName") to match animation's FIELDS[].source
+      // regardless of human-readable field label ("Client first name" vs "First name").
       if (isSandbox) {
         const animMap: Record<string, string> = {};
         for (const f of (session?.fields ?? [])) {
+          if (!f.source) continue;
           const val = currentValue(f, finalAnswers, session?.prefill ?? {});
-          if (val) animMap[f.name.toLowerCase()] = val;
+          if (val) animMap[f.source] = val;
         }
         setAnimationValues(animMap);
       }
