@@ -4373,6 +4373,14 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
         `UPDATE docufill_interview_sessions SET status = 'generated', updated_at = NOW() WHERE token = $1`,
         [String(req.params.token)],
       );
+      // Mirror the queue worker's post-generation webhook trigger so that
+      // webhook_deliveries rows are recorded even when the queue is unavailable (e.g. CI).
+      const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
+      if (session.webhook_enabled === true && webhookUrl) {
+        const webhookPkgId  = typeof session.package_id         === "number" ? session.package_id         : Number(session.package_id);
+        const webhookAcctId = typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id);
+        fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, buildWebhookPayload(session));
+      }
       const tok = String(req.params.token);
       res.json({
         packet: { token: tok, status: "generated", byteSize: pdfBuffer.length },
