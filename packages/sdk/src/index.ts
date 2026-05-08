@@ -2,6 +2,7 @@ import { DocupleteClient } from "./client.js";
 import { PackagesResource } from "./resources/packages.js";
 import { SessionsResource } from "./resources/sessions.js";
 import { AccountResource } from "./resources/account.js";
+import { SandboxResource } from "./resources/sandbox.js";
 
 export type { DocupleteClientOptions, SupportedLocale } from "./types.js";
 export type {
@@ -14,9 +15,15 @@ export type {
   CreateSessionResult,
   ListSessionsParams,
   GenerateSessionResult,
+  GenerateSessionPending,
+  GenerateSessionReady,
+  GenerateStatusResult,
+  SandboxStartParams,
+  SandboxStartResult,
+  WebhookDelivery,
 } from "./types.js";
 export { DocupleteError } from "./client.js";
-export type { SendLinkParams } from "./resources/sessions.js";
+export type { SendLinkParams, VoidSessionParams } from "./resources/sessions.js";
 export {
   verifyWebhookSignature,
   constructWebhookEvent,
@@ -42,13 +49,15 @@ export class Docuplete {
   readonly packages: PackagesResource;
   readonly sessions: SessionsResource;
   readonly account:  AccountResource;
+  readonly sandbox:  SandboxResource;
 
   private readonly _client: DocupleteClient;
 
-  constructor(options: { apiKey: string; baseUrl?: string }) {
+  constructor(options: { apiKey: string; baseUrl?: string; timeout?: number }) {
     this._client  = new DocupleteClient(options);
     this.packages = new PackagesResource(this._client);
     this.sessions = new SessionsResource(this._client);
     this.account  = new AccountResource(this._client);
+    this.sandbox  = new SandboxResource(this._client);
   }
 }

@@ -1,7 +1,7 @@
 {
   "name": "@docuplete/sdk",
   "version": "0.1.0",
-  "description": "Official Node.js SDK for the Docuplete API",
+  "description": "Official TypeScript/JavaScript SDK for the Docuplete API",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -29,11 +29,22 @@
     "document",
     "pdf",
     "sdk",
-    "api-client"
+    "api-client",
+    "interview",
+    "esign",
+    "fintech"
   ],
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WestHillsCapital/WestHillsCapital.git",
+    "directory": "packages/sdk"
+  },
   "devDependencies": {
-    "@types/node": "^22.0.0",
+    "@types/node": "catalog:",
     "openapi-typescript": "^7.13.0",
     "typescript": "^5.5.0"
   }

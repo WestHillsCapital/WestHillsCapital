@@ -1164,6 +1164,38 @@ export interface paths {
         };
         trace?: never;
     };
+    "/docufill/public/sessions/{token}/scroll-confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that the signer has scrolled through the entire document
+         * @description Persists a server-side timestamp (scroll_confirmed_at) for the session once
+         *     the signer attests they have scrolled to the end of the preview PDF. The
+         *     generate endpoint refuses to finalise a session that requires scroll
+         *     confirmation unless this endpoint has been called first.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: never;
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/docufill/public/sessions/{token}/generate": {
         parameters: {
             query?: never;
