@@ -705,26 +705,30 @@ export default function Home() {
       </section>
 
       {/* ── SOCIAL PROOF ────────────────────────────────────── */}
-      <section className="py-20 px-6 bg-[#F5F7FC] border-y border-[#E8EDF5]">
+      <section className="py-20 px-6 bg-[#0B1220]">
         <div className="max-w-4xl mx-auto">
           <div className="grid sm:grid-cols-2 gap-8 items-center">
             <div>
-              <p className="text-[#1B4FD8] text-sm font-semibold uppercase tracking-widest mb-4">Where it started</p>
-              <h2 className="text-3xl font-bold text-[#0B1220] mb-4">
+              <p className="text-[#5B8DEF] text-sm font-semibold uppercase tracking-widest mb-4">Where it started</p>
+              <h2 className="text-3xl font-bold text-white mb-4">
                 Born inside one of America's fastest-growing firms.
               </h2>
-              <p className="text-[#4B5A7A] leading-relaxed">
-                Docuplete was built out of necessity at the <strong className="text-[#0B1220]">7th fastest-growing financial services firm in America</strong>. It eliminated the busy work, streamlined document processes, and freed the team to serve more clients. That same capability is now available to you — so you can stop organizing, chasing, and managing paperwork, and get back to the work that actually matters.
+              <p className="text-white/60 leading-relaxed">
+                Docuplete was built out of necessity at the <strong className="text-white">7th fastest-growing financial services firm in America</strong>. It eliminated the busy work, streamlined document processes, and freed the team to serve more clients. That same capability is now available to you — so you can stop organizing, chasing, and managing paperwork, and get back to the work that actually matters.
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white border border-[#E8EDF5] rounded-2xl p-6">
-                <div className="text-3xl font-black text-[#1B4FD8] mb-1">$150</div>
-                <div className="text-sm text-[#4B5A7A]">saved per client package in labor, resources, and error handling</div>
+              <div className="bg-white/8 border border-white/10 rounded-2xl p-6">
+                <div className="text-3xl font-black text-[#5B8DEF] mb-1">$150</div>
+                <div className="text-sm text-white/55">saved per client package in labor, resources, and error handling</div>
               </div>
-              <div className="bg-white border border-[#E8EDF5] rounded-2xl p-6 col-span-2">
-                <div className="text-2xl font-black text-[#1B4FD8] mb-1">Zero chasing.</div>
-                <div className="text-sm text-[#4B5A7A]">Clients complete on their own time. You get a finished document.</div>
+              <div className="bg-white/8 border border-white/10 rounded-2xl p-6">
+                <div className="text-2xl font-black text-[#5B8DEF] mb-1">Less friction.</div>
+                <div className="text-sm text-white/55">Reduced resistance. Repeatable wins.</div>
+              </div>
+              <div className="bg-white/8 border border-white/10 rounded-2xl p-6 col-span-2">
+                <div className="text-2xl font-black text-[#5B8DEF] mb-1">Zero chasing.</div>
+                <div className="text-sm text-white/55">Clients complete on their own time. You get a finished document.</div>
               </div>
             </div>
           </div>
