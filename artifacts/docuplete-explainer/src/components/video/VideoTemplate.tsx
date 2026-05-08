@@ -9,6 +9,7 @@ import { Scene5 } from './video_scenes/Scene5';
 import { Scene6 } from './video_scenes/Scene6';
 import { Scene7 } from './video_scenes/Scene7';
 import { Scene8 } from './video_scenes/Scene8';
+import { SceneCaptions } from './SceneCaptions';
 
 export const SCENE_DURATIONS: Record<string, number> = {
   intro: 6000,
@@ -92,6 +93,9 @@ export default function VideoTemplate({
           {SceneComponent && <SceneComponent key={currentSceneKey} />}
         </AnimatePresence>
       </div>
+
+      {/* Caption Overlay */}
+      <SceneCaptions sceneKey={currentSceneKey} />
     </div>
   );
 }
