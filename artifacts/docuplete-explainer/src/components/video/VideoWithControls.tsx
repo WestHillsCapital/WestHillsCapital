@@ -195,11 +195,24 @@ export default function VideoWithControls() {
   const [started, setStarted] = useState(false);
   const bgRef = useRef<HTMLAudioElement | null>(null);
 
-  // Set up background music element once
+  // Set up background music and attempt auto-start on mount
   useEffect(() => {
     const bg = new Audio(`${BASE}audio/background.wav`);
-    bg.loop = true; bg.volume = 0; bg.muted = true;
+    bg.loop = true; bg.volume = 0;
     bgRef.current = bg;
+
+    // Try to auto-start — works when parent granted autoplay (allow="autoplay" on iframe)
+    bg.play()
+      .then(() => {
+        fadeVolume(bg, 0, 0.07, 1200);
+        setMuted(false);
+        setStarted(true);
+      })
+      .catch(() => {
+        // Autoplay blocked — user must click the sound button
+        bg.muted = true;
+      });
+
     return () => { bg.pause(); bg.src = ''; bgRef.current = null; };
   }, []);
 
