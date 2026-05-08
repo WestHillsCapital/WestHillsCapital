@@ -12,14 +12,14 @@ import { Scene8 } from './video_scenes/Scene8';
 import { SceneCaptions } from './SceneCaptions';
 
 export const SCENE_DURATIONS: Record<string, number> = {
-  intro: 6000,
-  problem1: 9000,
-  problem2: 10000,
-  solution1: 10000,
-  solution2: 10000,
-  solution3: 10000,
-  solution4: 10000,
-  outro: 8000,
+  intro:     9000,
+  problem1: 15000,
+  problem2: 15000,
+  solution1: 15000,
+  solution2: 15000,
+  solution3: 15000,
+  solution4: 15000,
+  outro:    12000,
 };
 
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
