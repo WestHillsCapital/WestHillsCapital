@@ -13,31 +13,25 @@ export default function WebhookPayload() {
 
       <h2>Payload structure</h2>
       <pre>{`{
-  "event": "interview.submitted",
-  "event_id": "evt_01J2K3L4M5N6P7Q8R9S0T1",
-  "timestamp": "2024-03-15T14:32:07.841Z",
-  "package_id": "pkg_abc123",
-  "package_name": "New Client Intake",
-  "session_id": "ses_xyz789",
-  "client_name": "Jane Doe",
-  "client_email": "jane.doe@example.com",
-  "submitted_at": "2024-03-15T14:32:05.123Z",
-  "generated_pdf_url": "https://api.docuplete.com/sessions/ses_xyz789/pdf",
-  "fields": {
-    "first_name": "Jane",
-    "last_name": "Doe",
-    "date_of_birth": "1985-07-22",
-    "account_type": "Individual",
-    "annual_income": 95000,
-    "us_citizen": true,
-    "investment_objective": "Growth"
+  "event":           "interview.submitted",
+  "packageId":       42,
+  "packageName":     "New Client Intake",
+  "sessionToken":    "df_a1b2c3d4e5f6...",
+  "submittedAt":     "2026-05-08T14:32:05.123Z",
+  "prefill": {
+    "firstName": "Jane",
+    "email":     "jane@example.com"
   },
-  "esign": {
-    "verified": true,
-    "verified_email": "jane.doe@example.com",
-    "verified_at": "2024-03-15T14:30:55.000Z",
-    "signer_ip": "203.0.113.42"
-  }
+  "answers": {
+    "firstName":           "Jane",
+    "lastName":            "Smith",
+    "dateOfBirth":         "1985-07-22",
+    "accountType":         "Individual",
+    "annualIncome":        "95000",
+    "usCitizen":           "yes",
+    "investmentObjective": "Growth"
+  },
+  "generatedPdfUrl": "https://api.docuplete.com/api/v1/sessions/df_a1b2c3.../packet.pdf"
 }`}</pre>
 
       <h2>Top-level fields</h2>
@@ -47,35 +41,42 @@ export default function WebhookPayload() {
             <tr><th>Field</th><th>Type</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>event</code></td><td>string</td><td>Always <code>interview.submitted</code> for submission events</td></tr>
-            <tr><td><code>event_id</code></td><td>string</td><td>Unique ID for this delivery. Use for deduplication.</td></tr>
-            <tr><td><code>timestamp</code></td><td>ISO 8601</td><td>When the event was generated</td></tr>
-            <tr><td><code>package_id</code></td><td>string</td><td>The package this session was created from</td></tr>
-            <tr><td><code>session_id</code></td><td>string</td><td>The unique session ID</td></tr>
-            <tr><td><code>client_name</code></td><td>string | null</td><td>Client name set at session creation</td></tr>
-            <tr><td><code>client_email</code></td><td>string | null</td><td>Client email set at session creation</td></tr>
-            <tr><td><code>submitted_at</code></td><td>ISO 8601</td><td>When the client submitted</td></tr>
-            <tr><td><code>generated_pdf_url</code></td><td>string</td><td>Authenticated URL to download the completed PDF (valid 24 hours)</td></tr>
-            <tr><td><code>fields</code></td><td>object</td><td>Key-value map of all submitted field answers</td></tr>
-            <tr><td><code>esign</code></td><td>object | null</td><td>E-sign verification data (null if package doesn't require e-sign)</td></tr>
+            <tr><td><code>event</code></td><td>string</td><td>Always <code>"interview.submitted"</code> for submission events.</td></tr>
+            <tr><td><code>packageId</code></td><td>number</td><td>Numeric ID of the package this session was created from.</td></tr>
+            <tr><td><code>packageName</code></td><td>string</td><td>Display name of the package at the time of submission.</td></tr>
+            <tr><td><code>sessionToken</code></td><td>string</td><td>The unique session token (<code>df_…</code>). Use this to look up the session via the API.</td></tr>
+            <tr><td><code>submittedAt</code></td><td>ISO 8601</td><td>Timestamp when the client submitted the interview.</td></tr>
+            <tr><td><code>prefill</code></td><td>object</td><td>The prefill values supplied when the session was created. Key is the field source key.</td></tr>
+            <tr><td><code>answers</code></td><td>object</td><td>Key-value map of all submitted field answers. Key is the field source key.</td></tr>
+            <tr><td><code>generatedPdfUrl</code></td><td>string | null</td><td>URL to download the completed PDF. Valid for 24 hours. <code>null</code> if PDF generation is still in progress.</td></tr>
           </tbody>
         </table>
       </div>
 
-      <h2>Field value types in payload</h2>
-      <p>Field values in the <code>fields</code> object are typed according to the field definition:</p>
-      <ul>
-        <li>Text → <code>string</code></li>
-        <li>Number → <code>number</code></li>
-        <li>Date → <code>string</code> (ISO 8601: <code>YYYY-MM-DD</code>)</li>
-        <li>Checkbox → <code>boolean</code></li>
-        <li>Radio / Select → <code>string</code> (the selected option value)</li>
-        <li>Multi-select → <code>string[]</code></li>
-        <li>Signature / Initials → <code>string</code> (URL to the signature image)</li>
-      </ul>
+      <h2>Answer value types</h2>
+      <p>
+        Values in the <code>answers</code> object are always strings, regardless of the field type
+        (text, date, number, checkbox, radio, etc.). Parse them as needed in your handler.
+      </p>
 
       <h2>Deduplication</h2>
-      <p>Use the <code>event_id</code> field to deduplicate webhook deliveries. If your server is unavailable, Docuplete retries the delivery — the same event may be delivered more than once with the same <code>event_id</code>. Store processed event IDs and skip duplicates.</p>
+      <p>
+        Due to retries, your server may receive the same event more than once. Use the{" "}
+        <code>sessionToken</code> field as a natural idempotency key — check whether you have
+        already processed a submission for this token before taking action.
+      </p>
+
+      <h2>TypeScript type</h2>
+      <p>
+        The <a href="/developer/sdk">Node.js SDK</a> exports a fully-typed <code>WebhookPayload</code>{" "}
+        interface, and <code>constructWebhookEvent()</code> returns it directly after verifying the
+        signature:
+      </p>
+      <pre>{`import { constructWebhookEvent, type WebhookPayload } from "@docuplete/sdk";
+
+const event: WebhookPayload = await constructWebhookEvent(rawBody, sig, secret);
+console.log(event.sessionToken); // typed string
+console.log(event.answers);      // typed Record<string, unknown>`}</pre>
     </div>
   );
 }

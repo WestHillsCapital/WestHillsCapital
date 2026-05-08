@@ -110,7 +110,29 @@ export default function QuickstartSession() {
         </tbody>
       </table>
 
-      <h2>Node.js example</h2>
+      <h2>Node.js SDK</h2>
+      <p>
+        If you're using Node.js or TypeScript, the <a href="/developer/sdk">official SDK</a> reduces
+        this to a few typed lines:
+      </p>
+      <pre>{`import { Docuplete } from "@docuplete/sdk";
+
+const client = new Docuplete({ apiKey: process.env.DOCUPLETE_API_KEY! });
+
+const { sessionToken, interviewUrl } = await client.sessions.create({
+  packageId: 42,
+  prefill: {
+    firstName: client.firstName,
+    lastName:  client.lastName,
+    email:     client.email,
+  },
+  linkExpiryDays: 7,
+});
+
+// Send interviewUrl to your client
+console.log("Interview link:", interviewUrl);`}</pre>
+
+      <h2>Node.js (raw fetch)</h2>
       <pre>{`const response = await fetch("https://api.docuplete.com/api/v1/sessions", {
   method: "POST",
   headers: {

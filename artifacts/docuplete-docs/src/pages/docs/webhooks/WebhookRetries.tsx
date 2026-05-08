@@ -23,23 +23,25 @@ export default function WebhookRetries() {
       <p>A successful delivery requires HTTP 2xx within 10 seconds. The response body is ignored.</p>
 
       <h2>Retry schedule</h2>
-      <p>Docuplete retries failed deliveries with exponential backoff:</p>
+      <p>Docuplete retries failed deliveries with exponential backoff. There are up to 5 total delivery attempts:</p>
       <div className="overflow-x-auto">
         <table>
           <thead>
             <tr><th>Attempt</th><th>Delay after previous failure</th></tr>
           </thead>
           <tbody>
-            <tr><td>1st retry</td><td>1 second</td></tr>
-            <tr><td>2nd retry</td><td>4 seconds</td></tr>
-            <tr><td>3rd retry</td><td>16 seconds</td></tr>
+            <tr><td>1 (initial)</td><td>Immediate</td></tr>
+            <tr><td>2</td><td>30 seconds</td></tr>
+            <tr><td>3</td><td>5 minutes</td></tr>
+            <tr><td>4</td><td>30 minutes</td></tr>
+            <tr><td>5</td><td>2 hours</td></tr>
           </tbody>
         </table>
       </div>
-      <p>After 3 retries (total of 4 delivery attempts), the event is marked as <strong>failed</strong> and no further retries are attempted.</p>
+      <p>After 5 failed attempts the event is marked as <strong>failed</strong> and no further retries are made. Review failed deliveries in <Link href="/webhooks/logs">Delivery Logs</Link> and re-trigger manually if needed.</p>
 
       <h2>Idempotency</h2>
-      <p>Because retries re-send the same event, your server may receive the same <code>event_id</code> more than once. Use the <code>event_id</code> field for idempotency — check if you've already processed this ID before taking action.</p>
+      <p>Because retries re-send the same event, your server may receive the same submission more than once. Use the <code>sessionToken</code> field as an idempotency key — check if you've already processed a submission for this token before taking action.</p>
 
       <h2>Manual retry</h2>
       <p>From the <Link href="/webhooks/logs">Delivery Logs</Link>, you can manually trigger a retry of any failed event. This is useful after fixing a server error that caused deliveries to fail.</p>

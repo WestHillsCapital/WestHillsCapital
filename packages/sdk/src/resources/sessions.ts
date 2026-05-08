@@ -174,7 +174,7 @@ export class SessionsResource {
    * Void a session, immediately invalidating its interview link.
    * Voided sessions cannot be submitted. This cannot be undone.
    *
-   * Only `generated` sessions can be voided.
+   * Sessions in `pending`, `in_progress`, or `generated` state can be voided.
    */
   async void(
     token: string,

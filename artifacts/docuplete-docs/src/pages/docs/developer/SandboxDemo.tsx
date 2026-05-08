@@ -114,7 +114,21 @@ export default function SandboxDemo() {
 
       <pre>{`curl "https://api.docuplete.com/api/v1/sandbox/start?firstName=Jane&lastName=Smith&email=jane@example.com"`}</pre>
 
-      <h3>Node.js</h3>
+      <h3>Node.js SDK</h3>
+      <pre>{`import { Docuplete } from "@docuplete/sdk";
+
+// No API key required — the sandbox endpoint is public
+const client = new Docuplete({ apiKey: "" });
+
+const { interviewUrl } = await client.sandbox.start({
+  firstName: prospect.firstName,
+  lastName:  prospect.lastName,
+  email:     prospect.email,
+});
+
+console.log("Sandbox demo link:", interviewUrl);`}</pre>
+
+      <h3>Node.js (raw fetch)</h3>
       <pre>{`const params = new URLSearchParams({
   firstName: prospect.firstName,
   lastName:  prospect.lastName,

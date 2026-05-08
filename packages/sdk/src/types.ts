@@ -1,6 +1,6 @@
 import type { components } from "./openapi.js";
 
-export type SessionStatus = "draft" | "in_progress" | "generated" | "voided";
+export type SessionStatus = "pending" | "in_progress" | "generated" | "voided" | "expired";
 
 export type Package = Required<components["schemas"]["DocuFillPackage"]> & {
   fields: unknown[];

@@ -35,15 +35,15 @@ export default function DeveloperAuthentication() {
 
       <h2>Generating a key</h2>
       <ol>
-        <li>Open the Docuplete dashboard and go to <strong>Settings → Developer</strong>.</li>
-        <li>Click <strong>Generate new key</strong>.</li>
+        <li>Open the Docuplete dashboard and go to <strong>Settings → API Keys</strong>.</li>
+        <li>Click <strong>Generate New Key</strong>.</li>
         <li>Give the key a descriptive name (e.g., <em>"CRM Integration"</em> or <em>"Automation Server"</em>).</li>
         <li>Click <strong>Create</strong> and copy the key immediately — it will not be shown again.</li>
       </ol>
 
       <h2>Revoking a key</h2>
       <p>
-        Click <strong>Revoke</strong> next to any key in <strong>Settings → Developer</strong>. Revocation is
+        Click <strong>Revoke</strong> next to any key in <strong>Settings → API Keys</strong>. Revocation is
         immediate — subsequent requests using that key receive <code>401 Unauthorized</code>. Generate a new key
         to replace it.
       </p>
