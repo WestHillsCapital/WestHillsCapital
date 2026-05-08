@@ -1755,35 +1755,43 @@ export default function DocuFill() {
   async function saveFieldLibraryItem(item: FieldLibraryItem): Promise<string | null> {
     try {
       // ── Impact check: warn if other packages/sessions will be affected ────────
-      // Fail closed: if the impact count cannot be retrieved, block the save
-      // so the admin never silently overwrites data without knowing the blast radius.
-      let impactOk = false;
+      // Returns "__cancelled__" if the admin dismisses the confirmation so the
+      // caller (FieldLibraryPanel.handleSave) can suppress both the error UI and
+      // the success "✓ Saved" tick — the field editor stays open, no state change.
       try {
         const impactRes = await fetch(
           `${API_BASE}${docufillApiPath}/field-library/${item.id}/impact`,
           { headers: getAuthHeaders() },
         );
-        if (!impactRes.ok) {
-          return "Could not compute impact — please retry.";
-        }
-        const impact = await impactRes.json() as { packageCount?: number; sessionCount?: number };
-        const pkgs  = impact.packageCount  ?? 0;
-        const sess  = impact.sessionCount  ?? 0;
-        if (pkgs > 0) {
-          const pkgLabel  = pkgs  === 1 ? "1 package"  : `${pkgs} packages`;
-          const sessLabel = sess  === 0 ? ""
-            : sess === 1 ? " and 1 active session"
-            : ` and ${sess} active sessions`;
-          const confirmed = window.confirm(
-            `This field is used in ${pkgLabel}${sessLabel}. Saving will update all of them.\n\nProceed?`,
+        if (impactRes.ok) {
+          const impact = await impactRes.json() as { packageCount?: number; sessionCount?: number };
+          const pkgs  = impact.packageCount  ?? 0;
+          const sess  = impact.sessionCount  ?? 0;
+          if (pkgs > 0) {
+            const pkgLabel  = pkgs  === 1 ? "1 package"  : `${pkgs} packages`;
+            const sessLabel = sess  === 0 ? ""
+              : sess === 1 ? " and 1 active session"
+              : ` and ${sess} active sessions`;
+            const confirmed = window.confirm(
+              `This field is used in ${pkgLabel}${sessLabel}. Saving will update all of them.\n\nProceed?`,
+            );
+            if (!confirmed) return "__cancelled__";
+          }
+        } else {
+          // Impact endpoint unavailable — ask the admin whether to proceed anyway
+          // rather than silently saving or hard-blocking the edit flow.
+          const proceed = window.confirm(
+            "Could not check how many packages use this field.\n\nProceed with save anyway?",
           );
-          if (!confirmed) return null;
+          if (!proceed) return "__cancelled__";
         }
-        impactOk = true;
       } catch {
-        return "Could not reach the server to compute impact — please retry.";
+        // Network error — same best-effort fallback
+        const proceed = window.confirm(
+          "Could not reach the server to check impact.\n\nProceed with save anyway?",
+        );
+        if (!proceed) return "__cancelled__";
       }
-      if (!impactOk) return "Could not compute impact — please retry.";
       // ─────────────────────────────────────────────────────────────────────────
 
       const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/${item.id}`, {

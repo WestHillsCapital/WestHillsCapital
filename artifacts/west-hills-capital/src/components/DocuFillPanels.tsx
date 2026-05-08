@@ -290,10 +290,12 @@ export function FieldLibraryPanel({
     setSavingId(item.id);
     setPanelError(null);
     setSavedId(null);
-    const err = await onSave(item);
+    const result = await onSave(item);
     setSavingId(null);
-    if (err) {
-      setPanelError(err);
+    if (result === "__cancelled__") {
+      // Admin dismissed the impact confirmation — no save occurred, no UI change needed
+    } else if (result) {
+      setPanelError(result);
     } else {
       setSavedId(item.id);
       setTimeout(() => setSavedId(null), 2000);
