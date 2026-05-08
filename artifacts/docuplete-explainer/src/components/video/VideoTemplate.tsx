@@ -9,7 +9,6 @@ import { Scene5 } from './video_scenes/Scene5';
 import { Scene6 } from './video_scenes/Scene6';
 import { Scene7 } from './video_scenes/Scene7';
 import { Scene8 } from './video_scenes/Scene8';
-import { SceneCaptions } from './SceneCaptions';
 
 // Durations matched exactly to per-scene voiceover clips
 export const SCENE_DURATIONS: Record<string, number> = {
