@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
-import { ChevronDown, ChevronRight, Sparkles, Save, Globe, FileText, Trash2, Eye, EyeOff, BarChart2, ArrowRight, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronRight, Sparkles, Save, Globe, FileText, Trash2, Eye, EyeOff, BarChart2, ArrowRight, RefreshCw, Wand2, Check, X } from "lucide-react";
 import { INSIGHTS, INSIGHT_GROUPS } from "@/data/insights";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
@@ -93,6 +93,20 @@ function TopicPicker({ onSelect }: { onSelect: (topic: string) => void }) {
   );
 }
 
+// ─── SECTION REWRITE STATE ────────────────────────────────────────────────────
+
+interface SectionRewriteState {
+  open: boolean;
+  instructions: string;
+  status: "idle" | "loading" | "done" | "error";
+  suggestion: ArticleSection | null;
+  error: string | null;
+}
+
+function defaultRewriteState(): SectionRewriteState {
+  return { open: false, instructions: "", status: "idle", suggestion: null, error: null };
+}
+
 // ─── ARTICLE EDITOR ───────────────────────────────────────────────────────────
 
 function ArticleEditor({
@@ -120,6 +134,75 @@ function ArticleEditor({
   );
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [isDirty, setIsDirty] = useState(!savedId);
+  const [rewriteStates, setRewriteStates] = useState<Record<number, SectionRewriteState>>({});
+
+  const getRewriteState = (si: number): SectionRewriteState =>
+    rewriteStates[si] ?? defaultRewriteState();
+
+  const setRewriteField = <K extends keyof SectionRewriteState>(
+    si: number,
+    field: K,
+    value: SectionRewriteState[K]
+  ) => {
+    setRewriteStates((prev) => ({
+      ...prev,
+      [si]: { ...(prev[si] ?? defaultRewriteState()), [field]: value },
+    }));
+  };
+
+  const handleRewriteSection = useCallback(async (si: number) => {
+    const rw = rewriteStates[si] ?? defaultRewriteState();
+    if (!rw.instructions.trim()) return;
+    setRewriteStates((prev) => ({
+      ...prev,
+      [si]: { ...(prev[si] ?? defaultRewriteState()), status: "loading", suggestion: null, error: null },
+    }));
+    try {
+      const sections = draft.sections;
+      const res = await fetch(`${API_BASE}/api/internal/content/rewrite-section`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          articleTitle: draft.title,
+          instructions: rw.instructions,
+          currentSection: sections[si],
+          prevSection: si > 0 ? sections[si - 1] : null,
+          nextSection: si < sections.length - 1 ? sections[si + 1] : null,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Rewrite failed");
+      setRewriteStates((prev) => ({
+        ...prev,
+        [si]: { ...(prev[si] ?? defaultRewriteState()), status: "done", suggestion: data.section as ArticleSection },
+      }));
+    } catch (err) {
+      setRewriteStates((prev) => ({
+        ...prev,
+        [si]: {
+          ...(prev[si] ?? defaultRewriteState()),
+          status: "error",
+          error: err instanceof Error ? err.message : "Rewrite failed",
+        },
+      }));
+    }
+  }, [draft, rewriteStates, getAuthHeaders]);
+
+  const acceptRewrite = (si: number) => {
+    const suggestion = getRewriteState(si).suggestion;
+    if (!suggestion) return;
+    setDraft((d) => {
+      const sections = d.sections.map((s, idx) => idx === si ? suggestion : s);
+      return { ...d, sections };
+    });
+    setSaveMsg(null);
+    setIsDirty(true);
+    setRewriteStates((prev) => ({ ...prev, [si]: defaultRewriteState() }));
+  };
+
+  const discardRewrite = (si: number) => {
+    setRewriteStates((prev) => ({ ...prev, [si]: defaultRewriteState() }));
+  };
 
   const handleFieldChange = (field: keyof DraftArticle, value: string) => {
     setDraft((d) => ({ ...d, [field]: value }));
@@ -354,25 +437,116 @@ function ArticleEditor({
       {/* Article sections */}
       <div className="space-y-4">
         <h3 className="text-xs font-semibold text-[#8A9BB8] uppercase tracking-widest">Article body ({draft.sections.length} sections)</h3>
-        {draft.sections.map((section, si) => (
-          <div key={si} className="bg-white border border-[#DDD5C4] rounded-xl p-5 space-y-3">
-            <input
-              value={section.heading ?? ""}
-              onChange={(e) => handleSectionHeadingChange(si, e.target.value)}
-              placeholder="Section heading (optional)"
-              className="w-full border-0 border-b border-[#DDD5C4] pb-2 text-sm font-semibold text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] bg-transparent"
-            />
-            {section.paragraphs.map((para, pi) => (
-              <textarea
-                key={pi}
-                value={para}
-                onChange={(e) => handleParagraphChange(si, pi, e.target.value)}
-                rows={Math.max(2, Math.ceil(para.length / 100))}
-                className="w-full border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#4A5B7A] leading-relaxed resize-y focus:outline-none focus:border-[#C49A38]"
-              />
-            ))}
-          </div>
-        ))}
+        {draft.sections.map((section, si) => {
+          const rw = getRewriteState(si);
+          return (
+            <div key={si} className="bg-white border border-[#DDD5C4] rounded-xl overflow-hidden">
+              {/* Section fields */}
+              <div className="p-5 space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    value={section.heading ?? ""}
+                    onChange={(e) => handleSectionHeadingChange(si, e.target.value)}
+                    placeholder="Section heading (optional)"
+                    className="flex-1 border-0 border-b border-[#DDD5C4] pb-2 text-sm font-semibold text-[#0F1C3F] focus:outline-none focus:border-[#C49A38] bg-transparent"
+                  />
+                  <button
+                    onClick={() => setRewriteField(si, "open", !rw.open)}
+                    title="Rewrite this section with AI"
+                    className={`shrink-0 flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded transition-colors ${
+                      rw.open
+                        ? "bg-[#C49A38] text-white"
+                        : "bg-[#F5F0E8] text-[#8A9BB8] border border-[#DDD5C4] hover:text-[#C49A38] hover:border-[#C49A38]"
+                    }`}
+                  >
+                    <Wand2 className="w-3 h-3" />
+                    Rewrite
+                  </button>
+                </div>
+                {section.paragraphs.map((para, pi) => (
+                  <textarea
+                    key={pi}
+                    value={para}
+                    onChange={(e) => handleParagraphChange(si, pi, e.target.value)}
+                    rows={Math.max(2, Math.ceil(para.length / 100))}
+                    className="w-full border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#4A5B7A] leading-relaxed resize-y focus:outline-none focus:border-[#C49A38]"
+                  />
+                ))}
+              </div>
+
+              {/* Rewrite panel */}
+              {rw.open && (
+                <div className="border-t border-[#DDD5C4] bg-[#FDFAF5] px-5 py-4 space-y-3">
+                  <p className="text-[11px] font-semibold text-[#8A9BB8] uppercase tracking-widest">Rewrite instructions</p>
+                  <div className="flex gap-2">
+                    <textarea
+                      value={rw.instructions}
+                      onChange={(e) => setRewriteField(si, "instructions", e.target.value)}
+                      placeholder="E.g. 'Make this less technical' or 'Add context about the 2008 crisis' or 'Shorten to 2 paragraphs'"
+                      rows={2}
+                      disabled={rw.status === "loading"}
+                      className="flex-1 border border-[#DDD5C4] rounded-lg px-3 py-2 text-sm text-[#0F1C3F] placeholder:text-[#AAB3C4] resize-none focus:outline-none focus:border-[#C49A38] disabled:opacity-50 bg-white"
+                    />
+                    <button
+                      onClick={() => handleRewriteSection(si)}
+                      disabled={rw.status === "loading" || !rw.instructions.trim()}
+                      className="shrink-0 flex flex-col items-center justify-center gap-1 w-20 text-xs font-semibold rounded-lg bg-[#C49A38] text-white hover:bg-[#B8882A] disabled:opacity-40 transition-colors"
+                    >
+                      {rw.status === "loading" ? (
+                        <>
+                          <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Writing…</span>
+                        </>
+                      ) : (
+                        <>
+                          <Wand2 className="w-3.5 h-3.5" />
+                          <span>Rewrite</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {rw.status === "error" && rw.error && (
+                    <p className="text-xs text-red-500">{rw.error}</p>
+                  )}
+
+                  {/* Suggestion preview */}
+                  {rw.status === "done" && rw.suggestion && (
+                    <div className="border border-[#C49A38]/40 rounded-xl bg-white overflow-hidden">
+                      <div className="flex items-center justify-between px-4 py-2.5 bg-[#C49A38]/8 border-b border-[#C49A38]/25">
+                        <span className="text-[11px] font-semibold text-[#C49A38] uppercase tracking-widest">Suggested rewrite</span>
+                        <div className="flex gap-1.5">
+                          <button
+                            onClick={() => acceptRewrite(si)}
+                            className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded bg-green-600 text-white hover:bg-green-700 transition-colors"
+                          >
+                            <Check className="w-3 h-3" />
+                            Accept
+                          </button>
+                          <button
+                            onClick={() => discardRewrite(si)}
+                            className="flex items-center gap-1 text-[11px] font-semibold px-2.5 py-1 rounded bg-white border border-[#DDD5C4] text-[#6B7A99] hover:text-red-500 hover:border-red-200 transition-colors"
+                          >
+                            <X className="w-3 h-3" />
+                            Discard
+                          </button>
+                        </div>
+                      </div>
+                      <div className="px-4 py-4 space-y-2">
+                        {rw.suggestion.heading && (
+                          <p className="text-sm font-semibold text-[#0F1C3F]">{rw.suggestion.heading}</p>
+                        )}
+                        {rw.suggestion.paragraphs.map((p, pi) => (
+                          <p key={pi} className="text-sm text-[#4A5B7A] leading-relaxed">{p}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

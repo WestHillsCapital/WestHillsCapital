@@ -237,7 +237,7 @@ export const COINS: CoinProduct[] = [
     reporting: {
       isReportable: false,
       notes:
-        "The Austrian Gold Philharmonic is not on the IRS list of precious metals subject to dealer 1099-B reporting. Dealers are not required to file Form 1099-B when you sell Philharmonics, regardless of quantity. This is in contrast to American Gold Eagles, Canadian Maple Leafs, and South African Krugerrands, which are reportable at 25+ oz. You remain personally responsible for reporting capital gains on your own return regardless of dealer reporting obligations.",
+        "The Austrian Gold Philharmonic is not on the IRS list of precious metals subject to dealer 1099-B reporting. Dealers are not required to file Form 1099-B when you sell Philharmonics, regardless of quantity. The three coins that do trigger dealer reporting at 25+ oz are the Canadian Gold Maple Leaf, South African Krugerrand, and Mexican Gold Onza — the Philharmonic is not among them. You remain personally responsible for reporting capital gains on your own return regardless of dealer reporting obligations.",
     },
     specs: [
       { label: "Purity", value: ".9999 fine (24-karat)" },

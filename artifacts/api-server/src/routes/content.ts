@@ -423,6 +423,86 @@ router.post("/articles/:id/unpublish", async (req, res): Promise<void> => {
   }
 });
 
+// POST /api/internal/content/rewrite-section
+// Body: { articleTitle, instructions, currentSection, prevSection?, nextSection? }
+// Returns: { section: ArticleSection }
+router.post("/rewrite-section", async (req, res): Promise<void> => {
+  const { articleTitle, instructions, currentSection, prevSection, nextSection } = req.body as {
+    articleTitle?: string;
+    instructions?: string;
+    currentSection?: { heading?: string; paragraphs: string[] };
+    prevSection?: { heading?: string; paragraphs: string[] } | null;
+    nextSection?: { heading?: string; paragraphs: string[] } | null;
+  };
+
+  if (!instructions || typeof instructions !== "string" || instructions.trim().length < 3) {
+    res.status(400).json({ error: "instructions is required" }); return;
+  }
+  if (!currentSection || !Array.isArray(currentSection.paragraphs)) {
+    res.status(400).json({ error: "currentSection is required" }); return;
+  }
+
+  const sectionText = (s: { heading?: string; paragraphs: string[] }) =>
+    [s.heading ? `### ${s.heading}` : "", ...s.paragraphs].filter(Boolean).join("\n\n");
+
+  const contextBlocks: string[] = [];
+  if (prevSection) contextBlocks.push(`PRECEDING SECTION (read-only — for flow context):\n${sectionText(prevSection)}`);
+  contextBlocks.push(`SECTION TO REWRITE:\n${sectionText(currentSection)}`);
+  if (nextSection) contextBlocks.push(`FOLLOWING SECTION (read-only — for flow context):\n${sectionText(nextSection)}`);
+
+  const prompt = `Article title: "${articleTitle ?? "untitled"}"
+
+${contextBlocks.join("\n\n---\n\n")}
+
+---
+
+REWRITE INSTRUCTIONS FROM EDITOR:
+${instructions.trim()}
+
+Rewrite only the "SECTION TO REWRITE" according to the instructions. Preserve the heading if it is still appropriate, or update it if the rewrite changes the focus significantly. Maintain the same paragraph-prose style (no bullet lists). Match the WHC voice.
+
+Return ONLY a valid JSON object with this exact shape — no markdown, no explanation:
+{ "heading": "string or null", "paragraphs": ["string", "string"] }`;
+
+  try {
+    const client = getAnthropicClient();
+
+    const message = await client.messages.create({
+      model: "claude-haiku-4-5",
+      max_tokens: 1200,
+      system: WHC_VOICE_SYSTEM_PROMPT,
+      messages: [{ role: "user", content: prompt }],
+    });
+
+    const text = message.content
+      .filter((b) => b.type === "text")
+      .map((b) => (b as { type: "text"; text: string }).text)
+      .join("");
+
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      logger.error({ text }, "[Content] Rewrite-section: no JSON in response");
+      res.status(500).json({ error: "AI returned an unexpected format" }); return;
+    }
+
+    let section: unknown;
+    try {
+      section = JSON.parse(jsonMatch[0]);
+    } catch {
+      res.status(500).json({ error: "AI returned malformed JSON" }); return;
+    }
+
+    res.json({ section });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (msg.includes("No Anthropic credentials configured")) {
+      res.status(500).json({ error: "AI integration is not configured on this server." }); return;
+    }
+    logger.error({ err }, "[Content] Rewrite-section failed");
+    res.status(500).json({ error: `Rewrite failed: ${msg}` });
+  }
+});
+
 // DELETE /api/internal/content/articles/:id
 router.delete("/articles/:id", async (req, res): Promise<void> => {
   const id = parseInt(req.params.id, 10);

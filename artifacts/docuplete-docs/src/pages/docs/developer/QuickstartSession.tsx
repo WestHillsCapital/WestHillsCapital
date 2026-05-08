@@ -122,9 +122,9 @@ const client = new Docuplete({ apiKey: process.env.DOCUPLETE_API_KEY! });
 const { sessionToken, interviewUrl } = await client.sessions.create({
   packageId: 42,
   prefill: {
-    firstName: client.firstName,
-    lastName:  client.lastName,
-    email:     client.email,
+    firstName: user.firstName,
+    lastName:  user.lastName,
+    email:     user.email,
   },
   linkExpiryDays: 7,
 });
