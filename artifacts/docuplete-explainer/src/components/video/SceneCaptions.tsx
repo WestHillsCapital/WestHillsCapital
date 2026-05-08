@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
 import { SCENE_CAPTIONS, type Caption } from '@/lib/video/captions';
 
 interface SceneCaptionsProps {
@@ -10,44 +9,50 @@ export function SceneCaptions({ sceneKey }: SceneCaptionsProps) {
   const baseKey = sceneKey.replace(/_r[12]$/, '');
   const captions: Caption[] = SCENE_CAPTIONS[baseKey] ?? [];
 
-  const [activeIndex, setActiveIndex] = useState<number>(-1);
+  const [activeIndex, setActiveIndex] = useState<number>(0);
 
   useEffect(() => {
-    setActiveIndex(-1);
+    setActiveIndex(0);
     if (captions.length === 0) return;
 
     const timers: ReturnType<typeof setTimeout>[] = [];
 
     captions.forEach((cap, i) => {
-      timers.push(
-        setTimeout(() => setActiveIndex(i), cap.start),
-        setTimeout(() => setActiveIndex(prev => (prev === i ? -1 : prev)), cap.end),
-      );
+      // Activate this line at its start time
+      timers.push(setTimeout(() => setActiveIndex(i), cap.start));
     });
 
     return () => timers.forEach(t => clearTimeout(t));
   }, [sceneKey]);
 
-  const activeCaption = activeIndex >= 0 ? captions[activeIndex] : null;
+  if (captions.length === 0) return null;
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-30 flex justify-center pb-8 px-12 pointer-events-none">
-      <AnimatePresence mode="wait">
-        {activeCaption && (
-          <motion.div
-            key={`${sceneKey}-${activeIndex}`}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.25, ease: 'easeOut' }}
-            className="bg-black/75 backdrop-blur-sm rounded-xl px-6 py-3 max-w-3xl text-center"
+    <div className="absolute bottom-0 left-0 right-0 z-30 flex flex-col items-center gap-1.5 pb-6 px-10 pointer-events-none">
+      {captions.map((cap, i) => {
+        const isActive = i === activeIndex;
+        const isPast   = i < activeIndex;
+        return (
+          <div
+            key={i}
+            className="max-w-3xl w-full text-center rounded-xl px-5 py-2 transition-all duration-300"
+            style={{
+              background: isActive ? 'rgba(0,0,0,0.82)' : 'rgba(0,0,0,0.38)',
+            }}
           >
-            <p className="text-white text-lg font-body leading-snug tracking-wide">
-              {activeCaption.text}
+            <p
+              className="font-body leading-snug tracking-wide transition-all duration-300"
+              style={{
+                fontSize:   isActive ? '1.125rem' : '0.95rem',
+                color:      isActive ? '#ffffff'  : isPast ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.55)',
+                fontWeight: isActive ? 600 : 400,
+              }}
+            >
+              {cap.text}
             </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          </div>
+        );
+      })}
     </div>
   );
 }
