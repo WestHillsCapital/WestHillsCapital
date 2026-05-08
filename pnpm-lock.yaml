@@ -1103,8 +1103,8 @@ importers:
   packages/sdk:
     devDependencies:
       '@types/node':
-        specifier: ^22.0.0
-        version: 22.19.17
+        specifier: 'catalog:'
+        version: 25.3.5
       openapi-typescript:
         specifier: ^7.13.0
         version: 7.13.0(typescript@5.9.3)
