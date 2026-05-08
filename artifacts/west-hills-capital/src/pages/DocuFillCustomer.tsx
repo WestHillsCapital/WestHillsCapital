@@ -1014,7 +1014,20 @@ export default function DocuFillCustomer() {
                       </div>
                     ))}
                   </div>
-                  <HowItWorksAnimation />
+                  <HowItWorksAnimation liveValues={(() => {
+                    const map: Record<string, string> = {};
+                    for (const f of session?.fields ?? []) {
+                      const val =
+                        session?.answers?.[f.id] ??
+                        Object.entries(session?.prefill ?? {}).find(
+                          ([k]) => k.toLowerCase() === f.name.toLowerCase() ||
+                                   k.toLowerCase() === (f.source ?? "").toLowerCase()
+                        )?.[1] ??
+                        "";
+                      if (val) map[f.name.toLowerCase()] = val;
+                    }
+                    return map;
+                  })()} />
                 </div>
 
                 <p className="text-[10px] text-[#4B5A7A] text-center pt-1">

@@ -19,7 +19,7 @@ const DOC_HDR  = 34;    // document title + subtitle area
 const ROW_H    = 21;    // height of each field row
 const TOTAL_H  = DOC_HDR + FIELDS.length * ROW_H + 6; // total stage height ≈ 210px
 
-export function HowItWorksAnimation() {
+export function HowItWorksAnimation({ liveValues }: { liveValues?: Record<string, string> }) {
   const [placedCount,   setPlacedCount]   = useState(0);
   const [flyingIdx,     setFlyingIdx]     = useState<number | null>(null);
   const [flyingLanded,  setFlyingLanded]  = useState(false);
@@ -188,7 +188,7 @@ export function HowItWorksAnimation() {
                         animation: "howItWorksReveal 0.35s ease forwards",
                       }}
                     >
-                      {field.value}
+                      {liveValues?.[field.label.toLowerCase()] ?? field.value}
                     </span>
                   )}
                 </div>
