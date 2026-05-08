@@ -1769,8 +1769,7 @@ export default function DocuFill() {
           const sess  = impact.sessionCount  ?? 0;
           if (pkgs > 0) {
             const pkgLabel  = pkgs  === 1 ? "1 package"  : `${pkgs} packages`;
-            const sessLabel = sess  === 0 ? ""
-              : sess === 1 ? " and 1 active session"
+            const sessLabel = sess  === 1 ? " and 1 active session"
               : ` and ${sess} active sessions`;
             const confirmed = window.confirm(
               `This field is used in ${pkgLabel}${sessLabel}. Saving will update all of them.\n\nProceed?`,
