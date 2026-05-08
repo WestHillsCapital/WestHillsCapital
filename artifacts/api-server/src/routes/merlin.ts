@@ -614,6 +614,7 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
       const val      = currentAnswers[String(f.id)];
       const answered = val ? `[answered: "${val}"]` : "[pending]";
       const required = f.interviewMode === "required" ? "required" : "optional";
+      const display  = String((f.label as string | undefined) ?? f.name);
 
       let optionStr = "";
       if (Array.isArray(f.options) && f.options.length > 0) {
@@ -624,12 +625,14 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
       let condStr = "";
       const cond = f.condition as Record<string, unknown> | null | undefined;
       if (cond?.fieldId) {
-        const triggerField = fields.find((tf) => String(tf.id) === String(cond.fieldId));
-        const triggerName  = triggerField ? String(triggerField.name) : String(cond.fieldId);
-        condStr = ` | CONDITIONAL: only shown when "${triggerName}" ${cond.operator} "${cond.value ?? ""}"`;
+        const triggerField   = fields.find((tf) => String(tf.id) === String(cond.fieldId));
+        const triggerDisplay = triggerField
+          ? String((triggerField.label as string | undefined) ?? triggerField.name)
+          : String(cond.fieldId);
+        condStr = ` | CONDITIONAL: only shown when "${triggerDisplay}" ${cond.operator} "${cond.value ?? ""}"`;
       }
 
-      return `  - ${f.name} (id: ${f.id}, type: ${f.type}, ${required}${optionStr}${condStr}) ${answered}`;
+      return `  - ${display} (id: ${f.id}, type: ${f.type}, ${required}${optionStr}${condStr}) ${answered}`;
     }).join("\n");
 
     const prefillSummary = Object.entries(prefill)
@@ -648,7 +651,7 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
       `Form fields (${answeredFields.length} of ${interviewFields.length} answered):`,
       fieldSummary || "  (no fields)",
       "",
-      `Pending fields: ${pendingFields.map((f) => f.name).join(", ") || "All fields answered — ready to review."}`,
+      `Pending fields: ${pendingFields.map((f) => String((f.label as string | undefined) ?? f.name)).join(", ") || "All fields answered — ready to review."}`,
       "",
       "INTERVIEW RULES:",
       "1. Ask about one field (or one natural group, like address components) at a time.",

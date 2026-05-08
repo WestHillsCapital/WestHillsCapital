@@ -12,6 +12,7 @@ type Message = {
 type FieldItem = {
   id:            string;
   name:          string;
+  label?:        string;
   type:          string;
   interviewMode: "required" | "optional" | "readonly" | "omitted";
   options?:      string[];
@@ -122,7 +123,7 @@ export function MerlinCustomerChat({
 
     const firstPendingField = interviewFields.find((f) => !answers[f.id]?.trim());
     const greeting = firstPendingField
-      ? `I'm Merlin — I'll guide you through the ${packageName} form one step at a time. Consider it handled.\n\nLet's start: what is your ${firstPendingField.name.toLowerCase()}?`
+      ? `I'm Merlin — I'll guide you through the ${packageName} form one step at a time. Consider it handled.\n\nLet's start: ${(firstPendingField.label ?? firstPendingField.name).toLowerCase()}`
       : `I'm Merlin. I can see you've already made good progress on the ${packageName} form — a little wizardry goes a long way. Ask me anything, or I can help you review what's been filled in.`;
 
     setMessages([{ id: "greeting", role: "assistant", content: greeting }]);
@@ -139,7 +140,7 @@ export function MerlinCustomerChat({
       .filter((f) => answers[f.id]?.trim())
       .map((f) => {
         const val = answers[f.id];
-        return `  • **${f.name}**: ${val}`;
+        return `  • **${f.label ?? f.name}**: ${val}`;
       });
 
     const reviewContent = [
