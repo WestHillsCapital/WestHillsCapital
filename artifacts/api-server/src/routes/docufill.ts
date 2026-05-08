@@ -1947,6 +1947,54 @@ router.get("/field-library", async (req, res) => {
   }
 });
 
+// GET /field-library/:id/impact — count of packages and active sessions affected by editing this field
+router.get("/field-library/:id/impact", requireAdminRole, async (req, res) => {
+  try {
+    const id        = cleanText(req.params.id);
+    const accountId = acctId(req);
+    if (!id) { res.status(400).json({ error: "Field ID is required" }); return; }
+
+    const db = getDb();
+
+    // Count packages on this account whose fields JSONB array contains this libraryFieldId
+    const { rows: pkgRows } = await db.query(
+      `SELECT COUNT(DISTINCT p.id)::int AS package_count
+         FROM docufill_packages p
+        WHERE p.account_id = $1
+          AND EXISTS (
+            SELECT 1
+              FROM jsonb_array_elements(COALESCE(p.fields, '[]'::jsonb)) AS f
+             WHERE f->>'libraryFieldId' = $2
+          )`,
+      [accountId, id],
+    );
+
+    const packageCount: number = pkgRows[0]?.package_count ?? 0;
+
+    // Count active (non-generated) sessions tied to those packages
+    const { rows: sessRows } = await db.query(
+      `SELECT COUNT(DISTINCT s.id)::int AS session_count
+         FROM docufill_interview_sessions s
+         JOIN docufill_packages p ON p.id = s.package_id
+        WHERE p.account_id = $1
+          AND s.status != 'generated'
+          AND EXISTS (
+            SELECT 1
+              FROM jsonb_array_elements(COALESCE(p.fields, '[]'::jsonb)) AS f
+             WHERE f->>'libraryFieldId' = $2
+          )`,
+      [accountId, id],
+    );
+
+    const sessionCount: number = sessRows[0]?.session_count ?? 0;
+
+    res.json({ packageCount, sessionCount });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to compute field library impact");
+    res.status(500).json({ error: "Failed to compute impact" });
+  }
+});
+
 router.post("/field-library", requireAdminRole, async (req, res) => {
   const _parse = FieldLibraryCreateSchema.safeParse(req.body);
   if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
