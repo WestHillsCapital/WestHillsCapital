@@ -392,13 +392,6 @@ const COMPARISON_FEATURES = [
     type: "bool" as const,
   },
   {
-    label: "Batch CSV sending",
-    docuplete: false,
-    docusign: false,
-    pandadoc: false,
-    type: "bool" as const,
-  },
-  {
     label: "Client-facing links",
     docuplete: true,
     docusign: false,
@@ -408,13 +401,6 @@ const COMPARISON_FEATURES = [
   {
     label: "Submission tracking",
     docuplete: true,
-    docusign: false,
-    pandadoc: false,
-    type: "bool" as const,
-  },
-  {
-    label: "Custom branding",
-    docuplete: false,
     docusign: false,
     pandadoc: false,
     type: "bool" as const,
