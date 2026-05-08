@@ -888,7 +888,7 @@ export default function Home() {
             <button
               type="button"
               onClick={() => setAnnual(!annual)}
-              className={`relative w-12 h-7 rounded-full overflow-hidden transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4FD8] focus-visible:ring-offset-2 ${annual ? "bg-[#1B4FD8]" : "bg-[#D0D9EC]"}`}
+              className={`relative w-12 h-7 rounded-full overflow-hidden transition-colors duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#1B4FD8] focus-visible:ring-offset-2 ${annual ? "bg-[#1B4FD8]" : "bg-[#64748B]"}`}
               aria-pressed={annual}
               aria-label="Toggle annual billing"
             >
