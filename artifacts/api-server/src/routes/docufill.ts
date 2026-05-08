@@ -4553,7 +4553,7 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
 
 /**
  * @openapi
- * /docufill/public/sessions/{token}:
+ * /docuplete/public/sessions/{token}:
  *   get:
  *     tags:
  *       - Docuplete — Public (no auth)
@@ -4689,7 +4689,7 @@ publicDocufillRouter.get("/sessions/:token/preview-pdf/status", async (req, res)
     if (state === "completed") {
       res.json({
         status: "ready",
-        downloadUrl: `/api/v1/docufill/public/sessions/${req.params.token}/preview-pdf/download`,
+        downloadUrl: `/api/v1/docuplete/public/sessions/${req.params.token}/preview-pdf/download`,
       });
       return;
     }
@@ -4750,7 +4750,7 @@ publicDocufillRouter.get("/sessions/:token/preview-pdf/download", async (req, re
 
 /**
  * @openapi
- * /docufill/public/sessions/{token}/scroll-confirm:
+ * /docuplete/public/sessions/{token}/scroll-confirm:
  *   post:
  *     tags:
  *       - Docuplete — Public (no auth)
@@ -4790,7 +4790,7 @@ publicDocufillRouter.post("/sessions/:token/scroll-confirm", async (req, res) =>
 
 /**
  * @openapi
- * /docufill/public/sessions/{token}:
+ * /docuplete/public/sessions/{token}:
  *   patch:
  *     tags:
  *       - Docuplete — Public (no auth)
@@ -5040,7 +5040,7 @@ publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
 
 /**
  * @openapi
- * /docufill/public/sessions/{token}/generate:
+ * /docuplete/public/sessions/{token}/generate:
  *   post:
  *     tags:
  *       - Docuplete — Public (no auth)
@@ -5070,7 +5070,7 @@ publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
  *                   description: Summary of generated documents
  *                 downloadUrl:
  *                   type: string
- *                   example: '/api/v1/docufill/public/sessions/df_abc123/packet.pdf'
+ *                   example: '/api/v1/docuplete/public/sessions/df_abc123/packet.pdf'
  *                 drive:
  *                   type: object
  *                   nullable: true
@@ -5214,7 +5214,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
 });
 
 /**
- * GET /docufill/public/sessions/{token}/generate-status
+ * GET /docuplete/public/sessions/{token}/generate-status
  * Polls the status of a background PDF generation job.
  * The DB session status is the authoritative source; BullMQ job state provides
  * finer-grained intermediate status (pending → processing → ready | failed).
@@ -5236,7 +5236,7 @@ publicDocufillRouter.get("/sessions/:token/generate-status", async (req, res) =>
     if (row.status === "generated") {
       res.json({
         status: "ready",
-        downloadUrl: `/api/v1/docufill/public/sessions/${req.params.token}/packet.pdf`,
+        downloadUrl: `/api/v1/docuplete/public/sessions/${req.params.token}/packet.pdf`,
       });
       return;
     }
@@ -5249,7 +5249,7 @@ publicDocufillRouter.get("/sessions/:token/generate-status", async (req, res) =>
           if (state === "completed") {
             res.json({
               status: "ready",
-              downloadUrl: `/api/v1/docufill/public/sessions/${req.params.token}/packet.pdf`,
+              downloadUrl: `/api/v1/docuplete/public/sessions/${req.params.token}/packet.pdf`,
             });
             return;
           }
@@ -5273,7 +5273,7 @@ publicDocufillRouter.get("/sessions/:token/generate-status", async (req, res) =>
 
 /**
  * @openapi
- * /docufill/public/sessions/{token}/packet.pdf:
+ * /docuplete/public/sessions/{token}/packet.pdf:
  *   get:
  *     tags:
  *       - Docuplete — Public (no auth)
@@ -5305,7 +5305,7 @@ publicDocufillRouter.get("/sessions/:token/generate-status", async (req, res) =>
  *               $ref: '#/components/schemas/Error'
  */
 /**
- * POST /docufill/public/embed/:embedKey/session
+ * POST /docuplete/public/embed/:embedKey/session
  * Creates a new anonymous interview session for the package that owns this embed key.
  * Called by the embed/v1.js snippet running on a third-party webpage.
  */
@@ -5390,7 +5390,7 @@ function buildVerifyPayload(
 }
 
 /**
- * GET /docufill/public/sessions/:token/verify
+ * GET /docuplete/public/sessions/:token/verify
  * Returns the signing metadata for a session (public, no auth required).
  * Optional query param ?hash=<sha256hex> — response includes hashMatches boolean.
  */
@@ -5433,7 +5433,7 @@ publicDocufillRouter.get("/sessions/:token/verify", async (req, res) => {
 });
 
 /**
- * GET /docufill/public/verify?hash=<sha256hex>
+ * GET /docuplete/public/verify?hash=<sha256hex>
  * Finds a signed session by PDF SHA-256 hash and returns its signing metadata.
  */
 publicDocufillRouter.get("/verify", async (req, res) => {

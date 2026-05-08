@@ -179,7 +179,7 @@ export function MerlinCustomerChat({
     ].map((m) => ({ role: m.role, content: m.content }));
 
     try {
-      const res = await fetch(`${API_BASE}/api/v1/docufill/public/sessions/${token}/merlin`, {
+      const res = await fetch(`${API_BASE}/api/v1/docuplete/public/sessions/${token}/merlin`, {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ messages: history, answers }),

@@ -11,7 +11,7 @@ import * as pdfjsLib from "pdfjs-dist";
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-const SESSION_BASE = `${API_BASE}/api/v1/docufill/public/sessions`;
+const SESSION_BASE = `${API_BASE}/api/v1/docuplete/public/sessions`;
 
 /** Turn camelCase / snake_case keys into readable labels: "firstName" → "First Name" */
 function humanizeKey(key: string): string {

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
-const PUBLIC_BASE = `${API_BASE}/api/v1/docufill/public`;
+const PUBLIC_BASE = `${API_BASE}/api/v1/docuplete/public`;
 
 type VerifyResult = {
   token: string;

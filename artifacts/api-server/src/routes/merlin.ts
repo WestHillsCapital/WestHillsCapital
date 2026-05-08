@@ -558,7 +558,7 @@ const CUSTOMER_FIELD_UPDATE_TOOL: Anthropic.Tool = {
 };
 
 // ─── Customer Merlin chat endpoint (SSE streaming) ────────────────────────────
-// POST /api/v1/docufill/public/sessions/:token/merlin
+// POST /api/v1/docuplete/public/sessions/:token/merlin
 
 publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<void> => {
   const { token } = req.params;

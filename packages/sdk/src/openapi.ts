@@ -1059,7 +1059,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/docufill/public/sessions/{token}": {
+    "/docuplete/public/sessions/{token}": {
         parameters: {
             query?: never;
             header?: never;
@@ -1164,7 +1164,7 @@ export interface paths {
         };
         trace?: never;
     };
-    "/docufill/public/sessions/{token}/scroll-confirm": {
+    "/docuplete/public/sessions/{token}/scroll-confirm": {
         parameters: {
             query?: never;
             header?: never;
@@ -1196,7 +1196,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/docufill/public/sessions/{token}/generate": {
+    "/docuplete/public/sessions/{token}/generate": {
         parameters: {
             query?: never;
             header?: never;
@@ -1233,7 +1233,7 @@ export interface paths {
                         "application/json": {
                             /** @description Summary of generated documents */
                             packet?: Record<string, never>;
-                            /** @example /api/v1/docufill/public/sessions/df_abc123/packet.pdf */
+                            /** @example /api/v1/docuplete/public/sessions/df_abc123/packet.pdf */
                             downloadUrl?: string;
                             drive?: {
                                 fileId?: string;
@@ -1269,7 +1269,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/docufill/public/sessions/{token}/packet.pdf": {
+    "/docuplete/public/sessions/{token}/packet.pdf": {
         parameters: {
             query?: never;
             header?: never;

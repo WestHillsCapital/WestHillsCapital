@@ -603,7 +603,7 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
                                 </thead>
                                 <tbody className="divide-y divide-gray-50 bg-white">
                                   {sessions.map((s, idx) => {
-                                    const pdfUrl = `${API_BASE}/api/v1/docufill/public/sessions/${s.token}/packet.pdf`;
+                                    const pdfUrl = `${API_BASE}/api/v1/docuplete/public/sessions/${s.token}/packet.pdf`;
                                     const recipient = s.signer_name || s.signer_email || s.link_email_recipient || "—";
                                     const statusMap: Record<string, { label: string; cls: string }> = {
                                       generated: { label: "Generated", cls: "bg-emerald-50 text-emerald-700" },

@@ -1675,7 +1675,7 @@
         }
       }
     },
-    "/docufill/public/sessions/{token}": {
+    "/docuplete/public/sessions/{token}": {
       "get": {
         "tags": [
           "Docuplete — Public (no auth)"
@@ -1791,7 +1791,7 @@
         }
       }
     },
-    "/docufill/public/sessions/{token}/scroll-confirm": {
+    "/docuplete/public/sessions/{token}/scroll-confirm": {
       "post": {
         "tags": [
           "Docuplete — Public (no auth)"
@@ -1800,7 +1800,7 @@
         "description": "Persists a server-side timestamp (scroll_confirmed_at) for the session once\nthe signer attests they have scrolled to the end of the preview PDF. The\ngenerate endpoint refuses to finalise a session that requires scroll\nconfirmation unless this endpoint has been called first.\n"
       }
     },
-    "/docufill/public/sessions/{token}/generate": {
+    "/docuplete/public/sessions/{token}/generate": {
       "post": {
         "tags": [
           "Docuplete — Public (no auth)"
@@ -1831,7 +1831,7 @@
                     },
                     "downloadUrl": {
                       "type": "string",
-                      "example": "/api/v1/docufill/public/sessions/df_abc123/packet.pdf"
+                      "example": "/api/v1/docuplete/public/sessions/df_abc123/packet.pdf"
                     },
                     "drive": {
                       "type": "object",
@@ -1879,7 +1879,7 @@
         }
       }
     },
-    "/docufill/public/sessions/{token}/packet.pdf": {
+    "/docuplete/public/sessions/{token}/packet.pdf": {
       "get": {
         "tags": [
           "Docuplete — Public (no auth)"
