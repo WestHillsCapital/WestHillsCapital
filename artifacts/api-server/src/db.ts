@@ -36,8 +36,17 @@ function buildDbSslConfig(): false | { rejectUnauthorized: boolean; ca?: string 
     ? Buffer.from(process.env.DB_SSL_CA, "base64").toString("utf8")
     : undefined;
 
+  // Railway's managed PostgreSQL uses a self-signed certificate that is not in
+  // the Node.js system CA bundle, so rejectUnauthorized must be false unless a
+  // custom CA is explicitly provided via DB_SSL_CA.
+  //
+  // The connection is still fully TLS-encrypted (CC6.7); only certificate chain
+  // verification is relaxed.  To enable strict verification, base64-encode the
+  // provider's CA cert and set DB_SSL_CA.
+  const rejectUnauthorized = !!caPem;
+
   return {
-    rejectUnauthorized: true,
+    rejectUnauthorized,
     ...(caPem ? { ca: caPem } : {}),
   };
 }
