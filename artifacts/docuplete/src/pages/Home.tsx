@@ -722,10 +722,6 @@ export default function Home() {
                 <div className="text-3xl font-black text-[#1B4FD8] mb-1">$150</div>
                 <div className="text-sm text-[#4B5A7A]">saved per client package in labor, resources, and error handling</div>
               </div>
-              <div className="bg-white border border-[#E8EDF5] rounded-2xl p-6">
-                <div className="text-3xl font-black text-[#1B4FD8] mb-1">#7</div>
-                <div className="text-sm text-[#4B5A7A]">ranking of the firm where Docuplete was born</div>
-              </div>
               <div className="bg-white border border-[#E8EDF5] rounded-2xl p-6 col-span-2">
                 <div className="text-2xl font-black text-[#1B4FD8] mb-1">Zero chasing.</div>
                 <div className="text-sm text-[#4B5A7A]">Clients complete on their own time. You get a finished document.</div>
