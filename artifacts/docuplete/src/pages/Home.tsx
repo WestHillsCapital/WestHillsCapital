@@ -34,7 +34,6 @@ function VideoSection() {
               </div>
               <div className="text-center">
                 <p className="text-white font-bold text-xl">Sally &amp; Tom's Story</p>
-                <p className="text-white/50 text-sm mt-1">~75 seconds · No sound needed</p>
               </div>
             </div>
             {/* Bottom bar */}

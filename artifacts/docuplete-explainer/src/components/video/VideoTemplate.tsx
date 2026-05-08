@@ -94,8 +94,6 @@ export default function VideoTemplate({
         </AnimatePresence>
       </div>
 
-      {/* Caption Overlay */}
-      <SceneCaptions sceneKey={currentSceneKey} />
     </div>
   );
 }
