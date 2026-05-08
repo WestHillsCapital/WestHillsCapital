@@ -4373,7 +4373,11 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
         `UPDATE docufill_interview_sessions SET status = 'generated', updated_at = NOW() WHERE token = $1`,
         [String(req.params.token)],
       );
-      res.json({ packet: { token: String(req.params.token), status: "generated", byteSize: pdfBuffer.length } });
+      const tok = String(req.params.token);
+      res.json({
+        packet: { token: tok, status: "generated", byteSize: pdfBuffer.length },
+        downloadUrl: `/sessions/${tok}/packet.pdf`,
+      });
       return;
     }
     // Enqueue the generation job and return 202 immediately.
