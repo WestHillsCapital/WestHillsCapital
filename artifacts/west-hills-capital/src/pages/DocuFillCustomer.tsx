@@ -1017,14 +1017,7 @@ export default function DocuFillCustomer() {
                   <HowItWorksAnimation liveValues={(() => {
                     const map: Record<string, string> = {};
                     for (const f of session?.fields ?? []) {
-                      const val =
-                        answers[f.id] ??
-                        (session?.answers as Record<string, string> | undefined)?.[f.id] ??
-                        Object.entries(session?.prefill ?? {}).find(
-                          ([k]) => k.toLowerCase() === f.name.toLowerCase() ||
-                                   k.toLowerCase() === (f.source ?? "").toLowerCase()
-                        )?.[1] ??
-                        "";
+                      const val = currentValue(f, answers, session?.prefill ?? {});
                       if (val) map[f.name.toLowerCase()] = val;
                     }
                     return map;
