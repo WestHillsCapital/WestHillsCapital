@@ -190,31 +190,34 @@ function ControlBar({
 export default function VideoWithControls() {
   const isIframed = typeof window !== 'undefined' && window.self !== window.top;
 
+  // Only auto-start when the modal explicitly requests it via ?autoplay=1
+  const autoplay = typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).get('autoplay') === '1';
+
   // Audio state
   const [muted,   setMuted]   = useState(true);
   const [started, setStarted] = useState(false);
   const bgRef = useRef<HTMLAudioElement | null>(null);
 
-  // Set up background music and attempt auto-start on mount
+  // Set up background music; auto-start only when ?autoplay=1 is present
   useEffect(() => {
     const bg = new Audio(`${BASE}audio/background.wav`);
-    bg.loop = true; bg.volume = 0;
+    bg.loop = true; bg.volume = 0; bg.muted = true;
     bgRef.current = bg;
 
-    // Try to auto-start — works when parent granted autoplay (allow="autoplay" on iframe)
-    bg.play()
-      .then(() => {
-        fadeVolume(bg, 0, 0.07, 1200);
-        setMuted(false);
-        setStarted(true);
-      })
-      .catch(() => {
-        // Autoplay blocked — user must click the sound button
-        bg.muted = true;
-      });
+    if (autoplay) {
+      bg.muted = false;
+      bg.play()
+        .then(() => {
+          fadeVolume(bg, 0, 0.07, 1200);
+          setMuted(false);
+          setStarted(true);
+        })
+        .catch(() => { bg.muted = true; });
+    }
 
     return () => { bg.pause(); bg.src = ''; bgRef.current = null; };
-  }, []);
+  }, [autoplay]);
 
   const {
     sceneKeys,

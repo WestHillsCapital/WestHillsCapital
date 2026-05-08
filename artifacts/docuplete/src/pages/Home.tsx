@@ -75,7 +75,7 @@ function VideoSection() {
           >
             <div className="w-full max-w-7xl" style={{ aspectRatio: '16/9' }}>
               <iframe
-                src="/docuplete-explainer/"
+                src="/docuplete-explainer/?autoplay=1"
                 className="w-full h-full rounded-xl border border-white/10"
                 allow="autoplay"
                 title="Docuplete Explainer Video"
