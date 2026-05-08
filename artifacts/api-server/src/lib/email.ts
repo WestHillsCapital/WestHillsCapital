@@ -2697,3 +2697,307 @@ export async function sendFeedbackEmail(params: {
     });
   }
 }
+
+// ── Affiliate welcome / approval email ────────────────────────────────────────
+
+/**
+ * Send a welcome email to a newly approved affiliate.
+ * Covers: referral code, signup link, commission terms, cancellation policy,
+ * payout schedule, program T&C summary, and next steps.
+ */
+export async function sendAffiliateWelcomeEmail(params: {
+  name:             string;
+  email:            string;
+  referralCode:     string;
+  commissionRate:   number;   // decimal, e.g. 0.20
+  commissionMonths: number;   // e.g. 12
+}): Promise<void> {
+  const G      = "40px";
+  const NAVY   = "#0F1C3F";
+  const IVORY  = "#F5F1E8";
+  const GOLD   = "#C49A38";
+  const LGOLD  = "#DDD0B0";
+  const MUTED  = "#7A7060";
+  const BODY   = "#2D2A25";
+  const FAINT  = "#D8CEBC";
+  const CBACK  = "#F9F6EE";
+
+  const commissionPct = Math.round(params.commissionRate * 100);
+  const origin        = process.env.APP_ORIGIN ?? "https://docuplete.com";
+  const referralLink  = `${origin}?ref=${params.referralCode}`;
+  const firstName     = params.name.split(" ")[0] || params.name;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Welcome to the Docuplete Affiliate Program</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:#ECE8DC;font-family:'DM Sans',Arial,sans-serif;">
+
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ECE8DC;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0"
+             style="max-width:600px;width:100%;background:#ffffff;border-radius:3px;overflow:hidden;">
+
+        <!-- HEADER -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:26px ${G} 22px;">
+            <img src="${LOGO_URL}" alt="Docuplete" width="210"
+                 style="display:block;margin:0 auto;max-width:210px;height:auto;border:0;">
+          </td>
+        </tr>
+        <tr>
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:0 ${G};">
+            <div style="height:1px;background:${FAINT};"></div>
+          </td>
+        </tr>
+
+        <!-- HEADLINE -->
+        <tr>
+          <td bgcolor="${IVORY}" style="background:${IVORY};padding:34px ${G} 30px;">
+            <p style="margin:0 0 8px;font-family:'DM Sans',Arial,sans-serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:600;">Affiliate Program</p>
+            <p style="margin:0 0 12px;font-family:'Playfair Display',Georgia,serif;font-size:24px;font-weight:bold;color:${NAVY};line-height:1.25;">Welcome to the program, ${firstName}.</p>
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${MUTED};line-height:1.65;">
+              You&rsquo;ve been approved as a Docuplete affiliate. Below you&rsquo;ll find your referral code, your unique signup link, and everything you need to know about how the program works.
+            </p>
+          </td>
+        </tr>
+
+        <!-- REFERRAL CODE CARD -->
+        <tr>
+          <td style="background:#ffffff;padding:24px ${G} 0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:${CBACK};border:1px solid ${LGOLD};border-top:3px solid ${NAVY};border-radius:0 0 3px 3px;">
+              <tr>
+                <td style="padding:9px 22px 8px;border-bottom:1px solid ${LGOLD};">
+                  <p style="margin:0;font-size:9px;font-family:'DM Sans',Arial,sans-serif;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Your Referral Details</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:22px 22px 22px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                    <tr>
+                      <td style="padding:0 0 6px;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};letter-spacing:.06em;text-transform:uppercase;">Referral Code</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:0 0 22px;">
+                        <span style="font-family:'Courier New',monospace;font-size:28px;font-weight:bold;color:${NAVY};letter-spacing:.14em;">${params.referralCode}</span>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:0 0 6px;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};letter-spacing:.06em;text-transform:uppercase;">Your unique signup link &mdash; share this</td>
+                    </tr>
+                    <tr>
+                      <td style="padding:0 0 22px;word-break:break-all;">
+                        <a href="${referralLink}" style="font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${GOLD};text-decoration:underline;">${referralLink}</a>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td align="center">
+                        <a href="${referralLink}" style="display:inline-block;background:${NAVY};color:#ffffff;font-family:'DM Sans',Arial,sans-serif;font-size:13px;font-weight:600;text-decoration:none;padding:13px 36px;border-radius:2px;letter-spacing:.02em;">Share Your Link &rarr;</a>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- HOW YOU EARN -->
+        <tr>
+          <td style="background:#ffffff;padding:28px ${G} 0;">
+            <p style="margin:0 0 4px;font-family:'DM Sans',Arial,sans-serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">How You Earn</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+
+              <!-- rate row -->
+              <tr>
+                <td style="padding:14px 0;border-bottom:1px solid ${FAINT};">
+                  <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                      <td style="font-family:'DM Sans',Arial,sans-serif;font-size:13px;font-weight:600;color:${BODY};">Commission rate</td>
+                      <td style="font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:bold;color:${NAVY};text-align:right;">${commissionPct}%</td>
+                    </tr>
+                  </table>
+                  <p style="margin:6px 0 0;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${MUTED};line-height:1.65;">
+                    You earn ${commissionPct}% of each referred customer&rsquo;s monthly subscription fee for every month they remain active, up to ${params.commissionMonths} months per referral.
+                  </p>
+                </td>
+              </tr>
+
+              <!-- period row -->
+              <tr>
+                <td style="padding:14px 0;border-bottom:1px solid ${FAINT};">
+                  <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                      <td style="font-family:'DM Sans',Arial,sans-serif;font-size:13px;font-weight:600;color:${BODY};">Earning period</td>
+                      <td style="font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:bold;color:${NAVY};text-align:right;">${params.commissionMonths} months</td>
+                    </tr>
+                  </table>
+                  <p style="margin:6px 0 0;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${MUTED};line-height:1.65;">
+                    Commissions begin on a referred customer&rsquo;s first paid billing date and continue for up to ${params.commissionMonths} consecutive months per referral, as long as they remain subscribed.
+                  </p>
+                </td>
+              </tr>
+
+              <!-- payout row -->
+              <tr>
+                <td style="padding:14px 0;border-bottom:1px solid ${FAINT};">
+                  <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+                    <tr>
+                      <td style="font-family:'DM Sans',Arial,sans-serif;font-size:13px;font-weight:600;color:${BODY};">Payout schedule</td>
+                      <td style="font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:bold;color:${NAVY};text-align:right;">Monthly</td>
+                    </tr>
+                  </table>
+                  <p style="margin:6px 0 0;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${MUTED};line-height:1.65;">
+                    Commissions earned each calendar month are paid out the following month via direct Stripe bank transfer. No minimums, no delays &mdash; just a transfer to your connected account.
+                  </p>
+                </td>
+              </tr>
+
+              <!-- cancellation row -->
+              <tr>
+                <td style="padding:14px 0;">
+                  <p style="margin:0 0 4px;font-family:'DM Sans',Arial,sans-serif;font-size:13px;font-weight:600;color:${BODY};">If a referred customer cancels</p>
+                  <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${MUTED};line-height:1.65;">
+                    If a customer you referred cancels or downgrades their subscription, commissions stop from their next billing date forward. Any commissions already earned and paid to you are yours to keep &mdash; there are no clawbacks on paid commissions.
+                  </p>
+                </td>
+              </tr>
+
+            </table>
+          </td>
+        </tr>
+
+        <!-- NEXT STEPS -->
+        <tr>
+          <td style="background:#ffffff;padding:24px ${G} 0;">
+            <p style="margin:0 0 16px;font-family:'DM Sans',Arial,sans-serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Next Steps</p>
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="vertical-align:top;width:22px;padding:0 0 14px 0;">
+                  <span style="display:inline-block;width:20px;height:20px;background:${NAVY};color:#fff;font-family:'DM Sans',Arial,sans-serif;font-size:11px;font-weight:bold;text-align:center;line-height:20px;border-radius:50%;">1</span>
+                </td>
+                <td style="padding:0 0 14px 10px;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;line-height:1.65;vertical-align:top;">
+                  <strong>Set up your payout account.</strong> We&rsquo;ll send you a Stripe Connect onboarding link so you can connect your bank account for direct monthly transfers. No Stripe account? You&rsquo;ll create one during onboarding &mdash; it takes about 5 minutes.
+                </td>
+              </tr>
+              <tr>
+                <td style="vertical-align:top;width:22px;padding:0 0 14px 0;">
+                  <span style="display:inline-block;width:20px;height:20px;background:${NAVY};color:#fff;font-family:'DM Sans',Arial,sans-serif;font-size:11px;font-weight:bold;text-align:center;line-height:20px;border-radius:50%;">2</span>
+                </td>
+                <td style="padding:0 0 14px 10px;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;line-height:1.65;vertical-align:top;">
+                  <strong>Start sharing your referral link.</strong> Anyone who signs up through your link will be automatically attributed to your account. You can share it on your website, in emails, on social media &mdash; anywhere your audience is.
+                </td>
+              </tr>
+              <tr>
+                <td style="vertical-align:top;width:22px;padding:0 0 0 0;">
+                  <span style="display:inline-block;width:20px;height:20px;background:${NAVY};color:#fff;font-family:'DM Sans',Arial,sans-serif;font-size:11px;font-weight:bold;text-align:center;line-height:20px;border-radius:50%;">3</span>
+                </td>
+                <td style="padding:0 0 0 10px;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;line-height:1.65;vertical-align:top;">
+                  <strong>Get paid every month.</strong> As your referred customers pay, we calculate your commission and transfer it directly to your bank the following month. You&rsquo;ll receive a payment summary each payout cycle.
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- PROGRAM TERMS SUMMARY -->
+        <tr>
+          <td style="background:#ffffff;padding:28px ${G} 0;">
+            <p style="margin:0 0 12px;font-family:'DM Sans',Arial,sans-serif;font-size:10px;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Program Terms Summary</p>
+            <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+                   style="border:1px solid ${LGOLD};border-radius:3px;overflow:hidden;">
+              <tr>
+                <td style="padding:12px 18px;border-bottom:1px solid ${LGOLD};background:${CBACK};font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${BODY};line-height:1.65;">
+                  <strong style="color:${NAVY};">Eligibility &mdash;</strong> Participation is limited to approved partners. Docuplete reserves the right to modify or revoke affiliate status for abuse, fraud, spam, or violation of program guidelines.
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:12px 18px;border-bottom:1px solid ${LGOLD};background:${CBACK};font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${BODY};line-height:1.65;">
+                  <strong style="color:${NAVY};">Self-referrals &mdash;</strong> Referring yourself or entities you own or control is strictly prohibited. Commissions on self-referrals will be reversed and affiliate status terminated.
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:12px 18px;border-bottom:1px solid ${LGOLD};background:${CBACK};font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${BODY};line-height:1.65;">
+                  <strong style="color:${NAVY};">Attribution &mdash;</strong> A referral is credited when a new customer signs up through your unique link and converts to a paid subscription. Free trial users who do not convert do not earn a commission.
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:12px 18px;border-bottom:1px solid ${LGOLD};background:${CBACK};font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${BODY};line-height:1.65;">
+                  <strong style="color:${NAVY};">Cancellations &amp; refunds &mdash;</strong> If a referred customer cancels or receives a refund, commissions on that payment are forfeited. Commissions already paid to you are not subject to clawback.
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:12px 18px;background:${CBACK};font-family:'DM Sans',Arial,sans-serif;font-size:12px;color:${BODY};line-height:1.65;">
+                  <strong style="color:${NAVY};">Rate lock &amp; modifications &mdash;</strong> Your approved commission rate is locked for 90 days from the date of this email. After that, Docuplete may update rates or program terms with 30 days&rsquo; written notice.
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- SIGNOFF -->
+        <tr>
+          <td style="background:#ffffff;padding:28px ${G} 28px;">
+            <p style="margin:0 0 20px;font-family:'DM Sans',Arial,sans-serif;font-size:14px;color:${BODY};line-height:1.7;">
+              We&rsquo;re genuinely glad to have you on board. If you have any questions about your account, your referrals, or the program, reply to this email or reach us at <a href="mailto:affiliates@docuplete.com" style="color:${GOLD};">affiliates@docuplete.com</a>.
+            </p>
+            <p style="margin:0 0 2px;font-family:'Playfair Display',Georgia,serif;font-size:14px;font-weight:bold;color:${NAVY};">The Docuplete Team</p>
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${MUTED};">affiliates@docuplete.com</p>
+          </td>
+        </tr>
+
+        <!-- FOOTER -->
+        <tr>
+          <td align="center" bgcolor="${IVORY}" style="background:${IVORY};padding:16px ${G};border-top:1px solid ${FAINT};">
+            <p style="margin:0;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};line-height:1.8;letter-spacing:.02em;">
+              Docuplete &nbsp;&middot;&nbsp; affiliates@docuplete.com &nbsp;&middot;&nbsp; docuplete.com
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  const text = [
+    `Hi ${firstName},`,
+    "",
+    "You've been approved as a Docuplete affiliate. Here are your details:",
+    "",
+    `Referral code:  ${params.referralCode}`,
+    `Signup link:    ${referralLink}`,
+    "",
+    `Commission:     ${commissionPct}% of each referred subscriber's monthly fee`,
+    `Earning period: Up to ${params.commissionMonths} months per referral`,
+    `Payout:         Monthly via direct Stripe bank transfer — no minimums`,
+    "",
+    "If a customer cancels: commissions stop from their next billing date.",
+    "Commissions already paid to you are never clawed back.",
+    "",
+    "Next steps:",
+    "1. Set up your payout account — we'll send you a Stripe Connect link shortly.",
+    "2. Start sharing your referral link.",
+    "3. Get paid every month.",
+    "",
+    "Questions? Email affiliates@docuplete.com",
+    "",
+    "— The Docuplete Team",
+  ].join("\n");
+
+  await sendEmail({
+    to:      params.email,
+    subject: "You're approved — welcome to the Docuplete affiliate program",
+    html,
+    text,
+  });
+}

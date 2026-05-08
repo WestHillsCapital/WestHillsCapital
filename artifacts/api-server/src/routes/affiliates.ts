@@ -3,6 +3,7 @@ import { randomBytes } from "crypto";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import { getUncachableStripeClient } from "../lib/stripeClient";
+import { sendAffiliateWelcomeEmail } from "../lib/email";
 import { z } from "zod";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -136,15 +137,31 @@ router.post("/", async (req, res) => {
     const referralCode = generateReferralCode();
     const invitedBy = req.internalEmail ?? null;
 
-    const { rows } = await db.query<{ id: number; referral_code: string }>(
+    const { rows } = await db.query<{
+      id: number; referral_code: string;
+      commission_rate: string; commission_months: number;
+    }>(
       `INSERT INTO affiliates (name, email, company, website, referral_code, status, invited_by_user_id, notes)
        VALUES ($1, $2, $3, $4, $5, 'approved', $6, $7)
-       RETURNING id, referral_code`,
+       RETURNING id, referral_code, commission_rate, commission_months`,
       [name, email.toLowerCase(), company ?? null, website ?? null, referralCode, invitedBy, notes ?? null],
     );
 
     logger.info({ email, invitedBy }, "[Affiliates] Affiliate invited by admin");
-    res.json({ affiliate: rows[0] });
+
+    // Send welcome email — non-fatal if email delivery fails
+    const row = rows[0];
+    sendAffiliateWelcomeEmail({
+      name,
+      email:            email.toLowerCase(),
+      referralCode:     row.referral_code,
+      commissionRate:   parseFloat(row.commission_rate),
+      commissionMonths: row.commission_months,
+    }).catch((err) => {
+      logger.error({ err, email }, "[Affiliates] Failed to send welcome email to invited affiliate");
+    });
+
+    res.json({ affiliate: row });
   } catch (err) {
     logger.error({ err }, "[Affiliates] Failed to invite affiliate");
     res.status(500).json({ error: "Failed to create affiliate." });
@@ -197,6 +214,17 @@ router.patch("/:id", async (req, res) => {
   }
   const db = getDb();
   try {
+    // Fetch current record so we can detect an approval transition and gather email data
+    const { rows: current } = await db.query<{
+      name: string; email: string; referral_code: string;
+      status: string; commission_rate: string; commission_months: number;
+    }>(
+      `SELECT name, email, referral_code, status, commission_rate, commission_months FROM affiliates WHERE id = $1`,
+      [id],
+    );
+    if (!current[0]) { res.status(404).json({ error: "Not found" }); return; }
+    const prev = current[0];
+
     const setClauses: string[] = ["updated_at = NOW()"];
     const values: unknown[] = [];
     let i = 1;
@@ -207,12 +235,30 @@ router.patch("/:id", async (req, res) => {
     if (parse.data.commissionMonths !== undefined) { setClauses.push(`commission_months = $${i++}`); values.push(parse.data.commissionMonths); }
 
     values.push(id);
-    const { rows } = await db.query<{ id: number; status: string }>(
-      `UPDATE affiliates SET ${setClauses.join(", ")} WHERE id = $${i} RETURNING id, status`,
+    const { rows } = await db.query<{ id: number; status: string; commission_rate: string; commission_months: number }>(
+      `UPDATE affiliates SET ${setClauses.join(", ")} WHERE id = $${i}
+       RETURNING id, status, commission_rate, commission_months`,
       values,
     );
     if (!rows[0]) { res.status(404).json({ error: "Not found" }); return; }
-    res.json({ affiliate: rows[0] });
+
+    // Send welcome email when an affiliate is approved for the first time
+    const updated = rows[0];
+    if (parse.data.status === "approved" && prev.status !== "approved") {
+      const commissionRate   = parse.data.commissionRate   ?? parseFloat(prev.commission_rate);
+      const commissionMonths = parse.data.commissionMonths ?? prev.commission_months;
+      sendAffiliateWelcomeEmail({
+        name:             prev.name,
+        email:            prev.email,
+        referralCode:     prev.referral_code,
+        commissionRate,
+        commissionMonths,
+      }).catch((err) => {
+        logger.error({ err, affiliateId: id }, "[Affiliates] Failed to send welcome email on approval");
+      });
+    }
+
+    res.json({ affiliate: updated });
   } catch (err) {
     logger.error({ err }, "[Affiliates] Failed to update affiliate");
     res.status(500).json({ error: "Failed to update affiliate." });
