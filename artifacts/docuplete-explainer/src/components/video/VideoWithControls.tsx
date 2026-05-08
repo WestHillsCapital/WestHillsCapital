@@ -190,22 +190,25 @@ function ControlBar({
 export default function VideoWithControls() {
   const isIframed = typeof window !== 'undefined' && window.self !== window.top;
 
-  // Only auto-start when the modal explicitly requests it via ?autoplay=1
-  const autoplay = typeof window !== 'undefined' &&
-    new URLSearchParams(window.location.search).get('autoplay') === '1';
-
   // Audio state
   const [muted,   setMuted]   = useState(true);
   const [started, setStarted] = useState(false);
   const bgRef = useRef<HTMLAudioElement | null>(null);
 
-  // Set up background music; auto-start only when ?autoplay=1 is present
+  // Set up background music element (silent until play is triggered)
   useEffect(() => {
     const bg = new Audio(`${BASE}audio/background.wav`);
     bg.loop = true; bg.volume = 0; bg.muted = true;
     bgRef.current = bg;
+    return () => { bg.pause(); bg.src = ''; bgRef.current = null; };
+  }, []);
 
-    if (autoplay) {
+  // Start audio when the parent marketing site sends the play command via postMessage
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type !== 'docuplete-play') return;
+      const bg = bgRef.current;
+      if (!bg || started) return;
       bg.muted = false;
       bg.play()
         .then(() => {
@@ -214,10 +217,10 @@ export default function VideoWithControls() {
           setStarted(true);
         })
         .catch(() => { bg.muted = true; });
-    }
-
-    return () => { bg.pause(); bg.src = ''; bgRef.current = null; };
-  }, [autoplay]);
+    };
+    window.addEventListener('message', handler);
+    return () => window.removeEventListener('message', handler);
+  }, [started]);
 
   const {
     sceneKeys,

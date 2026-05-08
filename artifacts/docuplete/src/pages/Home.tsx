@@ -1,7 +1,21 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 function VideoSection() {
   const [open, setOpen] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Once the modal is open, tell the iframe to start audio.
+  // We wait for the iframe's load event so the listener is registered.
+  useEffect(() => {
+    if (!open) return;
+    const iframe = iframeRef.current;
+    if (!iframe) return;
+    const send = () =>
+      iframe.contentWindow?.postMessage({ type: 'docuplete-play' }, '*');
+    iframe.addEventListener('load', send);
+    return () => iframe.removeEventListener('load', send);
+  }, [open]);
+
   return (
     <section className="py-20 px-6 bg-white">
       <div className="max-w-4xl mx-auto text-center">
@@ -75,7 +89,8 @@ function VideoSection() {
           >
             <div className="w-full max-w-7xl" style={{ aspectRatio: '16/9' }}>
               <iframe
-                src="/docuplete-explainer/?autoplay=1"
+                ref={iframeRef}
+                src="/docuplete-explainer/"
                 className="w-full h-full rounded-xl border border-white/10"
                 allow="autoplay"
                 title="Docuplete Explainer Video"
