@@ -2,9 +2,43 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, Repeat, Volume2, VolumeX } from 'lucide-react';
 import VideoTemplate, { SCENE_DURATIONS } from './VideoTemplate';
 import { useSceneControls } from './useSceneControls';
-import { useVideoAudio } from '@/lib/video/useVideoAudio';
+import { useSceneAudio } from '@/lib/video/useSceneAudio';
+
+const BASE = import.meta.env.BASE_URL;
+
+// Map each scene key → its voiceover clip URL
+const VOICEOVER_CLIPS: Record<string, string> = {
+  intro:     `${BASE}audio/scene-intro.mp3`,
+  problem1:  `${BASE}audio/scene-problem1.mp3`,
+  problem2:  `${BASE}audio/scene-problem2.mp3`,
+  solution1: `${BASE}audio/scene-solution1.mp3`,
+  solution2: `${BASE}audio/scene-solution2.mp3`,
+  solution3: `${BASE}audio/scene-solution3.mp3`,
+  solution4: `${BASE}audio/scene-solution4.mp3`,
+  outro:     `${BASE}audio/scene-outro.mp3`,
+};
 
 const PROGRESS_TICK_MS = 60;
+
+function fadeVolume(
+  audio: HTMLAudioElement,
+  from: number,
+  to: number,
+  ms: number,
+  onDone?: () => void,
+) {
+  const steps = 20;
+  const delta = (to - from) / steps;
+  let step = 0;
+  audio.volume = Math.max(0, Math.min(1, from));
+  const id = setInterval(() => {
+    step++;
+    audio.volume = Math.max(0, Math.min(1, from + delta * step));
+    if (step >= steps) { clearInterval(id); onDone?.(); }
+  }, ms / steps);
+}
+
+// ---------- sub-components ----------
 
 function ProgressSegments({
   sceneKeys,
@@ -117,8 +151,8 @@ function ControlBar({
             ? 'text-white bg-white/15 hover:bg-white/25'
             : 'text-white/60 hover:text-white hover:bg-white/10'
         }`}
-        title={muted ? 'Click to play music' : 'Mute music'}
-        aria-label={muted ? 'Click to play music' : 'Mute music'}
+        title={muted ? 'Click to play voiceover' : 'Mute'}
+        aria-label={muted ? 'Click to play voiceover' : 'Mute'}
         aria-pressed={!muted}
       >
         {muted ? <VolumeX className="w-8 h-8" /> : <Volume2 className="w-8 h-8" />}
@@ -151,13 +185,23 @@ function ControlBar({
   );
 }
 
+// ---------- main component ----------
+
 export default function VideoWithControls() {
   const isIframed = typeof window !== 'undefined' && window.self !== window.top;
 
-  const { muted, toggleMute } = useVideoAudio(
-    `${import.meta.env.BASE_URL}audio/voiceover.mp3`,
-    `${import.meta.env.BASE_URL}audio/background.wav`,
-  );
+  // Audio state
+  const [muted,   setMuted]   = useState(true);
+  const [started, setStarted] = useState(false);
+  const bgRef = useRef<HTMLAudioElement | null>(null);
+
+  // Set up background music element once
+  useEffect(() => {
+    const bg = new Audio(`${BASE}audio/background.wav`);
+    bg.loop = true; bg.volume = 0; bg.muted = true;
+    bgRef.current = bg;
+    return () => { bg.pause(); bg.src = ''; bgRef.current = null; };
+  }, []);
 
   const {
     sceneKeys,
@@ -172,9 +216,36 @@ export default function VideoWithControls() {
     toggleLock,
   } = useSceneControls(SCENE_DURATIONS);
 
+  const activeSceneKey = sceneKeys[activeIndex] ?? 'intro';
+
+  // Per-scene voiceover — plays automatically whenever !muted and scene changes
+  useSceneAudio(VOICEOVER_CLIPS, activeSceneKey, !muted);
+
+  const toggleMute = useCallback(() => {
+    const bg = bgRef.current;
+    if (!bg) return;
+
+    if (!started) {
+      bg.muted = false;
+      bg.play().then(() => fadeVolume(bg, 0, 0.07, 1200)).catch(() => {});
+      setMuted(false);
+      setStarted(true);
+      return;
+    }
+    if (muted) {
+      bg.muted = false;
+      fadeVolume(bg, 0, 0.07, 500);
+      setMuted(false);
+    } else {
+      fadeVolume(bg, bg.volume, 0, 400, () => { bg.muted = true; });
+      setMuted(true);
+    }
+  }, [muted, started]);
+
+  // Control bar visibility
   const sensorRef = useRef<HTMLDivElement | null>(null);
   const [collapsed, setCollapsed] = useState(false);
-  const [hovering, setHovering] = useState(false);
+  const [hovering,  setHovering]  = useState(false);
   const [tapPinned, setTapPinned] = useState(false);
 
   const handlePointerEnter = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
@@ -191,11 +262,8 @@ export default function VideoWithControls() {
     [collapsed],
   );
   const handleToggleCollapsed = useCallback(() => {
-    setCollapsed((c) => {
-      if (!c) {
-        setHovering(false);
-        setTapPinned(false);
-      }
+    setCollapsed(c => {
+      if (!c) { setHovering(false); setTapPinned(false); }
       return !c;
     });
   }, []);
