@@ -385,21 +385,21 @@ const COMPARISON_FEATURES = [
     type: "bool" as const,
   },
   {
-    label: "Intelligent PDF filling",
+    label: "Fills your PDF from client answers — no re-entry",
     docuplete: true,
     docusign: false,
     pandadoc: false,
     type: "bool" as const,
   },
   {
-    label: "Client-facing links",
+    label: "No login required for recipients",
     docuplete: true,
     docusign: false,
     pandadoc: false,
     type: "bool" as const,
   },
   {
-    label: "Submission tracking",
+    label: "Know the moment it's submitted",
     docuplete: true,
     docusign: false,
     pandadoc: false,
@@ -469,8 +469,11 @@ export default function Home() {
             Send a link.<br />
             <span className="text-[#5B8DEF]">Get it back — filled,<br className="hidden sm:block" /> signed, and tracked.</span>
           </h1>
-          <p className="text-lg sm:text-xl text-white/70 max-w-2xl mx-auto mb-10">
+          <p className="text-lg sm:text-xl text-white/70 max-w-2xl mx-auto mb-3">
             Client paperwork, on autopilot. Stop chasing docs — start closing deals.
+          </p>
+          <p className="text-base text-white/45 max-w-xl mx-auto mb-10">
+            No follow-ups. No confusion. No delays.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <a
@@ -571,9 +574,9 @@ export default function Home() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-[#1B4FD8] text-sm font-semibold uppercase tracking-widest mb-3">Who it's for</p>
-            <h2 className="text-3xl sm:text-4xl font-bold text-[#0B1220]">Built for every size team.</h2>
+            <h2 className="text-3xl sm:text-4xl font-bold text-[#0B1220]">Built around the work you're already doing.</h2>
             <p className="mt-4 text-[#4B5A7A] max-w-lg mx-auto">
-              Whether you're a solo practitioner or running a 25-person firm, Docuplete fits the way you work.
+              Every unsigned document delays money, decisions, and momentum. Docuplete stops the delay.
             </p>
           </div>
 
@@ -1005,6 +1008,7 @@ export default function Home() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
             </svg>
           </a>
+          <p className="mt-5 text-white/30 text-sm">Most teams send their first document in under 3 minutes.</p>
         </div>
       </section>
 
