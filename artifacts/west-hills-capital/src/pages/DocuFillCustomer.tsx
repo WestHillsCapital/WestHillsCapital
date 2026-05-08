@@ -1018,7 +1018,8 @@ export default function DocuFillCustomer() {
                     const map: Record<string, string> = {};
                     for (const f of session?.fields ?? []) {
                       const val =
-                        session?.answers?.[f.id] ??
+                        answers[f.id] ??
+                        (session?.answers as Record<string, string> | undefined)?.[f.id] ??
                         Object.entries(session?.prefill ?? {}).find(
                           ([k]) => k.toLowerCase() === f.name.toLowerCase() ||
                                    k.toLowerCase() === (f.source ?? "").toLowerCase()
