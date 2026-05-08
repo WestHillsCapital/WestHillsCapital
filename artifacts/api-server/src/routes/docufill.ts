@@ -2144,14 +2144,13 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
       res.status(409).json({ error: "A field with that label already exists", fieldId: duplicateRows[0].id });
       return;
     }
-    // Wrap the field update and version insert in a single transaction so that
-    // the audit trail is guaranteed: either both commit or neither does.
+    // Wrap the field update and version inserts in a single transaction so the
+    // audit trail is guaranteed: either all writes commit or none do.
     const client = await db.connect();
     try {
       await client.query("BEGIN");
-      // Capture the pre-update state while locking the row.
-      // Storing the snapshot BEFORE the edit ensures the first edit on a field
-      // is always recoverable, even when no prior versions exist.
+      // Lock the row and capture pre-update state. We need this both to prevent
+      // concurrent updates and to create a baseline version for first-edit recoverability.
       const { rows: priorRows } = await client.query(
         `${fieldLibrarySelectSql()} WHERE id = $1 AND account_id = $2 FOR UPDATE`,
         [id, accountId],
@@ -2162,6 +2161,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
         return;
       }
       const preUpdateSnapshot = priorRows[0];
+      // Apply the update
       const { rows } = await client.query(
         `UPDATE docufill_fields SET
             label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
@@ -2188,17 +2188,32 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
           accountId,
         ],
       );
-      // rows[0] is guaranteed — FOR UPDATE confirmed existence; if somehow absent, rollback + 404
       if (!rows[0]) {
         await client.query("ROLLBACK");
         res.status(404).json({ error: "Field library item not found" });
         return;
       }
-      // Record the pre-update state atomically; failure rolls back the entire edit
+      // First-edit recoverability: if this field has no prior version rows, insert
+      // a baseline snapshot of the state BEFORE this edit so admins can roll back
+      // to the original definition.  Uses a clock slightly in the past so the
+      // post-update row sorts newer and the diff reads correctly in the UI.
+      const { rows: existingVersions } = await client.query(
+        `SELECT 1 FROM docufill_field_versions WHERE field_id = $1 AND account_id = $2 LIMIT 1`,
+        [id, accountId],
+      );
+      if (existingVersions.length === 0) {
+        await client.query(
+          `INSERT INTO docufill_field_versions (field_id, account_id, changed_by, snapshot, changed_at)
+           VALUES ($1, $2, $3, $4::jsonb, NOW() - interval '1 millisecond')`,
+          [id, accountId, callerEmail(req), JSON.stringify(preUpdateSnapshot)],
+        );
+      }
+      // Insert post-update snapshot — this represents the field state AFTER this save,
+      // so timestamp/author/diff are all aligned to the same event.
       await client.query(
         `INSERT INTO docufill_field_versions (field_id, account_id, changed_by, snapshot)
          VALUES ($1, $2, $3, $4::jsonb)`,
-        [id, accountId, callerEmail(req), JSON.stringify(preUpdateSnapshot)],
+        [id, accountId, callerEmail(req), JSON.stringify(rows[0])],
       );
       await client.query("COMMIT");
       res.json({ field: rows[0] });
@@ -2315,13 +2330,16 @@ router.post("/field-library/:id/versions/:versionId/restore", requireAdminRole, 
         res.status(404).json({ error: "Field not found" });
         return;
       }
-      // Record the pre-restore state atomically; annotation lets admins see it
-      // was a rollback event and identify which version was the restore target.
+      // Insert post-restore snapshot — consistent with post-update semantics.
+      // The restoredFromVersion annotation identifies the source version so the
+      // diff summary can display "Restored from vN" instead of field-level diffs.
+      // The pre-restore state (preRestoreSnapshot) is already present in the history
+      // as the previous version row, so the restore is always undoable.
       await client.query(
         `INSERT INTO docufill_field_versions (field_id, account_id, changed_by, snapshot)
          VALUES ($1, $2, $3, $4::jsonb)`,
         [fieldId, accountId, callerEmail(req),
-          JSON.stringify({ ...preRestoreSnapshot, restoredFromVersion: versionId })],
+          JSON.stringify({ ...rows[0], restoredFromVersion: versionId })],
       );
       await client.query("COMMIT");
       res.json({ field: rows[0] });
