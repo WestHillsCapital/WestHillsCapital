@@ -24,6 +24,8 @@ import affiliatesAdminRouter, { publicAffiliateRouter } from "./affiliates";
 import headlessSessionsRouter from "./headlessSessions";
 import developerRouter from "./developer";
 import sandboxRouter from "./sandbox";
+import customDomainRouter from "./customDomain";
+import scimRouter from "./scim";
 
 const router: IRouter = Router();
 
@@ -91,11 +93,16 @@ v1Router.use("/product/auth",      productAuthRouter);
 v1Router.use("/product/settings",  requireProductAuth, settingsRouter);
 v1Router.use("/product/merlin",    requireProductAuth, requireAccountId, merlinRouter);
 v1Router.use("/packages",          requireApiKeyAuth,  requireAccountId, apiKeyDocufillRouter);
-v1Router.use("/sessions",          headlessSessionsRouter);
-v1Router.use("/product/developer", requireProductAuth, requireAccountId, developerRouter);
-v1Router.use("/sandbox",           sandboxRouter);
+v1Router.use("/sessions",              headlessSessionsRouter);
+v1Router.use("/account/custom-domain", customDomainRouter);
+v1Router.use("/product/developer",     requireProductAuth, requireAccountId, developerRouter);
+v1Router.use("/sandbox",               sandboxRouter);
 
 router.use("/v1", v1Router);
+
+// ── SCIM 2.0 provisioning — /api/scim/v2/* ────────────────────────────────────
+// Auth is handled inside the scimRouter (bearer token from scim_tokens table).
+router.use("/scim/v2", scimRouter);
 
 // ── Redirect helpers ──────────────────────────────────────────────────────────
 

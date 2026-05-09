@@ -262,3 +262,44 @@ export const docufillSigningEvents = pgTable("docufill_signing_events", {
 }, (t) => [
   index("docufill_signing_events_session_idx").on(t.sessionToken),
 ]);
+
+export const docufillAuditLogs = pgTable("docufill_audit_logs", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").references(() => docufillInterviewSessions.id, { onDelete: "cascade" }),
+  sessionToken: text("session_token").notNull(),
+  accountId: integer("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  event: text("event").notNull(),
+  actorType: text("actor_type").notNull().default("system"),
+  actorEmail: text("actor_email"),
+  actorIp: text("actor_ip"),
+  actorUa: text("actor_ua"),
+  metadata: jsonb("metadata").notNull().default(sql`'{}'::jsonb`),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("docufill_audit_logs_session_token_idx").on(t.sessionToken),
+  index("docufill_audit_logs_session_id_idx").on(t.sessionId),
+  index("docufill_audit_logs_account_created_idx").on(t.accountId, t.createdAt.desc()),
+]);
+
+export const docufillSessionSigners = pgTable("docufill_session_signers", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => docufillInterviewSessions.id, { onDelete: "cascade" }),
+  accountId: integer("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  signerOrder: integer("signer_order").notNull().default(0),
+  email: text("email").notNull(),
+  name: text("name"),
+  status: text("status").notNull().default("pending"),
+  token: text("token").notNull().unique(),
+  notifiedAt: timestamp("notified_at", { withTimezone: true }),
+  signedAt: timestamp("signed_at", { withTimezone: true }),
+  declinedAt: timestamp("declined_at", { withTimezone: true }),
+  declinedReason: text("declined_reason"),
+  signerIp: text("signer_ip"),
+  signerUa: text("signer_ua"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+}, (t) => [
+  index("docufill_session_signers_session_idx").on(t.sessionId),
+  index("docufill_session_signers_token_idx").on(t.token),
+  index("docufill_session_signers_account_idx").on(t.accountId),
+]);

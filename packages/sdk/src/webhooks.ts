@@ -7,22 +7,135 @@
  *   sha256=<hex-encoded-hmac>
  *
  * Always verify this signature before processing the payload.
- *
- * Retrieve your package's signing secret via:
- *   GET /api/v1/packages/:id/webhook-secret  (admin API key required)
  */
 
-/** Shape of a `interview.submitted` webhook payload. */
-export interface WebhookPayload {
-  event: "interview.submitted";
+// ── Event payload types ───────────────────────────────────────────────────────
+
+/** Common fields present on every webhook event. */
+interface BaseWebhookPayload {
+  /** The event type. */
+  event: string;
+  /** Numeric ID of the package this session belongs to. */
   packageId: number;
+  /** Human-readable package name. */
   packageName: string;
+  /** The unique session token (`df_...`). */
   sessionToken: string;
+}
+
+/** Fired when a new session is created via the API. */
+export interface SessionCreatedPayload extends BaseWebhookPayload {
+  event: "session.created";
+  createdAt: string;
+  /** Prefill values passed at creation time. */
+  prefill: Record<string, unknown>;
+  expiresAt: string | null;
+  source: string;
+}
+
+/** Fired the first time a recipient opens the interview link. */
+export interface SessionViewedPayload extends BaseWebhookPayload {
+  event: "session.viewed";
+  viewedAt: string;
+  prefill: Record<string, unknown>;
+}
+
+/** Fired when a recipient submits their first answer (interview started). */
+export interface SessionStartedPayload extends BaseWebhookPayload {
+  event: "session.started";
+  startedAt: string;
+  prefill: Record<string, unknown>;
+}
+
+/** Fired when the recipient completes the full interview form. */
+export interface SessionSubmittedPayload extends BaseWebhookPayload {
+  event: "session.submitted";
+  submittedAt: string;
+  prefill: Record<string, unknown>;
+  /** Submitted answers — sensitive fields are redacted. */
+  answers: Record<string, unknown>;
+}
+
+/**
+ * Fired when the final PDF packet has been generated and is ready.
+ * Includes a 24-hour signed download URL.
+ *
+ * @deprecated Use `pdf.generated` for new integrations. `interview.submitted`
+ * is kept for backward compatibility and fires at the same moment.
+ */
+export interface InterviewSubmittedPayload extends BaseWebhookPayload {
+  event: "interview.submitted";
   submittedAt: string;
   prefill: Record<string, unknown>;
   answers: Record<string, unknown>;
   generatedPdfUrl: string | null;
 }
+
+/** Fired when the final PDF packet is generated and ready to download. */
+export interface PdfGeneratedPayload extends BaseWebhookPayload {
+  event: "pdf.generated";
+  generatedAt: string;
+  prefill: Record<string, unknown>;
+  answers: Record<string, unknown>;
+  /** Signed download URL valid for 24 hours. */
+  downloadUrl: string | null;
+}
+
+/** Fired when a session is voided (link invalidated). */
+export interface SessionVoidedPayload extends BaseWebhookPayload {
+  event: "session.voided";
+  voidedAt: string;
+  reason: string | null;
+  prefill: Record<string, unknown>;
+}
+
+/** Fired when a session link passes its expiry timestamp without submission. */
+export interface SessionExpiredPayload extends BaseWebhookPayload {
+  event: "session.expired";
+  expiredAt: string;
+  prefill: Record<string, unknown>;
+}
+
+/** Fired when a specific signer in a multi-party flow completes their portion. */
+export interface SignerCompletedPayload extends BaseWebhookPayload {
+  event: "signer.completed";
+  signedAt: string;
+  signerOrder: number;
+  signerEmail: string;
+  signerName: string | null;
+  allSigned: boolean;
+}
+
+/**
+ * Discriminated union of all possible Docuplete webhook payloads.
+ *
+ * Use the `event` field to narrow to the specific payload type:
+ *
+ * @example
+ * ```ts
+ * const payload = await constructWebhookEvent(rawBody, sig, secret);
+ * switch (payload.event) {
+ *   case "session.created":   handleCreated(payload);   break;
+ *   case "session.submitted": handleSubmitted(payload); break;
+ *   case "pdf.generated":     handleGenerated(payload); break;
+ *   case "session.voided":    handleVoided(payload);    break;
+ * }
+ * ```
+ */
+export type WebhookPayload =
+  | SessionCreatedPayload
+  | SessionViewedPayload
+  | SessionStartedPayload
+  | SessionSubmittedPayload
+  | InterviewSubmittedPayload
+  | PdfGeneratedPayload
+  | SessionVoidedPayload
+  | SessionExpiredPayload
+  | SignerCompletedPayload;
+
+export type WebhookEventType = WebhookPayload["event"];
+
+// ── Signature verification ────────────────────────────────────────────────────
 
 /**
  * Constant-time string comparison to prevent timing attacks.
@@ -38,7 +151,6 @@ function timingSafeEqual(a: string, b: string): boolean {
 }
 
 async function computeHmac(secret: string, payload: string): Promise<string> {
-  // Node.js ≥ 18 — use the Web Crypto API (works in edge runtimes too)
   if (typeof crypto !== "undefined" && crypto.subtle) {
     const enc = new TextEncoder();
     const key = await crypto.subtle.importKey(
@@ -53,8 +165,6 @@ async function computeHmac(secret: string, payload: string): Promise<string> {
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
   }
-
-  // Fallback: Node.js `node:crypto` module (CommonJS / older environments)
   const { createHmac } = await import("node:crypto");
   return createHmac("sha256", secret).update(payload).digest("hex");
 }
@@ -66,21 +176,6 @@ async function computeHmac(secret: string, payload: string): Promise<string> {
  * @param signature The value of the `X-Docuplete-Signature` header
  * @param secret    Your package's webhook signing secret (`wh_...`)
  * @returns `true` if the signature is valid, `false` otherwise
- *
- * @example
- * ```ts
- * import express from "express";
- * import { verifyWebhookSignature } from "@docuplete/sdk";
- *
- * app.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
- *   const sig = req.headers["x-docuplete-signature"] as string;
- *   const valid = await verifyWebhookSignature(req.body.toString(), sig, process.env.WEBHOOK_SECRET!);
- *   if (!valid) return res.status(401).send("Invalid signature");
- *   const payload = JSON.parse(req.body.toString());
- *   // handle payload ...
- *   res.sendStatus(200);
- * });
- * ```
  */
 export async function verifyWebhookSignature(
   rawBody: string,
@@ -102,6 +197,22 @@ export async function verifyWebhookSignature(
  * @param secret    Your package's webhook signing secret
  * @returns The parsed `WebhookPayload`
  * @throws  `Error` with message "Invalid webhook signature" if verification fails
+ *
+ * @example
+ * ```ts
+ * import express from "express";
+ * import { constructWebhookEvent } from "@docuplete/sdk";
+ *
+ * app.post("/webhook", express.raw({ type: "application/json" }), async (req, res) => {
+ *   const sig = req.headers["x-docuplete-signature"] as string;
+ *   const payload = await constructWebhookEvent(req.body.toString(), sig, process.env.WEBHOOK_SECRET!);
+ *   switch (payload.event) {
+ *     case "pdf.generated": console.log("PDF ready:", payload.downloadUrl); break;
+ *     case "session.voided": console.log("Session voided:", payload.reason); break;
+ *   }
+ *   res.sendStatus(200);
+ * });
+ * ```
  */
 export async function constructWebhookEvent(
   rawBody: string,

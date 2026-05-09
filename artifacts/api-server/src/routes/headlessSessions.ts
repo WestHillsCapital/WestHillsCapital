@@ -1,4 +1,4 @@
-import { randomBytes } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { Router } from "express";
 import { z } from "zod";
 import { getDb } from "../db";
@@ -6,18 +6,15 @@ import { logger } from "../lib/logger";
 import { requireApiKeyAuth } from "../middleware/requireApiKeyAuth";
 import { requireAccountId } from "../middleware/requireAccountId";
 import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
+import { enqueueDeliverWebhookJob } from "../lib/queue";
 
 const router = Router();
 
 const NEVER_EXPIRES = new Date("9999-12-31T23:59:59Z");
 const ALLOWED_LOCALES = new Set(["en", "es", "fr", "de", "pt", "zh", "ja", "ko", "ar"]);
+const ALLOWED_STATUSES = new Set(["draft", "submitted", "signed", "generated", "voided"]);
 
-const HeadlessSessionBodySchema = z.object({
-  packageId: z.union([z.string(), z.number()]),
-  prefill: z.record(z.string(), z.string()).optional(),
-  linkExpiryDays: z.number().int().min(1).max(3650).nullable().optional(),
-  locale: z.enum(["en", "es", "fr", "de", "pt", "zh", "ja", "ko", "ar"]).optional(),
-});
+// ── Shared helpers ─────────────────────────────────────────────────────────────
 
 function parseId(v: string | number | undefined | null): number | null {
   if (v === undefined || v === null || v === "") return null;
@@ -25,90 +22,458 @@ function parseId(v: string | number | undefined | null): number | null {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
 }
 
+function sanitizePrefill(prefill: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (prefill && typeof prefill === "object") {
+    for (const [k, v] of Object.entries(prefill as Record<string, unknown>)) {
+      if (typeof k === "string" && typeof v === "string") {
+        out[k.trim()] = v;
+      }
+    }
+  }
+  return out;
+}
+
+async function resolveOrgDefaults(accountId: number) {
+  const db = getDb();
+  try {
+    const { rows } = await db.query<{
+      interview_link_expiry_days: number | null;
+      interview_default_locale: string | null;
+      interview_reminder_enabled: boolean | null;
+      interview_reminder_days: number | null;
+      custom_domain: string | null;
+      custom_domain_status: string | null;
+    }>(
+      `SELECT interview_link_expiry_days, interview_default_locale,
+              interview_reminder_enabled, interview_reminder_days,
+              custom_domain, custom_domain_status
+         FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    const d = rows[0];
+    return {
+      expiryDays: d?.interview_link_expiry_days ?? 90,
+      locale: d?.interview_default_locale ?? "en",
+      reminderEnabled: d?.interview_reminder_enabled ?? false,
+      reminderDays: d?.interview_reminder_days ?? 2,
+      customDomain:
+        d?.custom_domain && d.custom_domain_status === "active"
+          ? d.custom_domain
+          : null,
+    };
+  } catch {
+    return { expiryDays: 90, locale: "en", reminderEnabled: false, reminderDays: 2, customDomain: null };
+  }
+}
+
+function buildInterviewUrl(token: string, customDomain: string | null): string {
+  const appOrigin =
+    process.env.APP_ORIGIN ??
+    (process.env.REPLIT_DEV_DOMAIN
+      ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+      : "https://docuplete.com");
+  const origin = customDomain ? `https://${customDomain}` : appOrigin;
+  return `${origin}/docuplete/public/${token}`;
+}
+
+/** Write a structured audit log entry for this session. Non-fatal — never throws. */
+async function writeAuditLog(opts: {
+  sessionId: number | null;
+  sessionToken: string;
+  accountId: number;
+  event: string;
+  actorType?: string;
+  actorEmail?: string | null;
+  actorIp?: string | null;
+  actorUa?: string | null;
+  metadata?: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const db = getDb();
+    await db.query(
+      `INSERT INTO docufill_audit_logs
+         (session_id, session_token, account_id, event, actor_type, actor_email, actor_ip, actor_ua, metadata)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)`,
+      [
+        opts.sessionId ?? null,
+        opts.sessionToken,
+        opts.accountId,
+        opts.event,
+        opts.actorType ?? "system",
+        opts.actorEmail ?? null,
+        opts.actorIp ?? null,
+        opts.actorUa ?? null,
+        JSON.stringify(opts.metadata ?? {}),
+      ],
+    );
+  } catch (err) {
+    logger.warn({ err, event: opts.event, token: opts.sessionToken }, "[AuditLog] Failed to write audit log entry (non-fatal)");
+  }
+}
+
+/** Fire a lifecycle webhook for this session if the package has webhooks enabled. Non-fatal. */
+async function fireLifecycleWebhook(opts: {
+  accountId: number;
+  sessionToken: string;
+  packageId: number;
+  event: string;
+  payload: Record<string, unknown>;
+}): Promise<void> {
+  try {
+    const db = getDb();
+    const { rows } = await db.query<{
+      webhook_enabled: boolean;
+      webhook_url: string | null;
+    }>(
+      `SELECT webhook_enabled, webhook_url FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      [opts.packageId, opts.accountId],
+    );
+    const pkg = rows[0];
+    if (!pkg?.webhook_enabled || !pkg.webhook_url) return;
+
+    await enqueueDeliverWebhookJob({
+      sessionToken: opts.sessionToken,
+      packageId: opts.packageId,
+      accountId: opts.accountId,
+      eventType: opts.event,
+      webhookUrl: pkg.webhook_url,
+      payload: opts.payload,
+    });
+  } catch (err) {
+    logger.warn({ err, event: opts.event, token: opts.sessionToken }, "[HeadlessSessions] Lifecycle webhook fire failed (non-fatal)");
+  }
+}
+
+// ── Schema ─────────────────────────────────────────────────────────────────────
+
+const RemindersSchema = z.object({
+  enabled: z.boolean(),
+  intervalDays: z.number().int().min(1).max(30),
+}).optional();
+
+const HeadlessSessionBodySchema = z.object({
+  packageId: z.union([z.string(), z.number()]),
+  prefill: z.record(z.string(), z.string()).optional(),
+  linkExpiryDays: z.number().int().min(1).max(3650).nullable().optional(),
+  locale: z.enum(["en", "es", "fr", "de", "pt", "zh", "ja", "ko", "ar"]).optional(),
+  reminders: RemindersSchema,
+  signers: z.array(z.object({
+    email: z.string().email(),
+    name: z.string().max(200).optional(),
+    order: z.number().int().min(0).optional(),
+  })).max(10).optional(),
+});
+
+const BulkHeadlessSessionBodySchema = z.object({
+  sessions: z.array(HeadlessSessionBodySchema).min(1).max(100),
+});
+
+// ── Core session creation logic (shared by single + bulk) ─────────────────────
+
+interface CreateOneResult {
+  ok: true;
+  sessionToken: string;
+  interviewUrl: string;
+  expiresAt: string | null;
+  sessionId: number;
+}
+
+interface CreateOneError {
+  ok: false;
+  error: string;
+}
+
+async function createOneSession(
+  params: z.infer<typeof HeadlessSessionBodySchema>,
+  accountId: number,
+): Promise<CreateOneResult | CreateOneError> {
+  const db = getDb();
+  const packageId = parseId(params.packageId);
+  if (!packageId) return { ok: false, error: "packageId must be a positive integer." };
+
+  const pkgResult = await db.query<{
+    id: number;
+    version: number | null;
+    status: string;
+    transaction_scope: string | null;
+  }>(
+    `SELECT id, version, status, transaction_scope
+       FROM docufill_packages
+      WHERE id = $1 AND account_id = $2
+      LIMIT 1`,
+    [packageId, accountId],
+  );
+  const pkg = pkgResult.rows[0];
+  if (!pkg) return { ok: false, error: "Package not found." };
+  if (pkg.status !== "active") return { ok: false, error: "Package must be active before creating a session." };
+
+  const org = await resolveOrgDefaults(accountId);
+
+  const effectiveLinkExpiryDays: number | null =
+    params.linkExpiryDays !== undefined ? params.linkExpiryDays : org.expiryDays;
+  const effectiveLocale =
+    params.locale && ALLOWED_LOCALES.has(params.locale) ? params.locale : org.locale;
+  const finalExpiresAt: Date =
+    effectiveLinkExpiryDays === null
+      ? NEVER_EXPIRES
+      : new Date(Date.now() + effectiveLinkExpiryDays * 86_400_000);
+
+  const reminderEnabled = params.reminders?.enabled ?? org.reminderEnabled;
+  const reminderDays = params.reminders?.intervalDays ?? org.reminderDays;
+
+  const token = `df_${randomBytes(20).toString("hex")}`;
+  const cleanPrefill = sanitizePrefill(params.prefill);
+
+  const insertResult = await db.query<{ id: number }>(
+    `INSERT INTO docufill_interview_sessions
+       (token, package_id, package_version, transaction_scope, source, status,
+        test_mode, prefill, answers, expires_at, account_id, locale,
+        reminder_enabled, reminder_days)
+     VALUES ($1, $2, $3, $4, 'api', 'draft',
+             false, $5::jsonb, '{}'::jsonb, $6, $7, $8, $9, $10)
+     RETURNING id`,
+    [
+      token,
+      pkg.id,
+      pkg.version ?? 1,
+      pkg.transaction_scope ?? "",
+      JSON.stringify(cleanPrefill),
+      finalExpiresAt,
+      accountId,
+      effectiveLocale,
+      reminderEnabled,
+      reminderDays,
+    ],
+  );
+  const sessionId = insertResult.rows[0]?.id;
+
+  // Register multi-party signers if provided
+  const signers = params.signers;
+  if (signers && signers.length > 0 && sessionId) {
+    const sortedSigners = [...signers].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    for (let i = 0; i < sortedSigners.length; i++) {
+      const s = sortedSigners[i];
+      const signerToken = `df_sgn_${randomBytes(16).toString("hex")}`;
+      await db.query(
+        `INSERT INTO docufill_session_signers
+           (session_id, account_id, signer_order, email, name, status, token)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          sessionId,
+          accountId,
+          i,
+          s.email,
+          s.name ?? null,
+          i === 0 ? "pending" : "awaiting",
+          signerToken,
+        ],
+      );
+    }
+  }
+
+  const interviewUrl = buildInterviewUrl(token, org.customDomain);
+  const expiresAt = finalExpiresAt.getFullYear() >= 9999 ? null : finalExpiresAt.toISOString();
+
+  // Fire session.created audit log + webhook (non-blocking)
+  void writeAuditLog({
+    sessionId: sessionId ?? null,
+    sessionToken: token,
+    accountId,
+    event: "session.created",
+    actorType: "api",
+    metadata: { packageId, source: "api", prefillKeys: Object.keys(cleanPrefill), multiPartySigners: signers?.length ?? 0 },
+  });
+  void fireLifecycleWebhook({
+    accountId,
+    sessionToken: token,
+    packageId,
+    event: "session.created",
+    payload: {
+      event: "session.created",
+      packageId,
+      sessionToken: token,
+      createdAt: new Date().toISOString(),
+      prefill: cleanPrefill,
+      expiresAt,
+      source: "api",
+    },
+  });
+
+  return { ok: true, sessionToken: token, interviewUrl, expiresAt, sessionId: sessionId ?? 0 };
+}
+
+// ── GET /api/v1/sessions ───────────────────────────────────────────────────────
+
+/**
+ * GET /api/v1/sessions
+ *
+ * List sessions for the account with optional filters.
+ *
+ * @query packageId   Filter by package ID.
+ * @query status      Filter by status: draft | submitted | signed | generated | voided.
+ * @query limit       Page size 1–200 (default 50).
+ * @query offset      Pagination offset (default 0).
+ * @query updatedAfter ISO-8601 timestamp — only sessions updated after this time.
+ * @query search      Full-text search across prefill values.
+ */
+router.get(
+  "/",
+  requireApiKeyAuth,
+  requireAccountId,
+  async (req, res) => {
+    try {
+      const accountId = req.internalAccountId!;
+      const db = getDb();
+
+      const packageId = req.query.packageId ? parseId(String(req.query.packageId)) : null;
+      const status = typeof req.query.status === "string" && ALLOWED_STATUSES.has(req.query.status)
+        ? req.query.status
+        : null;
+      const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "50"), 10) || 50, 1), 200);
+      const offset = Math.max(parseInt(String(req.query.offset ?? "0"), 10) || 0, 0);
+      const updatedAfter = typeof req.query.updatedAfter === "string" ? req.query.updatedAfter : null;
+      const search = typeof req.query.search === "string" && req.query.search.trim()
+        ? req.query.search.trim()
+        : null;
+
+      const conditions: string[] = ["dis.account_id = $1"];
+      const params: unknown[] = [accountId];
+      let idx = 2;
+
+      if (packageId) {
+        conditions.push(`dis.package_id = $${idx++}`);
+        params.push(packageId);
+      }
+      if (status) {
+        conditions.push(`dis.status = $${idx++}`);
+        params.push(status);
+      }
+      if (updatedAfter) {
+        const dt = new Date(updatedAfter);
+        if (!isNaN(dt.getTime())) {
+          conditions.push(`dis.updated_at > $${idx++}`);
+          params.push(dt.toISOString());
+        }
+      }
+      if (search) {
+        conditions.push(`dis.prefill::text ILIKE $${idx++}`);
+        params.push(`%${search.replace(/%/g, "\\%").replace(/_/g, "\\_")}%`);
+      }
+
+      const where = conditions.join(" AND ");
+
+      const [dataResult, countResult] = await Promise.all([
+        db.query(
+          `SELECT dis.id, dis.token, dis.package_id, dp.name AS package_name,
+                  dis.status, dis.source, dis.prefill, dis.locale,
+                  dis.created_at, dis.updated_at, dis.expires_at,
+                  dis.submitted_at, dis.voided_at, dis.test_mode
+             FROM docufill_interview_sessions dis
+             JOIN docufill_packages dp ON dp.id = dis.package_id
+            WHERE ${where}
+            ORDER BY dis.created_at DESC
+            LIMIT $${idx} OFFSET $${idx + 1}`,
+          [...params, limit, offset],
+        ),
+        db.query(
+          `SELECT COUNT(*) AS total
+             FROM docufill_interview_sessions dis
+            WHERE ${where}`,
+          params,
+        ),
+      ]);
+
+      const total = parseInt(String(countResult.rows[0]?.total ?? "0"), 10);
+      const sessions = dataResult.rows.map((r) => ({
+        id: r.id,
+        token: r.token,
+        packageId: r.package_id,
+        packageName: r.package_name,
+        status: r.status,
+        source: r.source,
+        prefill: r.prefill ?? {},
+        locale: r.locale,
+        createdAt: r.created_at,
+        updatedAt: r.updated_at,
+        expiresAt: r.expires_at,
+        submittedAt: r.submitted_at ?? null,
+        voidedAt: r.voided_at ?? null,
+        testMode: r.test_mode ?? false,
+      }));
+
+      return void res.json({ sessions, total, limit, offset });
+    } catch (err) {
+      logger.error({ err }, "[HeadlessSessions] Failed to list sessions");
+      return void res.status(500).json({ error: "Failed to list sessions." });
+    }
+  },
+);
+
+// ── POST /api/v1/sessions/bulk ─────────────────────────────────────────────────
+
+/**
+ * POST /api/v1/sessions/bulk
+ *
+ * Create up to 100 sessions in a single request.
+ * Each item in `sessions` follows the same schema as POST /sessions.
+ * Returns per-item results — failures do not abort the batch.
+ */
+router.post(
+  "/bulk",
+  requireApiKeyAuth,
+  requireAccountId,
+  async (req, res) => {
+    try {
+      const _parse = BulkHeadlessSessionBodySchema.safeParse(req.body);
+      if (!_parse.success) {
+        return void res.status(400).json({
+          error: "Invalid request body",
+          issues: _parse.error.issues.map((i) => i.message),
+        });
+      }
+
+      const accountId = req.internalAccountId!;
+      const { sessions } = _parse.data;
+
+      const results = await Promise.all(
+        sessions.map(async (s, index) => {
+          try {
+            const result = await createOneSession(s, accountId);
+            if (result.ok) {
+              return {
+                index,
+                ok: true as const,
+                sessionToken: result.sessionToken,
+                interviewUrl: result.interviewUrl,
+                expiresAt: result.expiresAt,
+              };
+            }
+            return { index, ok: false as const, error: result.error };
+          } catch (err) {
+            logger.warn({ err, index }, "[HeadlessSessions] Bulk create item failed");
+            return { index, ok: false as const, error: "Internal error creating session." };
+          }
+        }),
+      );
+
+      const succeeded = results.filter((r) => r.ok).length;
+      logger.info({ accountId, total: sessions.length, succeeded }, "[HeadlessSessions] Bulk session creation completed");
+
+      return void res.status(207).json({ results, total: sessions.length, succeeded, failed: sessions.length - succeeded });
+    } catch (err) {
+      logger.error({ err }, "[HeadlessSessions] Bulk session creation failed");
+      return void res.status(500).json({ error: "Failed to process bulk session creation." });
+    }
+  },
+);
+
+// ── POST /api/v1/sessions ──────────────────────────────────────────────────────
+
 /**
  * POST /api/v1/sessions
  *
- * Headless session creation — designed for server-to-server API key integrations.
- * Accepts a Docuplete live API key (dp_live_…) via Authorization header,
- * a packageId, optional prefill values keyed by field source key, and
- * optional per-session link settings.
- *
- * Returns a signed interview URL the end-user can be redirected to.
- *
- * @openapi
- * /sessions:
- *   post:
- *     tags:
- *       - Developer API — Sessions
- *     summary: Create a headless interview session
- *     description: |
- *       Creates a new Docuplete interview session programmatically.
- *       Prefill values are keyed by field source key (the short identifier
- *       you see in the field editor, e.g. `firstName`, `email`, `ssn`).
- *       The returned `interviewUrl` can be sent directly to your client.
- *     security:
- *       - apiKeyAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [packageId]
- *             properties:
- *               packageId:
- *                 type: integer
- *                 description: ID of the active package to use for this session.
- *               prefill:
- *                 type: object
- *                 additionalProperties:
- *                   type: string
- *                 description: |
- *                   Optional map of field source keys → values to pre-populate
- *                   before the client sees the interview.
- *                   Example: `{ "firstName": "Jane", "email": "jane@acme.com" }`
- *               linkExpiryDays:
- *                 type: integer
- *                 nullable: true
- *                 description: |
- *                   Days until the interview link expires (1–3650).
- *                   Pass `null` for a link that never expires.
- *                   Defaults to your organization's setting.
- *               locale:
- *                 type: string
- *                 enum: [en, es, fr, de, pt, zh, ja, ko, ar]
- *                 description: Interview language locale. Defaults to your organization setting.
- *     responses:
- *       201:
- *         description: Session created
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 sessionToken:
- *                   type: string
- *                   example: df_a1b2c3d4e5f6...
- *                 interviewUrl:
- *                   type: string
- *                   example: https://docuplete.com/docuplete/public/df_a1b2c3d4...
- *                 expiresAt:
- *                   type: string
- *                   format: date-time
- *                   nullable: true
- *                   description: ISO-8601 expiry timestamp, or null if the link never expires.
- *       400:
- *         description: Validation error or package not active
- *       401:
- *         description: Missing or invalid API key
- *       403:
- *         description: Plan does not include API access
- *       404:
- *         description: Package not found
- *       429:
- *         description: Rate limited
- *       500:
- *         description: Internal error
+ * Create a single headless interview session.
  */
 router.post(
   "/",
@@ -125,141 +490,20 @@ router.post(
         });
       }
 
-      const { prefill, linkExpiryDays, locale } = _parse.data;
-      const packageId = parseId(_parse.data.packageId);
-      if (!packageId) {
-        return void res.status(400).json({ error: "packageId is required and must be a positive integer." });
-      }
-
       const accountId = req.internalAccountId!;
-      const db = getDb();
+      const result = await createOneSession(_parse.data, accountId);
 
-      // ── Resolve package ───────────────────────────────────────────────────────
-      const pkgResult = await db.query<{
-        id: number;
-        version: number | null;
-        status: string;
-        transaction_scope: string | null;
-      }>(
-        `SELECT id, version, status, transaction_scope
-           FROM docufill_packages
-          WHERE id = $1 AND account_id = $2
-          LIMIT 1`,
-        [packageId, accountId],
-      );
-
-      const pkg = pkgResult.rows[0];
-      if (!pkg) {
-        return void res.status(404).json({ error: "Package not found." });
-      }
-      if (pkg.status !== "active") {
-        return void res.status(400).json({ error: "Package must be active before creating a session." });
+      if (!result.ok) {
+        const status = result.error.includes("not found") ? 404 : 400;
+        return void res.status(status).json({ error: result.error });
       }
 
-      // ── Fetch org-level interview defaults ────────────────────────────────────
-      let orgExpiryDays: number | null = 90;
-      let orgLocale = "en";
-      let orgReminderEnabled = false;
-      let orgReminderDays = 2;
-      try {
-        const { rows: defaultRows } = await db.query<{
-          interview_link_expiry_days: number | null;
-          interview_default_locale: string | null;
-          interview_reminder_enabled: boolean | null;
-          interview_reminder_days: number | null;
-        }>(
-          `SELECT interview_link_expiry_days, interview_default_locale,
-                  interview_reminder_enabled, interview_reminder_days
-             FROM accounts WHERE id = $1`,
-          [accountId],
-        );
-        if (defaultRows[0]) {
-          const d = defaultRows[0];
-          orgExpiryDays      = d.interview_link_expiry_days  ?? null;
-          orgLocale          = d.interview_default_locale    ?? "en";
-          orgReminderEnabled = d.interview_reminder_enabled  ?? false;
-          orgReminderDays    = d.interview_reminder_days     ?? 2;
-        }
-      } catch (defErr) {
-        logger.warn({ defErr }, "[HeadlessSessions] Could not fetch org defaults; using built-ins");
-      }
-
-      // ── Validate & resolve per-session overrides ──────────────────────────────
-      const effectiveLinkExpiryDays: number | null =
-        linkExpiryDays !== undefined ? linkExpiryDays : orgExpiryDays;
-
-      const effectiveLocale: string =
-        locale && ALLOWED_LOCALES.has(locale) ? locale : orgLocale;
-
-      const finalExpiresAt: Date =
-        effectiveLinkExpiryDays === null
-          ? NEVER_EXPIRES
-          : new Date(Date.now() + effectiveLinkExpiryDays * 86_400_000);
-
-      // ── Generate token + insert session ───────────────────────────────────────
-      const token = `df_${randomBytes(20).toString("hex")}`;
-      const cleanPrefill: Record<string, string> = {};
-      if (prefill && typeof prefill === "object") {
-        for (const [k, v] of Object.entries(prefill)) {
-          if (typeof k === "string" && typeof v === "string") {
-            cleanPrefill[k.trim()] = v;
-          }
-        }
-      }
-
-      await db.query(
-        `INSERT INTO docufill_interview_sessions
-           (token, package_id, package_version, transaction_scope, source, status,
-            test_mode, prefill, answers, expires_at, account_id, locale,
-            reminder_enabled, reminder_days)
-         VALUES ($1, $2, $3, $4, 'api', 'draft',
-                 false, $5::jsonb, '{}'::jsonb, $6, $7, $8,
-                 $9, $10)`,
-        [
-          token,
-          pkg.id,
-          pkg.version ?? 1,
-          pkg.transaction_scope ?? "",
-          JSON.stringify(cleanPrefill),
-          finalExpiresAt,
-          accountId,
-          effectiveLocale,
-          orgReminderEnabled,
-          orgReminderDays,
-        ],
-      );
-
-      // ── Build interview URL (custom domain when active) ───────────────────────
-      const appOrigin =
-        process.env.APP_ORIGIN ??
-        (process.env.REPLIT_DEV_DOMAIN
-          ? `https://${process.env.REPLIT_DEV_DOMAIN}`
-          : "https://docuplete.com");
-
-      let interviewOrigin = appOrigin;
-      try {
-        const { rows: domainRows } = await db.query<{
-          custom_domain: string | null;
-          custom_domain_status: string | null;
-        }>(
-          `SELECT custom_domain, custom_domain_status FROM accounts WHERE id = $1`,
-          [accountId],
-        );
-        const dr = domainRows[0];
-        if (dr?.custom_domain && dr.custom_domain_status === "active") {
-          interviewOrigin = `https://${dr.custom_domain}`;
-        }
-      } catch (err) {
-        logger.warn({ err, accountId }, "[HeadlessSessions] Custom domain lookup failed — using default");
-      }
-
-      const interviewUrl = `${interviewOrigin}/docuplete/public/${token}`;
-      const expiresAt =
-        finalExpiresAt.getFullYear() >= 9999 ? null : finalExpiresAt.toISOString();
-
-      logger.info({ accountId, packageId, token }, "[HeadlessSessions] Session created via API key");
-
-      return void res.status(201).json({ sessionToken: token, interviewUrl, expiresAt });
+      logger.info({ accountId, packageId: _parse.data.packageId, token: result.sessionToken }, "[HeadlessSessions] Session created via API key");
+      return void res.status(201).json({
+        sessionToken: result.sessionToken,
+        interviewUrl: result.interviewUrl,
+        expiresAt: result.expiresAt,
+      });
     } catch (err) {
       logger.error({ err }, "[HeadlessSessions] Failed to create session");
       return void res.status(500).json({ error: "Failed to create session." });
@@ -267,4 +511,203 @@ router.post(
   },
 );
 
+// ── GET /api/v1/sessions/:token ────────────────────────────────────────────────
+
+/**
+ * GET /api/v1/sessions/:token
+ *
+ * Retrieve current state of a session including status and submitted answers.
+ * Sensitive fields are redacted in the response.
+ */
+router.get(
+  "/:token",
+  requireApiKeyAuth,
+  requireAccountId,
+  async (req, res) => {
+    try {
+      const accountId = req.internalAccountId!;
+      const { token } = req.params;
+      const db = getDb();
+
+      const { rows } = await db.query(
+        `SELECT dis.id, dis.token, dis.package_id, dp.name AS package_name,
+                dis.status, dis.source, dis.prefill, dis.answers,
+                dis.locale, dis.test_mode, dis.expires_at,
+                dis.created_at, dis.updated_at, dis.submitted_at,
+                dis.voided_at, dis.voided_reason, dis.link_email_recipient,
+                dis.generated_pdf_url, dis.signer_name, dis.signer_email,
+                dis.signed_at, dis.batch_run_id,
+                dp.fields AS package_fields
+           FROM docufill_interview_sessions dis
+           JOIN docufill_packages dp ON dp.id = dis.package_id
+          WHERE dis.token = $1 AND dis.account_id = $2
+          LIMIT 1`,
+        [token, accountId],
+      );
+
+      const session = rows[0];
+      if (!session) {
+        return void res.status(404).json({ error: "Session not found." });
+      }
+
+      // Redact sensitive fields
+      const fields: Array<{ id: string; sensitive?: boolean }> =
+        Array.isArray(session.package_fields) ? session.package_fields : [];
+      const sensitiveIds = new Set(
+        fields.filter((f) => f.sensitive === true).map((f) => String(f.id ?? "")),
+      );
+      const answers: Record<string, unknown> = session.answers ?? {};
+      const redactedAnswers: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(answers)) {
+        redactedAnswers[k] = sensitiveIds.has(k) ? "[redacted]" : v;
+      }
+
+      return void res.json({
+        session: {
+          id: session.id,
+          token: session.token,
+          packageId: session.package_id,
+          packageName: session.package_name,
+          status: session.status,
+          source: session.source,
+          prefill: session.prefill ?? {},
+          answers: redactedAnswers,
+          locale: session.locale,
+          testMode: session.test_mode,
+          expiresAt: session.expires_at,
+          createdAt: session.created_at,
+          updatedAt: session.updated_at,
+          submittedAt: session.submitted_at ?? null,
+          voidedAt: session.voided_at ?? null,
+          voidedReason: session.voided_reason ?? null,
+          linkEmailRecipient: session.link_email_recipient ?? null,
+          generatedPdfUrl: session.generated_pdf_url ?? null,
+          signerName: session.signer_name ?? null,
+          signerEmail: session.signer_email ?? null,
+          signedAt: session.signed_at ?? null,
+          batchRunId: session.batch_run_id ?? null,
+        },
+      });
+    } catch (err) {
+      logger.error({ err }, "[HeadlessSessions] Failed to get session");
+      return void res.status(500).json({ error: "Failed to retrieve session." });
+    }
+  },
+);
+
+// ── GET /api/v1/sessions/:token/audit-log ─────────────────────────────────────
+
+/**
+ * GET /api/v1/sessions/:token/audit-log
+ *
+ * Returns a chronological, tamper-evident audit trail for a session.
+ * Each entry is a structured event recording who did what and when.
+ *
+ * @query limit   Max entries to return (1–500, default 200).
+ */
+router.get(
+  "/:token/audit-log",
+  requireApiKeyAuth,
+  requireAccountId,
+  async (req, res) => {
+    try {
+      const accountId = req.internalAccountId!;
+      const { token } = req.params;
+      const limit = Math.min(Math.max(parseInt(String(req.query.limit ?? "200"), 10) || 200, 1), 500);
+      const db = getDb();
+
+      // Verify session ownership
+      const { rows: sessionRows } = await db.query<{ id: number }>(
+        `SELECT id FROM docufill_interview_sessions WHERE token = $1 AND account_id = $2 LIMIT 1`,
+        [token, accountId],
+      );
+      if (!sessionRows[0]) {
+        return void res.status(404).json({ error: "Session not found." });
+      }
+
+      const { rows } = await db.query(
+        `SELECT id, event, actor_type, actor_email, actor_ip, metadata, created_at
+           FROM docufill_audit_logs
+          WHERE session_token = $1 AND account_id = $2
+          ORDER BY created_at ASC
+          LIMIT $3`,
+        [token, accountId, limit],
+      );
+
+      const entries = rows.map((r) => ({
+        id: r.id,
+        event: r.event,
+        actorType: r.actor_type,
+        actorEmail: r.actor_email ?? null,
+        actorIp: r.actor_ip ?? null,
+        metadata: r.metadata ?? {},
+        createdAt: r.created_at,
+      }));
+
+      return void res.json({ token, entries, total: entries.length });
+    } catch (err) {
+      logger.error({ err }, "[HeadlessSessions] Failed to get audit log");
+      return void res.status(500).json({ error: "Failed to retrieve audit log." });
+    }
+  },
+);
+
+// ── GET /api/v1/sessions/:token/signers ───────────────────────────────────────
+
+/**
+ * GET /api/v1/sessions/:token/signers
+ *
+ * Returns the ordered list of signers for a multi-party signing session.
+ */
+router.get(
+  "/:token/signers",
+  requireApiKeyAuth,
+  requireAccountId,
+  async (req, res) => {
+    try {
+      const accountId = req.internalAccountId!;
+      const { token } = req.params;
+      const db = getDb();
+
+      const { rows: sessionRows } = await db.query<{ id: number }>(
+        `SELECT id FROM docufill_interview_sessions WHERE token = $1 AND account_id = $2 LIMIT 1`,
+        [token, accountId],
+      );
+      if (!sessionRows[0]) {
+        return void res.status(404).json({ error: "Session not found." });
+      }
+
+      const { rows } = await db.query(
+        `SELECT id, signer_order, email, name, status, token AS signer_token,
+                notified_at, signed_at, declined_at, declined_reason, created_at
+           FROM docufill_session_signers
+          WHERE session_id = $1
+          ORDER BY signer_order ASC`,
+        [sessionRows[0].id],
+      );
+
+      const signers = rows.map((r) => ({
+        id: r.id,
+        order: r.signer_order,
+        email: r.email,
+        name: r.name ?? null,
+        status: r.status,
+        signerToken: r.signer_token,
+        notifiedAt: r.notified_at ?? null,
+        signedAt: r.signed_at ?? null,
+        declinedAt: r.declined_at ?? null,
+        declinedReason: r.declined_reason ?? null,
+        createdAt: r.created_at,
+      }));
+
+      const allSigned = signers.length > 0 && signers.every((s) => s.status === "signed");
+      return void res.json({ token, signers, allSigned });
+    } catch (err) {
+      logger.error({ err }, "[HeadlessSessions] Failed to get signers");
+      return void res.status(500).json({ error: "Failed to retrieve signers." });
+    }
+  },
+);
+
+export { writeAuditLog, fireLifecycleWebhook };
 export default router;

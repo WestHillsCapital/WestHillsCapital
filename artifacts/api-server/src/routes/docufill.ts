@@ -493,7 +493,11 @@ function parseWebhookUrl(value: unknown): string | null {
   }
 }
 
-function buildWebhookPayload(session: Record<string, unknown>): Record<string, unknown> {
+function buildWebhookPayload(
+  session: Record<string, unknown>,
+  eventType: string = "interview.submitted",
+  extra?: Record<string, unknown>,
+): Record<string, unknown> {
   const answers = typeof session.answers === "object" && session.answers ? session.answers as Record<string, unknown> : {};
   const fields = Array.isArray(session.fields) ? session.fields as Array<Record<string, unknown>> : [];
   const sensitiveIds = new Set(fields.filter((f) => f.sensitive === true).map((f) => String(f.id ?? "")));
@@ -501,13 +505,21 @@ function buildWebhookPayload(session: Record<string, unknown>): Record<string, u
   for (const [k, v] of Object.entries(answers)) {
     redactedAnswers[k] = sensitiveIds.has(k) ? "[redacted]" : v;
   }
+  const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill : {};
   return {
-    event: "interview.submitted",
+    event: eventType,
+    packageId: session.package_id ?? null,
+    packageName: session.package_name ?? null,
+    sessionToken: session.token ?? null,
+    // Legacy field aliases — preserved for backward compatibility
     package_id: session.package_id ?? null,
     package_name: session.package_name ?? null,
     token: session.token ?? null,
+    submittedAt: new Date().toISOString(),
     submitted_at: new Date().toISOString(),
+    prefill,
     answers: redactedAnswers,
+    ...extra,
   };
 }
 
@@ -4968,6 +4980,29 @@ router.post("/sessions/:token/void", requireAdminRole, async (req, res) => {
       });
     }
 
+    // Fire session.voided lifecycle webhook (non-blocking)
+    if (session.webhook_enabled === true && typeof session.webhook_url === "string" && session.webhook_url) {
+      const webhookPkgId  = typeof session.package_id         === "number" ? session.package_id         : Number(session.package_id);
+      const webhookAcctId = typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id);
+      const voidedPayload = buildWebhookPayload(session, "session.voided", {
+        voidedAt:  new Date().toISOString(),
+        reason:    reason ?? null,
+        voidedBy:  actorEmail ?? null,
+      });
+      enqueueDeliverWebhookJob({
+        sessionToken: token,
+        packageId:    webhookPkgId,
+        accountId:    webhookAcctId,
+        eventType:    "session.voided",
+        webhookUrl:   session.webhook_url as string,
+        payload:      voidedPayload,
+      }).then((jobId) => {
+        if (!jobId) fireWebhookAsync(db, webhookPkgId, webhookAcctId, session.webhook_url as string, voidedPayload, "session.voided");
+      }).catch(() => {
+        fireWebhookAsync(db, webhookPkgId, webhookAcctId, session.webhook_url as string, voidedPayload, "session.voided");
+      });
+    }
+
     logger.info({ token, actor: actorEmail }, "[Void] Session voided");
     res.json({ ok: true, token, voidedAt: new Date().toISOString() });
   } catch (err) {
@@ -5595,7 +5630,10 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
       if (session.webhook_enabled === true && webhookUrl) {
         const webhookPkgId  = typeof session.package_id         === "number" ? session.package_id         : Number(session.package_id);
         const webhookAcctId = typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id);
-        fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, buildWebhookPayload(session));
+        fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, buildWebhookPayload(session, "interview.submitted"));
+        fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, buildWebhookPayload(session, "pdf.generated", {
+          generatedAt: new Date().toISOString(), downloadUrl: null,
+        }), "pdf.generated");
       }
       const tok = String(req.params.token);
       res.json({
@@ -5803,12 +5841,47 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
  */
 publicDocufillRouter.get("/sessions/:token", async (req, res) => {
   try {
-    const session = await getSession(req.params.token);
+    const db = getDb();
+    const session = await getSession(req.params.token, db);
     if (!session) {
       res.status(404).json({ error: "Interview session not found" });
       return;
     }
     res.json({ session: publicSessionView(session) });
+
+    // ── session.viewed lifecycle event ─────────────────────────────────────
+    // Set first_viewed_at atomically — only fires on the actual first view.
+    // Non-fatal: errors here never affect the HTTP response.
+    setImmediate(async () => {
+      try {
+        const { rowCount } = await db.query(
+          `UPDATE docufill_interview_sessions
+              SET first_viewed_at = NOW(), updated_at = NOW()
+            WHERE token = $1 AND first_viewed_at IS NULL`,
+          [req.params.token],
+        );
+        if (rowCount && rowCount > 0 && session.webhook_enabled === true &&
+            typeof session.webhook_url === "string" && session.webhook_url) {
+          const webhookPkgId  = typeof session.package_id         === "number" ? session.package_id         : Number(session.package_id);
+          const webhookAcctId = typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id);
+          const viewedPayload = buildWebhookPayload(session, "session.viewed", { viewedAt: new Date().toISOString() });
+          enqueueDeliverWebhookJob({
+            sessionToken: req.params.token,
+            packageId:    webhookPkgId,
+            accountId:    webhookAcctId,
+            eventType:    "session.viewed",
+            webhookUrl:   session.webhook_url as string,
+            payload:      viewedPayload,
+          }).then((jobId) => {
+            if (!jobId) fireWebhookAsync(db, webhookPkgId, webhookAcctId, session.webhook_url as string, viewedPayload, "session.viewed");
+          }).catch(() => {
+            fireWebhookAsync(db, webhookPkgId, webhookAcctId, session.webhook_url as string, viewedPayload, "session.viewed");
+          });
+        }
+      } catch (viewErr) {
+        logger.debug({ viewErr, token: req.params.token }, "[DocuFill] session.viewed tracking failed (non-fatal)");
+      }
+    });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load public interview session");
     res.status(500).json({ error: "Failed to load interview session" });
@@ -6094,6 +6167,39 @@ publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
       return;
     }
     res.json({ session });
+
+    // ── session.started lifecycle event ────────────────────────────────────
+    // Fires once on the first answer save. Atomic UPDATE prevents double-fire.
+    setImmediate(async () => {
+      try {
+        const { rowCount } = await db.query(
+          `UPDATE docufill_interview_sessions
+              SET first_started_at = NOW()
+            WHERE token = $1 AND first_started_at IS NULL`,
+          [req.params.token],
+        );
+        if (rowCount && rowCount > 0 && session.webhook_enabled === true &&
+            typeof session.webhook_url === "string" && session.webhook_url) {
+          const webhookPkgId  = typeof session.package_id         === "number" ? session.package_id         : Number(session.package_id);
+          const webhookAcctId = typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id);
+          const startedPayload = buildWebhookPayload(session, "session.started", { startedAt: new Date().toISOString() });
+          enqueueDeliverWebhookJob({
+            sessionToken: req.params.token,
+            packageId:    webhookPkgId,
+            accountId:    webhookAcctId,
+            eventType:    "session.started",
+            webhookUrl:   session.webhook_url as string,
+            payload:      startedPayload,
+          }).then((jobId) => {
+            if (!jobId) fireWebhookAsync(db, webhookPkgId, webhookAcctId, session.webhook_url as string, startedPayload, "session.started");
+          }).catch(() => {
+            fireWebhookAsync(db, webhookPkgId, webhookAcctId, session.webhook_url as string, startedPayload, "session.started");
+          });
+        }
+      } catch (startErr) {
+        logger.debug({ startErr, token: req.params.token }, "[DocuFill] session.started tracking failed (non-fatal)");
+      }
+    });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to save public interview answers");
     res.status(500).json({ error: "Failed to save interview answers" });
@@ -6399,7 +6505,10 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
       if (session.webhook_enabled === true && webhookUrl) {
         const webhookPkgId  = typeof session.package_id         === "number" ? session.package_id         : Number(session.package_id);
         const webhookAcctId = typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id);
-        fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, buildWebhookPayload(session));
+        fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, buildWebhookPayload(session, "interview.submitted"));
+        fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, buildWebhookPayload(session, "pdf.generated", {
+          generatedAt: new Date().toISOString(), downloadUrl: null,
+        }), "pdf.generated");
       }
       const tok = String(req.params.token);
       const pkgAccountIdSync = typeof session.package_account_id === "number" ? session.package_account_id : null;
@@ -7008,9 +7117,14 @@ export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | 
       if (session.webhook_enabled === true && webhookUrl) {
         const webhookPkgId  = typeof session.package_id         === "number" ? session.package_id         : Number(session.package_id);
         const webhookAcctId = typeof session.package_account_id === "number" ? session.package_account_id : Number(session.package_account_id);
-        const webhookPayload = buildWebhookPayload(session);
+        const webhookPayload = buildWebhookPayload(session, "interview.submitted");
+        const pdfGeneratedPayload = buildWebhookPayload(session, "pdf.generated", {
+          generatedAt: new Date().toISOString(),
+          downloadUrl: null,
+        });
         // Enqueue to deliver-webhook queue for durable, retried delivery.
         // Falls back to in-process fireWebhookAsync when the queue is unavailable.
+        // Fire both interview.submitted (backward compat) and pdf.generated (new).
         enqueueDeliverWebhookJob({
           sessionToken,
           packageId:  webhookPkgId,
@@ -7020,15 +7134,27 @@ export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | 
           payload:    webhookPayload,
         }).then((jobId) => {
           if (jobId) {
-            logger.info({ jobId, sessionToken, webhookPkgId }, "[GeneratePdf] Webhook delivery enqueued");
+            logger.info({ jobId, sessionToken, webhookPkgId }, "[GeneratePdf] interview.submitted webhook delivery enqueued");
           } else {
-            // Queue unavailable — fall back to in-process delivery with retries
             logger.warn({ sessionToken, webhookPkgId }, "[GeneratePdf] Queue unavailable — falling back to inline webhook delivery");
             fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, webhookPayload);
           }
         }).catch((enqueueErr) => {
-          logger.error({ enqueueErr, sessionToken, webhookPkgId }, "[GeneratePdf] Failed to enqueue webhook — falling back to inline delivery");
+          logger.error({ enqueueErr, sessionToken, webhookPkgId }, "[GeneratePdf] Failed to enqueue interview.submitted webhook — falling back to inline delivery");
           fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, webhookPayload);
+        });
+        // Also fire pdf.generated event
+        enqueueDeliverWebhookJob({
+          sessionToken,
+          packageId:  webhookPkgId,
+          accountId:  webhookAcctId,
+          eventType:  "pdf.generated",
+          webhookUrl,
+          payload:    pdfGeneratedPayload,
+        }).then((jobId) => {
+          if (!jobId) fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, pdfGeneratedPayload, "pdf.generated");
+        }).catch(() => {
+          fireWebhookAsync(db, webhookPkgId, webhookAcctId, webhookUrl, pdfGeneratedPayload, "pdf.generated");
         });
       }
 

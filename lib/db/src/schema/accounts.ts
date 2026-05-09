@@ -133,6 +133,20 @@ export const accountApiKeys = pgTable("account_api_keys", {
   index("account_api_keys_hash_idx").on(t.keyHash),
 ]);
 
+export const scimTokens = pgTable("scim_tokens", {
+  id: serial("id").primaryKey(),
+  accountId: integer("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  tokenHash: text("token_hash").notNull().unique(),
+  tokenPrefix: text("token_prefix").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+}, (t) => [
+  index("scim_tokens_account_idx").on(t.accountId),
+  index("scim_tokens_hash_idx").on(t.tokenHash),
+]);
+
 export const accountAdminNotes = pgTable("account_admin_notes", {
   id: serial("id").primaryKey(),
   accountId: integer("account_id").notNull().references(() => accounts.id, { onDelete: "cascade" }),

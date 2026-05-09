@@ -5,17 +5,17 @@ import type {
   CreateSessionParams,
   CreateSessionResult,
   ListSessionsParams,
+  ListSessionsResult,
   GenerateSessionResult,
   GenerateStatusResult,
+  BulkCreateSessionItem,
+  BulkCreateSessionResult,
+  AuditLogResult,
+  SessionSignersResult,
 } from "../types.js";
 
 interface GetSessionResponse {
   session: Session;
-}
-
-interface ListSessionsResponse {
-  sessions: SessionListItem[];
-  total: number;
 }
 
 export interface SendLinkParams {
@@ -38,6 +38,37 @@ export class SessionsResource {
   constructor(private readonly client: DocupleteClient) {}
 
   /**
+   * List sessions for your account with optional filters.
+   * Returns sessions in descending `created_at` order.
+   *
+   * @example
+   * ```ts
+   * // List all submitted sessions for a specific package
+   * const { sessions, total } = await client.sessions.list({
+   *   packageId: 42,
+   *   status: "generated",
+   *   limit: 50,
+   * });
+   *
+   * // Incremental sync — only sessions updated since last poll
+   * const { sessions } = await client.sessions.list({
+   *   updatedAfter: "2024-01-15T00:00:00Z",
+   * });
+   * ```
+   */
+  async list(params: ListSessionsParams = {}): Promise<ListSessionsResult> {
+    const query: Record<string, string | number | undefined> = {
+      packageId:    params.packageId,
+      status:       params.status,
+      limit:        params.limit,
+      offset:       params.offset,
+      updatedAfter: params.updatedAfter,
+      search:       params.search,
+    };
+    return this.client.get<ListSessionsResult>("/sessions", query);
+  }
+
+  /**
    * Create a new interview session via the headless API.
    *
    * Returns a `sessionToken` and a ready-to-use `interviewUrl` your client
@@ -47,52 +78,100 @@ export class SessionsResource {
    * (e.g. `{ firstName: "Jane", email: "jane@example.com" }`).
    *
    * Requires a `dp_live_…` API key.
+   *
+   * @example
+   * ```ts
+   * const { sessionToken, interviewUrl } = await client.sessions.create({
+   *   packageId: 42,
+   *   prefill: { firstName: "Jane", email: "jane@acme.com" },
+   *   reminders: { enabled: true, intervalDays: 2 },
+   * });
+   * ```
    */
   async create(params: CreateSessionParams): Promise<CreateSessionResult> {
     const body: Record<string, unknown> = { packageId: params.packageId };
     if (params.prefill !== undefined)        body.prefill        = params.prefill;
     if (params.linkExpiryDays !== undefined) body.linkExpiryDays = params.linkExpiryDays;
     if (params.locale !== undefined)         body.locale         = params.locale;
+    if (params.reminders !== undefined)      body.reminders      = params.reminders;
+    if (params.signers !== undefined)        body.signers        = params.signers;
 
     return this.client.post<CreateSessionResult>("/sessions", body);
   }
 
   /**
+   * Create up to 100 sessions in a single request.
+   *
+   * Each item in `sessions` accepts the same parameters as `create()`.
+   * The batch processes all items — per-item failures do not abort the batch.
+   * Check each result's `ok` field for success or failure.
+   *
+   * Returns HTTP 207 Multi-Status regardless of individual outcomes.
+   *
+   * @example
+   * ```ts
+   * const { results } = await client.sessions.bulkCreate({
+   *   sessions: [
+   *     { packageId: 42, prefill: { email: "alice@acme.com" } },
+   *     { packageId: 42, prefill: { email: "bob@acme.com" } },
+   *   ],
+   * });
+   * for (const r of results) {
+   *   if (r.ok) console.log("Created:", r.sessionToken);
+   *   else console.error("Failed item", r.index, ":", r.error);
+   * }
+   * ```
+   */
+  async bulkCreate(params: { sessions: BulkCreateSessionItem[] }): Promise<BulkCreateSessionResult> {
+    return this.client.post<BulkCreateSessionResult>("/sessions/bulk", params);
+  }
+
+  /**
    * Fetch the current state of a session by its token.
-   * Use this to poll for completion (`status === "generated"`) or
-   * to retrieve submitted answers.
+   * Sensitive fields are redacted in the response.
    */
   async get(token: string): Promise<Session> {
-    const res = await this.client.get<GetSessionResponse>(
-      `/product/docuplete/sessions/${token}`,
-    );
+    const res = await this.client.get<GetSessionResponse>(`/sessions/${token}`);
     return res.session;
   }
 
   /**
-   * List sessions for your account with optional filters.
-   * Returns sessions in descending `updated_at` order.
+   * Retrieve the full chronological audit trail for a session.
    *
-   * @param params.updatedAfter  ISO-8601 timestamp — only return sessions updated after this time.
-   *                             Useful for incremental sync with a cursor pattern.
+   * Each entry records a discrete event — session created, link sent, first
+   * viewed, first answered, submitted, PDF generated, downloaded, voided, etc.
+   * — including actor type, IP address, and structured metadata.
+   *
+   * Entries are returned oldest-first and are immutable once written.
+   *
+   * @example
+   * ```ts
+   * const { entries } = await client.sessions.auditLog(token);
+   * for (const e of entries) {
+   *   console.log(e.event, e.createdAt, e.actorType, e.actorIp);
+   * }
+   * ```
    */
-  async list(
-    params: ListSessionsParams = {},
-  ): Promise<{ sessions: SessionListItem[]; total: number }> {
-    const query: Record<string, string | number | undefined> = {
-      packageId:    params.packageId,
-      status:       params.status,
-      limit:        params.limit,
-      offset:       params.offset,
-      updatedAfter: params.updatedAfter,
-    };
-    return this.client.get<ListSessionsResponse>("/product/docuplete/sessions", query);
+  async auditLog(token: string, params?: { limit?: number }): Promise<AuditLogResult> {
+    return this.client.get<AuditLogResult>(
+      `/sessions/${token}/audit-log`,
+      params?.limit !== undefined ? { limit: params.limit } : undefined,
+    );
+  }
+
+  /**
+   * Returns the ordered list of signers for a multi-party signing session.
+   *
+   * For sessions created with a `signers` array, this shows each signer's
+   * current status and their unique interview token.
+   */
+  async signers(token: string): Promise<SessionSignersResult> {
+    return this.client.get<SessionSignersResult>(`/sessions/${token}/signers`);
   }
 
   /**
    * Save interview answers for a session programmatically.
-   * Useful when you want to fill the form on behalf of the client rather than
-   * sending them to the interview URL.
+   * Useful when you want to fill the form on behalf of the client.
    */
   async updateAnswers(
     token: string,
@@ -108,13 +187,9 @@ export class SessionsResource {
   /**
    * Trigger final PDF packet generation for a completed session.
    * Fires any enabled integrations (Google Drive, HubSpot, webhooks).
-   * Call this after `updateAnswers` when filling the session programmatically.
    *
    * When BullMQ is available the job is enqueued and `status === "pending"` is returned.
    * Poll `getGenerateStatus(token, jobId)` until `status === "ready"`.
-   *
-   * When the queue is unavailable (degraded mode) generation is synchronous and
-   * `status === "generated"` is returned with an immediate `downloadUrl`.
    */
   async generate(token: string): Promise<GenerateSessionResult> {
     return this.client.post<GenerateSessionResult>(
@@ -126,17 +201,12 @@ export class SessionsResource {
   /**
    * Poll the status of a background PDF generation job.
    *
-   * @param token  The session token.
-   * @param jobId  The `jobId` returned by `generate()` when `status === "pending"`.
-   *               Omit to check session status without a job reference.
-   *
    * @example
    * ```ts
    * const result = await client.sessions.generate(token);
    * if (result.status === "generated") {
-   *   console.log("Ready immediately:", result.downloadUrl);
+   *   console.log("Ready:", result.downloadUrl);
    * } else {
-   *   // Poll every 2 s
    *   let ready = false;
    *   while (!ready) {
    *     await new Promise(r => setTimeout(r, 2000));
@@ -156,8 +226,6 @@ export class SessionsResource {
 
   /**
    * Send (or re-send) the interview link email to a recipient.
-   * The email is sent from your organisation's configured address
-   * and includes the unique interview URL for this session.
    */
   async sendLink(token: string, params: SendLinkParams): Promise<{ ok: boolean; sentTo: string }> {
     return this.client.post<{ ok: boolean; sentTo: string }>(
@@ -173,8 +241,6 @@ export class SessionsResource {
   /**
    * Void a session, immediately invalidating its interview link.
    * Voided sessions cannot be submitted. This cannot be undone.
-   *
-   * Sessions in `pending`, `in_progress`, or `generated` state can be voided.
    */
   async void(
     token: string,

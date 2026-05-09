@@ -1,6 +1,6 @@
 import type { components } from "./openapi.js";
 
-export type SessionStatus = "pending" | "in_progress" | "generated" | "voided" | "expired";
+export type SessionStatus = "draft" | "pending" | "in_progress" | "submitted" | "signed" | "generated" | "voided" | "expired";
 
 export type Package = Required<components["schemas"]["DocuFillPackage"]> & {
   fields: unknown[];
@@ -8,7 +8,20 @@ export type Package = Required<components["schemas"]["DocuFillPackage"]> & {
 };
 
 export type SessionListItem = Omit<components["schemas"]["DocuFillSessionListItem"], "status"> & {
+  id: number;
+  token: string;
+  packageId: number;
+  packageName: string;
   status: SessionStatus;
+  source: string;
+  prefill: Record<string, unknown>;
+  locale: string;
+  testMode: boolean;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string | null;
+  submittedAt: string | null;
+  voidedAt: string | null;
 };
 
 export type Session = Omit<components["schemas"]["DocuFillSession"], "status"> & {
@@ -28,13 +41,24 @@ export type Account = components["schemas"]["AccountInfo"];
 
 export type SupportedLocale = "en" | "es" | "fr" | "de" | "pt" | "zh" | "ja" | "ko" | "ar";
 
+// ── Session creation ──────────────────────────────────────────────────────────
+
+/** A signer in a multi-party sequential signing workflow. */
+export interface SessionSigner {
+  /** Signer's email address — they receive an interview link. */
+  email: string;
+  /** Display name used in email greetings. */
+  name?: string;
+  /** 0-based signing order. Signers proceed in ascending order. Default: 0. */
+  order?: number;
+}
+
 export interface CreateSessionParams {
   /** ID of the active package to use for this session. */
   packageId: number;
   /**
    * Optional map of field source key → string value to pre-populate before
-   * the client sees the interview. Source keys are the short identifiers
-   * shown in the field editor (e.g. `firstName`, `email`, `ssn`).
+   * the client sees the interview.
    */
   prefill?: Record<string, string>;
   /**
@@ -43,84 +67,175 @@ export interface CreateSessionParams {
    * Omit to use your organisation's default setting.
    */
   linkExpiryDays?: number | null;
-  /**
-   * Interview language locale.
-   * Omit to use your organisation's default locale.
-   */
+  /** Interview language locale. Omit to use your organisation's default locale. */
   locale?: SupportedLocale;
+  /**
+   * Automatic reminder email configuration.
+   * Omit to use your organisation's default setting.
+   */
+  reminders?: {
+    /** Whether to send reminder emails when the session link goes unopened. */
+    enabled: boolean;
+    /** Days between reminder emails (1–30). */
+    intervalDays: number;
+  };
+  /**
+   * Multi-party signing — list of signers who must each complete the interview
+   * in order. When provided, the session routes through each signer sequentially.
+   * Maximum 10 signers.
+   */
+  signers?: SessionSigner[];
 }
 
 export interface CreateSessionResult {
-  /** Unique session token — use this to poll status or void the session. */
+  /** Unique session token (`df_...`). Use this to poll status or void the session. */
   sessionToken: string;
-  /** Ready-to-use interview URL — send or redirect your client here. */
+  /** Ready-to-use interview URL. Send or redirect your client here. */
   interviewUrl: string;
-  /**
-   * ISO-8601 expiry timestamp, or `null` if the link never expires.
-   */
+  /** ISO-8601 expiry timestamp, or `null` if the link never expires. */
   expiresAt: string | null;
 }
 
-/**
- * Result when PDF generation is dispatched to the background queue (HTTP 202).
- * Poll `sessions.getGenerateStatus(token, jobId)` until `status === "ready"`.
- */
-export interface GenerateSessionPending {
-  status: "pending";
-  jobId: string;
-}
+// ── Bulk session creation ─────────────────────────────────────────────────────
 
-/**
- * Result when PDF generation completes synchronously (Redis unavailable fallback, HTTP 200).
- */
-export interface GenerateSessionReady {
-  status: "generated";
-  packet: { token: string; status: string; byteSize: number };
-  downloadUrl: string;
-}
+export interface BulkCreateSessionItem extends CreateSessionParams {}
 
-/**
- * Discriminated union returned by `sessions.generate()`.
- *
- * - `status === "pending"` → background job enqueued. Use `jobId` with
- *   `sessions.getGenerateStatus()` to poll for completion.
- * - `status === "generated"` → PDF generated synchronously. Use `downloadUrl`
- *   to retrieve the file immediately.
- */
-export type GenerateSessionResult = GenerateSessionPending | GenerateSessionReady;
-
-/** Response from `sessions.getGenerateStatus()`. */
-export interface GenerateStatusResult {
-  /** `ready` = download available; `pending`/`processing` = still running; `failed` = error */
-  status: "pending" | "processing" | "ready" | "failed";
-  /** Relative URL to the generated PDF. Only present when `status === "ready"`. */
-  downloadUrl?: string;
-  /** Error description. Only present when `status === "failed"`. */
+export interface BulkCreateSessionResultItem {
+  /** 0-based index of this item in the original request. */
+  index: number;
+  ok: boolean;
+  /** Present when `ok === true`. */
+  sessionToken?: string;
+  /** Present when `ok === true`. */
+  interviewUrl?: string;
+  /** Present when `ok === true`. */
+  expiresAt?: string | null;
+  /** Present when `ok === false`. */
   error?: string;
 }
+
+export interface BulkCreateSessionResult {
+  results: BulkCreateSessionResultItem[];
+  total: number;
+  succeeded: number;
+  failed: number;
+}
+
+// ── Session list ──────────────────────────────────────────────────────────────
 
 export interface ListSessionsParams {
   packageId?: number;
   status?: SessionStatus;
   limit?: number;
   offset?: number;
-  /** ISO-8601 timestamp. When provided, returns only sessions updated after this time. */
+  /** ISO-8601 timestamp. Returns only sessions updated after this time. */
   updatedAfter?: string;
+  /** Full-text search across prefill values. */
+  search?: string;
 }
 
-/** Sandbox session response from `sandbox.start()`. */
+export interface ListSessionsResult {
+  sessions: SessionListItem[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+// ── Audit log ─────────────────────────────────────────────────────────────────
+
+export interface AuditLogEntry {
+  /** Unique entry ID. */
+  id: number;
+  /**
+   * Event type. One of:
+   * `session.created` | `session.viewed` | `session.started` |
+   * `session.submitted` | `session.generated` | `session.voided` |
+   * `session.expired` | `link.sent` | `pdf.downloaded` | `signer.completed`
+   */
+  event: string;
+  /** Who performed the action: `api` | `signer` | `staff` | `system`. */
+  actorType: string;
+  /** Email of the actor, if known. */
+  actorEmail: string | null;
+  /** IP address of the actor, if known. */
+  actorIp: string | null;
+  /** Arbitrary structured metadata for this event. */
+  metadata: Record<string, unknown>;
+  /** ISO-8601 timestamp of when the event occurred. */
+  createdAt: string;
+}
+
+export interface AuditLogResult {
+  token: string;
+  entries: AuditLogEntry[];
+  total: number;
+}
+
+// ── Multi-party signing ───────────────────────────────────────────────────────
+
+export interface SessionSignerStatus {
+  id: number;
+  order: number;
+  email: string;
+  name: string | null;
+  /** `pending` | `awaiting` | `notified` | `signed` | `declined` */
+  status: string;
+  /** Signer's unique interview token. */
+  signerToken: string;
+  notifiedAt: string | null;
+  signedAt: string | null;
+  declinedAt: string | null;
+  declinedReason: string | null;
+  createdAt: string;
+}
+
+export interface SessionSignersResult {
+  token: string;
+  signers: SessionSignerStatus[];
+  allSigned: boolean;
+}
+
+// ── Custom domain ─────────────────────────────────────────────────────────────
+
+export interface CustomDomainStatus {
+  domain: string | null;
+  /** `not_configured` | `pending_verification` | `active` | `verification_failed` */
+  status: string;
+  verifiedAt: string | null;
+  cnameTarget: string;
+  instructions: string | null;
+}
+
+// ── PDF generation ────────────────────────────────────────────────────────────
+
+export interface GenerateSessionPending {
+  status: "pending";
+  jobId: string;
+}
+
+export interface GenerateSessionReady {
+  status: "generated";
+  packet: { token: string; status: string; byteSize: number };
+  downloadUrl: string;
+}
+
+export type GenerateSessionResult = GenerateSessionPending | GenerateSessionReady;
+
+export interface GenerateStatusResult {
+  status: "pending" | "processing" | "ready" | "failed";
+  downloadUrl?: string;
+  error?: string;
+}
+
+// ── Sandbox ───────────────────────────────────────────────────────────────────
+
 export interface SandboxStartResult {
-  /** Sandbox session token (`df_sbx_...`). */
   sessionToken: string;
-  /** Interview URL with `?sandbox=1` appended — open in a browser to try the demo flow. */
   interviewUrl: string;
-  /** Prefill values provided as query parameters. */
   prefill: Record<string, string>;
-  /** ISO-8601 expiry timestamp (7 days from creation). */
   expiresAt: string;
 }
 
-/** Optional prefill values for `sandbox.start()`. */
 export interface SandboxStartParams {
   firstName?: string;
   lastName?: string;
@@ -132,7 +247,8 @@ export interface SandboxStartParams {
   zip?: string;
 }
 
-/** A single webhook delivery attempt record. */
+// ── Webhook delivery ──────────────────────────────────────────────────────────
+
 export interface WebhookDelivery {
   id: number;
   event_type: string;
@@ -143,6 +259,8 @@ export interface WebhookDelivery {
   created_at: string;
   has_payload: boolean;
 }
+
+// ── Client options ────────────────────────────────────────────────────────────
 
 export interface DocupleteClientOptions {
   apiKey: string;
