@@ -32,7 +32,7 @@ import { FieldCard } from "@/components/FieldCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { DocumentPreviewTile } from "@/components/DocumentPreviewTile";
 import { EmptyState, SummaryCard, LabeledInput, EntityPanel, TransactionTypesPanel, FieldLibraryPanel, FieldGroupsPanel } from "@/components/DocuFillPanels";
-import type { Entity, TransactionType, DocItem, FieldLibraryItem, FieldVersionRow, FieldAnalytics, FieldGroup, PackageItem } from "@/lib/docufill-local-types";
+import type { Entity, TransactionType, DocItem, FieldLibraryItem, FieldVersionRow, FieldAnalytics, FieldGroup, PackageItem, ComplianceTag } from "@/lib/docufill-local-types";
 import { FieldEditorModal, type FieldEditorDraft } from "@/components/FieldEditorModal";
 import { TagChipInput, PackagePickerWithTags, ScrollPageCanvas, EmbedSnippetPanel } from "@/components/DocuFillWidgets";
 import { PackagePickerSidebar, type BuilderStep, BUILDER_STEPS } from "@/components/PackagePickerSidebar";
@@ -105,6 +105,25 @@ type AcroAnnotation = {
   fieldName: string;
   rect: [number, number, number, number];
   fieldType: string;
+};
+
+type ComplianceAuditEntry = {
+  fieldId: string;
+  label: string;
+  tags: string[];
+};
+type ComplianceAuditPackageRow = {
+  packageId: number;
+  packageName: string;
+  status: string;
+  present: ComplianceAuditEntry[];
+  missing: ComplianceAuditEntry[];
+  requiredMissingCount: number;
+  hasGap: boolean;
+};
+type ComplianceAuditReport = {
+  tags: Array<{ name: string; color: string; is_required: boolean }>;
+  report: ComplianceAuditPackageRow[];
 };
 
 // ─── E-Sign system field sidebar definitions (IDs imported from shared lib) ──
@@ -319,12 +338,12 @@ export default function DocuFill() {
   })());
   const urlParamsApplied = useRef(false);
 
-  const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv" | "groups">(() => {
+  const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv" | "groups" | "compliance">(() => {
     if (sessionToken) return "interview";
     if (_initSp.get("tab") === "sessions") return "interview";
     try {
       const saved = sessionStorage.getItem("docufill:tab");
-      if (saved === "packages" || saved === "mapper" || saved === "csv" || saved === "groups") return saved;
+      if (saved === "packages" || saved === "mapper" || saved === "csv" || saved === "groups" || saved === "compliance") return saved;
     } catch { /* sessionStorage unavailable */ }
     return "packages";
   });
@@ -352,6 +371,10 @@ export default function DocuFill() {
   const [typeDeletingScope, setTypeDeletingScope] = useState<string | null>(null);
   const [fieldLibrary, setFieldLibrary] = useState<FieldLibraryItem[]>([]);
   const [fieldGroups, setFieldGroups] = useState<FieldGroup[]>([]);
+  const [complianceTags, setComplianceTags] = useState<ComplianceTag[]>([]);
+  const [complianceAudit, setComplianceAudit] = useState<ComplianceAuditReport | null>(null);
+  const [complianceAuditLoading, setComplianceAuditLoading] = useState(false);
+  const [complianceAuditError, setComplianceAuditError] = useState<string | null>(null);
   const [bootstrapLoaded, setBootstrapLoaded] = useState(false);
   const [seedingDemo, setSeedingDemo] = useState(false);
   const [demoUiState, setDemoUiState] = useState<"try" | "open" | "dismissed">(() => {
@@ -839,6 +862,7 @@ export default function DocuFill() {
       setFieldLibrary(normalizeFieldLibrary(data.fieldLibrary ?? []));
       setFieldGroups(Array.isArray(data.fieldGroups) ? data.fieldGroups as FieldGroup[] : []);
       setSlackConnected(data.slackConnected === true);
+      void loadComplianceTags();
       setPackages(loadedPackages);
       setSelectedPackageId((current) => {
         // Keep the current selection if it still exists in the freshly loaded packages.
@@ -899,6 +923,47 @@ export default function DocuFill() {
   function dismissDemoUi() {
     setDemoUiState("dismissed");
     try { localStorage.setItem("docufill:demo-ui", "dismissed"); } catch { /* ignore */ }
+  }
+
+  async function loadComplianceTags() {
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/compliance-tags`, { headers: { ...getAuthHeaders() } });
+      if (!res.ok) return;
+      const data = await res.json() as { tags: ComplianceTag[] };
+      setComplianceTags(data.tags ?? []);
+    } catch { /* non-fatal */ }
+  }
+
+  async function loadComplianceAudit() {
+    setComplianceAuditLoading(true);
+    setComplianceAuditError(null);
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/compliance-audit`, { headers: { ...getAuthHeaders() } });
+      const data = await res.json().catch(() => ({})) as { error?: string } & Partial<ComplianceAuditReport>;
+      if (!res.ok) throw new Error(data.error ?? "Failed to load audit report");
+      setComplianceAudit(data as ComplianceAuditReport);
+    } catch (err) {
+      setComplianceAuditError(err instanceof Error ? err.message : "Failed to load audit report");
+    } finally {
+      setComplianceAuditLoading(false);
+    }
+  }
+
+  async function setFieldComplianceTags(fieldId: string, tags: string[]): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/${fieldId}/compliance-tags`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ complianceTags: tags }),
+      });
+      const data = await res.json().catch(() => ({})) as { error?: string; field?: { complianceTags?: string[] } };
+      if (!res.ok) return data.error ?? "Failed to update compliance tags";
+      // Update local field library state
+      setFieldLibrary((prev) => prev.map((f) => f.id === fieldId ? { ...f, complianceTags: data.field?.complianceTags ?? tags } : f));
+      return null;
+    } catch (err) {
+      return err instanceof Error ? err.message : "Failed to update compliance tags";
+    }
   }
 
   useEffect(() => {
@@ -3160,6 +3225,13 @@ export default function DocuFill() {
           </Tooltip>
           <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
           <button onClick={() => setTab("csv")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "csv" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch CSV</button>
+          <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
+          <button
+            onClick={() => { setTab("compliance"); void loadComplianceAudit(); }}
+            className={`px-4 py-2 text-sm border-b-2 transition-colors flex items-center gap-1.5 ${tab === "compliance" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+          >
+            Compliance
+          </button>
         </div>}
       </div>
       {error && <div className="mb-4 rounded border border-red-200 bg-red-50 text-red-800 px-3 py-2 text-sm">{error}</div>}
@@ -3294,6 +3366,8 @@ export default function DocuFill() {
           handleSeedDemo={handleSeedDemo}
           setStandalonePackageId={setStandalonePackageId}
           setTab={setTab}
+          allComplianceTags={complianceTags}
+          setFieldComplianceTags={setFieldComplianceTags}
           sendTestWebhook={sendTestWebhook}
           fetchWebhookDeliveries={fetchWebhookDeliveries}
           fetchWebhookSecret={fetchWebhookSecret}
@@ -3534,6 +3608,133 @@ export default function DocuFill() {
           handleCsvBatchFileChange={handleCsvBatchFileChange}
           handleCsvBatchImport={handleCsvBatchImport}
         />
+      )}
+
+      {tab === "compliance" && !isPublicSession && (
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-semibold text-[#0F1C3F]">Compliance Audit</h2>
+              <p className="text-[11px] text-[#8A9BB8]">For each package, shows which required-tagged library fields are present or missing.</p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => void loadComplianceAudit()}
+                disabled={complianceAuditLoading}
+                className="px-3 py-1.5 text-xs rounded border border-[#DDD5C4] bg-white text-[#0F1C3F] hover:border-[#1B4FD8] disabled:opacity-50 transition-colors"
+              >
+                {complianceAuditLoading ? "Loading…" : "Refresh"}
+              </button>
+              {complianceAudit && complianceAudit.report.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const headers = ["Package", "Status", "Has Gap", "Required Missing", "Present Fields", "Missing Fields"];
+                    const rows = complianceAudit.report.map((row) => [
+                      row.packageName,
+                      row.status,
+                      row.hasGap ? "Yes" : "No",
+                      String(row.requiredMissingCount),
+                      row.present.map((f) => `${f.label} [${f.tags.join(",")}]`).join("; "),
+                      row.missing.map((f) => `${f.label} [${f.tags.join(",")}]`).join("; "),
+                    ]);
+                    const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+                    const blob = new Blob([csv], { type: "text/csv" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a"); a.href = url; a.download = "compliance-audit.csv"; a.click();
+                    URL.revokeObjectURL(url);
+                  }}
+                  className="px-3 py-1.5 text-xs rounded border border-[#DDD5C4] bg-white text-[#0F1C3F] hover:border-[#C49A38] transition-colors"
+                >
+                  Export CSV
+                </button>
+              )}
+            </div>
+          </div>
+          {complianceAuditError && (
+            <div className="mb-3 rounded border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">{complianceAuditError}</div>
+          )}
+          {!complianceAudit && !complianceAuditLoading && !complianceAuditError && (
+            <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-6 text-center text-sm text-[#8A9BB8]">
+              Click <strong>Refresh</strong> to generate the compliance audit report.
+            </div>
+          )}
+          {complianceAudit && (
+            <div className="space-y-3">
+              {complianceAudit.report.length === 0 && (
+                <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-6 text-center text-sm text-[#8A9BB8]">No packages found.</div>
+              )}
+              {complianceAudit.report.map((row) => (
+                <div key={row.packageId} className={`rounded border ${row.hasGap ? "border-[#FCA5A5] bg-[#FFF5F5]" : "border-[#D1FAE5] bg-[#F0FDF4]"} p-4`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="font-semibold text-sm text-[#0F1C3F]">{row.packageName}</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#EBF0FB] text-[#1B4FD8] font-medium">{row.status}</span>
+                    {row.hasGap && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#DC2626] font-semibold">
+                        {row.requiredMissingCount} required missing
+                      </span>
+                    )}
+                    {!row.hasGap && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#D1FAE5] text-[#059669] font-semibold">✓ Compliant</span>
+                    )}
+                  </div>
+                  <div className="grid md:grid-cols-2 gap-3 text-[11px]">
+                    <div>
+                      <div className="font-semibold text-[#059669] mb-1">Present ({row.present.length})</div>
+                      {row.present.length === 0 ? (
+                        <span className="text-[#8A9BB8]">None</span>
+                      ) : (
+                        <ul className="space-y-0.5">
+                          {row.present.map((f) => (
+                            <li key={f.fieldId} className="flex items-center gap-1 flex-wrap">
+                              <span className="text-[#0F1C3F]">{f.label}</span>
+                              {f.tags.map((t) => {
+                                const tm = complianceAudit.tags.find((x) => x.name === t);
+                                return (
+                                  <span key={t} className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium"
+                                    style={{ backgroundColor: `${tm?.color ?? "#6B7A99"}22`, color: tm?.color ?? "#6B7A99", border: `1px solid ${tm?.color ?? "#6B7A99"}55` }}>
+                                    {t}
+                                  </span>
+                                );
+                              })}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-[#DC2626] mb-1">Missing ({row.missing.length})</div>
+                      {row.missing.length === 0 ? (
+                        <span className="text-[#8A9BB8]">None</span>
+                      ) : (
+                        <ul className="space-y-0.5">
+                          {row.missing.map((f) => {
+                            const hasRequired = f.tags.some((t) => complianceAudit.tags.find((x) => x.name === t)?.is_required);
+                            return (
+                              <li key={f.fieldId} className="flex items-center gap-1 flex-wrap">
+                                <span className={hasRequired ? "text-[#DC2626] font-medium" : "text-[#6B7A99]"}>{f.label}</span>
+                                {f.tags.map((t) => {
+                                  const tm = complianceAudit.tags.find((x) => x.name === t);
+                                  return (
+                                    <span key={t} className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium"
+                                      style={{ backgroundColor: `${tm?.color ?? "#6B7A99"}22`, color: tm?.color ?? "#6B7A99", border: `1px solid ${tm?.color ?? "#6B7A99"}55` }}>
+                                      {t}
+                                    </span>
+                                  );
+                                })}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       )}
 
       {inspectorMode === "modal" && placementModal && selectedPackage && (() => {

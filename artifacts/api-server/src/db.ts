@@ -844,6 +844,31 @@ export async function initDb(): Promise<void> {
     CREATE INDEX IF NOT EXISTS docufill_field_groups_account_idx
       ON docufill_field_groups (account_id, sort_order ASC, name ASC)
   `);
+
+  // ── Compliance tags ────────────────────────────────────────────────────────
+  // Account-configurable tags for marking library fields as required by specific
+  // regulations (KYC, FINRA, AML, etc.). is_required drives the audit report.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_compliance_tags (
+      id          SERIAL PRIMARY KEY,
+      account_id  INTEGER NOT NULL REFERENCES accounts(id),
+      name        TEXT NOT NULL,
+      color       TEXT NOT NULL DEFAULT '#6B7A99',
+      description TEXT,
+      is_required BOOLEAN NOT NULL DEFAULT FALSE,
+      is_builtin  BOOLEAN NOT NULL DEFAULT FALSE,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (account_id, name)
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS docufill_compliance_tags_account_idx
+      ON docufill_compliance_tags (account_id, name ASC)
+  `);
+  // Add compliance_tags JSONB column to docufill_fields (array of tag names, e.g. ["KYC","AML"])
+  await db.query(`ALTER TABLE docufill_fields ADD COLUMN IF NOT EXISTS compliance_tags JSONB NOT NULL DEFAULT '[]'::jsonb`);
+
   await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_packages (
       id                SERIAL PRIMARY KEY,

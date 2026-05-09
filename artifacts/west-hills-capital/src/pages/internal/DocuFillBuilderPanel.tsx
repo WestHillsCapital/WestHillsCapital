@@ -141,7 +141,9 @@ export interface DocuFillBuilderPanelProps {
   handleOpenDemoInterview: () => void;
   handleSeedDemo: () => void;
   setStandalonePackageId: React.Dispatch<React.SetStateAction<string>>;
-  setTab: React.Dispatch<React.SetStateAction<"packages" | "interview" | "mapper" | "csv" | "groups">>;
+  allComplianceTags?: import("@/lib/docufill-local-types").ComplianceTag[];
+  setFieldComplianceTags?: (fieldId: string, tags: string[]) => Promise<string | null>;
+  setTab: React.Dispatch<React.SetStateAction<"packages" | "interview" | "mapper" | "csv" | "groups" | "compliance">>;
   sendTestWebhook: (packageId: number) => Promise<void>;
   fetchWebhookDeliveries: (packageId: number) => Promise<void>;
   fetchWebhookSecret: (packageId: number) => Promise<void>;
@@ -174,6 +176,7 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
     launchTestInterview, openFieldEditorForAdd,
     openFieldEditorForEdit, removeField, setSelectedFieldId, setPackages,
     dismissDemoUi, handleOpenDemoInterview, handleSeedDemo, setStandalonePackageId, setTab,
+    allComplianceTags, setFieldComplianceTags,
     sendTestWebhook, fetchWebhookDeliveries, fetchWebhookSecret, retryDelivery,
   } = props;
 
@@ -509,9 +512,11 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
                     />
                     <FieldLibraryPanel
                       items={fieldLibrary}
+                      allComplianceTags={allComplianceTags}
                       onAdd={createFieldLibraryItem as () => Promise<string | null>}
                       onChange={updateFieldLibraryLocal}
                       onSave={saveFieldLibraryItem as (item: FieldLibraryItem) => Promise<string | null>}
+                      onSetComplianceTags={setFieldComplianceTags}
                       onUse={addLibraryFieldToPackage}
                       onDelete={deleteFieldLibraryItem as (id: string) => Promise<string | null>}
                       onLoadVersions={loadFieldLibraryVersions}

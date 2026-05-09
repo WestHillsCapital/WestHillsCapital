@@ -31,6 +31,17 @@ export type DocItem = {
   updatedAt?: string;
 };
 
+export type ComplianceTag = {
+  id: number;
+  name: string;
+  color: string;
+  description: string | null;
+  isRequired: boolean;
+  isBuiltin: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type FieldLibraryItem = {
   id: string;
   label: string;
@@ -48,6 +59,7 @@ export type FieldLibraryItem = {
   packageCount?: number;
   answerCount?: number;
   lastAnswered?: string | null;
+  complianceTags?: string[];
 };
 
 export type FieldAnalytics = {

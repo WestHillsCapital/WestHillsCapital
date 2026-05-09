@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import type { Entity, TransactionType, FieldLibraryItem, FieldVersionRow, FieldAnalytics, FieldGroup } from "@/lib/docufill-local-types";
+import type { Entity, TransactionType, FieldLibraryItem, FieldVersionRow, FieldAnalytics, FieldGroup, ComplianceTag } from "@/lib/docufill-local-types";
 import type { FieldItem } from "@/lib/docufill-types";
 
 // ─── Tiny SVG sparkline ───────────────────────────────────────────────────────
@@ -582,11 +582,75 @@ function diffSummary(
   return changed.length > 0 ? changed.join(", ") : "minor changes";
 }
 
+// ─── Compliance tag chip (inline display) ────────────────────────────────────
+function ComplianceTagChip({ name, color, onRemove }: { name: string; color: string; onRemove?: () => void }) {
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium"
+      style={{ backgroundColor: `${color}22`, color, border: `1px solid ${color}55` }}
+    >
+      {name}
+      {onRemove && (
+        <button type="button" onClick={onRemove} className="ml-0.5 opacity-60 hover:opacity-100 leading-none">×</button>
+      )}
+    </span>
+  );
+}
+
+// ─── Compliance tag picker popover ───────────────────────────────────────────
+function ComplianceTagPicker({
+  allTags,
+  selectedTagNames,
+  onToggle,
+  onClose,
+}: {
+  allTags: ComplianceTag[];
+  selectedTagNames: string[];
+  onToggle: (name: string) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  return (
+    <div
+      ref={ref}
+      className="absolute left-0 top-full mt-1 z-50 w-56 rounded-lg border border-[#DDD5C4] bg-white shadow-lg py-1"
+    >
+      <div className="px-2 pt-1 pb-0.5 text-[10px] text-[#8A9BB8] uppercase tracking-wide font-semibold">Compliance tags</div>
+      {allTags.length === 0 && (
+        <div className="px-3 py-2 text-[11px] text-[#8A9BB8]">No tags defined.</div>
+      )}
+      {allTags.map((tag) => {
+        const selected = selectedTagNames.includes(tag.name);
+        return (
+          <button
+            key={tag.id}
+            type="button"
+            onClick={() => onToggle(tag.name)}
+            className="flex items-center gap-2 w-full px-2 py-1 text-left hover:bg-[#F8F6F0] transition-colors"
+          >
+            <span
+              className="w-2.5 h-2.5 rounded-full flex-shrink-0 border"
+              style={{ backgroundColor: selected ? tag.color : "transparent", borderColor: tag.color }}
+            />
+            <span className="text-[11px] text-[#0B1220] flex-1 truncate">{tag.name}</span>
+            {tag.isRequired && <span className="text-[9px] text-[#DC2626] font-semibold">REQ</span>}
+          </button>
+        );
+      })}
+      <div className="border-t border-[#EFE8D8] mt-1 pt-1 px-2 pb-1">
+        <button type="button" onClick={onClose} className="text-[10px] text-[#8A9BB8] hover:text-[#0F1C3F]">Done</button>
+      </div>
+    </div>
+  );
+}
+
 export function FieldLibraryPanel({
   items,
+  allComplianceTags,
   onAdd,
   onChange,
   onSave,
+  onSetComplianceTags,
   onUse,
   onDelete,
   onLoadVersions,
@@ -594,9 +658,11 @@ export function FieldLibraryPanel({
   onLoadAnalytics,
 }: {
   items: FieldLibraryItem[];
+  allComplianceTags?: ComplianceTag[];
   onAdd: () => Promise<string | null>;
   onChange: (id: string, patch: Partial<FieldLibraryItem>) => void;
   onSave: (item: FieldLibraryItem) => Promise<string | null>;
+  onSetComplianceTags?: (fieldId: string, tags: string[]) => Promise<string | null>;
   onUse: (item: FieldLibraryItem) => void;
   onDelete?: (id: string) => Promise<string | null>;
   onLoadVersions?: (fieldId: string) => Promise<FieldVersionRow[] | string>;
@@ -620,6 +686,8 @@ export function FieldLibraryPanel({
   const [analyticsMap, setAnalyticsMap] = useState<Map<string, FieldAnalytics>>(() => new Map());
   const [analyticsLoadingId, setAnalyticsLoadingId] = useState<string | null>(null);
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
+  const [tagPickerOpenId, setTagPickerOpenId] = useState<string | null>(null);
+  const [tagSavingId, setTagSavingId] = useState<string | null>(null);
 
   async function handleAdd() {
     setAdding(true);
@@ -915,6 +983,51 @@ export function FieldLibraryPanel({
                 </label>
               </div>
             </div>
+            {allComplianceTags !== undefined && (
+              <div className="relative pt-1">
+                <div className="flex flex-wrap items-center gap-1 min-h-[20px]">
+                  {(item.complianceTags ?? []).map((tagName) => {
+                    const tagMeta = allComplianceTags.find((t) => t.name === tagName);
+                    return (
+                      <ComplianceTagChip
+                        key={tagName}
+                        name={tagName}
+                        color={tagMeta?.color ?? "#6B7A99"}
+                        onRemove={onSetComplianceTags ? () => {
+                          const next = (item.complianceTags ?? []).filter((n) => n !== tagName);
+                          setTagSavingId(item.id);
+                          void onSetComplianceTags(item.id, next).then(() => setTagSavingId(null));
+                        } : undefined}
+                      />
+                    );
+                  })}
+                  {onSetComplianceTags && (
+                    <button
+                      type="button"
+                      onClick={() => setTagPickerOpenId((prev) => prev === item.id ? null : item.id)}
+                      className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors px-1"
+                    >
+                      {tagSavingId === item.id ? "Saving…" : "+ Tags"}
+                    </button>
+                  )}
+                </div>
+                {tagPickerOpenId === item.id && onSetComplianceTags && (
+                  <ComplianceTagPicker
+                    allTags={allComplianceTags}
+                    selectedTagNames={item.complianceTags ?? []}
+                    onToggle={(tagName) => {
+                      const current = item.complianceTags ?? [];
+                      const next = current.includes(tagName)
+                        ? current.filter((n) => n !== tagName)
+                        : [...current, tagName];
+                      setTagSavingId(item.id);
+                      void onSetComplianceTags(item.id, next).then(() => setTagSavingId(null));
+                    }}
+                    onClose={() => setTagPickerOpenId(null)}
+                  />
+                )}
+              </div>
+            )}
             <div className="flex flex-wrap gap-3 pt-1">
               {onLoadVersions && (
                 <button

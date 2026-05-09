@@ -65,6 +65,9 @@ import {
   FieldLibraryUpdateSchema,
   FieldGroupCreateSchema,
   FieldGroupUpdateSchema,
+  ComplianceTagCreateSchema,
+  ComplianceTagUpdateSchema,
+  FieldComplianceTagsPatchSchema,
   EntityBodySchema,
   EntityNameRequiredSchema,
   TransactionTypeBodySchema,
@@ -872,7 +875,8 @@ function isUniqueViolation(err: unknown): boolean {
 function fieldLibrarySelectSql(): string {
   return `SELECT id, label, category, field_type AS type, source, options, sensitive, required,
                  validation_type AS "validationType", validation_pattern AS "validationPattern",
-                 validation_message AS "validationMessage", active, sort_order AS "sortOrder"
+                 validation_message AS "validationMessage", active, sort_order AS "sortOrder",
+                 COALESCE(compliance_tags, '[]'::jsonb) AS "complianceTags"
             FROM docufill_fields`;
 }
 
@@ -2581,6 +2585,269 @@ router.delete("/field-library/:id", requireAdminRole, async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to delete field library item");
     res.status(500).json({ error: "Failed to delete field library item" });
+  }
+});
+
+// ── Compliance Tags ────────────────────────────────────────────────────────────
+
+const BUILTIN_COMPLIANCE_TAGS = [
+  { name: "KYC",            color: "#1B4FD8", description: "Know Your Customer identity verification fields",     is_required: true  },
+  { name: "FINRA",          color: "#059669", description: "FINRA-required suitability and disclosure fields",    is_required: true  },
+  { name: "AML",            color: "#DC2626", description: "Anti-Money Laundering program fields",               is_required: true  },
+  { name: "State-specific", color: "#C49A38", description: "Fields required by specific state regulations",       is_required: false },
+  { name: "TCPA",           color: "#7C3AED", description: "Telephone Consumer Protection Act consent fields",   is_required: false },
+];
+
+async function seedBuiltinComplianceTags(db: ReturnType<typeof getDb>, accountId: number) {
+  for (const tag of BUILTIN_COMPLIANCE_TAGS) {
+    await db.query(
+      `INSERT INTO docufill_compliance_tags (account_id, name, color, description, is_required, is_builtin)
+       VALUES ($1, $2, $3, $4, $5, TRUE)
+       ON CONFLICT (account_id, name) DO NOTHING`,
+      [accountId, tag.name, tag.color, tag.description, tag.is_required],
+    );
+  }
+}
+
+function normalizeComplianceTagRow(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    name: row.name,
+    color: row.color,
+    description: row.description ?? null,
+    isRequired: row.is_required,
+    isBuiltin: row.is_builtin,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// GET /compliance-tags — list all compliance tags for this account (seeds built-ins on first call)
+router.get("/compliance-tags", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = acctId(req);
+    const db = getDb();
+    await seedBuiltinComplianceTags(db, accountId);
+    const { rows } = await db.query(
+      `SELECT * FROM docufill_compliance_tags WHERE account_id = $1 ORDER BY is_builtin DESC, name ASC`,
+      [accountId],
+    );
+    res.json({ tags: (rows as Record<string, unknown>[]).map(normalizeComplianceTagRow) });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to list compliance tags");
+    res.status(500).json({ error: "Failed to list compliance tags" });
+  }
+});
+
+// POST /compliance-tags — create a new compliance tag
+router.post("/compliance-tags", requireAdminRole, async (req, res) => {
+  const _parse = ComplianceTagCreateSchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
+  const body = _parse.data;
+  const name = cleanText(body.name);
+  if (!name) { res.status(400).json({ error: "Tag name is required" }); return; }
+  try {
+    const accountId = acctId(req);
+    const db = getDb();
+    const { rows } = await db.query(
+      `INSERT INTO docufill_compliance_tags (account_id, name, color, description, is_required, is_builtin)
+       VALUES ($1, $2, $3, $4, $5, FALSE)
+       RETURNING *`,
+      [accountId, name, cleanText(body.color) || "#6B7A99", nullableText(body.description), body.isRequired === true],
+    );
+    res.status(201).json({ tag: normalizeComplianceTagRow(rows[0] as Record<string, unknown>) });
+  } catch (err) {
+    if (isUniqueViolation(err)) { res.status(409).json({ error: "A tag with that name already exists" }); return; }
+    logger.error({ err }, "[DocuFill] Failed to create compliance tag");
+    res.status(500).json({ error: "Failed to create compliance tag" });
+  }
+});
+
+// PATCH /compliance-tags/:id — update a compliance tag
+router.patch("/compliance-tags/:id", requireAdminRole, async (req, res) => {
+  const _parse = ComplianceTagUpdateSchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
+  const body = _parse.data;
+  const tagId = parseInt(String(req.params.id), 10);
+  if (!tagId) { res.status(400).json({ error: "Invalid tag id" }); return; }
+  try {
+    const accountId = acctId(req);
+    const db = getDb();
+    const existing = (await db.query(
+      `SELECT * FROM docufill_compliance_tags WHERE id = $1 AND account_id = $2`,
+      [tagId, accountId],
+    )).rows[0] as Record<string, unknown> | undefined;
+    if (!existing) { res.status(404).json({ error: "Tag not found" }); return; }
+    const name    = body.name !== undefined ? (cleanText(body.name) || (existing.name as string)) : (existing.name as string);
+    const color   = body.color !== undefined ? (cleanText(body.color) || (existing.color as string)) : (existing.color as string);
+    const desc    = body.description !== undefined ? nullableText(body.description) : (existing.description as string | null);
+    const isReq   = body.isRequired !== undefined ? body.isRequired : (existing.is_required as boolean);
+    const { rows } = await db.query(
+      `UPDATE docufill_compliance_tags SET name=$1, color=$2, description=$3, is_required=$4, updated_at=NOW()
+       WHERE id=$5 AND account_id=$6 RETURNING *`,
+      [name, color, desc, isReq, tagId, accountId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "Tag not found" }); return; }
+    res.json({ tag: normalizeComplianceTagRow(rows[0] as Record<string, unknown>) });
+  } catch (err) {
+    if (isUniqueViolation(err)) { res.status(409).json({ error: "A tag with that name already exists" }); return; }
+    logger.error({ err }, "[DocuFill] Failed to update compliance tag");
+    res.status(500).json({ error: "Failed to update compliance tag" });
+  }
+});
+
+// DELETE /compliance-tags/:id — delete a compliance tag (custom tags only; built-ins are protected)
+router.delete("/compliance-tags/:id", requireAdminRole, async (req, res) => {
+  const tagId = parseInt(String(req.params.id), 10);
+  if (!tagId) { res.status(400).json({ error: "Invalid tag id" }); return; }
+  try {
+    const accountId = acctId(req);
+    const db = getDb();
+    const existing = (await db.query(
+      `SELECT is_builtin FROM docufill_compliance_tags WHERE id = $1 AND account_id = $2`,
+      [tagId, accountId],
+    )).rows[0] as { is_builtin: boolean } | undefined;
+    if (!existing) { res.status(404).json({ error: "Tag not found" }); return; }
+    if (existing.is_builtin) { res.status(403).json({ error: "Built-in compliance tags cannot be deleted" }); return; }
+    // Remove deleted tag name from all fields that reference it
+    await db.query(
+      `UPDATE docufill_fields
+          SET compliance_tags = (
+            SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+              FROM jsonb_array_elements_text(COALESCE(compliance_tags, '[]'::jsonb)) AS elem
+             WHERE elem <> (SELECT name FROM docufill_compliance_tags WHERE id = $1)
+          ),
+          updated_at = NOW()
+        WHERE account_id = $2
+          AND compliance_tags @> to_jsonb(ARRAY[(SELECT name FROM docufill_compliance_tags WHERE id = $1)])`,
+      [tagId, accountId],
+    );
+    await db.query(`DELETE FROM docufill_compliance_tags WHERE id = $1 AND account_id = $2`, [tagId, accountId]);
+    res.json({ deletedTagId: tagId });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to delete compliance tag");
+    res.status(500).json({ error: "Failed to delete compliance tag" });
+  }
+});
+
+// PATCH /field-library/:id/compliance-tags — set compliance tags on a library field
+router.patch("/field-library/:id/compliance-tags", requireAdminRole, async (req, res) => {
+  const _parse = FieldComplianceTagsPatchSchema.safeParse(req.body);
+  if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
+  const { complianceTags } = _parse.data;
+  const fieldId = cleanText(req.params.id);
+  if (!fieldId) { res.status(400).json({ error: "Invalid field id" }); return; }
+  try {
+    const accountId = acctId(req);
+    const db = getDb();
+    // Validate that each tag name exists for this account
+    if (complianceTags.length > 0) {
+      const { rows: tagRows } = await db.query(
+        `SELECT name FROM docufill_compliance_tags WHERE account_id = $1`,
+        [accountId],
+      );
+      const validNames = new Set((tagRows as { name: string }[]).map((r) => r.name));
+      const invalid = complianceTags.filter((t) => !validNames.has(t));
+      if (invalid.length > 0) {
+        res.status(400).json({ error: `Unknown compliance tag names: ${invalid.join(", ")}` });
+        return;
+      }
+    }
+    const { rows } = await db.query(
+      `UPDATE docufill_fields SET compliance_tags = $1::jsonb, updated_at = NOW()
+       WHERE id = $2 AND (account_id IS NULL OR account_id = $3)
+       RETURNING id, COALESCE(compliance_tags, '[]'::jsonb) AS "complianceTags"`,
+      [JSON.stringify(complianceTags), fieldId, accountId],
+    );
+    if (!rows[0]) { res.status(404).json({ error: "Field not found" }); return; }
+    res.json({ field: rows[0] });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to update field compliance tags");
+    res.status(500).json({ error: "Failed to update field compliance tags" });
+  }
+});
+
+// GET /compliance-audit — per-package compliance gap report
+// For each package, returns which required-tagged library fields are present vs. absent.
+router.get("/compliance-audit", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = acctId(req);
+    const db = getDb();
+
+    // Seed built-ins so the report is meaningful on first call
+    await seedBuiltinComplianceTags(db, accountId);
+
+    // Load all compliance tags for the account
+    const { rows: tagRows } = await db.query(
+      `SELECT name, color, is_required FROM docufill_compliance_tags WHERE account_id = $1 ORDER BY name ASC`,
+      [accountId],
+    );
+    const allTags = tagRows as Array<{ name: string; color: string; is_required: boolean }>;
+    const requiredTagNames = new Set(allTags.filter((t) => t.is_required).map((t) => t.name));
+
+    // Load all library fields that have at least one compliance tag
+    const { rows: fieldRows } = await db.query(
+      `SELECT id, label, COALESCE(compliance_tags, '[]'::jsonb) AS compliance_tags
+         FROM docufill_fields
+        WHERE (account_id IS NULL OR account_id = $1)
+          AND jsonb_array_length(COALESCE(compliance_tags, '[]'::jsonb)) > 0`,
+      [accountId],
+    );
+    type TaggedField = { id: string; label: string; compliance_tags: string[] };
+    const taggedFields = fieldRows as TaggedField[];
+
+    // Load all active packages with their fields JSONB
+    const { rows: pkgRows } = await db.query(
+      `SELECT p.id, p.name, p.status, p.fields
+         FROM docufill_packages p
+        WHERE p.account_id = $1
+        ORDER BY p.name ASC`,
+      [accountId],
+    );
+
+    type PkgRow = { id: number; name: string; status: string; fields: unknown };
+    const packages = pkgRows as PkgRow[];
+
+    const report = packages.map((pkg) => {
+      // Collect library field IDs referenced in this package
+      let pkgFieldArr: Array<Record<string, unknown>> = [];
+      try {
+        pkgFieldArr = Array.isArray(pkg.fields) ? pkg.fields as Array<Record<string, unknown>> : JSON.parse(pkg.fields as string ?? "[]");
+      } catch { pkgFieldArr = []; }
+      const libraryFieldIds = new Set(
+        pkgFieldArr
+          .map((f) => f.libraryFieldId as string | undefined)
+          .filter((id): id is string => typeof id === "string" && id !== ""),
+      );
+
+      const present: Array<{ fieldId: string; label: string; tags: string[] }> = [];
+      const missing: Array<{ fieldId: string; label: string; tags: string[] }> = [];
+
+      for (const tf of taggedFields) {
+        const entry = { fieldId: tf.id, label: tf.label, tags: tf.compliance_tags };
+        if (libraryFieldIds.has(tf.id)) {
+          present.push(entry);
+        } else {
+          missing.push(entry);
+        }
+      }
+
+      const requiredMissing = missing.filter((m) => m.tags.some((t) => requiredTagNames.has(t)));
+      return {
+        packageId: pkg.id,
+        packageName: pkg.name,
+        status: pkg.status,
+        present,
+        missing,
+        requiredMissingCount: requiredMissing.length,
+        hasGap: requiredMissing.length > 0,
+      };
+    });
+
+    res.json({ tags: allTags, report });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to build compliance audit report");
+    res.status(500).json({ error: "Failed to build compliance audit report" });
   }
 });
 

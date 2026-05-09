@@ -17,6 +17,27 @@ export const FieldLibraryUpdateSchema = z.object({
 }).passthrough();
 export type FieldLibraryUpdateBody = z.infer<typeof FieldLibraryUpdateSchema>;
 
+export const ComplianceTagCreateSchema = z.object({
+  name: z.string(),
+  color: z.string().optional(),
+  description: z.string().optional().nullable(),
+  isRequired: z.boolean().optional(),
+}).passthrough();
+export type ComplianceTagCreateBody = z.infer<typeof ComplianceTagCreateSchema>;
+
+export const ComplianceTagUpdateSchema = z.object({
+  name: z.string().optional(),
+  color: z.string().optional(),
+  description: z.string().optional().nullable(),
+  isRequired: z.boolean().optional(),
+}).passthrough();
+export type ComplianceTagUpdateBody = z.infer<typeof ComplianceTagUpdateSchema>;
+
+export const FieldComplianceTagsPatchSchema = z.object({
+  complianceTags: z.array(z.string()),
+}).passthrough();
+export type FieldComplianceTagsPatchBody = z.infer<typeof FieldComplianceTagsPatchSchema>;
+
 export const FieldGroupCreateSchema = z.object({
   name: z.string().optional(),
   description: z.string().optional().nullable(),
