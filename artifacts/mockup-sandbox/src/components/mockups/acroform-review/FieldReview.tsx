@@ -445,7 +445,7 @@ export function FieldReview({ onOpenMapper }: Props) {
 
           {/* Column headers */}
           <div className="grid grid-cols-[28px_220px_110px_60px_1fr_160px_120px] gap-4 px-5 py-2.5 border-b text-[10px] font-semibold uppercase tracking-wider"
-               style={{ background: CREAM, borderColor: BORDER, color: MUTED }}>
+               style={{ background: "white", borderColor: BORDER, color: MUTED }}>
             <div />
             <div>PDF Field</div>
             <div>Type</div>
