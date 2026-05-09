@@ -2050,6 +2050,15 @@ export async function initDb(): Promise<void> {
       ADD COLUMN IF NOT EXISTS parent_account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL
   `);
   await db.query(`CREATE INDEX IF NOT EXISTS accounts_parent_account_idx ON accounts (parent_account_id) WHERE parent_account_id IS NOT NULL`);
+  // Invite-token columns for two-step consent flow (parent generates, child accepts)
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pending_parent_invite_token TEXT`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pending_parent_invite_from_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL`);
+  await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pending_parent_invite_expires_at TIMESTAMPTZ`);
+  await db.query(`
+    CREATE UNIQUE INDEX IF NOT EXISTS accounts_pending_parent_invite_token_idx
+    ON accounts (pending_parent_invite_token)
+    WHERE pending_parent_invite_token IS NOT NULL
+  `);
 }
 
 // ── Scheduler functions (exported for BullMQ worker) ─────────────────────────

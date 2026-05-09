@@ -4980,13 +4980,23 @@ router.get("/inheritance", requireAdminRole, async (req, res) => {
     const db = getDb();
     const accountId = req.internalAccountId ?? 1;
 
-    // Fetch this account's plan tier and parent in one go
-    const { rows: selfRows } = await db.query<{ plan_tier: string; parent_id: number | null; parent_name: string | null; parent_slug: string | null; parent_plan: string | null }>(
+    // Fetch this account's plan tier, parent, and pending invite token in one go
+    const { rows: selfRows } = await db.query<{
+      plan_tier: string;
+      parent_id: number | null;
+      parent_name: string | null;
+      parent_slug: string | null;
+      parent_plan: string | null;
+      pending_parent_invite_token: string | null;
+      pending_parent_invite_expires_at: Date | null;
+    }>(
       `SELECT a.plan_tier,
               p.id   AS parent_id,
               p.name AS parent_name,
               p.slug AS parent_slug,
-              p.plan_tier AS parent_plan
+              p.plan_tier AS parent_plan,
+              a.pending_parent_invite_token,
+              a.pending_parent_invite_expires_at
          FROM accounts a
          LEFT JOIN accounts p ON p.id = a.parent_account_id
         WHERE a.id = $1`,
@@ -5004,10 +5014,18 @@ router.get("/inheritance", requireAdminRole, async (req, res) => {
       [accountId],
     );
 
+    // Pending invite the parent has generated (if any, not yet expired)
+    const pendingInviteToken = selfRow?.pending_parent_invite_token &&
+      selfRow.pending_parent_invite_expires_at &&
+      new Date() < new Date(selfRow.pending_parent_invite_expires_at)
+        ? selfRow.pending_parent_invite_token
+        : null;
+
     res.json({
       parent,
       children,
       canManageChildren: planFeatures.fieldLibraryInheritance,
+      pendingInviteToken,
     });
   } catch (err) {
     logger.error({ err }, "[Inheritance] Failed to load inheritance info");
@@ -5015,58 +5033,125 @@ router.get("/inheritance", requireAdminRole, async (req, res) => {
   }
 });
 
-router.post("/inheritance/link-child", requireAdminRole, requirePlanFeature("fieldLibraryInheritance"), async (req, res) => {
+// POST /inheritance/generate-invite — enterprise parent generates a one-time invite token.
+// The parent shares this token out-of-band with the target child admin.
+// No account data is modified until the child accepts.
+router.post("/inheritance/generate-invite", requireAdminRole, requirePlanFeature("fieldLibraryInheritance"), async (req, res) => {
   try {
     const db = getDb();
     const accountId = req.internalAccountId ?? 1;
-    const { email } = req.body as { email?: string };
-    if (!email || typeof email !== "string") {
-      return void res.status(400).json({ error: "Child account admin email is required" });
-    }
+
     // Enforce one-level hierarchy: the acting account must not itself be a child
     const { rows: actingRows } = await db.query<{ parent_account_id: number | null }>(
       `SELECT parent_account_id FROM accounts WHERE id = $1 LIMIT 1`,
       [accountId],
     );
     if (actingRows[0]?.parent_account_id != null) {
-      return void res.status(409).json({ error: "Your account is already a child account and cannot have children of its own. Only one level of inheritance is supported." });
+      return void res.status(409).json({ error: "Your account is already a child account and cannot have children of its own." });
     }
 
-    // Find the account whose member has this email
-    const { rows: targetRows } = await db.query<{ id: number; name: string; slug: string }>(
-      `SELECT a.id, a.name, a.slug
-         FROM accounts a
-         JOIN account_users u ON u.account_id = a.id
-        WHERE lower(u.email) = lower($1)
-          AND a.id <> $2
-        LIMIT 1`,
-      [email.trim(), accountId],
+    const { randomBytes } = await import("node:crypto");
+    const token = randomBytes(20).toString("hex"); // 40 hex chars
+    const expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000); // 72 hours
+
+    // Store token on the parent account itself so the parent can see/revoke it
+    await db.query(
+      `UPDATE accounts SET pending_parent_invite_token = $1, pending_parent_invite_expires_at = $2 WHERE id = $3`,
+      [token, expiresAt, accountId],
     );
-    if (!targetRows[0]) {
-      return void res.status(404).json({ error: "No account found for that email address" });
-    }
-    const childId = targetRows[0].id;
-    // Prevent multi-level inheritance: target already has a parent
-    const { rows: alreadyChildCheck } = await db.query(
-      `SELECT 1 FROM accounts WHERE id = $1 AND parent_account_id IS NOT NULL LIMIT 1`,
-      [childId],
-    );
-    if (alreadyChildCheck[0]) {
-      return void res.status(409).json({ error: "That account already has a parent. Only one level of inheritance is supported." });
-    }
-    // Prevent multi-level inheritance: target already has children of its own
-    const { rows: alreadyParentCheck } = await db.query(
-      `SELECT 1 FROM accounts WHERE parent_account_id = $1 LIMIT 1`,
-      [childId],
-    );
-    if (alreadyParentCheck[0]) {
-      return void res.status(409).json({ error: "That account already has child accounts of its own. Only one level of inheritance is supported." });
-    }
-    await db.query(`UPDATE accounts SET parent_account_id = $1 WHERE id = $2`, [accountId, childId]);
-    res.json({ ok: true, child: targetRows[0] });
+
+    res.json({ ok: true, token, expiresAt });
   } catch (err) {
-    logger.error({ err }, "[Inheritance] Failed to link child account");
-    res.status(500).json({ error: "Failed to link child account" });
+    logger.error({ err }, "[Inheritance] Failed to generate invite token");
+    res.status(500).json({ error: "Failed to generate invite token" });
+  }
+});
+
+// POST /inheritance/accept-invite — child admin submits the token to accept the invite.
+// Only the account that the parent targeted can accept; the parent_account_id is set here.
+router.post("/inheritance/accept-invite", requireAdminRole, async (req, res) => {
+  try {
+    const db = getDb();
+    const childAccountId = req.internalAccountId ?? 1;
+    const { token } = req.body as { token?: string };
+    if (!token || typeof token !== "string" || token.trim().length < 8) {
+      return void res.status(400).json({ error: "A valid invite code is required." });
+    }
+
+    // Look up the parent account that owns this token
+    const { rows: parentRows } = await db.query<{ id: number; name: string; slug: string; plan_tier: string; pending_parent_invite_expires_at: Date | null }>(
+      `SELECT id, name, slug, plan_tier, pending_parent_invite_expires_at
+         FROM accounts
+        WHERE pending_parent_invite_token = $1
+        LIMIT 1`,
+      [token.trim()],
+    );
+    if (!parentRows[0]) {
+      return void res.status(404).json({ error: "Invite code not found. It may have been revoked or already used." });
+    }
+    const parent = parentRows[0];
+
+    if (parent.pending_parent_invite_expires_at && new Date() > new Date(parent.pending_parent_invite_expires_at)) {
+      return void res.status(410).json({ error: "This invite code has expired. Ask the parent account admin to generate a new one." });
+    }
+
+    if (parent.id === childAccountId) {
+      return void res.status(409).json({ error: "An account cannot inherit from itself." });
+    }
+
+    // Ensure parent is on Enterprise plan (plan gating at accept time)
+    if (!getPlanFeatures(parent.plan_tier).fieldLibraryInheritance) {
+      return void res.status(402).json({ error: "The inviting account is not on an Enterprise plan and cannot share its field library." });
+    }
+
+    // Enforce one-level: child must not already have a parent
+    const { rows: childRows } = await db.query<{ parent_account_id: number | null }>(
+      `SELECT parent_account_id FROM accounts WHERE id = $1 LIMIT 1`,
+      [childAccountId],
+    );
+    if (childRows[0]?.parent_account_id != null) {
+      return void res.status(409).json({ error: "Your account already has a parent. Only one level of inheritance is supported." });
+    }
+
+    // Enforce one-level: child must not already have children of its own
+    const { rows: grandchildCheck } = await db.query(
+      `SELECT 1 FROM accounts WHERE parent_account_id = $1 LIMIT 1`,
+      [childAccountId],
+    );
+    if (grandchildCheck[0]) {
+      return void res.status(409).json({ error: "Your account already has child accounts of its own. Only one level of inheritance is supported." });
+    }
+
+    // Accept: link child to parent and consume the token
+    await db.query(
+      `UPDATE accounts SET parent_account_id = $1 WHERE id = $2`,
+      [parent.id, childAccountId],
+    );
+    await db.query(
+      `UPDATE accounts SET pending_parent_invite_token = NULL, pending_parent_invite_expires_at = NULL WHERE id = $1`,
+      [parent.id],
+    );
+
+    res.json({ ok: true, parent: { id: parent.id, name: parent.name, slug: parent.slug, plan_tier: parent.plan_tier } });
+  } catch (err) {
+    logger.error({ err }, "[Inheritance] Failed to accept invite");
+    res.status(500).json({ error: "Failed to accept invite" });
+  }
+});
+
+// POST /inheritance/revoke-invite — parent revokes any pending invite token
+router.post("/inheritance/revoke-invite", requireAdminRole, requirePlanFeature("fieldLibraryInheritance"), async (req, res) => {
+  try {
+    const db = getDb();
+    const accountId = req.internalAccountId ?? 1;
+    await db.query(
+      `UPDATE accounts SET pending_parent_invite_token = NULL, pending_parent_invite_expires_at = NULL WHERE id = $1`,
+      [accountId],
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "[Inheritance] Failed to revoke invite");
+    res.status(500).json({ error: "Failed to revoke invite" });
   }
 });
 

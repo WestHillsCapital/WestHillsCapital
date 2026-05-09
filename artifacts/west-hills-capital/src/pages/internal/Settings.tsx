@@ -534,6 +534,7 @@ interface InheritanceInfo {
   parent: { id: number; name: string; slug: string; plan_tier: string } | null;
   children: Array<{ id: number; name: string; slug: string; plan_tier: string }>;
   canManageChildren: boolean;
+  pendingInviteToken: string | null;
 }
 
 function FieldLibraryInheritanceSection({
@@ -546,11 +547,21 @@ function FieldLibraryInheritanceSection({
   const [info, setInfo] = useState<InheritanceInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [linkEmail, setLinkEmail] = useState("");
-  const [linking, setLinking] = useState(false);
-  const [linkError, setLinkError] = useState<string | null>(null);
-  const [linkSuccess, setLinkSuccess] = useState<string | null>(null);
+
+  // Parent-side: generate invite
+  const [generatingInvite, setGeneratingInvite] = useState(false);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [copiedToken, setCopiedToken] = useState(false);
+  const [revokingInvite, setRevokingInvite] = useState(false);
+
+  // Child-side: accept invite
+  const [acceptCode, setAcceptCode] = useState("");
+  const [accepting, setAccepting] = useState(false);
+  const [acceptError, setAcceptError] = useState<string | null>(null);
+  const [acceptSuccess, setAcceptSuccess] = useState<string | null>(null);
+
   const [unlinkingId, setUnlinkingId] = useState<number | null>(null);
+  const [unlinkError, setUnlinkError] = useState<string | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
@@ -564,34 +575,66 @@ function FieldLibraryInheritanceSection({
       .finally(() => setIsLoading(false));
   }, [getAuthHeaders]);
 
-  async function handleLink() {
-    if (!linkEmail.trim()) return;
-    setLinking(true);
-    setLinkError(null);
-    setLinkSuccess(null);
+  async function handleGenerateInvite() {
+    setGeneratingInvite(true);
+    setInviteError(null);
     try {
-      const res = await fetch(`${SETTINGS_BASE}/inheritance/link-child`, {
+      const res = await fetch(`${SETTINGS_BASE}/inheritance/generate-invite`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-        body: JSON.stringify({ email: linkEmail.trim() }),
       });
-      const data = await res.json() as { ok?: boolean; child?: { id: number; name: string; slug: string }; error?: string };
-      if (!res.ok) { setLinkError(data.error ?? "Failed to link account"); return; }
-      setLinkSuccess(`${data.child?.name ?? "Account"} is now linked as a child account.`);
-      setLinkEmail("");
-      setInfo((prev) => prev && data.child
-        ? { ...prev, children: [...prev.children, { ...data.child, plan_tier: "unknown" }] }
-        : prev);
+      const data = await res.json() as { ok?: boolean; token?: string; error?: string };
+      if (!res.ok) { setInviteError(data.error ?? "Failed to generate invite code"); return; }
+      setInfo((prev) => prev ? { ...prev, pendingInviteToken: data.token ?? null } : prev);
     } catch {
-      setLinkError("Failed to link account. Please try again.");
+      setInviteError("Failed to generate invite code. Please try again.");
     } finally {
-      setLinking(false);
+      setGeneratingInvite(false);
+    }
+  }
+
+  async function handleRevokeInvite() {
+    setRevokingInvite(true);
+    try {
+      await fetch(`${SETTINGS_BASE}/inheritance/revoke-invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      });
+      setInfo((prev) => prev ? { ...prev, pendingInviteToken: null } : prev);
+    } catch {
+      // ignore
+    } finally {
+      setRevokingInvite(false);
+    }
+  }
+
+  async function handleAcceptInvite() {
+    if (!acceptCode.trim()) return;
+    setAccepting(true);
+    setAcceptError(null);
+    setAcceptSuccess(null);
+    try {
+      const res = await fetch(`${SETTINGS_BASE}/inheritance/accept-invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ token: acceptCode.trim() }),
+      });
+      const data = await res.json() as { ok?: boolean; parent?: { id: number; name: string; slug: string; plan_tier: string }; error?: string };
+      if (!res.ok) { setAcceptError(data.error ?? "Failed to accept invite"); return; }
+      setAcceptSuccess(`You are now inheriting the field library from ${data.parent?.name ?? "the parent account"}.`);
+      setAcceptCode("");
+      setInfo((prev) => prev && data.parent ? { ...prev, parent: data.parent! } : prev);
+    } catch {
+      setAcceptError("Failed to accept invite. Please try again.");
+    } finally {
+      setAccepting(false);
     }
   }
 
   async function handleUnlink(childId: number, childName: string) {
     if (!confirm(`Remove ${childName} as a child account? They will lose access to your field library.`)) return;
     setUnlinkingId(childId);
+    setUnlinkError(null);
     try {
       const res = await fetch(`${SETTINGS_BASE}/inheritance/unlink-child/${childId}`, {
         method: "DELETE",
@@ -599,12 +642,12 @@ function FieldLibraryInheritanceSection({
       });
       if (!res.ok) {
         const data = await res.json() as { error?: string };
-        setLinkError(data.error ?? "Failed to unlink account");
+        setUnlinkError(data.error ?? "Failed to unlink account");
         return;
       }
       setInfo((prev) => prev ? { ...prev, children: prev.children.filter((c) => c.id !== childId) } : prev);
     } catch {
-      setLinkError("Failed to unlink account. Please try again.");
+      setUnlinkError("Failed to unlink account. Please try again.");
     } finally {
       setUnlinkingId(null);
     }
@@ -615,8 +658,6 @@ function FieldLibraryInheritanceSection({
   if (!info) return null;
 
   const { parent, children, canManageChildren } = info;
-
-  if (!canManageChildren && !parent) return null;
 
   return (
     <section className="bg-white rounded-xl border border-[#DDD5C4] divide-y divide-[#EFE8D8]">
@@ -629,7 +670,7 @@ function FieldLibraryInheritanceSection({
               ? "As an Enterprise account, you can share your field library with linked child accounts."
               : parent
                 ? `Your field library includes shared fields from ${parent.name}.`
-                : "Share your field library with other accounts."}
+                : "Accept an invite code from a parent account to inherit their field library."}
           </p>
         </div>
       </div>
@@ -643,6 +684,37 @@ function FieldLibraryInheritanceSection({
             <span className="ml-auto text-[10px] text-[#8A9BB8] uppercase tracking-wide">{parent.plan_tier}</span>
           </div>
           <p className="mt-2 text-[11px] text-[#8A9BB8]">Fields shared by {parent.name} appear in your field library with a lock icon and are read-only.</p>
+        </div>
+      )}
+
+      {!parent && !canManageChildren && (
+        <div className="px-6 py-4">
+          <p className="text-xs font-medium text-[#0F1C3F] mb-1">Accept a field library invite</p>
+          <p className="text-[11px] text-[#8A9BB8] mb-3">
+            If an Enterprise account has sent you an invite code, paste it below to start inheriting their field library.
+          </p>
+          {acceptError && <p className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{acceptError}</p>}
+          {acceptSuccess && <p className="mb-2 rounded bg-green-50 border border-green-200 text-green-700 px-2 py-1 text-[11px]">{acceptSuccess}</p>}
+          {!acceptSuccess && (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={acceptCode}
+                onChange={(e) => setAcceptCode(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") void handleAcceptInvite(); }}
+                placeholder="Paste invite code…"
+                className="flex-1 rounded-lg border border-[#DDD5C4] bg-[#FAFAF8] px-3 py-2 text-sm font-mono text-[#0F1C3F] placeholder:text-[#B0A898] focus:outline-none focus:ring-2 focus:ring-[#0F1C3F]/20 focus:border-[#0F1C3F]"
+              />
+              <button
+                type="button"
+                onClick={() => void handleAcceptInvite()}
+                disabled={accepting || !acceptCode.trim()}
+                className="shrink-0 text-sm font-medium bg-[#1B4FD8] text-white hover:bg-[#1540B8] disabled:opacity-50 rounded-lg px-4 py-2 transition-colors"
+              >
+                {accepting ? "Accepting…" : "Accept invite"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -678,28 +750,49 @@ function FieldLibraryInheritanceSection({
           </div>
 
           <div className="px-6 py-4">
-            <p className="text-xs font-medium text-[#0F1C3F] mb-2">Link a child account</p>
-            <p className="text-[11px] text-[#8A9BB8] mb-3">Enter the email address of an admin user at the account you want to link. They will immediately start seeing your field library as read-only inherited fields.</p>
-            {linkError && <p className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{linkError}</p>}
-            {linkSuccess && <p className="mb-2 rounded bg-green-50 border border-green-200 text-green-700 px-2 py-1 text-[11px]">{linkSuccess}</p>}
-            <div className="flex gap-2">
-              <input
-                type="email"
-                value={linkEmail}
-                onChange={(e) => setLinkEmail(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") void handleLink(); }}
-                placeholder="admin@theiraccount.com"
-                className="flex-1 rounded-lg border border-[#DDD5C4] bg-[#FAFAF8] px-3 py-2 text-sm text-[#0F1C3F] placeholder:text-[#B0A898] focus:outline-none focus:ring-2 focus:ring-[#0F1C3F]/20 focus:border-[#0F1C3F]"
-              />
+            <p className="text-xs font-medium text-[#0F1C3F] mb-1">Invite a child account</p>
+            <p className="text-[11px] text-[#8A9BB8] mb-3">
+              Generate a one-time invite code and share it with the admin of the account you want to link.
+              They paste it in their own Settings to accept. The code expires in 72 hours.
+            </p>
+            {inviteError && <p className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{inviteError}</p>}
+            {unlinkError && <p className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{unlinkError}</p>}
+            {info?.pendingInviteToken ? (
+              <div className="rounded-lg border border-[#C8D7F5] bg-[#F3F6FE] p-3 space-y-2">
+                <p className="text-[11px] font-medium text-[#1B4FD8]">Pending invite code — share this with the child account admin:</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 font-mono text-xs text-[#0F1C3F] bg-white border border-[#DDD5C4] rounded px-2 py-1 select-all break-all">{info.pendingInviteToken}</code>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(info.pendingInviteToken ?? "");
+                      setCopiedToken(true);
+                      setTimeout(() => setCopiedToken(false), 2000);
+                    }}
+                    className="shrink-0 text-[11px] text-[#1B4FD8] hover:underline"
+                  >
+                    {copiedToken ? "Copied!" : "Copy"}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleRevokeInvite()}
+                  disabled={revokingInvite}
+                  className="text-[11px] text-red-500 hover:text-red-700 disabled:opacity-50"
+                >
+                  {revokingInvite ? "Revoking…" : "Revoke code"}
+                </button>
+              </div>
+            ) : (
               <button
                 type="button"
-                onClick={() => void handleLink()}
-                disabled={linking || !linkEmail.trim()}
-                className="shrink-0 text-sm font-medium bg-[#1B4FD8] text-white hover:bg-[#1540B8] disabled:opacity-50 rounded-lg px-4 py-2 transition-colors"
+                onClick={() => void handleGenerateInvite()}
+                disabled={generatingInvite}
+                className="text-sm font-medium bg-[#1B4FD8] text-white hover:bg-[#1540B8] disabled:opacity-50 rounded-lg px-4 py-2 transition-colors"
               >
-                {linking ? "Linking…" : "Link account"}
+                {generatingInvite ? "Generating…" : "Generate invite code"}
               </button>
-            </div>
+            )}
             <p className="mt-2 text-[11px] text-[#8A9BB8]">
               {org?.name ?? "Your account"} currently has <strong>{children.length}</strong> child account{children.length !== 1 ? "s" : ""} linked.
               Only one level of inheritance is supported — a child account cannot itself have children.
