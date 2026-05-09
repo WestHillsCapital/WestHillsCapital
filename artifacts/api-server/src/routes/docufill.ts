@@ -2688,6 +2688,21 @@ router.patch("/compliance-tags/:id", requireAdminRole, async (req, res) => {
       [name, color, desc, isReq, tagId, accountId],
     );
     if (!rows[0]) { res.status(404).json({ error: "Tag not found" }); return; }
+    // Propagate name change to all field JSONB arrays for this account
+    const oldName = existing.name as string;
+    if (name !== oldName) {
+      await db.query(
+        `UPDATE docufill_fields
+            SET compliance_tags = (
+              SELECT COALESCE(jsonb_agg(CASE WHEN elem = $1 THEN $2::text ELSE elem END), '[]'::jsonb)
+                FROM jsonb_array_elements_text(COALESCE(compliance_tags, '[]'::jsonb)) AS elem
+            ),
+            updated_at = NOW()
+          WHERE account_id = $3
+            AND compliance_tags @> to_jsonb(ARRAY[$1]::text[])`,
+        [oldName, name, accountId],
+      );
+    }
     res.json({ tag: normalizeComplianceTagRow(rows[0] as Record<string, unknown>) });
   } catch (err) {
     if (isUniqueViolation(err)) { res.status(409).json({ error: "A tag with that name already exists" }); return; }
@@ -2755,11 +2770,11 @@ router.patch("/field-library/:id/compliance-tags", requireAdminRole, async (req,
     }
     const { rows } = await db.query(
       `UPDATE docufill_fields SET compliance_tags = $1::jsonb, updated_at = NOW()
-       WHERE id = $2 AND (account_id IS NULL OR account_id = $3)
+       WHERE id = $2 AND account_id = $3
        RETURNING id, COALESCE(compliance_tags, '[]'::jsonb) AS "complianceTags"`,
       [JSON.stringify(complianceTags), fieldId, accountId],
     );
-    if (!rows[0]) { res.status(404).json({ error: "Field not found" }); return; }
+    if (!rows[0]) { res.status(404).json({ error: "Field not found or not editable" }); return; }
     res.json({ field: rows[0] });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to update field compliance tags");

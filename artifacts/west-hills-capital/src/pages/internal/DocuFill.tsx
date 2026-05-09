@@ -3253,6 +3253,7 @@ export default function DocuFill() {
         createPackage={stableCreatePackage}
         mappingCount={storeMappings.length}
         unmappedCount={unmappedPackageFields.length}
+        complianceGapPackageIds={complianceAudit ? new Set(complianceAudit.report.filter((r) => r.hasGap).map((r) => r.packageId)) : undefined}
       />
 
       {tab === "packages" && (

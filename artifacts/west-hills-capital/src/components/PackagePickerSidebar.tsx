@@ -23,6 +23,7 @@ interface PackagePickerSidebarProps {
   newPackageName: string;
   setNewPackageName: (v: string) => void;
   newPackageInputRef: React.RefObject<HTMLInputElement | null>;
+  complianceGapPackageIds?: Set<number>;
   builderStep: BuilderStep;
   goBuilderStep: (step: BuilderStep, opts?: { autoSort?: boolean; saveFirst?: boolean }) => void;
   savePackage: (pkg: PackageItem) => void;
@@ -47,6 +48,7 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
   createPackage,
   mappingCount,
   unmappedCount,
+  complianceGapPackageIds,
 }: PackagePickerSidebarProps) {
   const packages = useDocuFillStore((s) => s.packages);
   const selectedPackageId = useDocuFillStore((s) => s.selectedPackageId);
@@ -135,26 +137,34 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
               {visiblePackages.length === 0 && (
                 <div className="px-3 py-3 text-xs text-[#8A9BB8] border-t border-[#F0EBE0] italic">No packages match the active tag filter.</div>
               )}
-              {visiblePackages.map((pkg) => (
-                <button
-                  key={pkg.id}
-                  type="button"
-                  className={`w-full text-left px-3 py-2 border-t border-[#F0EBE0] transition-colors hover:bg-[#F8F6F0] ${selectedPackageId === pkg.id ? "bg-[#FBF7EE]" : ""}`}
-                  onClick={() => { setSelectedPackageId(pkg.id); setAddingPackage(false); setPkgDropdownOpen(false); }}
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium text-[#0F1C3F] truncate">{pkg.name}</span>
-                    {pkg.status !== "active" && <span className="text-[10px] text-[#8A9BB8] shrink-0">inactive</span>}
-                  </div>
-                  {pkg.tags?.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {pkg.tags.map((tag) => (
-                        <span key={tag} className="text-[10px] rounded-full px-1.5 py-px bg-[#EFE8D8] text-[#5C4A1E] border border-[#DDD5C4]">{tag}</span>
-                      ))}
+              {visiblePackages.map((pkg) => {
+                const hasGap = complianceGapPackageIds?.has(pkg.id) ?? false;
+                return (
+                  <button
+                    key={pkg.id}
+                    type="button"
+                    className={`w-full text-left px-3 py-2 border-t border-[#F0EBE0] transition-colors hover:bg-[#F8F6F0] ${selectedPackageId === pkg.id ? "bg-[#FBF7EE]" : ""}`}
+                    onClick={() => { setSelectedPackageId(pkg.id); setAddingPackage(false); setPkgDropdownOpen(false); }}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-medium text-[#0F1C3F] truncate">{pkg.name}</span>
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        {hasGap && (
+                          <span title="Compliance gap: required fields missing" className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#DC2626] font-semibold border border-[#FCA5A5]">⚠ gap</span>
+                        )}
+                        {pkg.status !== "active" && <span className="text-[10px] text-[#8A9BB8]">inactive</span>}
+                      </div>
                     </div>
-                  )}
-                </button>
-              ))}
+                    {pkg.tags?.length > 0 && (
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {pkg.tags.map((tag) => (
+                          <span key={tag} className="text-[10px] rounded-full px-1.5 py-px bg-[#EFE8D8] text-[#5C4A1E] border border-[#DDD5C4]">{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
             </div>
           )}
         </div>
