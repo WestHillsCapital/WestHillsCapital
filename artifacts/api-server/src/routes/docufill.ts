@@ -2246,6 +2246,10 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
     const effectiveLabelToId = new Map<string, string>(
       effectiveLibrary.map((f) => [(f.label as string).toLowerCase(), f.id]),
     );
+    // Build id set for direct-ID fallback: fields referenced in an exported group
+    // but absent from importFields (e.g. global/inherited fields not exported)
+    // can still be preserved if their ID already exists in the target library.
+    const effectiveIdSet = new Set<string>(effectiveLibrary.map((f) => f.id));
 
     let added = 0;
     let skipped = 0;
@@ -2334,7 +2338,13 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
         const remappedIds: string[] = [];
         for (const fid of group.fieldIds) {
           const labelKey = exportedIdToLabel.get(fid);
-          const remapped = labelKey ? effectiveLabelToId.get(labelKey) : undefined;
+          // Primary: resolve exported field ID → label → current library ID
+          // (covers newly imported fields and label-matched existing fields).
+          // Fallback: if the exported ID wasn't in importFields (e.g. a global/
+          // inherited field that wasn't exported but exists in target library),
+          // preserve the original ID directly.
+          const remapped = (labelKey ? effectiveLabelToId.get(labelKey) : undefined)
+            ?? (effectiveIdSet.has(fid) ? fid : undefined);
           if (remapped) remappedIds.push(remapped);
         }
         try {
