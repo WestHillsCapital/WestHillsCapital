@@ -224,6 +224,25 @@ for pkg in packages:
       <pre>{`pkg = client.packages.get(42)
 print(pkg["name"])`}</pre>
 
+      <h3>Webhook delivery log</h3>
+      <p>
+        Retrieve the delivery history for a package's webhook — useful for debugging failed
+        deliveries. This method is not yet on <code>client.packages</code>, so call the API
+        directly:
+      </p>
+      <pre>{`import httpx, os
+
+resp = httpx.get(
+    f"https://api.docuplete.com/api/v1/packages/42/webhook-deliveries",
+    headers={"Authorization": f'Bearer {os.environ["DOCUPLETE_API_KEY"]}'},
+    params={"limit": 50, "offset": 0},
+)
+resp.raise_for_status()
+data = resp.json()
+
+for d in data.get("deliveries", []):
+    print(d["attempt_number"], d["http_status"], d["duration_ms"])`}</pre>
+
       <h2>Sandbox</h2>
       <p>
         The sandbox endpoint is publicly accessible — no API key required. Because the Python SDK
