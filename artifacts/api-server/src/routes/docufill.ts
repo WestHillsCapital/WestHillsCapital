@@ -2296,6 +2296,9 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
           ],
         );
         existingLabels.add(labelLower);
+        // Keep effectiveLabelToId current so group remapping in this same import
+        // batch can reference fields that were just inserted above.
+        effectiveLabelToId.set(labelLower, id);
         added++;
       } catch (fieldErr) {
         errors.push(`"${label}": ${fieldErr instanceof Error ? fieldErr.message : String(fieldErr)}`);
