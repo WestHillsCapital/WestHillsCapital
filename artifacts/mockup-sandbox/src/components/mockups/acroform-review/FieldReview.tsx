@@ -464,14 +464,7 @@ export function FieldReview({ onOpenMapper }: Props) {
             const isResolved         = field.touched && !isBlocker;
             const isPrefillProtected = field.edgeCases.includes("prefilled") && isBlank && field.touched;
 
-            const rowBg = (): React.CSSProperties => {
-              if (isPrefillProtected) return { background: "rgba(204,251,241,0.25)" };
-              if (isDeferred)         return { background: "rgba(255,237,213,0.40)" };
-              if (isBlank)            return { background: "transparent" };
-              if (isBlocker)          return { background: "rgba(254,226,226,0.40)" };
-              if (field.confidence === "medium" && !isResolved) return { background: "rgba(254,243,199,0.30)" };
-              return {};
-            };
+            const rowBg = (): React.CSSProperties => ({ background: "white" });
 
             const rowIcon = () => {
               if (isPrefillProtected)                          return <Lock className="w-4 h-4 text-teal-400" />;
@@ -494,7 +487,7 @@ export function FieldReview({ onOpenMapper }: Props) {
                   ...rowBg(),
                 }}
                 onMouseEnter={e => { if (!isFocused) e.currentTarget.style.background = CREAM; }}
-                onMouseLeave={e => { if (!isFocused) Object.assign(e.currentTarget.style, rowBg()); }}
+                onMouseLeave={e => { if (!isFocused) e.currentTarget.style.background = "white"; }}
               >
                 {/* Icon */}
                 <div className="flex items-center justify-center">{rowIcon()}</div>
