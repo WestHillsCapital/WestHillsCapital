@@ -6429,9 +6429,11 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
       return;
     }
     // ── E-sign v1: enforce identity verification when auth_level=email_otp ────
+    // Test-mode / demo sessions skip the e-sign gate so the sandbox demo is never
+    // blocked by real email OTP even if the package has auth_level=email_otp.
     let esignEmail: string | null = null;
     let esignSignerName: string | null = null;
-    if (session.auth_level === "email_otp") {
+    if (session.auth_level === "email_otp" && !session.test_mode) {
       const rawToken = String(req.headers["x-esign-token"] ?? _parse.data.esignToken ?? "");
       const identity = rawToken ? verifyEsignIdentityToken(rawToken, req.params.token) : null;
       if (!identity) {

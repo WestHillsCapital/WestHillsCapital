@@ -61,6 +61,7 @@ type SessionData = {
   org_brand_color?: string | null;
   org_logo_on_white?: boolean | null;
   auth_level?: "none" | "email_otp";
+  test_mode?: boolean;
   require_preview?: boolean;
   require_scroll_confirmation?: boolean;
   signed_at?: string | null;
@@ -528,8 +529,9 @@ export default function DocuFillCustomer() {
 
   // For email_otp packages: gate the interview behind identity verification.
   // Runs once when the session finishes loading — before the customer sees the form.
+  // Test-mode / demo sessions skip the gate so the sandbox demo is never blocked.
   useEffect(() => {
-    if (pageStatus !== "ready" || !session || session.auth_level !== "email_otp" || identityToken) return;
+    if (pageStatus !== "ready" || !session || session.auth_level !== "email_otp" || identityToken || session.test_mode) return;
     const prefillEmail = Object.entries(session.prefill ?? {})
       .find(([k]) => k.toLowerCase().includes("email"))?.[1]?.trim() ?? "";
     if (prefillEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(prefillEmail)) {
