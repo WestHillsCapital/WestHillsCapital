@@ -1,6 +1,23 @@
 name: Scrub Git History (One-Time Security Fix)
 
-# Run manually from GitHub → Actions tab → "Scrub Git History" → Run workflow
+# How to run:
+#
+# 1. Go to GitHub → Settings → Secrets and variables → Actions → New repository secret
+#    and add these five secrets (the OLD values that need to be scrubbed):
+#
+#      SCRUB_OLD_ENCRYPTION_MASTER_KEY
+#      SCRUB_OLD_FEDEX_CLIENT_ID
+#      SCRUB_OLD_FEDEX_CLIENT_SECRET
+#      SCRUB_OLD_DILLON_GAGE_API_KEY
+#      SCRUB_OLD_SESSION_TOKEN
+#
+# 2. Actions tab → "Scrub Git History (One-Time Security Fix)" → Run workflow
+#
+# 3. Once the run succeeds, delete the five SCRUB_* secrets from GitHub Settings.
+#
+# The secret values are never stored in this file — they are injected at runtime
+# by GitHub Actions and automatically masked in all log output.
+
 on:
   workflow_dispatch:
 
@@ -20,44 +37,53 @@ jobs:
       - name: Install git-filter-repo
         run: pip3 install git-filter-repo
 
-      - name: Create replacements file
+      - name: Build replacements file (values injected from GitHub Secrets — never logged)
+        env:
+          S1: ${{ secrets.SCRUB_OLD_ENCRYPTION_MASTER_KEY }}
+          S2: ${{ secrets.SCRUB_OLD_FEDEX_CLIENT_ID }}
+          S3: ${{ secrets.SCRUB_OLD_FEDEX_CLIENT_SECRET }}
+          S4: ${{ secrets.SCRUB_OLD_DILLON_GAGE_API_KEY }}
+          S5: ${{ secrets.SCRUB_OLD_SESSION_TOKEN }}
         run: |
           printf '%s\n' \
-            '7e5a002b3e0d07026d3b7ee847ead9e4668f820cbd3e4d8f1c7d814510a15391==>REDACTED_ENCRYPTION_MASTER_KEY' \
-            'l7b9d07dbde93c4446a649934cb2898d02==>REDACTED_FEDEX_CLIENT_ID' \
-            '3cc1d6e0832545d588a79e9ccdfefa32==>REDACTED_FEDEX_CLIENT_SECRET' \
-            '1466-5007062a40b28b6449fb749a49379f26==>REDACTED_DILLON_GAGE_API_KEY' \
-            'df_3iQhuYil5yYEpI9dkJwzHEyTeWJ-F0qzw6Cg8wE_tZw==>REDACTED_SESSION_TOKEN' \
+            "${S1}==>REDACTED_ENCRYPTION_MASTER_KEY" \
+            "${S2}==>REDACTED_FEDEX_CLIENT_ID" \
+            "${S3}==>REDACTED_FEDEX_CLIENT_SECRET" \
+            "${S4}==>REDACTED_DILLON_GAGE_API_KEY" \
+            "${S5}==>REDACTED_SESSION_TOKEN" \
             > /tmp/replacements.txt
-          echo "Replacements file:"
-          cat /tmp/replacements.txt
+          echo "Replacements file built (5 entries — values masked by GitHub Actions)."
 
       - name: Rewrite history
         run: git-filter-repo --replace-text /tmp/replacements.txt --force
 
-      - name: Verify — no secrets remain in local history
+      - name: Verify — confirm no secrets remain in local history
+        env:
+          S1: ${{ secrets.SCRUB_OLD_ENCRYPTION_MASTER_KEY }}
+          S2: ${{ secrets.SCRUB_OLD_FEDEX_CLIENT_ID }}
+          S3: ${{ secrets.SCRUB_OLD_FEDEX_CLIENT_SECRET }}
+          S4: ${{ secrets.SCRUB_OLD_DILLON_GAGE_API_KEY }}
+          S5: ${{ secrets.SCRUB_OLD_SESSION_TOKEN }}
         run: |
           FOUND=0
-          for secret in \
-            "7e5a002b3e0d07026d3b7ee847ead9e4668f820cbd3e4d8f1c7d814510a15391" \
-            "l7b9d07dbde93c4446a649934cb2898d02" \
-            "3cc1d6e0832545d588a79e9ccdfefa32" \
-            "1466-5007062a40b28b6449fb749a49379f26" \
-            "df_3iQhuYil5yYEpI9dkJwzHEyTeWJ-F0qzw6Cg8wE_tZw"
-          do
-            COUNT=$(git log -p --all | grep -c "$secret" || true)
-            echo "  $secret: $COUNT occurrence(s)"
+          i=0
+          for secret in "$S1" "$S2" "$S3" "$S4" "$S5"; do
+            i=$((i+1))
+            COUNT=$(git log -p --all | grep -cF "$secret" || true)
+            echo "  Secret $i: $COUNT occurrence(s) remaining"
             if [ "$COUNT" -gt 0 ]; then FOUND=1; fi
           done
           if [ "$FOUND" -eq 1 ]; then
-            echo "ERROR: One or more secrets still present in history!"
+            echo "FAIL: One or more secrets still present — aborting push."
             exit 1
           fi
-          echo "Verification passed — all secrets scrubbed."
+          echo "PASS: All secrets scrubbed from local history."
 
       - name: Force-push cleaned history to GitHub
         run: |
-          git remote add cleaned \
+          # git-filter-repo removes the original remotes as a safety measure.
+          # Re-add origin with the Actions token and force-push the rewritten branch.
+          git remote add push-target \
             https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
-          git push cleaned main --force-with-lease
-          echo "Done. History rewritten and pushed."
+          git push push-target main --force
+          echo "Done. Rewritten history pushed to origin/main."
