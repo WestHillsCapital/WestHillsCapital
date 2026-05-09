@@ -1,30 +1,51 @@
 /**
  * Script: seed-stripe-products.ts
  *
- * Creates Docuplete Pro and Enterprise products + monthly prices in Stripe.
- * Idempotent — safe to run multiple times (skips existing products).
+ * Creates / updates Docuplete subscription products in Stripe.
+ * For each plan:
+ *   - If the product doesn't exist → create product + price
+ *   - If the product exists but no price matches the target amount
+ *       → create a new price and archive old prices for that product
+ *   - If the product + correct price already exist → skip
  *
  * Usage:
  *   pnpm --filter @workspace/api-server exec tsx ../../scripts/seed-stripe-products.ts
  */
 import { getUncachableStripeClient } from "../artifacts/api-server/src/lib/stripeClient.ts";
+import type Stripe from "stripe";
 
 const PLANS = [
   {
-    name:      "Docuplete Pro",
-    tier:      "pro",
-    amount:    9900,
-    currency:  "usd",
-    interval:  "month" as const,
-    description: "Unlimited packages · 500 submissions/month · 5 seats",
+    name: "Docuplete Starter",
+    tier: "starter",
+    amount: 6900,
+    currency: "usd",
+    interval: "month" as const,
+    description: "2 seats · 50 packages · 200 submissions/month · eSign + PDF filling",
   },
   {
-    name:      "Docuplete Enterprise",
-    tier:      "enterprise",
-    amount:    29900,
-    currency:  "usd",
-    interval:  "month" as const,
-    description: "Unlimited packages · Unlimited submissions · Unlimited seats",
+    name: "Docuplete Pro",
+    tier: "pro",
+    amount: 24900,
+    currency: "usd",
+    interval: "month" as const,
+    description: "5 seats · Unlimited packages · 500 submissions/month · eSign + PDF filling",
+  },
+  {
+    name: "Docuplete Developer",
+    tier: "developer",
+    amount: 49900,
+    currency: "usd",
+    interval: "month" as const,
+    description: "10 seats · Unlimited packages · API access · Programmatic PDF generation",
+  },
+  {
+    name: "Docuplete Enterprise",
+    tier: "enterprise",
+    amount: 300000,
+    currency: "usd",
+    interval: "month" as const,
+    description: "Unlimited seats · Unlimited packages · Unlimited submissions · SSO + SLA",
   },
 ] as const;
 
@@ -32,35 +53,69 @@ async function run() {
   const stripe = await getUncachableStripeClient();
 
   for (const plan of PLANS) {
-    // Check if product already exists
+    // Find existing active product by plan_tier metadata
     const existing = await stripe.products.search({
       query: `metadata['plan_tier']:'${plan.tier}' AND active:'true'`,
     });
 
+    let product: Stripe.Product;
+
     if (existing.data.length > 0) {
-      console.log(`[skip] ${plan.name} already exists (${existing.data[0].id})`);
+      product = existing.data[0];
+      console.log(`[found]    Product: ${product.name} (${product.id})`);
+
+      // Update name/description if needed
+      if (product.name !== plan.name || product.description !== plan.description) {
+        product = await stripe.products.update(product.id, {
+          name: plan.name,
+          description: plan.description,
+        });
+        console.log(`[updated]  Product name/description → ${plan.name}`);
+      }
+    } else {
+      product = await stripe.products.create({
+        name: plan.name,
+        description: plan.description,
+        metadata: { plan_tier: plan.tier },
+      });
+      console.log(`[created]  Product: ${plan.name} (${product.id})`);
+    }
+
+    // List all active recurring prices for this product
+    const prices = await stripe.prices.list({
+      product: product.id,
+      active: true,
+      recurring: { interval: plan.interval },
+      limit: 20,
+    });
+
+    const matchingPrice = prices.data.find((p) => p.unit_amount === plan.amount);
+
+    if (matchingPrice) {
+      console.log(`[skip]     Price $${plan.amount / 100}/${plan.interval} already exists (${matchingPrice.id})`);
+      console.log(`           STRIPE_${plan.tier.toUpperCase()}_PRICE_ID=${matchingPrice.id}`);
       continue;
     }
 
-    const product = await stripe.products.create({
-      name:        plan.name,
-      description: plan.description,
-      metadata:    { plan_tier: plan.tier },
-    });
-    console.log(`[created] Product: ${product.name} (${product.id})`);
+    // Archive any old prices that don't match
+    for (const oldPrice of prices.data) {
+      await stripe.prices.update(oldPrice.id, { active: false });
+      console.log(`[archived] Old price $${(oldPrice.unit_amount ?? 0) / 100}/${plan.interval} (${oldPrice.id})`);
+    }
 
-    const price = await stripe.prices.create({
-      product:   product.id,
+    // Create the new price
+    const newPrice = await stripe.prices.create({
+      product: product.id,
       unit_amount: plan.amount,
-      currency:  plan.currency,
+      currency: plan.currency,
       recurring: { interval: plan.interval },
     });
-    console.log(`[created] Price: $${plan.amount / 100}/${plan.interval} (${price.id})`);
-    console.log(`          STRIPE_${plan.tier.toUpperCase()}_PRICE_ID=${price.id}`);
+
+    console.log(`[created]  Price $${plan.amount / 100}/${plan.interval} (${newPrice.id})`);
+    console.log(`           STRIPE_${plan.tier.toUpperCase()}_PRICE_ID=${newPrice.id}`);
   }
 
-  console.log("\nDone. Set the STRIPE_PRO_PRICE_ID and STRIPE_ENTERPRISE_PRICE_ID env vars");
-  console.log("if you want Checkout to work before stripe-replit-sync backfill runs.");
+  console.log("\nDone.");
 }
 
 run().catch((err) => {
