@@ -5068,74 +5068,99 @@ router.post("/inheritance/generate-invite", requireAdminRole, requirePlanFeature
 });
 
 // POST /inheritance/accept-invite — child admin submits the token to accept the invite.
-// Only the account that the parent targeted can accept; the parent_account_id is set here.
+// The entire operation runs inside a transaction with a row-level lock on the parent account
+// to prevent concurrent accepts consuming the same token more than once.
 router.post("/inheritance/accept-invite", requireAdminRole, async (req, res) => {
+  const db = getDb();
+  const client = await db.connect();
   try {
-    const db = getDb();
     const childAccountId = req.internalAccountId ?? 1;
     const { token } = req.body as { token?: string };
     if (!token || typeof token !== "string" || token.trim().length < 8) {
       return void res.status(400).json({ error: "A valid invite code is required." });
     }
 
-    // Look up the parent account that owns this token
-    const { rows: parentRows } = await db.query<{ id: number; name: string; slug: string; plan_tier: string; pending_parent_invite_expires_at: Date | null }>(
-      `SELECT id, name, slug, plan_tier, pending_parent_invite_expires_at
+    await client.query("BEGIN");
+
+    // Lock the parent row while we validate and consume the token (prevents double-accept)
+    const { rows: parentRows } = await client.query<{
+      id: number; name: string; slug: string; plan_tier: string;
+      pending_parent_invite_expires_at: Date | null;
+      parent_account_id: number | null;
+    }>(
+      `SELECT id, name, slug, plan_tier, pending_parent_invite_expires_at, parent_account_id
          FROM accounts
         WHERE pending_parent_invite_token = $1
-        LIMIT 1`,
+        LIMIT 1
+        FOR UPDATE`,
       [token.trim()],
     );
     if (!parentRows[0]) {
+      await client.query("ROLLBACK");
       return void res.status(404).json({ error: "Invite code not found. It may have been revoked or already used." });
     }
     const parent = parentRows[0];
 
     if (parent.pending_parent_invite_expires_at && new Date() > new Date(parent.pending_parent_invite_expires_at)) {
+      await client.query("ROLLBACK");
       return void res.status(410).json({ error: "This invite code has expired. Ask the parent account admin to generate a new one." });
     }
 
     if (parent.id === childAccountId) {
+      await client.query("ROLLBACK");
       return void res.status(409).json({ error: "An account cannot inherit from itself." });
     }
 
     // Ensure parent is on Enterprise plan (plan gating at accept time)
     if (!getPlanFeatures(parent.plan_tier).fieldLibraryInheritance) {
+      await client.query("ROLLBACK");
       return void res.status(402).json({ error: "The inviting account is not on an Enterprise plan and cannot share its field library." });
     }
 
+    // Enforce one-level: the parent must not itself be a child of another account
+    if (parent.parent_account_id != null) {
+      await client.query("ROLLBACK");
+      return void res.status(409).json({ error: "The inviting account is itself a child account and cannot act as a parent. Only one level of inheritance is supported." });
+    }
+
     // Enforce one-level: child must not already have a parent
-    const { rows: childRows } = await db.query<{ parent_account_id: number | null }>(
-      `SELECT parent_account_id FROM accounts WHERE id = $1 LIMIT 1`,
+    const { rows: childRows } = await client.query<{ parent_account_id: number | null }>(
+      `SELECT parent_account_id FROM accounts WHERE id = $1 LIMIT 1 FOR UPDATE`,
       [childAccountId],
     );
     if (childRows[0]?.parent_account_id != null) {
+      await client.query("ROLLBACK");
       return void res.status(409).json({ error: "Your account already has a parent. Only one level of inheritance is supported." });
     }
 
     // Enforce one-level: child must not already have children of its own
-    const { rows: grandchildCheck } = await db.query(
+    const { rows: grandchildCheck } = await client.query(
       `SELECT 1 FROM accounts WHERE parent_account_id = $1 LIMIT 1`,
       [childAccountId],
     );
     if (grandchildCheck[0]) {
+      await client.query("ROLLBACK");
       return void res.status(409).json({ error: "Your account already has child accounts of its own. Only one level of inheritance is supported." });
     }
 
-    // Accept: link child to parent and consume the token
-    await db.query(
+    // Accept: link child to parent and consume the token atomically
+    await client.query(
       `UPDATE accounts SET parent_account_id = $1 WHERE id = $2`,
       [parent.id, childAccountId],
     );
-    await db.query(
+    await client.query(
       `UPDATE accounts SET pending_parent_invite_token = NULL, pending_parent_invite_expires_at = NULL WHERE id = $1`,
       [parent.id],
     );
+    await client.query("COMMIT");
 
     res.json({ ok: true, parent: { id: parent.id, name: parent.name, slug: parent.slug, plan_tier: parent.plan_tier } });
   } catch (err) {
+    try { await client.query("ROLLBACK"); } catch { /* ignore */ }
     logger.error({ err }, "[Inheritance] Failed to accept invite");
     res.status(500).json({ error: "Failed to accept invite" });
+  } finally {
+    client.release();
   }
 });
 
