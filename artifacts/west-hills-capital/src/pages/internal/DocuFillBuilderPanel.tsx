@@ -124,6 +124,7 @@ export interface DocuFillBuilderPanelProps {
   addLibraryFieldToPackage: (item: FieldLibraryItem) => void;
   loadFieldLibraryVersions?: (fieldId: string) => Promise<import("@/lib/docufill-local-types").FieldVersionRow[] | string>;
   restoreFieldLibraryVersion?: (fieldId: string, versionId: number) => Promise<string | null>;
+  loadFieldLibraryAnalytics?: (fieldId: string) => Promise<import("@/lib/docufill-local-types").FieldAnalytics | string>;
   launchTestInterview: (pkg: PackageItem) => void;
   openFieldEditorForAdd: () => void;
   openFieldEditorForEdit: (fieldId: string) => void;
@@ -162,7 +163,7 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
     removeDocument, deletePackage, createGroup, updateGroupLocal, saveGroup, deleteGroup, createGroupNamed,
     createTransactionType, updateTransactionTypeLocal, saveTransactionType, deleteTransactionType,
     createTransactionTypeNamed, createFieldLibraryItem, updateFieldLibraryLocal, saveFieldLibraryItem,
-    deleteFieldLibraryItem, addLibraryFieldToPackage, loadFieldLibraryVersions, restoreFieldLibraryVersion,
+    deleteFieldLibraryItem, addLibraryFieldToPackage, loadFieldLibraryVersions, restoreFieldLibraryVersion, loadFieldLibraryAnalytics,
     launchTestInterview, openFieldEditorForAdd,
     openFieldEditorForEdit, removeField, setSelectedFieldId, setPackages,
     dismissDemoUi, handleOpenDemoInterview, handleSeedDemo, setStandalonePackageId, setTab,
@@ -499,6 +500,7 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
                       onDelete={deleteFieldLibraryItem as (id: string) => Promise<string | null>}
                       onLoadVersions={loadFieldLibraryVersions}
                       onRestoreVersion={restoreFieldLibraryVersion}
+                      onLoadAnalytics={loadFieldLibraryAnalytics}
                     />
                   </div>
                 </details>

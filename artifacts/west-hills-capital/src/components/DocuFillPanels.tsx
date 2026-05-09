@@ -3,8 +3,80 @@ import { Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import type { Entity, TransactionType, FieldLibraryItem, FieldVersionRow } from "@/lib/docufill-local-types";
+import type { Entity, TransactionType, FieldLibraryItem, FieldVersionRow, FieldAnalytics } from "@/lib/docufill-local-types";
 import type { FieldItem } from "@/lib/docufill-types";
+
+// ─── Tiny SVG sparkline ───────────────────────────────────────────────────────
+function Sparkline({ data }: { data: Array<{ date: string; count: number }> }) {
+  const W = 72, H = 18;
+  if (data.length === 0) {
+    return <svg width={W} height={H} aria-hidden><line x1={0} y1={H / 2} x2={W} y2={H / 2} stroke="#D1D5DB" strokeWidth={1} /></svg>;
+  }
+  const max = Math.max(...data.map((d) => d.count), 1);
+  if (data.length === 1) {
+    const y = H - (data[0].count / max) * (H - 4) - 2;
+    return <svg width={W} height={H} aria-hidden><circle cx={W / 2} cy={y} r={2} fill="#1B4FD8" /></svg>;
+  }
+  const pts = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * W;
+    const y = H - (d.count / max) * (H - 4) - 2;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(" ");
+  return (
+    <svg width={W} height={H} aria-hidden className="shrink-0">
+      <polyline points={pts} fill="none" stroke="#1B4FD8" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+// ─── Analytics panel inside a field card ─────────────────────────────────────
+function FieldAnalyticsPanel({ analytics, isSensitive }: { analytics: FieldAnalytics; isSensitive: boolean }) {
+  const answerPct = analytics.answerRate !== null ? Math.round(analytics.answerRate * 100) : null;
+  return (
+    <div className="rounded border border-[#E0D8CC] bg-[#F5F2EC] px-2.5 py-2 text-[11px] space-y-2">
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div>
+          <div className="font-semibold text-[#0B1220] text-xs">{analytics.packageCount}</div>
+          <div className="text-[#8A9BB8]">packages</div>
+        </div>
+        <div>
+          <div className="font-semibold text-[#0B1220] text-xs">{analytics.answerCount.toLocaleString()}</div>
+          <div className="text-[#8A9BB8]">answers</div>
+        </div>
+        <div>
+          <div className="font-semibold text-[#0B1220] text-xs">{answerPct !== null ? `${answerPct}%` : "—"}</div>
+          <div className="text-[#8A9BB8]">answer rate</div>
+        </div>
+      </div>
+      {analytics.histogram.length > 0 && (
+        <div>
+          <div className="text-[10px] text-[#8A9BB8] mb-1">Last 30 days</div>
+          <Sparkline data={analytics.histogram} />
+        </div>
+      )}
+      {!isSensitive && analytics.topValues.length > 0 && (
+        <div>
+          <div className="text-[10px] text-[#8A9BB8] mb-1">Top answers</div>
+          <ul className="space-y-0.5">
+            {analytics.topValues.slice(0, 5).map((tv) => (
+              <li key={tv.value} className="flex items-center gap-1.5">
+                <div
+                  className="h-1.5 rounded-full bg-[#1B4FD8] shrink-0"
+                  style={{ width: `${Math.round((tv.count / analytics.topValues[0].count) * 48)}px` }}
+                />
+                <span className="truncate text-[#4A5568] max-w-[120px]">{tv.value}</span>
+                <span className="ml-auto text-[#8A9BB8] shrink-0">{tv.count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {isSensitive && (
+        <p className="text-[10px] text-[#8A9BB8] italic">Raw values hidden — field is marked sensitive.</p>
+      )}
+    </div>
+  );
+}
 
 export function EmptyState({ message }: { message: string }) {
   return <div className="rounded border border-dashed border-[#D4C9B5] bg-white p-8 text-center text-sm text-[#6B7A99]">{message}</div>;
@@ -308,6 +380,7 @@ export function FieldLibraryPanel({
   onDelete,
   onLoadVersions,
   onRestoreVersion,
+  onLoadAnalytics,
 }: {
   items: FieldLibraryItem[];
   onAdd: () => Promise<string | null>;
@@ -317,6 +390,7 @@ export function FieldLibraryPanel({
   onDelete?: (id: string) => Promise<string | null>;
   onLoadVersions?: (fieldId: string) => Promise<FieldVersionRow[] | string>;
   onRestoreVersion?: (fieldId: string, versionId: number) => Promise<string | null>;
+  onLoadAnalytics?: (fieldId: string) => Promise<FieldAnalytics | string>;
 }) {
   const [adding, setAdding] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -329,6 +403,12 @@ export function FieldLibraryPanel({
   const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null);
+  const [sortBy, setSortBy] = useState<"default" | "most-answered">("default");
+  const [showNeverUsed, setShowNeverUsed] = useState(false);
+  const [analyticsOpenId, setAnalyticsOpenId] = useState<string | null>(null);
+  const [analyticsMap, setAnalyticsMap] = useState<Map<string, FieldAnalytics>>(() => new Map());
+  const [analyticsLoadingId, setAnalyticsLoadingId] = useState<string | null>(null);
+  const [analyticsError, setAnalyticsError] = useState<string | null>(null);
 
   async function handleAdd() {
     setAdding(true);
@@ -397,6 +477,34 @@ export function FieldLibraryPanel({
     }
   }
 
+  async function toggleAnalytics(fieldId: string) {
+    if (analyticsOpenId === fieldId) {
+      setAnalyticsOpenId(null);
+      return;
+    }
+    setAnalyticsOpenId(fieldId);
+    if (analyticsMap.has(fieldId) || !onLoadAnalytics) return;
+    setAnalyticsLoadingId(fieldId);
+    setAnalyticsError(null);
+    const result = await onLoadAnalytics(fieldId);
+    setAnalyticsLoadingId(null);
+    if (typeof result === "string") {
+      setAnalyticsError(result);
+    } else {
+      setAnalyticsMap((prev) => new Map(prev).set(fieldId, result));
+    }
+  }
+
+  // Apply sort and filter
+  const hasUsageData = items.some((i) => i.packageCount !== undefined);
+  let visibleItems = [...items];
+  if (showNeverUsed) {
+    visibleItems = visibleItems.filter((i) => (i.packageCount ?? 0) === 0);
+  }
+  if (sortBy === "most-answered") {
+    visibleItems = [...visibleItems].sort((a, b) => (b.answerCount ?? 0) - (a.answerCount ?? 0));
+  }
+
   return (
     <div className="border border-[#DDD5C4] rounded p-3">
       <div className="flex items-center justify-between mb-2">
@@ -426,15 +534,54 @@ export function FieldLibraryPanel({
           {adding ? "Adding…" : "Add"}
         </button>
       </div>
+      {hasUsageData && (
+        <div className="flex flex-wrap items-center gap-2 mb-2">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as "default" | "most-answered")}
+            className="h-6 text-[11px] border border-[#D4C9B5] rounded px-1.5 bg-white text-[#4A5568]"
+          >
+            <option value="default">Sort: default</option>
+            <option value="most-answered">Sort: most answered</option>
+          </select>
+          <button
+            type="button"
+            onClick={() => setShowNeverUsed((v) => !v)}
+            className={`h-6 text-[11px] px-2 rounded border transition-colors ${showNeverUsed ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "border-[#D4C9B5] text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F] bg-white"}`}
+          >
+            {showNeverUsed ? "✕ Clear filter" : "Show never used"}
+          </button>
+          {showNeverUsed && (
+            <span className="text-[11px] text-[#8A9BB8]">{visibleItems.length} of {items.length} field{items.length !== 1 ? "s" : ""}</span>
+          )}
+        </div>
+      )}
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
       <div className="grid md:grid-cols-2 gap-2 text-sm">
-        {items.map((item, idx) => {
+        {visibleItems.map((item, idx) => {
           const h = showHints && idx === 1;
           const HL = ({ children }: { children: string }) => (
             <span className="absolute -top-2 left-1.5 z-10 text-[9px] bg-[#C49A38] text-white font-semibold rounded px-1 leading-4 pointer-events-none">{children}</span>
           );
+          const pkgCount    = item.packageCount ?? 0;
+          const ansCount    = item.answerCount  ?? 0;
+          const lastAnsw    = item.lastAnswered  ?? null;
+          const hasUsage    = item.packageCount !== undefined;
           return (
           <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
+            {hasUsage && (
+              <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-medium ${pkgCount > 0 ? "bg-[#EBF0FB] text-[#1B4FD8]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>
+                  {pkgCount} pkg{pkgCount !== 1 ? "s" : ""}
+                </span>
+                <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-medium ${ansCount > 0 ? "bg-[#ECFDF5] text-[#059669]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>
+                  {ansCount.toLocaleString()} answered
+                </span>
+                {lastAnsw && (
+                  <span className="text-[#8A9BB8]">last {relativeTime(lastAnsw)}</span>
+                )}
+              </div>
+            )}
             <div className="relative pt-1">
               {h && <HL>Label</HL>}
               <Input value={item.label} onChange={(e) => onChange(item.id, { label: e.target.value })} className="h-8 text-xs bg-white" />
@@ -557,8 +704,8 @@ export function FieldLibraryPanel({
                 </label>
               </div>
             </div>
-            {onLoadVersions && (
-              <div className="pt-1">
+            <div className="flex flex-wrap gap-3 pt-1">
+              {onLoadVersions && (
                 <button
                   type="button"
                   onClick={() => void toggleHistory(item.id)}
@@ -566,48 +713,70 @@ export function FieldLibraryPanel({
                 >
                   {historyOpenId === item.id ? "▲ Hide history" : "▾ History"}
                 </button>
-                {historyOpenId === item.id && (
-                  <div className="mt-1.5 rounded border border-[#E8E0D4] bg-[#F8F5EF] p-2 text-[11px]">
-                    {historyLoadingId === item.id && (
-                      <p className="text-[#8A9BB8]">Loading history…</p>
-                    )}
-                    {historyError && historyOpenId === item.id && (
-                      <p className="text-red-500">{historyError}</p>
-                    )}
-                    {!historyLoadingId && !historyError && (() => {
-                      const versions = historyMap.get(item.id) ?? [];
-                      if (versions.length === 0) return <p className="text-[#8A9BB8]">No saved versions yet.</p>;
-                      return (
-                        <ul className="space-y-1">
-                          {versions.map((v, idx) => {
-                            const prevSnap = versions[idx + 1]?.snapshot;
-                            const summary  = diffSummary(prevSnap, v.snapshot);
-                            const author   = v.changedBy ?? "unknown";
-                            return (
-                              <li key={v.id} className="flex items-start justify-between gap-2">
-                                <div className="min-w-0">
-                                  <span className="font-medium text-[#0B1220]">{relativeTime(v.changedAt)}</span>
-                                  {" · "}
-                                  <span className="text-[#6B7A99] truncate max-w-[140px] inline-block align-bottom">{author}</span>
-                                  <div className="text-[10px] text-[#8A9BB8] truncate">{summary}</div>
-                                </div>
-                                {onRestoreVersion && (
-                                  <button
-                                    type="button"
-                                    disabled={restoringVersionId === v.id}
-                                    onClick={() => void handleRestore(item.id, v.id)}
-                                    className="shrink-0 text-[10px] text-[#C49A38] hover:text-[#A07820] disabled:opacity-50"
-                                  >
-                                    {restoringVersionId === v.id ? "Restoring…" : "Restore"}
-                                  </button>
-                                )}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      );
-                    })()}
-                  </div>
+              )}
+              {onLoadAnalytics && (
+                <button
+                  type="button"
+                  onClick={() => void toggleAnalytics(item.id)}
+                  className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors"
+                >
+                  {analyticsOpenId === item.id ? "▲ Hide analytics" : "▾ Analytics"}
+                </button>
+              )}
+            </div>
+            {onLoadVersions && historyOpenId === item.id && (
+              <div className="rounded border border-[#E8E0D4] bg-[#F8F5EF] p-2 text-[11px]">
+                {historyLoadingId === item.id && (
+                  <p className="text-[#8A9BB8]">Loading history…</p>
+                )}
+                {historyError && (
+                  <p className="text-red-500">{historyError}</p>
+                )}
+                {!historyLoadingId && !historyError && (() => {
+                  const versions = historyMap.get(item.id) ?? [];
+                  if (versions.length === 0) return <p className="text-[#8A9BB8]">No saved versions yet.</p>;
+                  return (
+                    <ul className="space-y-1">
+                      {versions.map((v, idx) => {
+                        const prevSnap = versions[idx + 1]?.snapshot;
+                        const summary  = diffSummary(prevSnap, v.snapshot);
+                        const author   = v.changedBy ?? "unknown";
+                        return (
+                          <li key={v.id} className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <span className="font-medium text-[#0B1220]">{relativeTime(v.changedAt)}</span>
+                              {" · "}
+                              <span className="text-[#6B7A99] truncate max-w-[140px] inline-block align-bottom">{author}</span>
+                              <div className="text-[10px] text-[#8A9BB8] truncate">{summary}</div>
+                            </div>
+                            {onRestoreVersion && (
+                              <button
+                                type="button"
+                                disabled={restoringVersionId === v.id}
+                                onClick={() => void handleRestore(item.id, v.id)}
+                                className="shrink-0 text-[10px] text-[#C49A38] hover:text-[#A07820] disabled:opacity-50"
+                              >
+                                {restoringVersionId === v.id ? "Restoring…" : "Restore"}
+                              </button>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  );
+                })()}
+              </div>
+            )}
+            {onLoadAnalytics && analyticsOpenId === item.id && (
+              <div>
+                {analyticsLoadingId === item.id && (
+                  <p className="text-[11px] text-[#8A9BB8]">Loading analytics…</p>
+                )}
+                {analyticsError && analyticsOpenId === item.id && (
+                  <p className="text-[11px] text-red-500">{analyticsError}</p>
+                )}
+                {!analyticsLoadingId && !analyticsError && analyticsMap.has(item.id) && (
+                  <FieldAnalyticsPanel analytics={analyticsMap.get(item.id)!} isSensitive={item.sensitive} />
                 )}
               </div>
             )}
@@ -637,7 +806,11 @@ export function FieldLibraryPanel({
             </div>
           </div>
         ); })}
-        {items.length === 0 && <div className="text-xs text-[#8A9BB8]">No shared fields yet.</div>}
+        {visibleItems.length === 0 && (
+          <div className="text-xs text-[#8A9BB8]">
+            {showNeverUsed ? "All fields are used in at least one package." : "No shared fields yet."}
+          </div>
+        )}
       </div>
     </div>
   );

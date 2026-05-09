@@ -45,6 +45,19 @@ export type FieldLibraryItem = {
   validationMessage?: string;
   active: boolean;
   sortOrder: number;
+  packageCount?: number;
+  answerCount?: number;
+  lastAnswered?: string | null;
+};
+
+export type FieldAnalytics = {
+  packageCount: number;
+  answerCount: number;
+  totalSessions: number;
+  lastAnswered: string | null;
+  answerRate: number | null;
+  topValues: Array<{ value: string; count: number }>;
+  histogram: Array<{ date: string; count: number }>;
 };
 
 export type FieldVersionRow = {

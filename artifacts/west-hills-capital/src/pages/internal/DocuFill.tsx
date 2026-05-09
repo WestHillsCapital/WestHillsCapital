@@ -32,7 +32,7 @@ import { FieldCard } from "@/components/FieldCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { DocumentPreviewTile } from "@/components/DocumentPreviewTile";
 import { EmptyState, SummaryCard, LabeledInput, EntityPanel, TransactionTypesPanel, FieldLibraryPanel } from "@/components/DocuFillPanels";
-import type { Entity, TransactionType, DocItem, FieldLibraryItem, FieldVersionRow, PackageItem } from "@/lib/docufill-local-types";
+import type { Entity, TransactionType, DocItem, FieldLibraryItem, FieldVersionRow, FieldAnalytics, PackageItem } from "@/lib/docufill-local-types";
 import { FieldEditorModal, type FieldEditorDraft } from "@/components/FieldEditorModal";
 import { TagChipInput, PackagePickerWithTags, ScrollPageCanvas, EmbedSnippetPanel } from "@/components/DocuFillWidgets";
 import { PackagePickerSidebar, type BuilderStep, BUILDER_STEPS } from "@/components/PackagePickerSidebar";
@@ -1822,6 +1822,20 @@ export default function DocuFill() {
     }
   }
 
+  async function loadFieldAnalytics(fieldId: string): Promise<FieldAnalytics | string> {
+    try {
+      const res = await fetch(
+        `${API_BASE}${docufillApiPath}/field-library/${fieldId}/analytics`,
+        { headers: getAuthHeaders() },
+      );
+      if (!res.ok) return "Could not load analytics";
+      const data = await res.json().catch(() => ({})) as FieldAnalytics;
+      return data;
+    } catch {
+      return "Network error — could not load analytics";
+    }
+  }
+
   async function restoreFieldVersion(fieldId: string, versionId: number): Promise<string | null> {
     try {
       const res = await fetch(
@@ -3142,6 +3156,7 @@ export default function DocuFill() {
           deleteFieldLibraryItem={deleteFieldLibraryItem}
           loadFieldLibraryVersions={loadFieldVersions}
           restoreFieldLibraryVersion={restoreFieldVersion}
+          loadFieldLibraryAnalytics={loadFieldAnalytics}
           addLibraryFieldToPackage={addLibraryFieldToPackage}
           launchTestInterview={launchTestInterview}
           openFieldEditorForAdd={openFieldEditorForAdd}

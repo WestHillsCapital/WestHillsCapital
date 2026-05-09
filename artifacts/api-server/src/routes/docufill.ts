@@ -874,6 +874,59 @@ function fieldLibrarySelectSql(): string {
             FROM docufill_fields`;
 }
 
+type FieldUsageSummary = {
+  fieldId: string;
+  packageCount: number;
+  answerCount: bigint | number;
+  lastAnswered: Date | null;
+};
+
+async function getFieldLibraryUsageSummary(client: QueryClient, accountId: number): Promise<FieldUsageSummary[]> {
+  const { rows } = await client.query<FieldUsageSummary>(
+    `WITH pkg_field_map AS (
+       SELECT
+         f->>'libraryFieldId' AS library_field_id,
+         f->>'id'             AS field_id,
+         p.id                 AS package_id
+       FROM docufill_packages p,
+       LATERAL jsonb_array_elements(p.fields) AS f
+       WHERE p.account_id = $1
+         AND jsonb_typeof(p.fields) = 'array'
+         AND f->>'libraryFieldId' IS NOT NULL
+         AND f->>'libraryFieldId' <> ''
+     ),
+     pkg_counts AS (
+       SELECT library_field_id, COUNT(DISTINCT package_id)::int AS package_count
+       FROM pkg_field_map
+       GROUP BY library_field_id
+     ),
+     session_counts AS (
+       SELECT
+         pfm.library_field_id,
+         COUNT(*) FILTER (
+           WHERE s.answers ? pfm.field_id AND s.answers->>pfm.field_id <> ''
+         ) AS answer_count,
+         MAX(s.submitted_at) FILTER (
+           WHERE s.answers ? pfm.field_id AND s.answers->>pfm.field_id <> ''
+         ) AS last_answered
+       FROM pkg_field_map pfm
+       JOIN docufill_interview_sessions s ON s.package_id = pfm.package_id
+       WHERE s.account_id = $1
+         AND s.status IN ('submitted', 'signed')
+       GROUP BY pfm.library_field_id
+     )
+     SELECT
+       pc.library_field_id              AS "fieldId",
+       pc.package_count                 AS "packageCount",
+       COALESCE(sc.answer_count, 0)     AS "answerCount",
+       sc.last_answered                 AS "lastAnswered"
+     FROM pkg_counts pc
+     LEFT JOIN session_counts sc ON sc.library_field_id = pc.library_field_id`,
+    [accountId],
+  );
+  return rows;
+}
+
 async function getFieldLibrary(client: QueryClient = getDb(), accountId?: number) {
   const filter = accountId !== undefined && accountId !== null
     ? `WHERE (account_id IS NULL OR account_id = $1)`
@@ -1947,7 +2000,26 @@ router.get("/bootstrap", async (req, res) => {
 router.get("/field-library", async (req, res) => {
   try {
     const accountId = req.internalAccountId ?? undefined;
-    res.json({ fieldLibrary: await getFieldLibrary(getDb(), accountId) });
+    const library = await getFieldLibrary(getDb(), accountId);
+
+    // Augment each field with lightweight usage counts when we have an account scope.
+    if (accountId !== undefined && accountId !== null) {
+      try {
+        const usageRows = await getFieldLibraryUsageSummary(getDb(), accountId);
+        const usageMap = new Map(usageRows.map((r) => [r.fieldId, r]));
+        for (const field of library) {
+          const u = usageMap.get(field.id);
+          (field as Record<string, unknown>).packageCount = u?.packageCount ?? 0;
+          (field as Record<string, unknown>).answerCount = u ? Number(u.answerCount) : 0;
+          (field as Record<string, unknown>).lastAnswered = u?.lastAnswered ?? null;
+        }
+      } catch (usageErr) {
+        // Non-fatal — list still returns without usage stats
+        logger.warn({ err: usageErr }, "[DocuFill] Failed to compute field usage summary");
+      }
+    }
+
+    res.json({ fieldLibrary: library });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load field library");
     res.status(500).json({ error: "Failed to load field library" });
@@ -2352,6 +2424,113 @@ router.post("/field-library/:id/versions/:versionId/restore", requireAdminRole, 
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to restore field version");
     res.status(500).json({ error: "Failed to restore field version" });
+  }
+});
+
+// GET /field-library/:id/analytics — per-field usage analytics (admin only)
+// Returns package count, lifetime answer count, answer rate, top 10 values (non-sensitive),
+// and a 30-day daily answer histogram. Sensitive fields return counts only, never raw values.
+router.get("/field-library/:id/analytics", requireAdminRole, async (req, res) => {
+  try {
+    const id        = cleanText(req.params.id);
+    const accountId = acctId(req);
+    if (!id) { res.status(400).json({ error: "Field ID is required" }); return; }
+
+    const db = getDb();
+
+    // Verify field exists for this account (global or account-owned).
+    const fieldRow = (await db.query<{ sensitive: boolean }>(
+      `SELECT sensitive FROM docufill_fields
+       WHERE id = $1 AND (account_id IS NULL OR account_id = $2)`,
+      [id, accountId],
+    )).rows[0];
+    if (!fieldRow) { res.status(404).json({ error: "Field not found" }); return; }
+    const isSensitive = Boolean(fieldRow.sensitive);
+
+    // Find all (package_id, local_field_id) pairs that reference this library field.
+    const pairRows = (await db.query<{ package_id: number; field_id: string }>(
+      `SELECT p.id AS package_id, f->>'id' AS field_id
+       FROM docufill_packages p,
+       LATERAL jsonb_array_elements(p.fields) AS f
+       WHERE p.account_id = $1
+         AND jsonb_typeof(p.fields) = 'array'
+         AND f->>'libraryFieldId' = $2`,
+      [accountId, id],
+    )).rows;
+
+    const packageCount = new Set(pairRows.map((r) => r.package_id)).size;
+
+    if (pairRows.length === 0) {
+      res.json({ packageCount: 0, answerCount: 0, totalSessions: 0, lastAnswered: null, answerRate: null, topValues: [], histogram: [] });
+      return;
+    }
+
+    // Build a VALUES list so we can join sessions to the right field_id per package.
+    const pairValues = pairRows.map((_, i) => `($${i * 2 + 1}::int, $${i * 2 + 2}::text)`).join(", ");
+    const pairParams: Array<number | string> = pairRows.flatMap((r) => [r.package_id, r.field_id]);
+    const acctParam = `$${pairParams.length + 1}`;
+
+    // Overall stats
+    const statsRows = (await db.query<{ total_sessions: string; answer_count: string; last_answered: Date | null }>(
+      `WITH pairs(package_id, field_id) AS (VALUES ${pairValues})
+       SELECT
+         COUNT(*)::text                                                                             AS total_sessions,
+         COUNT(*) FILTER (WHERE s.answers ? p.field_id AND s.answers->>p.field_id <> '')::text     AS answer_count,
+         MAX(s.submitted_at) FILTER (WHERE s.answers ? p.field_id AND s.answers->>p.field_id <> '') AS last_answered
+       FROM pairs p
+       JOIN docufill_interview_sessions s ON s.package_id = p.package_id
+       WHERE s.account_id = ${acctParam}
+         AND s.status IN ('submitted', 'signed')`,
+      [...pairParams, accountId],
+    )).rows[0];
+
+    const totalSessions = parseInt(statsRows?.total_sessions ?? "0", 10);
+    const answerCount   = parseInt(statsRows?.answer_count   ?? "0", 10);
+    const lastAnswered  = statsRows?.last_answered ? (statsRows.last_answered as Date).toISOString() : null;
+    const answerRate    = totalSessions > 0 ? answerCount / totalSessions : null;
+
+    // Top 10 most common values — only for non-sensitive fields.
+    type TopRow = { value: string; count: number };
+    const topValues: TopRow[] = isSensitive ? [] : (await db.query<TopRow>(
+      `WITH pairs(package_id, field_id) AS (VALUES ${pairValues})
+       SELECT
+         s.answers->>p.field_id AS value,
+         COUNT(*)::int          AS count
+       FROM pairs p
+       JOIN docufill_interview_sessions s ON s.package_id = p.package_id
+       WHERE s.account_id = ${acctParam}
+         AND s.status IN ('submitted', 'signed')
+         AND s.answers ? p.field_id
+         AND s.answers->>p.field_id <> ''
+       GROUP BY value
+       ORDER BY count DESC
+       LIMIT 10`,
+      [...pairParams, accountId],
+    )).rows;
+
+    // 30-day daily answer histogram.
+    type HistRow = { date: string; count: number };
+    const histogram = (await db.query<HistRow>(
+      `WITH pairs(package_id, field_id) AS (VALUES ${pairValues})
+       SELECT
+         to_char(date_trunc('day', s.submitted_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS date,
+         COUNT(*)::int AS count
+       FROM pairs p
+       JOIN docufill_interview_sessions s ON s.package_id = p.package_id
+       WHERE s.account_id = ${acctParam}
+         AND s.status IN ('submitted', 'signed')
+         AND s.submitted_at >= NOW() - INTERVAL '30 days'
+         AND s.answers ? p.field_id
+         AND s.answers->>p.field_id <> ''
+       GROUP BY date
+       ORDER BY date`,
+      [...pairParams, accountId],
+    )).rows;
+
+    res.json({ packageCount, answerCount, totalSessions, lastAnswered, answerRate, topValues, histogram });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to load field analytics");
+    res.status(500).json({ error: "Failed to load field analytics" });
   }
 });
 
