@@ -64,6 +64,10 @@ import SandboxDemo from "@/pages/docs/developer/SandboxDemo";
 
 import Scim from "@/pages/docs/enterprise/Scim";
 import CustomDomains from "@/pages/docs/enterprise/CustomDomains";
+import Security from "@/pages/docs/enterprise/Security";
+import ComplianceSheet from "@/pages/docs/enterprise/ComplianceSheet";
+
+import QuickstartGuide from "@/pages/docs/developer/QuickstartGuide";
 
 function NotFound() {
   return (
@@ -140,6 +144,7 @@ function Router() {
 
         {/* Developer API */}
         <Route path="/developer/authentication" component={DeveloperAuthentication} />
+        <Route path="/developer/quickstart-guide" component={QuickstartGuide} />
         <Route path="/developer/sdk" component={Sdk} />
         <Route path="/developer/bulk-sessions" component={BulkSessions} />
         <Route path="/developer/audit-log" component={AuditLog} />
@@ -149,6 +154,8 @@ function Router() {
         <Route path="/developer/sandbox" component={SandboxDemo} />
 
         {/* Enterprise */}
+        <Route path="/enterprise/security" component={Security} />
+        <Route path="/enterprise/compliance-sheet" component={ComplianceSheet} />
         <Route path="/enterprise/scim" component={Scim} />
         <Route path="/enterprise/custom-domains" component={CustomDomains} />
 

@@ -101,6 +101,7 @@ export const NAV: NavItem[] = [
     slug: "developer",
     children: [
       { title: "Authentication & API Keys", slug: "developer/authentication" },
+      { title: "Developer Quickstart Guide", slug: "developer/quickstart-guide" },
       { title: "Node.js SDK", slug: "developer/sdk" },
       { title: "Bulk Session Creation", slug: "developer/bulk-sessions" },
       { title: "Session Audit Log", slug: "developer/audit-log" },
@@ -114,6 +115,8 @@ export const NAV: NavItem[] = [
     title: "Enterprise",
     slug: "enterprise",
     children: [
+      { title: "Security & Compliance", slug: "enterprise/security" },
+      { title: "Enterprise Compliance Sheet", slug: "enterprise/compliance-sheet" },
       { title: "SCIM 2.0 Provisioning", slug: "enterprise/scim" },
       { title: "Custom Domains", slug: "enterprise/custom-domains" },
     ],
