@@ -59,6 +59,7 @@ import { DocuFillBuilderPanel } from "./DocuFillBuilderPanel";
 import { DocuFillMapperPanel } from "./DocuFillMapperPanel";
 import { DocuFillInterviewPanel } from "./DocuFillInterviewPanel";
 import { DocuFillCsvPanel } from "./DocuFillCsvPanel";
+import { AcroFieldReviewOverlay, type PendingAnnotation } from "@/components/AcroFieldReviewOverlay";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
 
@@ -567,6 +568,11 @@ export default function DocuFill() {
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
   const [acroAnnotations, setAcroAnnotations] = useState<AcroAnnotation[]>([]);
   const [showAcroLayer, setShowAcroLayer] = useState(true);
+  const [pendingAcroReview, setPendingAcroReview] = useState<{
+    documentId: string;
+    docTitle: string;
+    annotations: PendingAnnotation[];
+  } | null>(null);
   const mapperTextMode = useDocuFillStore((s) => s.mapperTextMode);
   const setMapperTextMode = useDocuFillStore((s) => s.setMapperTextMode);
   const [snapGrid, setSnapGrid] = useState<boolean>(() => {
@@ -2186,6 +2192,39 @@ export default function DocuFill() {
     return Array.from(files).filter((file) => file.type === "application/pdf" || /\.pdf$/i.test(file.name));
   }
 
+  async function extractAcroFromFile(file: File): Promise<PendingAnnotation[]> {
+    const url = URL.createObjectURL(file);
+    try {
+      const doc = await pdfjsLib.getDocument(url).promise;
+      const results: PendingAnnotation[] = [];
+      for (let pageNum = 1; pageNum <= doc.numPages; pageNum++) {
+        const page = await doc.getPage(pageNum);
+        const viewport = page.getViewport({ scale: 1.0 });
+        const rawAnnotations = await page.getAnnotations();
+        for (const ann of rawAnnotations) {
+          const a = ann as Record<string, unknown>;
+          if (a["subtype"] !== "Widget") continue;
+          const r = a["rect"];
+          if (!Array.isArray(r) || r.length < 4) continue;
+          const [x1, y1, x2, y2] = r.map(Number);
+          if (x2 - x1 < 2 || y2 - y1 < 2) continue;
+          results.push({
+            fieldName: String(a["fieldName"] ?? a["alternativeText"] ?? ""),
+            rect: [x1, y1, x2, y2],
+            fieldType: String(a["fieldType"] ?? ""),
+            page: pageNum,
+            pageW: viewport.width,
+            pageH: viewport.height,
+          });
+        }
+      }
+      await doc.destroy();
+      return results;
+    } finally {
+      URL.revokeObjectURL(url);
+    }
+  }
+
   async function persistDocumentPdf(file: File, documentId?: string) {
     if (!selectedPackage) return null;
     const endpoint = documentId
@@ -2223,8 +2262,30 @@ export default function DocuFill() {
     setIsUploadingDocument(true);
     setError(null);
     try {
-      await persistDocumentPdf(file, documentId);
+      const updatedPackage = await persistDocumentPdf(file, documentId);
       flashStatus(documentId ? "Replaced PDF." : "Uploaded PDF.");
+      // After upload, scan the PDF for AcroForm fields so we can show the
+      // Field Review overlay when the user navigates to the mapper.
+      try {
+        const annotations = await extractAcroFromFile(file);
+        if (annotations.length > 0) {
+          const targetDoc = documentId
+            ? updatedPackage?.documents.find((d) => d.id === documentId)
+            : updatedPackage?.documents[updatedPackage.documents.length - 1];
+          if (targetDoc) {
+            setPendingAcroReview({
+              documentId: targetDoc.id,
+              docTitle: targetDoc.title || file.name,
+              annotations,
+            });
+          }
+        } else {
+          // No AcroForm fields — clear any stale review for this doc
+          setPendingAcroReview(null);
+        }
+      } catch {
+        // Non-fatal — PDF scanning failure doesn't block the upload
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not upload PDF");
     } finally {
@@ -2498,6 +2559,46 @@ export default function DocuFill() {
       return unmatched[0].field;
     }
     return candidates[0].field;
+  }
+
+  function applyAnnotationMappingsForReview(annotations: PendingAnnotation[]) {
+    if (!selectedDocument || !selectedPackage || !annotations.length) return;
+    let placed = 0;
+    const alreadyMatchedInThisRun = new Set<string>();
+    const currentMappings = useDocuFillStore.getState().mappings;
+    pushUndo([...currentMappings]);
+    let newMappings = [...currentMappings];
+    for (const ann of annotations) {
+      const [x1, y1, x2, y2] = ann.rect;
+      const xPct = clampPercent((x1 / ann.pageW) * 100, 0, 98);
+      const yPct = clampPercent(((ann.pageH - y2) / ann.pageH) * 100, 0, 98);
+      const wPct = Math.max(((x2 - x1) / ann.pageW) * 100, 1);
+      const hPct = Math.max(((y2 - y1) / ann.pageH) * 100, 0.5);
+      const field = findBestFieldForAnnotation(ann, selectedPackage.fields, alreadyMatchedInThisRun);
+      if (!field) continue;
+      const alreadyMapped = newMappings.some(
+        (m) => m.fieldId === field.id && m.documentId === selectedDocument.id &&
+               m.page === ann.page && Math.abs(m.x - xPct) < 3 && Math.abs(m.y - yPct) < 3,
+      );
+      if (alreadyMapped) continue;
+      alreadyMatchedInThisRun.add(field.id);
+      newMappings = [...newMappings, {
+        id: newId("map"),
+        fieldId: field.id,
+        documentId: selectedDocument.id,
+        page: ann.page,
+        x: xPct, y: yPct, w: wPct, h: hPct,
+        fontSize: 11, align: "left",
+        format: defaultMappingFormat(field),
+      }];
+      placed++;
+    }
+    if (placed > 0) {
+      useDocuFillStore.getState().setMappings(newMappings);
+      flashStatus(`Auto-mapped ${placed} field${placed === 1 ? "" : "s"} from AcroForm PDF.`);
+    } else {
+      popUndo();
+    }
   }
 
   function autoMapFromPdfFields() {
@@ -3424,7 +3525,20 @@ export default function DocuFill() {
         />
       )}
 
-      {tab === "mapper" && (
+      {tab === "mapper" && pendingAcroReview && pendingAcroReview.documentId === selectedDocumentId && selectedPackage && (
+        <AcroFieldReviewOverlay
+          annotations={pendingAcroReview.annotations}
+          packageFields={selectedPackage.fields}
+          documentTitle={pendingAcroReview.docTitle}
+          onConfirm={() => {
+            applyAnnotationMappingsForReview(pendingAcroReview.annotations);
+            setPendingAcroReview(null);
+          }}
+          onSkip={() => setPendingAcroReview(null)}
+        />
+      )}
+
+      {tab === "mapper" && !(pendingAcroReview && pendingAcroReview.documentId === selectedDocumentId) && (
         !selectedPackage ? (
           <EmptyState message="Create or select a package first." />
         ) : (
