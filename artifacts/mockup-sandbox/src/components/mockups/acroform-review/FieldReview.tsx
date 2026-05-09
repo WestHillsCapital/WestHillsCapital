@@ -207,9 +207,11 @@ interface DropdownProps {
 
 function LibraryDropdown({ field, onSelect, onDefer, onBlank, autoFocus }: DropdownProps) {
   const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   const filtered = LIBRARY_FIELDS.filter(f =>
     f.label.toLowerCase().includes(query.toLowerCase()) ||
@@ -242,6 +244,15 @@ function LibraryDropdown({ field, onSelect, onDefer, onBlank, autoFocus }: Dropd
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const toggleOpen = () => {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      setOpenUpward(spaceBelow < 380);
+    }
+    setOpen(o => !o);
+  };
+
   const close = () => { setOpen(false); setQuery(""); };
   const current = field.selectedMatch;
 
@@ -265,8 +276,9 @@ function LibraryDropdown({ field, onSelect, onDefer, onBlank, autoFocus }: Dropd
   return (
     <div ref={containerRef} className="relative">
       <button
-        onClick={() => setOpen(o => !o)}
-        onKeyDown={e => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setOpen(o => !o); } }}
+        ref={triggerRef}
+        onClick={toggleOpen}
+        onKeyDown={e => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggleOpen(); } }}
         className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border w-full text-left transition-all
           ${triggerStyle()}
           focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1`}
@@ -276,7 +288,8 @@ function LibraryDropdown({ field, onSelect, onDefer, onBlank, autoFocus }: Dropd
       </button>
 
       {open && (
-        <div className="absolute z-50 top-full mt-1 left-0 w-80 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden">
+        <div className={`absolute z-50 left-0 w-80 bg-white border border-slate-200 rounded-xl shadow-xl overflow-hidden
+          ${openUpward ? "bottom-full mb-1" : "top-full mt-1"}`}>
           <div className="p-2 border-b border-slate-100">
             <div className="flex items-center gap-2 px-2 py-1.5 bg-slate-50 rounded-lg border border-slate-200">
               <Search className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
