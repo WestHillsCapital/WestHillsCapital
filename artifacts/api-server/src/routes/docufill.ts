@@ -65,6 +65,7 @@ import {
   FieldLibraryUpdateSchema,
   FieldGroupCreateSchema,
   FieldGroupUpdateSchema,
+  FieldLibraryImportSchema,
   ComplianceTagCreateSchema,
   ComplianceTagUpdateSchema,
   FieldComplianceTagsPatchSchema,
@@ -2128,6 +2129,221 @@ router.get("/field-library", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load field library");
     res.status(500).json({ error: "Failed to load field library" });
+  }
+});
+
+// GET /field-library/export — download the account's field library as JSON or CSV
+router.get("/field-library/export", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = acctId(req);
+    const format = req.query.format === "csv" ? "csv" : "json";
+    const db = getDb();
+
+    const [fieldLibrary, groupRows] = await Promise.all([
+      getFieldLibrary(db, accountId),
+      db.query(`SELECT * FROM docufill_field_groups WHERE account_id = $1 ORDER BY sort_order ASC, name ASC`, [accountId]),
+    ]);
+
+    // Only export this account's own fields — not those inherited from a parent account.
+    const ownFields = fieldLibrary.filter((f) => !(f as Record<string, unknown>).inherited);
+    const ts = new Date().toISOString().slice(0, 10);
+
+    if (format === "csv") {
+      const header = ["label","category","type","source","sensitive","required","validationType","validationPattern","validationMessage","active","sortOrder","options","complianceTags"];
+      const csvLine = (cols: unknown[]) =>
+        cols.map((c) => {
+          const s = String(c ?? "");
+          return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
+        }).join(",");
+      const rows = ownFields.map((f) => {
+        const rf = f as Record<string, unknown>;
+        return [
+          f.label,
+          rf.category ?? "",
+          rf.type ?? "text",
+          rf.source ?? "",
+          rf.sensitive ? "true" : "false",
+          rf.required ? "true" : "false",
+          rf.validationType ?? "none",
+          rf.validationPattern ?? "",
+          rf.validationMessage ?? "",
+          rf.active !== false ? "true" : "false",
+          String(rf.sortOrder ?? 100),
+          Array.isArray(rf.options) ? (rf.options as string[]).join("|") : "",
+          Array.isArray(rf.complianceTags) ? (rf.complianceTags as string[]).join("|") : "",
+        ];
+      });
+      const csv = [header, ...rows].map(csvLine).join("\n");
+      res.setHeader("Content-Type", "text/csv");
+      res.setHeader("Content-Disposition", `attachment; filename="field-library-${ts}.csv"`);
+      res.send(csv);
+      return;
+    }
+
+    // JSON export
+    const fieldGroups = (groupRows.rows as Array<Record<string, unknown>>).map((row) => ({
+      name: row.name,
+      description: row.description ?? null,
+      fieldIds: Array.isArray(row.field_ids) ? row.field_ids : [],
+      sortOrder: row.sort_order ?? 0,
+    }));
+
+    const payload = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      fields: ownFields.map((f) => {
+        const rf = f as Record<string, unknown>;
+        return {
+          id: f.id,
+          label: f.label,
+          category: rf.category ?? "General",
+          type: rf.type ?? "text",
+          source: rf.source ?? "interview",
+          options: Array.isArray(rf.options) ? rf.options : [],
+          sensitive: rf.sensitive === true,
+          required: rf.required === true,
+          validationType: rf.validationType ?? "none",
+          validationPattern: rf.validationPattern ?? null,
+          validationMessage: rf.validationMessage ?? null,
+          active: rf.active !== false,
+          sortOrder: Number(rf.sortOrder ?? 100),
+          complianceTags: Array.isArray(rf.complianceTags) ? rf.complianceTags : [],
+        };
+      }),
+      fieldGroups,
+    };
+
+    res.setHeader("Content-Type", "application/json");
+    res.setHeader("Content-Disposition", `attachment; filename="field-library-${ts}.json"`);
+    res.json(payload);
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to export field library");
+    res.status(500).json({ error: "Failed to export field library" });
+  }
+});
+
+// POST /field-library/import — import a field library JSON payload (additive only)
+router.post("/field-library/import", requireAdminRole, async (req, res) => {
+  try {
+    const _parse = FieldLibraryImportSchema.safeParse(req.body);
+    if (!_parse.success) {
+      res.status(400).json({ error: "Invalid import format", issues: _parse.error.issues.map(i => i.message) });
+      return;
+    }
+    const { fields: importFields, fieldGroups: importGroups } = _parse.data;
+    const accountId = acctId(req);
+    const db = getDb();
+
+    // Fetch existing labels (own + inherited) for label-based deduplication.
+    const { rows: existingRows } = await db.query(
+      `SELECT lower(label) AS label_lower FROM docufill_fields WHERE account_id = $1 OR account_id IS NULL`,
+      [accountId],
+    );
+    const existingLabels = new Set(existingRows.map((r: Record<string, string>) => r.label_lower));
+
+    let added = 0;
+    let skipped = 0;
+    const errors: string[] = [];
+
+    for (const field of importFields) {
+      const label = field.label.trim();
+      if (!label) { skipped++; continue; }
+      const labelLower = label.toLowerCase();
+      if (existingLabels.has(labelLower)) { skipped++; continue; }
+      try {
+        let id = field.id ? cleanText(field.id) : fieldLibraryIdFromLabel(label);
+        if (!id) id = fieldLibraryIdFromLabel(label);
+        // Ensure id uniqueness
+        const { rows: idRows } = await db.query(`SELECT id FROM docufill_fields WHERE id = $1`, [id]);
+        if (idRows[0]) {
+          for (let suffix = 2; suffix < 1000; suffix++) {
+            const candidate = `${id}_${suffix}`;
+            const { rows: cr } = await db.query(`SELECT id FROM docufill_fields WHERE id = $1`, [candidate]);
+            if (!cr[0]) { id = candidate; break; }
+          }
+        }
+        await db.query(
+          `INSERT INTO docufill_fields
+             (id, label, category, field_type, source, options, sensitive, required,
+              validation_type, validation_pattern, validation_message, active, sort_order, account_id)
+           VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14)`,
+          [
+            id,
+            label,
+            cleanText(field.category) || "General",
+            normalizeFieldType(field.type),
+            cleanText(field.source) || "interview",
+            JSON.stringify(parseOptions(field.options)),
+            field.sensitive === true,
+            field.required === true,
+            normalizeValidationType(field.validationType),
+            nullableText(field.validationPattern),
+            nullableText(field.validationMessage),
+            field.active !== false,
+            normalizeSortOrder(field.sortOrder),
+            accountId,
+          ],
+        );
+        existingLabels.add(labelLower);
+        added++;
+      } catch (fieldErr) {
+        errors.push(`"${label}": ${fieldErr instanceof Error ? fieldErr.message : String(fieldErr)}`);
+      }
+    }
+
+    // Import field groups — additive by name (case-insensitive).
+    let groupsAdded = 0;
+    let groupsSkipped = 0;
+
+    if (importGroups.length > 0) {
+      const { rows: existingGroupRows } = await db.query(
+        `SELECT lower(name) AS name_lower FROM docufill_field_groups WHERE account_id = $1`,
+        [accountId],
+      );
+      const existingGroupNames = new Set(existingGroupRows.map((r: Record<string, string>) => r.name_lower));
+
+      // Build label→id map for fields now in this account so we can remap exported fieldIds.
+      const { rows: allFieldRows } = await db.query(
+        `SELECT id, lower(label) AS label_lower FROM docufill_fields WHERE account_id = $1`,
+        [accountId],
+      );
+      const labelToId = new Map<string, string>(allFieldRows.map((r: Record<string, string>) => [r.label_lower, r.id]));
+      // Also build exported-id → imported-label map for remapping group fieldIds.
+      const exportedIdToLabel = new Map<string, string>(
+        importFields
+          .filter((f) => f.id && f.id !== "")
+          .map((f): [string, string] => [f.id as string, f.label.trim().toLowerCase()]),
+      );
+
+      for (const group of importGroups) {
+        const groupName = group.name.trim();
+        if (!groupName) continue;
+        const nameLower = groupName.toLowerCase();
+        if (existingGroupNames.has(nameLower)) { groupsSkipped++; continue; }
+        const remappedIds: string[] = [];
+        for (const fid of group.fieldIds) {
+          const labelKey = exportedIdToLabel.get(fid);
+          const remapped = labelKey ? labelToId.get(labelKey) : undefined;
+          if (remapped) remappedIds.push(remapped);
+        }
+        try {
+          await db.query(
+            `INSERT INTO docufill_field_groups (account_id, name, description, field_ids, sort_order)
+             VALUES ($1, $2, $3, $4::text[], $5)`,
+            [accountId, groupName, group.description ?? null, remappedIds, group.sortOrder ?? 0],
+          );
+          existingGroupNames.add(nameLower);
+          groupsAdded++;
+        } catch (groupErr) {
+          errors.push(`Group "${groupName}": ${groupErr instanceof Error ? groupErr.message : String(groupErr)}`);
+        }
+      }
+    }
+
+    res.json({ added, skipped, errors, groupsAdded, groupsSkipped });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to import field library");
+    res.status(500).json({ error: "Failed to import field library" });
   }
 });
 

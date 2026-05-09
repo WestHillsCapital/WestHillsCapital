@@ -125,6 +125,8 @@ export interface DocuFillBuilderPanelProps {
   loadFieldLibraryVersions?: (fieldId: string) => Promise<import("@/lib/docufill-local-types").FieldVersionRow[] | string>;
   restoreFieldLibraryVersion?: (fieldId: string, versionId: number) => Promise<string | null>;
   loadFieldLibraryAnalytics?: (fieldId: string) => Promise<import("@/lib/docufill-local-types").FieldAnalytics | string>;
+  exportFieldLibrary?: (format: "json" | "csv") => Promise<void>;
+  importFieldLibrary?: (data: import("@/components/DocuFillPanels").FieldLibraryImportPayload) => Promise<import("@/components/DocuFillPanels").FieldLibraryImportResult | string>;
   fieldGroups: FieldGroup[];
   createFieldGroup: () => Promise<string | null>;
   updateFieldGroupLocal: (id: number, patch: Partial<FieldGroup>) => void;
@@ -172,6 +174,7 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
     createTransactionType, updateTransactionTypeLocal, saveTransactionType, deleteTransactionType,
     createTransactionTypeNamed, createFieldLibraryItem, updateFieldLibraryLocal, saveFieldLibraryItem,
     deleteFieldLibraryItem, addLibraryFieldToPackage, loadFieldLibraryVersions, restoreFieldLibraryVersion, loadFieldLibraryAnalytics,
+    exportFieldLibrary, importFieldLibrary,
     fieldGroups, createFieldGroup, updateFieldGroupLocal, saveFieldGroup, deleteFieldGroup, addGroupToPackage,
     launchTestInterview, openFieldEditorForAdd,
     openFieldEditorForEdit, removeField, setSelectedFieldId, setPackages,
@@ -522,6 +525,8 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
                       onLoadVersions={loadFieldLibraryVersions}
                       onRestoreVersion={restoreFieldLibraryVersion}
                       onLoadAnalytics={loadFieldLibraryAnalytics}
+                      onExport={exportFieldLibrary}
+                      onImport={importFieldLibrary}
                     />
                   </div>
                 </details>

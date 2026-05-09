@@ -1,10 +1,48 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import type { Entity, TransactionType, FieldLibraryItem, FieldVersionRow, FieldAnalytics, FieldGroup, ComplianceTag } from "@/lib/docufill-local-types";
 import type { FieldItem } from "@/lib/docufill-types";
+
+export type FieldLibraryImportField = {
+  id?: string;
+  label: string;
+  category?: string;
+  type?: string;
+  source?: string;
+  options?: string[];
+  sensitive?: boolean;
+  required?: boolean;
+  validationType?: string;
+  validationPattern?: string | null;
+  validationMessage?: string | null;
+  active?: boolean;
+  sortOrder?: number;
+  complianceTags?: string[];
+};
+
+export type FieldLibraryImportGroup = {
+  name: string;
+  description?: string | null;
+  fieldIds?: string[];
+  sortOrder?: number;
+};
+
+export type FieldLibraryImportPayload = {
+  version?: number;
+  fields: FieldLibraryImportField[];
+  fieldGroups?: FieldLibraryImportGroup[];
+};
+
+export type FieldLibraryImportResult = {
+  added: number;
+  skipped: number;
+  errors: string[];
+  groupsAdded?: number;
+  groupsSkipped?: number;
+};
 
 // ─── Tiny SVG sparkline ───────────────────────────────────────────────────────
 function Sparkline({ data }: { data: Array<{ date: string; count: number }> }) {
@@ -657,6 +695,8 @@ export function FieldLibraryPanel({
   onLoadVersions,
   onRestoreVersion,
   onLoadAnalytics,
+  onExport,
+  onImport,
 }: {
   items: FieldLibraryItem[];
   allComplianceTags?: ComplianceTag[];
@@ -669,6 +709,8 @@ export function FieldLibraryPanel({
   onLoadVersions?: (fieldId: string) => Promise<FieldVersionRow[] | string>;
   onRestoreVersion?: (fieldId: string, versionId: number) => Promise<string | null>;
   onLoadAnalytics?: (fieldId: string) => Promise<FieldAnalytics | string>;
+  onExport?: (format: "json" | "csv") => Promise<void>;
+  onImport?: (data: FieldLibraryImportPayload) => Promise<FieldLibraryImportResult | string>;
 }) {
   const [adding, setAdding] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -689,6 +731,84 @@ export function FieldLibraryPanel({
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
   const [tagPickerOpenId, setTagPickerOpenId] = useState<string | null>(null);
   const [tagSavingId, setTagSavingId] = useState<string | null>(null);
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
+  const [exportLoading, setExportLoading] = useState<"json" | "csv" | null>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const [importPreview, setImportPreview] = useState<{
+    payload: FieldLibraryImportPayload;
+    newFields: FieldLibraryImportField[];
+    dupFields: FieldLibraryImportField[];
+  } | null>(null);
+  const [importParseError, setImportParseError] = useState<string | null>(null);
+  const [importLoading, setImportLoading] = useState(false);
+  const [importResult, setImportResult] = useState<FieldLibraryImportResult | null>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!exportMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [exportMenuOpen]);
+
+  async function handleExport(format: "json" | "csv") {
+    if (!onExport) return;
+    setExportMenuOpen(false);
+    setExportLoading(format);
+    try { await onExport(format); } finally { setExportLoading(null); }
+  }
+
+  function handleImportFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    setImportParseError(null);
+    setImportPreview(null);
+    setImportResult(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      try {
+        const parsed = JSON.parse(ev.target?.result as string) as FieldLibraryImportPayload;
+        if (!parsed || !Array.isArray(parsed.fields)) {
+          setImportParseError("File does not contain a valid field library export (missing \"fields\" array).");
+          return;
+        }
+        const existingLabelSet = new Set(items.map((i) => i.label.trim().toLowerCase()));
+        const newFields: FieldLibraryImportField[] = [];
+        const dupFields: FieldLibraryImportField[] = [];
+        for (const f of parsed.fields) {
+          if (!f.label?.trim()) continue;
+          if (existingLabelSet.has(f.label.trim().toLowerCase())) {
+            dupFields.push(f);
+          } else {
+            newFields.push(f);
+          }
+        }
+        setImportPreview({ payload: parsed, newFields, dupFields });
+      } catch {
+        setImportParseError("Could not parse the file — make sure it is a valid JSON export.");
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = "";
+  }
+
+  async function handleImportConfirm() {
+    if (!onImport || !importPreview) return;
+    setImportLoading(true);
+    const result = await onImport(importPreview.payload);
+    setImportLoading(false);
+    setImportPreview(null);
+    if (typeof result === "string") {
+      setPanelError(result);
+    } else {
+      setImportResult(result);
+      setTimeout(() => setImportResult(null), 6000);
+    }
+  }
 
   async function handleAdd() {
     setAdding(true);
@@ -787,6 +907,73 @@ export function FieldLibraryPanel({
 
   return (
     <div className="border border-[#DDD5C4] rounded p-3">
+      {importPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-xl shadow-2xl border border-[#DDD5C4] w-full max-w-lg max-h-[80vh] flex flex-col">
+            <div className="px-5 pt-5 pb-3 border-b border-[#EFE8D8]">
+              <h2 className="text-sm font-semibold text-[#0F1C3F]">Review import</h2>
+              <p className="text-[11px] text-[#6B7A99] mt-0.5">
+                {importPreview.newFields.length} field{importPreview.newFields.length !== 1 ? "s" : ""} will be added
+                {importPreview.dupFields.length > 0 && `, ${importPreview.dupFields.length} already exist and will be skipped`}
+                {(importPreview.payload.fieldGroups ?? []).length > 0 && `, ${(importPreview.payload.fieldGroups ?? []).length} group${(importPreview.payload.fieldGroups ?? []).length !== 1 ? "s" : ""} included`}.
+              </p>
+            </div>
+            <div className="overflow-y-auto flex-1 px-5 py-3 space-y-1">
+              {importPreview.newFields.length === 0 && importPreview.dupFields.length === 0 && (
+                <p className="text-[11px] text-[#8A9BB8]">No fields found in this file.</p>
+              )}
+              {importPreview.newFields.map((f, i) => (
+                <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
+                  <span className="text-[#0F1C3F] truncate">{f.label}</span>
+                  <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] font-medium text-[10px]">New</span>
+                </div>
+              ))}
+              {importPreview.dupFields.map((f, i) => (
+                <div key={i} className="flex items-center justify-between gap-2 text-[11px] opacity-50">
+                  <span className="text-[#0F1C3F] truncate">{f.label}</span>
+                  <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#F0F0F0] text-[#9CA3AF] font-medium text-[10px]">Duplicate</span>
+                </div>
+              ))}
+              {(importPreview.payload.fieldGroups ?? []).length > 0 && (
+                <div className="pt-2 mt-2 border-t border-[#EFE8D8]">
+                  <p className="text-[10px] text-[#8A9BB8] font-medium uppercase tracking-wide mb-1">Field groups</p>
+                  {(importPreview.payload.fieldGroups ?? []).map((g, i) => (
+                    <div key={i} className="text-[11px] text-[#4A5568]">{g.name}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="px-5 py-3 border-t border-[#EFE8D8] flex items-center justify-end gap-2">
+              <button type="button" onClick={() => setImportPreview(null)} disabled={importLoading} className="text-xs text-[#6B7A99] hover:text-[#0F1C3F] disabled:opacity-50">Cancel</button>
+              <button
+                type="button"
+                disabled={importLoading || importPreview.newFields.length === 0}
+                onClick={() => void handleImportConfirm()}
+                className="text-xs bg-[#1B4FD8] text-white rounded px-3 py-1.5 disabled:opacity-50 hover:bg-[#1540B0] transition-colors"
+              >
+                {importLoading ? "Importing…" : `Import ${importPreview.newFields.length} field${importPreview.newFields.length !== 1 ? "s" : ""}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {importResult && (
+        <div className="mb-2 rounded bg-[#ECFDF5] border border-[#A7F3D0] text-[#065F46] px-3 py-2 text-[11px] flex items-start justify-between gap-2">
+          <span>
+            Added {importResult.added} field{importResult.added !== 1 ? "s" : ""}
+            {importResult.skipped > 0 && `, skipped ${importResult.skipped} duplicate${importResult.skipped !== 1 ? "s" : ""}`}
+            {(importResult.groupsAdded ?? 0) > 0 && `, added ${importResult.groupsAdded} group${(importResult.groupsAdded ?? 0) !== 1 ? "s" : ""}`}
+            {importResult.errors.length > 0 && ` — ${importResult.errors.length} error${importResult.errors.length !== 1 ? "s" : ""}`}.
+          </span>
+          <button type="button" onClick={() => setImportResult(null)} className="text-[#065F46] opacity-60 hover:opacity-100 shrink-0">✕</button>
+        </div>
+      )}
+      {importParseError && (
+        <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px] flex items-center justify-between gap-2">
+          <span>{importParseError}</span>
+          <button type="button" onClick={() => setImportParseError(null)} className="text-red-500 hover:text-red-700 shrink-0">✕</button>
+        </div>
+      )}
       <div className="flex items-center justify-between mb-2">
         <div>
           <div className="flex items-center gap-1.5">
@@ -810,9 +997,42 @@ export function FieldLibraryPanel({
           </div>
           <p className="text-[11px] text-[#8A9BB8]">Define common customer, IRA, beneficiary, and signature fields once, then reuse them in custodian packages.</p>
         </div>
-        <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
-          {adding ? "Adding…" : "Add"}
-        </button>
+        <div className="flex items-center gap-2">
+          {onImport && (
+            <>
+              <input ref={importFileRef} type="file" accept="application/json,.json" className="sr-only" onChange={handleImportFileChange} />
+              <button
+                type="button"
+                onClick={() => { setImportParseError(null); setImportResult(null); importFileRef.current?.click(); }}
+                className="text-xs text-[#6B7A99] hover:text-[#0F1C3F] transition-colors"
+              >
+                Import
+              </button>
+            </>
+          )}
+          {onExport && (
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                type="button"
+                onClick={() => setExportMenuOpen((v) => !v)}
+                disabled={!!exportLoading}
+                className="text-xs text-[#6B7A99] hover:text-[#0F1C3F] disabled:opacity-50 transition-colors flex items-center gap-0.5"
+              >
+                {exportLoading ? "Exporting…" : "Export"}
+                <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M4 6l4 4 4-4"/></svg>
+              </button>
+              {exportMenuOpen && (
+                <div className="absolute right-0 top-full mt-1 w-28 bg-white border border-[#DDD5C4] rounded shadow-lg z-30 py-1 text-[11px]">
+                  <button type="button" onClick={() => void handleExport("json")} className="w-full text-left px-3 py-1.5 hover:bg-[#F8F6F0] text-[#0F1C3F]">JSON</button>
+                  <button type="button" onClick={() => void handleExport("csv")} className="w-full text-left px-3 py-1.5 hover:bg-[#F8F6F0] text-[#0F1C3F]">CSV</button>
+                </div>
+              )}
+            </div>
+          )}
+          <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
+            {adding ? "Adding…" : "Add"}
+          </button>
+        </div>
       </div>
       {hasUsageData && (
         <div className="flex flex-wrap items-center gap-2 mb-2">

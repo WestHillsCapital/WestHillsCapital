@@ -54,6 +54,37 @@ export const FieldGroupUpdateSchema = z.object({
 }).passthrough();
 export type FieldGroupUpdateBody = z.infer<typeof FieldGroupUpdateSchema>;
 
+export const FieldLibraryImportFieldSchema = z.object({
+  id: z.string().optional(),
+  label: z.string().min(1),
+  category: z.string().optional(),
+  type: z.string().optional(),
+  source: z.string().optional(),
+  options: z.array(z.string()).optional(),
+  sensitive: z.boolean().optional(),
+  required: z.boolean().optional(),
+  validationType: z.string().optional(),
+  validationPattern: z.string().optional().nullable(),
+  validationMessage: z.string().optional().nullable(),
+  active: z.boolean().optional(),
+  sortOrder: z.number().optional(),
+  complianceTags: z.array(z.string()).optional(),
+});
+
+export const FieldLibraryImportGroupSchema = z.object({
+  name: z.string().min(1),
+  description: z.string().optional().nullable(),
+  fieldIds: z.array(z.string()).optional().default([]),
+  sortOrder: z.number().optional(),
+});
+
+export const FieldLibraryImportSchema = z.object({
+  version: z.number().optional(),
+  fields: z.array(FieldLibraryImportFieldSchema).max(2000),
+  fieldGroups: z.array(FieldLibraryImportGroupSchema).optional().default([]),
+});
+export type FieldLibraryImportBody = z.infer<typeof FieldLibraryImportSchema>;
+
 export const EntityBodySchema = z.object({
   name: z.string().optional(),
   kind: z.string().optional().nullable(),

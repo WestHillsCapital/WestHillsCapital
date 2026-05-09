@@ -1649,6 +1649,49 @@ export default function DocuFill() {
     }
   }
 
+  async function exportFieldLibrary(format: "json" | "csv"): Promise<void> {
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/export?format=${format}`, {
+        headers: { ...getAuthHeaders() },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error ?? "Export failed. Please try again.");
+        return;
+      }
+      const blob = await res.blob();
+      const ts = new Date().toISOString().slice(0, 10);
+      const filename = `field-library-${ts}.${format}`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 500);
+    } catch {
+      alert("Network error — could not export field library.");
+    }
+  }
+
+  async function importFieldLibrary(
+    data: import("@/components/DocuFillPanels").FieldLibraryImportPayload,
+  ): Promise<import("@/components/DocuFillPanels").FieldLibraryImportResult | string> {
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/import`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify(data),
+      });
+      const responseData = await res.json().catch(() => ({}));
+      if (!res.ok) return (responseData as { error?: string }).error ?? "Import failed";
+      await loadBootstrap();
+      return responseData as import("@/components/DocuFillPanels").FieldLibraryImportResult;
+    } catch {
+      return "Network error — import failed";
+    }
+  }
+
   async function createEntity(type: "custodians" | "depositories"): Promise<string | null> {
     const count = type === "custodians" ? custodians.length + 1 : depositories.length + 1;
     const label = type === "custodians" ? `New Custodian ${count}` : `New Depository ${count}`;
@@ -3352,6 +3395,8 @@ export default function DocuFill() {
           loadFieldLibraryVersions={loadFieldVersions}
           restoreFieldLibraryVersion={restoreFieldVersion}
           loadFieldLibraryAnalytics={loadFieldAnalytics}
+          exportFieldLibrary={exportFieldLibrary}
+          importFieldLibrary={importFieldLibrary}
           addLibraryFieldToPackage={addLibraryFieldToPackage}
           fieldGroups={fieldGroups}
           createFieldGroup={createFieldGroup}
