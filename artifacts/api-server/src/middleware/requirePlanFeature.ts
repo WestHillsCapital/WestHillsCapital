@@ -8,16 +8,17 @@ export type PlanFeatureName = keyof PlanFeatures;
 type FeatureMeta = { plan: "pro" | "enterprise"; label: string };
 
 export const FEATURE_META: Record<PlanFeatureName, FeatureMeta> = {
-  clientLinks:          { plan: "pro",        label: "Client-facing links" },
-  csvBatch:             { plan: "pro",        label: "CSV batch processing" },
-  googleDrive:          { plan: "pro",        label: "Google Drive integration" },
-  hubspot:              { plan: "pro",        label: "HubSpot integration" },
-  eSign:                { plan: "pro",        label: "eSign" },
-  emailBranding:        { plan: "pro",        label: "Custom email branding" },
-  webhooks:             { plan: "enterprise", label: "Webhooks" },
-  apiAccess:            { plan: "enterprise", label: "API access" },
-  embeddedInterviews:   { plan: "enterprise", label: "Embedded interviews" },
-  customDomain:         { plan: "enterprise", label: "Custom domain" },
+  clientLinks:              { plan: "pro",        label: "Client-facing links" },
+  csvBatch:                 { plan: "pro",        label: "CSV batch processing" },
+  googleDrive:              { plan: "pro",        label: "Google Drive integration" },
+  hubspot:                  { plan: "pro",        label: "HubSpot integration" },
+  eSign:                    { plan: "pro",        label: "eSign" },
+  emailBranding:            { plan: "pro",        label: "Custom email branding" },
+  webhooks:                 { plan: "enterprise", label: "Webhooks" },
+  apiAccess:                { plan: "enterprise", label: "API access" },
+  embeddedInterviews:       { plan: "enterprise", label: "Embedded interviews" },
+  customDomain:             { plan: "enterprise", label: "Custom domain" },
+  fieldLibraryInheritance:  { plan: "enterprise", label: "Field library inheritance" },
 };
 
 /**

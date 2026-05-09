@@ -270,6 +270,8 @@ function normalizeFieldLibrary(items: FieldLibraryItem[]): FieldLibraryItem[] {
     validationMessage: item.validationMessage ?? "",
     active: item.active !== false,
     sortOrder: Number(item.sortOrder ?? 100),
+    inherited: item.inherited === true,
+    inheritedFrom: item.inheritedFrom ?? undefined,
   })) : [];
 }
 

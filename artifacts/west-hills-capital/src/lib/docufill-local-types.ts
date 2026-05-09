@@ -60,6 +60,8 @@ export type FieldLibraryItem = {
   answerCount?: number;
   lastAnswered?: string | null;
   complianceTags?: string[];
+  inherited?: boolean;
+  inheritedFrom?: string;
 };
 
 export type FieldAnalytics = {

@@ -934,15 +934,74 @@ async function getFieldLibraryUsageSummary(client: QueryClient, accountId: numbe
 }
 
 async function getFieldLibrary(client: QueryClient = getDb(), accountId?: number) {
-  const filter = accountId !== undefined && accountId !== null
-    ? `WHERE (account_id IS NULL OR account_id = $1)`
-    : `WHERE account_id IS NULL`;
-  const params = accountId !== undefined && accountId !== null ? [accountId] : [];
-  const { rows } = await client.query(
-    `${fieldLibrarySelectSql()} ${filter} ORDER BY active DESC, sort_order ASC, label ASC`,
-    params,
+  if (accountId === undefined || accountId === null) {
+    const { rows } = await client.query(
+      `${fieldLibrarySelectSql()} WHERE account_id IS NULL ORDER BY active DESC, sort_order ASC, label ASC`,
+    );
+    return rows as Array<Record<string, unknown> & { id: string }>;
+  }
+
+  // Check whether this account has a parent whose library it should inherit.
+  // We also fetch the parent org name so it can be shown in the UI.
+  const { rows: parentRows } = await client.query<{ parent_id: number; parent_name: string; parent_plan: string }>(
+    `SELECT p.id AS parent_id, p.name AS parent_name, p.plan_tier AS parent_plan
+       FROM accounts a
+       JOIN accounts p ON p.id = a.parent_account_id
+      WHERE a.id = $1`,
+    [accountId],
   );
-  return rows as Array<Record<string, unknown> & { id: string }>;
+  const parent = parentRows[0] ?? null;
+
+  if (!parent) {
+    // No parent: standard query (global + own fields)
+    const { rows } = await client.query(
+      `${fieldLibrarySelectSql()} WHERE (account_id IS NULL OR account_id = $1) ORDER BY active DESC, sort_order ASC, label ASC`,
+      [accountId],
+    );
+    return rows as Array<Record<string, unknown> & { id: string }>;
+  }
+
+  // Has a parent: union own fields (not global) + parent's account-owned fields (read-only).
+  // Global (account_id IS NULL) fields are included via the own-fields branch.
+  // Parent fields that share the same ID as a child field are de-duped (child wins).
+  const { rows } = await client.query(
+    `SELECT * FROM (
+       -- Own fields (global + account-specific)
+       SELECT *, FALSE AS inherited, NULL::text AS "inheritedFrom"
+         FROM docufill_fields
+        WHERE (account_id IS NULL OR account_id = $1)
+       UNION ALL
+       -- Parent account-specific fields not already owned by the child
+       SELECT df.*, TRUE AS inherited, $3::text AS "inheritedFrom"
+         FROM docufill_fields df
+        WHERE df.account_id = $2
+          AND df.id NOT IN (
+            SELECT id FROM docufill_fields WHERE (account_id IS NULL OR account_id = $1)
+          )
+     ) combined
+     ORDER BY inherited ASC, active DESC, sort_order ASC, label ASC`,
+    [accountId, parent.parent_id, parent.parent_name],
+  );
+
+  // Map columns to camelCase with compliance tags and inherited flags
+  return rows.map((r) => ({
+    id: r.id,
+    label: r.label,
+    category: r.category,
+    type: r.field_type,
+    source: r.source,
+    options: r.options,
+    sensitive: r.sensitive,
+    required: r.required,
+    validationType: r.validation_type,
+    validationPattern: r.validation_pattern,
+    validationMessage: r.validation_message,
+    active: r.active,
+    sortOrder: r.sort_order,
+    complianceTags: r.compliance_tags ?? [],
+    inherited: r.inherited === true,
+    inheritedFrom: r.inherited === true ? (r.inheritedFrom as string) : undefined,
+  })) as Array<Record<string, unknown> & { id: string }>;
 }
 
 function safePdfFilename(value: unknown): string {
@@ -2238,6 +2297,15 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
     }
     const db = getDb();
     const accountId = acctId(req);
+    // Block writes to inherited (parent-owned) fields
+    { const { rows: parentRows } = await db.query(
+      `SELECT p.id FROM accounts a JOIN accounts p ON p.id = a.parent_account_id WHERE a.id = $1`, [accountId]);
+      if (parentRows[0]) {
+        const parentId = (parentRows[0] as { id: number }).id;
+        const { rows: inh } = await db.query(`SELECT 1 FROM docufill_fields WHERE id = $1 AND account_id = $2`, [id, parentId]);
+        if (inh[0]) { res.status(403).json({ error: "Inherited fields are read-only. To modify this field, edit it in the parent account." }); return; }
+      }
+    }
     // Scope label uniqueness to the requesting account (excluding the field being updated).
     // Run outside the transaction — it's a fast guard with no side effects.
     const { rows: duplicateRows } = await db.query(
@@ -2579,6 +2647,15 @@ router.delete("/field-library/:id", requireAdminRole, async (req, res) => {
     }
     const db = getDb();
     const accountId = acctId(req);
+    // Block deletes of inherited (parent-owned) fields
+    { const { rows: parentRows } = await db.query(
+      `SELECT p.id FROM accounts a JOIN accounts p ON p.id = a.parent_account_id WHERE a.id = $1`, [accountId]);
+      if (parentRows[0]) {
+        const parentId = (parentRows[0] as { id: number }).id;
+        const { rows: inh } = await db.query(`SELECT 1 FROM docufill_fields WHERE id = $1 AND account_id = $2`, [id, parentId]);
+        if (inh[0]) { res.status(403).json({ error: "Inherited fields are read-only and cannot be deleted from a child account." }); return; }
+      }
+    }
     // Only allow deletion of fields owned by the requesting account.
     await db.query(`DELETE FROM docufill_fields WHERE id = $1 AND account_id = $2`, [id, accountId]);
     res.json({ deletedFieldId: id });

@@ -10,7 +10,7 @@ import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
 import { requirePlanFeature } from "../middleware/requirePlanFeature";
 import { brandColorRateLimit } from "../middleware/brandColorRateLimit";
 import { sendTeamInvitationEmail, sendDataExportEmail, sendEmailVerificationEmail, sendFeedbackEmail } from "../lib/email";
-import { getPlanLimits, getEffectiveSubmissionLimit, SUBMISSION_PACKS, getPackTier, getPlanDisplayName, normalizeStripeProductName } from "../lib/plans";
+import { getPlanLimits, getEffectiveSubmissionLimit, SUBMISSION_PACKS, getPackTier, getPlanDisplayName, normalizeStripeProductName, getPlanFeatures } from "../lib/plans";
 import { getBankBalance } from "../lib/submissionBank";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { isIpAllowed } from "../lib/cidr";
@@ -4967,6 +4967,116 @@ router.post("/feedback", async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[Feedback] Failed to send feedback email");
     res.status(500).json({ error: "Failed to send your message. Please try again." });
+  }
+});
+
+// ── Field Library Inheritance (Enterprise only) ───────────────────────────────
+// GET  /inheritance        — get this account's parent (if any) and its children
+// POST /inheritance/link-child    — set another account as a child of this one
+// DELETE /inheritance/unlink-child/:childId — remove a child link
+
+router.get("/inheritance", requireAdminRole, async (req, res) => {
+  try {
+    const db = getDb();
+    const accountId = req.internalAccountId ?? 1;
+
+    // Fetch this account's plan tier and parent in one go
+    const { rows: selfRows } = await db.query<{ plan_tier: string; parent_id: number | null; parent_name: string | null; parent_slug: string | null; parent_plan: string | null }>(
+      `SELECT a.plan_tier,
+              p.id   AS parent_id,
+              p.name AS parent_name,
+              p.slug AS parent_slug,
+              p.plan_tier AS parent_plan
+         FROM accounts a
+         LEFT JOIN accounts p ON p.id = a.parent_account_id
+        WHERE a.id = $1`,
+      [accountId],
+    );
+    const selfRow = selfRows[0];
+    const planFeatures = getPlanFeatures(selfRow?.plan_tier ?? "starter");
+    const parent = selfRow?.parent_id
+      ? { id: selfRow.parent_id, name: selfRow.parent_name, slug: selfRow.parent_slug, plan_tier: selfRow.parent_plan }
+      : null;
+
+    // Fetch children (accounts that have set this account as their parent)
+    const { rows: children } = await db.query<{ id: number; name: string; slug: string; plan_tier: string }>(
+      `SELECT id, name, slug, plan_tier FROM accounts WHERE parent_account_id = $1 ORDER BY name ASC`,
+      [accountId],
+    );
+
+    res.json({
+      parent,
+      children,
+      canManageChildren: planFeatures.fieldLibraryInheritance,
+    });
+  } catch (err) {
+    logger.error({ err }, "[Inheritance] Failed to load inheritance info");
+    res.status(500).json({ error: "Failed to load inheritance info" });
+  }
+});
+
+router.post("/inheritance/link-child", requireAdminRole, requirePlanFeature("fieldLibraryInheritance"), async (req, res) => {
+  try {
+    const db = getDb();
+    const accountId = req.internalAccountId ?? 1;
+    const { email } = req.body as { email?: string };
+    if (!email || typeof email !== "string") {
+      return void res.status(400).json({ error: "Child account admin email is required" });
+    }
+    // Find the account whose admin user has this email
+    const { rows: targetRows } = await db.query<{ id: number; name: string; slug: string }>(
+      `SELECT a.id, a.name, a.slug
+         FROM accounts a
+         JOIN users u ON u.account_id = a.id
+        WHERE lower(u.email) = lower($1)
+          AND a.id <> $2
+        LIMIT 1`,
+      [email.trim(), accountId],
+    );
+    if (!targetRows[0]) {
+      return void res.status(404).json({ error: "No account found for that email address" });
+    }
+    const childId = targetRows[0].id;
+    // Prevent circular inheritance (child cannot itself be a parent)
+    const { rows: circularCheck } = await db.query(
+      `SELECT 1 FROM accounts WHERE id = $1 AND parent_account_id IS NOT NULL LIMIT 1`,
+      [childId],
+    );
+    if (circularCheck[0]) {
+      return void res.status(409).json({ error: "That account already has a parent. Only one level of inheritance is supported." });
+    }
+    // Prevent self-linking and prevent linking a child that is already a parent of this account
+    if (childId === accountId) {
+      return void res.status(409).json({ error: "An account cannot inherit from itself." });
+    }
+    await db.query(`UPDATE accounts SET parent_account_id = $1 WHERE id = $2`, [accountId, childId]);
+    res.json({ ok: true, child: targetRows[0] });
+  } catch (err) {
+    logger.error({ err }, "[Inheritance] Failed to link child account");
+    res.status(500).json({ error: "Failed to link child account" });
+  }
+});
+
+router.delete("/inheritance/unlink-child/:childId", requireAdminRole, requirePlanFeature("fieldLibraryInheritance"), async (req, res) => {
+  try {
+    const db = getDb();
+    const accountId = req.internalAccountId ?? 1;
+    const childId = Number(req.params.childId);
+    if (!childId || isNaN(childId)) {
+      return void res.status(400).json({ error: "Invalid child account ID" });
+    }
+    // Only unlink if the child actually belongs to this parent
+    const { rows } = await db.query(
+      `UPDATE accounts SET parent_account_id = NULL WHERE id = $1 AND parent_account_id = $2 RETURNING id`,
+      [childId, accountId],
+    );
+    if (!rows[0]) {
+      return void res.status(404).json({ error: "Child account not found or not linked to this account" });
+    }
+    res.json({ ok: true, unlinkedChildId: childId });
+  } catch (err) {
+    logger.error({ err }, "[Inheritance] Failed to unlink child account");
+    res.status(500).json({ error: "Failed to unlink child account" });
   }
 });
 

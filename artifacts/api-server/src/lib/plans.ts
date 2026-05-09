@@ -8,16 +8,17 @@ export interface PlanLimits {
 }
 
 export interface PlanFeatures {
-  clientLinks:          boolean;
-  csvBatch:             boolean;
-  googleDrive:          boolean;
-  hubspot:              boolean;
-  eSign:                boolean;
-  emailBranding:        boolean;
-  webhooks:             boolean;
-  apiAccess:            boolean;
-  embeddedInterviews:   boolean;
-  customDomain:         boolean;
+  clientLinks:              boolean;
+  csvBatch:                 boolean;
+  googleDrive:              boolean;
+  hubspot:                  boolean;
+  eSign:                    boolean;
+  emailBranding:            boolean;
+  webhooks:                 boolean;
+  apiAccess:                boolean;
+  embeddedInterviews:       boolean;
+  customDomain:             boolean;
+  fieldLibraryInheritance:  boolean;
 }
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
@@ -49,52 +50,56 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 
 export const PLAN_FEATURES: Record<PlanTier, PlanFeatures> = {
   starter: {
-    clientLinks:          false,
-    csvBatch:             false,
-    googleDrive:          false,
-    hubspot:              false,
-    eSign:                false,
-    emailBranding:        false,
-    webhooks:             false,
-    apiAccess:            false,
-    embeddedInterviews:   false,
-    customDomain:         false,
+    clientLinks:              false,
+    csvBatch:                 false,
+    googleDrive:              false,
+    hubspot:                  false,
+    eSign:                    false,
+    emailBranding:            false,
+    webhooks:                 false,
+    apiAccess:                false,
+    embeddedInterviews:       false,
+    customDomain:             false,
+    fieldLibraryInheritance:  false,
   },
   starter_esign: {
-    clientLinks:          true,
-    csvBatch:             false,
-    googleDrive:          false,
-    hubspot:              false,
-    eSign:                true,
-    emailBranding:        false,
-    webhooks:             false,
-    apiAccess:            false,
-    embeddedInterviews:   false,
-    customDomain:         false,
+    clientLinks:              true,
+    csvBatch:                 false,
+    googleDrive:              false,
+    hubspot:                  false,
+    eSign:                    true,
+    emailBranding:            false,
+    webhooks:                 false,
+    apiAccess:                false,
+    embeddedInterviews:       false,
+    customDomain:             false,
+    fieldLibraryInheritance:  false,
   },
   pro: {
-    clientLinks:          true,
-    csvBatch:             true,
-    googleDrive:          true,
-    hubspot:              true,
-    eSign:                true,
-    emailBranding:        true,
-    webhooks:             false,
-    apiAccess:            false,
-    embeddedInterviews:   false,
-    customDomain:         false,
+    clientLinks:              true,
+    csvBatch:                 true,
+    googleDrive:              true,
+    hubspot:                  true,
+    eSign:                    true,
+    emailBranding:            true,
+    webhooks:                 false,
+    apiAccess:                false,
+    embeddedInterviews:       false,
+    customDomain:             false,
+    fieldLibraryInheritance:  false,
   },
   enterprise: {
-    clientLinks:          true,
-    csvBatch:             true,
-    googleDrive:          true,
-    hubspot:              true,
-    eSign:                true,
-    emailBranding:        true,
-    webhooks:             true,
-    apiAccess:            true,
-    embeddedInterviews:   true,
-    customDomain:         true,
+    clientLinks:              true,
+    csvBatch:                 true,
+    googleDrive:              true,
+    hubspot:                  true,
+    eSign:                    true,
+    emailBranding:            true,
+    webhooks:                 true,
+    apiAccess:                true,
+    embeddedInterviews:       true,
+    customDomain:             true,
+    fieldLibraryInheritance:  true,
   },
 };
 

@@ -846,8 +846,15 @@ export function FieldLibraryPanel({
           const ansCount    = item.answerCount  ?? 0;
           const lastAnsw    = item.lastAnswered  ?? null;
           const hasUsage    = item.packageCount !== undefined;
+          const isInherited = item.inherited === true;
           return (
-          <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
+          <div key={item.id} className={`rounded border p-2 space-y-2 ${isInherited ? "bg-[#F3F6FE] border-[#C8D7F5]" : "bg-[#F8F6F0] border-[#EFE8D8]"}`}>
+            {isInherited && (
+              <div className="flex items-center gap-1.5 text-[10px] font-medium text-[#1B4FD8] bg-[#E8EFFE] border border-[#C8D7F5] rounded px-2 py-1">
+                <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                Inherited from {item.inheritedFrom ?? "parent account"} · read-only
+              </div>
+            )}
             {hasUsage && (
               <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                 <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-medium ${pkgCount > 0 ? "bg-[#EBF0FB] text-[#1B4FD8]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>
@@ -863,16 +870,16 @@ export function FieldLibraryPanel({
             )}
             <div className="relative pt-1">
               {h && <HL>Label</HL>}
-              <Input value={item.label} onChange={(e) => onChange(item.id, { label: e.target.value })} className="h-8 text-xs bg-white" />
+              <Input value={item.label} onChange={(e) => onChange(item.id, { label: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div className="relative pt-1">
                 {h && <HL>Category</HL>}
-                <Input placeholder="Category" value={item.category} onChange={(e) => onChange(item.id, { category: e.target.value })} className="h-8 text-xs bg-white" />
+                <Input placeholder="Category" value={item.category} onChange={(e) => onChange(item.id, { category: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />
               </div>
               <div className="relative pt-1">
                 {h && <HL>Prefill source</HL>}
-                <Input placeholder="Prefill source" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" />
+                <Input placeholder="Prefill source" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />
               </div>
             </div>
             <div className="relative pt-1">
@@ -883,6 +890,7 @@ export function FieldLibraryPanel({
                 value={item.sortOrder}
                 onChange={(e) => onChange(item.id, { sortOrder: Number(e.target.value || 100) })}
                 className="h-8 text-xs bg-white"
+                disabled={isInherited}
               />
             </div>
             <div className="relative pt-1">
@@ -898,8 +906,9 @@ export function FieldLibraryPanel({
                     <TooltipTrigger asChild>
                       <button
                         type="button"
-                        onClick={() => onChange(item.id, { type: value })}
-                        className={`px-2 py-0.5 text-xs rounded border transition-colors ${item.type === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}
+                        onClick={() => !isInherited && onChange(item.id, { type: value })}
+                        disabled={isInherited}
+                        className={`px-2 py-0.5 text-xs rounded border transition-colors ${item.type === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"} disabled:opacity-60 disabled:cursor-default`}
                       >
                         {label}
                       </button>
@@ -928,8 +937,9 @@ export function FieldLibraryPanel({
                       <button
                         type="button"
                         aria-pressed={(item.validationType ?? "none") === value}
-                        onClick={() => onChange(item.id, { validationType: value as FieldItem["validationType"] })}
-                        className={`px-2 py-0.5 text-xs rounded border transition-colors ${(item.validationType ?? "none") === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}
+                        onClick={() => !isInherited && onChange(item.id, { validationType: value as FieldItem["validationType"] })}
+                        disabled={isInherited}
+                        className={`px-2 py-0.5 text-xs rounded border transition-colors ${(item.validationType ?? "none") === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"} disabled:opacity-60 disabled:cursor-default`}
                       >
                         {label}
                       </button>
@@ -941,18 +951,18 @@ export function FieldLibraryPanel({
             </div>
             <div className="relative pt-1">
               {h && <HL>Options</HL>}
-              <Textarea placeholder="Options, one per line" value={item.options.join("\n")} onChange={(e) => onChange(item.id, { options: e.target.value.split("\n").filter(Boolean) })} className="min-h-16 text-xs bg-white" />
+              <Textarea placeholder="Options, one per line" value={item.options.join("\n")} onChange={(e) => onChange(item.id, { options: e.target.value.split("\n").filter(Boolean) })} className="min-h-16 text-xs bg-white" disabled={isInherited} />
             </div>
-            {item.validationType === "custom" && <Input placeholder="Regex pattern" value={item.validationPattern ?? ""} onChange={(e) => onChange(item.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" />}
+            {item.validationType === "custom" && <Input placeholder="Regex pattern" value={item.validationPattern ?? ""} onChange={(e) => onChange(item.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />}
             <div className="relative pt-1">
               {h && <HL>Validation message</HL>}
-              <Input placeholder="Validation message" value={item.validationMessage ?? ""} onChange={(e) => onChange(item.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" />
+              <Input placeholder="Validation message" value={item.validationMessage ?? ""} onChange={(e) => onChange(item.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />
             </div>
             <div className="relative pt-1">
               {h && <HL>Active · Required · Sensitive</HL>}
               <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
-                <label className="flex items-center gap-1">
-                  <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} />
+                <label className={`flex items-center gap-1 ${isInherited ? "opacity-60 cursor-default" : ""}`}>
+                  <input type="checkbox" checked={item.active} onChange={(e) => !isInherited && onChange(item.id, { active: e.target.checked })} disabled={isInherited} />
                   Active
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -961,8 +971,8 @@ export function FieldLibraryPanel({
                     <TooltipContent side="top" className="max-w-[180px] text-xs">Field appears in the interview form when active.</TooltipContent>
                   </Tooltip>
                 </label>
-                <label className="flex items-center gap-1">
-                  <input type="checkbox" checked={item.required} onChange={(e) => onChange(item.id, { required: e.target.checked })} />
+                <label className={`flex items-center gap-1 ${isInherited ? "opacity-60 cursor-default" : ""}`}>
+                  <input type="checkbox" checked={item.required} onChange={(e) => !isInherited && onChange(item.id, { required: e.target.checked })} disabled={isInherited} />
                   Required
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -971,8 +981,8 @@ export function FieldLibraryPanel({
                     <TooltipContent side="top" className="max-w-[180px] text-xs">Staff must fill this field before the document can be generated.</TooltipContent>
                   </Tooltip>
                 </label>
-                <label className="flex items-center gap-1">
-                  <input type="checkbox" checked={item.sensitive} onChange={(e) => onChange(item.id, { sensitive: e.target.checked })} />
+                <label className={`flex items-center gap-1 ${isInherited ? "opacity-60 cursor-default" : ""}`}>
+                  <input type="checkbox" checked={item.sensitive} onChange={(e) => !isInherited && onChange(item.id, { sensitive: e.target.checked })} disabled={isInherited} />
                   Sensitive
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -993,7 +1003,7 @@ export function FieldLibraryPanel({
                         key={tagName}
                         name={tagName}
                         color={tagMeta?.color ?? "#6B7A99"}
-                        onRemove={onSetComplianceTags ? () => {
+                        onRemove={!isInherited && onSetComplianceTags ? () => {
                           const next = (item.complianceTags ?? []).filter((n) => n !== tagName);
                           setTagSavingId(item.id);
                           void onSetComplianceTags(item.id, next).then(() => setTagSavingId(null));
@@ -1001,7 +1011,7 @@ export function FieldLibraryPanel({
                       />
                     );
                   })}
-                  {onSetComplianceTags && (
+                  {onSetComplianceTags && !isInherited && (
                     <button
                       type="button"
                       onClick={() => setTagPickerOpenId((prev) => prev === item.id ? null : item.id)}
@@ -1011,7 +1021,7 @@ export function FieldLibraryPanel({
                     </button>
                   )}
                 </div>
-                {tagPickerOpenId === item.id && onSetComplianceTags && (
+                {tagPickerOpenId === item.id && onSetComplianceTags && !isInherited && (
                   <ComplianceTagPicker
                     allTags={allComplianceTags}
                     selectedTagNames={item.complianceTags ?? []}
@@ -1108,7 +1118,7 @@ export function FieldLibraryPanel({
               <span className="text-[10px] text-[#8A9BB8]">{item.id}</span>
               <div className="flex gap-2">
                 <button type="button" onClick={() => onUse(item)} className="text-[11px] text-[#6B7A99]">Use in package</button>
-                {onDelete && (
+                {onDelete && !isInherited && (
                   <button
                     type="button"
                     onClick={() => handleDelete(item)}
@@ -1118,14 +1128,16 @@ export function FieldLibraryPanel({
                     {deletingId === item.id ? "Deleting…" : "Delete"}
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => handleSave(item)}
-                  disabled={savingId === item.id}
-                  className="text-[11px] text-[#C49A38] disabled:opacity-50"
-                >
-                  {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
-                </button>
+                {!isInherited && (
+                  <button
+                    type="button"
+                    onClick={() => handleSave(item)}
+                    disabled={savingId === item.id}
+                    className="text-[11px] text-[#C49A38] disabled:opacity-50"
+                  >
+                    {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
+                  </button>
+                )}
               </div>
             </div>
           </div>

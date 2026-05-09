@@ -2040,6 +2040,16 @@ export async function initDb(): Promise<void> {
   await db.query(`CREATE INDEX IF NOT EXISTS affiliate_commissions_affiliate_idx ON affiliate_commissions (affiliate_id)`);
   await db.query(`CREATE INDEX IF NOT EXISTS affiliate_commissions_referral_idx  ON affiliate_commissions (referral_id)`);
   await db.query(`CREATE INDEX IF NOT EXISTS affiliate_commissions_status_idx    ON affiliate_commissions (status)`);
+
+  // ── Field Library Cross-Account Inheritance ────────────────────────────────
+  // parent_account_id: when set, this account inherits the parent's field library.
+  // The parent must be on the Enterprise plan to use this feature.
+  // Only one level of inheritance is supported (parent → child; no grandchildren).
+  await db.query(`
+    ALTER TABLE accounts
+      ADD COLUMN IF NOT EXISTS parent_account_id INTEGER REFERENCES accounts(id) ON DELETE SET NULL
+  `);
+  await db.query(`CREATE INDEX IF NOT EXISTS accounts_parent_account_idx ON accounts (parent_account_id) WHERE parent_account_id IS NOT NULL`);
 }
 
 // ── Scheduler functions (exported for BullMQ worker) ─────────────────────────
