@@ -947,11 +947,15 @@ export function FieldLibraryPanel({
               <button type="button" onClick={() => setImportPreview(null)} disabled={importLoading} className="text-xs text-[#6B7A99] hover:text-[#0F1C3F] disabled:opacity-50">Cancel</button>
               <button
                 type="button"
-                disabled={importLoading || importPreview.newFields.length === 0}
+                disabled={importLoading || (importPreview.newFields.length === 0 && (importPreview.payload.fieldGroups ?? []).length === 0)}
                 onClick={() => void handleImportConfirm()}
                 className="text-xs bg-[#1B4FD8] text-white rounded px-3 py-1.5 disabled:opacity-50 hover:bg-[#1540B0] transition-colors"
               >
-                {importLoading ? "Importing…" : `Import ${importPreview.newFields.length} field${importPreview.newFields.length !== 1 ? "s" : ""}`}
+                {importLoading
+                  ? "Importing…"
+                  : importPreview.newFields.length > 0
+                    ? `Import ${importPreview.newFields.length} field${importPreview.newFields.length !== 1 ? "s" : ""}`
+                    : `Import ${(importPreview.payload.fieldGroups ?? []).length} group${(importPreview.payload.fieldGroups ?? []).length !== 1 ? "s" : ""}`}
               </button>
             </div>
           </div>

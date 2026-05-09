@@ -2139,13 +2139,16 @@ router.get("/field-library/export", requireAdminRole, async (req, res) => {
     const format = req.query.format === "csv" ? "csv" : "json";
     const db = getDb();
 
-    const [fieldLibrary, groupRows] = await Promise.all([
-      getFieldLibrary(db, accountId),
+    // Query only this account's own fields (account_id = accountId), explicitly
+    // excluding global fields (account_id IS NULL) and parent-inherited fields.
+    const [ownFieldRows, groupRows] = await Promise.all([
+      db.query(
+        `${fieldLibrarySelectSql()} WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, label ASC`,
+        [accountId],
+      ),
       db.query(`SELECT * FROM docufill_field_groups WHERE account_id = $1 ORDER BY sort_order ASC, name ASC`, [accountId]),
     ]);
-
-    // Only export this account's own fields — not those inherited from a parent account.
-    const ownFields = fieldLibrary.filter((f) => !(f as Record<string, unknown>).inherited);
+    const ownFields = ownFieldRows.rows as Array<Record<string, unknown> & { id: string }>;
     const ts = new Date().toISOString().slice(0, 10);
 
     if (format === "csv") {
@@ -2262,11 +2265,15 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
             if (!cr[0]) { id = candidate; break; }
           }
         }
+        const complianceTags = Array.isArray(field.complianceTags)
+          ? field.complianceTags.filter((t): t is string => typeof t === "string")
+          : [];
         await db.query(
           `INSERT INTO docufill_fields
              (id, label, category, field_type, source, options, sensitive, required,
-              validation_type, validation_pattern, validation_message, active, sort_order, account_id)
-           VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14)`,
+              validation_type, validation_pattern, validation_message, active, sort_order,
+              compliance_tags, account_id)
+           VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14::jsonb,$15)`,
           [
             id,
             label,
@@ -2281,6 +2288,7 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
             nullableText(field.validationMessage),
             field.active !== false,
             normalizeSortOrder(field.sortOrder),
+            JSON.stringify(complianceTags),
             accountId,
           ],
         );
