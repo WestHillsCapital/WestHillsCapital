@@ -149,7 +149,7 @@ async function fireLifecycleWebhook(opts: {
 
 const RemindersSchema = z.object({
   enabled: z.boolean(),
-  intervalDays: z.number().int().min(1).max(30),
+  intervalDays: z.number().int().min(1).max(30).optional(),
 }).optional();
 
 const HeadlessSessionBodySchema = z.object({

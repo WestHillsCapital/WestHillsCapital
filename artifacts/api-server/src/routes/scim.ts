@@ -15,11 +15,15 @@
  */
 
 import { createHash, randomBytes } from "crypto";
-import { Router, type Request, type Response } from "express";
+import express, { Router, type Request, type Response } from "express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 
 const router = Router();
+
+// Parse both application/json and application/scim+json request bodies.
+// Express's default express.json() only handles application/json.
+router.use(express.json({ type: ["application/json", "application/scim+json"] }));
 
 const SCIM_CONTENT_TYPE = "application/scim+json";
 

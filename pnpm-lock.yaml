@@ -293,6 +293,9 @@ importers:
         specifier: 3.24.2
         version: 3.24.2
     devDependencies:
+      '@docuplete/sdk':
+        specifier: workspace:*
+        version: link:../../packages/sdk
       '@types/archiver':
         specifier: ^6.0.3
         version: 6.0.4
