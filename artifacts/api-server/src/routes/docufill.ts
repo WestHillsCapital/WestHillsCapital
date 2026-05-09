@@ -2586,7 +2586,11 @@ router.delete("/field-library/:id", requireAdminRole, async (req, res) => {
 
 // ── Field Library Groups (bundles for one-click package field addition) ────────
 
-function normalizeFieldGroupRow(row: Record<string, unknown>, fieldMap: Map<string, unknown>) {
+function normalizeFieldGroupRow(
+  row: Record<string, unknown>,
+  fieldMap: Map<string, unknown>,
+  usagePackages?: Array<{ id: number; name: string }>,
+) {
   const rawIds = Array.isArray(row.field_ids) ? row.field_ids as string[] : [];
   return {
     id: row.id,
@@ -2595,22 +2599,39 @@ function normalizeFieldGroupRow(row: Record<string, unknown>, fieldMap: Map<stri
     fieldIds: rawIds,
     sortOrder: row.sort_order,
     fields: rawIds.map((id) => fieldMap.get(id)).filter(Boolean),
+    usagePackages: usagePackages ?? [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-// GET /field-library/groups — list all field groups for this account
+// GET /field-library/groups — list all field groups for this account (includes usagePackages for consistency with bootstrap)
 router.get("/field-library/groups", requireAdminRole, async (req, res) => {
   try {
     const accountId = acctId(req);
     const db = getDb();
-    const [{ rows }, fieldLibrary] = await Promise.all([
+    const [{ rows }, fieldLibrary, usageRows] = await Promise.all([
       db.query(`SELECT * FROM docufill_field_groups WHERE account_id = $1 ORDER BY sort_order ASC, name ASC`, [accountId]),
       getFieldLibrary(db, accountId),
+      db.query(`
+        SELECT fgu.group_id, fgu.package_id, p.name AS package_name
+          FROM docufill_field_group_usage fgu
+          JOIN docufill_packages p ON p.id = fgu.package_id
+         WHERE fgu.account_id = $1
+      `, [accountId]),
     ]);
     const fieldMap = new Map(fieldLibrary.map((f) => [f.id, f]));
-    res.json({ fieldGroups: (rows as Array<Record<string, unknown>>).map((row) => normalizeFieldGroupRow(row, fieldMap)) });
+    const usageByGroupId = new Map<number, Array<{ id: number; name: string }>>();
+    for (const r of (usageRows.rows as Array<{ group_id: number; package_id: number; package_name: string }>)) {
+      const list = usageByGroupId.get(r.group_id) ?? [];
+      list.push({ id: r.package_id, name: r.package_name });
+      usageByGroupId.set(r.group_id, list);
+    }
+    res.json({
+      fieldGroups: (rows as Array<Record<string, unknown>>).map((row) =>
+        normalizeFieldGroupRow(row, fieldMap, usageByGroupId.get(row.id as number) ?? []),
+      ),
+    });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load field groups");
     res.status(500).json({ error: "Failed to load field groups" });
@@ -2625,17 +2646,22 @@ router.post("/field-library/groups", requireAdminRole, async (req, res) => {
     const body = _parse.data;
     const accountId = acctId(req);
     const db = getDb();
-    const count = (await db.query(`SELECT COUNT(*) AS n FROM docufill_field_groups WHERE account_id = $1`, [accountId])).rows[0]?.n ?? 0;
-    const name = cleanText(body.name) || `New Group ${Number(count) + 1}`;
+    const [countRow, fieldLibrary] = await Promise.all([
+      db.query(`SELECT COUNT(*) AS n FROM docufill_field_groups WHERE account_id = $1`, [accountId]),
+      getFieldLibrary(db, accountId),
+    ]);
+    const name = cleanText(body.name) || `New Group ${Number(countRow.rows[0]?.n ?? 0) + 1}`;
     const description = body.description !== undefined ? nullableText(body.description) : null;
-    const fieldIds = Array.isArray(body.fieldIds) ? body.fieldIds.filter((id) => typeof id === "string") : [];
+    // Validate fieldIds — keep only IDs that exist in this account's library (deduplicated, order preserved)
+    const validLibraryIds = new Set(fieldLibrary.map((f) => f.id));
+    const rawIds = Array.isArray(body.fieldIds) ? body.fieldIds.filter((id) => typeof id === "string") : [];
+    const fieldIds = [...new Set(rawIds)].filter((id) => validLibraryIds.has(id));
     const sortOrder = typeof body.sortOrder === "number" ? body.sortOrder : 100;
     const { rows } = await db.query(
       `INSERT INTO docufill_field_groups (account_id, name, description, field_ids, sort_order)
        VALUES ($1, $2, $3, $4::jsonb, $5) RETURNING *`,
       [accountId, name, description, JSON.stringify(fieldIds), sortOrder],
     );
-    const fieldLibrary = await getFieldLibrary(db, accountId);
     const fieldMap = new Map(fieldLibrary.map((f) => [f.id, f]));
     res.status(201).json({ fieldGroup: normalizeFieldGroupRow(rows[0] as Record<string, unknown>, fieldMap) });
   } catch (err) {
@@ -2663,8 +2689,12 @@ router.patch("/field-library/groups/:id", requireAdminRole, async (req, res) => 
     if (body.description !== undefined) {
       params.push(nullableText(body.description)); setClauses.push(`description = $${params.length}`);
     }
+    // Fetch field library once for both validation and response normalization
+    const fieldLibrary = body.fieldIds !== undefined ? await getFieldLibrary(db, accountId) : null;
     if (body.fieldIds !== undefined) {
-      const ids = Array.isArray(body.fieldIds) ? body.fieldIds.filter((i) => typeof i === "string") : [];
+      const validLibraryIds = new Set((fieldLibrary ?? []).map((f) => f.id));
+      const rawIds = Array.isArray(body.fieldIds) ? body.fieldIds.filter((i) => typeof i === "string") : [];
+      const ids = [...new Set(rawIds)].filter((id) => validLibraryIds.has(id));
       params.push(JSON.stringify(ids)); setClauses.push(`field_ids = $${params.length}::jsonb`);
     }
     if (typeof body.sortOrder === "number") {
@@ -2675,8 +2705,8 @@ router.patch("/field-library/groups/:id", requireAdminRole, async (req, res) => 
       params,
     );
     if (!rows[0]) { res.status(404).json({ error: "Field group not found" }); return; }
-    const fieldLibrary = await getFieldLibrary(db, accountId);
-    const fieldMap = new Map(fieldLibrary.map((f) => [f.id, f]));
+    const resolvedLibrary = fieldLibrary ?? await getFieldLibrary(db, accountId);
+    const fieldMap = new Map(resolvedLibrary.map((f) => [f.id, f]));
     res.json({ fieldGroup: normalizeFieldGroupRow(rows[0] as Record<string, unknown>, fieldMap) });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to update field group");
