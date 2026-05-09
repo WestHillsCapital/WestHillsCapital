@@ -863,6 +863,7 @@ export default function DocuFill() {
       setFieldGroups(Array.isArray(data.fieldGroups) ? data.fieldGroups as FieldGroup[] : []);
       setSlackConnected(data.slackConnected === true);
       void loadComplianceTags();
+      void loadComplianceAudit();
       setPackages(loadedPackages);
       setSelectedPackageId((current) => {
         // Keep the current selection if it still exists in the freshly loaded packages.
