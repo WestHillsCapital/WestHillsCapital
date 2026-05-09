@@ -5023,11 +5023,20 @@ router.post("/inheritance/link-child", requireAdminRole, requirePlanFeature("fie
     if (!email || typeof email !== "string") {
       return void res.status(400).json({ error: "Child account admin email is required" });
     }
-    // Find the account whose admin user has this email
+    // Enforce one-level hierarchy: the acting account must not itself be a child
+    const { rows: actingRows } = await db.query<{ parent_account_id: number | null }>(
+      `SELECT parent_account_id FROM accounts WHERE id = $1 LIMIT 1`,
+      [accountId],
+    );
+    if (actingRows[0]?.parent_account_id != null) {
+      return void res.status(409).json({ error: "Your account is already a child account and cannot have children of its own. Only one level of inheritance is supported." });
+    }
+
+    // Find the account whose member has this email
     const { rows: targetRows } = await db.query<{ id: number; name: string; slug: string }>(
       `SELECT a.id, a.name, a.slug
          FROM accounts a
-         JOIN users u ON u.account_id = a.id
+         JOIN account_users u ON u.account_id = a.id
         WHERE lower(u.email) = lower($1)
           AND a.id <> $2
         LIMIT 1`,
@@ -5037,10 +5046,6 @@ router.post("/inheritance/link-child", requireAdminRole, requirePlanFeature("fie
       return void res.status(404).json({ error: "No account found for that email address" });
     }
     const childId = targetRows[0].id;
-    // Prevent self-linking
-    if (childId === accountId) {
-      return void res.status(409).json({ error: "An account cannot inherit from itself." });
-    }
     // Prevent multi-level inheritance: target already has a parent
     const { rows: alreadyChildCheck } = await db.query(
       `SELECT 1 FROM accounts WHERE id = $1 AND parent_account_id IS NOT NULL LIMIT 1`,
