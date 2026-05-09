@@ -466,7 +466,7 @@ async function main() {
 
   // ── 20–22. Public interview form ────────────────────────────────────────
   console.log("§20-22 public interview");
-  const SESSION_TOKEN = "df_3iQhuYil5yYEpI9dkJwzHEyTeWJ-F0qzw6Cg8wE_tZw";
+  const SESSION_TOKEN = process.env.E2E_DOCUFILL_SESSION_TOKEN ?? "";
   await nav(page, `${BASE}/docufill/${SESSION_TOKEN}`, 5000);
   await shot(page, "quickstart-interview");
 
