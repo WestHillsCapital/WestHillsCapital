@@ -139,34 +139,19 @@ function CheckIcon() {
 const PLANS = [
   {
     name: "Starter",
-    price: 49,
+    price: 69,
     description: "For solo practitioners getting started.",
-    submissions: "50 submissions / seat / mo",
+    submissions: "150 sessions / mo included",
     seats: "2 seats included",
-    overage: "$15 / extra seat",
+    overage: "Overage: $0.50 / additional session",
     features: [
       "Upload any PDF template",
-      "Shareable client link",
-      "Submission tracking",
-      "PDF export",
-      "Email notifications",
-    ],
-    cta: "Start free trial",
-    highlight: false,
-  },
-  {
-    name: "Starter Professional",
-    price: 69,
-    description: "For practitioners who need built-in eSign.",
-    submissions: "50 submissions / seat / mo",
-    seats: "2 seats included",
-    overage: "$15 / extra seat",
-    features: [
-      "Everything in Starter",
-      "E-sign fields (signature & initials)",
-      "Email OTP identity verification",
-      "Signing certificate page",
+      "Guided client interview",
+      "E-signatures & initials",
       "RFC 3161 trusted timestamp",
+      "Email OTP identity verification",
+      "Shareable link — no client login needed",
+      "Email notifications & reminders",
     ],
     cta: "Start free trial",
     highlight: false,
@@ -175,15 +160,15 @@ const PLANS = [
     name: "Pro",
     price: 249,
     description: "For growing teams handling real volume.",
-    submissions: "50 submissions / seat / mo",
+    submissions: "400 sessions / mo included",
     seats: "10 seats included",
-    overage: "$15 / extra seat",
+    overage: "Overage: $0.50 / additional session",
     features: [
-      "Everything in Starter Professional",
-      "Team seats",
+      "Everything in Starter",
+      "Team seats & shared templates",
       "Batch CSV import",
-      "Client links & custom branding",
-      "Google Drive, Dropbox Business & OneDrive",
+      "Custom branding & client links",
+      "Google Drive, Dropbox & OneDrive",
       "HubSpot integration",
       "Priority support",
     ],
@@ -191,21 +176,41 @@ const PLANS = [
     highlight: true,
   },
   {
+    name: "Developer",
+    price: 499,
+    description: "For teams embedding Docuplete in their product.",
+    submissions: "500 PDF generations / mo included",
+    seats: "Org-wide API access",
+    overage: "Overage: $75 / block of 100 generations",
+    features: [
+      "Everything in Pro",
+      "REST API + TypeScript & Python SDKs",
+      "Webhooks (HMAC-SHA256 signed)",
+      "Headless & embedded interview mode",
+      "Bulk session creation (up to 100)",
+      "Programmatic PDF generation",
+      "OpenAPI spec + Sandbox (no key needed)",
+    ],
+    cta: "Start free trial",
+    highlight: false,
+  },
+  {
     name: "Enterprise",
     price: 3000,
-    description: "For firms that run high-volume intake.",
-    submissions: "Unlimited submissions",
+    description: "For firms running high-volume, regulated intake.",
+    submissions: "Unlimited PDF generations",
     seats: "25 seats included",
     overage: "$15 / extra seat",
     features: [
-      "Everything in Pro",
-      "Webhooks & API access",
+      "Everything in Developer",
       "Dedicated account manager",
       "SLA guarantee",
-      "SSO / SAML",
-      "Audit logs",
+      "SSO / SAML + SCIM provisioning",
+      "IP allowlisting",
+      "AES-256-GCM answer encryption",
+      "Custom domain",
     ],
-    cta: "Start free trial",
+    cta: "Contact sales",
     highlight: false,
   },
 ];
@@ -858,7 +863,7 @@ export default function Home() {
           </div>
 
           <p className="text-center text-xs text-[#B0BCCE] mt-4">
-            Prices as published. DocuSign Standard $25/user/mo · PandaDoc Starter $19/seat/mo · Docuplete Starter Professional $69 flat for 2 seats.
+            Prices as published. DocuSign Standard $25/user/mo · PandaDoc Starter $19/seat/mo · Docuplete Starter $69 flat for 2 seats.
           </p>
 
           {/* CTA */}
@@ -873,6 +878,140 @@ export default function Home() {
               </svg>
             </a>
           </div>
+        </div>
+      </section>
+
+      {/* ── ANVIL COMPARISON ────────────────────────────────── */}
+      <section className="py-24 px-6 bg-white">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-[#1B4FD8] text-sm font-semibold uppercase tracking-widest mb-3">Docuplete vs. Anvil</p>
+            <h2 className="text-3xl sm:text-4xl font-bold text-[#0B1220]">
+              Both built for developers.<br className="hidden sm:block" /> Not built the same.
+            </h2>
+            <p className="mt-4 text-[#4B5A7A] max-w-2xl mx-auto">
+              Anvil is fast to set up. Docuplete is built for industries where a missed field or a misread timestamp is a liability — not a bug to fix later.
+            </p>
+          </div>
+
+          {/* Comparison table */}
+          <div className="overflow-x-auto rounded-2xl border border-[#E8EDF5] shadow-sm mb-12">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr>
+                  <th className="text-left bg-white px-6 py-4 text-[#4B5A7A] font-semibold text-xs uppercase tracking-widest border-b border-[#E8EDF5] w-[34%]">
+                    Feature
+                  </th>
+                  <th className="bg-[#1B4FD8] px-6 py-4 text-center border-b border-[#1740B8] w-[33%]">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-white font-bold text-sm">Docuplete</span>
+                      <span className="text-[#A8C4FF] text-xs font-medium">Developer — $499/mo</span>
+                    </div>
+                  </th>
+                  <th className="bg-white px-6 py-4 text-center border-b border-[#E8EDF5] w-[33%]">
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[#0B1220] font-bold text-sm">Anvil</span>
+                      <span className="text-[#4B5A7A] text-xs font-medium">Growth — $425–$499/mo</span>
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  {
+                    feature: "Primary focus",
+                    docuplete: "High-stakes legal & financial infrastructure",
+                    anvil: "General data-to-PDF workflows",
+                    docupleteStrong: true,
+                  },
+                  {
+                    feature: "Field mapping",
+                    docuplete: "Deterministic Snap-to-Field — guaranteed placement",
+                    anvil: "Document AI autodetects & labels fields",
+                    docupleteStrong: true,
+                  },
+                  {
+                    feature: "Trust signal",
+                    docuplete: "RFC 3161 trusted timestamps — standard on all plans",
+                    anvil: "Standard e-signature",
+                    docupleteStrong: true,
+                  },
+                  {
+                    feature: "Field library",
+                    docuplete: "Shared global field library — change once, update all",
+                    anvil: "Per-document field mapping",
+                    docupleteStrong: true,
+                  },
+                  {
+                    feature: "Audit depth",
+                    docuplete: "Immutable per-session audit trail with IP & timestamps",
+                    anvil: "Standard completion logs",
+                    docupleteStrong: true,
+                  },
+                  {
+                    feature: "i18n support",
+                    docuplete: "Full i18n interview infrastructure — 9 locales",
+                    anvil: "Webform translation",
+                    docupleteStrong: false,
+                  },
+                  {
+                    feature: "SDK",
+                    docuplete: "TypeScript & Python SDKs + OpenAPI spec",
+                    anvil: "REST API + multiple clients",
+                    docupleteStrong: false,
+                  },
+                ].map((row, i) => {
+                  const isLast = i === 6;
+                  const rowBg = i % 2 === 0 ? "bg-white" : "bg-[#F5F7FC]";
+                  const docBg = i % 2 === 0 ? "bg-[#1740B8]" : "bg-[#1B4FD8]";
+                  const border = isLast ? "" : "border-b border-[#E8EDF5]";
+                  const docBorder = isLast ? "" : "border-b border-[#1533A0]";
+                  return (
+                    <tr key={row.feature}>
+                      <td className={`px-6 py-4 font-medium text-[#0B1220] ${rowBg} ${border}`}>{row.feature}</td>
+                      <td className={`px-6 py-4 text-center ${docBg} ${docBorder}`}>
+                        <span className="text-white text-xs leading-snug">{row.docuplete}</span>
+                      </td>
+                      <td className={`px-6 py-4 text-center ${rowBg} ${border}`}>
+                        <span className="text-[#4B5A7A] text-xs leading-snug">{row.anvil}</span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Three strategic callouts */}
+          <div className="grid sm:grid-cols-3 gap-6">
+            {[
+              {
+                label: "The Killer Feature",
+                title: "One change. Every document.",
+                body: "Anvil's AI saves you 5 minutes mapping your first PDF. Docuplete's shared global field library saves you 5 months of compliance updates — change one field definition and every document in your organisation updates instantly.",
+              },
+              {
+                label: "Deterministic vs. AI",
+                title: "We don't guess where your fields go.",
+                body: "Anvil leans on Document AI for field detection. For a mortgage application or a medical intake form, \"close enough\" isn't good enough. Docuplete's Snap-to-Field mapping ensures your high-stakes documents are 100% correct, 100% of the time — no hallucinations in your legal filings.",
+              },
+              {
+                label: "Legal Admissibility",
+                title: "We don't just sign — we certify.",
+                body: "Anvil provides solid e-signatures. Docuplete includes an RFC 3161 trusted timestamp from a qualified TSA on every signed document — standard, not an add-on. Your agreements are court-defensible worldwide, independent of our servers.",
+              },
+            ].map((card) => (
+              <div key={card.title} className="bg-[#F5F7FC] rounded-2xl p-6 border border-[#E8EDF5]">
+                <p className="text-[#1B4FD8] text-xs font-bold uppercase tracking-widest mb-2">{card.label}</p>
+                <h3 className="text-[#0B1220] font-bold text-base mb-3">{card.title}</h3>
+                <p className="text-[#4B5A7A] text-sm leading-relaxed">{card.body}</p>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-center text-xs text-[#B0BCCE] mt-6">
+            Anvil Growth pricing as published ($425–$499/mo). Docuplete Developer $499/mo or $399/mo billed annually.
+          </p>
         </div>
       </section>
 
@@ -995,7 +1134,7 @@ export default function Home() {
 
       {/* ── PRICING ─────────────────────────────────────────── */}
       <section id="pricing" className="py-24 px-6">
-        <div className="max-w-5xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="text-center mb-6">
             <p className="text-[#1B4FD8] text-sm font-semibold uppercase tracking-widest mb-3">Pricing</p>
             <h2 className="text-3xl sm:text-4xl font-bold text-[#0B1220]">Simple pricing. Early-adopter rates.</h2>
@@ -1025,7 +1164,7 @@ export default function Home() {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6">
             {PLANS.map((plan) => {
               const monthlyPrice = plan.price;
               const annualPerMo = Math.round(monthlyPrice * 0.8);
