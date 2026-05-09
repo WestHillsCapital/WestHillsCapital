@@ -347,17 +347,22 @@ export function FieldReview({ onOpenMapper }: Props) {
           {blockers.length > 0 && (
             <span className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-1.5 flex items-center gap-1.5">
               <AlertTriangle className="w-3.5 h-3.5" />
-              {blockers.length} field{blockers.length !== 1 ? "s" : ""} still need a decision
+              {blockers.length} unresolved — will defer to mapper
             </span>
           )}
           <button
-            onClick={() => canSave && onOpenMapper?.(fields)}
-            disabled={!canSave}
-            className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all
-              ${canSave
-                ? "bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
-                : "bg-slate-100 text-slate-400 cursor-not-allowed"
-              }`}
+            onClick={() => {
+              // Auto-complete any still-unresolved fields, then open mapper
+              const resolved = fields.map(f => {
+                if (f.touched) return f;
+                if (f.confidence === "medium" && f.suggestedMatch)
+                  return { ...f, selectedMatch: f.suggestedMatch, status: "confirmed" as const, touched: true };
+                return { ...f, status: "deferred" as const, touched: true };
+              });
+              onOpenMapper?.(resolved);
+            }}
+            className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all
+              bg-blue-600 text-white hover:bg-blue-700 shadow-sm cursor-pointer"
           >
             Open in mapper
             <ArrowRight className="w-4 h-4" />
