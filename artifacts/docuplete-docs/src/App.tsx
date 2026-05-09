@@ -12,6 +12,7 @@ import Fields from "@/pages/docs/core-concepts/Fields";
 import Mappings from "@/pages/docs/core-concepts/Mappings";
 
 import Uploading from "@/pages/docs/building/Uploading";
+import AcroFormReview from "@/pages/docs/building/AcroFormReview";
 import BuildingFields from "@/pages/docs/building/BuildingFields";
 import EsignFields from "@/pages/docs/building/EsignFields";
 import Mapper from "@/pages/docs/building/Mapper";
@@ -100,6 +101,7 @@ function Router() {
 
         {/* Building a Package */}
         <Route path="/building-a-package/uploading" component={Uploading} />
+        <Route path="/building-a-package/acroform-review" component={AcroFormReview} />
         <Route path="/building-a-package/fields" component={BuildingFields} />
         <Route path="/building-a-package/esign-fields" component={EsignFields} />
         <Route path="/building-a-package/mapper" component={Mapper} />

@@ -926,8 +926,8 @@ export default function Home() {
                   },
                   {
                     feature: "Field mapping",
-                    docuplete: "Deterministic Snap-to-Field — guaranteed placement",
-                    anvil: "Document AI autodetects & labels fields",
+                    docuplete: "AcroForm detection + human-confirmed review — zero silent guessing",
+                    anvil: "Document AI autodetects & maps fields automatically",
                     docupleteStrong: true,
                   },
                   {

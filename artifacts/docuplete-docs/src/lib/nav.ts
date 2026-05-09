@@ -29,6 +29,7 @@ export const NAV: NavItem[] = [
     slug: "building-a-package",
     children: [
       { title: "Uploading a PDF", slug: "building-a-package/uploading" },
+      { title: "Fillable PDF Import & Field Review", slug: "building-a-package/acroform-review" },
       { title: "Adding & Editing Fields", slug: "building-a-package/fields" },
       { title: "E-Sign Fields", slug: "building-a-package/esign-fields" },
       { title: "Visual Mapper", slug: "building-a-package/mapper" },

@@ -13,7 +13,7 @@ export default function Uploading() {
       <p>Docuplete accepts:</p>
       <ul>
         <li>Standard PDFs (PDF 1.4 through 2.0)</li>
-        <li>PDFs with embedded form fields (AcroForms) — Docuplete reads these to suggest field names</li>
+        <li>PDFs with embedded form fields (AcroForms) — Docuplete reads these and opens the <a href="/building-a-package/acroform-review">Field Review step</a> so you can confirm mappings without manual placement</li>
         <li>Password-protected PDFs — you must provide the password on upload</li>
         <li>Multi-page PDFs of any length</li>
         <li>PDFs up to 50 MB per file</li>
