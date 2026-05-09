@@ -961,6 +961,16 @@ async function getFieldLibrary(client: QueryClient = getDb(), accountId?: number
     return rows as Array<Record<string, unknown> & { id: string }>;
   }
 
+  // Only inherit if the parent is currently on the Enterprise plan.
+  // If the parent has been downgraded, treat as if no parent exists.
+  if (!getPlanFeatures(parent.parent_plan).fieldLibraryInheritance) {
+    const { rows } = await client.query(
+      `${fieldLibrarySelectSql()} WHERE (account_id IS NULL OR account_id = $1) ORDER BY active DESC, sort_order ASC, label ASC`,
+      [accountId],
+    );
+    return rows as Array<Record<string, unknown> & { id: string }>;
+  }
+
   // Has a parent: union own fields (not global) + parent's account-owned fields (read-only).
   // Global (account_id IS NULL) fields are included via the own-fields branch.
   // Parent fields that share the same ID as a child field are de-duped (child wins).

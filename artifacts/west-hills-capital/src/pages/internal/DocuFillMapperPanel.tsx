@@ -790,9 +790,14 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
                   className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
                 >
                   <option value="">Select reusable field</option>
-                  {availableLibraryFields.length > 0 && (
+                  {availableLibraryFields.some((f) => f.inherited) && (
+                    <optgroup label="Inherited Library (read-only)">
+                      {availableLibraryFields.filter((f) => f.inherited).map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
+                    </optgroup>
+                  )}
+                  {availableLibraryFields.some((f) => !f.inherited) && (
                     <optgroup label="Shared Library">
-                      {availableLibraryFields.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
+                      {availableLibraryFields.filter((f) => !f.inherited).map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
                     </optgroup>
                   )}
                   {availableEsignFields.length > 0 && (
@@ -873,7 +878,12 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
                                   <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
                                     <span>{field.name}</span>
                                     {isSystemEsignFieldId(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5">E-Sign</span>}
-                                    {!isSystemEsignFieldId(field.id) && field.libraryFieldId && <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>}
+                                    {!isSystemEsignFieldId(field.id) && field.libraryFieldId && (() => {
+                                      const libField = fieldLibrary.find((lf) => lf.id === field.libraryFieldId);
+                                      return libField?.inherited
+                                        ? <span className="text-[10px] uppercase tracking-wide rounded bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5" title={`Inherited from ${libField.inheritedFrom ?? "parent account"}`}>Inherited</span>
+                                        : <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>;
+                                    })()}
                                     {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
                                     {(field.condition?.fieldId || field.condition2?.fieldId) && <span className="text-[10px] uppercase tracking-wide rounded bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5">Conditional</span>}
                                     {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}

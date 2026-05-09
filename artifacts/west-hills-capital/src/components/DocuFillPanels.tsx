@@ -252,6 +252,7 @@ export function FieldGroupsPanel({
                               className="shrink-0"
                             />
                             <span className={`truncate ${item.fieldIds.includes(f.id) ? "text-[#0F1C3F] font-medium" : "text-[#4A5568]"}`}>{f.label}</span>
+                            {f.inherited && <span className="ml-1 shrink-0 text-[9px] bg-amber-50 text-amber-700 border border-amber-200 px-1 rounded" title={`Inherited from ${f.inheritedFrom ?? "parent account"}`}>inherited</span>}
                             {f.sensitive && <span className="ml-auto shrink-0 text-[9px] bg-red-100 text-red-600 px-1 rounded">sensitive</span>}
                           </label>
                         ))}

@@ -5037,17 +5037,25 @@ router.post("/inheritance/link-child", requireAdminRole, requirePlanFeature("fie
       return void res.status(404).json({ error: "No account found for that email address" });
     }
     const childId = targetRows[0].id;
-    // Prevent circular inheritance (child cannot itself be a parent)
-    const { rows: circularCheck } = await db.query(
+    // Prevent self-linking
+    if (childId === accountId) {
+      return void res.status(409).json({ error: "An account cannot inherit from itself." });
+    }
+    // Prevent multi-level inheritance: target already has a parent
+    const { rows: alreadyChildCheck } = await db.query(
       `SELECT 1 FROM accounts WHERE id = $1 AND parent_account_id IS NOT NULL LIMIT 1`,
       [childId],
     );
-    if (circularCheck[0]) {
+    if (alreadyChildCheck[0]) {
       return void res.status(409).json({ error: "That account already has a parent. Only one level of inheritance is supported." });
     }
-    // Prevent self-linking and prevent linking a child that is already a parent of this account
-    if (childId === accountId) {
-      return void res.status(409).json({ error: "An account cannot inherit from itself." });
+    // Prevent multi-level inheritance: target already has children of its own
+    const { rows: alreadyParentCheck } = await db.query(
+      `SELECT 1 FROM accounts WHERE parent_account_id = $1 LIMIT 1`,
+      [childId],
+    );
+    if (alreadyParentCheck[0]) {
+      return void res.status(409).json({ error: "That account already has child accounts of its own. Only one level of inheritance is supported." });
     }
     await db.query(`UPDATE accounts SET parent_account_id = $1 WHERE id = $2`, [accountId, childId]);
     res.json({ ok: true, child: targetRows[0] });
