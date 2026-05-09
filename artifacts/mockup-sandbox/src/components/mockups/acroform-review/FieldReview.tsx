@@ -397,9 +397,9 @@ export function FieldReview() {
   const confirmed = fields.filter(f => f.status === "confirmed").length;
   const deferred = fields.filter(f => f.status === "deferred").length;
   const blank = fields.filter(f => f.status === "blank").length;
-  const high = fields.filter(f => f.confidence === "high").length;
-  const medium = fields.filter(f => f.confidence === "medium").length;
-  const low = fields.filter(f => f.confidence === "low").length;
+  const autoConfirmed = fields.filter(f => f.confidence === "high").length;
+  const pendingVerify = fields.filter(f => f.confidence === "medium" && f.status === "needs-review" && !f.touched).length;
+  const pendingAction = fields.filter(f => f.confidence === "low" && f.status === "needs-review" && !f.touched).length;
   const canSave = blockers.length === 0;
 
   const confirmField = useCallback((id: string, match: LibraryField | null) => {
@@ -508,16 +508,25 @@ export function FieldReview() {
           <div className="flex items-center gap-4 text-sm">
             <span className="flex items-center gap-1.5 text-slate-600">
               <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span className="font-medium text-slate-900">{high}</span> auto-confirmed
+              <span className="font-medium text-slate-900">{autoConfirmed}</span> auto-confirmed
             </span>
-            <span className="flex items-center gap-1.5 text-slate-600">
-              <span className="w-2 h-2 rounded-full bg-amber-400" />
-              <span className="font-medium text-slate-900">{medium}</span> verify
-            </span>
-            <span className="flex items-center gap-1.5 text-slate-600">
-              <span className="w-2 h-2 rounded-full bg-red-500" />
-              <span className="font-medium text-slate-900">{low}</span> need action
-            </span>
+            {pendingVerify > 0 && (
+              <span className="flex items-center gap-1.5 text-slate-600">
+                <span className="w-2 h-2 rounded-full bg-amber-400" />
+                <span className="font-medium text-slate-900">{pendingVerify}</span> to verify
+              </span>
+            )}
+            {pendingAction > 0 && (
+              <span className="flex items-center gap-1.5 text-slate-600">
+                <span className="w-2 h-2 rounded-full bg-red-500" />
+                <span className="font-medium text-slate-900">{pendingAction}</span> need action
+              </span>
+            )}
+            {pendingVerify === 0 && pendingAction === 0 && (
+              <span className="flex items-center gap-1.5 text-emerald-600 font-medium">
+                <CheckCircle2 className="w-3.5 h-3.5" /> All fields addressed
+              </span>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-3">
