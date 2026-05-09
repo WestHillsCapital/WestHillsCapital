@@ -8,12 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { isSystemEsignFieldId } from "@/lib/docufill-redaction";
 import { type FieldItem, type MappingItem } from "@/lib/docufill-types";
-import type { DocItem, FieldLibraryItem, PackageItem, Entity, TransactionType } from "@/lib/docufill-local-types";
+import type { DocItem, FieldLibraryItem, FieldGroup, PackageItem, Entity, TransactionType } from "@/lib/docufill-local-types";
 import { EmptyState } from "@/components/DocuFillPanels";
 import { DocumentPreviewTile } from "@/components/DocumentPreviewTile";
 import { type BuilderStep, BUILDER_STEPS } from "@/components/PackagePickerSidebar";
 import { SortableItem } from "@/components/DocuFillDndHelpers";
-import { EntityPanel, TransactionTypesPanel, FieldLibraryPanel, LabeledInput } from "@/components/DocuFillPanels";
+import { EntityPanel, TransactionTypesPanel, FieldLibraryPanel, FieldGroupsPanel, LabeledInput } from "@/components/DocuFillPanels";
 import { TagChipInput, EmbedSnippetPanel } from "@/components/DocuFillWidgets";
 import { DemoWelcomeBanner } from "@/components/DemoWelcomeBanner";
 import { formatOrgTime } from "@/lib/orgDateFormat";
@@ -125,6 +125,12 @@ export interface DocuFillBuilderPanelProps {
   loadFieldLibraryVersions?: (fieldId: string) => Promise<import("@/lib/docufill-local-types").FieldVersionRow[] | string>;
   restoreFieldLibraryVersion?: (fieldId: string, versionId: number) => Promise<string | null>;
   loadFieldLibraryAnalytics?: (fieldId: string) => Promise<import("@/lib/docufill-local-types").FieldAnalytics | string>;
+  fieldGroups: FieldGroup[];
+  createFieldGroup: () => Promise<string | null>;
+  updateFieldGroupLocal: (id: number, patch: Partial<FieldGroup>) => void;
+  saveFieldGroup: (item: FieldGroup) => Promise<string | null>;
+  deleteFieldGroup: (id: number) => Promise<string | null>;
+  addGroupToPackage: (group: FieldGroup) => void;
   launchTestInterview: (pkg: PackageItem) => void;
   openFieldEditorForAdd: () => void;
   openFieldEditorForEdit: (fieldId: string) => void;
@@ -164,6 +170,7 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
     createTransactionType, updateTransactionTypeLocal, saveTransactionType, deleteTransactionType,
     createTransactionTypeNamed, createFieldLibraryItem, updateFieldLibraryLocal, saveFieldLibraryItem,
     deleteFieldLibraryItem, addLibraryFieldToPackage, loadFieldLibraryVersions, restoreFieldLibraryVersion, loadFieldLibraryAnalytics,
+    fieldGroups, createFieldGroup, updateFieldGroupLocal, saveFieldGroup, deleteFieldGroup, addGroupToPackage,
     launchTestInterview, openFieldEditorForAdd,
     openFieldEditorForEdit, removeField, setSelectedFieldId, setPackages,
     dismissDemoUi, handleOpenDemoInterview, handleSeedDemo, setStandalonePackageId, setTab,
@@ -490,7 +497,16 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
                       onDelete={deleteTransactionType as (scope: string) => Promise<string | null>}
                     />
                   </div>
-                  <div className="mt-4">
+                  <div className="mt-4 space-y-4">
+                    <FieldGroupsPanel
+                      items={fieldGroups}
+                      fieldLibrary={fieldLibrary}
+                      onAdd={createFieldGroup}
+                      onChange={updateFieldGroupLocal}
+                      onSave={saveFieldGroup}
+                      onDelete={deleteFieldGroup}
+                      onUseGroup={addGroupToPackage}
+                    />
                     <FieldLibraryPanel
                       items={fieldLibrary}
                       onAdd={createFieldLibraryItem as () => Promise<string | null>}

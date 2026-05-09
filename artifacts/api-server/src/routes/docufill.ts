@@ -63,6 +63,8 @@ import {
   PdfUploadHeaderSchema,
   FieldLibraryCreateSchema,
   FieldLibraryUpdateSchema,
+  FieldGroupCreateSchema,
+  FieldGroupUpdateSchema,
   EntityBodySchema,
   EntityNameRequiredSchema,
   TransactionTypeBodySchema,
@@ -1954,7 +1956,7 @@ router.get("/bootstrap", async (req, res) => {
   try {
     const accountId = acctId(req);
     const db = getDb();
-    const [groups, transactionTypes, fieldLibrary, packages, packageGroupRows, accountRow] = await Promise.all([
+    const [groups, transactionTypes, fieldLibrary, packages, packageGroupRows, accountRow, fieldGroupRows] = await Promise.all([
       db.query("SELECT * FROM docufill_groups WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, name ASC", [accountId]),
       db.query("SELECT * FROM docufill_transaction_types WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, label ASC", [accountId]),
       getFieldLibrary(db, accountId),
@@ -1969,6 +1971,7 @@ router.get("/bootstrap", async (req, res) => {
                  WHERE p.account_id = $1
                  GROUP BY pg.package_id`, [accountId]),
       db.query<{ slack_webhook_url: string | null }>(`SELECT slack_webhook_url FROM accounts WHERE id = $1`, [accountId]),
+      db.query(`SELECT * FROM docufill_field_groups WHERE account_id = $1 ORDER BY sort_order ASC, name ASC`, [accountId]),
     ]);
     const slackConnected = !!(accountRow.rows[0]?.slack_webhook_url);
     const groupIdsMap = new Map<number, number[]>();
@@ -1990,7 +1993,22 @@ router.get("/bootstrap", async (req, res) => {
       transactionTypeRows = seeded.rows;
     }
     const hydratedPackages = await hydratePackages(packagesWithGroupIds as PackageRow[], db, fieldLibrary);
-    res.json({ groups: groups.rows, transactionTypes: transactionTypeRows, fieldLibrary, packages: hydratedPackages.map(sanitizePackageForClient), slackConnected });
+    // Normalize field groups with camelCase field_ids
+    const fieldMap = new Map(fieldLibrary.map((f) => [f.id, f]));
+    const fieldGroups = (fieldGroupRows.rows as Array<Record<string, unknown>>).map((row) => {
+      const rawIds = Array.isArray(row.field_ids) ? row.field_ids as string[] : [];
+      return {
+        id: row.id,
+        name: row.name,
+        description: row.description ?? null,
+        fieldIds: rawIds,
+        sortOrder: row.sort_order,
+        fields: rawIds.map((id) => fieldMap.get(id)).filter(Boolean),
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+      };
+    });
+    res.json({ groups: groups.rows, transactionTypes: transactionTypeRows, fieldLibrary, fieldGroups, packages: hydratedPackages.map(sanitizePackageForClient), slackConnected });
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to load bootstrap data");
     res.status(500).json({ error: "Failed to load Docuplete data" });
@@ -2549,6 +2567,120 @@ router.delete("/field-library/:id", requireAdminRole, async (req, res) => {
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to delete field library item");
     res.status(500).json({ error: "Failed to delete field library item" });
+  }
+});
+
+// ── Field Library Groups (bundles for one-click package field addition) ────────
+
+function normalizeFieldGroupRow(row: Record<string, unknown>, fieldMap: Map<string, unknown>) {
+  const rawIds = Array.isArray(row.field_ids) ? row.field_ids as string[] : [];
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description ?? null,
+    fieldIds: rawIds,
+    sortOrder: row.sort_order,
+    fields: rawIds.map((id) => fieldMap.get(id)).filter(Boolean),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+// GET /field-library/groups — list all field groups for this account
+router.get("/field-library/groups", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = acctId(req);
+    const db = getDb();
+    const [{ rows }, fieldLibrary] = await Promise.all([
+      db.query(`SELECT * FROM docufill_field_groups WHERE account_id = $1 ORDER BY sort_order ASC, name ASC`, [accountId]),
+      getFieldLibrary(db, accountId),
+    ]);
+    const fieldMap = new Map(fieldLibrary.map((f) => [f.id, f]));
+    res.json({ fieldGroups: (rows as Array<Record<string, unknown>>).map((row) => normalizeFieldGroupRow(row, fieldMap)) });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to load field groups");
+    res.status(500).json({ error: "Failed to load field groups" });
+  }
+});
+
+// POST /field-library/groups — create a new field group
+router.post("/field-library/groups", requireAdminRole, async (req, res) => {
+  try {
+    const _parse = FieldGroupCreateSchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body" }); return; }
+    const body = _parse.data;
+    const accountId = acctId(req);
+    const db = getDb();
+    const count = (await db.query(`SELECT COUNT(*) AS n FROM docufill_field_groups WHERE account_id = $1`, [accountId])).rows[0]?.n ?? 0;
+    const name = cleanText(body.name) || `New Group ${Number(count) + 1}`;
+    const description = body.description !== undefined ? nullableText(body.description) : null;
+    const fieldIds = Array.isArray(body.fieldIds) ? body.fieldIds.filter((id) => typeof id === "string") : [];
+    const sortOrder = typeof body.sortOrder === "number" ? body.sortOrder : 100;
+    const { rows } = await db.query(
+      `INSERT INTO docufill_field_groups (account_id, name, description, field_ids, sort_order)
+       VALUES ($1, $2, $3, $4::jsonb, $5) RETURNING *`,
+      [accountId, name, description, JSON.stringify(fieldIds), sortOrder],
+    );
+    const fieldLibrary = await getFieldLibrary(db, accountId);
+    const fieldMap = new Map(fieldLibrary.map((f) => [f.id, f]));
+    res.status(201).json({ fieldGroup: normalizeFieldGroupRow(rows[0] as Record<string, unknown>, fieldMap) });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to create field group");
+    res.status(500).json({ error: "Failed to create field group" });
+  }
+});
+
+// PATCH /field-library/groups/:id — update a field group
+router.patch("/field-library/groups/:id", requireAdminRole, async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) { res.status(400).json({ error: "Invalid group id" }); return; }
+    const _parse = FieldGroupUpdateSchema.safeParse(req.body);
+    if (!_parse.success) { res.status(400).json({ error: "Invalid request body" }); return; }
+    const body = _parse.data;
+    const accountId = acctId(req);
+    const db = getDb();
+    const setClauses: string[] = ["updated_at = NOW()"];
+    const params: unknown[] = [accountId, id];
+    if (body.name !== undefined) {
+      const name = cleanText(body.name);
+      if (name) { params.push(name); setClauses.push(`name = $${params.length}`); }
+    }
+    if (body.description !== undefined) {
+      params.push(nullableText(body.description)); setClauses.push(`description = $${params.length}`);
+    }
+    if (body.fieldIds !== undefined) {
+      const ids = Array.isArray(body.fieldIds) ? body.fieldIds.filter((i) => typeof i === "string") : [];
+      params.push(JSON.stringify(ids)); setClauses.push(`field_ids = $${params.length}::jsonb`);
+    }
+    if (typeof body.sortOrder === "number") {
+      params.push(body.sortOrder); setClauses.push(`sort_order = $${params.length}`);
+    }
+    const { rows } = await db.query(
+      `UPDATE docufill_field_groups SET ${setClauses.join(", ")} WHERE id = $2 AND account_id = $1 RETURNING *`,
+      params,
+    );
+    if (!rows[0]) { res.status(404).json({ error: "Field group not found" }); return; }
+    const fieldLibrary = await getFieldLibrary(db, accountId);
+    const fieldMap = new Map(fieldLibrary.map((f) => [f.id, f]));
+    res.json({ fieldGroup: normalizeFieldGroupRow(rows[0] as Record<string, unknown>, fieldMap) });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to update field group");
+    res.status(500).json({ error: "Failed to update field group" });
+  }
+});
+
+// DELETE /field-library/groups/:id — delete a field group
+router.delete("/field-library/groups/:id", requireAdminRole, async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) { res.status(400).json({ error: "Invalid group id" }); return; }
+    const accountId = acctId(req);
+    await getDb().query(`DELETE FROM docufill_field_groups WHERE id = $1 AND account_id = $2`, [id, accountId]);
+    res.json({ deletedId: id });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to delete field group");
+    res.status(500).json({ error: "Failed to delete field group" });
   }
 });
 

@@ -68,6 +68,17 @@ export type FieldVersionRow = {
   snapshot: Partial<FieldLibraryItem> & { restoredFromVersion?: number };
 };
 
+export type FieldGroup = {
+  id: number;
+  name: string;
+  description: string | null;
+  fieldIds: string[];
+  sortOrder: number;
+  fields?: FieldLibraryItem[];
+  createdAt?: string;
+  updatedAt?: string;
+};
+
 export type PackageItem = {
   id: number;
   name: string;

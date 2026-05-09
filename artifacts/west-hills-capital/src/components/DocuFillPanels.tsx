@@ -3,7 +3,7 @@ import { Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import type { Entity, TransactionType, FieldLibraryItem, FieldVersionRow, FieldAnalytics } from "@/lib/docufill-local-types";
+import type { Entity, TransactionType, FieldLibraryItem, FieldVersionRow, FieldAnalytics, FieldGroup } from "@/lib/docufill-local-types";
 import type { FieldItem } from "@/lib/docufill-types";
 
 // ─── Tiny SVG sparkline ───────────────────────────────────────────────────────
@@ -74,6 +74,205 @@ function FieldAnalyticsPanel({ analytics, isSensitive }: { analytics: FieldAnaly
       {isSensitive && (
         <p className="text-[10px] text-[#8A9BB8] italic">Raw values hidden — field is marked sensitive.</p>
       )}
+    </div>
+  );
+}
+
+// ─── Field Groups Panel ───────────────────────────────────────────────────────
+export function FieldGroupsPanel({
+  items,
+  fieldLibrary,
+  onAdd,
+  onChange,
+  onSave,
+  onDelete,
+  onUseGroup,
+}: {
+  items: FieldGroup[];
+  fieldLibrary: FieldLibraryItem[];
+  onAdd: () => Promise<string | null>;
+  onChange: (id: number, patch: Partial<FieldGroup>) => void;
+  onSave: (item: FieldGroup) => Promise<string | null>;
+  onDelete: (id: number) => Promise<string | null>;
+  onUseGroup?: (group: FieldGroup) => void;
+}) {
+  const [adding, setAdding] = useState(false);
+  const [savingId, setSavingId] = useState<number | null>(null);
+  const [savedId, setSavedId] = useState<number | null>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [panelError, setPanelError] = useState<string | null>(null);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [fieldSearch, setFieldSearch] = useState("");
+
+  async function handleAdd() {
+    setAdding(true);
+    setPanelError(null);
+    const err = await onAdd();
+    setAdding(false);
+    if (err) setPanelError(err);
+  }
+
+  async function handleSave(item: FieldGroup) {
+    setSavingId(item.id);
+    setPanelError(null);
+    setSavedId(null);
+    const err = await onSave(item);
+    setSavingId(null);
+    if (err) {
+      setPanelError(err);
+    } else {
+      setSavedId(item.id);
+      setTimeout(() => setSavedId(null), 2000);
+    }
+  }
+
+  async function handleDelete(item: FieldGroup) {
+    if (!confirm(`Delete group "${item.name}"? This cannot be undone.`)) return;
+    setDeletingId(item.id);
+    setPanelError(null);
+    const err = await onDelete(item.id);
+    setDeletingId(null);
+    if (err) setPanelError(err);
+  }
+
+  function toggleField(item: FieldGroup, fieldId: string) {
+    const next = item.fieldIds.includes(fieldId)
+      ? item.fieldIds.filter((id) => id !== fieldId)
+      : [...item.fieldIds, fieldId];
+    onChange(item.id, { fieldIds: next });
+  }
+
+  const filteredLibrary = fieldSearch.trim()
+    ? fieldLibrary.filter((f) => f.label.toLowerCase().includes(fieldSearch.toLowerCase()) || f.category.toLowerCase().includes(fieldSearch.toLowerCase()))
+    : fieldLibrary;
+
+  const byCategory = filteredLibrary.reduce<Record<string, FieldLibraryItem[]>>((acc, f) => {
+    if (!acc[f.category]) acc[f.category] = [];
+    acc[f.category].push(f);
+    return acc;
+  }, {});
+
+  return (
+    <div className="border border-[#DDD5C4] rounded p-3">
+      <div className="flex items-center justify-between mb-2">
+        <div>
+          <h3 className="text-sm font-semibold">Field Groups</h3>
+          <p className="text-[11px] text-[#8A9BB8]">Bundle common fields for one-click addition to any package.</p>
+        </div>
+        <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
+          {adding ? "Adding…" : "Add"}
+        </button>
+      </div>
+      {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
+      {items.length === 0 && <div className="text-xs text-[#8A9BB8]">No field groups yet. Add one to bundle fields for fast package setup.</div>}
+      <div className="space-y-2">
+        {items.map((item) => {
+          const isExpanded = expandedId === item.id;
+          const memberCount = item.fieldIds.length;
+          return (
+            <div key={item.id} className="rounded border border-[#EFE8D8] bg-[#F8F6F0] p-2">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  {isExpanded ? (
+                    <Input
+                      value={item.name}
+                      onChange={(e) => onChange(item.id, { name: e.target.value })}
+                      className="h-7 text-xs bg-white font-medium"
+                    />
+                  ) : (
+                    <div className="text-xs font-medium text-[#0F1C3F] truncate">{item.name}</div>
+                  )}
+                  <div className="text-[10px] text-[#8A9BB8] mt-0.5">
+                    {memberCount} field{memberCount !== 1 ? "s" : ""}
+                    {memberCount > 0 && (
+                      <span className="ml-1 truncate">
+                        — {item.fieldIds.slice(0, 3).map((id) => fieldLibrary.find((f) => f.id === id)?.label ?? id).join(", ")}
+                        {memberCount > 3 ? ` +${memberCount - 3} more` : ""}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
+                  {onUseGroup && (
+                    <button
+                      type="button"
+                      onClick={() => onUseGroup(item)}
+                      title="Add all group fields to current package"
+                      className="text-[11px] text-[#6B7A99] hover:text-[#1B4FD8] transition-colors"
+                    >
+                      Use
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                    className="text-[11px] text-[#8A9BB8] hover:text-[#4A5568]"
+                  >
+                    {isExpanded ? "▲" : "▾"}
+                  </button>
+                </div>
+              </div>
+              {isExpanded && (
+                <div className="mt-2 space-y-2">
+                  <Textarea
+                    placeholder="Description (optional)"
+                    value={item.description ?? ""}
+                    onChange={(e) => onChange(item.id, { description: e.target.value || null })}
+                    className="min-h-12 text-xs bg-white"
+                  />
+                  <div className="text-[11px] font-medium text-[#4A5568] mt-1">Fields in this group</div>
+                  <Input
+                    placeholder="Search fields…"
+                    value={fieldSearch}
+                    onChange={(e) => setFieldSearch(e.target.value)}
+                    className="h-7 text-xs bg-white"
+                  />
+                  <div className="max-h-52 overflow-y-auto rounded border border-[#E8E0D4] bg-white text-[11px]">
+                    {Object.keys(byCategory).sort().map((cat) => (
+                      <div key={cat}>
+                        <div className="sticky top-0 bg-[#F5F2EC] border-b border-[#EFE8D8] px-2 py-0.5 text-[10px] font-semibold text-[#6B7A99] uppercase tracking-wide">{cat}</div>
+                        {byCategory[cat].map((f) => (
+                          <label key={f.id} className="flex items-center gap-2 px-2 py-1 cursor-pointer hover:bg-[#F5F2EC]">
+                            <input
+                              type="checkbox"
+                              checked={item.fieldIds.includes(f.id)}
+                              onChange={() => toggleField(item, f.id)}
+                              className="shrink-0"
+                            />
+                            <span className={`truncate ${item.fieldIds.includes(f.id) ? "text-[#0F1C3F] font-medium" : "text-[#4A5568]"}`}>{f.label}</span>
+                            {f.sensitive && <span className="ml-auto shrink-0 text-[9px] bg-red-100 text-red-600 px-1 rounded">sensitive</span>}
+                          </label>
+                        ))}
+                      </div>
+                    ))}
+                    {filteredLibrary.length === 0 && (
+                      <div className="px-2 py-3 text-[#8A9BB8] text-center">No fields match "{fieldSearch}"</div>
+                    )}
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(item)}
+                      disabled={deletingId === item.id}
+                      className="text-[11px] text-red-500 disabled:opacity-50"
+                    >
+                      {deletingId === item.id ? "Deleting…" : "Delete"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSave(item)}
+                      disabled={savingId === item.id}
+                      className="text-[11px] text-[#C49A38] disabled:opacity-50"
+                    >
+                      {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

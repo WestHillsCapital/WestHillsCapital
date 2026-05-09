@@ -17,6 +17,22 @@ export const FieldLibraryUpdateSchema = z.object({
 }).passthrough();
 export type FieldLibraryUpdateBody = z.infer<typeof FieldLibraryUpdateSchema>;
 
+export const FieldGroupCreateSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional().nullable(),
+  fieldIds: z.array(z.string()).optional(),
+  sortOrder: z.number().optional(),
+}).passthrough();
+export type FieldGroupCreateBody = z.infer<typeof FieldGroupCreateSchema>;
+
+export const FieldGroupUpdateSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional().nullable(),
+  fieldIds: z.array(z.string()).optional(),
+  sortOrder: z.number().optional(),
+}).passthrough();
+export type FieldGroupUpdateBody = z.infer<typeof FieldGroupUpdateSchema>;
+
 export const EntityBodySchema = z.object({
   name: z.string().optional(),
   kind: z.string().optional().nullable(),

@@ -31,8 +31,8 @@ import { MappingButton } from "@/components/MappingButton";
 import { FieldCard } from "@/components/FieldCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { DocumentPreviewTile } from "@/components/DocumentPreviewTile";
-import { EmptyState, SummaryCard, LabeledInput, EntityPanel, TransactionTypesPanel, FieldLibraryPanel } from "@/components/DocuFillPanels";
-import type { Entity, TransactionType, DocItem, FieldLibraryItem, FieldVersionRow, FieldAnalytics, PackageItem } from "@/lib/docufill-local-types";
+import { EmptyState, SummaryCard, LabeledInput, EntityPanel, TransactionTypesPanel, FieldLibraryPanel, FieldGroupsPanel } from "@/components/DocuFillPanels";
+import type { Entity, TransactionType, DocItem, FieldLibraryItem, FieldVersionRow, FieldAnalytics, FieldGroup, PackageItem } from "@/lib/docufill-local-types";
 import { FieldEditorModal, type FieldEditorDraft } from "@/components/FieldEditorModal";
 import { TagChipInput, PackagePickerWithTags, ScrollPageCanvas, EmbedSnippetPanel } from "@/components/DocuFillWidgets";
 import { PackagePickerSidebar, type BuilderStep, BUILDER_STEPS } from "@/components/PackagePickerSidebar";
@@ -351,6 +351,7 @@ export default function DocuFill() {
   const [typeManageOpen, setTypeManageOpen] = useState(false);
   const [typeDeletingScope, setTypeDeletingScope] = useState<string | null>(null);
   const [fieldLibrary, setFieldLibrary] = useState<FieldLibraryItem[]>([]);
+  const [fieldGroups, setFieldGroups] = useState<FieldGroup[]>([]);
   const [bootstrapLoaded, setBootstrapLoaded] = useState(false);
   const [seedingDemo, setSeedingDemo] = useState(false);
   const [demoUiState, setDemoUiState] = useState<"try" | "open" | "dismissed">(() => {
@@ -836,6 +837,7 @@ export default function DocuFill() {
       setDepositories(data.depositories ?? []);
       setTransactionTypes(Array.isArray(data.transactionTypes) && data.transactionTypes.length ? data.transactionTypes : DOCUFILL_TRANSACTION_TYPES.map((item, index) => ({ scope: item.value, label: item.label, active: true, sort_order: (index + 1) * 10 })));
       setFieldLibrary(normalizeFieldLibrary(data.fieldLibrary ?? []));
+      setFieldGroups(Array.isArray(data.fieldGroups) ? data.fieldGroups as FieldGroup[] : []);
       setSlackConnected(data.slackConnected === true);
       setPackages(loadedPackages);
       setSelectedPackageId((current) => {
@@ -1850,6 +1852,95 @@ export default function DocuFill() {
     } catch {
       return "Network error — could not restore version";
     }
+  }
+
+  async function createFieldGroup(): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/groups`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({})) as { fieldGroup?: FieldGroup; error?: string };
+      if (!res.ok) return data.error ?? "Could not create field group";
+      if (data.fieldGroup) setFieldGroups((prev) => [...prev, data.fieldGroup!]);
+      return null;
+    } catch {
+      return "Network error — could not create field group";
+    }
+  }
+
+  function updateFieldGroupLocal(id: number, patch: Partial<FieldGroup>) {
+    setFieldGroups((prev) => prev.map((g) => g.id === id ? { ...g, ...patch } : g));
+  }
+
+  async function saveFieldGroup(item: FieldGroup): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/groups/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({ name: item.name, description: item.description, fieldIds: item.fieldIds }),
+      });
+      const data = await res.json().catch(() => ({})) as { fieldGroup?: FieldGroup; error?: string };
+      if (!res.ok) return data.error ?? "Could not save field group";
+      if (data.fieldGroup) setFieldGroups((prev) => prev.map((g) => g.id === item.id ? data.fieldGroup! : g));
+      return null;
+    } catch {
+      return "Network error — could not save field group";
+    }
+  }
+
+  async function deleteFieldGroup(id: number): Promise<string | null> {
+    try {
+      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/groups/${id}`, {
+        method: "DELETE",
+        headers: getAuthHeaders(),
+      });
+      const data = await res.json().catch(() => ({})) as { error?: string };
+      if (!res.ok) return data.error ?? "Could not delete field group";
+      setFieldGroups((prev) => prev.filter((g) => g.id !== id));
+      return null;
+    } catch {
+      return "Network error — could not delete field group";
+    }
+  }
+
+  function addGroupToPackage(group: FieldGroup) {
+    const groupFields = group.fieldIds
+      .map((id) => fieldLibrary.find((f) => f.id === id))
+      .filter((f): f is FieldLibraryItem => Boolean(f));
+
+    updateSelectedPackage((pkg) => {
+      const existingLibraryIds = new Set(pkg.fields.map((f) => f.libraryFieldId).filter(Boolean));
+      const toAdd = groupFields.filter((lf) => !existingLibraryIds.has(lf.id));
+      if (toAdd.length === 0) {
+        flashStatus("All group fields are already in this package.");
+        return pkg;
+      }
+      const usedColors = pkg.fields.map((f) => f.color);
+      const newFields = toAdd.map((lf): FieldItem => {
+        const color = pickFieldColor(usedColors, lf.sensitive);
+        usedColors.push(color);
+        return {
+          id: newId("field"),
+          libraryFieldId: lf.id,
+          name: lf.label,
+          color,
+          type: lf.type,
+          optionsMode: "inherit",
+          interviewMode: lf.required ? "required" : "optional",
+          defaultValue: "",
+          source: lf.source,
+          sensitive: lf.sensitive,
+          validationType: lf.validationType,
+          validationPattern: lf.validationPattern ?? "",
+          validationMessage: lf.validationMessage ?? "",
+        };
+      });
+      flashStatus(`Added ${toAdd.length} field${toAdd.length !== 1 ? "s" : ""} from "${group.name}".`);
+      return { ...pkg, fields: [...newFields, ...pkg.fields] };
+    });
+    goBuilderStep("mapping");
   }
 
   function addLibraryFieldToPackage(libraryField: FieldLibraryItem) {
@@ -3158,6 +3249,12 @@ export default function DocuFill() {
           restoreFieldLibraryVersion={restoreFieldVersion}
           loadFieldLibraryAnalytics={loadFieldAnalytics}
           addLibraryFieldToPackage={addLibraryFieldToPackage}
+          fieldGroups={fieldGroups}
+          createFieldGroup={createFieldGroup}
+          updateFieldGroupLocal={updateFieldGroupLocal}
+          saveFieldGroup={saveFieldGroup}
+          deleteFieldGroup={deleteFieldGroup}
+          addGroupToPackage={addGroupToPackage}
           launchTestInterview={launchTestInterview}
           openFieldEditorForAdd={openFieldEditorForAdd}
           openFieldEditorForEdit={openFieldEditorForEdit}

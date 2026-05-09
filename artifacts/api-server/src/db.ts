@@ -827,6 +827,24 @@ export async function initDb(): Promise<void> {
       ON docufill_field_versions (field_id, account_id, changed_at DESC)
   `);
 
+  // ── Field groups (bundles of library fields for one-click package addition) ─
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_field_groups (
+      id          SERIAL PRIMARY KEY,
+      account_id  INTEGER NOT NULL REFERENCES accounts(id),
+      name        TEXT NOT NULL,
+      description TEXT,
+      field_ids   JSONB NOT NULL DEFAULT '[]',
+      sort_order  INTEGER NOT NULL DEFAULT 100,
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS docufill_field_groups_account_idx
+      ON docufill_field_groups (account_id, sort_order ASC, name ASC)
+  `);
+
   await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_packages (
       id                SERIAL PRIMARY KEY,
