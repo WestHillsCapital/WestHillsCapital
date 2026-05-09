@@ -93,17 +93,17 @@ interface BillingInfo {
 }
 
 const PLAN_LABELS: Record<string, string> = {
-  free:           "Starter",
-  starter:        "Starter",
-  starter_esign:  "Starter Professional",
-  pro:            "Pro",
-  enterprise:     "Enterprise",
+  free:       "Starter",
+  starter:    "Starter",
+  pro:        "Pro",
+  developer:  "Developer",
+  enterprise: "Enterprise",
 };
 
 function planBadge(tier: string) {
-  if (tier === "enterprise")   return <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Enterprise</span>;
-  if (tier === "pro")          return <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">Pro</span>;
-  if (tier === "starter_esign") return <span className="inline-flex items-center rounded-full bg-violet-50 border border-violet-200 px-2.5 py-0.5 text-xs font-semibold text-violet-700">Starter Professional</span>;
+  if (tier === "enterprise")  return <span className="inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2.5 py-0.5 text-xs font-semibold text-amber-800">Enterprise</span>;
+  if (tier === "developer")   return <span className="inline-flex items-center rounded-full bg-blue-50 border border-blue-200 px-2.5 py-0.5 text-xs font-semibold text-blue-700">Developer</span>;
+  if (tier === "pro")         return <span className="inline-flex items-center rounded-full bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">Pro</span>;
   return <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2.5 py-0.5 text-xs font-semibold text-gray-600">Starter</span>;
 }
 
@@ -405,22 +405,22 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
   const [isUpgrading, setIsUpgrading] = useState(false);
   const [isPortaling, setIsPortaling] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [selectedPlan, setSelectedPlan] = useState<"starter" | "starter_esign" | "pro" | "enterprise">("pro");
+  const [selectedPlan, setSelectedPlan] = useState<"starter" | "pro" | "developer" | "enterprise">("pro");
   const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">("monthly");
 
-  const PLAN_MONTHLY = { starter: 49, starter_esign: 69, pro: 249, enterprise: 3000 } as const;
-  const PLAN_DISPLAY: Record<"starter" | "starter_esign" | "pro" | "enterprise", string> = {
-    starter:        "Starter",
-    starter_esign:  "Starter Professional",
-    pro:            "Pro",
-    enterprise:     "Enterprise",
+  const PLAN_MONTHLY = { starter: 69, pro: 249, developer: 499, enterprise: 3000 } as const;
+  const PLAN_DISPLAY: Record<"starter" | "pro" | "developer" | "enterprise", string> = {
+    starter:   "Starter",
+    pro:       "Pro",
+    developer: "Developer",
+    enterprise: "Enterprise",
   };
-  const planPrice = (key: "starter" | "starter_esign" | "pro" | "enterprise") => {
+  const planPrice = (key: "starter" | "pro" | "developer" | "enterprise") => {
     const mo = PLAN_MONTHLY[key];
     if (!mo) return null;
     return billingInterval === "annual" ? Math.round(mo * 0.8) : mo;
   };
-  const planLabel = (key: "starter" | "starter_esign" | "pro" | "enterprise", seats: string, subs: string) => {
+  const planLabel = (key: "starter" | "pro" | "developer" | "enterprise", seats: string, subs: string) => {
     const price = planPrice(key);
     const label = PLAN_DISPLAY[key];
     if (!price) return `${label} — ${seats} · ${subs}`;
@@ -599,15 +599,15 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     )}
                   </div>
                 )}
-                {(billing.plan_tier === "free" || billing.plan_tier === "starter" || billing.plan_tier === "starter_esign") && billing.subscription_status !== "trialing" && (
+                {(billing.plan_tier === "free" || billing.plan_tier === "starter" || billing.plan_tier === "pro") && billing.subscription_status !== "trialing" && (
                   <p className="text-xs text-gray-500 mt-0.5">
                     Upgrade to unlock more packages, submissions, and seats.
                   </p>
                 )}
               </div>
 
-              {/* Upgrade CTA — free/starter/starter_esign only */}
-              {(billing.plan_tier === "free" || billing.plan_tier === "starter" || billing.plan_tier === "starter_esign") && (
+              {/* Upgrade CTA — free/starter/pro only */}
+              {(billing.plan_tier === "free" || billing.plan_tier === "starter" || billing.plan_tier === "pro") && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex items-center gap-1 p-0.5 bg-gray-100 rounded-lg">
                     <button
@@ -628,14 +628,14 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                   </div>
                   <select
                     value={selectedPlan}
-                    onChange={(e) => setSelectedPlan(e.target.value as "starter" | "starter_esign" | "pro" | "enterprise")}
+                    onChange={(e) => setSelectedPlan(e.target.value as "starter" | "pro" | "developer" | "enterprise")}
                     className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20"
                   >
                     {(billing.plan_tier === "free" || billing.plan_tier === "starter") && (
-                      <option value="starter_esign">{planLabel("starter_esign", "5 seats", "50 subs/seat")}</option>
+                      <option value="pro">{planLabel("pro", "10 seats", "400 sessions/mo")}</option>
                     )}
-                    <option value="pro">{planLabel("pro", "10 seats", "50 subs/seat")}</option>
-                    <option value="enterprise">{planLabel("enterprise", "25 seats", "Unlimited subs")}</option>
+                    <option value="developer">{planLabel("developer", "API access", "500 PDF gen/mo")}</option>
+                    <option value="enterprise">{planLabel("enterprise", "25 seats", "Unlimited")}</option>
                   </select>
                   <button
                     type="button"
@@ -654,7 +654,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
             {billing.has_stripe_subscription && (
               <div className="mt-4 pt-4 border-t border-gray-200 flex items-center justify-between gap-4">
                 <p className="text-xs text-gray-500">
-                  {(billing.plan_tier === "free" || billing.plan_tier === "starter" || billing.plan_tier === "starter_esign")
+                  {(billing.plan_tier === "free" || billing.plan_tier === "starter" || billing.plan_tier === "pro")
                     ? "View invoices, update payment methods, or cancel your subscription."
                     : "View invoices, update your payment method, or make changes to your subscription."}
                 </p>
@@ -672,7 +672,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
           </div>
 
           {/* Plan comparison table */}
-          {(billing.plan_tier === "free" || billing.plan_tier === "starter" || billing.plan_tier === "starter_esign") && (
+          {(billing.plan_tier === "free" || billing.plan_tier === "starter" || billing.plan_tier === "pro") && (
             <div className="px-3 sm:px-6 py-4">
               <p className="text-xs font-medium text-gray-500 mb-3 uppercase tracking-wide">Compare plans</p>
               <div className="rounded-lg border border-gray-100 overflow-x-auto text-xs">
@@ -681,8 +681,8 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     <tr>
                       <th className="px-3 py-2.5 text-left font-medium text-gray-700 w-[30%]">Feature</th>
                       <th className="px-3 py-2.5 text-center font-medium text-gray-600">Starter</th>
-                      <th className="px-3 py-2.5 text-center font-medium text-violet-700">Starter Pro</th>
                       <th className="px-3 py-2.5 text-center font-medium text-indigo-700">Pro</th>
+                      <th className="px-3 py-2.5 text-center font-medium text-blue-700">Developer</th>
                       <th className="px-3 py-2.5 text-center font-medium text-amber-700">Enterprise</th>
                     </tr>
                   </thead>
@@ -697,11 +697,11 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                       <td className="px-3 py-2.5 text-center text-gray-600">
                         ${planPrice("starter")}
                       </td>
-                      <td className="px-3 py-2.5 text-center text-violet-700 font-medium">
-                        ${planPrice("starter_esign")}
-                      </td>
                       <td className="px-3 py-2.5 text-center text-indigo-700 font-medium">
                         ${planPrice("pro")}
+                      </td>
+                      <td className="px-3 py-2.5 text-center text-blue-700 font-medium">
+                        ${planPrice("developer")}
                       </td>
                       <td className="px-3 py-2.5 text-center text-amber-700 font-medium">
                         ${(planPrice("enterprise") ?? 0).toLocaleString()}
@@ -710,50 +710,57 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     <tr className="bg-gray-50/50">
                       <td className="px-3 py-2.5 text-gray-700">Packages</td>
                       <td className="px-3 py-2.5 text-center text-gray-600">5</td>
-                      <td className="px-3 py-2.5 text-center text-violet-700 font-medium">5</td>
                       <td className="px-3 py-2.5 text-center text-indigo-700 font-medium">Unlimited</td>
+                      <td className="px-3 py-2.5 text-center text-blue-700 font-medium">Unlimited</td>
                       <td className="px-3 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
                     </tr>
                     <tr>
                       <td className="px-3 py-2.5 text-gray-700">Submissions / mo</td>
-                      <td className="px-3 py-2.5 text-center text-gray-600">50 / seat</td>
-                      <td className="px-3 py-2.5 text-center text-violet-700 font-medium">50 / seat</td>
-                      <td className="px-3 py-2.5 text-center text-indigo-700 font-medium">50 / seat</td>
+                      <td className="px-3 py-2.5 text-center text-gray-600">150 sessions</td>
+                      <td className="px-3 py-2.5 text-center text-indigo-700 font-medium">400 sessions</td>
+                      <td className="px-3 py-2.5 text-center text-blue-700 font-medium">500 PDF gen</td>
                       <td className="px-3 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
                     </tr>
                     <tr className="bg-gray-50/50">
                       <td className="px-3 py-2.5 text-gray-700">Team seats</td>
                       <td className="px-3 py-2.5 text-center text-gray-600">2</td>
-                      <td className="px-3 py-2.5 text-center text-violet-700 font-medium">2</td>
                       <td className="px-3 py-2.5 text-center text-indigo-700 font-medium">10</td>
+                      <td className="px-3 py-2.5 text-center text-blue-700 font-medium">Org-wide</td>
                       <td className="px-3 py-2.5 text-center text-amber-700 font-medium">25</td>
                     </tr>
                     <tr>
                       <td className="px-3 py-2.5 text-gray-700">eSign</td>
-                      <td className="px-3 py-2.5 text-center text-gray-400">—</td>
-                      <td className="px-3 py-2.5 text-center text-violet-600">✓</td>
+                      <td className="px-3 py-2.5 text-center text-gray-600">✓</td>
                       <td className="px-3 py-2.5 text-center text-indigo-600">✓</td>
+                      <td className="px-3 py-2.5 text-center text-blue-600">✓</td>
                       <td className="px-3 py-2.5 text-center text-amber-600">✓</td>
                     </tr>
                     <tr className="bg-gray-50/50">
-                      <td className="px-3 py-2.5 text-gray-700">Client links</td>
+                      <td className="px-3 py-2.5 text-gray-700">Client links &amp; branding</td>
                       <td className="px-3 py-2.5 text-center text-gray-400">—</td>
-                      <td className="px-3 py-2.5 text-center text-violet-600">✓</td>
                       <td className="px-3 py-2.5 text-center text-indigo-600">✓</td>
+                      <td className="px-3 py-2.5 text-center text-blue-600">✓</td>
                       <td className="px-3 py-2.5 text-center text-amber-600">✓</td>
                     </tr>
                     <tr>
                       <td className="px-3 py-2.5 text-gray-700">CSV batch &amp; integrations</td>
                       <td className="px-3 py-2.5 text-center text-gray-400">—</td>
-                      <td className="px-3 py-2.5 text-center text-gray-400">—</td>
                       <td className="px-3 py-2.5 text-center text-indigo-600">✓</td>
+                      <td className="px-3 py-2.5 text-center text-blue-600">✓</td>
                       <td className="px-3 py-2.5 text-center text-amber-600">✓</td>
                     </tr>
                     <tr className="bg-gray-50/50">
-                      <td className="px-3 py-2.5 text-gray-700">Webhooks &amp; API</td>
+                      <td className="px-3 py-2.5 text-gray-700">REST API &amp; Webhooks</td>
                       <td className="px-3 py-2.5 text-center text-gray-400">—</td>
                       <td className="px-3 py-2.5 text-center text-gray-400">—</td>
+                      <td className="px-3 py-2.5 text-center text-blue-600">✓</td>
+                      <td className="px-3 py-2.5 text-center text-amber-600">✓</td>
+                    </tr>
+                    <tr>
+                      <td className="px-3 py-2.5 text-gray-700">Programmatic PDF generation</td>
                       <td className="px-3 py-2.5 text-center text-gray-400">—</td>
+                      <td className="px-3 py-2.5 text-center text-gray-400">—</td>
+                      <td className="px-3 py-2.5 text-center text-blue-600">✓</td>
                       <td className="px-3 py-2.5 text-center text-amber-600">✓</td>
                     </tr>
                   </tbody>
