@@ -2304,7 +2304,24 @@ export default function DocuFill() {
     setError(null);
     try {
       for (const file of pdfFiles) {
-        await persistDocumentPdf(file);
+        const updatedPackage = await persistDocumentPdf(file);
+        // Scan each uploaded PDF for AcroForm fields so the Field Review
+        // overlay fires when the user navigates to the mapper.
+        try {
+          const annotations = await extractAcroFromFile(file);
+          const targetDoc = updatedPackage?.documents[updatedPackage.documents.length - 1];
+          if (annotations.length > 0 && targetDoc) {
+            setPendingAcroReview({
+              documentId: targetDoc.id,
+              docTitle: targetDoc.title || file.name,
+              annotations,
+            });
+          } else {
+            setPendingAcroReview(null);
+          }
+        } catch {
+          // Non-fatal — PDF scanning failure doesn't block the upload
+        }
       }
       flashStatus(`Uploaded ${pdfFiles.length} PDF${pdfFiles.length === 1 ? "" : "s"}.`);
     } catch (err) {
