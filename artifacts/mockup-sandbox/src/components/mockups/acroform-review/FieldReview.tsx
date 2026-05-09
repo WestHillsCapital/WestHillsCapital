@@ -15,11 +15,12 @@ import {
   MinusCircle,
   ArrowUpRight,
   Eye,
+  Zap,
 } from "lucide-react";
 
 type ConfidenceTier = "high" | "medium" | "low";
 type FieldStatus = "confirmed" | "needs-review" | "deferred" | "blank";
-type EdgeCase = "off-page" | "duplicate" | "checkbox-group" | "signature";
+type EdgeCase = "off-page" | "duplicate" | "checkbox-group" | "signature" | "prefilled";
 
 interface LibraryField {
   id: string;
@@ -39,132 +40,236 @@ interface ReviewField {
   status: FieldStatus;
   edgeCases: EdgeCase[];
   touched: boolean;
+  prefilledValue?: string;
 }
 
 const LIBRARY_FIELDS: LibraryField[] = [
-  { id: "borrower_first_name", label: "Borrower First Name", key: "borrower_first_name", category: "Borrower" },
-  { id: "borrower_last_name", label: "Borrower Last Name", key: "borrower_last_name", category: "Borrower" },
-  { id: "borrower_full_name", label: "Borrower Full Name", key: "borrower_full_name", category: "Borrower" },
-  { id: "co_borrower_name", label: "Co-Borrower Full Name", key: "co_borrower_name", category: "Borrower" },
-  { id: "date_signed", label: "Date Signed", key: "date_signed", category: "Dates" },
-  { id: "loan_origination_date", label: "Loan Origination Date", key: "loan_origination_date", category: "Dates" },
-  { id: "closing_date", label: "Closing Date", key: "closing_date", category: "Dates" },
-  { id: "property_address", label: "Property Address", key: "property_address", category: "Property" },
-  { id: "property_city", label: "Property City", key: "property_city", category: "Property" },
-  { id: "property_state", label: "Property State", key: "property_state", category: "Property" },
-  { id: "property_zip", label: "Property ZIP", key: "property_zip", category: "Property" },
-  { id: "loan_amount", label: "Loan Amount", key: "loan_amount", category: "Loan" },
-  { id: "interest_rate", label: "Interest Rate", key: "interest_rate", category: "Loan" },
-  { id: "loan_term_months", label: "Loan Term (months)", key: "loan_term_months", category: "Loan" },
-  { id: "monthly_payment", label: "Monthly Payment", key: "monthly_payment", category: "Loan" },
+  // Applicant
+  { id: "applicant_ssn", label: "Applicant SSN", key: "applicant_ssn", category: "Applicant" },
+  { id: "applicant_dob", label: "Date of Birth", key: "applicant_dob", category: "Applicant" },
+  { id: "applicant_title", label: "Applicant Title (Mr/Ms/Dr)", key: "applicant_title", category: "Applicant" },
+  { id: "applicant_legal_name", label: "Legal Name", key: "applicant_legal_name", category: "Applicant" },
+  { id: "applicant_printed_name", label: "Printed Name", key: "applicant_printed_name", category: "Applicant" },
+  { id: "marital_status", label: "Marital Status", key: "marital_status", category: "Applicant" },
+  // Contact
   { id: "email", label: "Email Address", key: "email", category: "Contact" },
-  { id: "phone_number", label: "Phone Number", key: "phone_number", category: "Contact" },
-  { id: "ssn_last4", label: "SSN (last 4)", key: "ssn_last4", category: "Identity" },
-  { id: "borrower_signature", label: "Borrower Signature", key: "borrower_signature", category: "Signatures" },
-  { id: "co_borrower_signature", label: "Co-Borrower Signature", key: "co_borrower_signature", category: "Signatures" },
-  { id: "notary_acknowledgment", label: "Notary Acknowledgment", key: "notary_acknowledgment", category: "Signatures" },
-  { id: "owns_property", label: "Currently Owns Property?", key: "owns_property", category: "Disclosures" },
-  { id: "primary_residence", label: "Primary Residence?", key: "primary_residence", category: "Disclosures" },
+  { id: "phone_home", label: "Home Phone", key: "phone_home", category: "Contact" },
+  { id: "phone_cell", label: "Cell Phone", key: "phone_cell", category: "Contact" },
+  { id: "fax", label: "Fax Number", key: "fax", category: "Contact" },
+  { id: "address_physical", label: "Physical Address", key: "address_physical", category: "Contact" },
+  { id: "address_mailing", label: "Mailing Address", key: "address_mailing", category: "Contact" },
+  { id: "city", label: "City", key: "city", category: "Contact" },
+  { id: "state", label: "State", key: "state", category: "Contact" },
+  { id: "zip", label: "ZIP Code", key: "zip", category: "Contact" },
+  // Account
+  { id: "account_type", label: "Account Type (IRA/HSA)", key: "account_type", category: "Account" },
+  { id: "funding_method", label: "Funding Method", key: "funding_method", category: "Account" },
+  { id: "contribution_year", label: "Contribution Year", key: "contribution_year", category: "Account" },
+  { id: "employer_name", label: "Employer Name", key: "employer_name", category: "Account" },
+  // Payment
+  { id: "cc_type", label: "Credit Card Type", key: "cc_type", category: "Payment" },
+  { id: "cc_number", label: "Card Number", key: "cc_number", category: "Payment" },
+  { id: "cc_expiration", label: "Card Expiration Date", key: "cc_expiration", category: "Payment" },
+  { id: "cc_name", label: "Name on Card", key: "cc_name", category: "Payment" },
+  { id: "cc_cvv", label: "Card Security Code (CVV)", key: "cc_cvv", category: "Payment" },
+  { id: "payment_method", label: "Payment Method", key: "payment_method", category: "Payment" },
+  // Beneficiary
+  { id: "ben1_name", label: "Beneficiary 1 — Name", key: "ben1_name", category: "Beneficiary" },
+  { id: "ben1_type", label: "Beneficiary 1 — Primary / Contingent", key: "ben1_type", category: "Beneficiary" },
+  { id: "ben1_relationship", label: "Beneficiary 1 — Relationship", key: "ben1_relationship", category: "Beneficiary" },
+  { id: "ben1_ssn", label: "Beneficiary 1 — SSN", key: "ben1_ssn", category: "Beneficiary" },
+  { id: "ben1_dob", label: "Beneficiary 1 — Date of Birth", key: "ben1_dob", category: "Beneficiary" },
+  { id: "ben1_share", label: "Beneficiary 1 — Share %", key: "ben1_share", category: "Beneficiary" },
+  // Advisor / Agent
+  { id: "advisor_name", label: "Advisor / Agent Name", key: "advisor_name", category: "Advisor" },
+  { id: "referral_source", label: "Referral Source", key: "referral_source", category: "Advisor" },
+  { id: "coupon_code", label: "Coupon Code", key: "coupon_code", category: "Advisor" },
+  // Signatures & Dates
+  { id: "date_signed", label: "Date Signed", key: "date_signed", category: "Signatures" },
+  { id: "applicant_signature", label: "Applicant Signature", key: "applicant_signature", category: "Signatures" },
+  { id: "spouse_name", label: "Spouse Name (Consent)", key: "spouse_name", category: "Signatures" },
+  { id: "spouse_signature", label: "Spouse Signature", key: "spouse_signature", category: "Signatures" },
+  { id: "email_notifications", label: "Email Notifications Preference", key: "email_notifications", category: "Communication" },
 ];
 
+const lf = (id: string) => LIBRARY_FIELDS.find(f => f.id === id)!;
+
 const INITIAL_FIELDS: ReviewField[] = [
+  // ── HIGH CONFIDENCE ──────────────────────────────────────────────
   {
-    id: "f1", pdfName: "BorrowerFirstName", pdfType: "text", page: 1,
+    id: "f1", pdfName: "Social Security Number", pdfType: "text", page: 1,
     confidence: "high",
-    suggestedMatch: LIBRARY_FIELDS.find(f => f.id === "borrower_first_name")!,
-    selectedMatch: LIBRARY_FIELDS.find(f => f.id === "borrower_first_name")!,
+    suggestedMatch: lf("applicant_ssn"), selectedMatch: lf("applicant_ssn"),
     status: "confirmed", edgeCases: [], touched: true,
   },
   {
-    id: "f2", pdfName: "BorrowerLastName", pdfType: "text", page: 1,
+    id: "f2", pdfName: "Date of Birth MMDDYYYY", pdfType: "text", page: 1,
     confidence: "high",
-    suggestedMatch: LIBRARY_FIELDS.find(f => f.id === "borrower_last_name")!,
-    selectedMatch: LIBRARY_FIELDS.find(f => f.id === "borrower_last_name")!,
+    suggestedMatch: lf("applicant_dob"), selectedMatch: lf("applicant_dob"),
     status: "confirmed", edgeCases: [], touched: true,
   },
   {
-    id: "f3", pdfName: "Email", pdfType: "text", page: 1,
+    id: "f3", pdfName: "Email Address", pdfType: "text", page: 1,
     confidence: "high",
-    suggestedMatch: LIBRARY_FIELDS.find(f => f.id === "email")!,
-    selectedMatch: LIBRARY_FIELDS.find(f => f.id === "email")!,
+    suggestedMatch: lf("email"), selectedMatch: lf("email"),
     status: "confirmed", edgeCases: [], touched: true,
   },
   {
-    id: "f4", pdfName: "Date", pdfType: "text", page: 1,
+    id: "f4", pdfName: "Physical Address", pdfType: "text", page: 1,
+    confidence: "high",
+    suggestedMatch: lf("address_physical"), selectedMatch: lf("address_physical"),
+    status: "confirmed", edgeCases: [], touched: true,
+  },
+  {
+    id: "f5", pdfName: "Home Phone Number", pdfType: "text", page: 1,
+    confidence: "high",
+    suggestedMatch: lf("phone_home"), selectedMatch: lf("phone_home"),
+    status: "confirmed", edgeCases: [], touched: true,
+  },
+  {
+    id: "f6", pdfName: "Cell Phone", pdfType: "text", page: 1,
+    confidence: "high",
+    suggestedMatch: lf("phone_cell"), selectedMatch: lf("phone_cell"),
+    status: "confirmed", edgeCases: [], touched: true,
+  },
+  {
+    id: "f7", pdfName: "Card Number", pdfType: "text", page: 1,
+    confidence: "high",
+    suggestedMatch: lf("cc_number"), selectedMatch: lf("cc_number"),
+    status: "confirmed", edgeCases: [], touched: true,
+  },
+  {
+    id: "f8", pdfName: "Exp Date", pdfType: "text", page: 1,
+    confidence: "high",
+    suggestedMatch: lf("cc_expiration"), selectedMatch: lf("cc_expiration"),
+    status: "confirmed", edgeCases: [], touched: true,
+  },
+  {
+    id: "f9", pdfName: "3 Digit Security Code", pdfType: "text", page: 1,
+    confidence: "high",
+    suggestedMatch: lf("cc_cvv"), selectedMatch: lf("cc_cvv"),
+    status: "confirmed", edgeCases: [], touched: true,
+  },
+  {
+    id: "f10", pdfName: "Printed Name", pdfType: "text", page: 2,
+    confidence: "high",
+    suggestedMatch: lf("applicant_printed_name"), selectedMatch: lf("applicant_printed_name"),
+    status: "confirmed", edgeCases: [], touched: true,
+  },
+
+  // ── MEDIUM CONFIDENCE ─────────────────────────────────────────────
+  {
+    id: "f11", pdfName: "Date", pdfType: "text", page: 1,
     confidence: "medium",
-    suggestedMatch: LIBRARY_FIELDS.find(f => f.id === "loan_origination_date")!,
-    selectedMatch: LIBRARY_FIELDS.find(f => f.id === "loan_origination_date")!,
-    status: "needs-review", edgeCases: [], touched: false,
-  },
-  {
-    id: "f5", pdfName: "PrintedName", pdfType: "text", page: 2,
-    confidence: "medium",
-    suggestedMatch: LIBRARY_FIELDS.find(f => f.id === "borrower_full_name")!,
-    selectedMatch: LIBRARY_FIELDS.find(f => f.id === "borrower_full_name")!,
-    status: "needs-review", edgeCases: [], touched: false,
-  },
-  {
-    id: "f6", pdfName: "PropertyAddress", pdfType: "text", page: 2,
-    confidence: "high",
-    suggestedMatch: LIBRARY_FIELDS.find(f => f.id === "property_address")!,
-    selectedMatch: LIBRARY_FIELDS.find(f => f.id === "property_address")!,
-    status: "confirmed", edgeCases: [], touched: true,
-  },
-  {
-    id: "f7", pdfName: "LoanAmount", pdfType: "text", page: 2,
-    confidence: "high",
-    suggestedMatch: LIBRARY_FIELDS.find(f => f.id === "loan_amount")!,
-    selectedMatch: LIBRARY_FIELDS.find(f => f.id === "loan_amount")!,
-    status: "confirmed", edgeCases: [], touched: true,
-  },
-  {
-    id: "f8", pdfName: "field_12", pdfType: "text", page: 3,
-    confidence: "low",
-    suggestedMatch: null,
-    selectedMatch: null,
-    status: "needs-review", edgeCases: [], touched: false,
-  },
-  {
-    id: "f9", pdfName: "Signer", pdfType: "text", page: 3,
-    confidence: "low",
-    suggestedMatch: null,
-    selectedMatch: null,
-    status: "needs-review", edgeCases: [], touched: false,
-  },
-  {
-    id: "f10", pdfName: "Date", pdfType: "text", page: 3,
-    confidence: "medium",
-    suggestedMatch: LIBRARY_FIELDS.find(f => f.id === "closing_date")!,
-    selectedMatch: LIBRARY_FIELDS.find(f => f.id === "closing_date")!,
+    suggestedMatch: lf("date_signed"), selectedMatch: lf("date_signed"),
     status: "needs-review", edgeCases: ["duplicate"], touched: false,
   },
   {
-    id: "f11", pdfName: "OccupancyType", pdfType: "radio", page: 3,
+    id: "f12", pdfName: "Exact Name on Card", pdfType: "text", page: 1,
     confidence: "medium",
-    suggestedMatch: LIBRARY_FIELDS.find(f => f.id === "primary_residence")!,
-    selectedMatch: LIBRARY_FIELDS.find(f => f.id === "primary_residence")!,
+    suggestedMatch: lf("cc_name"), selectedMatch: lf("cc_name"),
+    status: "needs-review", edgeCases: ["prefilled"], touched: false,
+    prefilledValue: "West Hills Capital",
+  },
+  {
+    id: "f13", pdfName: "Mailing Address If different from Physical Address", pdfType: "text", page: 1,
+    confidence: "medium",
+    suggestedMatch: lf("address_mailing"), selectedMatch: lf("address_mailing"),
+    status: "needs-review", edgeCases: [], touched: false,
+  },
+  {
+    id: "f14", pdfName: "Account Type", pdfType: "radio", page: 1,
+    confidence: "medium",
+    suggestedMatch: lf("account_type"), selectedMatch: lf("account_type"),
     status: "needs-review", edgeCases: ["checkbox-group"], touched: false,
   },
   {
-    id: "f12", pdfName: "BorrowerSignature", pdfType: "signature", page: 4,
-    confidence: "high",
-    suggestedMatch: LIBRARY_FIELDS.find(f => f.id === "borrower_signature")!,
-    selectedMatch: LIBRARY_FIELDS.find(f => f.id === "borrower_signature")!,
-    status: "needs-review", edgeCases: ["signature"], touched: false,
+    id: "f15", pdfName: "Fund How", pdfType: "radio", page: 1,
+    confidence: "medium",
+    suggestedMatch: lf("funding_method"), selectedMatch: lf("funding_method"),
+    status: "needs-review", edgeCases: ["checkbox-group", "prefilled"], touched: false,
+    prefilledValue: "Transfer",
   },
   {
-    id: "f13", pdfName: "Text23", pdfType: "text", page: 4,
+    id: "f16", pdfName: "Contribution Year", pdfType: "text", page: 1,
+    confidence: "medium",
+    suggestedMatch: lf("contribution_year"), selectedMatch: lf("contribution_year"),
+    status: "needs-review", edgeCases: [], touched: false,
+  },
+  {
+    id: "f17", pdfName: "SingleorMarried", pdfType: "radio", page: 1,
+    confidence: "medium",
+    suggestedMatch: lf("marital_status"), selectedMatch: lf("marital_status"),
+    status: "needs-review", edgeCases: ["checkbox-group"], touched: false,
+  },
+  {
+    id: "f18", pdfName: "Name", pdfType: "text", page: 2,
+    confidence: "medium",
+    suggestedMatch: lf("ben1_name"), selectedMatch: lf("ben1_name"),
+    status: "needs-review", edgeCases: ["duplicate"], touched: false,
+  },
+  {
+    id: "f19", pdfName: "Relationship", pdfType: "text", page: 2,
+    confidence: "medium",
+    suggestedMatch: lf("ben1_relationship"), selectedMatch: lf("ben1_relationship"),
+    status: "needs-review", edgeCases: ["duplicate"], touched: false,
+  },
+  {
+    id: "f20", pdfName: "Beneficiary Group 1", pdfType: "radio", page: 2,
+    confidence: "medium",
+    suggestedMatch: lf("ben1_type"), selectedMatch: lf("ben1_type"),
+    status: "needs-review", edgeCases: ["checkbox-group"], touched: false,
+  },
+  {
+    id: "f21", pdfName: "Date_2", pdfType: "text", page: 2,
+    confidence: "medium",
+    suggestedMatch: lf("date_signed"), selectedMatch: lf("date_signed"),
+    status: "needs-review", edgeCases: ["duplicate"], touched: false,
+  },
+
+  // ── LOW CONFIDENCE ────────────────────────────────────────────────
+  {
+    id: "f22", pdfName: "undefined", pdfType: "text", page: 1,
     confidence: "low",
-    suggestedMatch: null,
-    selectedMatch: null,
-    status: "needs-review", edgeCases: ["off-page"], touched: false,
+    suggestedMatch: null, selectedMatch: null,
+    status: "needs-review", edgeCases: [], touched: false,
   },
   {
-    id: "f14", pdfName: "InterestRate", pdfType: "text", page: 4,
-    confidence: "high",
-    suggestedMatch: LIBRARY_FIELDS.find(f => f.id === "interest_rate")!,
-    selectedMatch: LIBRARY_FIELDS.find(f => f.id === "interest_rate")!,
-    status: "confirmed", edgeCases: [], touched: true,
+    id: "f23", pdfName: "undefined_2", pdfType: "text", page: 1,
+    confidence: "low",
+    suggestedMatch: null, selectedMatch: null,
+    status: "needs-review", edgeCases: [], touched: false,
+  },
+  {
+    id: "f24", pdfName: "Email Notifications with Account Changes Yes No", pdfType: "text", page: 1,
+    confidence: "low",
+    suggestedMatch: lf("email_notifications"), selectedMatch: null,
+    status: "needs-review", edgeCases: [], touched: false,
+  },
+  {
+    id: "f25", pdfName: "Married Not Married", pdfType: "text", page: 1,
+    confidence: "low",
+    suggestedMatch: lf("marital_status"), selectedMatch: null,
+    status: "needs-review", edgeCases: [], touched: false,
+  },
+  {
+    id: "f26", pdfName: "By", pdfType: "text", page: 2,
+    confidence: "low",
+    suggestedMatch: null, selectedMatch: null,
+    status: "needs-review", edgeCases: [], touched: false,
+  },
+  {
+    id: "f27", pdfName: "I", pdfType: "text", page: 2,
+    confidence: "low",
+    suggestedMatch: null, selectedMatch: null,
+    status: "needs-review", edgeCases: [], touched: false,
+  },
+  {
+    id: "f28", pdfName: "undefined_9", pdfType: "text", page: 3,
+    confidence: "low",
+    suggestedMatch: lf("advisor_name"), selectedMatch: null,
+    status: "needs-review", edgeCases: ["prefilled"], touched: false,
+    prefilledValue: "West Hills Capital",
   },
 ];
 
@@ -178,8 +283,9 @@ function EdgeCaseBadge({ type }: { type: EdgeCase }) {
   const map: Record<EdgeCase, { icon: React.ReactNode; label: string; color: string }> = {
     "off-page": { icon: <MapPin className="w-3 h-3" />, label: "Off-page", color: "text-orange-600 bg-orange-50 border-orange-200" },
     "duplicate": { icon: <CopyCheck className="w-3 h-3" />, label: "Duplicate name", color: "text-purple-600 bg-purple-50 border-purple-200" },
-    "checkbox-group": { icon: <LayoutGrid className="w-3 h-3" />, label: "Radio group", color: "text-blue-600 bg-blue-50 border-blue-200" },
+    "checkbox-group": { icon: <LayoutGrid className="w-3 h-3" />, label: "Radio / checkbox group", color: "text-blue-600 bg-blue-50 border-blue-200" },
     "signature": { icon: <Signature className="w-3 h-3" />, label: "E-sign field", color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
+    "prefilled": { icon: <Zap className="w-3 h-3" />, label: "Pre-filled", color: "text-teal-600 bg-teal-50 border-teal-200" },
   };
   const { icon, label, color } = map[type];
   return (
@@ -230,7 +336,13 @@ function LibraryDropdown({ field, onSelect, onDefer, onBlank, autoFocus }: Dropd
   }, [open]);
 
   useEffect(() => {
-    if (autoFocus && !open) setOpen(true);
+    if (autoFocus && !open) {
+      if (triggerRef.current) {
+        const rect = triggerRef.current.getBoundingClientRect();
+        setOpenUpward(window.innerHeight - rect.bottom < 380);
+      }
+      setOpen(true);
+    }
   }, [autoFocus]);
 
   useEffect(() => {
@@ -247,8 +359,7 @@ function LibraryDropdown({ field, onSelect, onDefer, onBlank, autoFocus }: Dropd
   const toggleOpen = () => {
     if (!open && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
-      const spaceBelow = window.innerHeight - rect.bottom;
-      setOpenUpward(spaceBelow < 380);
+      setOpenUpward(window.innerHeight - rect.bottom < 380);
     }
     setOpen(o => !o);
   };
@@ -331,7 +442,6 @@ function LibraryDropdown({ field, onSelect, onDefer, onBlank, autoFocus }: Dropd
             )}
           </div>
 
-          {/* Two-way footer */}
           <div className="border-t border-slate-100 bg-slate-50 p-2 flex flex-col gap-0.5">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-2 pt-1 pb-1.5">
               Can't map it from here?
@@ -377,7 +487,7 @@ function StatusChip({ field }: { field: ReviewField }) {
   if (field.status === "confirmed" && field.touched) return (
     <span className="text-xs text-emerald-700 font-medium">Confirmed</span>
   );
-  if ((field.confidence === "low") && !field.touched) return (
+  if (field.confidence === "low" && !field.touched) return (
     <span className="text-xs text-red-600 font-medium">Required</span>
   );
   return <span className="text-xs text-amber-600 font-medium">Pending</span>;
@@ -501,7 +611,7 @@ export function FieldReview() {
             </div>
             <div>
               <p className="text-xs text-slate-400 font-medium">Reviewing fields in</p>
-              <p className="text-sm font-semibold text-slate-900">Uniform_Residential_Loan_Application.pdf</p>
+              <p className="text-sm font-semibold text-slate-900">Application_1778347711374.pdf</p>
             </div>
           </div>
           <div className="h-8 w-px bg-slate-200" />
@@ -564,7 +674,7 @@ export function FieldReview() {
       {/* Table */}
       <div className="flex-1 overflow-auto p-8">
         <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="grid grid-cols-[28px_180px_90px_72px_1fr_160px_120px] gap-4 px-5 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-400">
+          <div className="grid grid-cols-[28px_220px_110px_64px_1fr_160px_110px] gap-4 px-5 py-3 bg-slate-50 border-b border-slate-200 text-xs font-semibold uppercase tracking-wider text-slate-400">
             <div></div>
             <div>PDF Field</div>
             <div>Type</div>
@@ -601,7 +711,7 @@ export function FieldReview() {
               <div
                 key={field.id}
                 onClick={() => setFocusedRow(isFocused ? null : field.id)}
-                className={`grid grid-cols-[28px_180px_90px_72px_1fr_160px_120px] gap-4 px-5 py-3.5 border-b border-slate-100 last:border-0 transition-all cursor-pointer items-center
+                className={`grid grid-cols-[28px_220px_110px_64px_1fr_160px_110px] gap-4 px-5 py-3.5 border-b border-slate-100 last:border-0 transition-all cursor-pointer items-center
                   ${rowBg()}
                   ${isFocused ? "ring-2 ring-inset ring-blue-400" : ""}
                 `}
@@ -609,14 +719,16 @@ export function FieldReview() {
                 <div className="flex items-center justify-center">{rowIcon()}</div>
 
                 <div className="min-w-0">
-                  <p className={`text-sm font-mono font-medium truncate ${isDeferred ? "text-orange-800" : isBlank ? "text-slate-400" : "text-slate-800"}`}>
+                  <p className={`text-sm font-mono font-medium truncate ${isDeferred ? "text-orange-800" : isBlank ? "text-slate-400" : "text-slate-800"}`}
+                     title={field.pdfName}>
                     {field.pdfName}
                   </p>
-                  {field.edgeCases.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {field.edgeCases.map(ec => <EdgeCaseBadge key={ec} type={ec} />)}
-                    </div>
-                  )}
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {field.edgeCases.map(ec => <EdgeCaseBadge key={ec} type={ec} />)}
+                    {field.prefilledValue && (
+                      <span className="text-[11px] text-teal-700 font-medium">"{field.prefilledValue}"</span>
+                    )}
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-1.5 text-xs text-slate-500">
@@ -624,10 +736,8 @@ export function FieldReview() {
                   <span className="capitalize">{field.pdfType}</span>
                 </div>
 
-                <div className={`text-sm font-medium ${field.edgeCases.includes("off-page") ? "text-orange-600" : "text-slate-500"}`}>
-                  {field.edgeCases.includes("off-page")
-                    ? <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />p.{field.page}</span>
-                    : `p. ${field.page}`}
+                <div className="text-sm font-medium text-slate-500">
+                  p. {field.page}
                 </div>
 
                 <div onClick={e => e.stopPropagation()}>
@@ -641,7 +751,17 @@ export function FieldReview() {
                 </div>
 
                 <div><ConfidenceDot tier={field.confidence} /></div>
-                <div><StatusChip field={field} /></div>
+                <div className="flex items-center gap-1.5">
+                  <StatusChip field={field} />
+                  {(isDeferred || isBlank) && (
+                    <button
+                      onClick={e => { e.stopPropagation(); resetField(field.id); }}
+                      className="text-[11px] text-slate-400 hover:text-slate-600 underline"
+                    >
+                      Undo
+                    </button>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -657,7 +777,7 @@ export function FieldReview() {
               className="h-full rounded-full transition-all duration-300 flex"
               style={{ width: `${((confirmed + deferred + blank) / fields.length) * 100}%` }}
             >
-              <div className="h-full bg-emerald-500 flex-1" style={{ flex: confirmed }} />
+              <div className="h-full bg-emerald-500" style={{ flex: confirmed }} />
               <div className="h-full bg-orange-400" style={{ flex: deferred }} />
               <div className="h-full bg-slate-300" style={{ flex: blank }} />
             </div>
