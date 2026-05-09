@@ -5,8 +5,8 @@ export default function PythonSdk() {
         <div className="text-xs font-semibold uppercase tracking-widest text-[#5B8DEF] mb-2">Developer API</div>
         <h1>Python SDK</h1>
         <p className="text-lg text-white/55 mt-2">
-          The official Python client for the Docuplete API — fully typed with dataclasses, zero
-          external dependencies beyond <code>httpx</code>, compatible with Python 3.9+.
+          The official Python client for the Docuplete API — fully typed with TypedDicts, one
+          external dependency (<code>httpx</code>), compatible with Python 3.9+.
         </p>
       </div>
 
@@ -34,7 +34,7 @@ client = Docuplete(api_key=os.environ["DOCUPLETE_API_KEY"])`}</pre>
       <div className="overflow-x-auto">
         <table>
           <thead>
-            <tr><th>Option</th><th>Type</th><th>Default</th><th>Description</th></tr>
+            <tr><th>Parameter</th><th>Type</th><th>Default</th><th>Description</th></tr>
           </thead>
           <tbody>
             <tr>
@@ -59,7 +59,18 @@ client = Docuplete(api_key=os.environ["DOCUPLETE_API_KEY"])`}</pre>
         </table>
       </div>
 
+      <p>
+        The client supports use as a context manager — the underlying connection pool is
+        closed automatically on exit:
+      </p>
+      <pre>{`with Docuplete(api_key=os.environ["DOCUPLETE_API_KEY"]) as client:
+    result = client.sessions.create(package_id=42)`}</pre>
+
       <h2>Sessions</h2>
+      <p>
+        All session methods return plain <code>dict</code> values. Access fields with standard
+        dict syntax — e.g. <code>result["interview_url"]</code>.
+      </p>
 
       <h3>Create a session</h3>
       <p>
@@ -78,7 +89,7 @@ client = Docuplete(api_key=os.environ["DOCUPLETE_API_KEY"])`}</pre>
     # Optional: automated reminder emails
     reminders={
         "enabled":       True,
-        "interval_days": 2,   # send a reminder every 2 days until submitted
+        "interval_days": 2,
     },
     # Optional: multi-party sequential signing
     signers=[
@@ -87,8 +98,9 @@ client = Docuplete(api_key=os.environ["DOCUPLETE_API_KEY"])`}</pre>
     ],
 )
 
-# Send result.interview_url to your client via email, SMS, or redirect
-print("Interview link:", result.interview_url)`}</pre>
+# Send result["interview_url"] to your client via email, SMS, or redirect
+print("Interview link:", result["interview_url"])
+print("Session token:", result["session_token"])`}</pre>
 
       <h3>Get a session</h3>
       <p>
@@ -97,8 +109,8 @@ print("Interview link:", result.interview_url)`}</pre>
       </p>
       <pre>{`session = client.sessions.get("df_a1b2c3d4...")
 
-print(session.status)   # "pending" | "in_progress" | "generated" | "voided" | "expired"
-print(session.answers)  # dict of submitted answers (populated after "generated")`}</pre>
+print(session["status"])   # "pending" | "in_progress" | "generated" | "voided" | "expired"
+print(session["answers"])  # dict of submitted answers (populated after "generated")`}</pre>
 
       <h3>List sessions</h3>
       <pre>{`result = client.sessions.list(
@@ -108,10 +120,12 @@ print(session.answers)  # dict of submitted answers (populated after "generated"
     offset=0,
 )
 
-print(f"{result.total} total sessions")`}</pre>
+print(f'{result["total"]} total sessions')
+for s in result["sessions"]:
+    print(s["token"], s["status"])`}</pre>
 
       <h3>Send (or resend) the interview link by email</h3>
-      <pre>{`result = client.sessions.send_link(
+      <pre>{`client.sessions.send_link(
     "df_a1b2c3d4...",
     recipient_email="jane@example.com",
     recipient_name="Jane Smith",
@@ -127,28 +141,26 @@ print(f"{result.total} total sessions")`}</pre>
     "df_a1b2c3d4...",
     reason="Sent to wrong client",
     notify_signer=True,  # sends the client an email notifying them
-)`}</pre>
+)
+print(result["voided_at"])`}</pre>
 
       <h3>Bulk-create sessions</h3>
       <p>
         Create up to 100 sessions in one request. Each item is processed independently — partial
-        failures do not block the rest. The response is always HTTP{" "}
-        <code>207 Multi-Status</code> with a per-item <code>ok</code> flag.
+        failures do not block the rest. The response always includes a per-item <code>ok</code> flag.
       </p>
-      <pre>{`result = client.sessions.bulk_create(
-    sessions=[
-        {"package_id": 42, "prefill": {"first_name": "Jane", "email": "jane@example.com"}},
-        {"package_id": 42, "prefill": {"first_name": "Bob",  "email": "bob@example.com"}},
-    ]
-)
+      <pre>{`result = client.sessions.bulk_create([
+    {"package_id": 42, "prefill": {"first_name": "Jane", "email": "jane@example.com"}},
+    {"package_id": 42, "prefill": {"first_name": "Bob",  "email": "bob@example.com"}},
+])
 
-print(f"Created {result.succeeded} of {result.total}")
+print(f'Created {result["succeeded"]} of {result["total"]}')
 
-for item in result.results:
-    if item.ok:
-        print(item.session_token, "→", item.interview_url)
+for item in result["results"]:
+    if item["ok"]:
+        print(item["session_token"], "→", item["interview_url"])
     else:
-        print(f"[index {item.index}] {item.error}")`}</pre>
+        print(f'[index {item["index"]}] {item["error"]}')`}</pre>
       <p>
         <a href="/developer/bulk-sessions">Full bulk session documentation →</a>
       </p>
@@ -160,8 +172,8 @@ for item in result.results:
       </p>
       <pre>{`log = client.sessions.audit_log("df_a1b2c3d4...")
 
-for entry in log.entries:
-    print(f"[{entry.created_at}] {entry.event} — {entry.actor_type}")`}</pre>
+for entry in log["entries"]:
+    print(f'[{entry["created_at"]}] {entry["event"]} — {entry["actor_type"]}')`}</pre>
       <p>
         <a href="/developer/audit-log">Full audit log documentation →</a>
       </p>
@@ -173,43 +185,32 @@ for entry in log.entries:
       </p>
       <pre>{`result = client.sessions.signers("df_a1b2c3d4...")
 
-for signer in result.signers:
-    print(f"[{signer.order}] {signer.email} — {signer.status}")`}</pre>
+for signer in result["signers"]:
+    print(f'[{signer["order"]}] {signer["email"]} — {signer["status"]}')`}</pre>
       <p>
         <a href="/developer/signers">Full multi-party signers documentation →</a>
       </p>
 
       <h3>Generate a PDF (server-side)</h3>
-      <p>
-        After filling a session's answers programmatically with <code>update_answers</code>, call
-        this to trigger PDF generation and fire any enabled integrations (webhooks, Google Drive,
-        HubSpot).
-      </p>
       <pre>{`import time
-
-# Fill answers programmatically
-client.sessions.update_answers("df_a1b2c3d4...", {
-    "first_name":    "Jane",
-    "last_name":     "Smith",
-    "date_of_birth": "1985-07-22",
-})
 
 # Trigger PDF generation
 result = client.sessions.generate("df_a1b2c3d4...")
 
-if result.status == "generated":
+if result["status"] == "generated":
     # Synchronous (rare fallback) — ready immediately
-    print("Download:", result.download_url)
+    print("Download:", result["download_url"])
 else:
     # Asynchronous (normal) — poll until ready
+    job_id = result["job_id"]
     while True:
         time.sleep(2)
-        status = client.sessions.get_generate_status("df_a1b2c3d4...", result.job_id)
-        if status.status == "ready":
-            print("Download:", status.download_url)
+        s = client.sessions.get_generate_status("df_a1b2c3d4...", job_id)
+        if s["status"] == "ready":
+            print("Download:", s["download_url"])
             break
-        if status.status == "failed":
-            raise RuntimeError(status.error or "Generation failed")`}</pre>
+        if s["status"] == "failed":
+            raise RuntimeError(s.get("error") or "Generation failed")`}</pre>
 
       <h2>Packages</h2>
 
@@ -217,34 +218,33 @@ else:
       <pre>{`packages = client.packages.list()
 
 for pkg in packages:
-    print(pkg.id, pkg.name)  # 42, "New Client Intake"`}</pre>
+    print(pkg["id"], pkg["name"])  # 42, "New Client Intake"`}</pre>
 
       <h3>Get a package</h3>
-      <pre>{`pkg = client.packages.get(42)`}</pre>
-
-      <h3>Webhook delivery log</h3>
-      <p>Retrieve the delivery history for a package's webhook — useful for debugging failed deliveries.</p>
-      <pre>{`result = client.packages.webhook_deliveries(42, limit=50, offset=0)
-
-for d in result.deliveries:
-    print(d.attempt_number, d.http_status, d.duration_ms)`}</pre>
+      <pre>{`pkg = client.packages.get(42)
+print(pkg["name"])`}</pre>
 
       <h2>Sandbox</h2>
       <p>
-        The sandbox endpoint is publicly accessible — no API key required. It creates a live demo
-        session against a fixed 8-field sample package.
+        The sandbox endpoint is publicly accessible — no API key required. Because the Python SDK
+        requires a non-empty API key, call the endpoint directly with <code>httpx</code> or{" "}
+        <code>requests</code>:
       </p>
-      <pre>{`# No API key needed — pass an empty string or any placeholder
-client = Docuplete(api_key="")
+      <pre>{`import httpx
 
-result = client.sandbox.start(
-    first_name="Jane",
-    last_name="Smith",
-    email="jane@example.com",
+response = httpx.post(
+    "https://api.docuplete.com/api/v1/sandbox/start",
+    json={
+        "firstName": "Jane",
+        "lastName":  "Smith",
+        "email":     "jane@example.com",
+    },
 )
+response.raise_for_status()
+data = response.json()
 
-# Open result.interview_url in a browser to walk through the sandbox interview
-print("Demo link:", result.interview_url)`}</pre>
+# Open data["interviewUrl"] in a browser to walk through the sandbox interview
+print("Demo link:", data["interviewUrl"])`}</pre>
 
       <div className="callout callout-info">
         <strong>Sandbox sessions</strong> are prefixed <code>df_sbx_</code>, expire after 7 days,
@@ -256,13 +256,13 @@ print("Demo link:", result.interview_url)`}</pre>
       <p>
         The SDK ships with built-in helpers for verifying the <code>X-Docuplete-Signature</code>{" "}
         header and parsing the payload. They use Python's standard <code>hmac</code> module and
-        work without any additional dependencies.
+        work without any additional dependencies beyond <code>httpx</code>.
       </p>
 
       <h3>Verify and parse in one step</h3>
       <pre>{`import os
 from flask import Flask, request, abort
-from docuplete import construct_webhook_event, DocupleteError
+from docuplete import construct_webhook_event
 
 app = Flask(__name__)
 
@@ -271,20 +271,22 @@ def handle_webhook():
     sig = request.headers.get("X-Docuplete-Signature", "")
 
     try:
-        # Raises DocupleteError if the signature is invalid
+        # Raises ValueError if the signature is invalid
         event = construct_webhook_event(
-            payload=request.get_data(as_text=True),  # raw body — do NOT parse as JSON first
-            signature=sig,
-            secret=os.environ["DOCUPLETE_WEBHOOK_SECRET"],
+            request.get_data(as_text=True),     # raw body — do NOT parse as JSON first
+            sig,
+            os.environ["DOCUPLETE_WEBHOOK_SECRET"],
         )
-    except DocupleteError:
+    except ValueError:
         abort(401, "Invalid signature")
 
-    if event.event == "interview.submitted":
-        print("Session token:", event.session_token)
-        print("Package ID:",    event.package_id)
-        print("Answers:",       event.answers)
-        print("PDF URL:",       event.generated_pdf_url)
+    if event["event"] == "session.submitted":
+        print("Session token:", event["session_token"])
+        print("Package ID:",    event["package_id"])
+        print("Answers:",       event["answers"])
+
+    if event["event"] == "pdf.generated":
+        print("PDF ready:",     event["download_url"])
 
     return "", 200`}</pre>
 
@@ -292,9 +294,9 @@ def handle_webhook():
       <pre>{`from docuplete import verify_webhook_signature
 
 valid = verify_webhook_signature(
-    payload=request.get_data(as_text=True),          # raw body string
-    signature=request.headers["X-Docuplete-Signature"],  # header value
-    secret=os.environ["DOCUPLETE_WEBHOOK_SECRET"],    # your package's signing secret
+    request.get_data(as_text=True),                  # raw body string
+    request.headers["X-Docuplete-Signature"],         # header value
+    os.environ["DOCUPLETE_WEBHOOK_SECRET"],            # your package's signing secret
 )
 
 if not valid:
@@ -302,7 +304,7 @@ if not valid:
 
       <h2>Error handling</h2>
       <p>
-        All SDK methods raise a <code>DocupleteError</code> on API or network errors. Catch it to
+        All SDK methods raise <code>DocupleteError</code> on API or network errors. Catch it to
         access structured error details.
       </p>
       <pre>{`from docuplete import Docuplete, DocupleteError
@@ -310,50 +312,53 @@ if not valid:
 try:
     session = client.sessions.get("df_invalid")
 except DocupleteError as err:
-    print(err.message)  # Human-readable description
+    print(err)          # Human-readable description (from str(err))
     print(err.status)   # HTTP status code — 0 for network errors
     print(err.code)     # Machine-readable code, e.g. "not_found"
-    print(err.issues)   # Validation errors list (only on 400 responses)`}</pre>
+    print(err.issues)   # Validation errors list (may be empty)`}</pre>
 
       <div className="overflow-x-auto">
         <table>
           <thead>
-            <tr><th>Property</th><th>Type</th><th>Description</th></tr>
+            <tr><th>Attribute</th><th>Type</th><th>Description</th></tr>
           </thead>
           <tbody>
-            <tr><td><code>message</code></td><td>str</td><td>Human-readable error description.</td></tr>
-            <tr><td><code>status</code></td><td>int</td><td>HTTP status code. <code>0</code> for network/timeout errors.</td></tr>
-            <tr><td><code>code</code></td><td>str</td><td>Machine-readable error code (e.g. <code>"not_found"</code>, <code>"unauthorized"</code>).</td></tr>
-            <tr><td><code>issues</code></td><td>list[str] | None</td><td>Field-level validation errors returned on <code>400</code> responses.</td></tr>
+            <tr><td><code>str(err)</code></td><td>str</td><td>Human-readable error description.</td></tr>
+            <tr><td><code>err.status</code></td><td>int</td><td>HTTP status code. <code>0</code> for network/timeout errors.</td></tr>
+            <tr><td><code>err.code</code></td><td>str</td><td>Machine-readable error code (e.g. <code>"not_found"</code>, <code>"unauthorized"</code>).</td></tr>
+            <tr><td><code>err.issues</code></td><td>list[str]</td><td>Field-level validation errors returned on <code>400</code> responses. Empty list when not applicable.</td></tr>
           </tbody>
         </table>
       </div>
 
       <h2>Type hints</h2>
-      <p>All response types are importable from the package root:</p>
-      <pre>{`from docuplete import (
-    # Sessions — core
-    Session,                      # Full session object returned by sessions.get()
-    SessionListItem,              # Abbreviated session returned in sessions.list()
-    SessionStatus,                # Literal["pending", "in_progress", "generated", "voided", "expired"]
-    CreateSessionParams,          # TypedDict for sessions.create()
+      <p>
+        All return values are plain <code>dict</code> instances at runtime. TypedDicts are available
+        for static analysis — import them from <code>docuplete.types</code>:
+      </p>
+      <pre>{`from docuplete.types import (
+    # Session core
+    Session,                      # Full session dict returned by sessions.get()
+    SessionListItem,              # Abbreviated session in sessions.list()["sessions"]
+    SessionStatus,                # Literal of all status strings
     CreateSessionResult,          # Return type of sessions.create()
+    ListSessionsResult,           # Return type of sessions.list()
     GenerateSessionResult,        # Union: pending (job_id) | generated (download_url)
     GenerateStatusResult,         # Return type of sessions.get_generate_status()
     # Sessions — enterprise
-    BulkCreateSessionItem,        # TypedDict for one item in sessions.bulk_create()
+    BulkCreateSessionItem,        # Input TypedDict for one item in sessions.bulk_create()
     BulkCreateSessionResult,      # Return type of sessions.bulk_create()
-    BulkCreateSessionResultItem,  # Per-item result (ok, session_token, interview_url, error, code)
+    BulkCreateSessionResultItem,  # Per-item result (ok, session_token, interview_url, error)
     AuditLogResult,               # Return type of sessions.audit_log()
     AuditLogEntry,                # Single event in the audit log
     SessionSignersResult,         # Return type of sessions.signers()
-    SessionSigner,                # One signer record (order, email, status, signer_token, …)
-    # Packages & account
-    Package,                      # Package object
-    Account,                      # Return type of account.get()
-    # Sandbox & webhooks
-    SandboxStartResult,           # Return type of sandbox.start()
-    WebhookPayload,               # Typed webhook event body (Union of event types)
+    SessionSignerStatus,          # One signer record (order, email, status, signer_token, …)
+    # Input helpers
+    RemindersConfig,              # {"enabled": bool, "interval_days": int}
+    SessionSigner,                # {"email": str, "name": str, "order": int}
+    VoidSessionResult,            # Return type of sessions.void()
+    # Webhook payloads
+    WebhookPayload,               # Union of all typed webhook event dicts
 )`}</pre>
     </div>
   );
