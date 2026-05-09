@@ -1952,18 +1952,20 @@ export default function DocuFill() {
       const selectedPkg = packages.find((p) => p.id === selectedPackageId);
       if (!selectedPkg?.id) return;
       try {
-        await fetch(`${API_BASE}${docufillApiPath}/field-library/groups/${group.id}/apply`, {
+        const applyRes = await fetch(`${API_BASE}${docufillApiPath}/field-library/groups/${group.id}/apply`, {
           method: "POST",
           headers: { "Content-Type": "application/json", ...getAuthHeaders() },
           body: JSON.stringify({ packageId: selectedPkg.id }),
         });
-        // Update local fieldGroups usagePackages state
-        setFieldGroups((prev) => prev.map((g) => {
-          if (g.id !== group.id) return g;
-          const alreadyTracked = g.usagePackages?.some((p) => p.id === selectedPkg.id);
-          if (alreadyTracked) return g;
-          return { ...g, usagePackages: [...(g.usagePackages ?? []), { id: selectedPkg.id, name: selectedPkg.name }] };
-        }));
+        // Only update local usagePackages state when the server confirmed the record was written
+        if (applyRes.ok) {
+          setFieldGroups((prev) => prev.map((g) => {
+            if (g.id !== group.id) return g;
+            const alreadyTracked = g.usagePackages?.some((p) => p.id === selectedPkg.id);
+            if (alreadyTracked) return g;
+            return { ...g, usagePackages: [...(g.usagePackages ?? []), { id: selectedPkg.id, name: selectedPkg.name }] };
+          }));
+        }
       } catch { /* silent — usage tracking is best-effort */ }
     })();
     goBuilderStep("mapping");
