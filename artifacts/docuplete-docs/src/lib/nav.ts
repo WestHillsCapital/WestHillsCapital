@@ -104,6 +104,7 @@ export const NAV: NavItem[] = [
       { title: "Authentication & API Keys", slug: "developer/authentication" },
       { title: "Developer Quickstart Guide", slug: "developer/quickstart-guide" },
       { title: "Node.js SDK", slug: "developer/sdk" },
+      { title: "Python SDK", slug: "developer/python-sdk" },
       { title: "Bulk Session Creation", slug: "developer/bulk-sessions" },
       { title: "Session Audit Log", slug: "developer/audit-log" },
       { title: "Multi-Party Signers", slug: "developer/signers" },

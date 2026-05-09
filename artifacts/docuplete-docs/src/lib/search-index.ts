@@ -229,6 +229,12 @@ export const SEARCH_INDEX: SearchEntry[] = [
     headings: ["Connecting HubSpot", "What syncs on submission", "Field mapping", "Deal creation", "Disconnecting"],
   },
   {
+    slug: "developer/python-sdk",
+    title: "Python SDK",
+    section: "Developer API",
+    headings: ["Installation", "Initialization", "Options", "Sessions", "Create a session", "Get a session", "List sessions", "Send the interview link by email", "Void a session", "Bulk-create sessions", "Session audit log", "Multi-party signers", "Generate a PDF", "Packages", "List packages", "Get a package", "Webhook delivery log", "Sandbox", "Webhook verification", "Error handling", "Type hints"],
+  },
+  {
     slug: "developer/sandbox",
     title: "Public Sandbox Demo",
     section: "Developer API",

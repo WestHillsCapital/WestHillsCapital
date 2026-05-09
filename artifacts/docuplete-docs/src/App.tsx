@@ -56,6 +56,7 @@ import ApiKeys from "@/pages/docs/account/ApiKeys";
 
 import DeveloperAuthentication from "@/pages/docs/developer/Authentication";
 import Sdk from "@/pages/docs/developer/Sdk";
+import PythonSdk from "@/pages/docs/developer/PythonSdk";
 import BulkSessions from "@/pages/docs/developer/BulkSessions";
 import AuditLog from "@/pages/docs/developer/AuditLog";
 import Signers from "@/pages/docs/developer/Signers";
@@ -148,6 +149,7 @@ function Router() {
         <Route path="/developer/authentication" component={DeveloperAuthentication} />
         <Route path="/developer/quickstart-guide" component={QuickstartGuide} />
         <Route path="/developer/sdk" component={Sdk} />
+        <Route path="/developer/python-sdk" component={PythonSdk} />
         <Route path="/developer/bulk-sessions" component={BulkSessions} />
         <Route path="/developer/audit-log" component={AuditLog} />
         <Route path="/developer/signers" component={Signers} />
