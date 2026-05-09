@@ -78,6 +78,16 @@ const client = new Docuplete({
   },
   linkExpiryDays: 7,
   locale: "en",
+  // Optional: automated reminder emails
+  reminders: {
+    enabled:     true,
+    intervalDays: 2,   // send a reminder every 2 days until submitted
+  },
+  // Optional: multi-party sequential signing
+  signers: [
+    { order: 1, email: "jane@example.com", name: "Jane Smith (Client)" },
+    { order: 2, email: "bob@lawfirm.com",  name: "Bob Torres (Notary)" },
+  ],
 });
 
 // Send interviewUrl to your client via email, SMS, or redirect
@@ -117,6 +127,57 @@ console.log(session.answers); // key→value map of submitted answers (populated
   reason:       "Sent to wrong client",
   notifySigner: true, // sends the client an email notifying them
 });`}</pre>
+
+      <h3>Bulk-create sessions</h3>
+      <p>
+        Create up to 100 sessions in one request. Each item is processed independently — partial
+        failures do not block the rest. The response is always HTTP{" "}
+        <code>207 Multi-Status</code> with a per-item <code>ok</code> flag.
+      </p>
+      <pre>{`const result = await client.sessions.bulkCreate({
+  sessions: [
+    { packageId: 42, prefill: { firstName: "Jane", email: "jane@example.com" } },
+    { packageId: 42, prefill: { firstName: "Bob",  email: "bob@example.com"  } },
+  ],
+});
+
+console.log(\`Created \${result.succeeded} of \${result.total}\`);
+
+for (const item of result.results) {
+  if (item.ok) console.log(item.sessionToken, "→", item.interviewUrl);
+  else         console.error(\`[index \${item.index}] \${item.error}\`);
+}`}</pre>
+      <p>
+        <a href="/developer/bulk-sessions">Full bulk session documentation →</a>
+      </p>
+
+      <h3>Session audit log</h3>
+      <p>
+        Retrieve the immutable chronological trail of every action on a session — creation, link
+        opens, submission, signing, voids, and PDF generation.
+      </p>
+      <pre>{`const log = await client.sessions.auditLog("df_a1b2c3d4...");
+
+for (const entry of log.entries) {
+  console.log(\`[\${entry.createdAt}] \${entry.event} — \${entry.actorType}\`);
+}`}</pre>
+      <p>
+        <a href="/developer/audit-log">Full audit log documentation →</a>
+      </p>
+
+      <h3>Multi-party signers</h3>
+      <p>
+        Check the status of every signer in a sequential multi-party signing flow. Use this to track
+        progress, surface completion in your dashboard, or gate PDF generation.
+      </p>
+      <pre>{`const { signers, allSigned } = await client.sessions.signers("df_a1b2c3d4...");
+
+for (const s of signers) {
+  console.log(\`[\${s.order}] \${s.email} — \${s.status}\`);
+}`}</pre>
+      <p>
+        <a href="/developer/signers">Full multi-party signers documentation →</a>
+      </p>
 
       <h3>Generate a PDF (server-side)</h3>
       <p>
@@ -276,17 +337,30 @@ try {
       <h2>TypeScript types</h2>
       <p>All types are exported from the package root:</p>
       <pre>{`import type {
-  Session,              // Full session object returned by sessions.get()
-  SessionListItem,      // Abbreviated session returned in sessions.list()
-  SessionStatus,        // "pending" | "in_progress" | "generated" | "voided" | "expired"
-  Package,              // Package object
-  CreateSessionParams,  // Input type for sessions.create()
-  CreateSessionResult,  // Return type of sessions.create()
-  GenerateSessionResult,// Discriminated union: { status: "pending", jobId } | { status: "generated", downloadUrl }
-  GenerateStatusResult, // Return type of sessions.getGenerateStatus()
-  SandboxStartParams,   // Input type for sandbox.start()
-  SandboxStartResult,   // Return type of sandbox.start()
-  WebhookPayload,       // Typed webhook event body
+  // Sessions — core
+  Session,                      // Full session object returned by sessions.get()
+  SessionListItem,              // Abbreviated session returned in sessions.list()
+  SessionStatus,                // "pending" | "in_progress" | "generated" | "voided" | "expired"
+  CreateSessionParams,          // Input type for sessions.create()
+  CreateSessionResult,          // Return type of sessions.create()
+  GenerateSessionResult,        // Discriminated union: { status: "pending", jobId } | { status: "generated", downloadUrl }
+  GenerateStatusResult,         // Return type of sessions.getGenerateStatus()
+  // Sessions — enterprise
+  BulkCreateSessionItem,        // Input type for one item in sessions.bulkCreate()
+  BulkCreateSessionResult,      // Return type of sessions.bulkCreate()
+  BulkCreateSessionResultItem,  // Per-item result (ok, sessionToken, interviewUrl, error, code)
+  AuditLogResult,               // Return type of sessions.auditLog()
+  AuditLogEntry,                // Single event in the audit log
+  SessionSignersResult,         // Return type of sessions.signers()
+  SessionSigner,                // One signer record (order, email, status, signerToken, …)
+  CustomDomainStatus,           // Shape of GET /account/custom-domain response
+  // Packages & account
+  Package,                      // Package object
+  Account,                      // Return type of account.get()
+  // Sandbox & webhooks
+  SandboxStartParams,           // Input type for sandbox.start()
+  SandboxStartResult,           // Return type of sandbox.start()
+  WebhookPayload,               // Typed webhook event body (discriminated union)
 } from "@docuplete/sdk";`}</pre>
     </div>
   );

@@ -55,9 +55,15 @@ import ApiKeys from "@/pages/docs/account/ApiKeys";
 
 import DeveloperAuthentication from "@/pages/docs/developer/Authentication";
 import Sdk from "@/pages/docs/developer/Sdk";
+import BulkSessions from "@/pages/docs/developer/BulkSessions";
+import AuditLog from "@/pages/docs/developer/AuditLog";
+import Signers from "@/pages/docs/developer/Signers";
 import QuickstartSession from "@/pages/docs/developer/QuickstartSession";
 import QuickstartWebhooks from "@/pages/docs/developer/QuickstartWebhooks";
 import SandboxDemo from "@/pages/docs/developer/SandboxDemo";
+
+import Scim from "@/pages/docs/enterprise/Scim";
+import CustomDomains from "@/pages/docs/enterprise/CustomDomains";
 
 function NotFound() {
   return (
@@ -135,9 +141,16 @@ function Router() {
         {/* Developer API */}
         <Route path="/developer/authentication" component={DeveloperAuthentication} />
         <Route path="/developer/sdk" component={Sdk} />
+        <Route path="/developer/bulk-sessions" component={BulkSessions} />
+        <Route path="/developer/audit-log" component={AuditLog} />
+        <Route path="/developer/signers" component={Signers} />
         <Route path="/developer/quickstart-session" component={QuickstartSession} />
         <Route path="/developer/quickstart-webhooks" component={QuickstartWebhooks} />
         <Route path="/developer/sandbox" component={SandboxDemo} />
+
+        {/* Enterprise */}
+        <Route path="/enterprise/scim" component={Scim} />
+        <Route path="/enterprise/custom-domains" component={CustomDomains} />
 
         {/* Account & Settings */}
         <Route path="/account/billing" component={Billing} />

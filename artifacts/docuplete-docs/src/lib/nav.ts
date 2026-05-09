@@ -102,9 +102,20 @@ export const NAV: NavItem[] = [
     children: [
       { title: "Authentication & API Keys", slug: "developer/authentication" },
       { title: "Node.js SDK", slug: "developer/sdk" },
+      { title: "Bulk Session Creation", slug: "developer/bulk-sessions" },
+      { title: "Session Audit Log", slug: "developer/audit-log" },
+      { title: "Multi-Party Signers", slug: "developer/signers" },
       { title: "Quickstart: Create a Session", slug: "developer/quickstart-session" },
       { title: "Quickstart: Handling Webhooks", slug: "developer/quickstart-webhooks" },
       { title: "Public Sandbox Demo", slug: "developer/sandbox" },
+    ],
+  },
+  {
+    title: "Enterprise",
+    slug: "enterprise",
+    children: [
+      { title: "SCIM 2.0 Provisioning", slug: "enterprise/scim" },
+      { title: "Custom Domains", slug: "enterprise/custom-domains" },
     ],
   },
   {
