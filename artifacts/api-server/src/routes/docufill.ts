@@ -2237,12 +2237,15 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
     const accountId = acctId(req);
     const db = getDb();
 
-    // Fetch existing labels (own + inherited) for label-based deduplication.
-    const { rows: existingRows } = await db.query(
-      `SELECT lower(label) AS label_lower FROM docufill_fields WHERE account_id = $1 OR account_id IS NULL`,
-      [accountId],
+    // Fetch the full effective library (own + global + parent-inherited) for
+    // label-based deduplication — same set of fields the account can see in the UI.
+    const effectiveLibrary = await getFieldLibrary(db, accountId);
+    const existingLabels = new Set(effectiveLibrary.map((f) => (f.label as string).toLowerCase()));
+    // Build label→id map from the effective library so group remapping can resolve
+    // both own fields AND global/inherited fields that were skipped as duplicates.
+    const effectiveLabelToId = new Map<string, string>(
+      effectiveLibrary.map((f) => [(f.label as string).toLowerCase(), f.id]),
     );
-    const existingLabels = new Set(existingRows.map((r: Record<string, string>) => r.label_lower));
 
     let added = 0;
     let skipped = 0;
@@ -2310,12 +2313,9 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
       );
       const existingGroupNames = new Set(existingGroupRows.map((r: Record<string, string>) => r.name_lower));
 
-      // Build label→id map for fields now in this account so we can remap exported fieldIds.
-      const { rows: allFieldRows } = await db.query(
-        `SELECT id, lower(label) AS label_lower FROM docufill_fields WHERE account_id = $1`,
-        [accountId],
-      );
-      const labelToId = new Map<string, string>(allFieldRows.map((r: Record<string, string>) => [r.label_lower, r.id]));
+      // Use effectiveLabelToId (built from the full effective library above) so that
+      // group remapping can resolve own, global, and parent-inherited fields alike —
+      // including fields that were skipped as duplicates during import.
       // Also build exported-id → imported-label map for remapping group fieldIds.
       const exportedIdToLabel = new Map<string, string>(
         importFields
@@ -2331,14 +2331,14 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
         const remappedIds: string[] = [];
         for (const fid of group.fieldIds) {
           const labelKey = exportedIdToLabel.get(fid);
-          const remapped = labelKey ? labelToId.get(labelKey) : undefined;
+          const remapped = labelKey ? effectiveLabelToId.get(labelKey) : undefined;
           if (remapped) remappedIds.push(remapped);
         }
         try {
           await db.query(
             `INSERT INTO docufill_field_groups (account_id, name, description, field_ids, sort_order)
-             VALUES ($1, $2, $3, $4::text[], $5)`,
-            [accountId, groupName, group.description ?? null, remappedIds, group.sortOrder ?? 0],
+             VALUES ($1, $2, $3, $4::jsonb, $5)`,
+            [accountId, groupName, group.description ?? null, JSON.stringify(remappedIds), group.sortOrder ?? 0],
           );
           existingGroupNames.add(nameLower);
           groupsAdded++;
