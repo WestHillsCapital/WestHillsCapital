@@ -1910,6 +1910,12 @@ export default function DocuFill() {
       .map((id) => fieldLibrary.find((f) => f.id === id))
       .filter((f): f is FieldLibraryItem => Boolean(f));
 
+    // Pre-check: does this group contribute at least one new field to the current package?
+    const existingBeforeAdd = new Set(
+      (selectedPackage?.fields ?? []).map((f) => f.libraryFieldId).filter(Boolean),
+    );
+    const willAddFields = groupFields.some((lf) => !existingBeforeAdd.has(lf.id));
+
     updateSelectedPackage((pkg) => {
       const existingLibraryIds = new Set(pkg.fields.map((f) => f.libraryFieldId).filter(Boolean));
       const toAdd = groupFields.filter((lf) => !existingLibraryIds.has(lf.id));
@@ -1940,8 +1946,9 @@ export default function DocuFill() {
       flashStatus(`Added ${toAdd.length} field${toAdd.length !== 1 ? "s" : ""} from "${group.name}".`);
       return { ...pkg, fields: [...pkg.fields, ...newFields] };
     });
-    // Persist the application event in the background (best-effort)
+    // Persist the application event only when at least one field was actually added (best-effort)
     void (async () => {
+      if (!willAddFields) return;
       const selectedPkg = packages.find((p) => p.id === selectedPackageId);
       if (!selectedPkg?.id) return;
       try {
