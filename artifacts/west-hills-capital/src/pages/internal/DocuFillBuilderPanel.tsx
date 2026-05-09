@@ -501,6 +501,7 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
                     <FieldGroupsPanel
                       items={fieldGroups}
                       fieldLibrary={fieldLibrary}
+                      packages={packages}
                       onAdd={createFieldGroup}
                       onChange={updateFieldGroupLocal}
                       onSave={saveFieldGroup}

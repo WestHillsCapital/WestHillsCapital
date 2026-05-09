@@ -1938,7 +1938,7 @@ export default function DocuFill() {
         };
       });
       flashStatus(`Added ${toAdd.length} field${toAdd.length !== 1 ? "s" : ""} from "${group.name}".`);
-      return { ...pkg, fields: [...newFields, ...pkg.fields] };
+      return { ...pkg, fields: [...pkg.fields, ...newFields] };
     });
     goBuilderStep("mapping");
   }
@@ -3344,6 +3344,8 @@ export default function DocuFill() {
             updateFieldInPackage={updateFieldInPackage}
             copyField={copyField}
             addLibraryFieldToPackage={addLibraryFieldToPackage}
+            fieldGroups={fieldGroups}
+            addGroupToPackage={addGroupToPackage}
             removeRecipient={removeRecipient}
             updateRecipient={updateRecipient}
             getAuthHeaders={getAuthHeaders}

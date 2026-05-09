@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE, isSystemEsignFieldId } from "@/lib/docufill-redaction";
 import { type FieldItem, type MappingItem, type MappingFormat, type RecipientItem } from "@/lib/docufill-types";
-import type { DocItem, FieldLibraryItem, PackageItem } from "@/lib/docufill-local-types";
+import type { DocItem, FieldLibraryItem, FieldGroup, PackageItem } from "@/lib/docufill-local-types";
 import { MappingButton } from "@/components/MappingButton";
 import { FieldCard } from "@/components/FieldCard";
 import { EmptyState } from "@/components/DocuFillPanels";
@@ -110,6 +110,8 @@ export interface DocuFillMapperPanelProps {
   updateFieldInPackage: (fieldId: string, patch: Partial<FieldItem>) => void;
   copyField: (fieldId: string) => void;
   addLibraryFieldToPackage: (item: FieldLibraryItem) => void;
+  fieldGroups: FieldGroup[];
+  addGroupToPackage: (group: FieldGroup) => void;
   removeRecipient: (id: string) => void;
   updateRecipient: (id: string, patch: Partial<RecipientItem>) => void;
   getAuthHeaders: () => HeadersInit;
@@ -133,7 +135,7 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
     goBuilderStep, savePackage, updateSelectedPackage, uploadDocument, removeDocument,
     removeField, removeSelectedMapping, updateSelectedMapping, chooseMappingFormat, duplicateMapping,
     openFieldEditorForEdit, openFieldEditorForAdd, autoMapFromPdfFields, dropFieldOnPage,
-    updateFieldInPackage, copyField, addLibraryFieldToPackage, removeRecipient, updateRecipient,
+    updateFieldInPackage, copyField, addLibraryFieldToPackage, fieldGroups, addGroupToPackage, removeRecipient, updateRecipient,
     getAuthHeaders, docufillApiPath, documentPreviewCache, documentPreviewCacheOrder,
   } = props;
 
@@ -692,6 +694,37 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
                       {availableEsignFields.map((sf) => <option key={sf.id} value={sf.id}>{sf.name}</option>)}
                     </optgroup>
                   )}
+                </select>
+              </label>
+            );
+          })()}
+          {(() => {
+            if (fieldGroups.length === 0) return null;
+            const existingLibraryIds = new Set(selectedPackage.fields.map((f) => f.libraryFieldId).filter(Boolean));
+            const availableGroups = fieldGroups.filter((g) => g.fieldIds.some((id) => !existingLibraryIds.has(id)));
+            if (availableGroups.length === 0) return null;
+            return (
+              <label className="block mb-2 flex-shrink-0">
+                <span className="block text-[11px] text-[#6B7A99] mb-1">Add field group</span>
+                <select
+                  value=""
+                  onChange={(e) => {
+                    const id = parseInt(e.target.value, 10);
+                    if (!id) return;
+                    const group = fieldGroups.find((g) => g.id === id);
+                    if (group) addGroupToPackage(group);
+                  }}
+                  className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
+                >
+                  <option value="">Select a group to add all its fields…</option>
+                  {availableGroups.map((g) => {
+                    const newCount = g.fieldIds.filter((id) => !existingLibraryIds.has(id)).length;
+                    return (
+                      <option key={g.id} value={g.id}>
+                        {g.name} · {newCount} new field{newCount !== 1 ? "s" : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               </label>
             );

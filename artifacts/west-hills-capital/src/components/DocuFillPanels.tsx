@@ -82,6 +82,7 @@ function FieldAnalyticsPanel({ analytics, isSensitive }: { analytics: FieldAnaly
 export function FieldGroupsPanel({
   items,
   fieldLibrary,
+  packages,
   onAdd,
   onChange,
   onSave,
@@ -90,6 +91,7 @@ export function FieldGroupsPanel({
 }: {
   items: FieldGroup[];
   fieldLibrary: FieldLibraryItem[];
+  packages?: Array<{ id: number; name: string; fields: Array<{ libraryFieldId?: string | null }> }>;
   onAdd: () => Promise<string | null>;
   onChange: (id: number, patch: Partial<FieldGroup>) => void;
   onSave: (item: FieldGroup) => Promise<string | null>;
@@ -169,6 +171,10 @@ export function FieldGroupsPanel({
         {items.map((item) => {
           const isExpanded = expandedId === item.id;
           const memberCount = item.fieldIds.length;
+          const fieldIdSet = new Set(item.fieldIds);
+          const usedInPackages = packages
+            ? packages.filter((pkg) => pkg.fields.some((f) => f.libraryFieldId && fieldIdSet.has(f.libraryFieldId)))
+            : [];
           return (
             <div key={item.id} className="rounded border border-[#EFE8D8] bg-[#F8F6F0] p-2">
               <div className="flex items-center justify-between gap-2">
@@ -191,6 +197,19 @@ export function FieldGroupsPanel({
                       </span>
                     )}
                   </div>
+                  {packages && (
+                    <div className="text-[10px] mt-0.5">
+                      {usedInPackages.length === 0 ? (
+                        <span className="text-[#B0BED4]">Not used in any packages</span>
+                      ) : (
+                        <span className="text-[#6B7A99]">
+                          Used in {usedInPackages.length} package{usedInPackages.length !== 1 ? "s" : ""}
+                          {" — "}{usedInPackages.slice(0, 3).map((p) => p.name).join(", ")}
+                          {usedInPackages.length > 3 ? ` +${usedInPackages.length - 3} more` : ""}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
                   {onUseGroup && (
