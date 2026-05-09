@@ -2706,7 +2706,15 @@ router.post("/field-library/groups/:id/apply", requireAdminRole, async (req, res
     const packageId = parseId((req.body as { packageId?: unknown })?.packageId);
     if (!packageId) { res.status(400).json({ error: "packageId is required" }); return; }
     const accountId = acctId(req);
-    await getDb().query(
+    const db = getDb();
+    // Verify both group and package belong to this account (prevent cross-tenant data leak)
+    const [groupCheck, packageCheck] = await Promise.all([
+      db.query(`SELECT id FROM docufill_field_groups WHERE id = $1 AND account_id = $2`, [id, accountId]),
+      db.query(`SELECT id FROM docufill_packages WHERE id = $1 AND account_id = $2`, [packageId, accountId]),
+    ]);
+    if (groupCheck.rowCount === 0) { res.status(404).json({ error: "Field group not found" }); return; }
+    if (packageCheck.rowCount === 0) { res.status(404).json({ error: "Package not found" }); return; }
+    await db.query(
       `INSERT INTO docufill_field_group_usage (group_id, package_id, account_id)
        VALUES ($1, $2, $3)
        ON CONFLICT (group_id, package_id) DO UPDATE SET applied_at = NOW()`,

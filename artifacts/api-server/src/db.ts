@@ -845,20 +845,6 @@ export async function initDb(): Promise<void> {
       ON docufill_field_groups (account_id, sort_order ASC, name ASC)
   `);
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_field_group_usage (
-      group_id    INTEGER NOT NULL REFERENCES docufill_field_groups(id) ON DELETE CASCADE,
-      package_id  INTEGER NOT NULL REFERENCES docufill_packages(id) ON DELETE CASCADE,
-      account_id  INTEGER NOT NULL REFERENCES accounts(id),
-      applied_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      PRIMARY KEY (group_id, package_id)
-    )
-  `);
-  await db.query(`
-    CREATE INDEX IF NOT EXISTS docufill_field_group_usage_account_idx
-      ON docufill_field_group_usage (account_id)
-  `);
-
-  await db.query(`
     CREATE TABLE IF NOT EXISTS docufill_packages (
       id                SERIAL PRIMARY KEY,
       name              TEXT NOT NULL,
@@ -874,6 +860,21 @@ export async function initDb(): Promise<void> {
       created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
+  `);
+
+  // Usage tracking: records which packages each field group has been applied to (created after both referenced tables)
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS docufill_field_group_usage (
+      group_id    INTEGER NOT NULL REFERENCES docufill_field_groups(id) ON DELETE CASCADE,
+      package_id  INTEGER NOT NULL REFERENCES docufill_packages(id) ON DELETE CASCADE,
+      account_id  INTEGER NOT NULL REFERENCES accounts(id),
+      applied_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (group_id, package_id)
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS docufill_field_group_usage_account_idx
+      ON docufill_field_group_usage (account_id)
   `);
 
   await db.query(`
