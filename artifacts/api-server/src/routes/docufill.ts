@@ -1956,7 +1956,7 @@ router.get("/bootstrap", async (req, res) => {
   try {
     const accountId = acctId(req);
     const db = getDb();
-    const [groups, transactionTypes, fieldLibrary, packages, packageGroupRows, accountRow, fieldGroupRows] = await Promise.all([
+    const [groups, transactionTypes, fieldLibrary, packages, packageGroupRows, accountRow, fieldGroupRows, groupUsageRows] = await Promise.all([
       db.query("SELECT * FROM docufill_groups WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, name ASC", [accountId]),
       db.query("SELECT * FROM docufill_transaction_types WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, label ASC", [accountId]),
       getFieldLibrary(db, accountId),
@@ -1972,6 +1972,12 @@ router.get("/bootstrap", async (req, res) => {
                  GROUP BY pg.package_id`, [accountId]),
       db.query<{ slack_webhook_url: string | null }>(`SELECT slack_webhook_url FROM accounts WHERE id = $1`, [accountId]),
       db.query(`SELECT * FROM docufill_field_groups WHERE account_id = $1 ORDER BY sort_order ASC, name ASC`, [accountId]),
+      db.query(`
+        SELECT fgu.group_id, fgu.package_id, p.name AS package_name
+          FROM docufill_field_group_usage fgu
+          JOIN docufill_packages p ON p.id = fgu.package_id
+         WHERE fgu.account_id = $1
+      `, [accountId]),
     ]);
     const slackConnected = !!(accountRow.rows[0]?.slack_webhook_url);
     const groupIdsMap = new Map<number, number[]>();
@@ -1993,6 +1999,13 @@ router.get("/bootstrap", async (req, res) => {
       transactionTypeRows = seeded.rows;
     }
     const hydratedPackages = await hydratePackages(packagesWithGroupIds as PackageRow[], db, fieldLibrary);
+    // Build usage map: groupId → [{id, name}]
+    const usageByGroupId = new Map<number, Array<{ id: number; name: string }>>();
+    for (const row of (groupUsageRows.rows as Array<{ group_id: number; package_id: number; package_name: string }>)) {
+      const list = usageByGroupId.get(row.group_id) ?? [];
+      list.push({ id: row.package_id, name: row.package_name });
+      usageByGroupId.set(row.group_id, list);
+    }
     // Normalize field groups with camelCase field_ids
     const fieldMap = new Map(fieldLibrary.map((f) => [f.id, f]));
     const fieldGroups = (fieldGroupRows.rows as Array<Record<string, unknown>>).map((row) => {
@@ -2004,6 +2017,7 @@ router.get("/bootstrap", async (req, res) => {
         fieldIds: rawIds,
         sortOrder: row.sort_order,
         fields: rawIds.map((id) => fieldMap.get(id)).filter(Boolean),
+        usagePackages: usageByGroupId.get(row.id as number) ?? [],
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       };
@@ -2681,6 +2695,27 @@ router.delete("/field-library/groups/:id", requireAdminRole, async (req, res) =>
   } catch (err) {
     logger.error({ err }, "[DocuFill] Failed to delete field group");
     res.status(500).json({ error: "Failed to delete field group" });
+  }
+});
+
+// POST /field-library/groups/:id/apply — record that a group was applied to a package
+router.post("/field-library/groups/:id/apply", requireAdminRole, async (req, res) => {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) { res.status(400).json({ error: "Invalid group id" }); return; }
+    const packageId = parseId((req.body as { packageId?: unknown })?.packageId);
+    if (!packageId) { res.status(400).json({ error: "packageId is required" }); return; }
+    const accountId = acctId(req);
+    await getDb().query(
+      `INSERT INTO docufill_field_group_usage (group_id, package_id, account_id)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (group_id, package_id) DO UPDATE SET applied_at = NOW()`,
+      [id, packageId, accountId],
+    );
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "[DocuFill] Failed to record group application");
+    res.status(500).json({ error: "Failed to record group application" });
   }
 });
 

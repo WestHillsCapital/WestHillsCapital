@@ -75,6 +75,7 @@ export type FieldGroup = {
   fieldIds: string[];
   sortOrder: number;
   fields?: FieldLibraryItem[];
+  usagePackages?: Array<{ id: number; name: string }>;
   createdAt?: string;
   updatedAt?: string;
 };

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useDocuFillStore } from "@/stores/useDocuFillStore";
 import { useShallow } from "zustand/react/shallow";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -42,6 +42,112 @@ function makeSystemEsignFieldItem(id: string): FieldItem {
 }
 
 type AcroAnnotation = { fieldName: string; rect: [number, number, number, number]; fieldType: string };
+
+// ─── Compact searchable group picker for the field list ────────────────────────
+function GroupPicker({
+  fieldGroups,
+  fieldLibrary,
+  existingLibraryIds,
+  onUse,
+}: {
+  fieldGroups: FieldGroup[];
+  fieldLibrary: FieldLibraryItem[];
+  existingLibraryIds: Set<string>;
+  onUse: (group: FieldGroup) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [previewId, setPreviewId] = useState<number | null>(null);
+
+  const filteredGroups = fieldGroups
+    .filter((g) => g.fieldIds.some((id) => !existingLibraryIds.has(id)))
+    .filter((g) => !search || g.name.toLowerCase().includes(search.toLowerCase()));
+
+  if (fieldGroups.length === 0) return null;
+
+  return (
+    <div className="mb-2 flex-shrink-0">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[11px] text-[#6B7A99]">Add field group</span>
+        <button
+          type="button"
+          onClick={() => { setOpen(!open); setSearch(""); setPreviewId(null); }}
+          className="text-[11px] text-[#C49A38]"
+        >
+          {open ? "Close" : "Browse groups"}
+        </button>
+      </div>
+      {open && (
+        <div className="rounded border border-[#D4C9B5] bg-white overflow-hidden">
+          <input
+            autoFocus
+            type="text"
+            placeholder="Search groups by name…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full px-2 py-1.5 text-xs border-b border-[#EFE8D8] focus:outline-none"
+          />
+          <div className="max-h-56 overflow-y-auto">
+            {filteredGroups.length === 0 ? (
+              <div className="px-2 py-3 text-[11px] text-center text-[#8A9BB8]">
+                {search ? `No groups match "${search}"` : "All group fields are already in this package."}
+              </div>
+            ) : filteredGroups.map((g) => {
+              const newFields = g.fieldIds
+                .filter((id) => !existingLibraryIds.has(id))
+                .map((id) => g.fields?.find((f) => f.id === id) ?? fieldLibrary.find((f) => f.id === id))
+                .filter((f): f is FieldLibraryItem => Boolean(f));
+              const isPreview = previewId === g.id;
+              return (
+                <div key={g.id} className={`border-b border-[#F0EBE1] last:border-0 ${isPreview ? "bg-[#FFFBF3]" : ""}`}>
+                  <div className="flex items-center justify-between px-2 py-1.5 gap-2">
+                    <div className="min-w-0">
+                      <div className="text-[11px] font-medium text-[#0F1C3F] truncate">{g.name}</div>
+                      <div className="text-[10px] text-[#8A9BB8]">
+                        {newFields.length} new field{newFields.length !== 1 ? "s" : ""}
+                        {g.description && <span className="ml-1 italic truncate">— {g.description}</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setPreviewId(isPreview ? null : g.id)}
+                        title={isPreview ? "Hide field preview" : "Preview fields"}
+                        className="text-[10px] text-[#8A9BB8] hover:text-[#4A5568] border border-[#E8E0D4] rounded px-1"
+                      >
+                        {isPreview ? "▲" : "▾"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { onUse(g); setOpen(false); setSearch(""); setPreviewId(null); }}
+                        className="text-[11px] font-medium text-[#C49A38] hover:text-[#B8882E]"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                  {isPreview && newFields.length > 0 && (
+                    <div className="px-2 pb-2">
+                      <div className="rounded bg-[#F8F6F0] border border-[#EFE8D8] px-2 py-1.5 space-y-0.5">
+                        {newFields.map((f, i) => (
+                          <div key={f.id} className="text-[10px] text-[#4A5568] flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[#C49A38] font-mono font-semibold shrink-0">{i + 1}.</span>
+                            <span className="font-medium">{f.label}</span>
+                            <span className="text-[#8A9BB8]">· {f.type}{f.sensitive ? " · masked" : ""}{f.required ? " · required" : ""}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export interface DocuFillMapperPanelProps {
   selectedPackage: PackageItem;
@@ -698,37 +804,12 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
               </label>
             );
           })()}
-          {(() => {
-            if (fieldGroups.length === 0) return null;
-            const existingLibraryIds = new Set(selectedPackage.fields.map((f) => f.libraryFieldId).filter(Boolean));
-            const availableGroups = fieldGroups.filter((g) => g.fieldIds.some((id) => !existingLibraryIds.has(id)));
-            if (availableGroups.length === 0) return null;
-            return (
-              <label className="block mb-2 flex-shrink-0">
-                <span className="block text-[11px] text-[#6B7A99] mb-1">Add field group</span>
-                <select
-                  value=""
-                  onChange={(e) => {
-                    const id = parseInt(e.target.value, 10);
-                    if (!id) return;
-                    const group = fieldGroups.find((g) => g.id === id);
-                    if (group) addGroupToPackage(group);
-                  }}
-                  className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
-                >
-                  <option value="">Select a group to add all its fields…</option>
-                  {availableGroups.map((g) => {
-                    const newCount = g.fieldIds.filter((id) => !existingLibraryIds.has(id)).length;
-                    return (
-                      <option key={g.id} value={g.id}>
-                        {g.name} · {newCount} new field{newCount !== 1 ? "s" : ""}
-                      </option>
-                    );
-                  })}
-                </select>
-              </label>
-            );
-          })()}
+          <GroupPicker
+            fieldGroups={fieldGroups}
+            fieldLibrary={fieldLibrary}
+            existingLibraryIds={new Set(selectedPackage.fields.map((f) => f.libraryFieldId).filter((id): id is string => Boolean(id)))}
+            onUse={addGroupToPackage}
+          />
           {inspectorMode === "panel" && storeMappings.length > 0 && (
             <p className="mb-2 text-[10px] text-[#8A9BB8] italic flex-shrink-0">Click a placement on the document to inspect it.</p>
           )}

@@ -1940,6 +1940,25 @@ export default function DocuFill() {
       flashStatus(`Added ${toAdd.length} field${toAdd.length !== 1 ? "s" : ""} from "${group.name}".`);
       return { ...pkg, fields: [...pkg.fields, ...newFields] };
     });
+    // Persist the application event in the background (best-effort)
+    void (async () => {
+      const selectedPkg = packages.find((p) => p.id === selectedPackageId);
+      if (!selectedPkg?.id) return;
+      try {
+        await fetch(`${API_BASE}${docufillApiPath}/field-library/groups/${group.id}/apply`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+          body: JSON.stringify({ packageId: selectedPkg.id }),
+        });
+        // Update local fieldGroups usagePackages state
+        setFieldGroups((prev) => prev.map((g) => {
+          if (g.id !== group.id) return g;
+          const alreadyTracked = g.usagePackages?.some((p) => p.id === selectedPkg.id);
+          if (alreadyTracked) return g;
+          return { ...g, usagePackages: [...(g.usagePackages ?? []), { id: selectedPkg.id, name: selectedPkg.name }] };
+        }));
+      } catch { /* silent — usage tracking is best-effort */ }
+    })();
     goBuilderStep("mapping");
   }
 
