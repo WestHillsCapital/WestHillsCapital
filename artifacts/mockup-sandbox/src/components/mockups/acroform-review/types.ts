@@ -1,6 +1,6 @@
 export type ConfidenceTier = "high" | "medium" | "low";
 export type FieldStatus = "confirmed" | "needs-review" | "deferred" | "blank";
-export type EdgeCase = "off-page" | "duplicate" | "checkbox-group" | "signature" | "prefilled";
+export type EdgeCase = "off-page" | "duplicate" | "checkbox-group" | "signature" | "prefilled" | "unnamed";
 
 export interface LibraryField {
   id: string;
@@ -81,22 +81,30 @@ export const INITIAL_FIELDS: ReviewField[] = [
   { id: "f10", pdfName: "Printed Name",                                    pdfType: "text",  page: 2, confidence: "high",   suggestedMatch: lf("applicant_printed_name"), selectedMatch: lf("applicant_printed_name"), status: "confirmed",    edgeCases: [],                         touched: true  },
   // ── MEDIUM CONFIDENCE ─────────────────────────────────────────────
   { id: "f11", pdfName: "Date",                                            pdfType: "text",  page: 1, confidence: "medium", suggestedMatch: lf("date_signed"),            selectedMatch: lf("date_signed"),            status: "needs-review", edgeCases: ["duplicate"],              touched: false },
-  { id: "f12", pdfName: "Exact Name on Card",                              pdfType: "text",  page: 1, confidence: "medium", suggestedMatch: lf("cc_name"),                selectedMatch: lf("cc_name"),                status: "needs-review", edgeCases: ["prefilled"],              touched: false, prefilledValue: "West Hills Capital" },
+  // Pre-filled by firm — protected, never overwrite
+  { id: "f12", pdfName: "Exact Name on Card",                              pdfType: "text",  page: 1, confidence: "high",   suggestedMatch: null,                         selectedMatch: null,                         status: "blank",        edgeCases: ["prefilled"],              touched: true,  prefilledValue: "West Hills Capital" },
   { id: "f13", pdfName: "Mailing Address If different from Physical Address", pdfType: "text", page: 1, confidence: "medium", suggestedMatch: lf("address_mailing"),     selectedMatch: lf("address_mailing"),        status: "needs-review", edgeCases: [],                         touched: false },
   { id: "f14", pdfName: "Account Type",                                    pdfType: "radio", page: 1, confidence: "medium", suggestedMatch: lf("account_type"),           selectedMatch: lf("account_type"),           status: "needs-review", edgeCases: ["checkbox-group"],         touched: false },
-  { id: "f15", pdfName: "Fund How",                                        pdfType: "radio", page: 1, confidence: "medium", suggestedMatch: lf("funding_method"),         selectedMatch: lf("funding_method"),         status: "needs-review", edgeCases: ["checkbox-group","prefilled"], touched: false, prefilledValue: "Transfer" },
+  // Pre-filled by firm — protected, never overwrite
+  { id: "f15", pdfName: "Fund How",                                        pdfType: "radio", page: 1, confidence: "high",   suggestedMatch: null,                         selectedMatch: null,                         status: "blank",        edgeCases: ["checkbox-group","prefilled"], touched: true, prefilledValue: "Transfer" },
   { id: "f16", pdfName: "Contribution Year",                               pdfType: "text",  page: 1, confidence: "medium", suggestedMatch: lf("contribution_year"),      selectedMatch: lf("contribution_year"),      status: "needs-review", edgeCases: [],                         touched: false },
   { id: "f17", pdfName: "SingleorMarried",                                 pdfType: "radio", page: 1, confidence: "medium", suggestedMatch: lf("marital_status"),         selectedMatch: lf("marital_status"),         status: "needs-review", edgeCases: ["checkbox-group"],         touched: false },
   { id: "f18", pdfName: "Name",                                            pdfType: "text",  page: 2, confidence: "medium", suggestedMatch: lf("ben1_name"),              selectedMatch: lf("ben1_name"),              status: "needs-review", edgeCases: ["duplicate"],              touched: false },
   { id: "f19", pdfName: "Relationship",                                    pdfType: "text",  page: 2, confidence: "medium", suggestedMatch: lf("ben1_relationship"),      selectedMatch: lf("ben1_relationship"),      status: "needs-review", edgeCases: ["duplicate"],              touched: false },
   { id: "f20", pdfName: "Beneficiary Group 1",                             pdfType: "radio", page: 2, confidence: "medium", suggestedMatch: lf("ben1_type"),              selectedMatch: lf("ben1_type"),              status: "needs-review", edgeCases: ["checkbox-group"],         touched: false },
   { id: "f21", pdfName: "Date_2",                                          pdfType: "text",  page: 2, confidence: "medium", suggestedMatch: lf("date_signed"),            selectedMatch: lf("date_signed"),            status: "needs-review", edgeCases: ["duplicate"],              touched: false },
-  // ── LOW CONFIDENCE ────────────────────────────────────────────────
-  { id: "f22", pdfName: "undefined",                                       pdfType: "text",  page: 1, confidence: "low",    suggestedMatch: null,                         selectedMatch: null,                         status: "needs-review", edgeCases: [],                         touched: false },
-  { id: "f23", pdfName: "undefined_2",                                     pdfType: "text",  page: 1, confidence: "low",    suggestedMatch: null,                         selectedMatch: null,                         status: "needs-review", edgeCases: [],                         touched: false },
-  { id: "f24", pdfName: "Email Notifications with Account Changes Yes No", pdfType: "text",  page: 1, confidence: "low",    suggestedMatch: lf("email_notifications"),    selectedMatch: null,                         status: "needs-review", edgeCases: [],                         touched: false },
-  { id: "f25", pdfName: "Married Not Married",                             pdfType: "text",  page: 1, confidence: "low",    suggestedMatch: lf("marital_status"),         selectedMatch: null,                         status: "needs-review", edgeCases: [],                         touched: false },
-  { id: "f26", pdfName: "By",                                              pdfType: "text",  page: 2, confidence: "low",    suggestedMatch: null,                         selectedMatch: null,                         status: "needs-review", edgeCases: [],                         touched: false },
+  // ── LOW CONFIDENCE — semantic matching applied ────────────────────
+  // No name in PDF — cannot infer without positional context
+  { id: "f22", pdfName: "undefined",                                       pdfType: "text",  page: 1, confidence: "low",    suggestedMatch: null,                         selectedMatch: null,                         status: "needs-review", edgeCases: ["unnamed"],                touched: false },
+  { id: "f23", pdfName: "undefined_2",                                     pdfType: "text",  page: 1, confidence: "low",    suggestedMatch: null,                         selectedMatch: null,                         status: "needs-review", edgeCases: ["unnamed"],                touched: false },
+  // Semantic: "Email Notifications" is a direct match — upgraded to high
+  { id: "f24", pdfName: "Email Notifications with Account Changes Yes No", pdfType: "text",  page: 1, confidence: "high",   suggestedMatch: lf("email_notifications"),    selectedMatch: lf("email_notifications"),    status: "confirmed",    edgeCases: [],                         touched: true  },
+  // Semantic: "Married / Not Married" = marital status — upgraded to medium with strong suggestion
+  { id: "f25", pdfName: "Married Not Married",                             pdfType: "text",  page: 1, confidence: "medium", suggestedMatch: lf("marital_status"),         selectedMatch: lf("marital_status"),         status: "needs-review", edgeCases: [],                         touched: false },
+  // Semantic: "By:" on a signature block = applicant signature line
+  { id: "f26", pdfName: "By",                                              pdfType: "text",  page: 2, confidence: "medium", suggestedMatch: lf("applicant_signature"),    selectedMatch: lf("applicant_signature"),    status: "needs-review", edgeCases: ["signature"],              touched: false },
+  // Semantic: "I" alone — legal acknowledgment checkbox, no library match
   { id: "f27", pdfName: "I",                                               pdfType: "text",  page: 2, confidence: "low",    suggestedMatch: null,                         selectedMatch: null,                         status: "needs-review", edgeCases: [],                         touched: false },
-  { id: "f28", pdfName: "undefined_9",                                     pdfType: "text",  page: 3, confidence: "low",    suggestedMatch: lf("advisor_name"),           selectedMatch: null,                         status: "needs-review", edgeCases: ["prefilled"],              touched: false, prefilledValue: "West Hills Capital" },
+  // Pre-filled by firm — protected, never overwrite
+  { id: "f28", pdfName: "undefined_9",                                     pdfType: "text",  page: 3, confidence: "high",   suggestedMatch: null,                         selectedMatch: null,                         status: "blank",        edgeCases: ["prefilled","unnamed"],    touched: true,  prefilledValue: "West Hills Capital" },
 ];

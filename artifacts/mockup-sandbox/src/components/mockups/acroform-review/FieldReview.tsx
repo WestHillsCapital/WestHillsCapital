@@ -16,6 +16,8 @@ import {
   Eye,
   Zap,
   Wand2,
+  Lock,
+  HelpCircle,
 } from "lucide-react";
 import type { ConfidenceTier, FieldStatus, EdgeCase, LibraryField, ReviewField } from "./types";
 import { LIBRARY_FIELDS, INITIAL_FIELDS } from "./types";
@@ -28,11 +30,12 @@ function ConfidenceDot({ tier }: { tier: ConfidenceTier }) {
 
 function EdgeCaseBadge({ type }: { type: EdgeCase }) {
   const map: Record<EdgeCase, { icon: React.ReactNode; label: string; color: string }> = {
-    "off-page":      { icon: <MapPin className="w-3 h-3" />,     label: "Off-page",             color: "text-orange-600 bg-orange-50 border-orange-200" },
-    "duplicate":     { icon: <CopyCheck className="w-3 h-3" />,  label: "Duplicate name",       color: "text-purple-600 bg-purple-50 border-purple-200" },
-    "checkbox-group":{ icon: <LayoutGrid className="w-3 h-3" />, label: "Radio / checkbox group", color: "text-blue-600 bg-blue-50 border-blue-200" },
-    "signature":     { icon: <Signature className="w-3 h-3" />,  label: "E-sign field",         color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
-    "prefilled":     { icon: <Zap className="w-3 h-3" />,        label: "Pre-filled",           color: "text-teal-600 bg-teal-50 border-teal-200" },
+    "off-page":      { icon: <MapPin className="w-3 h-3" />,       label: "Off-page",               color: "text-orange-600 bg-orange-50 border-orange-200" },
+    "duplicate":     { icon: <CopyCheck className="w-3 h-3" />,    label: "Duplicate name",         color: "text-purple-600 bg-purple-50 border-purple-200" },
+    "checkbox-group":{ icon: <LayoutGrid className="w-3 h-3" />,   label: "Radio / checkbox group", color: "text-blue-600 bg-blue-50 border-blue-200" },
+    "signature":     { icon: <Signature className="w-3 h-3" />,    label: "E-sign field",           color: "text-indigo-600 bg-indigo-50 border-indigo-200" },
+    "prefilled":     { icon: <Lock className="w-3 h-3" />,         label: "Pre-filled",             color: "text-teal-600 bg-teal-50 border-teal-200" },
+    "unnamed":       { icon: <HelpCircle className="w-3 h-3" />,   label: "No field name",          color: "text-slate-500 bg-slate-50 border-slate-200" },
   };
   const { icon, label, color } = map[type];
   return (
@@ -220,9 +223,15 @@ function LibraryDropdown({ field, onSelect, onDefer, onBlank, autoFocus }: Dropd
 }
 
 function StatusChip({ field }: { field: ReviewField }) {
+  const isPrefillProtected = field.edgeCases.includes("prefilled") && field.status === "blank" && field.touched;
   if (field.status === "deferred") return (
     <span className="inline-flex items-center gap-1 text-xs font-medium text-orange-700 bg-orange-50 border border-orange-200 rounded-full px-2 py-0.5">
       <Eye className="w-3 h-3" /> In mapper
+    </span>
+  );
+  if (isPrefillProtected) return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-teal-700 bg-teal-50 border border-teal-200 rounded-full px-2 py-0.5">
+      <Lock className="w-3 h-3" /> Protected
     </span>
   );
   if (field.status === "blank") return (
@@ -400,7 +409,10 @@ export function FieldReview({ onOpenMapper }: Props) {
             const isBlank     = field.status === "blank";
             const isResolved  = field.touched && !isBlocker;
 
+            const isPrefillProtected = field.edgeCases.includes("prefilled") && isBlank && field.touched;
+
             const rowBg = () => {
+              if (isPrefillProtected) return "bg-teal-50/40 hover:bg-teal-50/70";
               if (isDeferred) return "bg-orange-50/50 hover:bg-orange-50/80";
               if (isBlank)    return "bg-slate-50/60 hover:bg-slate-50/90";
               if (isBlocker)  return "bg-red-50/40 hover:bg-red-50/70";
@@ -409,6 +421,7 @@ export function FieldReview({ onOpenMapper }: Props) {
             };
 
             const rowIcon = () => {
+              if (isPrefillProtected) return <Lock className="w-4 h-4 text-teal-400" />;
               if (isDeferred) return <ArrowUpRight className="w-4 h-4 text-orange-400" />;
               if (isBlank)    return <MinusCircle className="w-4 h-4 text-slate-300" />;
               if (field.status === "confirmed" && field.touched) return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
@@ -448,25 +461,42 @@ export function FieldReview({ onOpenMapper }: Props) {
                 <div className="text-sm font-medium text-slate-500">p. {field.page}</div>
 
                 <div onClick={e => e.stopPropagation()}>
-                  <LibraryDropdown
-                    field={field}
-                    onSelect={(match) => confirmField(field.id, match)}
-                    onDefer={() => deferField(field.id)}
-                    onBlank={() => blankField(field.id)}
-                    autoFocus={isFocused && isBlocker}
-                  />
+                  {isPrefillProtected ? (
+                    <div className="flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border bg-teal-50 border-teal-200 text-teal-700 select-none"
+                         title="This field is already filled in the PDF and will be left as-is">
+                      <Lock className="w-3.5 h-3.5 flex-shrink-0 text-teal-500" />
+                      <span className="flex-1 font-medium">Pre-filled — not overwritten</span>
+                    </div>
+                  ) : (
+                    <LibraryDropdown
+                      field={field}
+                      onSelect={(match) => confirmField(field.id, match)}
+                      onDefer={() => deferField(field.id)}
+                      onBlank={() => blankField(field.id)}
+                      autoFocus={isFocused && isBlocker}
+                    />
+                  )}
                 </div>
 
                 <div><ConfidenceDot tier={field.confidence} /></div>
 
                 <div className="flex items-center gap-1.5">
                   <StatusChip field={field} />
-                  {(isDeferred || isBlank) && (
+                  {(isDeferred || (isBlank && !isPrefillProtected)) && (
                     <button
                       onClick={e => { e.stopPropagation(); resetField(field.id); }}
                       className="text-[11px] text-slate-400 hover:text-slate-600 underline"
                     >
                       Undo
+                    </button>
+                  )}
+                  {isPrefillProtected && (
+                    <button
+                      onClick={e => { e.stopPropagation(); resetField(field.id); }}
+                      className="text-[11px] text-slate-400 hover:text-red-500 underline"
+                      title="Override protection and map this field manually"
+                    >
+                      Override
                     </button>
                   )}
                 </div>
