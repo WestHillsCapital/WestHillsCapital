@@ -501,7 +501,7 @@ export function FieldReview({ onOpenMapper }: Props) {
 
                 {/* PDF field name + badges */}
                 <div className="min-w-0">
-                  <p className="text-sm font-mono font-medium truncate"
+                  <p className="text-sm font-medium truncate"
                      style={{ color: isPrefillProtected ? MUTED : isDeferred ? "#92400e" : NAV }}
                      title={field.pdfName}>
                     {field.pdfName}
