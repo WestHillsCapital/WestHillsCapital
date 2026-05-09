@@ -18,6 +18,9 @@
     },
     {
       "path": "../../lib/queues"
+    },
+    {
+      "path": "../../packages/sdk/tsconfig.build.json"
     }
   ]
 }
