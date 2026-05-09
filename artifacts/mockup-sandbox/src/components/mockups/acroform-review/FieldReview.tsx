@@ -2,7 +2,6 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import {
   CheckCircle2,
   AlertCircle,
-  XCircle,
   ChevronDown,
   Search,
   FileText,
@@ -11,7 +10,6 @@ import {
   Signature,
   LayoutGrid,
   MapPin,
-  SkipForward,
   RotateCcw,
   ArrowRight,
   MinusCircle,
@@ -20,7 +18,7 @@ import {
 } from "lucide-react";
 
 type ConfidenceTier = "high" | "medium" | "low";
-type FieldStatus = "confirmed" | "needs-review" | "deferred" | "blank" | "unused";
+type FieldStatus = "confirmed" | "needs-review" | "deferred" | "blank";
 type EdgeCase = "off-page" | "duplicate" | "checkbox-group" | "signature";
 
 interface LibraryField {
@@ -204,11 +202,10 @@ interface DropdownProps {
   onSelect: (libraryField: LibraryField | null) => void;
   onDefer: () => void;
   onBlank: () => void;
-  onExclude: () => void;
   autoFocus?: boolean;
 }
 
-function LibraryDropdown({ field, onSelect, onDefer, onBlank, onExclude, autoFocus }: DropdownProps) {
+function LibraryDropdown({ field, onSelect, onDefer, onBlank, autoFocus }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -251,7 +248,6 @@ function LibraryDropdown({ field, onSelect, onDefer, onBlank, onExclude, autoFoc
   const triggerStyle = () => {
     if (field.status === "deferred") return "bg-orange-50 border-orange-200 text-orange-800";
     if (field.status === "blank") return "bg-slate-50 border-slate-200 text-slate-500 italic";
-    if (field.status === "unused") return "bg-slate-50 border-slate-200 text-slate-400";
     if (current) {
       return field.confidence === "high" && field.touched
         ? "bg-emerald-50 border-emerald-200 text-emerald-800"
@@ -263,25 +259,20 @@ function LibraryDropdown({ field, onSelect, onDefer, onBlank, onExclude, autoFoc
   const triggerLabel = () => {
     if (field.status === "deferred") return "↗ Resolve in mapper";
     if (field.status === "blank") return "Leave blank (no input)";
-    if (field.status === "unused") return "Excluded from package";
     return current ? current.label : "— Select library field —";
   };
 
   return (
     <div ref={containerRef} className="relative">
       <button
-        onClick={() => field.status !== "unused" && setOpen(o => !o)}
+        onClick={() => setOpen(o => !o)}
         onKeyDown={e => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setOpen(o => !o); } }}
-        disabled={field.status === "unused"}
         className={`flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg border w-full text-left transition-all
           ${triggerStyle()}
-          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1
-          disabled:cursor-default`}
+          focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1`}
       >
         <span className="flex-1 truncate font-medium">{triggerLabel()}</span>
-        {field.status !== "unused" && (
-          <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
-        )}
+        <ChevronDown className={`w-3.5 h-3.5 flex-shrink-0 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
       {open && (
@@ -327,7 +318,7 @@ function LibraryDropdown({ field, onSelect, onDefer, onBlank, onExclude, autoFoc
             )}
           </div>
 
-          {/* Three-way footer */}
+          {/* Two-way footer */}
           <div className="border-t border-slate-100 bg-slate-50 p-2 flex flex-col gap-0.5">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 px-2 pt-1 pb-1.5">
               Can't map it from here?
@@ -352,16 +343,6 @@ function LibraryDropdown({ field, onSelect, onDefer, onBlank, onExclude, autoFoc
                 <p className="text-[11px] text-slate-400 leading-tight">Included in the package but always submits empty. For fields that don't apply to every process type.</p>
               </div>
             </button>
-            <button
-              onClick={() => { onExclude(); close(); }}
-              className="flex items-start gap-2.5 text-left px-2 py-2 rounded-lg hover:bg-red-50 transition-colors group"
-            >
-              <XCircle className="w-3.5 h-3.5 text-red-400 mt-0.5 flex-shrink-0" />
-              <div>
-                <p className="text-xs font-semibold text-red-600 group-hover:text-red-700">Exclude from package</p>
-                <p className="text-[11px] text-slate-400 leading-tight">Removed entirely — not in the generated PDF or interview.</p>
-              </div>
-            </button>
           </div>
         </div>
       )}
@@ -378,11 +359,6 @@ function StatusChip({ field }: { field: ReviewField }) {
   if (field.status === "blank") return (
     <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-100 border border-slate-200 rounded-full px-2 py-0.5">
       <MinusCircle className="w-3 h-3" /> Blank
-    </span>
-  );
-  if (field.status === "unused") return (
-    <span className="inline-flex items-center gap-1 text-xs font-medium text-slate-400 bg-slate-50 border border-slate-200 rounded-full px-2 py-0.5">
-      <XCircle className="w-3 h-3" /> Excluded
     </span>
   );
   if (field.status === "confirmed" && field.touched) return (
@@ -408,7 +384,6 @@ export function FieldReview() {
   const confirmed = fields.filter(f => f.status === "confirmed").length;
   const deferred = fields.filter(f => f.status === "deferred").length;
   const blank = fields.filter(f => f.status === "blank").length;
-  const excluded = fields.filter(f => f.status === "unused").length;
   const high = fields.filter(f => f.confidence === "high").length;
   const medium = fields.filter(f => f.confidence === "medium").length;
   const low = fields.filter(f => f.confidence === "low").length;
@@ -429,12 +404,6 @@ export function FieldReview() {
   const blankField = useCallback((id: string) => {
     setFields(prev => prev.map(f => f.id !== id ? f : {
       ...f, status: "blank", selectedMatch: null, touched: true,
-    }));
-  }, []);
-
-  const excludeField = useCallback((id: string) => {
-    setFields(prev => prev.map(f => f.id !== id ? f : {
-      ...f, status: "unused", selectedMatch: null, touched: true,
     }));
   }, []);
 
@@ -483,7 +452,7 @@ export function FieldReview() {
             </div>
           )}
 
-          <div className="grid grid-cols-3 gap-3 mb-6 text-center">
+          <div className="grid grid-cols-2 gap-3 mb-6 text-center">
             <div className="bg-slate-50 rounded-lg p-3">
               <p className="text-xl font-bold text-slate-900">{confirmed}</p>
               <p className="text-xs text-slate-500 mt-0.5">Mapped</p>
@@ -492,12 +461,6 @@ export function FieldReview() {
               <div className="bg-slate-50 rounded-lg p-3">
                 <p className="text-xl font-bold text-slate-900">{blank}</p>
                 <p className="text-xs text-slate-500 mt-0.5">Left blank</p>
-              </div>
-            )}
-            {excluded > 0 && (
-              <div className="bg-slate-50 rounded-lg p-3">
-                <p className="text-xl font-bold text-slate-900">{excluded}</p>
-                <p className="text-xs text-slate-500 mt-0.5">Excluded</p>
               </div>
             )}
           </div>
@@ -594,13 +557,11 @@ export function FieldReview() {
             const isBlocker = requiresAction(field);
             const isDeferred = field.status === "deferred";
             const isBlank = field.status === "blank";
-            const isExcluded = field.status === "unused";
             const isResolved = field.touched && !isBlocker;
 
             const rowBg = () => {
               if (isDeferred) return "bg-orange-50/50 hover:bg-orange-50/80";
               if (isBlank) return "bg-slate-50/60 hover:bg-slate-50/90";
-              if (isExcluded) return "bg-slate-50/40";
               if (isBlocker) return "bg-red-50/40 hover:bg-red-50/70";
               if (field.confidence === "medium" && !isResolved) return "bg-amber-50/30 hover:bg-amber-50/50";
               return "hover:bg-slate-50/80";
@@ -609,7 +570,6 @@ export function FieldReview() {
             const rowIcon = () => {
               if (isDeferred) return <ArrowUpRight className="w-4 h-4 text-orange-400" />;
               if (isBlank) return <MinusCircle className="w-4 h-4 text-slate-300" />;
-              if (isExcluded) return <XCircle className="w-4 h-4 text-slate-300" />;
               if (field.status === "confirmed" && field.touched) return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
               if (isBlocker) return <AlertCircle className="w-4 h-4 text-red-400" />;
               return <AlertCircle className="w-4 h-4 text-amber-400" />;
@@ -622,13 +582,12 @@ export function FieldReview() {
                 className={`grid grid-cols-[28px_180px_90px_72px_1fr_160px_120px] gap-4 px-5 py-3.5 border-b border-slate-100 last:border-0 transition-all cursor-pointer items-center
                   ${rowBg()}
                   ${isFocused ? "ring-2 ring-inset ring-blue-400" : ""}
-                  ${isExcluded ? "opacity-50" : ""}
                 `}
               >
                 <div className="flex items-center justify-center">{rowIcon()}</div>
 
                 <div className="min-w-0">
-                  <p className={`text-sm font-mono font-medium truncate ${isExcluded ? "text-slate-400 line-through" : isDeferred ? "text-orange-800" : isBlank ? "text-slate-400" : "text-slate-800"}`}>
+                  <p className={`text-sm font-mono font-medium truncate ${isDeferred ? "text-orange-800" : isBlank ? "text-slate-400" : "text-slate-800"}`}>
                     {field.pdfName}
                   </p>
                   {field.edgeCases.length > 0 && (
@@ -650,23 +609,13 @@ export function FieldReview() {
                 </div>
 
                 <div onClick={e => e.stopPropagation()}>
-                  {isExcluded ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-slate-400 italic">Not in package</span>
-                      <button onClick={() => resetField(field.id)} className="text-xs text-blue-600 hover:text-blue-700 underline">
-                        Undo
-                      </button>
-                    </div>
-                  ) : (
-                    <LibraryDropdown
-                      field={field}
-                      onSelect={(match) => confirmField(field.id, match)}
-                      onDefer={() => deferField(field.id)}
-                      onBlank={() => blankField(field.id)}
-                      onExclude={() => excludeField(field.id)}
-                      autoFocus={isFocused && isBlocker}
-                    />
-                  )}
+                  <LibraryDropdown
+                    field={field}
+                    onSelect={(match) => confirmField(field.id, match)}
+                    onDefer={() => deferField(field.id)}
+                    onBlank={() => blankField(field.id)}
+                    autoFocus={isFocused && isBlocker}
+                  />
                 </div>
 
                 <div><ConfidenceDot tier={field.confidence} /></div>
@@ -681,15 +630,14 @@ export function FieldReview() {
           <span>{confirmed} mapped</span>
           {deferred > 0 && <span className="text-orange-600 font-medium">{deferred} deferred to mapper</span>}
           {blank > 0 && <span>{blank} blank</span>}
-          {excluded > 0 && <span>{excluded} excluded</span>}
           <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden ml-2">
             <div
               className="h-full rounded-full transition-all duration-300 flex"
-              style={{ width: `${((confirmed + deferred + blank + excluded) / fields.length) * 100}%` }}
+              style={{ width: `${((confirmed + deferred + blank) / fields.length) * 100}%` }}
             >
               <div className="h-full bg-emerald-500 flex-1" style={{ flex: confirmed }} />
               <div className="h-full bg-orange-400" style={{ flex: deferred }} />
-              <div className="h-full bg-slate-400" style={{ flex: blank + excluded }} />
+              <div className="h-full bg-slate-300" style={{ flex: blank }} />
             </div>
           </div>
           {blockers.length > 0 && (
