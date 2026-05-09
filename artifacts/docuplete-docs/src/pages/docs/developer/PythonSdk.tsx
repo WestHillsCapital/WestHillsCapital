@@ -6,7 +6,7 @@ export default function PythonSdk() {
         <h1>Python SDK</h1>
         <p className="text-lg text-white/55 mt-2">
           The official Python client for the Docuplete API — fully typed with TypedDicts, one
-          external dependency (<code>httpx</code>), compatible with Python 3.9+.
+          external dependency (<code>httpx</code>), compatible with Python 3.8+.
         </p>
       </div>
 
