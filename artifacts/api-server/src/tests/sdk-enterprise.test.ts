@@ -85,11 +85,11 @@ const MOCK_SIGNER = {
 const MOCK_AUDIT_EVENT = {
   id: 1,
   event: "session.created",
-  actor_type: "system",
-  actor_email: null,
-  actor_ip: null,
+  actorType: "system",
+  actorEmail: null,
+  actorIp: null,
   metadata: { packageId: 42 },
-  created_at: new Date().toISOString(),
+  createdAt: new Date().toISOString(),
 };
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -235,7 +235,7 @@ describe("SDK — sessions.get()", () => {
       if (req.params.token === "df_not_found") {
         return res.status(404).json({ error: "Session not found" });
       }
-      res.json({ session: { ...MOCK_SESSION, token: req.params.token } });
+      return res.json({ session: { ...MOCK_SESSION, token: req.params.token } });
     });
     const result = await startMockServer(app);
     server = result.server;
@@ -279,11 +279,13 @@ describe("SDK — sessions.bulkCreate()", () => {
       capturedBody = req.body;
       const sessions = (req.body as { sessions: unknown[] }).sessions ?? [];
       const results = sessions.map((_s, i) => ({
-        success: true,
-        token: `df_bulk_${i}_abc`,
+        index: i,
+        ok: true,
+        sessionToken: `df_bulk_${i}_abc`,
         interviewUrl: `https://app.docuplete.com/sessions/df_bulk_${i}_abc`,
+        expiresAt: null,
       }));
-      res.status(207).json({ results });
+      return res.status(207).json({ results, total: sessions.length, succeeded: sessions.length, failed: 0 });
     });
     const result = await startMockServer(app);
     server = result.server;
@@ -308,11 +310,11 @@ describe("SDK — sessions.bulkCreate()", () => {
     assert.equal(body.sessions[1].packageId, 2);
   });
 
-  it("each result has success, token, and interviewUrl", async () => {
+  it("each result has ok, sessionToken, and interviewUrl", async () => {
     const result = await client.sessions.bulkCreate({ sessions: [{ packageId: 42 }] });
     const [first] = result.results;
-    assert.equal(first?.success, true);
-    assert.ok(first?.token, "Expected token");
+    assert.equal(first?.ok, true);
+    assert.ok(first?.sessionToken, "Expected sessionToken");
     assert.ok(first?.interviewUrl, "Expected interviewUrl");
   });
 
@@ -354,9 +356,9 @@ describe("SDK — sessions.auditLog()", () => {
       if (req.params.token === "df_no_session") {
         return res.status(404).json({ error: "Not found" });
       }
-      res.json({
+      return res.json({
         token: req.params.token,
-        events: [MOCK_AUDIT_EVENT],
+        entries: [MOCK_AUDIT_EVENT],
       });
     });
     const result = await startMockServer(app);
@@ -366,20 +368,20 @@ describe("SDK — sessions.auditLog()", () => {
 
   after(() => stopMockServer(server));
 
-  it("returns token and events array", async () => {
+  it("returns token and entries array", async () => {
     const result: AuditLogResult = await client.sessions.auditLog("df_mock_session_token_abc123");
     assert.equal(result.token, "df_mock_session_token_abc123");
-    assert.ok(Array.isArray(result.events));
-    assert.equal(result.events.length, 1);
+    assert.ok(Array.isArray(result.entries));
+    assert.equal(result.entries.length, 1);
   });
 
-  it("audit event has correct shape", async () => {
+  it("audit entry has correct shape", async () => {
     const result = await client.sessions.auditLog("df_mock_session_token_abc123");
-    const [event] = result.events;
-    assert.ok(event, "Expected at least one event");
-    assert.equal(event.event, "session.created");
-    assert.equal(event.actor_type, "system");
-    assert.ok(event.created_at, "Expected created_at");
+    const [entry] = result.entries;
+    assert.ok(entry, "Expected at least one entry");
+    assert.equal(entry.event, "session.created");
+    assert.equal(entry.actorType, "system");
+    assert.ok(entry.createdAt, "Expected createdAt");
   });
 
   it("throws DocupleteError with 404 for unknown session", async () => {
@@ -409,7 +411,7 @@ describe("SDK — sessions.signers()", () => {
       if (req.params.token === "df_empty") {
         return res.json({ token: req.params.token, signers: [], allSigned: false });
       }
-      res.json({
+      return res.json({
         token: req.params.token,
         signers: [
           { ...MOCK_SIGNER, order: 1, email: "alice@example.com", status: "pending" },
@@ -525,21 +527,23 @@ describe("SDK — CustomDomainStatus type", () => {
       status: "pending_verification",
       cnameTarget: "docuplete.com",
       verifiedAt: null,
+      instructions: null,
     };
     assert.equal(status.domain, "docs.example.com");
     assert.equal(status.status, "pending_verification");
-    assert.ok(["pending_verification", "active", "failed", null].includes(status.status));
+    assert.ok(["pending_verification", "active", "verification_failed", "not_configured"].includes(status.status));
   });
 
   it("represents null domain (not configured)", () => {
     const status: CustomDomainStatus = {
       domain: null,
-      status: null,
+      status: "not_configured",
       cnameTarget: "docuplete.com",
       verifiedAt: null,
+      instructions: null,
     };
     assert.equal(status.domain, null);
-    assert.equal(status.status, null);
+    assert.equal(status.status, "not_configured");
   });
 });
 
