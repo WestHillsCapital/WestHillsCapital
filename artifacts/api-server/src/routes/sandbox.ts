@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { Router } from "express";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
-import { seedDemoPackage } from "../lib/demoPackage";
+import { seedDemoPackage, DEMO_FIELDS } from "../lib/demoPackage";
 
 const router = Router();
 
@@ -62,6 +62,13 @@ async function getOrCreateSandbox(): Promise<SandboxCtx> {
   if (justCreated) {
     await seedDemoPackage(db, accountId);
   }
+
+  // Refresh the sandbox package's fields on every cold start so the live DB
+  // stays in sync with DEMO_FIELDS (fixes stale rows that pre-date interviewMode).
+  await db.query(
+    `UPDATE docufill_packages SET fields = $1::jsonb WHERE account_id = $2 AND status = 'active'`,
+    [JSON.stringify(DEMO_FIELDS), accountId],
+  );
 
   // Always ensure the sandbox package has auth_level = 'none' (defense in depth:
   // seedDemoPackage may run before this update, or the package may have been

@@ -44,6 +44,8 @@ type FieldItem = {
   validationPattern?: string;
   validationMessage?: string;
   condition?: FieldCondition | null;
+  required?: boolean;
+  interviewVisible?: boolean;
 };
 
 type SessionData = {
@@ -71,7 +73,8 @@ type SessionData = {
 type EsignStep = "email" | "code" | "initials" | "consent";
 
 function fieldIsRequired(field: FieldItem): boolean {
-  return field.interviewMode === "required";
+  if (field.interviewMode) return field.interviewMode === "required";
+  return field.required === true && field.interviewVisible !== false;
 }
 
 /**

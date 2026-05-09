@@ -6,7 +6,7 @@ import { ObjectStorageService } from "./objectStorage";
 import { isEncryptionEnabled, getOrCreateAccountDek, encryptBuffer } from "./encryption";
 
 // ── Demo fields (explicit stable ids so mapping references are reliable) ───────
-const DEMO_FIELDS = [
+export const DEMO_FIELDS = [
   { id: "client_first_name",    libraryFieldId: "client_first_name",    label: "Client first name",    type: "text", source: "firstName",    required: true,  interviewMode: "required", category: "Customer identity" },
   { id: "client_last_name",     libraryFieldId: "client_last_name",     label: "Client last name",     type: "text", source: "lastName",     required: true,  interviewMode: "required", category: "Customer identity" },
   { id: "client_email",         libraryFieldId: "client_email",         label: "Client email",         type: "text", source: "email",        required: true,  interviewMode: "required", category: "Contact",
