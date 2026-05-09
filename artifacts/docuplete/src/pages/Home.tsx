@@ -439,6 +439,7 @@ export default function Home() {
           <Logo />
           <div className="flex items-center gap-6">
             <a href="#how-it-works" className="hidden sm:block text-sm text-[#4B5A7A] hover:text-[#0B1220] transition-colors">How it works</a>
+            <a href="#security" className="hidden sm:block text-sm text-[#4B5A7A] hover:text-[#0B1220] transition-colors">Security</a>
             <a href="#pricing" className="hidden sm:block text-sm text-[#4B5A7A] hover:text-[#0B1220] transition-colors">Pricing</a>
             <a href="/docuplete-docs/" className="hidden sm:block text-sm text-[#4B5A7A] hover:text-[#0B1220] transition-colors">Docs</a>
             <a
@@ -871,6 +872,123 @@ export default function Home() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
               </svg>
             </a>
+          </div>
+        </div>
+      </section>
+
+      {/* ── SECURITY & TRUST ────────────────────────────────── */}
+      <section id="security" className="py-24 px-6 bg-[#0B1220] text-white">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-14">
+            <p className="text-[#5B8DEF] text-sm font-semibold uppercase tracking-widest mb-3">Security & Trust</p>
+            <h2 className="text-3xl sm:text-4xl font-bold">Easy to start. Built for grown-ups.</h2>
+            <p className="mt-4 text-white/60 max-w-xl mx-auto">
+              Docuplete is the only document platform engineered from the ground up for regulated industries — where predictability, legal admissibility, and a full audit trail are non-negotiable.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-6 mb-10">
+
+            {/* Card 1 — RFC 3161 */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
+              <div className="w-10 h-10 rounded-xl bg-[#1B4FD8]/20 flex items-center justify-center text-[#5B8DEF] mb-5 shrink-0">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Legally Defensible E-Signatures</h3>
+              <p className="text-white/60 text-sm leading-relaxed">
+                RFC 3161 cryptographic timestamps from a qualified Timestamping Authority are embedded in every signed PDF — proving the document existed in its exact form at that exact moment. Your e-signatures survive court scrutiny because the proof is independent of our servers.
+              </p>
+              <p className="text-[#5B8DEF] text-xs font-semibold mt-4 uppercase tracking-widest">ESIGN · UETA · eIDAS AdES compliant</p>
+            </div>
+
+            {/* Card 2 — Deterministic */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
+              <div className="w-10 h-10 rounded-xl bg-[#1B4FD8]/20 flex items-center justify-center text-[#5B8DEF] mb-5 shrink-0">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Reliable Logic. Zero AI Hallucinations.</h3>
+              <p className="text-white/60 text-sm leading-relaxed">
+                Docuplete doesn't use a black-box AI to interpret or transform your data. Every field maps deterministically to exactly where it lands in the PDF — always. 100% predictable document output for high-compliance industries where surprises are liabilities.
+              </p>
+              <p className="text-[#5B8DEF] text-xs font-semibold mt-4 uppercase tracking-widest">Deterministic · Auditable · Repeatable</p>
+            </div>
+
+            {/* Card 3 — 5 min API + enterprise controls */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
+              <div className="w-10 h-10 rounded-xl bg-[#1B4FD8]/20 flex items-center justify-center text-[#5B8DEF] mb-5 shrink-0">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-white mb-3">5-Minute API. Enterprise-Grade Controls.</h3>
+              <pre className="text-xs text-[#A8C4FF] bg-black/30 rounded-xl px-4 py-3 mb-4 overflow-x-auto leading-relaxed">{`const { interviewUrl } = await docuplete
+  .sessions.create({ packageId: 42,
+    prefill: { firstName: "Jane" } });
+// → send link, done.`}</pre>
+              <p className="text-white/60 text-sm leading-relaxed">
+                Then lock it down: IP allowlisting, SAML SSO, SCIM provisioning, AES-256-GCM answer encryption. Start simple. Scale to your most demanding security review.
+              </p>
+            </div>
+
+            {/* Card 4 — Audit Trail */}
+            <div className="bg-white/5 border border-white/10 rounded-2xl p-8">
+              <div className="w-10 h-10 rounded-xl bg-[#1B4FD8]/20 flex items-center justify-center text-[#5B8DEF] mb-5 shrink-0">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-bold text-white mb-2">Immutable Session Audit Trail</h3>
+              <div className="space-y-2 mb-4">
+                {[
+                  ["session.created", "2026-05-09 14:02:11 UTC"],
+                  ["interview.opened", "2026-05-09 14:18:44 UTC"],
+                  ["interview.submitted", "2026-05-09 14:31:09 UTC"],
+                  ["pdf.generated", "2026-05-09 14:31:12 UTC"],
+                ].map(([event, ts]) => (
+                  <div key={event} className="flex items-center justify-between bg-black/30 rounded-lg px-3 py-2 text-xs">
+                    <span className="text-[#5B8DEF] font-mono">{event}</span>
+                    <span className="text-white/40 font-mono">{ts}</span>
+                  </div>
+                ))}
+              </div>
+              <p className="text-white/60 text-sm leading-relaxed">
+                Every action on every session is permanently logged with actor, IP address, and UTC timestamp. Your auditors will always have a clean paper trail.
+              </p>
+            </div>
+          </div>
+
+          {/* Two-step funnel */}
+          <div className="border border-white/10 bg-white/5 rounded-2xl p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
+            <div>
+              <p className="font-bold text-white text-lg">Ready to go deeper?</p>
+              <p className="text-white/55 text-sm mt-1 max-w-sm">
+                Try the API instantly with no account — or request our full security & compliance packet for your procurement or legal team.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 shrink-0">
+              <a
+                href="/docuplete-docs/developer/sandbox"
+                className="inline-flex items-center justify-center gap-2 border border-white/25 text-white/80 hover:text-white hover:border-white/50 font-medium px-5 py-2.5 rounded-xl transition-colors text-sm whitespace-nowrap"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M17.25 6.75 22.5 12l-5.25 5.25m-10.5 0L1.5 12l5.25-5.25m7.5-3-4.5 16.5" />
+                </svg>
+                Try API Sandbox — No Key Needed
+              </a>
+              <a
+                href="/docuplete-docs/enterprise/compliance-sheet"
+                className="inline-flex items-center justify-center gap-2 bg-[#1B4FD8] hover:bg-[#1740B8] text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm shadow-lg shadow-[#1B4FD8]/30 whitespace-nowrap"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+                </svg>
+                Request Security & Compliance Packet
+              </a>
+            </div>
           </div>
         </div>
       </section>

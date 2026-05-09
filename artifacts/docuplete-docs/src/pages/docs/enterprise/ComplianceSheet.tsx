@@ -203,6 +203,37 @@ export default function ComplianceSheet() {
         </table>
       </div>
 
+      {/* ── Developer Experience ── */}
+      <div className="overflow-x-auto mt-6">
+        <table>
+          <thead>
+            <tr><th colSpan={2}>Developer Experience (DX)</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>TypeScript SDK</strong></td>
+              <td>Fully typed, clean-build SDK — <code>npm install @docuplete/sdk</code>. Zero generated code, strict TypeScript throughout.</td>
+            </tr>
+            <tr>
+              <td><strong>Shared field library</strong></td>
+              <td>Centralized field management across unlimited packages — define a field once, reuse it across every template in your organization</td>
+            </tr>
+            <tr>
+              <td><strong>REST API + OpenAPI spec</strong></td>
+              <td>Full OpenAPI specification with embedded Swagger UI; language-agnostic — cURL, Python, Ruby, Go, and more all supported</td>
+            </tr>
+            <tr>
+              <td><strong>API Sandbox</strong></td>
+              <td>Zero-config public sandbox — create a live interview session in a browser with no API key, account, or setup required</td>
+            </tr>
+            <tr>
+              <td><strong>Headless / embedded mode</strong></td>
+              <td>Interview URL can be opened in an <code>iframe</code>, modal, redirect, or SMS link — no Docuplete branding required on Enterprise</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       {/* ── Compliance frameworks ── */}
       <div className="overflow-x-auto mt-6">
         <table>
