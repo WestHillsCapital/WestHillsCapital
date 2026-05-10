@@ -8,7 +8,7 @@
     "worker-dev": "export NODE_ENV=development && pnpm run build && pnpm run worker-start",
     "worker-start": "node --enable-source-maps ./dist/worker.mjs",
     "build": "node ./build.mjs",
-    "start": "node --enable-source-maps ./dist/index.mjs",
+    "start": "exec node --enable-source-maps ./dist/index.mjs",
     "test": "node --import tsx/esm --test-force-exit --test \"src/tests/*.test.ts\"",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "validate-sitemap": "node scripts/validate-sitemap.mjs",

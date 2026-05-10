@@ -6484,6 +6484,15 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
     }
     const validation = validateSessionAnswers(session);
     if (!validation.valid) {
+      logger.warn({
+        token: req.params.token,
+        missingFields: validation.missingFields,
+        errors: validation.errors,
+        answerKeys: Object.keys(typeof session.answers === "object" && session.answers ? session.answers as object : {}),
+        fieldIds: Array.isArray(session.fields) ? (session.fields as Array<{ id: string; interviewMode?: string }>).map((f) => `${f.id}:${f.interviewMode ?? "??"}`).join(",") : String(session.fields),
+        hasCiphertext: !!(session as Record<string, unknown>).answers_ciphertext,
+        source: session.source,
+      }, "[DocuFill] generate 400 — validation failed");
       res.status(400).json({ error: "Packet is missing required or valid fields", ...validation });
       return;
     }

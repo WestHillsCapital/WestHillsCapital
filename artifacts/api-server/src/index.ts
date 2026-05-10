@@ -7,7 +7,7 @@ import { initDb, runDrizzleMigrations } from "./db";
 import { validateConfig } from "./lib/config";
 import { ObjectStorageService } from "./lib/objectStorage";
 import { enqueuePingJob } from "./lib/queue";
-import { startSandboxProbe } from "./lib/sandboxProbe";
+import { startSandboxProbe, stopSandboxProbe } from "./lib/sandboxProbe";
 
 // ── 1. Resolve port ───────────────────────────────────────────────────────────
 const rawPort = process.env["PORT"];
@@ -185,6 +185,7 @@ async function initStripe(): Promise<void> {
 // requests to finish avoids dropped connections and mid-write data corruption.
 function shutdown(signal: string) {
   logger.info({ signal }, "Shutdown signal received — draining connections");
+  stopSandboxProbe();
   server.close((err) => {
     if (err) {
       logger.error({ err }, "Error during server close");

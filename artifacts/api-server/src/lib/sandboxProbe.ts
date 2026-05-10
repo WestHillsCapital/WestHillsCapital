@@ -56,6 +56,7 @@ export interface SandboxProbeResult {
 
 let _lastResult: SandboxProbeResult | null = null;
 let _probeInterval: ReturnType<typeof setInterval> | null = null;
+let _warmupTimer: ReturnType<typeof setTimeout> | null = null;
 let _consecutiveFailures = 0;
 
 export function getLastProbeResult(): SandboxProbeResult | null {
@@ -432,10 +433,26 @@ export function startSandboxProbe(baseUrl: string): void {
 
   // Run an initial tick shortly after startup (allow the server to warm up).
   const warmupDelay = 15_000;
-  const warmupTimer = setTimeout(() => void tick(baseUrl), warmupDelay);
+  _warmupTimer = setTimeout(() => void tick(baseUrl), warmupDelay);
   // Allow the process to exit without waiting for the initial tick.
-  if (warmupTimer.unref) warmupTimer.unref();
+  if (_warmupTimer.unref) _warmupTimer.unref();
 
   _probeInterval = setInterval(() => void tick(baseUrl), PROBE_INTERVAL_MS);
   if (_probeInterval.unref) _probeInterval.unref();
+}
+
+/**
+ * Stop the sandbox probe scheduler. Called during graceful shutdown to ensure
+ * the setInterval is cleared before the process exits — prevents orphaned timers
+ * from firing in zombie processes if the process is not killed promptly.
+ */
+export function stopSandboxProbe(): void {
+  if (_warmupTimer) {
+    clearTimeout(_warmupTimer);
+    _warmupTimer = null;
+  }
+  if (_probeInterval) {
+    clearInterval(_probeInterval);
+    _probeInterval = null;
+  }
 }
