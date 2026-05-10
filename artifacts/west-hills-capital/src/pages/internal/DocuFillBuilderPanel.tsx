@@ -545,7 +545,11 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
                         multiple
                         className="sr-only"
                         onChange={(e) => {
-                          if (e.target.files?.length) uploadDocuments(e.target.files);
+                          const files = e.target.files;
+                          if (files?.length) {
+                            if (files.length === 1) uploadDocument(files[0]);
+                            else uploadDocuments(files);
+                          }
                           e.target.value = "";
                         }}
                       />
@@ -556,7 +560,7 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
                   onDragEnter={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDocumentDropActive(true); }}
                   onDragOver={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; setIsDocumentDropActive(true); }}
                   onDragLeave={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDocumentDropActive(false); }}
-                  onDrop={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDocumentDropActive(false); uploadDocuments(e.dataTransfer.files); }}
+                  onDrop={(e: ReactDragEvent<HTMLDivElement>) => { e.preventDefault(); setIsDocumentDropActive(false); const files = e.dataTransfer.files; if (files.length === 1) uploadDocument(files[0]); else uploadDocuments(files); }}
                   className={`rounded-xl border-2 border-dashed p-6 text-center transition ${isDocumentDropActive ? "border-[#C49A38] bg-[#C49A38]/10" : "border-[#D4C9B5] bg-[#F8F6F0]"}`}
                 >
                   <div className="text-sm font-semibold text-[#0F1C3F]">Drag and drop multiple PDFs here</div>
@@ -569,7 +573,7 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
                       multiple
                       disabled={isUploadingDocument}
                       className="sr-only"
-                      onChange={(e) => { if (e.target.files?.length) uploadDocuments(e.target.files); e.target.value = ""; }}
+                      onChange={(e) => { const files = e.target.files; if (files?.length) { if (files.length === 1) uploadDocument(files[0]); else uploadDocuments(files); } e.target.value = ""; }}
                     />
                   </label>
                 </div>
