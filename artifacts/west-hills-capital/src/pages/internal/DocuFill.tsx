@@ -2468,13 +2468,10 @@ export default function DocuFill() {
             ? updatedPackage?.documents.find((d) => d.id === documentId)
             : updatedPackage?.documents[updatedPackage.documents.length - 1];
           if (targetDoc) {
-            setPendingAcroReview(null);
-            const result = autoMapAnnotationsWithLibrary(annotations, targetDoc.id);
-            const parts: string[] = [];
-            if (result.addedFromLibrary > 0) parts.push(`pulled ${result.addedFromLibrary} from library`);
-            if (result.mapped > 0) parts.push(`auto-mapped ${result.mapped}`);
-            if (result.unmatched > 0) parts.push(`${result.unmatched} unmatched — drag in the mapper`);
-            flashStatus(parts.length > 0 ? `AcroForm scan: ${parts.join(", ")}.` : "AcroForm scan complete.");
+            // Show the review overlay so the user can verify/adjust matches before
+            // auto-mapping commits them. The overlay's onConfirm calls
+            // autoMapAnnotationsWithLibrary to pull library fields and place mappings.
+            setPendingAcroReview({ documentId: targetDoc.id, docTitle: targetDoc.title, annotations });
             goBuilderStep("mapping");
           }
         } else {
@@ -3693,7 +3690,12 @@ export default function DocuFill() {
           packageFields={selectedPackage.fields}
           documentTitle={pendingAcroReview.docTitle}
           onConfirm={() => {
-            applyAnnotationMappingsForReview(pendingAcroReview.annotations);
+            const result = autoMapAnnotationsWithLibrary(pendingAcroReview.annotations, pendingAcroReview.documentId);
+            const parts: string[] = [];
+            if (result.addedFromLibrary > 0) parts.push(`pulled ${result.addedFromLibrary} from library`);
+            if (result.mapped > 0) parts.push(`auto-mapped ${result.mapped}`);
+            if (result.unmatched > 0) parts.push(`${result.unmatched} unmatched — drag in the mapper`);
+            flashStatus(parts.length > 0 ? `AcroForm scan: ${parts.join(", ")}.` : "AcroForm scan complete.");
             setPendingAcroReview(null);
           }}
           onSkip={() => setPendingAcroReview(null)}
