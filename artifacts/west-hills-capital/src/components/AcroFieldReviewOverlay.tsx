@@ -783,16 +783,6 @@ export function AcroFieldReviewOverlay({
             {decided} of {nonProtected} fields mapped
             {stats.prefilled > 0 && ` · ${stats.prefilled} protected`}
           </div>
-          {autoMappableCount > 0 && (
-            <button
-              onClick={autoMapAll}
-              className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold border transition-colors hover:bg-blue-50"
-              style={{ color: "#1D4ED8", borderColor: "#BFDBFE", background: "#EFF6FF" }}
-            >
-              <Zap className="w-4 h-4" />
-              Auto map {autoMappableCount} field{autoMappableCount !== 1 ? "s" : ""}
-            </button>
-          )}
           <button
             onClick={handleSkip}
             className="text-sm hover:opacity-70 transition-opacity"
