@@ -70,17 +70,20 @@ export async function getStripeSync() {
   const { StripeSync } = await import("stripe-replit-sync");
   const { secretKey } = await getCredentials();
 
-  // Apply the same SSL policy as the main pool: rejectUnauthorized: true in
-  // production, disabled in development. DB_SSL_CA is honoured here too.
+  // Apply the same SSL policy as the main pool (db.ts buildDbSslConfig).
+  // Railway Postgres uses a self-signed cert not in the Node.js CA bundle, so
+  // rejectUnauthorized must be false unless DB_SSL_CA is explicitly provided.
+  // The connection is still fully TLS-encrypted; only chain verification is relaxed.
+  const caPem = process.env.DB_SSL_CA
+    ? Buffer.from(process.env.DB_SSL_CA, "base64").toString("utf8")
+    : undefined;
   const sslConfig: false | { rejectUnauthorized: boolean; ca?: string } =
     process.env.NODE_ENV !== "production"
       ? false
-      : process.env.DB_SSL_CA
-        ? {
-            rejectUnauthorized: true,
-            ca: Buffer.from(process.env.DB_SSL_CA, "base64").toString("utf8"),
-          }
-        : { rejectUnauthorized: true };
+      : {
+          rejectUnauthorized: !!caPem,
+          ...(caPem ? { ca: caPem } : {}),
+        };
 
   return new StripeSync({
     poolConfig: {
