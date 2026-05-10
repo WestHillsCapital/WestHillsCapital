@@ -1,6 +1,13 @@
+import { useState } from "react";
+import { SandboxKeyModal } from "@/components/SandboxKeyModal";
+
 export default function SandboxDemo() {
+  const [showModal, setShowModal] = useState(false);
+
   return (
     <div className="docs-content">
+      {showModal && <SandboxKeyModal onClose={() => setShowModal(false)} />}
+
       <div className="mb-6">
         <div className="text-xs font-semibold uppercase tracking-widest text-[#5B8DEF] mb-2">Developer API</div>
         <h1>Public Sandbox Demo</h1>
@@ -17,6 +24,22 @@ export default function SandboxDemo() {
           westhillscapital.com/sandbox
         </a>{" "}
         to run the demo in your browser. No login required.
+      </div>
+
+      {/* Sandbox key access CTA */}
+      <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3.5 border border-[#1B4FD8]/25 bg-[#1B4FD8]/6 rounded-xl">
+        <div>
+          <p className="text-sm font-medium text-white/85">Ready to test with your own code?</p>
+          <p className="text-xs text-white/45 mt-0.5">
+            Get free sandbox keys for Node.js and Python — verify your email, no account needed.
+          </p>
+        </div>
+        <button
+          onClick={() => setShowModal(true)}
+          className="shrink-0 bg-[#1B4FD8] hover:bg-[#1740B8] text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors whitespace-nowrap"
+        >
+          Get sandbox keys →
+        </button>
       </div>
 
       <h2>How the sandbox works</h2>

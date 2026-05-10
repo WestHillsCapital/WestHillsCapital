@@ -3001,3 +3001,163 @@ export async function sendAffiliateWelcomeEmail(params: {
     text,
   });
 }
+
+// ── Sandbox key verification OTP email ────────────────────────────────────────
+
+export async function sendSandboxKeyVerificationEmail(
+  email: string,
+  code: string,
+): Promise<void> {
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
+  <tr><td align="center">
+    <table role="presentation" width="540" cellpadding="0" cellspacing="0"
+      style="background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;max-width:100%;">
+      <tr>
+        <td style="background:#1B4FD8;padding:18px 28px;">
+          <span style="font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">Docuplete</span>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:32px 28px 24px;">
+          <h1 style="margin:0 0 8px;font-size:20px;color:#111827;font-weight:600;">Your verification code</h1>
+          <p style="margin:0 0 24px;font-size:14px;color:#6b7280;line-height:1.6;">
+            Use this code to access your Docuplete sandbox API keys.
+          </p>
+          <div style="background:#f0f4ff;border:1px solid #c7d7fe;border-radius:8px;padding:24px 20px;text-align:center;margin-bottom:24px;">
+            <span style="font-size:40px;font-weight:700;letter-spacing:0.2em;color:#1B4FD8;font-family:'Courier New',Courier,monospace;">${code}</span>
+          </div>
+          <p style="margin:0;font-size:13px;color:#9ca3af;line-height:1.5;">
+            This code expires in <strong>15 minutes</strong>. If you didn't request sandbox access, you can safely ignore this email.
+          </p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;">Docuplete · Automated message — please do not reply</p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+
+  const text = `Your Docuplete sandbox verification code is: ${code}\n\nThis code expires in 15 minutes.\n\nIf you didn't request this, you can ignore this email.`;
+
+  await sendEmail({
+    to:       email,
+    fromName: "Docuplete",
+    subject:  `${code} — your Docuplete sandbox verification code`,
+    html,
+    text,
+  });
+}
+
+// ── Sandbox keys delivery email (sent after successful verification) ───────────
+
+export async function sendSandboxKeysEmail(
+  email: string,
+  sandboxKey: string,
+): Promise<void> {
+  const nodeSnippet = `import { Docuplete } from "@docuplete/sdk";
+
+const client = new Docuplete({ apiKey: "${sandboxKey}" });
+
+const { sessionToken, interviewUrl } = await client.sessions.create({
+  packageId: 42,   // ← your real package ID
+  prefill: { firstName: "Jane", email: "jane@example.com" },
+});
+
+console.log("Interview link:", interviewUrl);`;
+
+  const pythonSnippet = `from docuplete import Docuplete
+
+client = Docuplete(api_key="${sandboxKey}")
+
+session = client.sessions.create(
+    package_id=42,   # ← your real package ID
+    prefill={"firstName": "Jane", "email": "jane@example.com"},
+)
+print(f"Interview link: {session.interview_url}")`;
+
+  const pre = (s: string) =>
+    `<div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;padding:14px 16px;margin:0;overflow:auto;">` +
+    `<pre style="margin:0;font-family:'Courier New',Courier,monospace;font-size:12px;color:#334155;line-height:1.6;white-space:pre;">${s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre></div>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
+  <tr><td align="center">
+    <table role="presentation" width="560" cellpadding="0" cellspacing="0"
+      style="background:#ffffff;border-radius:10px;overflow:hidden;border:1px solid #e5e7eb;max-width:100%;">
+      <tr>
+        <td style="background:#1B4FD8;padding:18px 28px;">
+          <span style="font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.3px;">Docuplete</span>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:28px;">
+          <h1 style="margin:0 0 6px;font-size:20px;color:#111827;font-weight:600;">Your sandbox API keys</h1>
+          <p style="margin:0 0 20px;font-size:14px;color:#6b7280;line-height:1.6;">
+            Your sandbox key is ready. Sessions created with this key don't count toward production quotas
+            and generate watermarked PDFs.
+          </p>
+
+          <p style="margin:0 0 6px;font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:0.06em;">Your sandbox key</p>
+          <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:6px;padding:12px 16px;margin-bottom:24px;">
+            <code style="font-family:'Courier New',Courier,monospace;font-size:14px;color:#1d4ed8;font-weight:600;">${sandboxKey}</code>
+          </div>
+
+          <p style="margin:0 0 8px;font-size:13px;font-weight:600;color:#374151;">Node.js</p>
+          ${pre(nodeSnippet)}
+
+          <p style="margin:16px 0 8px;font-size:13px;font-weight:600;color:#374151;">Python</p>
+          ${pre(pythonSnippet)}
+
+          <div style="margin-top:24px;background:#fefce8;border:1px solid #fde68a;border-radius:6px;padding:12px 16px;">
+            <p style="margin:0;font-size:13px;color:#92400e;">
+              <strong>Ready for production?</strong> Visit <a href="https://app.docuplete.com/signup" style="color:#1B4FD8;">app.docuplete.com</a> to create an account and get a live API key.
+            </p>
+          </div>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding:16px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;">
+          <p style="margin:0;font-size:12px;color:#9ca3af;">Docuplete · Automated message — please do not reply</p>
+        </td>
+      </tr>
+    </table>
+  </td></tr>
+</table>
+</body>
+</html>`;
+
+  const text = [
+    "Your Docuplete sandbox API key",
+    "",
+    `Key: ${sandboxKey}`,
+    "",
+    "Node.js:",
+    nodeSnippet,
+    "",
+    "Python:",
+    pythonSnippet,
+    "",
+    "Sandbox sessions don't count toward production quotas and generate watermarked PDFs.",
+    "Ready for production? Visit https://app.docuplete.com/signup",
+  ].join("\n");
+
+  await sendEmail({
+    to:       email,
+    fromName: "Docuplete",
+    subject:  "Your Docuplete sandbox API keys",
+    html,
+    text,
+  });
+}
