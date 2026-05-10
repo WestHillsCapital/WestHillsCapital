@@ -1318,12 +1318,12 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
     result.fields = merged;
   }
   if (isEncryptionEnabled() && result.answers_ciphertext) {
-    try {
-      const dek = await getOrCreateAccountDek(result.account_id as number, getDb());
-      result.answers = decryptAnswers(result.answers_ciphertext as string, dek);
-    } catch (err) {
-      logger.warn({ err }, "[Encryption] Failed to decrypt session answers — returning plaintext fallback");
-    }
+    // Do NOT silently fall back to empty answers on decryption failure — that would
+    // make every required field appear unanswered and produce a misleading 400 from
+    // validateSessionAnswers. Instead, rethrow so callers receive a 500 with a
+    // clear message rather than a confusing "missing required fields" rejection.
+    const dek = await getOrCreateAccountDek(result.account_id as number, getDb());
+    result.answers = decryptAnswers(result.answers_ciphertext as string, dek);
   }
   delete result.answers_ciphertext;
   return result;

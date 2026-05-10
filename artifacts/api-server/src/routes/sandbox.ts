@@ -130,6 +130,17 @@ router.get("/start", async (req, res) => {
     const db = getDb();
     const { accountId, packageId } = await getOrCreateSandbox();
 
+    // Self-heal on every /start call: overwrite the package fields and auth_level
+    // so any external mutation (migration, admin action, library hydration write-back)
+    // is undone before the new session is created. Cheap — indexed UPDATE is a no-op
+    // when the values are already correct.
+    await db.query(
+      `UPDATE docufill_packages
+          SET fields = $1::jsonb, auth_level = 'none'
+        WHERE account_id = $2 AND status = 'active'`,
+      [JSON.stringify(DEMO_FIELDS), accountId],
+    );
+
     // Collect whitelisted URL params → prefill keyed by source key
     const prefill: Record<string, string> = {};
     const paramMap: Record<string, string> = {

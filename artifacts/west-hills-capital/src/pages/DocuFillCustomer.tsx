@@ -796,11 +796,22 @@ export default function DocuFillCustomer() {
         }
         setAnimationValues(animMap);
       }
-      await fetch(`${SESSION_BASE}/${token}`, {
+      const patchRes = await fetch(`${SESSION_BASE}/${token}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answers: finalAnswers }),
       });
+      if (!patchRes.ok) {
+        const patchErr = await patchRes.json().catch(() => ({} as { error?: string })) as { error?: string };
+        const isExpired = patchRes.status === 404;
+        setErrorMsg(
+          isExpired
+            ? "Your session has expired. Please start a new form."
+            : patchErr.error ?? "Could not save your answers. Please check your connection and try again.",
+        );
+        setPageStatus("ready");
+        return;
+      }
       const genBody: Record<string, unknown> = {};
       if (identityToken) genBody.esignToken = identityToken;
       if (signerName.trim()) genBody.signerName = signerName.trim();
