@@ -12,7 +12,16 @@ function getMasterKey(): Buffer {
 }
 
 export function isEncryptionEnabled(): boolean {
-  return !!process.env.ENCRYPTION_MASTER_KEY;
+  const raw = process.env.ENCRYPTION_MASTER_KEY;
+  if (!raw) return false;
+  // Validate that the key is parseable as a 32-byte hex string before reporting
+  // encryption as enabled. An invalid key would cause getMasterKey() to throw
+  // inside getOrCreateAccountDek, turning every session save/load into a 500.
+  try {
+    return Buffer.from(raw, "hex").length === 32;
+  } catch {
+    return false;
+  }
 }
 
 // ── AES-256-GCM primitives ─────────────────────────────────────────────────────

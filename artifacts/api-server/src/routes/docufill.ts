@@ -6149,9 +6149,16 @@ publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
     let answersParam: string = jsonParam(inputAnswers);
     let ciphertextParam: string | null = null;
     if (isEncryptionEnabled()) {
-      const dek = await getOrCreateAccountDek(accountId, db);
-      ciphertextParam = encryptAnswers(inputAnswers, dek);
-      answersParam = jsonParam({});
+      try {
+        const dek = await getOrCreateAccountDek(accountId, db);
+        ciphertextParam = encryptAnswers(inputAnswers, dek);
+        answersParam = jsonParam({});
+      } catch (encErr) {
+        // Log at ERROR so this is visible — but store plaintext rather than
+        // failing with a 500. Answers are saved; encryption is degraded.
+        logger.error({ err: encErr, accountId, token: req.params.token },
+          "[Encryption] Failed to encrypt session answers on PATCH — storing plaintext (investigate DEK)");
+      }
     }
     const { rows } = await db.query(
       `UPDATE docufill_interview_sessions SET
