@@ -2278,13 +2278,18 @@ export default function DocuFill() {
               docTitle: targetDoc.title || file.name,
               annotations,
             });
+            // Ensure user is on the mapper tab so the overlay is immediately visible
+            goBuilderStep("mapping");
           }
         } else {
           // No AcroForm fields — clear any stale review for this doc
           setPendingAcroReview(null);
+          flashStatus("PDF uploaded — no AcroForm fields detected. Map fields manually in the mapper.");
         }
-      } catch {
-        // Non-fatal — PDF scanning failure doesn't block the upload
+      } catch (scanErr) {
+        console.error("[AcroScan] Failed to scan PDF for form fields:", scanErr);
+        setPendingAcroReview(null);
+        flashStatus("PDF uploaded. Could not scan for AcroForm fields — map manually in the mapper.");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not upload PDF");
@@ -2302,6 +2307,7 @@ export default function DocuFill() {
     }
     setIsUploadingDocument(true);
     setError(null);
+    let foundAcroFields = false;
     try {
       for (const file of pdfFiles) {
         const updatedPackage = await persistDocumentPdf(file);
@@ -2316,14 +2322,22 @@ export default function DocuFill() {
               docTitle: targetDoc.title || file.name,
               annotations,
             });
+            foundAcroFields = true;
           } else {
             setPendingAcroReview(null);
           }
-        } catch {
-          // Non-fatal — PDF scanning failure doesn't block the upload
+        } catch (scanErr) {
+          console.error("[AcroScan] Failed to scan PDF for form fields:", scanErr);
+          setPendingAcroReview(null);
         }
       }
       flashStatus(`Uploaded ${pdfFiles.length} PDF${pdfFiles.length === 1 ? "" : "s"}.`);
+      // If any uploaded PDF had AcroForm fields, jump straight to the mapper
+      // so the Field Review overlay appears immediately rather than requiring
+      // the user to manually navigate there.
+      if (foundAcroFields) {
+        goBuilderStep("mapping");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not upload PDFs");
     } finally {

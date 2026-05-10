@@ -199,9 +199,15 @@ export function AcroFieldReviewOverlay({ annotations, packageFields, documentTit
           </div>
         )}
         <div className="flex-1" />
-        <span className="text-xs" style={{ color: MUTED }}>
-          Unmatched fields will be skipped by auto-map — drag them manually in the mapper.
-        </span>
+        {packageFields.length === 0 ? (
+          <span className="text-xs font-medium" style={{ color: "#B45309" }}>
+            No package fields defined yet — add fields in the Builder first, then re-upload to get auto-matches.
+          </span>
+        ) : (
+          <span className="text-xs" style={{ color: MUTED }}>
+            Unmatched fields will be skipped by auto-map — drag them manually in the mapper.
+          </span>
+        )}
       </div>
 
       {/* Column headers */}
