@@ -7,6 +7,7 @@ import { initDb, runDrizzleMigrations } from "./db";
 import { validateConfig } from "./lib/config";
 import { ObjectStorageService } from "./lib/objectStorage";
 import { enqueuePingJob } from "./lib/queue";
+import { startSandboxProbe } from "./lib/sandboxProbe";
 
 // ── 1. Resolve port ───────────────────────────────────────────────────────────
 const rawPort = process.env["PORT"];
@@ -126,6 +127,10 @@ const server: Server = app.listen(port, () => {
       void enqueuePingJob();
       // Initialize Stripe after DB is ready (non-fatal if it fails)
       void initStripe();
+      // Start the sandbox synthetic probe (runs every 5 minutes; first tick after 15 s).
+      // Probes the full start → PATCH → generate cycle and alerts via Sentry + email on failure.
+      // The probe's self-base-URL is localhost so it exercises the live HTTP layer.
+      startSandboxProbe(`http://localhost:${port}`);
       // Fulfillment scheduler and tracking sync now run as BullMQ repeatable
       // jobs in the worker process — see worker.ts for the registration.
     })

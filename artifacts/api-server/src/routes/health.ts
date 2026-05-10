@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
 import { HealthCheckResponse } from "@workspace/api-zod";
+import { getLastProbeResult } from "../lib/sandboxProbe.js";
 
 const router: IRouter = Router();
 
@@ -169,6 +170,42 @@ router.get("/healthz/config", (_req, res) => {
     },
     features: allFeatures,
     checkedAt: new Date().toISOString(),
+  });
+});
+
+/**
+ * GET /api/healthz/sandbox
+ *
+ * Returns the result of the most recent sandbox synthetic probe run.
+ *
+ * The probe exercises the full sandbox session lifecycle:
+ *   1. GET /api/v1/sandbox/start         → create a demo session
+ *   2. PATCH /api/v1/docuplete/public/sessions/:token → fill all required fields
+ *   3. POST  /api/v1/docuplete/public/sessions/:token/generate → trigger generation
+ *
+ * Each step is timed and its success/failure recorded. The probe runs every
+ * 5 minutes in the background and the cached result is returned here. A fresh
+ * probe is NOT triggered on every request to avoid hammering the DB.
+ *
+ * Response shape:
+ *   { ok, durationMs, checkedAt, steps: { start, patch, generate, cleanup? }, error? }
+ *
+ * HTTP status:
+ *   200 — probe passed on last run
+ *   503 — probe failed on last run
+ *   200 — probe has not run yet (server just started); body contains {status:"pending"}
+ */
+router.get("/healthz/sandbox", (_req, res) => {
+  const result = getLastProbeResult();
+
+  if (!result) {
+    res.status(200).json({ status: "pending", message: "Sandbox probe has not run yet — check back in 15 seconds" });
+    return;
+  }
+
+  res.status(result.ok ? 200 : 503).json({
+    status: result.ok ? "ok" : "failing",
+    ...result,
   });
 });
 
