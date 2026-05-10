@@ -57,6 +57,16 @@ export default function SandboxDemo() {
         displays it in the result screen alongside the raw API payload.
       </p>
 
+      <p className="text-sm">
+        Testing against the sandbox endpoint from your own code?{" "}
+        <button
+          onClick={() => setShowModal(true)}
+          className="text-[#5B8DEF] hover:text-[#93B4F7] underline underline-offset-2 decoration-[#5B8DEF]/40 hover:decoration-[#93B4F7]/60 transition-colors font-medium"
+        >
+          Get your free sandbox API keys →
+        </button>
+      </p>
+
       <h2>The sandbox endpoint</h2>
       <p>
         The sandbox exposes a single public endpoint — no API key required:
