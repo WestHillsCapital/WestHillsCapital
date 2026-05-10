@@ -2471,6 +2471,11 @@ export default function DocuFill() {
             // Show the review overlay so the user can verify/adjust matches before
             // auto-mapping commits them. The overlay's onConfirm calls
             // autoMapAnnotationsWithLibrary to pull library fields and place mappings.
+            // IMPORTANT: setSelectedDocumentId must be called BEFORE setPendingAcroReview
+            // so the mapper tab condition (pendingAcroReview.documentId === selectedDocumentId)
+            // evaluates true when the tab renders. Without this, the overlay is silently
+            // skipped if the user already had a different document selected.
+            setSelectedDocumentId(targetDoc.id);
             setPendingAcroReview({ documentId: targetDoc.id, docTitle: targetDoc.title, annotations });
             goBuilderStep("mapping");
           }
