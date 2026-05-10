@@ -2876,6 +2876,8 @@ export default function DocuFill() {
     let skipped = 0;
     // Track which fields were matched in this run for _2/_3 disambiguation.
     const alreadyMatchedInThisRun = new Set<string>();
+    // Track resolved selections to surface in the status message.
+    const resolvedNames: string[] = [];
     const currentMappings = useDocuFillStore.getState().mappings;
     pushUndo([...currentMappings]);
     let newMappings = [...currentMappings];
@@ -2904,6 +2906,7 @@ export default function DocuFill() {
       );
       if (alreadyMapped) { skipped++; continue; }
       alreadyMatchedInThisRun.add(field.id);
+      resolvedNames.push(field.name);
       newMappings = [
         ...newMappings,
         {
@@ -2928,8 +2931,12 @@ export default function DocuFill() {
       popUndo(); // discard the snapshot we just pushed
     }
     if (placed > 0) {
-      const skipNote = skipped > 0 ? ` (${skipped} PDF field${skipped === 1 ? "" : "s"} unmatched — drag them manually)` : "";
-      flashStatus(`Auto-mapped ${placed} field${placed === 1 ? "" : "s"} from PDF.${skipNote}`);
+      const skipNote = skipped > 0 ? ` · ${skipped} unmatched` : "";
+      const MAX_NAMES = 3;
+      const nameList = resolvedNames.length <= MAX_NAMES
+        ? resolvedNames.join(", ")
+        : `${resolvedNames.slice(0, MAX_NAMES).join(", ")} +${resolvedNames.length - MAX_NAMES} more`;
+      flashStatus(`Mapped ${placed} field${placed === 1 ? "" : "s"} from PDF: ${nameList}${skipNote}`);
     } else {
       const pdfNames = acroAnnotations.map((a) => a.fieldName).filter(Boolean).slice(0, 5).join(", ");
       flashStatus(
@@ -3806,21 +3813,23 @@ export default function DocuFill() {
           onConfirm={(choices) => {
             const snapshot = { ...pendingAcroReview };
             const result = applyReviewChoices(snapshot.documentId, snapshot.annotations, choices);
+            const deferred = choices.filter((c) => c.source === "none").length;
             const parts: string[] = [];
             if (result.addedFromLibrary > 0) parts.push(`pulled ${result.addedFromLibrary} from library`);
             if (result.mapped > 0) parts.push(`mapped ${result.mapped}`);
+            if (deferred > 0) parts.push(`${deferred} deferred — resolve with "Map from PDF" in the mapper`);
             // Advance queue: show next doc or clear
             const next = pendingAcroReviewQueue[0];
             if (next) {
               setPendingAcroReviewQueue((q) => q.slice(1));
               setSelectedDocumentId(next.documentId);
               setPendingAcroReview(next);
-              flashStatus(parts.length > 0 ? `AcroForm: ${parts.join(", ")}. Reviewing next document…` : "Reviewing next document…");
+              flashStatus(parts.length > 0 ? `AcroForm: ${parts.join("; ")}. Reviewing next document…` : "Reviewing next document…");
             } else {
               setPendingAcroReview(null);
               setPendingAcroReviewQueue([]);
               setPendingAcroReviewTotal(0);
-              flashStatus(parts.length > 0 ? `AcroForm scan complete: ${parts.join(", ")}.` : "AcroForm scan complete.");
+              flashStatus(parts.length > 0 ? `AcroForm scan complete: ${parts.join("; ")}.` : "AcroForm scan complete.");
             }
           }}
           onSkip={() => {
