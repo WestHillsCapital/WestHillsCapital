@@ -59,7 +59,7 @@ import { DocuFillBuilderPanel } from "./DocuFillBuilderPanel";
 import { DocuFillMapperPanel } from "./DocuFillMapperPanel";
 import { DocuFillInterviewPanel } from "./DocuFillInterviewPanel";
 import { DocuFillCsvPanel } from "./DocuFillCsvPanel";
-import { AcroFieldReviewOverlay, type PendingAnnotation } from "@/components/AcroFieldReviewOverlay";
+import { AcroFieldReviewOverlay, type PendingAnnotation, type RowChoice } from "@/components/AcroFieldReviewOverlay";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
 
@@ -626,6 +626,12 @@ export default function DocuFill() {
     docTitle: string;
     annotations: PendingAnnotation[];
   } | null>(null);
+  const [pendingAcroReviewQueue, setPendingAcroReviewQueue] = useState<Array<{
+    documentId: string;
+    docTitle: string;
+    annotations: PendingAnnotation[];
+  }>>([]);
+  const [pendingAcroReviewTotal, setPendingAcroReviewTotal] = useState(0);
   const mapperTextMode = useDocuFillStore((s) => s.mapperTextMode);
   const setMapperTextMode = useDocuFillStore((s) => s.setMapperTextMode);
   const [snapGrid, setSnapGrid] = useState<boolean>(() => {
@@ -2409,6 +2415,7 @@ export default function DocuFill() {
             page: pageNum,
             pageW: viewport.width,
             pageH: viewport.height,
+            prefillValue: String(a["fieldValue"] ?? ""),
           });
         }
       }
@@ -2504,41 +2511,39 @@ export default function DocuFill() {
     }
     setIsUploadingDocument(true);
     setError(null);
-    let foundAcroFields = false;
-    let totalMapped = 0;
-    let totalAdded = 0;
-    let totalUnmatched = 0;
+    type ReviewEntry = { documentId: string; docTitle: string; annotations: PendingAnnotation[] };
+    const reviewQueue: ReviewEntry[] = [];
     try {
       for (const file of pdfFiles) {
         const updatedPackage = await persistDocumentPdf(file);
-        // Scan each uploaded PDF for AcroForm fields, then auto-map against
-        // the package + shared field library.
+        // Scan each uploaded PDF for AcroForm fields.
+        // If fields are found, queue a review overlay so the user can verify matches
+        // before mappings are committed. Pre-filled fields (those with an existing value)
+        // are detected here and shown as protected in the review overlay.
         try {
           const annotations = await extractAcroFromFile(file);
           const targetDoc = updatedPackage?.documents[updatedPackage.documents.length - 1];
           if (annotations.length > 0 && targetDoc) {
-            const result = autoMapAnnotationsWithLibrary(annotations, targetDoc.id);
-            totalMapped += result.mapped;
-            totalAdded += result.addedFromLibrary;
-            totalUnmatched += result.unmatched;
-            foundAcroFields = true;
+            reviewQueue.push({ documentId: targetDoc.id, docTitle: targetDoc.title, annotations });
           }
-          setPendingAcroReview(null);
         } catch (scanErr) {
           console.error("[AcroScan] Failed to scan PDF for form fields:", scanErr);
-          setPendingAcroReview(null);
         }
       }
       const baseMsg = `Uploaded ${pdfFiles.length} PDF${pdfFiles.length === 1 ? "" : "s"}.`;
-      if (foundAcroFields) {
-        const parts: string[] = [];
-        if (totalAdded > 0) parts.push(`pulled ${totalAdded} from library`);
-        if (totalMapped > 0) parts.push(`auto-mapped ${totalMapped}`);
-        if (totalUnmatched > 0) parts.push(`${totalUnmatched} unmatched — drag in the mapper`);
-        flashStatus(parts.length > 0 ? `${baseMsg} ${parts.join(", ")}.` : baseMsg);
+      if (reviewQueue.length > 0) {
+        // Show review overlay for each document one at a time. The first is shown
+        // immediately; the rest are queued and will appear as each review is confirmed.
+        setPendingAcroReviewTotal(reviewQueue.length);
+        setSelectedDocumentId(reviewQueue[0].documentId);
+        setPendingAcroReview(reviewQueue[0]);
+        setPendingAcroReviewQueue(reviewQueue.slice(1));
         goBuilderStep("mapping");
+        flashStatus(`${baseMsg} Review AcroForm fields to confirm field mappings.`);
       } else {
-        flashStatus(baseMsg);
+        setPendingAcroReview(null);
+        setPendingAcroReviewQueue([]);
+        flashStatus(`${baseMsg} No AcroForm fields detected — map fields manually in the mapper.`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not upload PDFs");
@@ -2763,6 +2768,106 @@ export default function DocuFill() {
     } else {
       popUndo();
     }
+  }
+
+  function applyReviewChoices(
+    documentId: string,
+    annotations: PendingAnnotation[],
+    choices: RowChoice[],
+  ): { mapped: number; addedFromLibrary: number } {
+    if (!selectedPackage) return { mapped: 0, addedFromLibrary: 0 };
+
+    // Plan library fields to add (pre-compute IDs so we can reference them in mappings immediately)
+    const libAdditions = new Map<string, { fieldId: string; field: FieldItem }>();
+    for (const choice of choices) {
+      if (choice.source !== "library") continue;
+      if (libAdditions.has(choice.libraryId)) continue;
+      const lib = fieldLibrary.find((f) => f.id === choice.libraryId);
+      if (!lib) continue;
+      const existing = selectedPackage.fields.find((f) => f.libraryFieldId === lib.id);
+      if (existing) {
+        libAdditions.set(lib.id, { fieldId: existing.id, field: existing });
+      } else {
+        const fieldId = newId("field");
+        const usedColors = [
+          ...selectedPackage.fields.map((f) => f.color),
+          ...Array.from(libAdditions.values()).map((a) => a.field.color),
+        ];
+        const newField: FieldItem = {
+          id: fieldId,
+          libraryFieldId: lib.id,
+          name: lib.label,
+          color: pickFieldColor(usedColors, lib.sensitive),
+          type: lib.type,
+          optionsMode: "inherit",
+          interviewMode: lib.required ? "required" : "optional",
+          defaultValue: "",
+          source: lib.source,
+          sensitive: lib.sensitive,
+          validationType: lib.validationType,
+          validationPattern: lib.validationPattern ?? "",
+          validationMessage: lib.validationMessage ?? "",
+        };
+        libAdditions.set(lib.id, { fieldId, field: newField });
+      }
+    }
+
+    // Batch-add brand-new library fields to the package in one update
+    const newFields = Array.from(libAdditions.values())
+      .filter(({ field }) => !selectedPackage.fields.find((f) => f.id === field.id))
+      .map(({ field }) => field);
+    if (newFields.length > 0) {
+      updateSelectedPackage((pkg) => ({ ...pkg, fields: [...pkg.fields, ...newFields] }));
+    }
+
+    // Build mappings using the resolved field IDs
+    const currentMappings = useDocuFillStore.getState().mappings;
+    pushUndo([...currentMappings]);
+    const newMappings = [...currentMappings];
+    let mapped = 0;
+
+    for (let i = 0; i < choices.length; i++) {
+      const choice = choices[i];
+      if (!choice || choice.source === "none") continue;
+      const ann = annotations[i];
+      if (!ann) continue;
+
+      let fieldId: string;
+      if (choice.source === "package") {
+        fieldId = choice.fieldId;
+      } else {
+        const addition = libAdditions.get(choice.libraryId);
+        if (!addition) continue;
+        fieldId = addition.fieldId;
+      }
+
+      const [x1, y1, x2, y2] = ann.rect;
+      const xPct = clampPercent((x1 / ann.pageW) * 100, 0, 98);
+      const yPct = clampPercent(((ann.pageH - y2) / ann.pageH) * 100, 0, 98);
+      const wPct = Math.max(((x2 - x1) / ann.pageW) * 100, 1);
+      const hPct = Math.max(((y2 - y1) / ann.pageH) * 100, 0.5);
+
+      const pkgField = [...selectedPackage.fields, ...newFields].find((f) => f.id === fieldId);
+      newMappings.push({
+        id: newId("map"),
+        fieldId,
+        documentId,
+        page: ann.page,
+        x: xPct, y: yPct, w: wPct, h: hPct,
+        fontSize: 11,
+        align: "left",
+        format: pkgField ? defaultMappingFormat(pkgField) : "",
+      });
+      mapped++;
+    }
+
+    if (mapped > 0) {
+      useDocuFillStore.getState().setMappings(newMappings);
+    } else {
+      popUndo();
+    }
+
+    return { mapped, addedFromLibrary: newFields.length };
   }
 
   function autoMapFromPdfFields() {
@@ -3691,19 +3796,46 @@ export default function DocuFill() {
 
       {tab === "mapper" && pendingAcroReview && pendingAcroReview.documentId === selectedDocumentId && selectedPackage && (
         <AcroFieldReviewOverlay
+          key={pendingAcroReview.documentId}
           annotations={pendingAcroReview.annotations}
           packageFields={selectedPackage.fields}
+          fieldLibrary={fieldLibrary}
           documentTitle={pendingAcroReview.docTitle}
-          onConfirm={() => {
-            const result = autoMapAnnotationsWithLibrary(pendingAcroReview.annotations, pendingAcroReview.documentId);
+          documentIndex={pendingAcroReviewTotal > 0 ? pendingAcroReviewTotal - pendingAcroReviewQueue.length : undefined}
+          documentTotal={pendingAcroReviewTotal > 1 ? pendingAcroReviewTotal : undefined}
+          onConfirm={(choices) => {
+            const snapshot = { ...pendingAcroReview };
+            const result = applyReviewChoices(snapshot.documentId, snapshot.annotations, choices);
             const parts: string[] = [];
             if (result.addedFromLibrary > 0) parts.push(`pulled ${result.addedFromLibrary} from library`);
-            if (result.mapped > 0) parts.push(`auto-mapped ${result.mapped}`);
-            if (result.unmatched > 0) parts.push(`${result.unmatched} unmatched — drag in the mapper`);
-            flashStatus(parts.length > 0 ? `AcroForm scan: ${parts.join(", ")}.` : "AcroForm scan complete.");
-            setPendingAcroReview(null);
+            if (result.mapped > 0) parts.push(`mapped ${result.mapped}`);
+            // Advance queue: show next doc or clear
+            const next = pendingAcroReviewQueue[0];
+            if (next) {
+              setPendingAcroReviewQueue((q) => q.slice(1));
+              setSelectedDocumentId(next.documentId);
+              setPendingAcroReview(next);
+              flashStatus(parts.length > 0 ? `AcroForm: ${parts.join(", ")}. Reviewing next document…` : "Reviewing next document…");
+            } else {
+              setPendingAcroReview(null);
+              setPendingAcroReviewQueue([]);
+              setPendingAcroReviewTotal(0);
+              flashStatus(parts.length > 0 ? `AcroForm scan complete: ${parts.join(", ")}.` : "AcroForm scan complete.");
+            }
           }}
-          onSkip={() => setPendingAcroReview(null)}
+          onSkip={() => {
+            // Skip this doc's review; still advance the queue
+            const next = pendingAcroReviewQueue[0];
+            if (next) {
+              setPendingAcroReviewQueue((q) => q.slice(1));
+              setSelectedDocumentId(next.documentId);
+              setPendingAcroReview(next);
+            } else {
+              setPendingAcroReview(null);
+              setPendingAcroReviewQueue([]);
+              setPendingAcroReviewTotal(0);
+            }
+          }}
         />
       )}
 
