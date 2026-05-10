@@ -251,9 +251,12 @@ for d in data.get("deliveries", []):
       </p>
       <pre>{`import httpx
 
-response = httpx.post(
+# /sandbox/start is GET — prefill is supplied via query params (all optional).
+# Accepted keys: firstName, lastName, email, dateOfBirth,
+# addressLine1, city, state, zip
+response = httpx.get(
     "https://api.docuplete.com/api/v1/sandbox/start",
-    json={
+    params={
         "firstName": "Jane",
         "lastName":  "Smith",
         "email":     "jane@example.com",
