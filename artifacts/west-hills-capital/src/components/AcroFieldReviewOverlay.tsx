@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect, useRef } from "react";
-import { CheckCircle2, AlertCircle, Minus, X, Lock, ChevronDown, Search, ArrowRight, Info } from "lucide-react";
+import { CheckCircle2, AlertCircle, Minus, X, Lock, ChevronDown, Search, ArrowRight, Info, Zap, TrendingUp } from "lucide-react";
 import type { FieldItem } from "@/lib/docufill-types";
 import type { FieldLibraryItem } from "@/lib/docufill-local-types";
 
@@ -22,6 +22,7 @@ export type RowChoice =
 
 type RowDecision = {
   choice: RowChoice;
+  autoMatch: RowChoice | null; // best algorithmic suggestion, even if below auto-apply threshold
   initialScore: number;
   userModified: boolean;
 };
@@ -69,9 +70,30 @@ function computeInitialDecisions(
 ): RowDecision[] {
   const usedPkgIds = new Set<string>();
   const usedLibIds = new Set<string>();
+
+  // Helper: best match anywhere (no threshold, no deduplication) — used for the "Auto map" button
+  function findBestMatch(fieldName: string): RowChoice | null {
+    let bestPkg: FieldItem | undefined; let bestPkgScore = 0;
+    for (const f of packageFields) {
+      const s = scoreMatch(f.name, fieldName);
+      if (s > bestPkgScore) { bestPkgScore = s; bestPkg = f; }
+    }
+    let bestLib: FieldLibraryItem | undefined; let bestLibScore = 0;
+    for (const lib of fieldLibrary) {
+      if (!lib.active) continue;
+      const s = scoreMatch(lib.label, fieldName);
+      if (s > bestLibScore) { bestLibScore = s; bestLib = lib; }
+    }
+    if (bestPkg && bestPkgScore >= bestLibScore && bestPkgScore > 0)
+      return { source: "package", fieldId: bestPkg.id, label: bestPkg.name };
+    if (bestLib && bestLibScore > 0)
+      return { source: "library", libraryId: bestLib.id, label: bestLib.label };
+    return null;
+  }
+
   return annotations.map((ann) => {
-    if (ann.prefillValue) return { choice: { source: "none" }, initialScore: 0, userModified: false };
-    if (!ann.fieldName) return { choice: { source: "none" }, initialScore: 0, userModified: false };
+    if (ann.prefillValue) return { choice: { source: "none" }, autoMatch: null, initialScore: 0, userModified: false };
+    if (!ann.fieldName)   return { choice: { source: "none" }, autoMatch: null, initialScore: 0, userModified: false };
 
     let bestPkg: FieldItem | undefined; let bestPkgScore = 0;
     for (const f of packageFields) {
@@ -88,13 +110,16 @@ function computeInitialDecisions(
     }
     if (bestPkg && bestPkgScore >= bestLibScore) {
       usedPkgIds.add(bestPkg.id);
-      return { choice: { source: "package", fieldId: bestPkg.id, label: bestPkg.name }, initialScore: bestPkgScore, userModified: false };
+      const choice: RowChoice = { source: "package", fieldId: bestPkg.id, label: bestPkg.name };
+      return { choice, autoMatch: choice, initialScore: bestPkgScore, userModified: false };
     }
     if (bestLib) {
       usedLibIds.add(bestLib.id);
-      return { choice: { source: "library", libraryId: bestLib.id, label: bestLib.label }, initialScore: bestLibScore, userModified: false };
+      const choice: RowChoice = { source: "library", libraryId: bestLib.id, label: bestLib.label };
+      return { choice, autoMatch: choice, initialScore: bestLibScore, userModified: false };
     }
-    return { choice: { source: "none" }, initialScore: 0, userModified: false };
+    // No match above threshold — compute best available for autoMatch
+    return { choice: { source: "none" }, autoMatch: findBestMatch(ann.fieldName), initialScore: 0, userModified: false };
   });
 }
 
@@ -140,13 +165,14 @@ function confidenceLabelOf(ann: PendingAnnotation, dec: RowDecision): { label: s
 
 interface DropdownProps {
   current: RowChoice;
+  autoMatch: RowChoice | null;
   packageFields: FieldItem[];
   fieldLibrary: FieldLibraryItem[];
   disabled?: boolean;
   onChange: (choice: RowChoice) => void;
 }
 
-function FieldDropdown({ current, packageFields, fieldLibrary, disabled, onChange }: DropdownProps) {
+function FieldDropdown({ current, autoMatch, packageFields, fieldLibrary, disabled, onChange }: DropdownProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -173,6 +199,10 @@ function FieldDropdown({ current, packageFields, fieldLibrary, disabled, onChang
 
   const select = (choice: RowChoice) => { onChange(choice); setOpen(false); };
 
+  const autoMatchLabel = autoMatch && autoMatch.source !== "none"
+    ? (autoMatch.source === "package" ? autoMatch.label : autoMatch.label)
+    : null;
+
   return (
     <div ref={containerRef} className="relative">
       <button
@@ -192,9 +222,12 @@ function FieldDropdown({ current, packageFields, fieldLibrary, disabled, onChang
       </button>
 
       {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 w-72 bg-white rounded-xl shadow-2xl border"
-             style={{ borderColor: BORDER }}>
-          <div className="p-2 border-b" style={{ borderColor: BORDER }}>
+        <div
+          className="absolute top-full left-0 mt-1 z-50 w-72 bg-white rounded-xl shadow-2xl border flex flex-col"
+          style={{ borderColor: BORDER, maxHeight: "380px" }}
+        >
+          {/* ── Search bar (always visible) ── */}
+          <div className="shrink-0 p-2 border-b" style={{ borderColor: BORDER }}>
             <div className="flex items-center gap-2 px-2 py-1.5 bg-[#F8F6F0] rounded-lg">
               <Search className="w-3.5 h-3.5 flex-shrink-0" style={{ color: MUTED }} />
               <input
@@ -209,7 +242,8 @@ function FieldDropdown({ current, packageFields, fieldLibrary, disabled, onChang
             </div>
           </div>
 
-          <div className="max-h-64 overflow-y-auto py-1">
+          {/* ── Scrollable field list ── */}
+          <div className="overflow-y-auto flex-1 min-h-0 py-1">
             {filteredPkg.length > 0 && (
               <div>
                 <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest" style={{ color: MUTED }}>
@@ -248,36 +282,170 @@ function FieldDropdown({ current, packageFields, fieldLibrary, disabled, onChang
 
             {filteredPkg.length === 0 && filteredLib.length === 0 && (
               <div className="px-3 py-4 text-sm text-center italic" style={{ color: MUTED }}>
-                No fields match "{query}"
+                No fields match &quot;{query}&quot;
               </div>
             )}
+          </div>
 
-            <div className="border-t mt-1 pt-1" style={{ borderColor: BORDER }}>
-              <div className="px-3 py-1 text-[9px] font-bold uppercase tracking-widest" style={{ color: MUTED }}>
-                Can't map it from here?
-              </div>
-              <button onClick={() => select({ source: "none" })}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-[#F8F6F0] transition-colors flex items-center gap-2"
-                style={{ color: "#D97706" }}>
-                <ArrowRight className="w-3.5 h-3.5" />
-                <div>
-                  <div className="font-medium">Resolve in mapper</div>
-                  <div className="text-[11px] opacity-70">Flagged for attention once you see its position on the PDF.</div>
-                </div>
-              </button>
-              <button onClick={() => select({ source: "none" })}
-                className="w-full text-left px-3 py-2 text-sm hover:bg-[#F8F6F0] transition-colors flex items-center gap-2"
-                style={{ color: MUTED }}>
-                <Minus className="w-3.5 h-3.5" />
-                <div>
-                  <div className="font-medium">Leave blank</div>
-                  <div className="text-[11px] opacity-70">Included in the package but always submits empty.</div>
-                </div>
-              </button>
+          {/* ── Sticky footer: Can't map it from here? ── always visible ── */}
+          <div className="shrink-0 border-t" style={{ borderColor: BORDER }}>
+            <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-widest" style={{ color: MUTED }}>
+              Can't map it from here?
             </div>
+
+            {/* Auto map */}
+            <button
+              onClick={() => autoMatch && select(autoMatch)}
+              disabled={!autoMatch}
+              className={`w-full text-left px-3 py-2 text-sm flex items-center gap-2 transition-colors ${
+                autoMatch ? "hover:bg-[#F8F6F0]" : "opacity-40 cursor-not-allowed"
+              }`}
+              style={{ color: "#1D4ED8" }}
+            >
+              <Zap className="w-3.5 h-3.5 shrink-0" />
+              <div>
+                <div className="font-medium">Auto map</div>
+                <div className="text-[11px] opacity-70">
+                  {autoMatchLabel
+                    ? <>Best match: <span className="font-medium">{autoMatchLabel}</span></>
+                    : "No algorithmic match found"}
+                </div>
+              </div>
+            </button>
+
+            {/* Resolve in mapper */}
+            <button
+              onClick={() => select({ source: "none" })}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-[#F8F6F0] transition-colors flex items-center gap-2"
+              style={{ color: "#D97706" }}
+            >
+              <ArrowRight className="w-3.5 h-3.5 shrink-0" />
+              <div>
+                <div className="font-medium">Resolve in mapper</div>
+                <div className="text-[11px] opacity-70">Flagged for attention once you see its position on the PDF.</div>
+              </div>
+            </button>
+
+            {/* Leave blank */}
+            <button
+              onClick={() => select({ source: "none" })}
+              className="w-full text-left px-3 py-2 text-sm hover:bg-[#F8F6F0] transition-colors flex items-center gap-2"
+              style={{ color: MUTED }}
+            >
+              <Minus className="w-3.5 h-3.5 shrink-0" />
+              <div>
+                <div className="font-medium">Leave blank</div>
+                <div className="text-[11px] opacity-70">Included in the package but always submits empty.</div>
+              </div>
+            </button>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ─── Mapping guide modal ───────────────────────────────────────────────────────
+
+function MappingGuide({ onClose }: { onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.35)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="bg-white rounded-2xl border shadow-2xl max-w-md w-full overflow-hidden"
+           style={{ borderColor: BORDER }}>
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: BORDER }}>
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded flex items-center justify-center" style={{ background: NAV }}>
+              <span className="text-white text-[11px] font-bold">D</span>
+            </div>
+            <h3 className="font-semibold text-sm" style={{ color: NAV }}>How field mapping works</h3>
+          </div>
+          <button onClick={onClose} className="hover:opacity-60 transition-opacity" style={{ color: MUTED }}>
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="px-5 py-4 space-y-4">
+          {/* Auto-mapping */}
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+              <Zap className="w-4 h-4 text-emerald-600" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm mb-0.5" style={{ color: NAV }}>Auto-mapping</p>
+              <p className="text-xs leading-relaxed" style={{ color: MUTED }}>
+                Docuplete scores each AcroForm field name against your field library using fuzzy matching.
+                High-confidence matches are auto-confirmed; lower-confidence ones are flagged for your review.
+                You can also trigger auto-map manually on any field via the dropdown footer.
+              </p>
+            </div>
+          </div>
+
+          {/* Improves over time */}
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+              <TrendingUp className="w-4 h-4 text-blue-600" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm mb-0.5" style={{ color: NAV }}>Gets better over time</p>
+              <p className="text-xs leading-relaxed" style={{ color: MUTED }}>
+                Each package you build expands your field library. As more fields are named and confirmed,
+                the system has more patterns to match against — so accuracy improves with every document
+                you add.
+              </p>
+            </div>
+          </div>
+
+          {/* AcroField quality */}
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-full bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0 mt-0.5">
+              <AlertCircle className="w-4 h-4 text-amber-500" />
+            </div>
+            <div>
+              <p className="font-semibold text-sm mb-0.5" style={{ color: NAV }}>AcroField quality matters</p>
+              <p className="text-xs leading-relaxed" style={{ color: MUTED }}>
+                PDFs whose internal field names are descriptive (e.g. <span className="font-mono text-[10px] bg-[#F1EEE8] px-1 rounded">clientFirstName</span>) map
+                far better than those using generic labels like <span className="font-mono text-[10px] bg-[#F1EEE8] px-1 rounded">field_47</span>.
+                If you can, request better-labeled source files from your document vendor.
+              </p>
+            </div>
+          </div>
+
+          {/* Resolve in mapper */}
+          <div className="flex gap-3">
+            <div className="w-8 h-8 rounded-full border flex items-center justify-center shrink-0 mt-0.5"
+                 style={{ background: "#FFFBEB", borderColor: "#FDE68A" }}>
+              <ArrowRight className="w-4 h-4" style={{ color: "#D97706" }} />
+            </div>
+            <div>
+              <p className="font-semibold text-sm mb-0.5" style={{ color: NAV }}>Resolve in mapper</p>
+              <p className="text-xs leading-relaxed" style={{ color: MUTED }}>
+                Can't tell what a field is from its name alone? Choose "Resolve in mapper" and
+                Docuplete will highlight it when you open the visual mapper — where you can see
+                exactly where it sits on the PDF page and decide from there.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 pb-5">
+          <button
+            onClick={onClose}
+            className="w-full py-2.5 rounded-lg text-sm font-semibold text-white transition-all"
+            style={{ background: NAV }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#1a2d5a")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = NAV)}
+          >
+            Got it
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -309,7 +477,17 @@ export function AcroFieldReviewOverlay({
   const [decisions, setDecisions] = useState<RowDecision[]>(() =>
     computeInitialDecisions(annotations, packageFields, fieldLibrary)
   );
-  const [showTip, setShowTip] = useState(true);
+
+  // Show the mapping guide on first visit; persist dismissal in localStorage
+  const [showGuide, setShowGuide] = useState(() => {
+    try { return !localStorage.getItem("docuplete_acro_guide_seen"); }
+    catch { return true; }
+  });
+
+  function dismissGuide() {
+    try { localStorage.setItem("docuplete_acro_guide_seen", "1"); } catch {}
+    setShowGuide(false);
+  }
 
   const activeLib = useMemo(() => fieldLibrary.filter((f) => f.active), [fieldLibrary]);
 
@@ -376,9 +554,20 @@ export function AcroFieldReviewOverlay({
             </div>
           </div>
         </div>
-        <button onClick={handleSkip} className="flex items-center gap-1 text-sm hover:opacity-70 transition-opacity flex-shrink-0 ml-4" style={{ color: MUTED }}>
-          <X className="w-4 h-4" /> Skip
-        </button>
+        <div className="flex items-center gap-2 ml-4 flex-shrink-0">
+          <button
+            onClick={() => setShowGuide(true)}
+            title="How field mapping works"
+            className="flex items-center gap-1 px-2 py-1 rounded-md text-xs hover:bg-[#F1EEE8] transition-colors"
+            style={{ color: MUTED }}
+          >
+            <Info className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">How it works</span>
+          </button>
+          <button onClick={handleSkip} className="flex items-center gap-1 text-sm hover:opacity-70 transition-opacity" style={{ color: MUTED }}>
+            <X className="w-4 h-4" /> Skip
+          </button>
+        </div>
       </div>
 
       {/* ── Keyboard shortcuts bar ── */}
@@ -397,19 +586,8 @@ export function AcroFieldReviewOverlay({
         </span>
       </div>
 
-      {/* ── Tip banner ── */}
-      {showTip && (
-        <div className="shrink-0 px-6 py-2.5 flex items-center gap-3 border-b" style={{ background: "#FFFBEB", borderColor: "#FDE68A" }}>
-          <Info className="w-4 h-4 flex-shrink-0 text-amber-500" />
-          <span className="text-xs flex-1" style={{ color: "#92400E" }}>
-            <strong>Tip:</strong> Have the original form available to help identify fields — physical labels often differ from internal field names.
-            Pre-filled fields (showing a lock icon) are already stamped in the PDF and will <strong>not</strong> be overwritten.
-          </span>
-          <button onClick={() => setShowTip(false)} className="text-amber-400 hover:text-amber-600 flex-shrink-0">
-            <X className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      )}
+      {/* ── Mapping guide modal (first-visit + info button) ── */}
+      {showGuide && <MappingGuide onClose={dismissGuide} />}
 
       {/* ── Summary strip ── */}
       <div className="shrink-0 px-6 py-2.5 bg-white border-b flex items-center gap-6 flex-wrap" style={{ borderColor: BORDER }}>
@@ -534,6 +712,7 @@ export function AcroFieldReviewOverlay({
                 ) : (
                   <FieldDropdown
                     current={dec.choice}
+                    autoMatch={dec.autoMatch}
                     packageFields={packageFields}
                     fieldLibrary={activeLib}
                     onChange={(choice) => {
