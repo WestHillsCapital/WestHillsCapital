@@ -146,10 +146,21 @@ async function initStripe(): Promise<void> {
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) return; // no DB — skip silently (healthcheck will catch it)
 
+  // Mirror the same SSL policy used in db.ts and stripeClient.ts.
+  // Railway Postgres uses a self-signed cert that isn't in the Node.js CA bundle,
+  // so rejectUnauthorized must be false unless a custom CA is explicitly provided.
+  const caPem = process.env.DB_SSL_CA
+    ? Buffer.from(process.env.DB_SSL_CA, "base64").toString("utf8")
+    : undefined;
+  const migrationSsl: { rejectUnauthorized: boolean; ca?: string } | undefined =
+    process.env.NODE_ENV !== "production"
+      ? undefined
+      : { rejectUnauthorized: !!caPem, ...(caPem ? { ca: caPem } : {}) };
+
   try {
     const { runMigrations } = await import("stripe-replit-sync");
     logger.info("[Stripe] Initializing stripe schema...");
-    await runMigrations({ databaseUrl });
+    await runMigrations({ databaseUrl, ssl: migrationSsl });
     logger.info("[Stripe] stripe schema ready");
 
     // Managed webhook setup and backfill — non-fatal individually
