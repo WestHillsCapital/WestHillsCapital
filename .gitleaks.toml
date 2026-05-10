@@ -1,0 +1,24 @@
+# Gitleaks configuration — secret scanning allowlist
+# Patterns listed here are intentionally safe to commit (publishable keys,
+# price IDs, and placeholder values) and will not trigger scan failures.
+
+title = "Docuplete Gitleaks Config"
+
+[allowlist]
+description = "Known-safe publishable keys, price IDs, and placeholder values"
+
+regexes = [
+  # Stripe publishable keys (pk_live_ / pk_test_) — designed to be public
+  '''pk_live_[A-Za-z0-9]+''',
+  '''pk_test_[A-Za-z0-9]+''',
+
+  # Clerk publishable keys (pk_test_ / pk_live_ with base64 instance suffix) — designed to be public
+  '''pk_test_[A-Za-z0-9+/=_-]{10,}''',
+  '''pk_live_[A-Za-z0-9+/=_-]{10,}''',
+
+  # Stripe price IDs — non-secret product/price identifiers
+  '''price_[A-Za-z0-9]+''',
+
+  # Placeholder webhook secret — sentinel value used in dev, not a real secret
+  '''whsec_dev_placeholder[A-Za-z0-9_-]*''',
+]
