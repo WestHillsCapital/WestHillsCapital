@@ -159,7 +159,27 @@ const { interviewUrl, expiresAt } = await response.json();
 // Send interviewUrl to your client
 console.log("Interview link:", interviewUrl);`}</pre>
 
-      <h2>Python example</h2>
+      <h2>Python SDK</h2>
+      <p>
+        If you're using Python, the <a href="/developer/python-sdk">official SDK</a> reduces this to
+        a few clean lines:
+      </p>
+      <pre>{`from docuplete import Docuplete
+
+client = Docuplete(api_key="dp_live_...")
+
+session = client.sessions.create(
+    package_id=42,
+    prefill={
+        "firstName": "Jane",
+        "email": "jane@example.com",
+    }
+)
+
+print(f"Interview link: {session.interview_url}")`}</pre>
+
+      <h2>Python (requests)</h2>
+      <p>No SDK? Call the API directly with <code>requests</code>:</p>
       <pre>{`import os, requests
 
 resp = requests.post(
