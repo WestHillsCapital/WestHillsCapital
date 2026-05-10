@@ -176,6 +176,59 @@ function newId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 }
 
+// ─── Field-name fuzzy scoring (shared by AcroForm auto-map + library match) ───
+const SCORE_MODIFIER_WORDS = new Set([
+  "client", "mailing", "physical", "account", "applicant", "signer",
+  "legal", "primary", "secondary", "billing", "home", "work", "middle",
+  "holder", "registered", "beneficial", "joint", "co", "current",
+]);
+const SCORE_STOP_WORDS = new Set(["the", "a", "an", "of", "in", "for", "to", "on", "at", "by", "or", "and", "if"]);
+const SCORE_FORMAT_HINTS = /\s*(mm[\/-]?dd[\/-]?yyyy|mmddyyyy|yyyymmdd|mm\/dd\/yy|\(mm\/dd\/yyyy\))\s*/gi;
+
+function scoreNorm(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(SCORE_FORMAT_HINTS, " ")
+    .replace(/\s+-\s+.*$/, "")
+    .replace(/_\d+$/, "")
+    .replace(/\s+\d+$/, "")
+    .replace(/_/g, " ")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function scoreStripMods(name: string): string {
+  return name.split(" ").filter((w) => !SCORE_MODIFIER_WORDS.has(w)).join(" ").trim();
+}
+function scoreAcronym(name: string): string {
+  return name.split(/\s+/).map((w) => w[0] ?? "").join("").toLowerCase();
+}
+function scoreMeaningfulWords(name: string): Set<string> {
+  return new Set(name.split(/\s+/).filter((w) => w.length >= 2 && !SCORE_STOP_WORDS.has(w)));
+}
+function fieldNameScore(fieldName: string, pdfName: string): number {
+  const nf = scoreNorm(fieldName); const np = scoreNorm(pdfName);
+  if (nf === np) return 100;
+  const sf = scoreStripMods(nf); const sp = scoreStripMods(np);
+  if (sf === np || nf === sp || sf === sp) return 90;
+  if (sf.length >= 2 && np.includes(sf)) return 75;
+  if (sp.length >= 2 && nf.includes(sp)) return 75;
+  if (nf.includes(np) || np.includes(nf)) return 70;
+  if (sf.includes(sp) || sp.includes(sf)) return 70;
+  const wf = scoreMeaningfulWords(sf); const wp = scoreMeaningfulWords(sp);
+  if (wf.size > 0 && wp.size > 0) {
+    const inter = [...wf].filter((w) => wp.has(w)).length;
+    const union = new Set([...wf, ...wp]).size;
+    const j = inter / union;
+    if (j >= 0.5) return Math.round(40 + j * 30);
+  }
+  const acf = scoreAcronym(nf); const acp = scoreAcronym(np);
+  if (acf.length >= 2 && acf === np) return 60;
+  if (acp.length >= 2 && acp === nf) return 60;
+  return 0;
+}
+const FIELD_NAME_SCORE_THRESHOLD = 35;
+
 
 const FIELD_COLOR_PALETTE = [
   "#EF4444", "#F97316", "#F59E0B", "#EAB308", "#84CC16",
@@ -2117,6 +2170,147 @@ export default function DocuFill() {
     goBuilderStep("mapping");
   }
 
+  /**
+   * Auto-map AcroForm annotations against the current package + the shared
+   * field library. For each PDF widget:
+   *   1. Try to match an existing package field (existing scoring)
+   *   2. If no package match, try to match a library field — if found, add
+   *      that library field to the package automatically
+   *   3. Anything still unmatched is left as a PDF widget for the user to
+   *      drag in the mapper
+   * Returns counts so the caller can show a friendly status message.
+   */
+  function autoMapAnnotationsWithLibrary(
+    annotations: PendingAnnotation[],
+    documentId: string,
+  ): { mapped: number; addedFromLibrary: number; unmatched: number } {
+    if (!selectedPackage || annotations.length === 0) {
+      return { mapped: 0, addedFromLibrary: 0, unmatched: 0 };
+    }
+
+    const existingFields = selectedPackage.fields;
+    const usedPackageFieldIds = new Set<string>();
+    const usedLibraryIds = new Set<string>();
+    const newFields: FieldItem[] = [];
+
+    type Resolved = { ann: PendingAnnotation; fieldId: string | null };
+    const resolutions: Resolved[] = [];
+
+    // Library fields already represented in the package (by libraryFieldId)
+    // shouldn't be re-added — but we should still allow matching to them via
+    // the existing package-field path.
+    const libraryIdsInPackage = new Set(
+      existingFields.map((f) => f.libraryFieldId).filter((v): v is string => Boolean(v)),
+    );
+
+    for (const ann of annotations) {
+      if (!ann.fieldName) { resolutions.push({ ann, fieldId: null }); continue; }
+
+      // 1) Best existing package field
+      let bestPkgField: FieldItem | undefined;
+      let bestPkgScore = 0;
+      for (const f of existingFields) {
+        if (usedPackageFieldIds.has(f.id)) continue;
+        const s = fieldNameScore(f.name, ann.fieldName);
+        if (s >= FIELD_NAME_SCORE_THRESHOLD && s > bestPkgScore) {
+          bestPkgScore = s; bestPkgField = f;
+        }
+      }
+
+      // 2) Best library field (only if not already in package, not already used this run)
+      let bestLib: FieldLibraryItem | undefined;
+      let bestLibScore = 0;
+      for (const lib of fieldLibrary) {
+        if (!lib.active) continue;
+        if (libraryIdsInPackage.has(lib.id)) continue;
+        if (usedLibraryIds.has(lib.id)) continue;
+        const s = fieldNameScore(lib.label, ann.fieldName);
+        if (s >= FIELD_NAME_SCORE_THRESHOLD && s > bestLibScore) {
+          bestLibScore = s; bestLib = lib;
+        }
+      }
+
+      // Prefer existing package field on ties; library wins only if strictly better
+      if (bestPkgField && bestPkgScore >= bestLibScore) {
+        usedPackageFieldIds.add(bestPkgField.id);
+        resolutions.push({ ann, fieldId: bestPkgField.id });
+      } else if (bestLib) {
+        usedLibraryIds.add(bestLib.id);
+        const newField: FieldItem = {
+          id: newId("field"),
+          libraryFieldId: bestLib.id,
+          name: bestLib.label,
+          color: pickFieldColor(
+            [...existingFields.map((f) => f.color), ...newFields.map((f) => f.color)],
+            bestLib.sensitive,
+          ),
+          type: bestLib.type,
+          optionsMode: "inherit",
+          interviewMode: bestLib.required ? "required" : "optional",
+          defaultValue: "",
+          source: bestLib.source,
+          sensitive: bestLib.sensitive,
+          validationType: bestLib.validationType,
+          validationPattern: bestLib.validationPattern ?? "",
+          validationMessage: bestLib.validationMessage ?? "",
+        };
+        newFields.push(newField);
+        resolutions.push({ ann, fieldId: newField.id });
+      } else {
+        resolutions.push({ ann, fieldId: null });
+      }
+    }
+
+    // Build new mappings
+    const currentMappings = useDocuFillStore.getState().mappings;
+    pushUndo([...currentMappings]);
+    const newMappings = [...currentMappings];
+
+    const fieldLookup = new Map<string, FieldItem>();
+    existingFields.forEach((f) => fieldLookup.set(f.id, f));
+    newFields.forEach((f) => fieldLookup.set(f.id, f));
+
+    let mapped = 0;
+    for (const r of resolutions) {
+      if (!r.fieldId) continue;
+      const ann = r.ann;
+      const [x1, y1, x2, y2] = ann.rect;
+      const xPct = clampPercent((x1 / ann.pageW) * 100, 0, 98);
+      const yPct = clampPercent(((ann.pageH - y2) / ann.pageH) * 100, 0, 98);
+      const wPct = Math.max(((x2 - x1) / ann.pageW) * 100, 1);
+      const hPct = Math.max(((y2 - y1) / ann.pageH) * 100, 0.5);
+      const alreadyMapped = newMappings.some(
+        (m) => m.fieldId === r.fieldId && m.documentId === documentId &&
+               m.page === ann.page && Math.abs(m.x - xPct) < 3 && Math.abs(m.y - yPct) < 3,
+      );
+      if (alreadyMapped) continue;
+      const field = fieldLookup.get(r.fieldId);
+      if (!field) continue;
+      newMappings.push({
+        id: newId("map"),
+        fieldId: r.fieldId,
+        documentId,
+        page: ann.page,
+        x: xPct, y: yPct, w: wPct, h: hPct,
+        fontSize: 11, align: "left",
+        format: defaultMappingFormat(field),
+      });
+      mapped++;
+    }
+
+    if (newFields.length > 0) {
+      updateSelectedPackage((pkg) => ({ ...pkg, fields: [...newFields, ...pkg.fields] }));
+    }
+    if (mapped > 0) {
+      useDocuFillStore.getState().setMappings(newMappings);
+    } else if (newFields.length === 0) {
+      popUndo();
+    }
+
+    const unmatched = resolutions.filter((r) => r.fieldId === null).length;
+    return { mapped, addedFromLibrary: newFields.length, unmatched };
+  }
+
   function sortFieldsByPdfPosition(pkg: PackageItem): PackageItem {
     const docIndexMap = new Map(pkg.documents.map((d, i) => [d.id, i]));
     const storeMappingsForSort = useDocuFillStore.getState().mappings;
@@ -2264,8 +2458,9 @@ export default function DocuFill() {
     try {
       const updatedPackage = await persistDocumentPdf(file, documentId);
       flashStatus(documentId ? "Replaced PDF." : "Uploaded PDF.");
-      // After upload, scan the PDF for AcroForm fields so we can show the
-      // Field Review overlay when the user navigates to the mapper.
+      // After upload, scan the PDF for AcroForm fields, then auto-map against
+      // the package + shared field library. Anything unmatched is left as a
+      // PDF widget the user can drag in the mapper.
       try {
         const annotations = await extractAcroFromFile(file);
         if (annotations.length > 0) {
@@ -2273,16 +2468,16 @@ export default function DocuFill() {
             ? updatedPackage?.documents.find((d) => d.id === documentId)
             : updatedPackage?.documents[updatedPackage.documents.length - 1];
           if (targetDoc) {
-            setPendingAcroReview({
-              documentId: targetDoc.id,
-              docTitle: targetDoc.title || file.name,
-              annotations,
-            });
-            // Ensure user is on the mapper tab so the overlay is immediately visible
+            setPendingAcroReview(null);
+            const result = autoMapAnnotationsWithLibrary(annotations, targetDoc.id);
+            const parts: string[] = [];
+            if (result.addedFromLibrary > 0) parts.push(`pulled ${result.addedFromLibrary} from library`);
+            if (result.mapped > 0) parts.push(`auto-mapped ${result.mapped}`);
+            if (result.unmatched > 0) parts.push(`${result.unmatched} unmatched — drag in the mapper`);
+            flashStatus(parts.length > 0 ? `AcroForm scan: ${parts.join(", ")}.` : "AcroForm scan complete.");
             goBuilderStep("mapping");
           }
         } else {
-          // No AcroForm fields — clear any stale review for this doc
           setPendingAcroReview(null);
           flashStatus("PDF uploaded — no AcroForm fields detected. Map fields manually in the mapper.");
         }
@@ -2308,35 +2503,40 @@ export default function DocuFill() {
     setIsUploadingDocument(true);
     setError(null);
     let foundAcroFields = false;
+    let totalMapped = 0;
+    let totalAdded = 0;
+    let totalUnmatched = 0;
     try {
       for (const file of pdfFiles) {
         const updatedPackage = await persistDocumentPdf(file);
-        // Scan each uploaded PDF for AcroForm fields so the Field Review
-        // overlay fires when the user navigates to the mapper.
+        // Scan each uploaded PDF for AcroForm fields, then auto-map against
+        // the package + shared field library.
         try {
           const annotations = await extractAcroFromFile(file);
           const targetDoc = updatedPackage?.documents[updatedPackage.documents.length - 1];
           if (annotations.length > 0 && targetDoc) {
-            setPendingAcroReview({
-              documentId: targetDoc.id,
-              docTitle: targetDoc.title || file.name,
-              annotations,
-            });
+            const result = autoMapAnnotationsWithLibrary(annotations, targetDoc.id);
+            totalMapped += result.mapped;
+            totalAdded += result.addedFromLibrary;
+            totalUnmatched += result.unmatched;
             foundAcroFields = true;
-          } else {
-            setPendingAcroReview(null);
           }
+          setPendingAcroReview(null);
         } catch (scanErr) {
           console.error("[AcroScan] Failed to scan PDF for form fields:", scanErr);
           setPendingAcroReview(null);
         }
       }
-      flashStatus(`Uploaded ${pdfFiles.length} PDF${pdfFiles.length === 1 ? "" : "s"}.`);
-      // If any uploaded PDF had AcroForm fields, jump straight to the mapper
-      // so the Field Review overlay appears immediately rather than requiring
-      // the user to manually navigate there.
+      const baseMsg = `Uploaded ${pdfFiles.length} PDF${pdfFiles.length === 1 ? "" : "s"}.`;
       if (foundAcroFields) {
+        const parts: string[] = [];
+        if (totalAdded > 0) parts.push(`pulled ${totalAdded} from library`);
+        if (totalMapped > 0) parts.push(`auto-mapped ${totalMapped}`);
+        if (totalUnmatched > 0) parts.push(`${totalUnmatched} unmatched — drag in the mapper`);
+        flashStatus(parts.length > 0 ? `${baseMsg} ${parts.join(", ")}.` : baseMsg);
         goBuilderStep("mapping");
+      } else {
+        flashStatus(baseMsg);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not upload PDFs");
@@ -2507,78 +2707,9 @@ export default function DocuFill() {
   ): FieldItem | undefined {
     if (!ann.fieldName) return undefined;
 
-    const MODIFIER_WORDS = new Set([
-      "client", "mailing", "physical", "account", "applicant", "signer",
-      "legal", "primary", "secondary", "billing", "home", "work", "middle",
-      "holder", "registered", "beneficial", "joint", "co", "current",
-    ]);
-    const STOP_WORDS = new Set(["the", "a", "an", "of", "in", "for", "to", "on", "at", "by", "or", "and", "if"]);
-    const FORMAT_HINTS = /\s*(mm[\/-]?dd[\/-]?yyyy|mmddyyyy|yyyymmdd|mm\/dd\/yy|\(mm\/dd\/yyyy\))\s*/gi;
-
-    function norm(name: string): string {
-      return name
-        .toLowerCase()
-        .replace(FORMAT_HINTS, " ")
-        .replace(/\s+-\s+.*$/, "")  // strip " - Category" suffix (e.g. "City - Address" → "city")
-        .replace(/_\d+$/, "")       // trailing _2 _3 …
-        .replace(/\s+\d+$/, "")     // trailing " 2" " 3" …
-        .replace(/_/g, " ")
-        .replace(/[^\w\s]/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-    }
-
-    function stripMods(name: string): string {
-      return name
-        .split(" ")
-        .filter((w) => !MODIFIER_WORDS.has(w))
-        .join(" ")
-        .trim();
-    }
-
-    function acronym(name: string): string {
-      return name.split(/\s+/).map((w) => w[0] ?? "").join("").toLowerCase();
-    }
-
-    function meaningfulWords(name: string): Set<string> {
-      return new Set(name.split(/\s+/).filter((w) => w.length >= 2 && !STOP_WORDS.has(w)));
-    }
-
-    function scoreMatch(fieldName: string, pdfName: string): number {
-      const nf = norm(fieldName);
-      const np = norm(pdfName);
-      if (nf === np) return 100;
-
-      const sf = stripMods(nf);
-      const sp = stripMods(np);
-      if (sf === np || nf === sp || sf === sp) return 90;
-
-      if (sf.length >= 2 && np.includes(sf)) return 75;
-      if (sp.length >= 2 && nf.includes(sp)) return 75;
-      if (nf.includes(np) || np.includes(nf)) return 70;
-      if (sf.includes(sp) || sp.includes(sf)) return 70;
-
-      const wf = meaningfulWords(sf);
-      const wp = meaningfulWords(sp);
-      if (wf.size > 0 && wp.size > 0) {
-        const inter = [...wf].filter((w) => wp.has(w)).length;
-        const union = new Set([...wf, ...wp]).size;
-        const j = inter / union;
-        if (j >= 0.5) return Math.round(40 + j * 30);
-      }
-
-      const acf = acronym(nf);
-      const acp = acronym(np);
-      if (acf.length >= 2 && acf === np) return 60;
-      if (acp.length >= 2 && acp === nf) return 60;
-
-      return 0;
-    }
-
-    const THRESHOLD = 35;
     const candidates = fields
-      .map((f) => ({ field: f, score: scoreMatch(f.name, ann.fieldName) }))
-      .filter((c) => c.score >= THRESHOLD)
+      .map((f) => ({ field: f, score: fieldNameScore(f.name, ann.fieldName) }))
+      .filter((c) => c.score >= FIELD_NAME_SCORE_THRESHOLD)
       .sort((a, b) => b.score - a.score);
 
     if (candidates.length === 0) return undefined;
