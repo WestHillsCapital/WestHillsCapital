@@ -491,6 +491,21 @@ export function AcroFieldReviewOverlay({
 
   const activeLib = useMemo(() => fieldLibrary.filter((f) => f.active), [fieldLibrary]);
 
+  // Count unmapped fields that have an algorithmic match available
+  const autoMappableCount = useMemo(
+    () => decisions.filter((d, i) => !annotations[i]?.prefillValue && d.choice.source === "none" && d.autoMatch !== null).length,
+    [decisions, annotations],
+  );
+
+  function autoMapAll() {
+    setDecisions((prev) =>
+      prev.map((d) => {
+        if (d.choice.source !== "none" || !d.autoMatch) return d;
+        return { ...d, choice: d.autoMatch, userModified: true };
+      }),
+    );
+  }
+
   const stats = useMemo(() => {
     let confirmed = 0, verify = 0, needsAction = 0, prefilled = 0;
     annotations.forEach((ann, i) => {
@@ -623,7 +638,17 @@ export function AcroFieldReviewOverlay({
             No package fields yet — add fields in the Builder first to get auto-matches.
           </span>
         )}
-        {stats.needsAction > 0 && packageFields.length > 0 && (
+        {autoMappableCount > 0 && (
+          <button
+            onClick={autoMapAll}
+            className="flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold border transition-colors hover:bg-blue-50"
+            style={{ color: "#1D4ED8", borderColor: "#BFDBFE", background: "#EFF6FF" }}
+          >
+            <Zap className="w-3 h-3" />
+            Auto map {autoMappableCount} field{autoMappableCount !== 1 ? "s" : ""}
+          </button>
+        )}
+        {stats.needsAction > 0 && autoMappableCount === 0 && packageFields.length > 0 && (
           <span className="text-xs" style={{ color: MUTED }}>
             {stats.needsAction} unresolved — will defer to mapper
           </span>
@@ -758,6 +783,16 @@ export function AcroFieldReviewOverlay({
             {decided} of {nonProtected} fields mapped
             {stats.prefilled > 0 && ` · ${stats.prefilled} protected`}
           </div>
+          {autoMappableCount > 0 && (
+            <button
+              onClick={autoMapAll}
+              className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-semibold border transition-colors hover:bg-blue-50"
+              style={{ color: "#1D4ED8", borderColor: "#BFDBFE", background: "#EFF6FF" }}
+            >
+              <Zap className="w-4 h-4" />
+              Auto map {autoMappableCount} field{autoMappableCount !== 1 ? "s" : ""}
+            </button>
+          )}
           <button
             onClick={handleSkip}
             className="text-sm hover:opacity-70 transition-opacity"
