@@ -63,16 +63,20 @@ export function getLastProbeResult(): SandboxProbeResult | null {
 }
 
 // ── Demo answers — satisfy all DEMO_FIELDS required constraints ───────────────
-
-const PROBE_ANSWERS = {
-  firstName:    "Probe",
-  lastName:     "Monitor",
-  email:        "probe@sandbox.docuplete.com",
-  dateOfBirth:  "1990-01-01",
-  addressLine1: "123 Health Check Lane",
-  city:         "Monitorville",
-  state:        "CA",
-  zip:          "90210",
+// Keyed by field.id (NOT field.source) — the frontend writes answers keyed by
+// field.id and the backend's validateSessionAnswers reads answers[field.id]
+// first. Source-keyed answers only resolve via the prefill fallback, which the
+// probe doesn't populate. Using source keys would make the probe falsely report
+// "missing required fields" 400s while real users succeed.
+const PROBE_ANSWERS: Record<string, string> = {
+  client_first_name:    "Probe",
+  client_last_name:     "Monitor",
+  client_email:         "probe@sandbox.docuplete.com",
+  client_dob:           "1990-01-01",
+  client_address_line1: "123 Health Check Lane",
+  client_city:          "Monitorville",
+  client_state:         "CA",
+  client_zip:           "90210",
 };
 
 // ── Step runner ───────────────────────────────────────────────────────────────

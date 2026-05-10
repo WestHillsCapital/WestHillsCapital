@@ -19,8 +19,25 @@ type SandboxCtx = { accountId: number; packageId: number };
  * Uses a PostgreSQL advisory lock (id 777_777) to serialise concurrent
  * cold-start requests so only one process does the bootstrap work.
  */
+/**
+ * Self-heal the sandbox package's auth_level on every call. Cheap indexed UPDATE
+ * (WHERE clause on indexed account_id, no-op when already 'none'). Necessary
+ * because external writes (admin PATCH /packages/:id, migrations, manual SQL)
+ * can flip auth_level to 'email_otp', which would gate the demo behind real
+ * email OTP and produce a 401 from /generate — a bug observed in production.
+ */
+async function ensureSandboxAuthLevelNone(accountId: number): Promise<void> {
+  const db = getDb();
+  await db.query(
+    `UPDATE docufill_packages SET auth_level = 'none' WHERE account_id = $1 AND auth_level != 'none'`,
+    [accountId],
+  );
+}
+
 async function getOrCreateSandbox(): Promise<SandboxCtx> {
   if (_sandboxAccountId && _sandboxPackageId) {
+    // Self-heal on every call — see ensureSandboxAuthLevelNone for rationale.
+    await ensureSandboxAuthLevelNone(_sandboxAccountId);
     return { accountId: _sandboxAccountId, packageId: _sandboxPackageId };
   }
 
@@ -73,10 +90,7 @@ async function getOrCreateSandbox(): Promise<SandboxCtx> {
   // Always ensure the sandbox package has auth_level = 'none' (defense in depth:
   // seedDemoPackage may run before this update, or the package may have been
   // modified externally).
-  await db.query(
-    `UPDATE docufill_packages SET auth_level = 'none' WHERE account_id = $1 AND auth_level != 'none'`,
-    [accountId],
-  );
+  await ensureSandboxAuthLevelNone(accountId);
 
   const pkgResult = await db.query<{ id: number; version: number; transaction_scope: string | null }>(
     `SELECT id, version, transaction_scope
