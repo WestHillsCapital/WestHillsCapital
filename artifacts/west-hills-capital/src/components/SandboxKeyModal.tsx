@@ -1,6 +1,6 @@
 import { useState } from "react";
 
-const API_BASE = "https://workspaceapi-server-production-987b.up.railway.app";
+const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 const DISPOSABLE_DOMAINS = new Set([
   "10minutemail.com","10minutemail.net","10minutemail.org","10minutemail.de",
@@ -53,13 +53,13 @@ interface Props {
 const STEP_LABELS = ["Email", "Verify", "Keys"];
 
 export function SandboxKeyModal({ onClose }: Props) {
-  const [step, setStep]           = useState<Step>("email");
-  const [email, setEmail]         = useState("");
-  const [code, setCode]           = useState("");
+  const [step, setStep]             = useState<Step>("email");
+  const [email, setEmail]           = useState("");
+  const [code, setCode]             = useState("");
   const [sandboxKey, setSandboxKey] = useState("");
-  const [loading, setLoading]     = useState(false);
-  const [error, setError]         = useState("");
-  const [copied, setCopied]       = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState("");
+  const [copied, setCopied]         = useState(false);
 
   const stepIndex = { email: 0, code: 1, keys: 2 }[step];
 
@@ -210,8 +210,8 @@ print(f"Interview link: {session.interview_url}")`;
         {/* Step indicators */}
         <div className="flex items-center gap-0 px-6 pt-6 pb-0">
           {STEP_LABELS.map((label, i) => {
-            const active  = i === stepIndex;
-            const done    = i < stepIndex;
+            const active = i === stepIndex;
+            const done   = i < stepIndex;
             return (
               <div key={label} className="flex items-center">
                 <div className="flex items-center gap-1.5">
@@ -270,7 +270,6 @@ print(f"Interview link: {session.interview_url}")`;
                   {loading ? "Sending…" : "Send verification code →"}
                 </button>
               </form>
-
             </>
           )}
 

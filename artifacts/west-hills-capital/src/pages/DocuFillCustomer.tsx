@@ -7,6 +7,7 @@ import { ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE 
 import SignaturePad, { type SignaturePadRef } from "@/components/SignaturePad";
 import { MerlinCustomerChat } from "@/components/MerlinCustomerChat";
 import { HowItWorksAnimation } from "@/components/HowItWorksAnimation";
+import { SandboxKeyModal } from "@/components/SandboxKeyModal";
 import * as pdfjsLib from "pdfjs-dist";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
@@ -319,6 +320,7 @@ export default function DocuFillCustomer() {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showSandboxKeyModal, setShowSandboxKeyModal] = useState(false);
   // Sandbox-mode extras
   const [pdfHash, setPdfHash]   = useState<string | null>(null);
   const [showJson, setShowJson] = useState(false);
@@ -1055,7 +1057,22 @@ export default function DocuFillCustomer() {
                     ))}
                   </div>
                   <HowItWorksAnimation liveValues={animationValues} />
+
+                  {/* Sandbox keys CTA */}
+                  <button
+                    onClick={() => setShowSandboxKeyModal(true)}
+                    className="mt-2 w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold text-[#5B8DEF] hover:text-[#93B4F7] border border-[#1B4FD8]/25 hover:border-[#1B4FD8]/50 bg-[#1B4FD8]/6 hover:bg-[#1B4FD8]/10 rounded-lg py-2 transition-all"
+                  >
+                    <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1121.75 8.25z" />
+                    </svg>
+                    Get sandbox API keys
+                  </button>
                 </div>
+
+                {showSandboxKeyModal && (
+                  <SandboxKeyModal onClose={() => setShowSandboxKeyModal(false)} />
+                )}
 
                 <p className="text-[10px] text-[#4B5A7A] text-center pt-1">
                   Sandbox session — data not retained
