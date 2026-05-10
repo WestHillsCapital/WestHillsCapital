@@ -1318,12 +1318,17 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
     result.fields = merged;
   }
   if (isEncryptionEnabled() && result.answers_ciphertext) {
-    // Do NOT silently fall back to empty answers on decryption failure — that would
-    // make every required field appear unanswered and produce a misleading 400 from
-    // validateSessionAnswers. Instead, rethrow so callers receive a 500 with a
-    // clear message rather than a confusing "missing required fields" rejection.
-    const dek = await getOrCreateAccountDek(result.account_id as number, getDb());
-    result.answers = decryptAnswers(result.answers_ciphertext as string, dek);
+    try {
+      const dek = await getOrCreateAccountDek(result.account_id as number, getDb());
+      result.answers = decryptAnswers(result.answers_ciphertext as string, dek);
+    } catch (err) {
+      // Log at ERROR (not warn) so this is always surfaced — decryption failure
+      // means the session's answers cannot be read. We fall back to the plaintext
+      // answers column (which may be empty) rather than crashing the session load.
+      // TODO: investigate why DEK retrieval or decryption is failing in production.
+      logger.error({ err, accountId: result.account_id, token: result.token },
+        "[Encryption] Failed to decrypt session answers — falling back to plaintext column (investigate DEK)");
+    }
   }
   delete result.answers_ciphertext;
   return result;
