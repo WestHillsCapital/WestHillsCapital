@@ -425,10 +425,10 @@ async function getYahooHistory(period: string): Promise<HistoryPoint[]> {
   return data;
 }
 
-const DB_PERIOD_INTERVAL: Record<string, string> = {
-  "1D": "1 day",
-  "1W": "7 days",
-  "1M": "30 days",
+const DB_PERIOD_DAYS: Record<string, number> = {
+  "1D": 1,
+  "1W": 7,
+  "1M": 30,
 };
 
 // GET /api/pricing/history?period=1D|1W|1M|3M|6M|1Y|5Y|ALL
@@ -437,10 +437,10 @@ router.get("/history", async (req, res): Promise<void> => {
     const period = typeof req.query.period === "string" ? req.query.period : "1M";
 
     // Short periods (1D/1W/1M) — DB hourly data
-    if (period in DB_PERIOD_INTERVAL) {
+    if (period in DB_PERIOD_DAYS) {
       await ensureHistoryTable();
       const db = getDb();
-      const interval = DB_PERIOD_INTERVAL[period];
+      const days = DB_PERIOD_DAYS[period];
       const { rows } = await db.query<{
         gold_bid: string;
         silver_bid: string;
@@ -448,8 +448,9 @@ router.get("/history", async (req, res): Promise<void> => {
       }>(
         `SELECT gold_bid, silver_bid, captured_at
          FROM spot_price_history
-         WHERE captured_at >= NOW() - INTERVAL '${interval}'
+         WHERE captured_at >= NOW() - make_interval(days => $1)
          ORDER BY captured_at ASC`,
+        [days],
       );
       res.json({
         history: rows.map((r) => ({
