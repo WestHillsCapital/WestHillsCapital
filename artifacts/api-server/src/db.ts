@@ -2059,6 +2059,11 @@ export async function initDb(): Promise<void> {
     ON accounts (pending_parent_invite_token)
     WHERE pending_parent_invite_token IS NOT NULL
   `);
+
+  // ── Merlin session: persist customer's first name for reliable name recall ──
+  // Extracted from the first "first name" field Merlin records and injected
+  // back into every subsequent system prompt so the name survives long sessions.
+  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS customer_first_name TEXT`);
 }
 
 // ── Scheduler functions (exported for BullMQ worker) ─────────────────────────

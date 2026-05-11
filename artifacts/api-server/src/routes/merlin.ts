@@ -577,7 +577,8 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
   try {
     const db = getDb();
     const { rows } = await db.query(
-      `SELECT s.token, s.status, s.prefill, s.expires_at, p.name AS package_name,
+      `SELECT s.token, s.status, s.prefill, s.expires_at, s.customer_first_name,
+              p.name AS package_name,
               p.fields AS package_fields, p.description AS package_description
          FROM docufill_interview_sessions s
          LEFT JOIN docufill_packages p ON p.id = s.package_id
@@ -599,10 +600,13 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
       return;
     }
 
-    const session       = rows[0] as Record<string, unknown>;
-    const prefill       = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-    const fields        = Array.isArray(session.package_fields) ? session.package_fields as Array<Record<string, unknown>> : [];
+    const session        = rows[0] as Record<string, unknown>;
+    const prefill        = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
+    const fields         = Array.isArray(session.package_fields) ? session.package_fields as Array<Record<string, unknown>> : [];
     const currentAnswers = answers ?? {};
+    const storedName     = typeof session.customer_first_name === "string" && session.customer_first_name.trim()
+      ? session.customer_first_name.trim()
+      : null;
 
     // Build field summary including conditional logic so Merlin can reason about visibility
     const interviewFields = fields.filter((f) => f.interviewMode !== "omitted" && f.interviewMode !== "readonly");
@@ -649,6 +653,8 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
       MERLIN_IDENTITY,
       "",
       `You are guiding a customer through the "${String(session.package_name)}" form. Your role is to ask about one topic at a time, extract their answers, and call update_form_fields to record them. The form auto-fills as you go.`,
+      "",
+      storedName ? `KNOWN FACT: The customer's first name is ${storedName}. Use it naturally in your messages — not every single time, but enough that the conversation feels personal.` : "",
       "",
       `Context about this customer (pre-filled by their advisor):`,
       prefillSummary || "  (no pre-filled data)",
@@ -705,6 +711,29 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
 
     if (Object.keys(fieldUpdates).length > 0) {
       sseWrite(res, { type: "field_updates", updates: fieldUpdates });
+
+      // Check whether any updated field is a "first name" field and persist the
+      // value. We update even if a name was already stored so the customer can
+      // correct their name mid-session and have Merlin use the new value.
+      const firstNameFieldId = Object.keys(fieldUpdates).find((id) => {
+        const field = fields.find((f) => String(f.id) === id);
+        if (!field) return false;
+        const label = String((field.label as string | undefined) ?? field.name ?? "").toLowerCase();
+        return /\bfirst\s*name\b|\bgiven\s*name\b/.test(label);
+      });
+
+      if (firstNameFieldId) {
+        // Normalize: strip control characters/newlines and clamp to 100 chars
+        // to prevent malformed values from contaminating the system prompt.
+        const rawName     = fieldUpdates[firstNameFieldId];
+        const cleanedName = rawName.replace(/[\x00-\x1F\x7F]/g, " ").trim().slice(0, 100);
+        if (cleanedName && cleanedName !== storedName) {
+          await db.query(
+            `UPDATE docufill_interview_sessions SET customer_first_name = $1 WHERE token = $2`,
+            [cleanedName, token],
+          );
+        }
+      }
     }
 
     sseWrite(res, { type: "done" });
