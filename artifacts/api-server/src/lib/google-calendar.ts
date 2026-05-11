@@ -1,4 +1,5 @@
 import { google } from "googleapis";
+import * as Sentry from "@sentry/node";
 import { logger } from "./logger";
 
 // ── Configuration ─────────────────────────────────────────────────────────────
@@ -109,7 +110,11 @@ export async function getBusyPeriods(
     );
     return periods;
   } catch (err) {
-    logger.error({ err }, "[Calendar] freebusy query failed — proceeding without busy check");
+    logger.error({ err, calendarIds }, "[Calendar] freebusy query failed — proceeding without busy check");
+    Sentry.captureException(err, {
+      tags: { feature: "google_calendar", operation: "freebusy.query" },
+      extra: { calendarIds },
+    });
     return [];
   }
 }
@@ -233,7 +238,29 @@ export async function createBookingEvent(params: {
     );
     return eventId;
   } catch (err) {
-    logger.error({ err }, "[Calendar] Failed to create event — booking still confirmed in DB");
+    // Extract the Google API HTTP status code if present so it shows in logs
+    const status = (err as { status?: number; code?: number })?.status
+      ?? (err as { status?: number; code?: number })?.code
+      ?? null;
+    const message = (err as { message?: string })?.message ?? String(err);
+
+    logger.error(
+      { err, status, calendarId: BOOKING_CALENDAR_ID, confirmationId: params.confirmationId },
+      `[Calendar] Failed to create event (HTTP ${status ?? "?"}) — booking still confirmed in DB`
+    );
+
+    // Explicitly report to Sentry — this catch block swallows the error so
+    // Sentry's default unhandled-rejection handler would never see it.
+    Sentry.captureException(err, {
+      tags: { feature: "google_calendar", operation: "events.insert" },
+      extra: {
+        confirmationId: params.confirmationId,
+        calendarId: BOOKING_CALENDAR_ID,
+        httpStatus: status,
+        message,
+      },
+    });
+
     return null;
   }
 }
