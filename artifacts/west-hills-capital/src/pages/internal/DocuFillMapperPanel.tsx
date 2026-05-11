@@ -833,17 +833,17 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
           </div>
           {/* Filter / sort controls */}
           <div className="flex items-center gap-1.5 mb-2 flex-shrink-0 flex-wrap">
-            <div className="flex items-center border border-[#DDD5C4] rounded overflow-hidden text-[10px] font-medium leading-none">
+            <div className="flex items-center gap-3 text-[11px] font-medium border-b border-[#EFE8D8]">
               <button
                 type="button"
                 onClick={() => { setShowUnplacedOnly(false); try { localStorage.setItem("docufill-field-filter-unplaced", ""); } catch {} }}
-                className={`px-2 h-[22px] transition-colors ${!showUnplacedOnly ? "bg-[#0F1C3F] text-white" : "bg-white text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+                className={`pb-1 transition-colors border-b-2 -mb-px ${!showUnplacedOnly ? "border-[#C49A38] text-[#0F1C3F]" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
               >All</button>
               <button
                 type="button"
                 onClick={() => { setShowUnplacedOnly(true); try { localStorage.setItem("docufill-field-filter-unplaced", "1"); } catch {} }}
-                className={`px-2 h-[22px] transition-colors ${showUnplacedOnly ? "bg-[#0F1C3F] text-white" : "bg-white text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
-              >Unplaced{unplacedCount > 0 ? <span className="ml-0.5 opacity-70">({unplacedCount})</span> : null}</button>
+                className={`pb-1 transition-colors border-b-2 -mb-px ${showUnplacedOnly ? "border-[#C49A38] text-[#0F1C3F]" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+              >Unplaced{unplacedCount > 0 ? <span className="ml-0.5 opacity-60">({unplacedCount})</span> : null}</button>
             </div>
             <select
               value={fieldSort}
