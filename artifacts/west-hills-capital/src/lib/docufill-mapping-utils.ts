@@ -105,10 +105,10 @@ export function sampleValueForMapping(field: FieldItem | undefined, format: Mapp
   if (cat === "last") return isUpper ? "SMITH" : isLower ? "smith" : "Smith";
   if (cat === "name" || cat === "signature") return isUpper ? "ALICE B. SMITH" : isLower ? "alice b. smith" : "Alice B. Smith";
   if (cat === "address") return "123 Main St";
-  if (cat === "city") return "Wichita";
-  if (cat === "state") return "KS";
-  if (cat === "zip") return "67206";
-  if (cat === "phone") return "(316) 555-1234";
+  if (cat === "city") return "City";
+  if (cat === "state") return "State";
+  if (cat === "zip") return "00000";
+  if (cat === "phone") return "(555) 555-1234";
   if (cat === "email") return "client@example.com";
   if (cat === "ssn") return "123-45-6789";
   if (cat === "dob") return "04/22/1965";
