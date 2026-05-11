@@ -18,7 +18,7 @@ export default function TextBoxes() {
       <p>Single-line is appropriate for most fields: names, dates, account numbers, dollar amounts, phone numbers.</p>
 
       <h2>Multiline mode</h2>
-      <p>In multiline mode, the text wraps within the bounding box using the configured font size and line height. The box must be tall enough to accommodate the expected text. Use multiline for:</p>
+      <p>In multiline mode, the text wraps within the bounding box. The box must be tall enough to accommodate the expected text. Use multiline for:</p>
       <ul>
         <li>Address fields that span two or three lines</li>
         <li>Explanation or narrative fields (e.g., "Describe your investment objectives")</li>
@@ -27,16 +27,12 @@ export default function TextBoxes() {
 
       <DocScreenshot
         src="/screenshots/textbox-config.png"
-        alt="Side-by-side comparison of single-line and multiline text box configuration panels, each showing mode, font size, and a preview of how the answer renders in the PDF"
+        alt="Side-by-side comparison of single-line and multiline text box configuration panels, each showing mode and a preview of how the answer renders in the PDF"
         caption="Single-line mode (left) auto-scales font to keep text on one line. Multiline mode (right) wraps text within the bounding box using the configured line height."
       />
 
-      <h2>Auto-scale font size</h2>
-      <p>When enabled (default for single-line), the font shrinks proportionally until the text fits within the bounding box. You set a minimum font size below which auto-scale does not go — if the text still doesn't fit, it is truncated.</p>
-      <p>This is useful for name fields where some clients have long names and others have short ones — the filled PDF always looks clean without overflow.</p>
-
       <h2>Line height</h2>
-      <p>For multiline mappings, you can set the line height (spacing between lines) in multiples of the font size. The default is 1.2× — a tighter <code>1.0×</code> saves vertical space, while <code>1.5×</code> gives more breathing room.</p>
+      <p>For multiline mappings, the line height (spacing between lines) defaults to 1.2× the font size — giving a clean, readable result for most content.</p>
 
       <h2>Choosing between the modes</h2>
       <div className="overflow-x-auto">

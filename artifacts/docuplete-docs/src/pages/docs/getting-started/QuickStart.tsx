@@ -45,7 +45,7 @@ export default function QuickStart() {
       <ol>
         <li>Select the field from the list on the left</li>
         <li>Click or drag a box on the PDF where the answer should appear</li>
-        <li>Optionally set the font size, alignment, and format (e.g., uppercase, currency)</li>
+        <li>Optionally set the alignment and format (e.g., uppercase, currency)</li>
       </ol>
       <p>One field can be mapped to multiple positions across multiple documents — useful for names, dates, or any value that appears more than once.</p>
 

@@ -76,7 +76,7 @@ export const SEARCH_INDEX: SearchEntry[] = [
     slug: "building-a-package/text-boxes",
     title: "Single-line vs. Multiline",
     section: "Building a Package",
-    headings: ["Single-line mode", "Multiline mode", "Auto-scale font size", "Line height", "Choosing between the modes"],
+    headings: ["Single-line mode", "Multiline mode", "Line height", "Choosing between the modes"],
   },
   {
     slug: "building-a-package/validation",

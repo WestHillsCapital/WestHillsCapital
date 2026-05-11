@@ -23,7 +23,7 @@ export default function Mapper() {
         <li>Select a field in the left panel.</li>
         <li>Click <strong>Add mapping</strong> (or simply click on the PDF where you want the box to appear).</li>
         <li>A bounding box appears. Drag it to position it precisely and drag the corners to resize it.</li>
-        <li>Adjust formatting in the right panel — font size, alignment, text transform, date/number format.</li>
+        <li>Adjust formatting in the right panel — alignment, text transform, date/number format.</li>
         <li>Click <strong>Save mapping</strong>.</li>
       </ol>
 

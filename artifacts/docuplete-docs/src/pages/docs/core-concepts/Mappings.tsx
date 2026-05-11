@@ -21,7 +21,7 @@ export default function Mappings() {
             <tr><th>Option</th><th>Effect</th></tr>
           </thead>
           <tbody>
-            <tr><td>Font size</td><td>Override the default font size (8pt–24pt)</td></tr>
+
             <tr><td>Font weight</td><td>Normal or bold</td></tr>
             <tr><td>Alignment</td><td>Left, center, or right within the bounding box</td></tr>
             <tr><td>Text transform</td><td>Uppercase, lowercase, or title case</td></tr>
