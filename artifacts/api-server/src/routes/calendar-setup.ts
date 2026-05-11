@@ -335,4 +335,78 @@ router.post("/backfill", async (req, res) => {
   });
 });
 
+/**
+ * GET /api/calendar-setup/info
+ *
+ * Returns the service account email and tests read access to every configured
+ * blocker/booking calendar. Use this to find which email to share blocker
+ * calendars with, and to confirm the service account can reach each one.
+ *
+ * Protected by the same setup token.
+ */
+router.get("/info", async (req, res) => {
+  const SETUP_TOKEN = process.env.CALENDAR_SETUP_TOKEN;
+
+  if (!SETUP_TOKEN) {
+    res.status(503).json({ error: "CALENDAR_SETUP_TOKEN env var not set on this server." });
+    return;
+  }
+
+  if (req.query.token !== SETUP_TOKEN) {
+    res.status(401).json({ error: "Invalid token." });
+    return;
+  }
+
+  const keyJson = process.env.GOOGLE_SERVICE_ACCOUNT_KEY;
+  if (!keyJson) {
+    res.status(503).json({ error: "GOOGLE_SERVICE_ACCOUNT_KEY not configured." });
+    return;
+  }
+
+  let credentials: Record<string, string>;
+  try {
+    credentials = JSON.parse(keyJson);
+  } catch {
+    res.status(503).json({ error: "GOOGLE_SERVICE_ACCOUNT_KEY is not valid JSON." });
+    return;
+  }
+
+  const serviceAccountEmail: string = credentials.client_email ?? "(not found in key)";
+
+  // Collect all calendar IDs to test
+  const bookingCalendarId = process.env.GOOGLE_BOOKING_CALENDAR_ID ?? "";
+  const blockerSingle     = process.env.GOOGLE_BLOCKER_CALENDAR_ID ?? "";
+  const blockerExtras     = (process.env.GOOGLE_BLOCKER_CALENDAR_IDS ?? "")
+    .split(",").map((s) => s.trim()).filter(Boolean);
+
+  const toTest: { id: string; role: string }[] = [];
+  if (bookingCalendarId) toTest.push({ id: bookingCalendarId, role: "booking" });
+  if (blockerSingle)     toTest.push({ id: blockerSingle,     role: "blocker (GOOGLE_BLOCKER_CALENDAR_ID)" });
+  for (const id of blockerExtras) toTest.push({ id, role: "blocker (GOOGLE_BLOCKER_CALENDAR_IDS)" });
+
+  const { google } = await import("googleapis");
+  const auth = new google.auth.GoogleAuth({
+    credentials,
+    scopes: ["https://www.googleapis.com/auth/calendar"],
+  });
+  const cal = google.calendar({ version: "v3", auth });
+
+  const results = await Promise.all(
+    toTest.map(async ({ id, role }) => {
+      try {
+        const r = await cal.calendars.get({ calendarId: id });
+        return { id, role, accessible: true, summary: r.data.summary ?? id };
+      } catch (err) {
+        return { id, role, accessible: false, error: String(err) };
+      }
+    })
+  );
+
+  res.json({
+    serviceAccountEmail,
+    instruction: `Share each inaccessible calendar with ${serviceAccountEmail} as a viewer (free/busy reader is enough for blocker calendars).`,
+    calendars: results,
+  });
+});
+
 export default router;
