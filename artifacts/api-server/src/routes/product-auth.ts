@@ -62,11 +62,13 @@ const MAX_KEYS_PER_ACCOUNT = 25;
  * Body: { companyName: string }
  * Requires: Clerk session (Authorization via Clerk JWT or cookie)
  */
+const AUTH_DISABLED_ONBOARD = !process.env["GOOGLE_CLIENT_ID"] && !process.env["CLERK_SECRET_KEY"];
+
 router.post("/onboard", async (req, res) => {
   const auth = getAuth(req);
   const clerkUserId = auth?.userId;
 
-  if (!clerkUserId) {
+  if (!clerkUserId && !AUTH_DISABLED_ONBOARD) {
     return void res.status(401).json({ error: "Authentication required." });
   }
 
@@ -76,45 +78,59 @@ router.post("/onboard", async (req, res) => {
   const companyName: string | undefined = _parse.data.companyName?.trim();
   const industry: string | undefined = _parse.data.industry?.trim() || undefined;
 
-  if (!email) {
+  if (!email && !AUTH_DISABLED_ONBOARD) {
     return void res.status(400).json({ error: "email is required." });
   }
 
   try {
-    const existing = await getDb().query<{ account_id: number; account_name: string; slug: string }>(
-      `SELECT au.account_id, a.name AS account_name, a.slug
-       FROM account_users au
-       JOIN accounts a ON a.id = au.account_id
-       WHERE au.clerk_user_id = $1
-       LIMIT 1`,
-      [clerkUserId],
-    );
+    if (clerkUserId) {
+      const existing = await getDb().query<{ account_id: number; account_name: string; slug: string }>(
+        `SELECT au.account_id, a.name AS account_name, a.slug
+         FROM account_users au
+         JOIN accounts a ON a.id = au.account_id
+         WHERE au.clerk_user_id = $1
+         LIMIT 1`,
+        [clerkUserId],
+      );
 
-    if (existing.rows[0]) {
-      return void res.json({
-        accountId:   existing.rows[0].account_id,
-        accountName: existing.rows[0].account_name,
-        slug:        existing.rows[0].slug,
-        created:     false,
-      });
+      if (existing.rows[0]) {
+        return void res.json({
+          accountId:   existing.rows[0].account_id,
+          accountName: existing.rows[0].account_name,
+          slug:        existing.rows[0].slug,
+          created:     false,
+        });
+      }
     }
 
-    const name = companyName || email.split("@")[0] || "My Company";
+    const name = companyName || (email ? email.split("@")[0] : null) || "My Company";
     const slugBase = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
     const slug = `${slugBase}-${Date.now()}`;
 
-    const acctResult = await getDb().query<{ id: number }>(
-      `INSERT INTO accounts (name, slug, industry) VALUES ($1, $2, $3) RETURNING id`,
-      [name, slug, industry ?? null],
-    );
-    const accountId = acctResult.rows[0].id;
+    let accountId: number;
+    if (AUTH_DISABLED_ONBOARD) {
+      // Dev mode: update account 1 in place so the hardcoded dev auth ID stays consistent
+      await getDb().query(
+        `UPDATE accounts SET name = $1, slug = $2, industry = $3 WHERE id = 1`,
+        [name, slug, industry ?? null],
+      );
+      accountId = 1;
+    } else {
+      const acctResult = await getDb().query<{ id: number }>(
+        `INSERT INTO accounts (name, slug, industry) VALUES ($1, $2, $3) RETURNING id`,
+        [name, slug, industry ?? null],
+      );
+      accountId = acctResult.rows[0].id;
 
-    await getDb().query(
-      `INSERT INTO account_users (account_id, email, role, clerk_user_id)
-       VALUES ($1, $2, 'admin', $3)
-       ON CONFLICT (account_id, email) DO UPDATE SET clerk_user_id = EXCLUDED.clerk_user_id`,
-      [accountId, email, clerkUserId],
-    );
+      if (clerkUserId && email) {
+        await getDb().query(
+          `INSERT INTO account_users (account_id, email, role, clerk_user_id)
+           VALUES ($1, $2, 'admin', $3)
+           ON CONFLICT (account_id, email) DO UPDATE SET clerk_user_id = EXCLUDED.clerk_user_id`,
+          [accountId, email, clerkUserId],
+        );
+      }
+    }
 
     logger.info({ accountId, email, clerkUserId }, "[ProductAuth] New tenant onboarded");
 
@@ -238,13 +254,19 @@ router.get("/me", requireProductAuth, async (req, res) => {
       });
     }
 
-    // API key path: look up account by ID; no specific user context
-    const acc = await getDb().query<{ name: string; slug: string; logo_url: string | null }>(
-      `SELECT name, slug, logo_url FROM accounts WHERE id = $1 LIMIT 1`,
+    // API key path / dev-auth-disabled path: look up account by ID; no specific user context
+    const acc = await getDb().query<{ name: string; slug: string; logo_url: string | null; industry: string | null }>(
+      `SELECT name, slug, logo_url, industry FROM accounts WHERE id = $1 LIMIT 1`,
       [accountId],
     );
 
     if (!acc.rows[0]) {
+      return void res.status(404).json({ error: "Account not found.", code: "ACCOUNT_NOT_FOUND" });
+    }
+
+    // In dev mode (auth disabled), treat an account with no industry as not-yet-onboarded
+    // so the onboarding wizard is displayed. Reset by clearing the industry field.
+    if (AUTH_DISABLED_ONBOARD && !acc.rows[0].industry) {
       return void res.status(404).json({ error: "Account not found.", code: "ACCOUNT_NOT_FOUND" });
     }
 
