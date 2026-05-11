@@ -3176,6 +3176,25 @@ export default function DocuFill() {
     setPlacementModal(null);
   }
 
+  function placeFieldAtCoords(
+    fieldId: string,
+    clientX: number,
+    clientY: number,
+    frameEl?: HTMLElement | null,
+    pageOverride?: number,
+  ) {
+    if (!selectedPackage || !selectedDocument) return;
+    const frame = frameEl ?? pageFrameRef.current;
+    if (!frame) return;
+    const field = selectedPackage.fields.find((f) => f.id === fieldId);
+    if (!field) return;
+    const rect = frame.getBoundingClientRect();
+    const x = ((clientX - rect.left) / rect.width) * 100;
+    const y = ((clientY - rect.top) / rect.height) * 100;
+    addMappingForField(field, x, y, pageOverride);
+    flashStatus(`Placed: ${field.name}`);
+  }
+
   function dropFieldOnPage(e: ReactDragEvent<HTMLDivElement>, frameEl?: HTMLElement | null, pageOverride?: number) {
     e.preventDefault();
     if (!selectedPackage || !selectedDocument) return;
@@ -3916,6 +3935,7 @@ export default function DocuFill() {
             openFieldEditorForAdd={openFieldEditorForAdd}
             autoMapFromPdfFields={autoMapFromPdfFields}
             dropFieldOnPage={dropFieldOnPage}
+            placeFieldAtCoords={placeFieldAtCoords}
             updateFieldInPackage={updateFieldInPackage}
             copyField={copyField}
             addLibraryFieldToPackage={addLibraryFieldToPackage}

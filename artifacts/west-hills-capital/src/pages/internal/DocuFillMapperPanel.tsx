@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useDocuFillStore } from "@/stores/useDocuFillStore";
 import { useShallow } from "zustand/react/shallow";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Crosshair } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { DndContext, closestCenter, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
@@ -213,6 +213,7 @@ export interface DocuFillMapperPanelProps {
   openFieldEditorForAdd: () => void;
   autoMapFromPdfFields: () => void;
   dropFieldOnPage: (e: React.DragEvent<HTMLDivElement>, frameEl?: HTMLElement | null, pageNum?: number) => void;
+  placeFieldAtCoords: (fieldId: string, clientX: number, clientY: number, frameEl?: HTMLElement | null, pageNum?: number) => void;
   updateFieldInPackage: (fieldId: string, patch: Partial<FieldItem>) => void;
   copyField: (fieldId: string) => void;
   addLibraryFieldToPackage: (item: FieldLibraryItem) => void;
@@ -240,7 +241,7 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
     scrollContainerRef, scrollPdfDoc, canvasRef, pageFrameRef, setMapperContainerEl,
     goBuilderStep, savePackage, updateSelectedPackage, uploadDocument, removeDocument,
     removeField, removeSelectedMapping, updateSelectedMapping, chooseMappingFormat, duplicateMapping,
-    openFieldEditorForEdit, openFieldEditorForAdd, autoMapFromPdfFields, dropFieldOnPage,
+    openFieldEditorForEdit, openFieldEditorForAdd, autoMapFromPdfFields, dropFieldOnPage, placeFieldAtCoords,
     updateFieldInPackage, copyField, addLibraryFieldToPackage, fieldGroups, addGroupToPackage, removeRecipient, updateRecipient,
     getAuthHeaders, docufillApiPath, documentPreviewCache, documentPreviewCacheOrder,
   } = props;
@@ -267,6 +268,51 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
 
   const packageMappedFieldIds = new Set(storeMappings.map((m) => m.fieldId));
 
+  // ── Field list filter / sort / click-to-place ─────────────────────────────
+  const [showUnplacedOnly, setShowUnplacedOnly] = useState(() => {
+    try { return localStorage.getItem("docufill-field-filter-unplaced") === "1"; } catch { return false; }
+  });
+  const [fieldSort, setFieldSort] = useState<"default" | "alpha" | "unplaced-first">(() => {
+    const v = (() => { try { return localStorage.getItem("docufill-field-sort"); } catch { return null; } })();
+    return v === "alpha" || v === "unplaced-first" ? v : "default";
+  });
+  const [clickToPlaceFieldId, setClickToPlaceFieldId] = useState<string | null>(null);
+  const clickToPlaceFrameRef = useRef<HTMLElement | null>(null);
+
+  const displayFields = useMemo(() => {
+    let fields = selectedPackage.fields;
+    if (showUnplacedOnly) fields = fields.filter((f) => !packageMappedFieldIds.has(f.id));
+    if (fieldSort === "alpha") {
+      fields = [...fields].sort((a, b) => a.name.localeCompare(b.name));
+    } else if (fieldSort === "unplaced-first") {
+      fields = [...fields].sort((a, b) => (packageMappedFieldIds.has(a.id) ? 1 : 0) - (packageMappedFieldIds.has(b.id) ? 1 : 0));
+    }
+    return fields;
+  }, [selectedPackage.fields, packageMappedFieldIds, showUnplacedOnly, fieldSort]);
+
+  const isFiltered = showUnplacedOnly || fieldSort !== "default";
+  const unplacedCount = selectedPackage.fields.filter((f) => !packageMappedFieldIds.has(f.id)).length;
+
+  // Cancel click-to-place on Escape
+  useEffect(() => {
+    if (!clickToPlaceFieldId) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setClickToPlaceFieldId(null);
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [clickToPlaceFieldId]);
+
+  // Clear click-to-place when changing document/page
+  useEffect(() => { setClickToPlaceFieldId(null); }, [selectedDocument?.id, selectedPage]);
+
+  // Clear click-to-place if the target field is removed
+  useEffect(() => {
+    if (clickToPlaceFieldId && !selectedPackage.fields.find((f) => f.id === clickToPlaceFieldId)) {
+      setClickToPlaceFieldId(null);
+    }
+  }, [selectedPackage.fields, clickToPlaceFieldId]);
+
   // Clear selectedMappingId when it is no longer on the current page
   useEffect(() => {
     if (!selectedMappingId) return;
@@ -275,6 +321,20 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
 
   return (
     <div className="grid lg:grid-cols-[190px_1fr_260px] gap-4 min-h-[720px] items-start">
+      {/* ── Click-to-place banner ── */}
+      {clickToPlaceFieldId && (() => {
+        const activePlaceField = selectedPackage.fields.find((f) => f.id === clickToPlaceFieldId);
+        return (
+          <div className="fixed inset-x-0 top-14 z-[999] flex justify-center pointer-events-none" style={{ paddingTop: 4 }}>
+            <div className="flex items-center gap-3 px-4 py-2 rounded-lg shadow-xl border text-sm pointer-events-auto" style={{ background: "#0F1C3F", color: "white", borderColor: "#253762" }}>
+              <Crosshair className="w-4 h-4 shrink-0" style={{ color: "#C49A38" }} />
+              <span>Click on the document to place <strong className="font-semibold">{activePlaceField?.name ?? "field"}</strong></span>
+              <button type="button" onClick={() => setClickToPlaceFieldId(null)} className="ml-2 text-xs opacity-60 hover:opacity-100 underline underline-offset-2">Cancel</button>
+              <span className="opacity-30 text-xs">· Esc</span>
+            </div>
+          </div>
+        );
+      })()}
       {/* ── Left sidebar: recipients + documents ── */}
       <section className="bg-white border border-[#DDD5C4] rounded-lg p-3 flex flex-col gap-3">
         <div>
@@ -553,9 +613,17 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
                       <div
                         onDragOver={(e) => e.preventDefault()}
                         onDrop={(e) => dropFieldOnPage(e, e.currentTarget, pageNum)}
-                        onClick={() => { setSelectedPage(pageNum); setPlacementModal(null); }}
+                        onClick={(e) => {
+                          if (clickToPlaceFieldId) {
+                            placeFieldAtCoords(clickToPlaceFieldId, e.clientX, e.clientY, e.currentTarget, pageNum);
+                            setClickToPlaceFieldId(null);
+                            return;
+                          }
+                          setSelectedPage(pageNum);
+                          setPlacementModal(null);
+                        }}
                         className="absolute top-0 left-0 bg-white border border-[#D4C9B5] shadow-sm overflow-hidden"
-                        style={{ width: nativePageW, height: nativePageH, transform: `scale(${effectiveScale})`, transformOrigin: "top left" }}
+                        style={{ cursor: clickToPlaceFieldId ? "crosshair" : undefined, width: nativePageW, height: nativePageH, transform: `scale(${effectiveScale})`, transformOrigin: "top left" }}
                       >
                         <ScrollPageCanvas pageNum={pageNum} pdfDoc={scrollPdfDoc} nativeW={nativePageW} nativeH={nativePageH} />
                         {pageMs.map((m) => {
@@ -612,9 +680,16 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
             ref={pageFrameRef}
             onDragOver={(e) => e.preventDefault()}
             onDrop={dropFieldOnPage}
-            onClick={() => setPlacementModal(null)}
+            onClick={(e) => {
+              if (clickToPlaceFieldId) {
+                placeFieldAtCoords(clickToPlaceFieldId, e.clientX, e.clientY, e.currentTarget);
+                setClickToPlaceFieldId(null);
+                return;
+              }
+              setPlacementModal(null);
+            }}
             className="absolute top-0 left-0 bg-white border border-[#D4C9B5] shadow-sm overflow-hidden"
-            style={{ width: nativePageW, height: nativePageH, transform: `scale(${effectiveScale})`, transformOrigin: "top left" }}
+            style={{ cursor: clickToPlaceFieldId ? "crosshair" : undefined, width: nativePageW, height: nativePageH, transform: `scale(${effectiveScale})`, transformOrigin: "top left" }}
           >
             {documentPreviewUrl ? (
               <>
@@ -752,10 +827,43 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
           );
         })()}
         <div className="p-3 flex flex-col min-h-0 flex-1">
-          <div className="flex items-center justify-between mb-2 flex-shrink-0">
+          <div className="flex items-center justify-between mb-1.5 flex-shrink-0">
             <h2 className="text-sm font-semibold">Fields</h2>
             <button onClick={openFieldEditorForAdd} className="text-xs text-[#C49A38]">Add</button>
           </div>
+          {/* Filter / sort controls */}
+          <div className="flex items-center gap-1.5 mb-2 flex-shrink-0 flex-wrap">
+            <div className="flex items-center border border-[#DDD5C4] rounded overflow-hidden text-[10px] font-medium leading-none">
+              <button
+                type="button"
+                onClick={() => { setShowUnplacedOnly(false); try { localStorage.setItem("docufill-field-filter-unplaced", ""); } catch {} }}
+                className={`px-2 h-[22px] transition-colors ${!showUnplacedOnly ? "bg-[#0F1C3F] text-white" : "bg-white text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+              >All</button>
+              <button
+                type="button"
+                onClick={() => { setShowUnplacedOnly(true); try { localStorage.setItem("docufill-field-filter-unplaced", "1"); } catch {} }}
+                className={`px-2 h-[22px] transition-colors ${showUnplacedOnly ? "bg-[#0F1C3F] text-white" : "bg-white text-[#6B7A99] hover:bg-[#F8F6F0]"}`}
+              >Unplaced{unplacedCount > 0 ? <span className="ml-0.5 opacity-70">({unplacedCount})</span> : null}</button>
+            </div>
+            <select
+              value={fieldSort}
+              onChange={(e) => {
+                const v = e.target.value as typeof fieldSort;
+                setFieldSort(v);
+                try { localStorage.setItem("docufill-field-sort", v); } catch {}
+              }}
+              className="text-[10px] border border-[#DDD5C4] rounded bg-white text-[#6B7A99] h-[22px] px-1.5 leading-none cursor-pointer"
+            >
+              <option value="default">Order: default</option>
+              <option value="alpha">Order: A–Z</option>
+              <option value="unplaced-first">Order: unplaced first</option>
+            </select>
+          </div>
+          {isFiltered && (
+            <p className="text-[10px] text-[#8A9BB8] mb-1.5 flex-shrink-0 italic">
+              {displayFields.length} of {selectedPackage.fields.length} · drag-to-reorder disabled while filtered
+            </p>
+          )}
           {(() => {
             const usedLibraryIds = new Set(selectedPackage.fields.map((f) => f.libraryFieldId).filter(Boolean));
             const availableLibraryFields = fieldLibrary.filter((item) => item.active && !usedLibraryIds.has(item.id));
@@ -819,61 +927,35 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
             <p className="mb-2 text-[10px] text-[#8A9BB8] italic flex-shrink-0">Click a placement on the document to inspect it.</p>
           )}
           <div className="flex-1 min-h-0 flex flex-col">
-            {(() => (
-              <DndContext
-                sensors={sortSensors}
-                collisionDetection={closestCenter}
-                onDragEnd={(event: DragEndEvent) => {
-                  const { active, over } = event;
-                  if (!over || active.id === over.id) return;
-                  updateSelectedPackage((pkg) => {
-                    const oldIdx = pkg.fields.findIndex((f) => f.id === active.id);
-                    const newIdx = pkg.fields.findIndex((f) => f.id === over.id);
-                    return { ...pkg, fields: arrayMove(pkg.fields, oldIdx, newIdx) };
-                  });
-                }}
-              >
-                <SortableContext items={selectedPackage.fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
-                  <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
-                    {selectedPackage.fields.length === 0 && (
-                      <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
-                        <svg className="w-6 h-6 text-[#C49A38]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-                        <p className="text-xs text-[#8A9BB8] leading-snug italic">No fields yet. Click <strong className="not-italic font-semibold text-[#C49A38]">Add</strong> above to create your first field, then drag it onto the document to place it.</p>
-                      </div>
-                    )}
-                    {selectedPackage.fields.map((field) => (
-                      <SortableItem key={field.id} id={field.id}>
-                        {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
+            {(() => {
+              const fieldRows = (
+                <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
+                  {selectedPackage.fields.length === 0 && (
+                    <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
+                      <svg className="w-6 h-6 text-[#C49A38]/50" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                      <p className="text-xs text-[#8A9BB8] leading-snug italic">No fields yet. Click <strong className="not-italic font-semibold text-[#C49A38]">Add</strong> above to create your first field, then drag it onto the document to place it.</p>
+                    </div>
+                  )}
+                  {displayFields.length === 0 && selectedPackage.fields.length > 0 && (
+                    <div className="flex flex-col items-center justify-center py-8 px-3 text-center gap-2">
+                      <svg className="w-6 h-6 text-[#C49A38]/30" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      <p className="text-xs text-[#8A9BB8] leading-snug italic">All fields are placed.</p>
+                    </div>
+                  )}
+                  {isFiltered
+                    ? displayFields.map((field) => {
+                        const isActivePlacing = clickToPlaceFieldId === field.id;
+                        return (
                           <div
-                            ref={wrapperRef}
-                            style={{ ...wrapperStyle, borderColor: field.color }}
+                            key={field.id}
                             draggable
-                            onDragStart={(e) => {
-                              if (fieldDragFromHandle.current) { e.preventDefault(); return; }
-                              e.dataTransfer.setData("text/field", field.id);
-                            }}
+                            onDragStart={(e) => { e.dataTransfer.setData("text/field", field.id); }}
                             onDoubleClick={() => openFieldEditorForEdit(field.id)}
-                            className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isDragging ? "opacity-40 shadow-lg" : ""} ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
+                            style={{ borderColor: isActivePlacing ? "#C49A38" : field.color }}
+                            className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isActivePlacing ? "ring-2 ring-[#C49A38]/40 shadow-md" : ""} ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex items-start gap-2 flex-1 min-w-0">
-                                <div
-                                  {...handleProps}
-                                  onPointerDown={(e) => {
-                                    fieldDragFromHandle.current = true;
-                                    (handleProps.onPointerDown as React.PointerEventHandler<HTMLDivElement>)?.(e);
-                                  }}
-                                  onPointerUp={() => { fieldDragFromHandle.current = false; }}
-                                  onPointerCancel={() => { fieldDragFromHandle.current = false; }}
-                                  title="Drag to reorder"
-                                  className="mt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing p-0.5 text-[#C4B89A] hover:text-[#A89878]"
-                                >
-                                  <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
-                                    <circle cx="5" cy="4" r="1.2"/><circle cx="11" cy="4" r="1.2"/>
-                                    <circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/>
-                                    <circle cx="5" cy="12" r="1.2"/><circle cx="11" cy="12" r="1.2"/>
-                                  </svg>
-                                </div>
                                 <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1 min-w-0">
                                   <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
                                     <span>{field.name}</span>
@@ -891,21 +973,128 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
                                   <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
                                 </button>
                               </div>
-                              {!isSystemEsignFieldId(field.id) && <button
-                                type="button"
-                                onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
-                                className="rounded border border-red-200 px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50 hover:border-red-300 flex-shrink-0"
-                                title="Remove field"
-                              >✕</button>}
+                              <div className="flex items-center gap-1 flex-shrink-0">
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); setClickToPlaceFieldId(isActivePlacing ? null : field.id); }}
+                                      className={`rounded border px-1.5 py-0.5 text-[10px] flex items-center gap-1 transition-colors ${isActivePlacing ? "border-[#C49A38] bg-[#C49A38] text-white" : "border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38] hover:text-[#C49A38]"}`}
+                                      title="Click to place on document"
+                                    ><Crosshair className="w-3 h-3" /></button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="left" className="text-xs">Click on document to place</TooltipContent>
+                                </Tooltip>
+                                {!isSystemEsignFieldId(field.id) && <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
+                                  className="rounded border border-red-200 px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50 hover:border-red-300"
+                                  title="Remove field"
+                                >✕</button>}
+                              </div>
                             </div>
                           </div>
-                        )}
-                      </SortableItem>
-                    ))}
-                  </div>
-                </SortableContext>
-              </DndContext>
-            ))()}
+                        );
+                      })
+                    : displayFields.map((field) => {
+                        const isActivePlacing = clickToPlaceFieldId === field.id;
+                        return (
+                          <SortableItem key={field.id} id={field.id}>
+                            {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
+                              <div
+                                ref={wrapperRef}
+                                style={{ ...wrapperStyle, borderColor: isActivePlacing ? "#C49A38" : field.color }}
+                                draggable
+                                onDragStart={(e) => {
+                                  if (fieldDragFromHandle.current) { e.preventDefault(); return; }
+                                  e.dataTransfer.setData("text/field", field.id);
+                                }}
+                                onDoubleClick={() => openFieldEditorForEdit(field.id)}
+                                className={`w-full text-left border-2 rounded px-3 py-2 bg-white transition-shadow cursor-alias ${isDragging ? "opacity-40 shadow-lg" : ""} ${isActivePlacing ? "ring-2 ring-[#C49A38]/40 shadow-md" : ""} ${selectedField?.id === field.id ? "ring-2 ring-[#C49A38]/30" : ""}`}
+                              >
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex items-start gap-2 flex-1 min-w-0">
+                                    <div
+                                      {...handleProps}
+                                      onPointerDown={(e) => {
+                                        fieldDragFromHandle.current = true;
+                                        (handleProps.onPointerDown as React.PointerEventHandler<HTMLDivElement>)?.(e);
+                                      }}
+                                      onPointerUp={() => { fieldDragFromHandle.current = false; }}
+                                      onPointerCancel={() => { fieldDragFromHandle.current = false; }}
+                                      title="Drag to reorder"
+                                      className="mt-0.5 flex-shrink-0 cursor-grab active:cursor-grabbing p-0.5 text-[#C4B89A] hover:text-[#A89878]"
+                                    >
+                                      <svg className="w-3.5 h-3.5" viewBox="0 0 16 16" fill="currentColor">
+                                        <circle cx="5" cy="4" r="1.2"/><circle cx="11" cy="4" r="1.2"/>
+                                        <circle cx="5" cy="8" r="1.2"/><circle cx="11" cy="8" r="1.2"/>
+                                        <circle cx="5" cy="12" r="1.2"/><circle cx="11" cy="12" r="1.2"/>
+                                      </svg>
+                                    </div>
+                                    <button type="button" onClick={() => setSelectedFieldId(field.id)} className="text-left flex-1 min-w-0">
+                                      <div className="text-sm font-medium flex items-center gap-2 flex-wrap">
+                                        <span>{field.name}</span>
+                                        {isSystemEsignFieldId(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-indigo-50 text-indigo-700 border border-indigo-200 px-1.5 py-0.5">E-Sign</span>}
+                                        {!isSystemEsignFieldId(field.id) && field.libraryFieldId && (() => {
+                                          const libField = fieldLibrary.find((lf) => lf.id === field.libraryFieldId);
+                                          return libField?.inherited
+                                            ? <span className="text-[10px] uppercase tracking-wide rounded bg-amber-50 text-amber-700 border border-amber-200 px-1.5 py-0.5" title={`Inherited from ${libField.inheritedFrom ?? "parent account"}`}>Inherited</span>
+                                            : <span className="text-[10px] uppercase tracking-wide rounded bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8] px-1.5 py-0.5">Shared</span>;
+                                        })()}
+                                        {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
+                                        {(field.condition?.fieldId || field.condition2?.fieldId) && <span className="text-[10px] uppercase tracking-wide rounded bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5">Conditional</span>}
+                                        {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
+                                      </div>
+                                      <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
+                                    </button>
+                                  </div>
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); setClickToPlaceFieldId(isActivePlacing ? null : field.id); }}
+                                          className={`rounded border px-1.5 py-0.5 text-[10px] flex items-center gap-1 transition-colors ${isActivePlacing ? "border-[#C49A38] bg-[#C49A38] text-white" : "border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38] hover:text-[#C49A38]"}`}
+                                          title="Click to place on document"
+                                        ><Crosshair className="w-3 h-3" /></button>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="left" className="text-xs">Click on document to place</TooltipContent>
+                                    </Tooltip>
+                                    {!isSystemEsignFieldId(field.id) && <button
+                                      type="button"
+                                      onClick={(e) => { e.stopPropagation(); removeField(field.id); }}
+                                      className="rounded border border-red-200 px-1.5 py-0.5 text-[10px] text-red-500 hover:bg-red-50 hover:border-red-300"
+                                      title="Remove field"
+                                    >✕</button>}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </SortableItem>
+                        );
+                      })}
+                </div>
+              );
+              return isFiltered ? fieldRows : (
+                <DndContext
+                  sensors={sortSensors}
+                  collisionDetection={closestCenter}
+                  onDragEnd={(event: DragEndEvent) => {
+                    const { active, over } = event;
+                    if (!over || active.id === over.id) return;
+                    updateSelectedPackage((pkg) => {
+                      const oldIdx = pkg.fields.findIndex((f) => f.id === active.id);
+                      const newIdx = pkg.fields.findIndex((f) => f.id === over.id);
+                      return { ...pkg, fields: arrayMove(pkg.fields, oldIdx, newIdx) };
+                    });
+                  }}
+                >
+                  <SortableContext items={selectedPackage.fields.map((f) => f.id)} strategy={verticalListSortingStrategy}>
+                    {fieldRows}
+                  </SortableContext>
+                </DndContext>
+              );
+            })()}
           </div>
         </div>
       </section>
