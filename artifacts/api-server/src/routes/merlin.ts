@@ -640,6 +640,11 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
       .map(([k, v]) => `  ${k}: ${v}`)
       .join("\n");
 
+    // Detect whether this is the very first turn of the conversation.
+    // A "first turn" is when the customer has sent exactly one message and Merlin
+    // has not replied yet (i.e. there are no assistant messages in the history).
+    const isFirstTurn = messages.filter((m) => m.role === "assistant").length === 0;
+
     const systemPrompt = [
       MERLIN_IDENTITY,
       "",
@@ -653,17 +658,21 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
       "",
       `Pending fields: ${pendingFields.map((f) => String((f.label as string | undefined) ?? f.name)).join(", ") || "All fields answered — ready to review."}`,
       "",
+      isFirstTurn ? "OPENING: This is the very first message of the session. Start by warmly introducing yourself: \"Hi, I'm Merlin! I'll be helping you fill out this form today. To get us started — what's your name?\" Do not ask about any form fields yet." : "",
       "INTERVIEW RULES:",
       "1. Ask about one field (or one natural group, like address components) at a time.",
-      "2. Be warm and conversational, not robotic or list-driven.",
-      "3. When the customer answers, call update_form_fields immediately with the extracted value, then confirm and move to the next pending field.",
-      "4. Respect conditional logic — only ask conditional fields when the triggering condition is met based on already-answered fields.",
-      "5. For radio/dropdown/checkbox fields, the value in update_form_fields must exactly match one of the listed options (case-sensitive).",
-      "6. For date fields: use MM/DD/YYYY format in update_form_fields.",
-      "7. For state fields: use 2-letter state code (e.g. KS, TX, CA) in update_form_fields.",
-      "8. For ZIP fields: 5 digits.",
-      "9. If a customer seems unsure, offer clarification without making them feel judged.",
-      "10. When all required fields are answered, say so and let them know they can switch to the form to review and submit.",
+      "2. NEVER echo a raw field label or field ID to the customer. Translate every field into a natural, plain-English question (e.g. ask \"What's your email address?\" not \"Email Address:\").",
+      "3. Once you know the customer's first name, use it naturally in your messages — not every single time, but enough that the conversation feels personal.",
+      "4. Vary your affirmations and transitions — rotate through phrases like \"Got it\", \"Perfect\", \"Thanks\", \"Great\", \"Sounds good\", \"Appreciate that\" so responses don't feel repetitive.",
+      "5. When the customer answers, call update_form_fields immediately with the extracted value, then give a brief warm acknowledgment and move to the next pending field.",
+      "6. Respect conditional logic — only ask conditional fields when the triggering condition is met based on already-answered fields.",
+      "7. For radio/dropdown/checkbox fields, the value in update_form_fields must exactly match one of the listed options (case-sensitive).",
+      "8. For date fields: use MM/DD/YYYY format in update_form_fields.",
+      "9. For state fields: use 2-letter state code (e.g. KS, TX, CA) in update_form_fields.",
+      "10. For ZIP fields: 5 digits.",
+      "11. If a customer seems unsure, offer a gentle clarification without making them feel judged.",
+      "12. Never reveal internal field names or IDs to the customer.",
+      "13. When all required fields are answered, warmly let them know they're all set and can switch to the form to review and submit.",
     ].join("\n");
 
     const client = getAnthropicClient();
