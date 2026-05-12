@@ -302,6 +302,15 @@ app.get("/images/logo.png", (_req, res) => {
   res.sendFile(logoPath);
 });
 
+// ── Email signature image ──────────────────────────────────────────────────────
+// URL: https://workspaceapi-server-production-987b.up.railway.app/images/email-signature.png
+app.get("/images/email-signature.png", (_req, res) => {
+  const imgPath = path.join(__dirname, "../public/images/email-signature.png");
+  res.setHeader("Content-Type", "image/png");
+  res.setHeader("Cache-Control", "public, max-age=604800, immutable");
+  res.sendFile(imgPath);
+});
+
 // ── API routes ─────────────────────────────────────────────────────────────────
 app.use("/api", router);
 

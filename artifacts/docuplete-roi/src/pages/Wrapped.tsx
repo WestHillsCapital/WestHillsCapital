@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Copy, ArrowRight, Share2, Calculator, CheckCircle2 } from "lucide-react";
+import { ArrowRight, Share2, Calculator, CheckCircle2 } from "lucide-react";
 
 const SCENES = 6;
+const EASE_OUT: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 function AnimatedNumber({ value, prefix = "", suffix = "", decimals = 0, play = true }: { value: number; prefix?: string; suffix?: string; decimals?: number; play?: boolean }) {
   const [displayed, setDisplayed] = useState(0);
@@ -110,23 +111,23 @@ export default function Wrapped() {
   // Animation variants
   const sceneVariants = {
     initial: { opacity: 0, scale: 0.95, filter: "blur(10px)" },
-    animate: { opacity: 1, scale: 1, filter: "blur(0px)", transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] } },
-    exit: { opacity: 0, scale: 1.05, filter: "blur(10px)", transition: { duration: 0.6, ease: [0.16, 1, 0.3, 1] } }
+    animate: { opacity: 1, scale: 1, filter: "blur(0px)", transition: { duration: 0.8, ease: EASE_OUT } },
+    exit: { opacity: 0, scale: 1.05, filter: "blur(10px)", transition: { duration: 0.6, ease: EASE_OUT } }
   };
 
   const textVariants = {
     initial: { opacity: 0, y: 30 },
-    animate: { opacity: 1, y: 0, transition: { duration: 0.8, delay: 0.2, ease: [0.16, 1, 0.3, 1] } }
+    animate: { opacity: 1, y: 0, transition: { duration: 0.8, delay: 0.2, ease: EASE_OUT } }
   };
 
   const numberVariants = {
     initial: { opacity: 0, scale: 0.8, y: 20 },
-    animate: { opacity: 1, scale: 1, y: 0, transition: { duration: 1, delay: 0.4, ease: [0.16, 1, 0.3, 1] } }
+    animate: { opacity: 1, scale: 1, y: 0, transition: { duration: 1, delay: 0.4, ease: EASE_OUT } }
   };
 
   const subtextVariants = {
     initial: { opacity: 0 },
-    animate: { opacity: 1, transition: { duration: 1, delay: 1.2, ease: "easeOut" } }
+    animate: { opacity: 1, transition: { duration: 1, delay: 1.2, ease: "easeOut" as const } }
   };
 
   const scenes = [
