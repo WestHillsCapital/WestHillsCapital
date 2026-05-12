@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--bg-dark);
+  --color-foreground: var(--text-primary);
+}
+
+:root {
+  --bg-dark:      #0B1220;
+  --bg-card:      #111B2E;
+  --bg-muted:     #1A2540;
+  --blue:         #1B4FD8;
+  --blue-light:   #3B6EF8;
+  --blue-dim:     #1B4FD820;
+  --gold:         #C49A38;
+  --gold-dim:     #C49A3820;
+  --red-loss:     #EF4444;
+  --red-dim:      #EF444420;
+  --text-primary: #F0F4FF;
+  --text-muted:   #8896B3;
+  --border:       #1E2D4A;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body, #root {
+  height: 100%;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg-dark);
+  color: var(--text-primary);
+}
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@600;700&display=swap');
