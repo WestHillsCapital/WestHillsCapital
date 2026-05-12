@@ -87,11 +87,11 @@ function VideoSection() {
             className="flex-1 flex items-center justify-center px-4 pb-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-full max-w-7xl" style={{ aspectRatio: '16/9' }}>
+            <div className="relative w-full max-w-7xl" style={{ aspectRatio: '16/9' }}>
               <iframe
                 ref={iframeRef}
                 src="/docuplete-explainer/"
-                className="w-full h-full rounded-xl border border-white/10"
+                className="absolute inset-0 w-full h-full rounded-xl border border-white/10"
                 allow="autoplay"
                 title="Docuplete Explainer Video"
               />

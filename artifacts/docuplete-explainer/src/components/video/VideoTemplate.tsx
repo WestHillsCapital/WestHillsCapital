@@ -55,7 +55,7 @@ export default function VideoTemplate({
   const SceneComponent = SCENE_COMPONENTS[baseSceneKey];
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-[var(--color-bg-dark)] font-body text-white">
+    <div className="relative w-full h-full overflow-hidden bg-[var(--color-bg-dark)] font-body text-white">
 
       {/* Persistent Background Layer */}
       <div className="absolute inset-0 z-0">
