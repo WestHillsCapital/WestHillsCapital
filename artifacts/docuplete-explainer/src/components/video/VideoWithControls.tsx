@@ -70,7 +70,8 @@ function ProgressSegments({
     <div className="flex-1 flex items-center gap-1.5">
       {sceneKeys.map((key, i) => {
         const isActive = i === activeIndex;
-        const fill = isActive ? progress * 100 : 0;
+        const isPast   = i < activeIndex;
+        const fill     = isActive ? progress * 100 : isPast ? 100 : 0;
         return (
           <button
             key={key}
@@ -195,15 +196,33 @@ export default function VideoWithControls() {
   const [started, setStarted] = useState(false);
   const bgRef = useRef<HTMLAudioElement | null>(null);
 
-  // Set up background music element (silent until play is triggered)
+  // Set up background music and attempt auto-play when iframed
   useEffect(() => {
     const bg = new Audio(`${BASE}audio/background.wav`);
     bg.loop = true; bg.volume = 0; bg.muted = true;
     bgRef.current = bg;
+
+    // When embedded, try to start immediately — the parent page's click
+    // gesture propagates through the iframe's allow="autoplay" attribute.
+    if (isIframed) {
+      bg.muted = false;
+      bg.play()
+        .then(() => {
+          fadeVolume(bg, 0, 0.07, 1200);
+          setMuted(false);
+          setStarted(true);
+        })
+        .catch(() => {
+          bg.muted = true;
+          // Falls back to manual start via the sound button or postMessage
+        });
+    }
+
     return () => { bg.pause(); bg.src = ''; bgRef.current = null; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Start audio when the parent marketing site sends the play command via postMessage
+  // Also listen for postMessage from the parent page (fallback if autoplay was blocked)
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.data?.type !== 'docuplete-play') return;
@@ -237,8 +256,31 @@ export default function VideoWithControls() {
 
   const activeSceneKey = sceneKeys[activeIndex] ?? 'intro';
 
-  // Per-scene voiceover — plays automatically whenever !muted and scene changes
+  // Per-scene voiceover
   useSceneAudio(VOICEOVER_CLIPS, activeSceneKey, !muted);
+
+  // Ended state
+  const [isEnded, setIsEnded] = useState(false);
+
+  const handleVideoEnd = useCallback(() => {
+    setIsEnded(true);
+    const bg = bgRef.current;
+    if (bg) fadeVolume(bg, bg.volume, 0, 1500, () => { bg.muted = true; });
+    setMuted(true);
+  }, []);
+
+  const handlePlayAgain = useCallback(() => {
+    setIsEnded(false);
+    setMuted(false);
+    jumpTo(0);
+    const bg = bgRef.current;
+    if (bg) {
+      bg.currentTime = 0;
+      bg.muted = false;
+      bg.play().then(() => fadeVolume(bg, 0, 0.07, 800)).catch(() => {});
+    }
+    setStarted(true);
+  }, [jumpTo]);
 
   const toggleMute = useCallback(() => {
     const bg = bgRef.current;
@@ -307,9 +349,26 @@ export default function VideoWithControls() {
       <VideoTemplate
         key={mountKey}
         durations={durations}
-        loop
+        loop={false}
         onSceneChange={onSceneChange}
+        onVideoEnd={handleVideoEnd}
       />
+
+      {/* Play Again overlay — shown when the video finishes */}
+      {isEnded && (
+        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60">
+          <button
+            onClick={handlePlayAgain}
+            className="flex items-center gap-3 bg-white text-[#0B1220] font-bold text-xl px-10 py-5 rounded-2xl shadow-2xl hover:bg-white/90 active:scale-95 transition-all"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7">
+              <path d="M17.65 6.35A7.958 7.958 0 0 0 12 4c-4.42 0-7.99 3.58-7.99 8s3.57 8 7.99 8c3.73 0 6.84-2.55 7.73-6h-2.08A5.99 5.99 0 0 1 12 18c-3.31 0-6-2.69-6-6s2.69-6 6-6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+            </svg>
+            Play Again
+          </button>
+        </div>
+      )}
+
       <div
         ref={sensorRef}
         className="absolute bottom-0 left-0 right-0 z-50 flex flex-col justify-end"
@@ -320,7 +379,7 @@ export default function VideoWithControls() {
       >
         <div className="flex-1 w-full" aria-hidden="true" />
         <ControlBar
-          visible={barVisible}
+          visible={barVisible && !isEnded}
           collapsed={collapsed}
           locked={locked}
           muted={muted}
