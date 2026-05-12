@@ -32,11 +32,8 @@ interface MerlinCustomerChatProps {
 function WizardHatIcon({ className = "w-5 h-5" }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className={className}>
-      {/* Hat body — lower cone + upper section bent hard left so tip sits at x=8 */}
       <path d="M8 2.5C9 5 10 8 10 10C9 12 7.5 14.5 7 17H18C17.5 14.5 15.5 12 15 10C15 7 13 4 8 2.5Z" />
-      {/* Wide brim */}
       <path d="M1 17Q3.5 21.5 12 22Q20.5 21.5 23 17H1Z" />
-      {/* Bow knot */}
       <path d="M11 17L8.5 15.5L10 14.5L12 16L14 14.5L15.5 15.5L13 17L12.5 16.5H11.5L11 17Z" fillOpacity={0.5} />
     </svg>
   );
@@ -46,6 +43,37 @@ function SendIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
       <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" />
+    </svg>
+  );
+}
+
+function MicIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z" />
+      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+      <line x1="12" y1="19" x2="12" y2="22" />
+      <line x1="8" y1="22" x2="16" y2="22" />
+    </svg>
+  );
+}
+
+function SpeakerOnIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+    </svg>
+  );
+}
+
+function SpeakerOffIcon({ className = "w-4 h-4" }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={className}>
+      <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+      <line x1="23" y1="9" x2="17" y2="15" />
+      <line x1="17" y1="9" x2="23" y2="15" />
     </svg>
   );
 }
@@ -70,7 +98,19 @@ function getBrandTextColor(hex: string): string {
   } catch { return "#ffffff"; }
 }
 
-// Parse SSE stream from a ReadableBody response
+function stripMarkdownForSpeech(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/__(.*?)__/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/_(.*?)_/g, "$1")
+    .replace(/^[ \t]*[-*•]\s+/gm, "")
+    .replace(/^[ \t]*\d+\.\s+/gm, "")
+    .replace(/`([^`]+)`/g, "$1")
+    .replace(/#{1,6}\s+/g, "")
+    .trim();
+}
+
 async function* parseSSE(response: Response): AsyncGenerator<Record<string, unknown>> {
   const reader  = response.body!.getReader();
   const decoder = new TextDecoder();
@@ -103,17 +143,25 @@ export function MerlinCustomerChat({
   onSwitchToForm,
 }: MerlinCustomerChatProps) {
   const brandTextColor = getBrandTextColor(brandColor);
-  const [messages,   setMessages]   = useState<Message[]>([]);
-  const [input,      setInput]      = useState("");
-  const [isLoading,  setIsLoading]  = useState(false);
+  const [messages,    setMessages]    = useState<Message[]>([]);
+  const [input,       setInput]       = useState("");
+  const [isLoading,   setIsLoading]   = useState(false);
   const [reviewShown, setReviewShown] = useState(false);
+
+  // Voice state
+  const [voiceEnabled,  setVoiceEnabled]  = useState(false);
+  const [isListening,   setIsListening]   = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const recognitionRef  = useRef<any>(null);
+  const lastSpokenIdRef = useRef<string | null>(null);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef       = useRef<HTMLInputElement | null>(null);
   const hasInitedRef   = useRef(false);
 
-  const interviewFields = fields.filter((f) => f.interviewMode !== "omitted" && f.interviewMode !== "readonly");
-  const requiredFields  = interviewFields.filter((f) => f.interviewMode === "required");
-  const answeredCount   = requiredFields.filter((f) => answers[f.id]?.trim()).length;
+  const interviewFields    = fields.filter((f) => f.interviewMode !== "omitted" && f.interviewMode !== "readonly");
+  const requiredFields     = interviewFields.filter((f) => f.interviewMode === "required");
+  const answeredCount      = requiredFields.filter((f) => answers[f.id]?.trim()).length;
   const allRequiredAnswered = answeredCount === requiredFields.length && requiredFields.length > 0;
 
   // Initial greeting
@@ -130,12 +178,32 @@ export function MerlinCustomerChat({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Speak new assistant messages when voice is enabled
+  useEffect(() => {
+    if (!voiceEnabled || isLoading) return;
+    const lastMsg = messages[messages.length - 1];
+    if (!lastMsg || lastMsg.role !== "assistant" || lastMsg.thinking) return;
+    if (lastMsg.id === lastSpokenIdRef.current) return;
+    lastSpokenIdRef.current = lastMsg.id;
+
+    const text = stripMarkdownForSpeech(lastMsg.content);
+    if (!text) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.rate = 1.05;
+    window.speechSynthesis.speak(utterance);
+  }, [messages, voiceEnabled, isLoading]);
+
+  // Cancel speech on unmount
+  useEffect(() => {
+    return () => { window.speechSynthesis.cancel(); };
+  }, []);
+
   // Auto-show review step when all required fields answered (only once)
   useEffect(() => {
     if (!allRequiredAnswered || reviewShown || messages.length === 0 || isLoading) return;
     setReviewShown(true);
 
-    // Build a review summary message
     const lines = interviewFields
       .filter((f) => answers[f.id]?.trim())
       .map((f) => {
@@ -164,10 +232,56 @@ export function MerlinCustomerChat({
     setTimeout(() => inputRef.current?.focus(), 100);
   }, []);
 
+  function toggleVoice() {
+    const next = !voiceEnabled;
+    setVoiceEnabled(next);
+    if (!next) {
+      window.speechSynthesis.cancel();
+      recognitionRef.current?.stop();
+    }
+  }
+
+  function toggleListening() {
+    if (isListening) {
+      recognitionRef.current?.stop();
+      return;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const SR = (window as any).SpeechRecognition ?? (window as any).webkitSpeechRecognition;
+
+    if (!SR) {
+      alert("Voice input isn't supported in this browser. Try Chrome on Android or Safari on iPhone.");
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+
+    const recognition = new SR();
+    recognition.continuous    = false;
+    recognition.interimResults = false;
+    recognition.lang          = "en-US";
+
+    recognition.onstart = () => setIsListening(true);
+    recognition.onend   = () => setIsListening(false);
+    recognition.onerror = () => setIsListening(false);
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(transcript);
+      setTimeout(() => void sendMessage(transcript), 200);
+    };
+
+    recognitionRef.current = recognition;
+    recognition.start();
+  }
+
   async function sendMessage(text?: string) {
     const userText = (text ?? input).trim();
     if (!userText || isLoading) return;
     setInput("");
+    window.speechSynthesis.cancel();
 
     const userMsg: Message     = { id: crypto.randomUUID(), role: "user",     content: userText };
     const thinkingMsg: Message = { id: "thinking",         role: "assistant", content: "", thinking: true };
@@ -265,9 +379,22 @@ export function MerlinCustomerChat({
           </div>
         )}
 
+        {/* Voice toggle */}
+        <button
+          onClick={toggleVoice}
+          className="ml-2 shrink-0 opacity-70 hover:opacity-100 transition-opacity border border-white/30 rounded-lg p-1.5"
+          title={voiceEnabled ? "Mute Merlin's voice" : "Enable Merlin's voice"}
+          aria-label={voiceEnabled ? "Mute Merlin's voice" : "Enable Merlin's voice"}
+        >
+          {voiceEnabled
+            ? <SpeakerOnIcon className="w-3.5 h-3.5" />
+            : <SpeakerOffIcon className="w-3.5 h-3.5" />
+          }
+        </button>
+
         <button
           onClick={onSwitchToForm}
-          className="ml-2 text-[11px] opacity-70 hover:opacity-100 transition-opacity border border-white/30 rounded-lg px-2 py-1 whitespace-nowrap shrink-0"
+          className="text-[11px] opacity-70 hover:opacity-100 transition-opacity border border-white/30 rounded-lg px-2 py-1 whitespace-nowrap shrink-0"
           title="Switch to self-fill form"
         >
           Fill form yourself
@@ -313,7 +440,7 @@ export function MerlinCustomerChat({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Review gate — shown after Merlin summary when all required fields are done */}
+      {/* Review gate */}
       {allRequiredAnswered && reviewShown && (
         <div className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 shrink-0">
           <p className="text-sm font-medium text-green-800 mb-1">All required fields complete.</p>
@@ -344,10 +471,35 @@ export function MerlinCustomerChat({
                 void sendMessage();
               }
             }}
-            placeholder={isLoading ? "Merlin is thinking…" : "Type your answer or ask a question…"}
-            disabled={isLoading}
+            placeholder={
+              isListening
+                ? "Listening…"
+                : isLoading
+                ? "Merlin is thinking…"
+                : "Type your answer or tap the mic…"
+            }
+            disabled={isLoading || isListening}
             className="flex-1 bg-transparent text-sm text-[#0F1C3F] placeholder-[#8A9BB8] outline-none min-w-0"
           />
+
+          {/* Mic button */}
+          <button
+            onClick={toggleListening}
+            disabled={isLoading}
+            className={[
+              "shrink-0 transition-all rounded-full p-1",
+              isListening
+                ? "text-white animate-pulse"
+                : "text-[#8A9BB8] hover:text-[#0F1C3F]",
+            ].join(" ")}
+            style={isListening ? { backgroundColor: brandColor } : undefined}
+            aria-label={isListening ? "Stop listening" : "Speak your answer"}
+            title={isListening ? "Stop listening" : "Speak your answer"}
+          >
+            <MicIcon className="w-4 h-4" />
+          </button>
+
+          {/* Send button */}
           <button
             onClick={() => void sendMessage()}
             disabled={!input.trim() || isLoading}
