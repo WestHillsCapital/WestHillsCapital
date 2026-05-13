@@ -917,7 +917,7 @@ export default function DocupleteCustomer() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244" />
           </svg>
           <h1 className="text-lg font-semibold text-[#0F1C3F]">This link has expired or is no longer valid</h1>
-          <p className="text-sm text-[#6B7A99]">Please contact your advisor to receive a new link.</p>
+          <p className="text-sm text-[#6B7A99]">Please contact the sender to receive a new link.</p>
         </div>
       </div>
     );
@@ -1091,7 +1091,7 @@ export default function DocupleteCustomer() {
           <div className="flex justify-center"><CheckIcon /></div>
           <div>
             <h1 className="text-xl font-semibold text-[#0F1C3F]">You're all set!</h1>
-            <p className="text-sm text-[#6B7A99] mt-1">Your paperwork is complete. Your advisor has been notified.{signerEmail ? ` A copy has been sent to ${signerEmail}.` : ""}</p>
+            <p className="text-sm text-[#6B7A99] mt-1">Your paperwork is complete. Your team has been notified.{signerEmail ? ` A copy has been sent to ${signerEmail}.` : ""}</p>
           </div>
           {downloadUrl && (
             <Button onClick={handleDownload} disabled={isDownloading} className="w-full">
@@ -1132,7 +1132,7 @@ export default function DocupleteCustomer() {
         {!isEmbed && <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
           <div className="max-w-2xl mx-auto flex items-center gap-3">
             {(() => {
-              const orgName = session!.org_name ?? "West Hills Capital";
+              const orgName = session!.org_name ?? "your organization";
               const rawLogoUrl = session!.org_form_logo_url ?? session!.org_logo_url ?? null;
               const logoSrc = rawLogoUrl ? `${API_BASE}${rawLogoUrl}` : null;
               const bColor = session!.org_brand_color ?? "#C49A38";
@@ -1542,7 +1542,7 @@ export default function DocupleteCustomer() {
         {!isEmbed && <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
           <div className="max-w-2xl mx-auto flex items-center gap-3">
             {(() => {
-              const orgName = session!.org_name ?? "West Hills Capital";
+              const orgName = session!.org_name ?? "your organization";
               const rawLogoUrl = session!.org_form_logo_url ?? session!.org_logo_url ?? null;
               const logoSrc = rawLogoUrl ? `${API_BASE}${rawLogoUrl}` : null;
               const logoOnWhite = session!.org_logo_on_white !== false;
@@ -1725,7 +1725,7 @@ export default function DocupleteCustomer() {
       {!isEmbed && <header className="bg-white border-b border-[#DDD5C4] px-4 py-4">
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           {(() => {
-            const orgName = session!.org_name ?? "West Hills Capital";
+            const orgName = session!.org_name ?? "your organization";
             const rawLogoUrl2 = session!.org_form_logo_url ?? session!.org_logo_url ?? null;
             const logoSrc = rawLogoUrl2 ? `${API_BASE}${rawLogoUrl2}` : null;
             const brandColor = session!.org_brand_color ?? "#C49A38";
@@ -2098,7 +2098,7 @@ export default function DocupleteCustomer() {
               ? "Your identity has been verified. Complete the form, then you'll provide your legal name and signature to finalize the documents."
               : session!.auth_level === "email_otp"
               ? "Your identity has been verified. Complete the form and submit — your documents will be generated immediately."
-              : "By submitting, you confirm the information above is accurate. Your completed documents will be generated immediately and sent to your advisor."}
+              : "By submitting, you confirm the information above is accurate. Your completed documents will be generated immediately and sent to your team."}
           </div>
           <div className={`flex gap-3 ${(session!.require_preview || session!.require_scroll_confirmation) ? "" : "flex-wrap"}`}>
             {/* "Review Document" — always shown; primary when it's the sole action (require_preview or require_scroll_confirmation) */}

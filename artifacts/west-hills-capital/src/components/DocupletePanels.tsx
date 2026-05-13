@@ -438,7 +438,7 @@ export function EntityPanel({
                   list={`kind-suggestions-${item.id}`}
                   value={item.kind ?? "general"}
                   onChange={(e) => onChange(item.id, { kind: e.target.value })}
-                  placeholder="e.g. Custodian, Depository…"
+                  placeholder="e.g. Vendor, Partner…"
                   className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
                 />
                 {kindSuggestions && kindSuggestions.length > 0 && (
@@ -1259,7 +1259,7 @@ export function FieldLibraryPanel({
                     selectedItem.type === "checkbox"
                       ? "One checkbox per line, e.g.\nI agree to the terms and conditions\nI am a US person or entity"
                       : selectedItem.type === "dropdown"
-                      ? "One option per line, e.g.\nChecking\nSavings\nIRA\nTrust"
+                      ? "One option per line, e.g.\nOption A\nOption B\nOption C"
                       : selectedItem.type === "radio"
                       ? "One choice per line, e.g.\nYes\nNo\nUnsure"
                       : "One option per line (used for Radio, Checkbox, or Dropdown fields)"

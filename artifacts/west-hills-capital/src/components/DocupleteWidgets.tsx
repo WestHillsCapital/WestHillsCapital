@@ -39,7 +39,7 @@ export function TagChipInput({ tags, onChange, placeholder }: {
           else if (e.key === "Backspace" && !input && tags.length > 0) onChange(tags.slice(0, -1));
         }}
         onBlur={() => commit(input)}
-        placeholder={tags.length ? "Add another tag…" : (placeholder ?? "e.g. sports, IRA, onboarding")}
+        placeholder={tags.length ? "Add another tag…" : (placeholder ?? "e.g. billing, onboarding, support")}
         className="w-full border border-[#D4C9B5] rounded px-3 py-1.5 text-xs focus:outline-none focus:border-[#C49A38] placeholder:text-[#B0A898]"
       />
     </div>

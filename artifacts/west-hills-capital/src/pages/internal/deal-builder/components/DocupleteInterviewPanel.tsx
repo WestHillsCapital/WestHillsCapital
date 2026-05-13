@@ -177,7 +177,7 @@ export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
       <div className="mt-6 bg-white border border-[#DDD5C4] rounded-lg p-6">
         <div className="flex items-center gap-3 text-sm text-[#6B7A99]">
           <div className="w-4 h-4 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
-          Loading IRA paperwork interview…
+          Loading interview…
         </div>
       </div>
     );
@@ -212,7 +212,7 @@ export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
       <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-[#DDD5C4]">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
-            <h2 className="text-sm font-semibold text-[#0F1C3F]">IRA Paperwork Interview</h2>
+            <h2 className="text-sm font-semibold text-[#0F1C3F]">Document Interview</h2>
             {session.test_mode && (
               <span className="text-[10px] uppercase tracking-wide rounded bg-amber-50 border border-amber-300 text-amber-700 px-1.5 py-0.5">Test</span>
             )}
