@@ -2156,16 +2156,13 @@ router.get("/field-library/export", requireAdminRole, async (req, res) => {
     const format = req.query.format === "csv" ? "csv" : "json";
     const db = getDb();
 
-    // Query only this account's own fields (account_id = accountId), explicitly
-    // excluding global fields (account_id IS NULL) and parent-inherited fields.
-    const [ownFieldRows, groupRows] = await Promise.all([
-      db.query(
-        `${fieldLibrarySelectSql()} WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, label ASC`,
-        [accountId],
-      ),
+    // Use getFieldLibrary so the export includes global fields AND parent-inherited
+    // fields (when the account's parent is on the Enterprise plan), matching exactly
+    // what the user sees in the UI.
+    const [ownFields, groupRows] = await Promise.all([
+      getFieldLibrary(db, accountId),
       db.query(`SELECT * FROM docuplete_field_groups WHERE account_id = $1 ORDER BY sort_order ASC, name ASC`, [accountId]),
     ]);
-    const ownFields = ownFieldRows.rows as Array<Record<string, unknown> & { id: string }>;
     const ts = new Date().toISOString().slice(0, 10);
 
     if (format === "csv") {
