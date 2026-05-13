@@ -4257,7 +4257,7 @@ export default function Docuplete() {
           {librarySubTab === "fields" && (
             <FieldLibraryPanel
               items={fieldLibrary}
-              allComplianceTags={allComplianceTags}
+              allComplianceTags={complianceTags}
               onAdd={createFieldLibraryItem as () => Promise<string | null>}
               onChange={updateFieldLibraryLocal}
               onSave={saveFieldLibraryItem as (item: FieldLibraryItem) => Promise<string | null>}
