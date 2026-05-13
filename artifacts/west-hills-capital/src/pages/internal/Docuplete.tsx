@@ -955,6 +955,19 @@ export default function Docuplete() {
     }
   }
 
+  // Reload only the field library and field groups from the server without
+  // touching packages — safe to call while the user has unsaved mapper work.
+  async function reloadFieldLibraryOnly() {
+    try {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/bootstrap`, { headers: { ...getAuthHeaders() } });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) {
+        setFieldLibrary(normalizeFieldLibrary(data.fieldLibrary ?? []));
+        setFieldGroups(Array.isArray(data.fieldGroups) ? data.fieldGroups as FieldGroup[] : []);
+      }
+    } catch { /* silently ignore — field list will refresh on next full load */ }
+  }
+
   async function handleSeedDemo() {
     setSeedingDemo(true);
     try {
@@ -1667,7 +1680,7 @@ export default function Docuplete() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return data.error ?? "Could not create group";
-      await loadBootstrap();
+      if (data.group) setGroups((prev) => [...prev, data.group as Entity]);
       return null;
     } catch {
       return "Network error — could not create group";
@@ -1687,7 +1700,7 @@ export default function Docuplete() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return data.error ?? "Could not save group";
-      await loadBootstrap();
+      setGroups((prev) => prev.map((g) => g.id === item.id ? { ...g, ...(data.group as Entity | undefined) } : g));
       return null;
     } catch {
       return "Network error — could not save group";
@@ -1760,7 +1773,9 @@ export default function Docuplete() {
       });
       const responseData = await res.json().catch(() => ({}));
       if (!res.ok) return (responseData as { error?: string }).error ?? "Import failed";
-      await loadBootstrap();
+      // Reload only the field library — do not call loadBootstrap() which would
+      // wipe all unsaved package/mapper state.
+      void reloadFieldLibraryOnly();
       return responseData as import("@/components/DocupletePanels").FieldLibraryImportResult;
     } catch {
       return "Network error — import failed";
@@ -1778,7 +1793,8 @@ export default function Docuplete() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return data.error ?? "Could not create record";
-      await loadBootstrap();
+      if (type === "custodians" && data.custodian) setCustodians((prev) => [...prev, data.custodian as Entity]);
+      if (type === "depositories" && data.depository) setDepositories((prev) => [...prev, data.depository as Entity]);
       return null;
     } catch {
       return "Network error — could not create record";
@@ -1808,7 +1824,9 @@ export default function Docuplete() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return data.error ?? "Could not save record";
       flashStatus("Saved.");
-      await loadBootstrap();
+      const updater = (e: Entity) => e.id === item.id ? { ...e, ...(data.custodian ?? data.depository ?? {}) as Entity } : e;
+      if (type === "custodians") setCustodians((prev) => prev.map(updater));
+      else setDepositories((prev) => prev.map(updater));
       return null;
     } catch {
       return "Network error — could not save record";
@@ -1846,7 +1864,7 @@ export default function Docuplete() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return data.error ?? "Could not create type";
-      await loadBootstrap();
+      if (data.transactionType) setTransactionTypes((prev) => [...prev, data.transactionType as TransactionType]);
       return { scope: data.transactionType?.scope ?? "" };
     } catch {
       return "Network error — could not create type";
@@ -1862,7 +1880,7 @@ export default function Docuplete() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return data.error ?? "Could not create group";
-      await loadBootstrap();
+      if (data.group) setGroups((prev) => [...prev, data.group as Entity]);
       return { id: data.id ?? data.group?.id };
     } catch {
       return "Network error — could not create group";
@@ -1879,7 +1897,7 @@ export default function Docuplete() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return data.error ?? "Could not create transaction type";
-      await loadBootstrap();
+      if (data.transactionType) setTransactionTypes((prev) => [...prev, data.transactionType as TransactionType]);
       return null;
     } catch {
       return "Network error — could not create transaction type";
@@ -1904,7 +1922,7 @@ export default function Docuplete() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return data.error ?? "Could not save transaction type";
       flashStatus("Saved.");
-      await loadBootstrap();
+      setTransactionTypes((prev) => prev.map((t) => t.scope === item.scope ? { ...t, ...(data.transactionType as TransactionType | undefined) } : t));
       return null;
     } catch {
       return "Network error — could not save transaction type";
@@ -1994,7 +2012,9 @@ export default function Docuplete() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) return data.error ?? "Could not save field library item";
       flashStatus("Saved.");
-      await loadBootstrap();
+      // Update just this field in local state — do not call loadBootstrap()
+      // which would wipe unsaved package/mapper changes.
+      setFieldLibrary((prev) => prev.map((f) => f.id === item.id ? { ...f, ...normalizeFieldLibrary([{ ...item, ...data }])[0] } : f));
       return null;
     } catch {
       return "Network error — could not save field library item";
@@ -2038,7 +2058,8 @@ export default function Docuplete() {
       const data = await res.json().catch(() => ({})) as Record<string, unknown>;
       if (!res.ok) return (data.error as string | undefined) ?? "Could not restore version";
       flashStatus("Restored.");
-      await loadBootstrap();
+      // Reload only the field library, not the full bootstrap — preserves unsaved mapper state.
+      void reloadFieldLibraryOnly();
       return null;
     } catch {
       return "Network error — could not restore version";
@@ -2991,7 +3012,8 @@ export default function Docuplete() {
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
           resolvedLibraryFieldId = data.field?.id ?? "";
-          void loadBootstrap();
+          // Append only the new field — do NOT call loadBootstrap() which would wipe unsaved mapper state.
+          if (data.field) setFieldLibrary((prev) => [...normalizeFieldLibrary([data.field]), ...prev]);
         } else if (res.status === 409 && data.fieldId) {
           resolvedLibraryFieldId = data.fieldId;
         }
