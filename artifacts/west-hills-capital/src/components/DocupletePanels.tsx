@@ -1121,19 +1121,31 @@ export function FieldLibraryPanel({
                   {item.lastAnswered && <span className="text-[#8A9BB8]">last {relativeTime(item.lastAnswered)}</span>}
                 </div>
               )}
-              <Input value={item.label} onChange={(e) => onChange(item.id, { label: e.target.value })} className="h-8 text-xs bg-white" placeholder="Label" />
+              <div className="relative pt-1">
+                {showHints && <HL>Label</HL>}
+                <Input value={item.label} onChange={(e) => onChange(item.id, { label: e.target.value })} className="h-8 text-xs bg-white" placeholder="Label" />
+              </div>
               <div className="grid grid-cols-2 gap-2">
-                <Input placeholder="Category" value={item.category} onChange={(e) => onChange(item.id, { category: e.target.value })} className="h-8 text-xs bg-white" />
-                <div className="flex flex-wrap gap-1">
-                  {(["text", "radio", "checkbox", "dropdown"] as const).map((t) => (
-                    <button key={t} type="button" onClick={() => onChange(item.id, { type: t })} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${item.type === t ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F]"}`}>{t}</button>
-                  ))}
+                <div className="relative pt-1">
+                  {showHints && <HL>Category</HL>}
+                  <Input placeholder="Category" value={item.category} onChange={(e) => onChange(item.id, { category: e.target.value })} className="h-8 text-xs bg-white" />
+                </div>
+                <div className="relative pt-1">
+                  {showHints && <HL>Field type</HL>}
+                  <div className="flex flex-wrap gap-1">
+                    {(["text", "radio", "checkbox", "dropdown"] as const).map((t) => (
+                      <button key={t} type="button" onClick={() => onChange(item.id, { type: t })} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${item.type === t ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F]"}`}>{t}</button>
+                    ))}
+                  </div>
                 </div>
               </div>
-              <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
-                <label className="flex items-center gap-1"><input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} /> Active</label>
-                <label className="flex items-center gap-1"><input type="checkbox" checked={item.required} onChange={(e) => onChange(item.id, { required: e.target.checked })} /> Required</label>
-                <label className="flex items-center gap-1"><input type="checkbox" checked={item.sensitive} onChange={(e) => onChange(item.id, { sensitive: e.target.checked })} /> Sensitive</label>
+              <div className="relative pt-1">
+                {showHints && <HL>Active · Required · Sensitive</HL>}
+                <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
+                  <label className="flex items-center gap-1"><input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} /> Active</label>
+                  <label className="flex items-center gap-1"><input type="checkbox" checked={item.required} onChange={(e) => onChange(item.id, { required: e.target.checked })} /> Required</label>
+                  <label className="flex items-center gap-1"><input type="checkbox" checked={item.sensitive} onChange={(e) => onChange(item.id, { sensitive: e.target.checked })} /> Sensitive</label>
+                </div>
               </div>
               <button type="button" onClick={() => setExpandedIds((prev) => { const n = new Set(prev); isExpanded ? n.delete(item.id) : n.add(item.id); return n; })} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
                 {isExpanded ? "▲ Less" : "▾ More options"}
@@ -1141,22 +1153,37 @@ export function FieldLibraryPanel({
               {isExpanded && (
                 <div className="space-y-2 border-t border-[#EFE8D8] pt-2">
                   <div className="grid grid-cols-2 gap-2">
-                    <Input placeholder="Prefill source" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" />
-                    <Input type="number" placeholder="Sort order" value={item.sortOrder} onChange={(e) => onChange(item.id, { sortOrder: Number(e.target.value || 100) })} className="h-8 text-xs bg-white" />
+                    <div className="relative pt-1">
+                      {showHints && <HL>Prefill source</HL>}
+                      <Input placeholder="Prefill source" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" />
+                    </div>
+                    <div className="relative pt-1">
+                      {showHints && <HL>Sort order</HL>}
+                      <Input type="number" placeholder="Sort order" value={item.sortOrder} onChange={(e) => onChange(item.id, { sortOrder: Number(e.target.value || 100) })} className="h-8 text-xs bg-white" />
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-1">
-                    {(["none", "name", "email", "phone", "ssn", "number", "currency", "date", "custom"] as const).map((v) => (
-                      <button key={v} type="button" onClick={() => onChange(item.id, { validationType: v as FieldLibraryItem["validationType"] })} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${(item.validationType ?? "none") === v ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F]"}`}>{v}</button>
-                    ))}
+                  <div className="relative pt-1">
+                    {showHints && <HL>Validation rule</HL>}
+                    <div className="flex flex-wrap gap-1">
+                      {(["none", "name", "email", "phone", "ssn", "number", "currency", "date", "custom"] as const).map((v) => (
+                        <button key={v} type="button" onClick={() => onChange(item.id, { validationType: v as FieldLibraryItem["validationType"] })} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${(item.validationType ?? "none") === v ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F]"}`}>{v}</button>
+                      ))}
+                    </div>
                   </div>
                   {item.validationType === "custom" && <Input placeholder="Regex pattern" value={item.validationPattern ?? ""} onChange={(e) => onChange(item.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" />}
-                  <Input placeholder="Validation message" value={item.validationMessage ?? ""} onChange={(e) => onChange(item.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" />
-                  <Textarea
-                    placeholder={item.type === "checkbox" ? "One checkbox per line" : item.type === "radio" ? "One choice per line" : item.type === "dropdown" ? "One option per line" : "Options (one per line)"}
-                    value={item.options.join("\n")}
-                    onChange={(e) => onChange(item.id, { options: e.target.value.split("\n").filter(Boolean) })}
-                    className="min-h-16 text-xs bg-white"
-                  />
+                  <div className="relative pt-1">
+                    {showHints && <HL>Validation message</HL>}
+                    <Input placeholder="Validation message" value={item.validationMessage ?? ""} onChange={(e) => onChange(item.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" />
+                  </div>
+                  <div className="relative pt-1">
+                    {showHints && <HL>Options</HL>}
+                    <Textarea
+                      placeholder={item.type === "checkbox" ? "One checkbox per line" : item.type === "radio" ? "One choice per line" : item.type === "dropdown" ? "One option per line" : "Options (one per line)"}
+                      value={item.options.join("\n")}
+                      onChange={(e) => onChange(item.id, { options: e.target.value.split("\n").filter(Boolean) })}
+                      className="min-h-16 text-xs bg-white"
+                    />
+                  </div>
                   {allComplianceTags !== undefined && (
                     <div>
                       <div className="flex flex-wrap items-center gap-1 min-h-[20px]">
