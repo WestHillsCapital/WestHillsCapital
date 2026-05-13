@@ -1,9 +1,9 @@
 import { memo, useRef, useState, useEffect } from "react";
-import { useDocuFillStore } from "@/stores/useDocuFillStore";
+import { useDocupleteStore } from "@/stores/useDocupleteStore";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import type { PackageItem } from "@/lib/docufill-local-types";
+import type { PackageItem } from "@/lib/docuplete-local-types";
 
 export type BuilderStep = "documents" | "mapping" | "interview" | "finalize";
 
@@ -50,12 +50,12 @@ export const PackagePickerSidebar = memo(function PackagePickerSidebar({
   unmappedCount,
   complianceGapPackageIds,
 }: PackagePickerSidebarProps) {
-  const packages = useDocuFillStore((s) => s.packages);
-  const selectedPackageId = useDocuFillStore((s) => s.selectedPackageId);
-  const setSelectedPackageId = useDocuFillStore((s) => s.setSelectedPackageId);
-  const updateSelectedPackage = useDocuFillStore((s) => s.updateSelectedPackage);
-  const tagFilter = useDocuFillStore((s) => s.tagFilter);
-  const setTagFilter = useDocuFillStore((s) => s.setTagFilter);
+  const packages = useDocupleteStore((s) => s.packages);
+  const selectedPackageId = useDocupleteStore((s) => s.selectedPackageId);
+  const setSelectedPackageId = useDocupleteStore((s) => s.setSelectedPackageId);
+  const updateSelectedPackage = useDocupleteStore((s) => s.updateSelectedPackage);
+  const tagFilter = useDocupleteStore((s) => s.tagFilter);
+  const setTagFilter = useDocupleteStore((s) => s.setTagFilter);
 
   const [pkgDropdownOpen, setPkgDropdownOpen] = useState(false);
   const pkgDropdownRef = useRef<HTMLDivElement>(null);

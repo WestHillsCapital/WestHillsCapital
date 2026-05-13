@@ -21,7 +21,7 @@ export function InternalLayout({ children }: InternalLayoutProps) {
     { href: "/internal/scheduled-calls",      label: "Scheduled Calls" },
     { href: "/internal/deal-builder",         label: "Deal Builder" },
     { href: "/internal/content",              label: "Content" },
-    { href: "/internal/docufill",             label: "Docuplete" },
+    { href: "/internal/docuplete",             label: "Docuplete" },
     { href: "/internal/super-admin",          label: "Super Admin" },
     { href: "/internal/settings",             label: "Settings" },
   ];

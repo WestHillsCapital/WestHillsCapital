@@ -9,7 +9,7 @@ import { test, expect } from "@playwright/test";
  *   - Unauthenticated access to /app redirects to /app/sign-in
  *   - Authenticated: sessions page loads without crash
  *   - Authenticated: settings page loads without crash
- *   - Authenticated: default /app route loads DocuFill mapper without crash
+ *   - Authenticated: default /app route loads Docuplete mapper without crash
  *
  * Auth-gated tests skip automatically when CLERK_SECRET_KEY is not set.
  */
@@ -103,7 +103,7 @@ test.describe("/app portal — authenticated", () => {
     expect(body?.trim().length).toBeGreaterThan(100);
   });
 
-  test("default /app route loads DocuFill mapper without crash", async ({ page }) => {
+  test("default /app route loads Docuplete mapper without crash", async ({ page }) => {
     await page.goto(APP, { waitUntil: "domcontentloaded" });
     await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
 

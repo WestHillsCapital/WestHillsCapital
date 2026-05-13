@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent as ReactDragEvent, type ReactNode } from "react";
-import { useDocuFillStore } from "@/stores/useDocuFillStore";
+import { useDocupleteStore } from "@/stores/useDocupleteStore";
 import { useShallow } from "zustand/react/shallow";
 import { Info, ChevronLeft, ChevronRight } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -8,14 +8,14 @@ import { SortableContext, arrayMove, verticalListSortingStrategy, rectSortingStr
 import { useLocation, useParams, useSearch } from "wouter";
 import { useInternalAuth } from "@/hooks/useInternalAuth";
 import { useUpgradeModal } from "@/hooks/useUpgradeModal";
-import { useDocuFillConfig } from "@/hooks/useDocuFillConfig";
+import { useDocupleteConfig } from "@/hooks/useDocupleteConfig";
 import { getCachedOrg } from "@/hooks/useOrgSettings";
 import { formatOrgTime } from "@/lib/orgDateFormat";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { getDocuFillPrefillDisplayValue, ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE, isSystemEsignFieldId } from "@/lib/docufill-redaction";
-import { sessionToCsv, packageTemplateToCsv, downloadCsv, parseCsvString, batchResultsToCsv } from "@/lib/docufill-csv";
+import { getDocupletePrefillDisplayValue, ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE, isSystemEsignFieldId } from "@/lib/docuplete-redaction";
+import { sessionToCsv, packageTemplateToCsv, downloadCsv, parseCsvString, batchResultsToCsv } from "@/lib/docuplete-csv";
 import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
 import * as pdfjsLib from "pdfjs-dist";
 import {
@@ -25,18 +25,18 @@ import {
   type MappingFormat,
   type MappingItem,
   type RecipientItem,
-} from "@/lib/docufill-types";
-import { useDocuFillPointer } from "@/hooks/useDocuFillPointer";
+} from "@/lib/docuplete-types";
+import { useDocupletePointer } from "@/hooks/useDocupletePointer";
 import { MappingButton } from "@/components/MappingButton";
 import { FieldCard } from "@/components/FieldCard";
 import { PlacementModal } from "@/components/PlacementModal";
 import { DocumentPreviewTile } from "@/components/DocumentPreviewTile";
-import { EmptyState, SummaryCard, LabeledInput, EntityPanel, TransactionTypesPanel, FieldLibraryPanel, FieldGroupsPanel } from "@/components/DocuFillPanels";
-import type { Entity, TransactionType, DocItem, FieldLibraryItem, FieldVersionRow, FieldAnalytics, FieldGroup, PackageItem, ComplianceTag } from "@/lib/docufill-local-types";
+import { EmptyState, SummaryCard, LabeledInput, EntityPanel, TransactionTypesPanel, FieldLibraryPanel, FieldGroupsPanel } from "@/components/DocupletePanels";
+import type { Entity, TransactionType, DocItem, FieldLibraryItem, FieldVersionRow, FieldAnalytics, FieldGroup, PackageItem, ComplianceTag } from "@/lib/docuplete-local-types";
 import { FieldEditorModal, type FieldEditorDraft } from "@/components/FieldEditorModal";
-import { TagChipInput, PackagePickerWithTags, ScrollPageCanvas, EmbedSnippetPanel } from "@/components/DocuFillWidgets";
+import { TagChipInput, PackagePickerWithTags, ScrollPageCanvas, EmbedSnippetPanel } from "@/components/DocupleteWidgets";
 import { PackagePickerSidebar, type BuilderStep, BUILDER_STEPS } from "@/components/PackagePickerSidebar";
-import { SortableItem, SmartPointerSensor, DragGuideLines, ResizeDimTooltip, type SortableItemRenderProps } from "@/components/DocuFillDndHelpers";
+import { SortableItem, SmartPointerSensor, DragGuideLines, ResizeDimTooltip, type SortableItemRenderProps } from "@/components/DocupleteDndHelpers";
 import { DemoWelcomeBanner } from "@/components/DemoWelcomeBanner";
 import {
   MAPPING_FORMAT_OPTIONS,
@@ -47,18 +47,18 @@ import {
   mappingFormatOptionsForField,
   clampPercent,
   defaultMappingFormat,
-} from "@/lib/docufill-mapping-utils";
+} from "@/lib/docuplete-mapping-utils";
 import {
   validationTypeHint,
   validateCellValue,
   tryReformatDate,
   tryAutoFix,
   autoFixLabel,
-} from "@/lib/docufill-field-utils";
-import { DocuFillBuilderPanel } from "./DocuFillBuilderPanel";
-import { DocuFillMapperPanel } from "./DocuFillMapperPanel";
-import { DocuFillInterviewPanel } from "./DocuFillInterviewPanel";
-import { DocuFillCsvPanel } from "./DocuFillCsvPanel";
+} from "@/lib/docuplete-field-utils";
+import { DocupleteBuilderPanel } from "./DocupleteBuilderPanel";
+import { DocupleteMapperPanel } from "./DocupleteMapperPanel";
+import { DocupleteInterviewPanel } from "./DocupleteInterviewPanel";
+import { DocupleteCsvPanel } from "./DocupleteCsvPanel";
 import { AcroFieldReviewOverlay, type PendingAnnotation, type RowChoice } from "@/components/AcroFieldReviewOverlay";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
@@ -369,7 +369,7 @@ function safeInterviewDisplayValue(field: FieldItem, value: string) {
 }
 
 
-export default function DocuFill() {
+export default function Docuplete() {
   const search = useSearch();
   const params = useParams<{ token?: string }>();
   const [, navigate] = useLocation();
@@ -378,12 +378,12 @@ export default function DocuFill() {
   const isPublicSession = Boolean(publicSessionToken);
   const { getAuthHeaders: defaultGetAuthHeaders } = useInternalAuth();
   const { show: showUpgrade } = useUpgradeModal();
-  const docufillConfig = useDocuFillConfig();
-  const getAuthHeaders = docufillConfig?.getAuthHeaders ?? defaultGetAuthHeaders;
+  const docupleteConfig = useDocupleteConfig();
+  const getAuthHeaders = docupleteConfig?.getAuthHeaders ?? defaultGetAuthHeaders;
   const getAuthHeadersRef = useRef(getAuthHeaders);
   getAuthHeadersRef.current = getAuthHeaders;
-  const docufillApiPath = docufillConfig?.apiPath ?? "/api/internal/docufill";
-  const isAdmin = docufillConfig?.isAdmin ?? true;
+  const docupleteApiPath = docupleteConfig?.apiPath ?? "/api/internal/docuplete";
+  const isAdmin = docupleteConfig?.isAdmin ?? true;
 
   // Capture deep-link URL params on first mount (before they are cleared)
   const _initSp = new URLSearchParams(search);
@@ -398,14 +398,14 @@ export default function DocuFill() {
     if (sessionToken) return "interview";
     if (_initSp.get("tab") === "sessions") return "interview";
     try {
-      const saved = sessionStorage.getItem("docufill:tab");
+      const saved = sessionStorage.getItem("docuplete:tab");
       if (saved === "packages" || saved === "mapper" || saved === "csv" || saved === "groups" || saved === "compliance") return saved;
     } catch { /* sessionStorage unavailable */ }
     return "packages";
   });
   const [builderStep, setBuilderStep] = useState<BuilderStep>(() => {
     try {
-      const saved = sessionStorage.getItem("docufill:builderStep");
+      const saved = sessionStorage.getItem("docuplete:builderStep");
       if (saved === "documents" || saved === "mapping" || saved === "interview") return saved;
     } catch { /* sessionStorage unavailable */ }
     return "documents";
@@ -435,7 +435,7 @@ export default function DocuFill() {
   const [seedingDemo, setSeedingDemo] = useState(false);
   const [demoUiState, setDemoUiState] = useState<"try" | "open" | "dismissed">(() => {
     try {
-      const v = localStorage.getItem("docufill:demo-ui");
+      const v = localStorage.getItem("docuplete:demo-ui");
       if (v === "open" || v === "dismissed") return v as "open" | "dismissed";
     } catch { /* localStorage unavailable */ }
     return "try";
@@ -465,17 +465,17 @@ export default function DocuFill() {
   const [interviewOutputTab, setInterviewOutputTab] = useState<"staff" | "customerLink">("staff");
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [mappingStartedDocIds, setMappingStartedDocIds] = useState<Set<string>>(() => new Set());
-  const selectedFieldId = useDocuFillStore((s) => s.selectedFieldId);
-  const setSelectedFieldId = useDocuFillStore((s) => s.setSelectedFieldId);
-  const selectedMappingId = useDocuFillStore((s) => s.selectedMappingId);
-  const setSelectedMappingId = useDocuFillStore((s) => s.setSelectedMappingId);
-  const packages = useDocuFillStore((s) => s.packages);
-  const selectedPackageId = useDocuFillStore((s) => s.selectedPackageId);
-  const setPackages = useDocuFillStore((s) => s.setPackages);
-  const setSelectedPackageId = useDocuFillStore((s) => s.setSelectedPackageId);
-  const updateSelectedPackage = useDocuFillStore((s) => s.updateSelectedPackage);
+  const selectedFieldId = useDocupleteStore((s) => s.selectedFieldId);
+  const setSelectedFieldId = useDocupleteStore((s) => s.setSelectedFieldId);
+  const selectedMappingId = useDocupleteStore((s) => s.selectedMappingId);
+  const setSelectedMappingId = useDocupleteStore((s) => s.setSelectedMappingId);
+  const packages = useDocupleteStore((s) => s.packages);
+  const selectedPackageId = useDocupleteStore((s) => s.selectedPackageId);
+  const setPackages = useDocupleteStore((s) => s.setPackages);
+  const setSelectedPackageId = useDocupleteStore((s) => s.setSelectedPackageId);
+  const updateSelectedPackage = useDocupleteStore((s) => s.updateSelectedPackage);
   const [inspectorMode, setInspectorMode] = useState<"panel" | "modal">(() => {
-    const stored = localStorage.getItem("docufill-inspector-mode");
+    const stored = localStorage.getItem("docuplete-inspector-mode");
     return stored === "modal" ? "modal" : "panel";
   });
   const [fieldEditorModal, setFieldEditorModal] = useState<{ mode: "add" | "edit"; fieldId: string | null } | null>(null);
@@ -613,8 +613,8 @@ export default function DocuFill() {
   const renderTaskRef = useRef<pdfjsLib.RenderTask | null>(null);
   // Scroll-mode PDF doc as React state so ScrollPageCanvas re-renders when it's ready.
   const [scrollPdfDoc, setScrollPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
-  const pushUndo = useDocuFillStore((s) => s.pushUndo);
-  const popUndo = useDocuFillStore((s) => s.popUndo);
+  const pushUndo = useDocupleteStore((s) => s.pushUndo);
+  const popUndo = useDocupleteStore((s) => s.popUndo);
   const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   const mapperContainerRef = useRef<HTMLElement | null>(null);
   const [mapperContainerWidth, setMapperContainerWidth] = useState(800);
@@ -632,10 +632,10 @@ export default function DocuFill() {
     annotations: PendingAnnotation[];
   }>>([]);
   const [pendingAcroReviewTotal, setPendingAcroReviewTotal] = useState(0);
-  const mapperTextMode = useDocuFillStore((s) => s.mapperTextMode);
-  const setMapperTextMode = useDocuFillStore((s) => s.setMapperTextMode);
+  const mapperTextMode = useDocupleteStore((s) => s.mapperTextMode);
+  const setMapperTextMode = useDocupleteStore((s) => s.setMapperTextMode);
   const [snapGrid, setSnapGrid] = useState<boolean>(() => {
-    try { return localStorage.getItem("docufill-snap-grid") === "true"; } catch { return false; }
+    try { return localStorage.getItem("docuplete-snap-grid") === "true"; } catch { return false; }
   });
   const [showShortcutsPopover, setShowShortcutsPopover] = useState(false);
   const shortcutsPopoverRef = useRef<HTMLDivElement>(null);
@@ -658,13 +658,13 @@ export default function DocuFill() {
     };
   }, [showShortcutsPopover]);
   useEffect(() => {
-    try { localStorage.setItem("docufill-snap-grid", snapGrid ? "true" : "false"); } catch { /* ignore */ }
+    try { localStorage.setItem("docuplete-snap-grid", snapGrid ? "true" : "false"); } catch { /* ignore */ }
   }, [snapGrid]);
   const [mapperScrollMode, setMapperScrollMode] = useState<boolean>(() => {
-    try { return localStorage.getItem("docufill-mapper-scroll") === "true"; } catch { return false; }
+    try { return localStorage.getItem("docuplete-mapper-scroll") === "true"; } catch { return false; }
   });
   useEffect(() => {
-    try { localStorage.setItem("docufill-mapper-scroll", mapperScrollMode ? "true" : "false"); } catch { /* ignore */ }
+    try { localStorage.setItem("docuplete-mapper-scroll", mapperScrollMode ? "true" : "false"); } catch { /* ignore */ }
   }, [mapperScrollMode]);
   const [userZoom, setUserZoom] = useState(1.0);
   const [isPdfRendering, setIsPdfRendering] = useState(false);
@@ -731,7 +731,7 @@ export default function DocuFill() {
     if (tab !== "csv" || csvDashboardTab !== "dashboard") return;
     setCsvDashLoading(true);
     setCsvDashError(null);
-    fetch(`${API_BASE}${docufillApiPath}/batch-runs?limit=50`, { headers: getAuthHeaders() })
+    fetch(`${API_BASE}${docupleteApiPath}/batch-runs?limit=50`, { headers: getAuthHeaders() })
       .then((r) => r.json())
       .then((d: { runs: typeof csvDashBatchRuns }) => setCsvDashBatchRuns(d.runs ?? []))
       .catch((e) => setCsvDashError(e instanceof Error ? e.message : "Failed to load batch runs"))
@@ -742,7 +742,7 @@ export default function DocuFill() {
     if (tab !== "interview" || isPublicSession) return;
     setPortalLoading(true);
     setPortalError(null);
-    fetch(`${API_BASE}${docufillApiPath}/sessions/portal-list?excludeSource=csv_batch&limit=100`, { headers: getAuthHeaders() })
+    fetch(`${API_BASE}${docupleteApiPath}/sessions/portal-list?excludeSource=csv_batch&limit=100`, { headers: getAuthHeaders() })
       .then((r) => r.json())
       .then((d: { sessions: PortalSession[]; total: number }) => { setPortalSessions(d.sessions ?? []); setPortalTotal(d.total ?? 0); })
       .catch((e) => setPortalError(e instanceof Error ? e.message : "Failed to load sessions"))
@@ -771,8 +771,8 @@ export default function DocuFill() {
   const selectedDocument = selectedPackage?.documents.find((doc) => doc.id === selectedDocumentId) ?? selectedPackage?.documents[0] ?? null;
   const selectedField = selectedPackage?.fields.find((field) => field.id === selectedFieldId) ?? selectedPackage?.fields[0] ?? null;
   const selectedFieldIsShared = Boolean(selectedField?.libraryFieldId);
-  const storeMappings = useDocuFillStore((s) => s.mappings);
-  const storeRecipientList = useDocuFillStore((s) => s.recipientList);
+  const storeMappings = useDocupleteStore((s) => s.mappings);
+  const storeRecipientList = useDocupleteStore((s) => s.recipientList);
   const selectedPageSize = selectedDocument?.pageSizes?.[selectedPage - 1] ?? selectedDocument?.pageSizes?.[0];
   const labelForTransactionScope = (scope: string | null | undefined) => transactionTypes.find((item) => item.scope === scope)?.label ?? transactionScopeLabel(scope);
   const selectedPageAspect = selectedPageSize && selectedPageSize.width > 0 && selectedPageSize.height > 0
@@ -791,7 +791,7 @@ export default function DocuFill() {
   const mapperViewH = Math.min(Math.round(nativePageH * effectiveScale), mapperMaxH);
   // Return only primitive IDs so useShallow can compare with Object.is (string equality).
   // Returning objects caused getSnapshot to see new references every call → React error #185.
-  const { beginMappingPointer } = useDocuFillPointer({
+  const { beginMappingPointer } = useDocupletePointer({
     pageFrameRef,
     snapGrid,
     nativePageW,
@@ -835,7 +835,7 @@ export default function DocuFill() {
   const answeredFieldCount = visibleInterviewFields.filter((field) => field.interviewMode !== "readonly" && interviewFieldValue(field, answers, session?.prefill).trim()).length;
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   useEffect(() => { setFieldErrors({}); }, [session?.token]);
-  const sessionBasePath = isPublicSession ? "/api/v1/docuplete/public/sessions" : `${docufillApiPath}/sessions`;
+  const sessionBasePath = isPublicSession ? "/api/v1/docuplete/public/sessions" : `${docupleteApiPath}/sessions`;
   const csvBatchFieldMap = useMemo<Map<string, FieldItem>>(() => {
     if (!csvBatchPackageId) return new Map();
     const pkg = packages.find((p) => String(p.id) === csvBatchPackageId);
@@ -897,7 +897,7 @@ export default function DocuFill() {
     // Before loading a new package into the store, flush live edits back to the old package so
     // that switching away and returning preserves in-progress changes.
     if (prevId !== null && prevId !== nextId) {
-      const { mappings: liveMappings, recipientList: liveRecipients } = useDocuFillStore.getState();
+      const { mappings: liveMappings, recipientList: liveRecipients } = useDocupleteStore.getState();
       setPackages((prev) =>
         prev.map((pkg) =>
           pkg.id === prevId ? { ...pkg, mappings: liveMappings, recipients: liveRecipients } : pkg,
@@ -906,9 +906,9 @@ export default function DocuFill() {
     }
     prevSelectedPackageIdRef.current = nextId;
     if (selectedPackage) {
-      useDocuFillStore.getState().setMappings(selectedPackage.mappings);
-      useDocuFillStore.getState().setRecipientList(selectedPackage.recipients ?? []);
-      useDocuFillStore.getState().clearUndo();
+      useDocupleteStore.getState().setMappings(selectedPackage.mappings);
+      useDocupleteStore.getState().setRecipientList(selectedPackage.recipients ?? []);
+      useDocupleteStore.getState().clearUndo();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPackage?.id]);
@@ -916,7 +916,7 @@ export default function DocuFill() {
   async function loadBootstrap() {
     try {
       setError(null);
-      const res = await fetch(`${API_BASE}${docufillApiPath}/bootstrap`, { headers: { ...getAuthHeaders() } });
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/bootstrap`, { headers: { ...getAuthHeaders() } });
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let data: any = {};
       try { data = await res.json(); } catch { /* non-JSON body (e.g. 401 HTML redirect) */ }
@@ -948,7 +948,7 @@ export default function DocuFill() {
   async function handleSeedDemo() {
     setSeedingDemo(true);
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/seed-demo`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/seed-demo`, {
         method: "POST",
         headers: { ...getAuthHeaders() },
       });
@@ -967,7 +967,7 @@ export default function DocuFill() {
   async function handleOpenDemoInterview() {
     setDemoSessionLoading(true);
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/demo-session`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/demo-session`, {
         method: "POST",
         headers: { ...getAuthHeaders() },
       });
@@ -980,7 +980,7 @@ export default function DocuFill() {
       const interviewUrl = `${window.location.origin}${basePath}/docuplete/public/${data.token}`;
       window.open(interviewUrl, "_blank");
       setDemoUiState("open");
-      try { localStorage.setItem("docufill:demo-ui", "open"); } catch { /* ignore */ }
+      try { localStorage.setItem("docuplete:demo-ui", "open"); } catch { /* ignore */ }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create demo session");
     } finally {
@@ -990,12 +990,12 @@ export default function DocuFill() {
 
   function dismissDemoUi() {
     setDemoUiState("dismissed");
-    try { localStorage.setItem("docufill:demo-ui", "dismissed"); } catch { /* ignore */ }
+    try { localStorage.setItem("docuplete:demo-ui", "dismissed"); } catch { /* ignore */ }
   }
 
   async function loadComplianceTags() {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/compliance-tags`, { headers: { ...getAuthHeaders() } });
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/compliance-tags`, { headers: { ...getAuthHeaders() } });
       if (!res.ok) return;
       const data = await res.json() as { tags: ComplianceTag[] };
       setComplianceTags(data.tags ?? []);
@@ -1006,7 +1006,7 @@ export default function DocuFill() {
     setComplianceAuditLoading(true);
     setComplianceAuditError(null);
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/compliance-audit`, { headers: { ...getAuthHeaders() } });
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/compliance-audit`, { headers: { ...getAuthHeaders() } });
       const data = await res.json().catch(() => ({})) as { error?: string } & Partial<ComplianceAuditReport>;
       if (!res.ok) throw new Error(data.error ?? "Failed to load audit report");
       setComplianceAudit(data as ComplianceAuditReport);
@@ -1019,7 +1019,7 @@ export default function DocuFill() {
 
   async function setFieldComplianceTags(fieldId: string, tags: string[]): Promise<string | null> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/${fieldId}/compliance-tags`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/field-library/${fieldId}/compliance-tags`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ complianceTags: tags }),
@@ -1072,16 +1072,16 @@ export default function DocuFill() {
 
   // Persist builder UI state to sessionStorage so it survives remounts.
   useEffect(() => {
-    try { sessionStorage.setItem("docufill:builderStep", builderStep); } catch { /* ignore */ }
+    try { sessionStorage.setItem("docuplete:builderStep", builderStep); } catch { /* ignore */ }
   }, [builderStep]);
 
   useEffect(() => {
-    try { sessionStorage.setItem("docufill:tab", tab); } catch { /* ignore */ }
+    try { sessionStorage.setItem("docuplete:tab", tab); } catch { /* ignore */ }
   }, [tab]);
 
   useEffect(() => {
     try {
-      if (selectedPackageId !== null) sessionStorage.setItem("docufill:selectedPackageId", String(selectedPackageId));
+      if (selectedPackageId !== null) sessionStorage.setItem("docuplete:selectedPackageId", String(selectedPackageId));
     } catch { /* ignore */ }
   }, [selectedPackageId]);
 
@@ -1160,7 +1160,7 @@ export default function DocuFill() {
       setDocumentPreviewUrl(cachedUrl);
       return;
     }
-    const url = `${API_BASE}${docufillApiPath}/packages/${selectedPackage.id}/documents/${selectedDocument.id}.pdf`;
+    const url = `${API_BASE}${docupleteApiPath}/packages/${selectedPackage.id}/documents/${selectedDocument.id}.pdf`;
     fetch(url, { headers: { ...getAuthHeadersRef.current() } })
       .then((res) => {
         if (!res.ok) throw new Error("Could not load PDF preview");
@@ -1194,11 +1194,11 @@ export default function DocuFill() {
       Object.values(documentPreviewCache.current).forEach((url) => URL.revokeObjectURL(url));
       documentPreviewCache.current = {};
       documentPreviewCacheOrder.current = [];
-      useDocuFillStore.getState().setSelectedMappingId(null);
-      useDocuFillStore.getState().setSelectedFieldId(null);
-      useDocuFillStore.getState().setResizeDim(null);
-      useDocuFillStore.getState().setDragGuides(null);
-      useDocuFillStore.getState().clearUndo();
+      useDocupleteStore.getState().setSelectedMappingId(null);
+      useDocupleteStore.getState().setSelectedFieldId(null);
+      useDocupleteStore.getState().setResizeDim(null);
+      useDocupleteStore.getState().setDragGuides(null);
+      useDocupleteStore.getState().clearUndo();
     };
   }, []);
 
@@ -1231,7 +1231,7 @@ export default function DocuFill() {
       e.preventDefault();
       const prev = popUndo();
       if (prev !== undefined) {
-        useDocuFillStore.getState().setMappings(prev);
+        useDocupleteStore.getState().setMappings(prev);
         setSelectedMappingId(null);
         setPlacementModal(null);
         setPlacementModalPos(null);
@@ -1257,7 +1257,7 @@ export default function DocuFill() {
       const dxPct = (step / nativePageW) * 100;
       const dyPct = (step / nativePageH) * 100;
       const capturedKey = e.key;
-      useDocuFillStore.getState().updateMapping(selectedMappingId, (m) => {
+      useDocupleteStore.getState().updateMapping(selectedMappingId, (m) => {
         if (capturedKey === "ArrowLeft")  return { ...m, x: clampPercent((m.x ?? 0) - dxPct, 0, 100 - (m.w ?? 26)) };
         if (capturedKey === "ArrowRight") return { ...m, x: clampPercent((m.x ?? 0) + dxPct, 0, 100 - (m.w ?? 26)) };
         if (capturedKey === "ArrowUp")    return { ...m, y: clampPercent((m.y ?? 0) - dyPct, 0, 100 - (m.h ?? 6)) };
@@ -1449,7 +1449,7 @@ export default function DocuFill() {
     setIsSaving(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${pkg.id}`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/packages/${pkg.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -1463,8 +1463,8 @@ export default function DocuFill() {
           status: pkg.status,
           documents: pkg.documents,
           fields: pkg.fields,
-          mappings: useDocuFillStore.getState().mappings,
-          recipients: useDocuFillStore.getState().recipientList,
+          mappings: useDocupleteStore.getState().mappings,
+          recipients: useDocupleteStore.getState().recipientList,
           enableInterview: pkg.enable_interview,
           enableCsv: pkg.enable_csv,
           enableCustomerLink: pkg.enable_customer_link,
@@ -1496,7 +1496,7 @@ export default function DocuFill() {
   async function fetchWebhookSecret(pkgId: number) {
     setWebhookSecretLoading(true);
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${pkgId}/webhook-secret`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/packages/${pkgId}/webhook-secret`, {
         headers: { ...getAuthHeaders() },
       });
       if (!res.ok) return;
@@ -1512,7 +1512,7 @@ export default function DocuFill() {
   async function fetchWebhookDeliveries(pkgId: number) {
     setWebhookDeliveriesLoading(true);
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${pkgId}/webhook-deliveries`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/packages/${pkgId}/webhook-deliveries`, {
         headers: { ...getAuthHeaders() },
       });
       if (!res.ok) return;
@@ -1528,7 +1528,7 @@ export default function DocuFill() {
   async function retryDelivery(pkgId: number, deliveryId: number) {
     setRetryingDelivery(deliveryId);
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${pkgId}/webhook-deliveries/${deliveryId}/retry`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/packages/${pkgId}/webhook-deliveries/${deliveryId}/retry`, {
         method: "POST",
         headers: { ...getAuthHeaders() },
       });
@@ -1549,7 +1549,7 @@ export default function DocuFill() {
   async function sendTestWebhook(pkgId: number) {
     setWebhookTestStatus(null);
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${pkgId}/test-webhook`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/packages/${pkgId}/test-webhook`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       });
@@ -1580,7 +1580,7 @@ export default function DocuFill() {
     setIsSaving(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/packages`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/packages`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -1619,7 +1619,7 @@ export default function DocuFill() {
     setIsDeletingPackage(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${pkg.id}`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/packages/${pkg.id}`, {
         method: "DELETE",
         headers: { ...getAuthHeaders() },
       });
@@ -1650,7 +1650,7 @@ export default function DocuFill() {
 
   async function createGroup(): Promise<string | null> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/groups`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/groups`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ active: true }),
@@ -1670,7 +1670,7 @@ export default function DocuFill() {
 
   async function saveGroup(item: Entity): Promise<string | null> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/groups/${item.id}`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/groups/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ name: item.name, kind: item.kind ?? "general", email: item.email, phone: item.phone, notes: item.notes, active: item.active }),
@@ -1686,7 +1686,7 @@ export default function DocuFill() {
 
   async function deleteGroup(id: number): Promise<string | null> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/groups/${id}`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/groups/${id}`, {
         method: "DELETE",
         headers: { ...getAuthHeaders() },
       });
@@ -1701,7 +1701,7 @@ export default function DocuFill() {
 
   async function deleteFieldLibraryItem(id: string): Promise<string | null> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/${id}`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/field-library/${id}`, {
         method: "DELETE",
         headers: { ...getAuthHeaders() },
       });
@@ -1716,7 +1716,7 @@ export default function DocuFill() {
 
   async function exportFieldLibrary(format: "json" | "csv"): Promise<void> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/export?format=${format}`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/field-library/export?format=${format}`, {
         headers: { ...getAuthHeaders() },
       });
       if (!res.ok) {
@@ -1740,10 +1740,10 @@ export default function DocuFill() {
   }
 
   async function importFieldLibrary(
-    data: import("@/components/DocuFillPanels").FieldLibraryImportPayload,
-  ): Promise<import("@/components/DocuFillPanels").FieldLibraryImportResult | string> {
+    data: import("@/components/DocupletePanels").FieldLibraryImportPayload,
+  ): Promise<import("@/components/DocupletePanels").FieldLibraryImportResult | string> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/import`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/field-library/import`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(data),
@@ -1751,7 +1751,7 @@ export default function DocuFill() {
       const responseData = await res.json().catch(() => ({}));
       if (!res.ok) return (responseData as { error?: string }).error ?? "Import failed";
       await loadBootstrap();
-      return responseData as import("@/components/DocuFillPanels").FieldLibraryImportResult;
+      return responseData as import("@/components/DocupletePanels").FieldLibraryImportResult;
     } catch {
       return "Network error — import failed";
     }
@@ -1761,7 +1761,7 @@ export default function DocuFill() {
     const count = type === "custodians" ? custodians.length + 1 : depositories.length + 1;
     const label = type === "custodians" ? `New Custodian ${count}` : `New Depository ${count}`;
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/${type}`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/${type}`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ name: label, active: true }),
@@ -1783,7 +1783,7 @@ export default function DocuFill() {
 
   async function saveEntity(type: "custodians" | "depositories", item: Entity): Promise<string | null> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/${type}/${item.id}`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/${type}/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -1811,7 +1811,7 @@ export default function DocuFill() {
     // is still applied to the package that was selected at action-initiation time.
     const targetId = selectedPackageId ?? undefined;
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/transaction-types/${scope}`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/transaction-types/${scope}`, {
         method: "DELETE",
         headers: { ...getAuthHeaders() },
       });
@@ -1829,7 +1829,7 @@ export default function DocuFill() {
 
   async function createTransactionTypeNamed(label: string): Promise<{ scope: string } | string> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/transaction-types`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/transaction-types`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ label: label.trim(), active: true, sortOrder: (transactionTypes.length + 1) * 10 }),
@@ -1845,7 +1845,7 @@ export default function DocuFill() {
 
   async function createGroupNamed(name: string): Promise<{ id: number } | string> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/groups`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/groups`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ name: name.trim(), active: true }),
@@ -1862,7 +1862,7 @@ export default function DocuFill() {
   async function createTransactionType(): Promise<string | null> {
     const label = `New type ${transactionTypes.length + 1}`;
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/transaction-types`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/transaction-types`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ label, active: true, sortOrder: (transactionTypes.length + 1) * 10 }),
@@ -1882,7 +1882,7 @@ export default function DocuFill() {
 
   async function saveTransactionType(item: TransactionType): Promise<string | null> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/transaction-types/${item.scope}`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/transaction-types/${item.scope}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -1907,7 +1907,7 @@ export default function DocuFill() {
       const suffix = Math.random().toString(36).slice(2, 8).toUpperCase();
       const label = `New Field ${suffix}`;
       try {
-        const res = await fetch(`${API_BASE}${docufillApiPath}/field-library`, {
+        const res = await fetch(`${API_BASE}${docupleteApiPath}/field-library`, {
           method: "POST",
           headers: { "Content-Type": "application/json", ...getAuthHeaders() },
           body: JSON.stringify({ label, category: "General", type: "text", source: "interview", active: true, sortOrder: (fieldLibrary.length + 1) * 10 }),
@@ -1938,7 +1938,7 @@ export default function DocuFill() {
       // the success "✓ Saved" tick — the field editor stays open, no state change.
       try {
         const impactRes = await fetch(
-          `${API_BASE}${docufillApiPath}/field-library/${item.id}/impact`,
+          `${API_BASE}${docupleteApiPath}/field-library/${item.id}/impact`,
           { headers: getAuthHeaders() },
         );
         if (impactRes.ok) {
@@ -1971,7 +1971,7 @@ export default function DocuFill() {
       }
       // ─────────────────────────────────────────────────────────────────────────
 
-      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/${item.id}`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/field-library/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify(item),
@@ -1989,7 +1989,7 @@ export default function DocuFill() {
   async function loadFieldVersions(fieldId: string): Promise<FieldVersionRow[] | string> {
     try {
       const res = await fetch(
-        `${API_BASE}${docufillApiPath}/field-library/${fieldId}/versions`,
+        `${API_BASE}${docupleteApiPath}/field-library/${fieldId}/versions`,
         { headers: getAuthHeaders() },
       );
       if (!res.ok) return "Could not load version history";
@@ -2003,7 +2003,7 @@ export default function DocuFill() {
   async function loadFieldAnalytics(fieldId: string): Promise<FieldAnalytics | string> {
     try {
       const res = await fetch(
-        `${API_BASE}${docufillApiPath}/field-library/${fieldId}/analytics`,
+        `${API_BASE}${docupleteApiPath}/field-library/${fieldId}/analytics`,
         { headers: getAuthHeaders() },
       );
       if (!res.ok) return "Could not load analytics";
@@ -2017,7 +2017,7 @@ export default function DocuFill() {
   async function restoreFieldVersion(fieldId: string, versionId: number): Promise<string | null> {
     try {
       const res = await fetch(
-        `${API_BASE}${docufillApiPath}/field-library/${fieldId}/versions/${versionId}/restore`,
+        `${API_BASE}${docupleteApiPath}/field-library/${fieldId}/versions/${versionId}/restore`,
         { method: "POST", headers: getAuthHeaders() },
       );
       const data = await res.json().catch(() => ({})) as Record<string, unknown>;
@@ -2032,7 +2032,7 @@ export default function DocuFill() {
 
   async function createFieldGroup(): Promise<string | null> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/groups`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/field-library/groups`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({}),
@@ -2052,7 +2052,7 @@ export default function DocuFill() {
 
   async function saveFieldGroup(item: FieldGroup): Promise<string | null> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/groups/${item.id}`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/field-library/groups/${item.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ name: item.name, description: item.description, fieldIds: item.fieldIds }),
@@ -2068,7 +2068,7 @@ export default function DocuFill() {
 
   async function deleteFieldGroup(id: number): Promise<string | null> {
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/field-library/groups/${id}`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/field-library/groups/${id}`, {
         method: "DELETE",
         headers: getAuthHeaders(),
       });
@@ -2128,7 +2128,7 @@ export default function DocuFill() {
       const selectedPkg = packages.find((p) => p.id === selectedPackageId);
       if (!selectedPkg?.id) return;
       try {
-        const applyRes = await fetch(`${API_BASE}${docufillApiPath}/field-library/groups/${group.id}/apply`, {
+        const applyRes = await fetch(`${API_BASE}${docupleteApiPath}/field-library/groups/${group.id}/apply`, {
           method: "POST",
           headers: { "Content-Type": "application/json", ...getAuthHeaders() },
           body: JSON.stringify({ packageId: selectedPkg.id }),
@@ -2268,7 +2268,7 @@ export default function DocuFill() {
     }
 
     // Build new mappings
-    const currentMappings = useDocuFillStore.getState().mappings;
+    const currentMappings = useDocupleteStore.getState().mappings;
     pushUndo([...currentMappings]);
     const newMappings = [...currentMappings];
 
@@ -2308,7 +2308,7 @@ export default function DocuFill() {
       updateSelectedPackage((pkg) => ({ ...pkg, fields: [...newFields, ...pkg.fields] }));
     }
     if (mapped > 0) {
-      useDocuFillStore.getState().setMappings(newMappings);
+      useDocupleteStore.getState().setMappings(newMappings);
     } else if (newFields.length === 0) {
       popUndo();
     }
@@ -2319,7 +2319,7 @@ export default function DocuFill() {
 
   function sortFieldsByPdfPosition(pkg: PackageItem): PackageItem {
     const docIndexMap = new Map(pkg.documents.map((d, i) => [d.id, i]));
-    const storeMappingsForSort = useDocuFillStore.getState().mappings;
+    const storeMappingsForSort = useDocupleteStore.getState().mappings;
     const firstMappingScore = (fieldId: string): number => {
       let best = Infinity;
       for (const m of storeMappingsForSort) {
@@ -2366,10 +2366,10 @@ export default function DocuFill() {
 
   function mergeServerDocumentUpdate(updatedPackage: PackageItem, removedDocumentId?: string) {
     if (removedDocumentId && updatedPackage.id === selectedPackageId) {
-      const filtered = useDocuFillStore.getState().mappings.filter(
+      const filtered = useDocupleteStore.getState().mappings.filter(
         (m) => m.documentId !== removedDocumentId,
       );
-      useDocuFillStore.getState().setMappings(filtered);
+      useDocupleteStore.getState().setMappings(filtered);
     }
     setPackages((prev) => prev.map((pkg) => {
       if (pkg.id !== updatedPackage.id) return pkg;
@@ -2429,8 +2429,8 @@ export default function DocuFill() {
   async function persistDocumentPdf(file: File, documentId?: string) {
     if (!selectedPackage) return null;
     const endpoint = documentId
-      ? `${API_BASE}${docufillApiPath}/packages/${selectedPackage.id}/documents/${documentId}/pdf`
-      : `${API_BASE}${docufillApiPath}/packages/${selectedPackage.id}/documents`;
+      ? `${API_BASE}${docupleteApiPath}/packages/${selectedPackage.id}/documents/${documentId}/pdf`
+      : `${API_BASE}${docupleteApiPath}/packages/${selectedPackage.id}/documents`;
     const res = await fetch(endpoint, {
       method: documentId ? "PUT" : "POST",
       headers: {
@@ -2558,7 +2558,7 @@ export default function DocuFill() {
       setIsSaving(true);
       setError(null);
       try {
-        const res = await fetch(`${API_BASE}${docufillApiPath}/packages/${selectedPackage.id}/documents/${docId}`, {
+        const res = await fetch(`${API_BASE}${docupleteApiPath}/packages/${selectedPackage.id}/documents/${docId}`, {
           method: "DELETE",
           headers: { ...getAuthHeaders() },
         });
@@ -2579,8 +2579,8 @@ export default function DocuFill() {
       }
       return;
     }
-    useDocuFillStore.getState().setMappings(
-      useDocuFillStore.getState().mappings.filter((m) => m.documentId !== docId),
+    useDocupleteStore.getState().setMappings(
+      useDocupleteStore.getState().mappings.filter((m) => m.documentId !== docId),
     );
     updateSelectedPackage((pkg) => ({
       ...pkg,
@@ -2734,7 +2734,7 @@ export default function DocuFill() {
     if (!selectedDocument || !selectedPackage || !annotations.length) return;
     let placed = 0;
     const alreadyMatchedInThisRun = new Set<string>();
-    const currentMappings = useDocuFillStore.getState().mappings;
+    const currentMappings = useDocupleteStore.getState().mappings;
     pushUndo([...currentMappings]);
     let newMappings = [...currentMappings];
     for (const ann of annotations) {
@@ -2763,7 +2763,7 @@ export default function DocuFill() {
       placed++;
     }
     if (placed > 0) {
-      useDocuFillStore.getState().setMappings(newMappings);
+      useDocupleteStore.getState().setMappings(newMappings);
       flashStatus(`Auto-mapped ${placed} field${placed === 1 ? "" : "s"} from AcroForm PDF.`);
     } else {
       popUndo();
@@ -2821,7 +2821,7 @@ export default function DocuFill() {
     }
 
     // Build mappings using the resolved field IDs
-    const currentMappings = useDocuFillStore.getState().mappings;
+    const currentMappings = useDocupleteStore.getState().mappings;
     pushUndo([...currentMappings]);
     const newMappings = [...currentMappings];
     let mapped = 0;
@@ -2862,7 +2862,7 @@ export default function DocuFill() {
     }
 
     if (mapped > 0) {
-      useDocuFillStore.getState().setMappings(newMappings);
+      useDocupleteStore.getState().setMappings(newMappings);
     } else {
       popUndo();
     }
@@ -2878,7 +2878,7 @@ export default function DocuFill() {
     const alreadyMatchedInThisRun = new Set<string>();
     // Track resolved selections to surface in the status message.
     const resolvedNames: string[] = [];
-    const currentMappings = useDocuFillStore.getState().mappings;
+    const currentMappings = useDocupleteStore.getState().mappings;
     pushUndo([...currentMappings]);
     let newMappings = [...currentMappings];
     for (const ann of acroAnnotations) {
@@ -2926,7 +2926,7 @@ export default function DocuFill() {
       placed++;
     }
     if (placed > 0) {
-      useDocuFillStore.getState().setMappings(newMappings);
+      useDocupleteStore.getState().setMappings(newMappings);
     } else {
       popUndo(); // discard the snapshot we just pushed
     }
@@ -2959,7 +2959,7 @@ export default function DocuFill() {
       setFieldModalSaving(true);
       const fieldLabel = name.trim() || `Field ${selectedPackage.fields.length + 1}`;
       try {
-        const res = await fetch(`${API_BASE}${docufillApiPath}/field-library`, {
+        const res = await fetch(`${API_BASE}${docupleteApiPath}/field-library`, {
           method: "POST",
           headers: { "Content-Type": "application/json", ...getAuthHeaders() },
           body: JSON.stringify({
@@ -3000,10 +3000,10 @@ export default function DocuFill() {
         condition2: condition2 ?? undefined,
       };
       setSelectedFieldId(field.id);
-      const currentStoreMappings = useDocuFillStore.getState().mappings;
+      const currentStoreMappings = useDocupleteStore.getState().mappings;
       const autoMappings = isChoiceType ? autoPlacementsForOptions(field.id, cleanOpts, currentStoreMappings) : [];
       if (autoMappings.length > 0) pushUndo([...currentStoreMappings]);
-      autoMappings.forEach((m) => useDocuFillStore.getState().addMapping(m));
+      autoMappings.forEach((m) => useDocupleteStore.getState().addMapping(m));
       updateSelectedPackage((pkg) => ({
         ...pkg,
         fields: [...pkg.fields, field],
@@ -3011,10 +3011,10 @@ export default function DocuFill() {
       }));
     } else if (fieldEditorModal.fieldId) {
       const fid = fieldEditorModal.fieldId;
-      const currentStoreMappings = useDocuFillStore.getState().mappings;
+      const currentStoreMappings = useDocupleteStore.getState().mappings;
       const autoMappings = isChoiceType ? autoPlacementsForOptions(fid, cleanOpts, currentStoreMappings) : [];
       if (autoMappings.length > 0) pushUndo([...currentStoreMappings]);
-      autoMappings.forEach((m) => useDocuFillStore.getState().addMapping(m));
+      autoMappings.forEach((m) => useDocupleteStore.getState().addMapping(m));
       updateSelectedPackage((pkg) => ({
         ...pkg,
         fields: pkg.fields.map((f) => f.id === fid ? {
@@ -3052,7 +3052,7 @@ export default function DocuFill() {
   }
 
   function removeField(fieldId: string) {
-    useDocuFillStore.getState().removeMappingsForField(fieldId);
+    useDocupleteStore.getState().removeMappingsForField(fieldId);
     updateSelectedPackage((pkg) => ({
       ...pkg,
       fields: pkg.fields.filter((field) => field.id !== fieldId),
@@ -3064,7 +3064,7 @@ export default function DocuFill() {
   function copyField(sourceFieldId: string) {
     const snapX = clampPercent((placementModal?.pdfX ?? 20) + 3, 0, 74);
     const snapY = clampPercent((placementModal?.pdfY ?? 20) + 3, 0, 94);
-    pushUndo([...useDocuFillStore.getState().mappings]);
+    pushUndo([...useDocupleteStore.getState().mappings]);
     updateSelectedPackage((pkg) => {
       const source = pkg.fields.find((f) => f.id === sourceFieldId);
       if (!source) return pkg;
@@ -3094,7 +3094,7 @@ export default function DocuFill() {
         };
         setSelectedFieldId(copy.id);
         setSelectedMappingId(mappingId);
-        useDocuFillStore.getState().addMapping(newMapping);
+        useDocupleteStore.getState().addMapping(newMapping);
         return { ...pkg, fields: [...pkg.fields, copy] };
       }
       setSelectedFieldId(copy.id);
@@ -3106,8 +3106,8 @@ export default function DocuFill() {
   function duplicateMapping(sourceMappingId: string) {
     const snapX = clampPercent((placementModal?.pdfX ?? 20) + 3, 0, 74);
     const snapY = clampPercent((placementModal?.pdfY ?? 20) + 3, 0, 94);
-    pushUndo([...useDocuFillStore.getState().mappings]);
-    const srcMap = useDocuFillStore.getState().mappings.find((m) => m.id === sourceMappingId);
+    pushUndo([...useDocupleteStore.getState().mappings]);
+    const srcMap = useDocupleteStore.getState().mappings.find((m) => m.id === sourceMappingId);
     if (!srcMap || !selectedPackage) { setPlacementModal(null); return; }
     updateSelectedPackage((pkg) => {
       const srcField = srcMap.fieldId ? pkg.fields.find((f) => f.id === srcMap.fieldId) : undefined;
@@ -3128,7 +3128,7 @@ export default function DocuFill() {
       };
       if (newField) setSelectedFieldId(newField.id);
       setSelectedMappingId(newMapping.id);
-      useDocuFillStore.getState().addMapping(newMapping);
+      useDocupleteStore.getState().addMapping(newMapping);
       const fields = newField ? [newField, ...pkg.fields] : pkg.fields;
       return { ...pkg, fields };
     });
@@ -3149,16 +3149,16 @@ export default function DocuFill() {
 
   function placeField() {
     if (!selectedField || !selectedDocument) return;
-    const n = useDocuFillStore.getState().mappings.length;
+    const n = useDocupleteStore.getState().mappings.length;
     addMappingForField(selectedField, 18 + n % 5 * 12, 20 + n % 8 * 8);
   }
 
   function addMappingForField(field: FieldItem, x: number, y: number, pageOverride?: number) {
     if (!selectedDocument) return;
-    pushUndo([...useDocuFillStore.getState().mappings]);
+    pushUndo([...useDocupleteStore.getState().mappings]);
     const mappingId = newId("map");
     const targetPage = pageOverride ?? selectedPage;
-    useDocuFillStore.getState().addMapping({
+    useDocupleteStore.getState().addMapping({
       id: mappingId,
       fieldId: field.id,
       documentId: selectedDocument.id,
@@ -3211,7 +3211,7 @@ export default function DocuFill() {
       const capturedField = field;
       const mappingId = newId("map");
       const targetPage = pageOverride ?? selectedPage;
-      pushUndo([...useDocuFillStore.getState().mappings]);
+      pushUndo([...useDocupleteStore.getState().mappings]);
       const needsAutoDate = (fieldId === ESIGN_FIELD_ID_SIGNATURE || fieldId === ESIGN_FIELD_ID_INITIALS);
       updateSelectedPackage((pkg) => {
         let fields = pkg.fields.find((f) => f.id === capturedField.id) ? pkg.fields : [...pkg.fields, capturedField];
@@ -3220,7 +3220,7 @@ export default function DocuFill() {
         }
         return { ...pkg, fields };
       });
-      useDocuFillStore.getState().addMapping({
+      useDocupleteStore.getState().addMapping({
         id: mappingId,
         fieldId: capturedField.id,
         documentId: selectedDocument!.id,
@@ -3243,35 +3243,35 @@ export default function DocuFill() {
   }
 
   function updateSelectedMapping(patch: Partial<MappingItem>) {
-    const selectedMapping = useDocuFillStore.getState().mappings.find((m) => m.id === selectedMappingId) ?? null;
+    const selectedMapping = useDocupleteStore.getState().mappings.find((m) => m.id === selectedMappingId) ?? null;
     if (!selectedMapping) return;
-    useDocuFillStore.getState().updateMapping(selectedMapping.id, (m) => ({ ...m, ...patch }));
+    useDocupleteStore.getState().updateMapping(selectedMapping.id, (m) => ({ ...m, ...patch }));
   }
 
   function chooseMappingFormat(mappingId: string, format: MappingFormat | string) {
-    useDocuFillStore.getState().updateMapping(mappingId, (m) => ({ ...m, format }));
+    useDocupleteStore.getState().updateMapping(mappingId, (m) => ({ ...m, format }));
     setSelectedMappingId(mappingId);
   }
 
   function removeSelectedMapping() {
-    const selectedMapping = useDocuFillStore.getState().mappings.find((m) => m.id === selectedMappingId) ?? null;
+    const selectedMapping = useDocupleteStore.getState().mappings.find((m) => m.id === selectedMappingId) ?? null;
     if (!selectedMapping) return;
-    useDocuFillStore.getState().removeMapping(selectedMapping.id);
+    useDocupleteStore.getState().removeMapping(selectedMapping.id);
     setSelectedMappingId(null);
   }
 
   function addRecipient(recipient: RecipientItem) {
-    useDocuFillStore.getState().addRecipient(recipient);
+    useDocupleteStore.getState().addRecipient(recipient);
     setRecipientPickerOpen(false);
   }
 
   function removeRecipient(recipientId: string) {
-    useDocuFillStore.getState().removeRecipient(recipientId);
-    useDocuFillStore.getState().clearRecipientFromMappings(recipientId);
+    useDocupleteStore.getState().removeRecipient(recipientId);
+    useDocupleteStore.getState().clearRecipientFromMappings(recipientId);
   }
 
   function updateRecipient(recipientId: string, patch: Partial<RecipientItem>) {
-    useDocuFillStore.getState().updateRecipient(recipientId, patch);
+    useDocupleteStore.getState().updateRecipient(recipientId, patch);
   }
 
   function handleInterviewFieldBlur(field: FieldItem, value: string) {
@@ -3386,7 +3386,7 @@ export default function DocuFill() {
     setIsSaving(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/sessions`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -3399,7 +3399,7 @@ export default function DocuFill() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not launch test interview");
-      navigate(`/internal/docufill?session=${data.token}`);
+      navigate(`/internal/docuplete?session=${data.token}`);
       flashStatus("Test interview session created.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not launch test interview");
@@ -3417,13 +3417,13 @@ export default function DocuFill() {
     setIsSaving(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/sessions`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
           packageId,
           transactionScope: packages.find((pkg) => pkg.id === packageId)?.transaction_scope,
-          source: "staff_docufill",
+          source: "staff_docuplete",
           prefill: {},
         }),
       });
@@ -3433,7 +3433,7 @@ export default function DocuFill() {
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Could not launch interview");
-      navigate(`/internal/docufill?session=${data.token}`);
+      navigate(`/internal/docuplete?session=${data.token}`);
       flashStatus("Interview session created.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not launch interview");
@@ -3458,7 +3458,7 @@ export default function DocuFill() {
       if (customerLinkFirstName.trim()) prefill.firstName = customerLinkFirstName.trim();
       if (customerLinkLastName.trim()) prefill.lastName = customerLinkLastName.trim();
       if (customerLinkEmail.trim()) prefill.email = customerLinkEmail.trim();
-      const res = await fetch(`${API_BASE}${docufillApiPath}/sessions`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/sessions`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -3493,7 +3493,7 @@ export default function DocuFill() {
     setIsSendingLink(true);
     setLinkEmailError(null);
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/sessions/${generatedCustomerLinkToken}/send-link`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/sessions/${generatedCustomerLinkToken}/send-link`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({
@@ -3593,7 +3593,7 @@ export default function DocuFill() {
       );
     }
     try {
-      const res = await fetch(`${API_BASE}${docufillApiPath}/csv-batch`, {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/csv-batch`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ packageId: pkgId, rows: rowsToSend }),
@@ -3699,7 +3699,7 @@ export default function DocuFill() {
       />
 
       {tab === "packages" && (
-        <DocuFillBuilderPanel
+        <DocupleteBuilderPanel
           selectedPackage={selectedPackage}
           bootstrapLoaded={bootstrapLoaded}
           packages={packages}
@@ -3751,7 +3751,7 @@ export default function DocuFill() {
           documentPreviewCache={documentPreviewCache}
           documentPreviewCacheOrder={documentPreviewCacheOrder}
           getAuthHeaders={getAuthHeaders}
-          docufillApiPath={docufillApiPath}
+          docupleteApiPath={docupleteApiPath}
           slackConnected={slackConnected}
           webhookTestStatus={webhookTestStatus}
           webhookSecret={webhookSecret}
@@ -3871,7 +3871,7 @@ export default function DocuFill() {
         !selectedPackage ? (
           <EmptyState message="Create or select a package first." />
         ) : (
-          <DocuFillMapperPanel
+          <DocupleteMapperPanel
             selectedPackage={selectedPackage}
             selectedDocument={selectedDocument}
             selectedDocumentId={selectedDocumentId}
@@ -3944,7 +3944,7 @@ export default function DocuFill() {
             removeRecipient={removeRecipient}
             updateRecipient={updateRecipient}
             getAuthHeaders={getAuthHeaders}
-            docufillApiPath={docufillApiPath}
+            docupleteApiPath={docupleteApiPath}
             documentPreviewCache={documentPreviewCache}
             documentPreviewCacheOrder={documentPreviewCacheOrder}
           />
@@ -3952,7 +3952,7 @@ export default function DocuFill() {
       )}
 
       {tab === "interview" && (
-        <DocuFillInterviewPanel
+        <DocupleteInterviewPanel
           session={session}
           isPublicSession={isPublicSession}
           isSaving={isSaving}
@@ -4005,7 +4005,7 @@ export default function DocuFill() {
           driveUrl={driveUrl}
           driveWarnings={driveWarnings}
           isDownloading={isDownloading}
-          docufillApiPath={docufillApiPath}
+          docupleteApiPath={docupleteApiPath}
           labelForTransactionScope={labelForTransactionScope}
           fieldIsRequired={fieldIsRequired}
           goBuilderStep={stableGoBuilderStep}
@@ -4040,7 +4040,7 @@ export default function DocuFill() {
       )}
 
       {!isPublicSession && tab === "csv" && (
-        <DocuFillCsvPanel
+        <DocupleteCsvPanel
           packages={packages}
           activePackages={activePackages}
           csvDashboardTab={csvDashboardTab}
@@ -4097,7 +4097,7 @@ export default function DocuFill() {
           setCsvInviteResults={setCsvInviteResults}
           labelForTransactionScope={labelForTransactionScope}
           getAuthHeaders={getAuthHeaders}
-          docufillApiPath={docufillApiPath}
+          docupleteApiPath={docupleteApiPath}
           handleCsvBatchFileChange={handleCsvBatchFileChange}
           handleCsvBatchImport={handleCsvBatchImport}
         />

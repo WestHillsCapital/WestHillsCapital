@@ -10,11 +10,11 @@ import {
   processScheduledDeletions,
   purgeExpiredTrialData,
   purgeExpiredExports,
-  pruneExpiredDocufillSessions,
+  pruneExpiredDocupleteSessions,
 } from "./db.js";
 import { schedulerQueue } from "./lib/queue.js";
 import { pruneInternalSessions, runFulfillmentScheduler, runTrackingSync } from "./lib/schedulers.js";
-import { registerGeneratePdfProcessor, registerDeliverWebhookProcessor } from "./routes/docufill.js";
+import { registerGeneratePdfProcessor, registerDeliverWebhookProcessor } from "./routes/docuplete.js";
 
 if (!isQueueEnabled()) {
   logger.error(
@@ -77,7 +77,7 @@ const shouldMigrate =
           case "prune:audit-tables":        return pruneAuditTables();
           case "prune:submissions":         return pruneRetainedSubmissions();
           case "prune:session-data":        return pruneSessionData();
-          case "prune:expired-sessions":    return pruneExpiredDocufillSessions();
+          case "prune:expired-sessions":    return pruneExpiredDocupleteSessions();
           case "purge:scheduled-deletions": return processScheduledDeletions();
           case "purge:trial-data":          return purgeExpiredTrialData();
           case "expire:exports":            return purgeExpiredExports();

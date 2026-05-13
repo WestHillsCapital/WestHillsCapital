@@ -25,7 +25,7 @@ export const DEMO_FIELDS = [
  *
  * All y coordinates below use pdf-lib's bottom-left origin convention.
  * The DEMO_MAPPINGS constant below uses percentage-based top-left coordinates
- * (the format expected by the DocuFill mapper and PDF overlay engine).
+ * (the format expected by the Docuplete mapper and PDF overlay engine).
  *
  * Coordinate derivation for text fields (h = 3 %, fontSize = 11):
  *   boxHeight_pt = (3/100) × 792 = 23.76 pt
@@ -129,7 +129,7 @@ export async function seedDemoPackage(db: Pool, accountId: number): Promise<void
   const stateKey = `demo_package_account_${accountId}`;
   try {
     const claim = await db.query(
-      `INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING`,
+      `INSERT INTO docuplete_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING`,
       [stateKey],
     );
     if ((claim.rowCount ?? 0) === 0) return; // another request already won
@@ -152,7 +152,7 @@ export async function seedDemoPackage(db: Pool, accountId: number): Promise<void
     ];
 
     const pkgResult = await db.query<{ id: number }>(
-      `INSERT INTO docufill_packages (
+      `INSERT INTO docuplete_packages (
          account_id, name, description, status, tags,
          fields, documents, mappings,
          enable_interview, enable_customer_link, enable_csv,
@@ -212,7 +212,7 @@ export async function seedDemoPackage(db: Pool, accountId: number): Promise<void
     }
 
     await db.query(
-      `INSERT INTO docufill_package_documents
+      `INSERT INTO docuplete_package_documents
          (package_id, document_id, filename, content_type, byte_size, page_count, page_sizes, pdf_data, pdf_gcs_key, pdf_data_ciphertext)
        VALUES ($1,$2,$3,'application/pdf',$4,$5,$6::jsonb,$7,$8,$9)`,
       [packageId, documentId, filename, pdfBytes.length, pageCount, JSON.stringify(pageSizes), pdfDataForDb, pdfGcsKey, pdfCiphertextForDb],
@@ -221,6 +221,6 @@ export async function seedDemoPackage(db: Pool, accountId: number): Promise<void
     logger.info({ accountId, packageId }, "[DemoPackage] Demo package seeded");
   } catch (err) {
     logger.error({ err, accountId }, "[DemoPackage] Failed to seed demo package (non-fatal)");
-    await db.query(`DELETE FROM docufill_migration_state WHERE key = $1`, [stateKey]).catch(() => {});
+    await db.query(`DELETE FROM docuplete_migration_state WHERE key = $1`, [stateKey]).catch(() => {});
   }
 }

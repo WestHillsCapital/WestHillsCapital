@@ -2,8 +2,8 @@
  * Initialises the test database schema.
  *
  * Called by the cross-tenant isolation CI workflow before running integration
- * tests so that the required tables (accounts, docufill_packages,
- * docufill_interview_sessions, scim_tokens, docufill_audit_logs, …) exist in
+ * tests so that the required tables (accounts, docuplete_packages,
+ * docuplete_interview_sessions, scim_tokens, docuplete_audit_logs, …) exist in
  * the fresh Postgres container.
  *
  * Usage:
@@ -23,7 +23,7 @@ try {
   await initDb();
   console.log("Core schema initialised.");
 
-  // Apply enterprise migration so scim_tokens, docufill_audit_logs, etc. exist
+  // Apply enterprise migration so scim_tokens, docuplete_audit_logs, etc. exist
   const enterpriseSql = readFileSync(
     resolve(__dirname, "../src/lib/migrate-enterprise.sql"),
     "utf8",

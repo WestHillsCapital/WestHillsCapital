@@ -13,13 +13,13 @@ export function isSystemEsignFieldId(id: string): boolean {
   return (SYSTEM_ESIGN_FIELD_IDS as readonly string[]).includes(id);
 }
 
-export type DocuFillFieldCondition = {
+export type DocupleteFieldCondition = {
   fieldId: string;
   operator: "equals" | "not_equals" | "is_answered" | "is_not_answered";
   value: string;
 };
 
-export type DocuFillFieldItem = {
+export type DocupleteFieldItem = {
   id: string;
   libraryFieldId?: string;
   name?: string;
@@ -37,11 +37,11 @@ export type DocuFillFieldItem = {
   validationType?: "none" | "string" | "name" | "number" | "currency" | "email" | "phone" | "date" | "time" | "zip" | "zip4" | "ssn" | "percent" | "custom";
   validationPattern?: string;
   validationMessage?: string;
-  condition?: DocuFillFieldCondition | null;
-  condition2?: DocuFillFieldCondition | null;
+  condition?: DocupleteFieldCondition | null;
+  condition2?: DocupleteFieldCondition | null;
 };
 
-export type DocuFillMappingFormat =
+export type DocupleteMappingFormat =
   | "as-entered"
   | "uppercase"
   | "lowercase"
@@ -57,11 +57,11 @@ export type DocuFillMappingFormat =
   | "date-mm-dd-yyyy"
   | "checkbox-yes";
 
-export type DocuFillMappingItem = {
-  format?: DocuFillMappingFormat | string;
+export type DocupleteMappingItem = {
+  format?: DocupleteMappingFormat | string;
 };
 
-export type DocuFillPacketSummary = {
+export type DocupletePacketSummary = {
   packageName: unknown;
   packageVersion: unknown;
   custodian: unknown;
@@ -108,9 +108,9 @@ function parseDocuments(value: unknown): DocItem[] {
   }) : [];
 }
 
-export function parseDocuFillFields(value: unknown): DocuFillFieldItem[] {
-  return Array.isArray(value) ? value.filter((item): item is DocuFillFieldItem => {
-    return Boolean(item && typeof item === "object" && typeof (item as DocuFillFieldItem).id === "string");
+export function parseDocupleteFields(value: unknown): DocupleteFieldItem[] {
+  return Array.isArray(value) ? value.filter((item): item is DocupleteFieldItem => {
+    return Boolean(item && typeof item === "object" && typeof (item as DocupleteFieldItem).id === "string");
   }) : [];
 }
 
@@ -124,15 +124,15 @@ function combineNameParts(prefill: Record<string, unknown>): string {
   return [first, last].filter(Boolean).join(" ");
 }
 
-function normalizeValidationType(value: unknown): DocuFillFieldItem["validationType"] {
+function normalizeValidationType(value: unknown): DocupleteFieldItem["validationType"] {
   const text = cleanText(value);
   const valid = new Set(["none", "string", "name", "number", "currency", "email", "phone", "date", "time", "zip", "zip4", "ssn", "percent", "custom"]);
-  return valid.has(text) ? text as DocuFillFieldItem["validationType"] : "none";
+  return valid.has(text) ? text as DocupleteFieldItem["validationType"] : "none";
 }
 
-export function hydratePackageFields(fields: unknown, library: Array<Record<string, unknown> & { id: string }>): DocuFillFieldItem[] {
+export function hydratePackageFields(fields: unknown, library: Array<Record<string, unknown> & { id: string }>): DocupleteFieldItem[] {
   const byId = new Map(library.map((field) => [field.id, field]));
-  return parseDocuFillFields(fields).map((field) => {
+  return parseDocupleteFields(fields).map((field) => {
     const rawLibraryId = cleanText(field.libraryFieldId) || cleanText((field as Record<string, unknown>).library_field_id);
     const libraryField = rawLibraryId ? byId.get(rawLibraryId) : undefined;
     if (!libraryField) return field;
@@ -157,7 +157,7 @@ export function hydratePackageFields(fields: unknown, library: Array<Record<stri
   });
 }
 
-export function isSensitiveField(field: DocuFillFieldItem): boolean {
+export function isSensitiveField(field: DocupleteFieldItem): boolean {
   if (field.sensitive === true) return true;
   return [field.name, field.label, field.source].some((value) => typeof value === "string" && SENSITIVE_KEY_PATTERN.test(value));
 }
@@ -169,7 +169,7 @@ export function maskSensitiveValue(value: unknown): string {
   return visible ? `••••${visible}` : "••••";
 }
 
-export function sensitivePrefillKeys(fields: DocuFillFieldItem[], prefill: Record<string, unknown>): Set<string> {
+export function sensitivePrefillKeys(fields: DocupleteFieldItem[], prefill: Record<string, unknown>): Set<string> {
   const keys = new Set<string>();
   fields.filter(isSensitiveField).forEach((field) => {
     [field.source, field.name, field.label].forEach((candidate) => {
@@ -194,7 +194,7 @@ const SEMANTIC_PREFILL_LABELS: Record<string, string> = {
   "zip": "zip", "zip code": "zip", "postal code": "zip",
 };
 
-export function fieldAnswerValue(field: DocuFillFieldItem, answers: Record<string, unknown>, prefill: Record<string, unknown>): string {
+export function fieldAnswerValue(field: DocupleteFieldItem, answers: Record<string, unknown>, prefill: Record<string, unknown>): string {
   const synthesizedName = field.source === "clientName" || field.source === "fullName" || field.source === "name" ? combineNameParts(prefill) : "";
   // Case-insensitive prefill lookup mirrors the frontend currentValue() behaviour so that
   // a prefill key like "email" resolves correctly for a field whose name is "Email".
@@ -223,7 +223,7 @@ export function fieldAnswerValue(field: DocuFillFieldItem, answers: Record<strin
   return value === undefined || value === null ? "" : String(value);
 }
 
-export function formatDocuFillMappedValue(value: string, mapping: DocuFillMappingItem): string {
+export function formatDocupleteMappedValue(value: string, mapping: DocupleteMappingItem): string {
   const format = String(mapping.format ?? "as-entered");
   const text = String(value ?? "").trim();
   if (!text) return "";
@@ -266,9 +266,9 @@ export function formatDocuFillMappedValue(value: string, mapping: DocuFillMappin
   return text;
 }
 
-export function buildDocuFillPacketSummary(session: Record<string, unknown>, generatedAt = new Date().toISOString()): DocuFillPacketSummary {
+export function buildDocupletePacketSummary(session: Record<string, unknown>, generatedAt = new Date().toISOString()): DocupletePacketSummary {
   const documents = parseDocuments(session.documents);
-  const fields = parseDocuFillFields(session.fields);
+  const fields = parseDocupleteFields(session.fields);
   const mappings = Array.isArray(session.mappings) ? session.mappings : [];
   return {
     packageName: session.package_name,
@@ -290,10 +290,10 @@ export function buildDocuFillPacketSummary(session: Record<string, unknown>, gen
   };
 }
 
-export function buildDocuFillFallbackSummaryRows(session: Record<string, unknown>): { prefillRows: SummaryRow[]; answerRows: SummaryRow[] } {
+export function buildDocupleteFallbackSummaryRows(session: Record<string, unknown>): { prefillRows: SummaryRow[]; answerRows: SummaryRow[] } {
   const answers = getRecord(session.answers);
   const prefill = getRecord(session.prefill);
-  const fields = parseDocuFillFields(session.fields);
+  const fields = parseDocupleteFields(session.fields);
   const fieldsById = new Map(fields.map((field) => [field.id, field]));
   const sensitivePrefill = sensitivePrefillKeys(fields, prefill);
   const prefillRows = Object.entries(prefill).map(([key, value]) => {

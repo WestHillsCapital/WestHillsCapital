@@ -247,7 +247,7 @@ function RowMenu({ session, onVoid }: RowMenuProps) {
   if (session.status === "voided") return null;
 
   const isGenerated = session.status === "generated";
-  const pdfHref = `${API_BASE}/api/v1/public/docufill/sessions/${session.token}/packet.pdf`;
+  const pdfHref = `${API_BASE}/api/v1/public/docuplete/sessions/${session.token}/packet.pdf`;
 
   return (
     <div className="relative" ref={ref}>
@@ -747,7 +747,7 @@ export default function AppSessions({ getAuthHeaders }: { getAuthHeaders: () => 
                       const statusInfo = STATUS_LABELS[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-600" };
                       const recipient = s.signer_name || s.signer_email || s.link_email_recipient || "—";
                       const recipientSub = s.signer_name && s.signer_email ? s.signer_email : null;
-                      const pdfHref = `${API_BASE}/api/v1/public/docufill/sessions/${s.token}/packet.pdf`;
+                      const pdfHref = `${API_BASE}/api/v1/public/docuplete/sessions/${s.token}/packet.pdf`;
                       const isVoided = s.status === "voided";
                       return (
                         <tr key={s.token} className={`hover:bg-gray-50 transition-colors ${isVoided ? "opacity-60" : ""}`}>

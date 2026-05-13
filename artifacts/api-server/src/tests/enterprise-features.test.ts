@@ -100,10 +100,10 @@ before(async () => {
     [accountId, "_test-scim-token", scimHash, rawScimToken.substring(0, 12)],
   );
 
-  // Create a docufill package (required for the INNER JOIN in sessions list)
+  // Create a docuplete package (required for the INNER JOIN in sessions list)
   // webhook_secret is NOT NULL with no default so we must supply it.
   const { rows: [pkg] } = await pool.query<{ id: number }>(
-    `INSERT INTO docufill_packages
+    `INSERT INTO docuplete_packages
        (name, account_id, status, version, documents, fields, mappings, recipients, tags, webhook_secret)
      VALUES ($1, $2, 'active', 1, '[]'::jsonb, '[]'::jsonb, '{}'::jsonb, '[]'::jsonb, '[]'::jsonb, $3)
      RETURNING id`,
@@ -114,7 +114,7 @@ before(async () => {
   // Create one test session
   sessionToken = `df_${randomBytes(18).toString("hex")}`;
   const { rows: [sess] } = await pool.query<{ id: number }>(
-    `INSERT INTO docufill_interview_sessions
+    `INSERT INTO docuplete_interview_sessions
        (token, status, account_id, package_id, package_version, expires_at)
      VALUES ($1, 'draft', $2, $3, 1, NOW() + INTERVAL '90 days')
      RETURNING id`,
@@ -126,10 +126,10 @@ before(async () => {
 after(async () => {
   if (pool && accountId) {
     // Delete child records first to respect FK constraints, then the account
-    await pool.query(`DELETE FROM docufill_audit_logs WHERE account_id = $1`, [accountId]);
-    await pool.query(`DELETE FROM docufill_session_signers WHERE account_id = $1`, [accountId]);
-    await pool.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [accountId]);
-    await pool.query(`DELETE FROM docufill_packages WHERE account_id = $1`, [accountId]);
+    await pool.query(`DELETE FROM docuplete_audit_logs WHERE account_id = $1`, [accountId]);
+    await pool.query(`DELETE FROM docuplete_session_signers WHERE account_id = $1`, [accountId]);
+    await pool.query(`DELETE FROM docuplete_interview_sessions WHERE account_id = $1`, [accountId]);
+    await pool.query(`DELETE FROM docuplete_packages WHERE account_id = $1`, [accountId]);
     await pool.query(`DELETE FROM scim_tokens WHERE account_id = $1`, [accountId]);
     await pool.query(`DELETE FROM account_users WHERE account_id = $1`, [accountId]);
     await pool.query(`DELETE FROM account_api_keys WHERE account_id = $1`, [accountId]);
@@ -154,8 +154,8 @@ describe("Schema Validation — new tables and columns", () => {
     return new Map(rows.map((r) => [r.column_name, r.data_type]));
   }
 
-  it("docufill_audit_logs has all required columns with correct types", async () => {
-    const cols = await getColumns("docufill_audit_logs");
+  it("docuplete_audit_logs has all required columns with correct types", async () => {
+    const cols = await getColumns("docuplete_audit_logs");
     const required: [string, string][] = [
       ["id",            "integer"],
       ["session_id",    "integer"],
@@ -170,17 +170,17 @@ describe("Schema Validation — new tables and columns", () => {
       ["created_at",    "timestamp with time zone"],
     ];
     for (const [col, type] of required) {
-      assert.ok(cols.has(col), `docufill_audit_logs missing column: ${col}`);
+      assert.ok(cols.has(col), `docuplete_audit_logs missing column: ${col}`);
       assert.equal(cols.get(col), type, `${col}: expected ${type}, got ${cols.get(col)}`);
     }
   });
 
-  it("docufill_audit_logs has correct indexes", async () => {
+  it("docuplete_audit_logs has correct indexes", async () => {
     const { rows } = await pool.query<{ indexname: string }>(
-      `SELECT indexname FROM pg_indexes WHERE tablename = 'docufill_audit_logs'`,
+      `SELECT indexname FROM pg_indexes WHERE tablename = 'docuplete_audit_logs'`,
     );
     const names = rows.map((r) => r.indexname);
-    assert.ok(names.includes("docufill_audit_logs_pkey"), "missing primary key index");
+    assert.ok(names.includes("docuplete_audit_logs_pkey"), "missing primary key index");
     assert.ok(
       names.some((n) => n.includes("session_token")),
       "missing session_token index",
@@ -191,8 +191,8 @@ describe("Schema Validation — new tables and columns", () => {
     );
   });
 
-  it("docufill_session_signers has all required columns", async () => {
-    const cols = await getColumns("docufill_session_signers");
+  it("docuplete_session_signers has all required columns", async () => {
+    const cols = await getColumns("docuplete_session_signers");
     const required: [string, string][] = [
       ["id",            "integer"],
       ["session_id",    "integer"],
@@ -212,19 +212,19 @@ describe("Schema Validation — new tables and columns", () => {
       ["updated_at",    "timestamp with time zone"],
     ];
     for (const [col, type] of required) {
-      assert.ok(cols.has(col), `docufill_session_signers missing column: ${col}`);
+      assert.ok(cols.has(col), `docuplete_session_signers missing column: ${col}`);
       assert.equal(cols.get(col), type, `${col}: expected ${type}, got ${cols.get(col)}`);
     }
   });
 
-  it("docufill_session_signers has UNIQUE constraint on token", async () => {
+  it("docuplete_session_signers has UNIQUE constraint on token", async () => {
     const { rows } = await pool.query<{ constraint_name: string; constraint_type: string }>(
       `SELECT constraint_name, constraint_type
          FROM information_schema.table_constraints
-        WHERE table_name = 'docufill_session_signers'
+        WHERE table_name = 'docuplete_session_signers'
           AND constraint_type = 'UNIQUE'`,
     );
-    assert.ok(rows.length > 0, "Expected UNIQUE constraint on docufill_session_signers");
+    assert.ok(rows.length > 0, "Expected UNIQUE constraint on docuplete_session_signers");
   });
 
   it("scim_tokens has all required columns", async () => {
@@ -258,16 +258,16 @@ describe("Schema Validation — new tables and columns", () => {
     assert.ok(rows.length > 0, "Expected UNIQUE constraint on scim_tokens.token_hash");
   });
 
-  it("docufill_interview_sessions has lifecycle timestamp columns", async () => {
-    const cols = await getColumns("docufill_interview_sessions");
+  it("docuplete_interview_sessions has lifecycle timestamp columns", async () => {
+    const cols = await getColumns("docuplete_interview_sessions");
     assert.ok(cols.has("first_viewed_at"), "Missing first_viewed_at");
     assert.equal(cols.get("first_viewed_at"), "timestamp with time zone");
     assert.ok(cols.has("first_started_at"), "Missing first_started_at");
     assert.equal(cols.get("first_started_at"), "timestamp with time zone");
   });
 
-  it("docufill_interview_sessions has reminder columns", async () => {
-    const cols = await getColumns("docufill_interview_sessions");
+  it("docuplete_interview_sessions has reminder columns", async () => {
+    const cols = await getColumns("docuplete_interview_sessions");
     assert.ok(cols.has("reminder_enabled"), "Missing reminder_enabled");
     assert.equal(cols.get("reminder_enabled"), "boolean");
     assert.ok(cols.has("reminder_days"), "Missing reminder_days");
@@ -298,12 +298,12 @@ describe("Schema Validation — new tables and columns", () => {
            ON tc.constraint_name = kcu.constraint_name
          JOIN information_schema.key_column_usage kcu2
            ON rc.unique_constraint_name = kcu2.constraint_name
-        WHERE tc.table_name IN ('docufill_audit_logs','docufill_session_signers','scim_tokens')
+        WHERE tc.table_name IN ('docuplete_audit_logs','docuplete_session_signers','scim_tokens')
           AND kcu2.table_name = 'accounts'`,
     );
     const tables = new Set(rows.map((r) => r.table_name));
-    assert.ok(tables.has("docufill_audit_logs"), "audit_logs missing FK to accounts");
-    assert.ok(tables.has("docufill_session_signers"), "session_signers missing FK to accounts");
+    assert.ok(tables.has("docuplete_audit_logs"), "audit_logs missing FK to accounts");
+    assert.ok(tables.has("docuplete_session_signers"), "session_signers missing FK to accounts");
     assert.ok(tables.has("scim_tokens"), "scim_tokens missing FK to accounts");
     for (const row of rows) {
       assert.equal(row.delete_rule, "CASCADE", `${row.table_name} FK should CASCADE`);
@@ -477,7 +477,7 @@ describe("Bulk Session Creation (POST /v1/sessions/bulk)", () => {
   after(async () => {
     if (createdTokens.length > 0) {
       await pool.query(
-        `DELETE FROM docufill_interview_sessions WHERE token = ANY($1)`,
+        `DELETE FROM docuplete_interview_sessions WHERE token = ANY($1)`,
         [createdTokens],
       );
     }
@@ -559,7 +559,7 @@ describe("Bulk Session Creation (POST /v1/sessions/bulk)", () => {
     if (result.ok && result.sessionToken) {
       createdTokens.push(result.sessionToken);
       const { rows } = await pool.query<{ account_id: number }>(
-        `SELECT account_id FROM docufill_interview_sessions WHERE token = $1`,
+        `SELECT account_id FROM docuplete_interview_sessions WHERE token = $1`,
         [result.sessionToken],
       );
       assert.equal(rows[0]?.account_id, accountId, "Created session must belong to API key's account");
@@ -582,7 +582,7 @@ describe("Reminder Config at Session Creation (POST /v1/sessions)", () => {
   after(async () => {
     if (createdTokens.length > 0) {
       await pool.query(
-        `DELETE FROM docufill_interview_sessions WHERE token = ANY($1)`,
+        `DELETE FROM docuplete_interview_sessions WHERE token = ANY($1)`,
         [createdTokens],
       );
     }
@@ -600,7 +600,7 @@ describe("Reminder Config at Session Creation (POST /v1/sessions)", () => {
     createdTokens.push(tok);
 
     const { rows } = await pool.query<{ reminder_enabled: boolean; reminder_days: number }>(
-      `SELECT reminder_enabled, reminder_days FROM docufill_interview_sessions WHERE token = $1`,
+      `SELECT reminder_enabled, reminder_days FROM docuplete_interview_sessions WHERE token = $1`,
       [tok],
     );
     assert.equal(rows[0]?.reminder_enabled, true, "reminder_enabled should be true in DB");
@@ -617,7 +617,7 @@ describe("Reminder Config at Session Creation (POST /v1/sessions)", () => {
     createdTokens.push(tok);
 
     const { rows } = await pool.query<{ reminder_enabled: boolean }>(
-      `SELECT reminder_enabled FROM docufill_interview_sessions WHERE token = $1`,
+      `SELECT reminder_enabled FROM docuplete_interview_sessions WHERE token = $1`,
       [tok],
     );
     assert.equal(rows[0]?.reminder_enabled, false);
@@ -666,7 +666,7 @@ describe("Audit Log API (GET /v1/sessions/:token/audit-log)", () => {
 
   it("returns audit entries after manually inserting one", async () => {
     await pool.query(
-      `INSERT INTO docufill_audit_logs
+      `INSERT INTO docuplete_audit_logs
          (session_id, session_token, account_id, event, actor_type, metadata)
        VALUES ($1, $2, $3, 'test.event', 'system', '{"source":"test"}'::jsonb)`,
       [sessionId, sessionToken, accountId],
@@ -724,7 +724,7 @@ describe("Multi-Party Signers (GET /v1/sessions/:token/signers)", () => {
     // Create a session with signers seeded directly in the DB
     multiToken = `df_${randomBytes(18).toString("hex")}`;
     const { rows: [sess] } = await pool.query<{ id: number }>(
-      `INSERT INTO docufill_interview_sessions
+      `INSERT INTO docuplete_interview_sessions
          (token, status, account_id, package_id, package_version, expires_at)
        VALUES ($1, 'draft', $2, $3, 1, NOW() + INTERVAL '90 days')
        RETURNING id`,
@@ -734,7 +734,7 @@ describe("Multi-Party Signers (GET /v1/sessions/:token/signers)", () => {
 
     // Seed two signers
     await pool.query(
-      `INSERT INTO docufill_session_signers
+      `INSERT INTO docuplete_session_signers
          (session_id, account_id, signer_order, email, name, status, token)
        VALUES
          ($1, $2, 1, 'alice@example.com', 'Alice', 'pending',  'sgn_${randomBytes(10).toString("hex")}'),
@@ -746,7 +746,7 @@ describe("Multi-Party Signers (GET /v1/sessions/:token/signers)", () => {
   after(async () => {
     if (multiToken) {
       await pool.query(
-        `DELETE FROM docufill_interview_sessions WHERE token = $1`,
+        `DELETE FROM docuplete_interview_sessions WHERE token = $1`,
         [multiToken],
       );
     }
@@ -788,7 +788,7 @@ describe("Multi-Party Signers (GET /v1/sessions/:token/signers)", () => {
 
   it("allSigned is true when all signers have status='signed'", async () => {
     await pool.query(
-      `UPDATE docufill_session_signers SET status = 'signed' WHERE session_id = $1`,
+      `UPDATE docuplete_session_signers SET status = 'signed' WHERE session_id = $1`,
       [multiSessionId],
     );
     const res = await supertest(app)
@@ -821,13 +821,13 @@ describe("Multi-Party Signing — Create Session with Signers", () => {
   after(async () => {
     if (createdTokens.length > 0) {
       await pool.query(
-        `DELETE FROM docufill_interview_sessions WHERE token = ANY($1)`,
+        `DELETE FROM docuplete_interview_sessions WHERE token = ANY($1)`,
         [createdTokens],
       );
     }
   });
 
-  it("creates session with signers and seeds them in docufill_session_signers", async () => {
+  it("creates session with signers and seeds them in docuplete_session_signers", async () => {
     const res = await supertest(app)
       .post("/v1/sessions")
       .set("Authorization", `Bearer ${rawApiKey}`)
@@ -845,13 +845,13 @@ describe("Multi-Party Signing — Create Session with Signers", () => {
     createdTokens.push(token);
 
     const { rows: sessRows } = await pool.query<{ id: number }>(
-      `SELECT id FROM docufill_interview_sessions WHERE token = $1`,
+      `SELECT id FROM docuplete_interview_sessions WHERE token = $1`,
       [token],
     );
     assert.ok(sessRows[0], "Session must exist in DB");
 
     const { rows: signerRows } = await pool.query<{ email: string; status: string; signer_order: number }>(
-      `SELECT email, status, signer_order FROM docufill_session_signers
+      `SELECT email, status, signer_order FROM docuplete_session_signers
         WHERE session_id = $1 ORDER BY signer_order`,
       [sessRows[0].id],
     );

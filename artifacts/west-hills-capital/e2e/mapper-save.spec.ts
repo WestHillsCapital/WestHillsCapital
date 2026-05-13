@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * DocuFill mapper save-flow regression tests — requires Clerk auth.
+ * Docuplete mapper save-flow regression tests — requires Clerk auth.
  *
  * Covers:
  *   - The Save button is present and enabled after the mapper loads
@@ -12,9 +12,9 @@ import { test, expect } from "@playwright/test";
  * Skipped automatically when CLERK_SECRET_KEY is not set.
  */
 
-const MAPPER = "/internal/docufill";
+const MAPPER = "/internal/docuplete";
 
-test.describe("DocuFill mapper — save flow", () => {
+test.describe("Docuplete mapper — save flow", () => {
   test.beforeEach(async ({ page }) => {
     if (!process.env.CLERK_SECRET_KEY) {
       test.skip();

@@ -102,7 +102,7 @@ export function requireWithinPlanLimits(resource: LimitedResource) {
           return;
         }
         const { rows } = await db.query<{ count: string }>(
-          `SELECT COUNT(*) AS count FROM docufill_packages WHERE account_id = $1`,
+          `SELECT COUNT(*) AS count FROM docuplete_packages WHERE account_id = $1`,
           [accountId],
         );
         const current = parseInt(rows[0]?.count ?? "0", 10);

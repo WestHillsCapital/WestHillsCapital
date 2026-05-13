@@ -1216,7 +1216,7 @@ router.get("/billing", async (req, res) => {
 
     const [pkgResult, usageResult, seatResult] = await Promise.all([
       db.query<{ count: string }>(
-        `SELECT COUNT(*) AS count FROM docufill_packages WHERE account_id = $1`,
+        `SELECT COUNT(*) AS count FROM docuplete_packages WHERE account_id = $1`,
         [accountId],
       ),
       db.query<{ count: string }>(
@@ -1705,12 +1705,12 @@ router.get("/onboarding", async (req, res) => {
         [accountId],
       ),
       db.query(
-        `SELECT id, tags FROM docufill_packages
+        `SELECT id, tags FROM docuplete_packages
           WHERE account_id = $1 AND status <> 'deleted'`,
         [accountId],
       ),
       db.query(
-        `SELECT source FROM docufill_interview_sessions
+        `SELECT source FROM docuplete_interview_sessions
           WHERE account_id = $1
           LIMIT 200`,
         [accountId],
@@ -2136,7 +2136,7 @@ router.delete("/integrations/gdrive", requireAdminRole, async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     // Clear both legacy gdrive_* columns AND the unified storage_* columns so
-    // the fallback chain in docufill upload routes is fully broken on disconnect.
+    // the fallback chain in docuplete upload routes is fully broken on disconnect.
     await db.query(
       `UPDATE accounts
           SET gdrive_access_token = NULL, gdrive_refresh_token = NULL,
@@ -2340,7 +2340,7 @@ router.delete("/integrations/storage", requireAdminRole, async (req, res) => {
     const accountId = req.internalAccountId ?? 1;
     const db = getDb();
     // Clear both unified storage_* columns AND legacy gdrive_* columns so
-    // the fallback chain in docufill upload routes is fully broken on disconnect.
+    // the fallback chain in docuplete upload routes is fully broken on disconnect.
     await db.query(
       `UPDATE accounts
           SET storage_provider = NULL, storage_access_token = NULL,
@@ -2475,7 +2475,7 @@ router.get("/admin/accounts", async (req, res) => {
     }>(
       `WITH last_activity AS (
          SELECT account_id, MAX(created_at) AS last_at
-           FROM docufill_interview_sessions
+           FROM docuplete_interview_sessions
           GROUP BY account_id
        )
        SELECT
@@ -2499,7 +2499,7 @@ router.get("/admin/accounts", async (req, res) => {
                AND ue.created_at >= COALESCE(a.billing_period_start, DATE_TRUNC('month', NOW()))
            ) AS submission_count,
            (SELECT COUNT(*)
-              FROM docufill_packages dp
+              FROM docuplete_packages dp
              WHERE dp.account_id = a.id) AS package_count,
            la.last_at AS last_activity_at,
            CASE
@@ -3902,13 +3902,13 @@ async function processExportRequests(): Promise<void> {
           [job.account_id],
         ),
         db.query(
-          `SELECT id, name, status, created_at FROM docufill_packages
+          `SELECT id, name, status, created_at FROM docuplete_packages
             WHERE account_id = $1 ORDER BY created_at`,
           [job.account_id],
         ),
         db.query(
           `SELECT id, interview_token, status, respondent_email, created_at, submitted_at
-             FROM docufill_interview_sessions
+             FROM docuplete_interview_sessions
             WHERE account_id = $1 ORDER BY created_at DESC`,
           [job.account_id],
         ),

@@ -2,9 +2,9 @@
  * Fill engine test suite
  *
  * Covers:
- * 1. Format helper unit tests — formatDocuFillMappedValue for date, currency,
+ * 1. Format helper unit tests — formatDocupleteMappedValue for date, currency,
  *    SSN, phone, percent, zip, number, and edge-case inputs.
- * 2. Word-wrap algorithm unit tests — mirrors drawWrappedText from docufill.ts
+ * 2. Word-wrap algorithm unit tests — mirrors drawWrappedText from docuplete.ts
  *    using pdf-lib Helvetica metrics; verifies wrapping and extreme-value safety.
  * 3. Text placement integration test — generates a real filled PDF via the
  *    generate + packet.pdf endpoints and verifies the output is valid and
@@ -25,8 +25,8 @@ import supertest from "supertest";
 import express from "express";
 import { Pool } from "pg";
 import { PDFDocument, StandardFonts, type PDFFont } from "pdf-lib";
-import { formatDocuFillMappedValue } from "../lib/docufill-redaction.js";
-import docufillRouter from "../routes/docufill.js";
+import { formatDocupleteMappedValue } from "../lib/docuplete-redaction.js";
+import docupleteRouter from "../routes/docuplete.js";
 
 function buildTestApp(accountId: number) {
   const app = express();
@@ -36,7 +36,7 @@ function buildTestApp(accountId: number) {
     req.productUserRole = "admin";
     next();
   });
-  app.use("/", docufillRouter);
+  app.use("/", docupleteRouter);
   return app;
 }
 
@@ -46,21 +46,21 @@ describe("Fill engine – format helpers", () => {
   // date-mm-dd-yyyy ──────────────────────────────────────────────────────────
   it("formats ISO date string as MM/DD/YYYY", () => {
     assert.equal(
-      formatDocuFillMappedValue("2025-03-15", { format: "date-mm-dd-yyyy" }),
+      formatDocupleteMappedValue("2025-03-15", { format: "date-mm-dd-yyyy" }),
       "03/15/2025",
     );
   });
 
   it("formats date-time string as MM/DD/YYYY (ignores time component)", () => {
     assert.equal(
-      formatDocuFillMappedValue("1990-07-04T00:00:00.000Z", { format: "date-mm-dd-yyyy" }),
+      formatDocupleteMappedValue("1990-07-04T00:00:00.000Z", { format: "date-mm-dd-yyyy" }),
       "07/04/1990",
     );
   });
 
   it("returns original text for unparseable date", () => {
     assert.equal(
-      formatDocuFillMappedValue("not-a-date", { format: "date-mm-dd-yyyy" }),
+      formatDocupleteMappedValue("not-a-date", { format: "date-mm-dd-yyyy" }),
       "not-a-date",
     );
   });
@@ -68,28 +68,28 @@ describe("Fill engine – format helpers", () => {
   // currency ─────────────────────────────────────────────────────────────────
   it("formats plain numeric string as USD currency", () => {
     assert.equal(
-      formatDocuFillMappedValue("5000", { format: "currency" }),
+      formatDocupleteMappedValue("5000", { format: "currency" }),
       "$5,000.00",
     );
   });
 
   it("formats dollar-prefixed, comma-separated string as USD", () => {
     assert.equal(
-      formatDocuFillMappedValue("$1,250.75", { format: "currency" }),
+      formatDocupleteMappedValue("$1,250.75", { format: "currency" }),
       "$1,250.75",
     );
   });
 
   it("formats zero as USD currency", () => {
     assert.equal(
-      formatDocuFillMappedValue("0", { format: "currency" }),
+      formatDocupleteMappedValue("0", { format: "currency" }),
       "$0.00",
     );
   });
 
   it("returns non-numeric currency input as-is", () => {
     assert.equal(
-      formatDocuFillMappedValue("abc", { format: "currency" }),
+      formatDocupleteMappedValue("abc", { format: "currency" }),
       "abc",
     );
   });
@@ -97,14 +97,14 @@ describe("Fill engine – format helpers", () => {
   // SSN – digits-only & last-four ────────────────────────────────────────────
   it("strips hyphens from SSN for digits-only format", () => {
     assert.equal(
-      formatDocuFillMappedValue("123-45-6789", { format: "digits-only" }),
+      formatDocupleteMappedValue("123-45-6789", { format: "digits-only" }),
       "123456789",
     );
   });
 
   it("extracts last 4 digits from SSN for last-four format", () => {
     assert.equal(
-      formatDocuFillMappedValue("123-45-6789", { format: "last-four" }),
+      formatDocupleteMappedValue("123-45-6789", { format: "last-four" }),
       "6789",
     );
   });
@@ -112,14 +112,14 @@ describe("Fill engine – format helpers", () => {
   // phone – digits-only & last-four ──────────────────────────────────────────
   it("strips formatting from phone number for digits-only format", () => {
     assert.equal(
-      formatDocuFillMappedValue("(555) 867-5309", { format: "digits-only" }),
+      formatDocupleteMappedValue("(555) 867-5309", { format: "digits-only" }),
       "5558675309",
     );
   });
 
   it("extracts last 4 digits from phone number for last-four format", () => {
     assert.equal(
-      formatDocuFillMappedValue("(555) 867-5309", { format: "last-four" }),
+      formatDocupleteMappedValue("(555) 867-5309", { format: "last-four" }),
       "5309",
     );
   });
@@ -127,14 +127,14 @@ describe("Fill engine – format helpers", () => {
   // zip – digits-only ────────────────────────────────────────────────────────
   it("strips hyphen from ZIP+4 for digits-only format", () => {
     assert.equal(
-      formatDocuFillMappedValue("12345-6789", { format: "digits-only" }),
+      formatDocupleteMappedValue("12345-6789", { format: "digits-only" }),
       "123456789",
     );
   });
 
   it("returns plain 5-digit zip unchanged for digits-only format", () => {
     assert.equal(
-      formatDocuFillMappedValue("90210", { format: "digits-only" }),
+      formatDocupleteMappedValue("90210", { format: "digits-only" }),
       "90210",
     );
   });
@@ -142,52 +142,52 @@ describe("Fill engine – format helpers", () => {
   // percent – as-entered (no special format key) ─────────────────────────────
   it("returns percent value unchanged when format is as-entered", () => {
     assert.equal(
-      formatDocuFillMappedValue("75%", { format: "as-entered" }),
+      formatDocupleteMappedValue("75%", { format: "as-entered" }),
       "75%",
     );
   });
 
   it("returns percent value unchanged when no format is specified", () => {
     assert.equal(
-      formatDocuFillMappedValue("50%", {}),
+      formatDocupleteMappedValue("50%", {}),
       "50%",
     );
   });
 
   // number ───────────────────────────────────────────────────────────────────
   it("returns numeric string unchanged by default", () => {
-    assert.equal(formatDocuFillMappedValue("42", {}), "42");
+    assert.equal(formatDocupleteMappedValue("42", {}), "42");
   });
 
   it("returns negative numeric string unchanged by default", () => {
-    assert.equal(formatDocuFillMappedValue("-7.5", {}), "-7.5");
+    assert.equal(formatDocupleteMappedValue("-7.5", {}), "-7.5");
   });
 
   // edge cases ───────────────────────────────────────────────────────────────
   it("returns empty string for empty input regardless of format", () => {
-    assert.equal(formatDocuFillMappedValue("", { format: "currency" }), "");
-    assert.equal(formatDocuFillMappedValue("  ", { format: "date-mm-dd-yyyy" }), "");
-    assert.equal(formatDocuFillMappedValue("", { format: "digits-only" }), "");
-    assert.equal(formatDocuFillMappedValue("", { format: "last-four" }), "");
+    assert.equal(formatDocupleteMappedValue("", { format: "currency" }), "");
+    assert.equal(formatDocupleteMappedValue("  ", { format: "date-mm-dd-yyyy" }), "");
+    assert.equal(formatDocupleteMappedValue("", { format: "digits-only" }), "");
+    assert.equal(formatDocupleteMappedValue("", { format: "last-four" }), "");
   });
 
   it("uppercase format transforms text correctly", () => {
     assert.equal(
-      formatDocuFillMappedValue("hello world", { format: "uppercase" }),
+      formatDocupleteMappedValue("hello world", { format: "uppercase" }),
       "HELLO WORLD",
     );
   });
 
   it("lowercase format transforms text correctly", () => {
     assert.equal(
-      formatDocuFillMappedValue("HELLO WORLD", { format: "lowercase" }),
+      formatDocupleteMappedValue("HELLO WORLD", { format: "lowercase" }),
       "hello world",
     );
   });
 
   it("unknown format returns text as-entered", () => {
     assert.equal(
-      formatDocuFillMappedValue("Some value", { format: "nonexistent-format" }),
+      formatDocupleteMappedValue("Some value", { format: "nonexistent-format" }),
       "Some value",
     );
   });
@@ -195,12 +195,12 @@ describe("Fill engine – format helpers", () => {
 
 // ── 2. Word-wrap algorithm unit tests ─────────────────────────────────────────
 //
-// Mirrors the drawWrappedText algorithm from docufill.ts exactly so regressions
+// Mirrors the drawWrappedText algorithm from docuplete.ts exactly so regressions
 // in the line-splitting logic surface here before reaching real PDFs.
 
 describe("Fill engine – word wrap algorithm", () => {
   /**
-   * Implements the same word-wrap logic as drawWrappedText in docufill.ts.
+   * Implements the same word-wrap logic as drawWrappedText in docuplete.ts.
    * Returns the list of lines that would be drawn for the given parameters.
    */
   function wordWrapLines(
@@ -353,7 +353,7 @@ describe("Fill engine – DB-backed tests (extreme values + E2E smoke)", () => {
     storedFieldId = `field_extreme_${suffix}`;
 
     const { rows: [pkgRow] } = await pool.query<{ id: number }>(
-      `INSERT INTO docufill_packages
+      `INSERT INTO docuplete_packages
          (name, account_id, status, transaction_scope, documents, fields, mappings, webhook_secret)
        VALUES ('FillEngine Extreme Test', $1, 'active', 'ira_transfer',
                $2::jsonb, $3::jsonb, $4::jsonb, $5)
@@ -398,7 +398,7 @@ describe("Fill engine – DB-backed tests (extreme values + E2E smoke)", () => {
     packageExtremeId = pkgRow.id;
 
     await pool.query(
-      `INSERT INTO docufill_package_documents
+      `INSERT INTO docuplete_package_documents
          (package_id, document_id, filename, content_type, byte_size, page_count, pdf_data)
        VALUES ($1, $2, 'extreme.pdf', 'application/pdf', $3, 1, $4)`,
       [packageExtremeId, docId, pdfBuf.length, pdfBuf],
@@ -409,7 +409,7 @@ describe("Fill engine – DB-backed tests (extreme values + E2E smoke)", () => {
     // an invalid target so the HTTP request fails immediately, but the delivery
     // row is still inserted in webhook_deliveries.
     const { rows: [pkgWh] } = await pool.query<{ id: number }>(
-      `INSERT INTO docufill_packages
+      `INSERT INTO docuplete_packages
          (name, account_id, status, transaction_scope, documents, fields, mappings,
           webhook_enabled, webhook_url, webhook_secret)
        VALUES ('FillEngine Webhook Test', $1, 'active', 'ira_transfer',
@@ -424,12 +424,12 @@ describe("Fill engine – DB-backed tests (extreme values + E2E smoke)", () => {
   after(async () => {
     if (!pool) return;
     await pool.query(
-      `DELETE FROM docufill_interview_sessions WHERE account_id = $1`,
+      `DELETE FROM docuplete_interview_sessions WHERE account_id = $1`,
       [accountId],
     );
     // Webhook deliveries are cascade-deleted when packages are deleted
     await pool.query(
-      `DELETE FROM docufill_packages WHERE account_id = $1`,
+      `DELETE FROM docuplete_packages WHERE account_id = $1`,
       [accountId],
     );
     await pool.query(
@@ -443,7 +443,7 @@ describe("Fill engine – DB-backed tests (extreme values + E2E smoke)", () => {
   it("generate with extreme fontSize (999 → clamped to 24) does not crash", async () => {
     const token = `_test_extreme_fs_${Date.now().toString(36)}`;
     await pool.query(
-      `INSERT INTO docufill_interview_sessions
+      `INSERT INTO docuplete_interview_sessions
          (token, package_id, package_version, transaction_scope, source, status,
           prefill, answers, expires_at, account_id)
        VALUES ($1, $2, 1, 'ira_transfer', 'test', 'draft',
@@ -473,7 +473,7 @@ describe("Fill engine – DB-backed tests (extreme values + E2E smoke)", () => {
   it("generate with tiny box height (h=0.001 → clamped to 1) does not crash", async () => {
     const token = `_test_extreme_h_${Date.now().toString(36)}`;
     await pool.query(
-      `INSERT INTO docufill_interview_sessions
+      `INSERT INTO docuplete_interview_sessions
          (token, package_id, package_version, transaction_scope, source, status,
           prefill, answers, expires_at, account_id)
        VALUES ($1, $2, 1, 'ira_transfer', 'test', 'draft',
@@ -510,7 +510,7 @@ describe("Fill engine – DB-backed tests (extreme values + E2E smoke)", () => {
       "inside the narrow 10%-wide bounding box with extreme font size clamped to 24pt.";
 
     await pool.query(
-      `INSERT INTO docufill_interview_sessions
+      `INSERT INTO docuplete_interview_sessions
          (token, package_id, package_version, transaction_scope, source, status,
           prefill, answers, expires_at, account_id)
        VALUES ($1, $2, 1, 'ira_transfer', 'test', 'draft',
@@ -591,7 +591,7 @@ describe("Fill engine – DB-backed tests (extreme values + E2E smoke)", () => {
 
     // Step 4 — Verify session status in DB
     const { rows: [sessionRow] } = await pool.query<{ status: string }>(
-      `SELECT status FROM docufill_interview_sessions WHERE token = $1`,
+      `SELECT status FROM docuplete_interview_sessions WHERE token = $1`,
       [token],
     );
     assert.equal(sessionRow.status, "generated", "Session status should be 'generated'");
@@ -666,7 +666,7 @@ describe("Fill engine – webhook URL pre-save validation", () => {
     app = buildTestApp(accountId);
 
     const { rows: [pkgRow] } = await pool.query<{ id: number }>(
-      `INSERT INTO docufill_packages
+      `INSERT INTO docuplete_packages
          (name, account_id, status, transaction_scope, documents, fields, mappings, webhook_secret)
        VALUES ('Webhook Validation Test', $1, 'active', 'ira_transfer',
                '[]'::jsonb, '[]'::jsonb, '[]'::jsonb, $2)
@@ -679,7 +679,7 @@ describe("Fill engine – webhook URL pre-save validation", () => {
   after(async () => {
     if (!pool) return;
     if (stubServer?.listening) await new Promise<void>((resolve) => stubServer.close(() => resolve()));
-    await pool.query(`DELETE FROM docufill_packages WHERE account_id = $1`, [accountId]);
+    await pool.query(`DELETE FROM docuplete_packages WHERE account_id = $1`, [accountId]);
     await pool.query(`DELETE FROM accounts WHERE id = $1`, [accountId]);
     await pool.end();
   });
@@ -755,7 +755,7 @@ describe("Fill engine – webhook URL pre-save validation", () => {
 
     // Confirm the URL was actually persisted
     const { rows: [row] } = await pool.query<{ webhook_url: string }>(
-      `SELECT webhook_url FROM docufill_packages WHERE id = $1`,
+      `SELECT webhook_url FROM docuplete_packages WHERE id = $1`,
       [packageId],
     );
     assert.equal(row.webhook_url, hookUrl, "Webhook URL should be persisted in DB");
@@ -784,7 +784,7 @@ describe("Fill engine – webhook URL pre-save validation", () => {
       `Expected 200 when clearing webhookUrl, got ${res.status}: ${JSON.stringify(res.body)}`,
     );
     const { rows: [row] } = await pool.query<{ webhook_url: string | null }>(
-      `SELECT webhook_url FROM docufill_packages WHERE id = $1`,
+      `SELECT webhook_url FROM docuplete_packages WHERE id = $1`,
       [packageId],
     );
     assert.equal(row.webhook_url, null, "Webhook URL should be cleared to null");
@@ -808,7 +808,7 @@ describe("Fill engine – webhook URL pre-save validation", () => {
 
   it("POST /packages with unreachable webhook URL returns 422 without creating the package", async () => {
     const countBefore = (await pool.query<{ count: string }>(
-      `SELECT COUNT(*) AS count FROM docufill_packages WHERE account_id = $1`,
+      `SELECT COUNT(*) AS count FROM docuplete_packages WHERE account_id = $1`,
       [accountId],
     )).rows[0].count;
 
@@ -823,7 +823,7 @@ describe("Fill engine – webhook URL pre-save validation", () => {
     );
 
     const countAfter = (await pool.query<{ count: string }>(
-      `SELECT COUNT(*) AS count FROM docufill_packages WHERE account_id = $1`,
+      `SELECT COUNT(*) AS count FROM docuplete_packages WHERE account_id = $1`,
       [accountId],
     )).rows[0].count;
     assert.equal(countAfter, countBefore, "No new package should be created when probe fails");
@@ -834,7 +834,7 @@ describe("Fill engine – webhook URL pre-save validation", () => {
 
     // Fetch the package's webhook_secret so we can recompute the expected signature.
     const { rows: [pkgRow] } = await pool.query<{ webhook_secret: string }>(
-      `SELECT webhook_secret FROM docufill_packages WHERE id = $1`,
+      `SELECT webhook_secret FROM docuplete_packages WHERE id = $1`,
       [packageId],
     );
     const secret = pkgRow.webhook_secret;

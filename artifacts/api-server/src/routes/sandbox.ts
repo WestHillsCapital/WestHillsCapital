@@ -31,7 +31,7 @@ type SandboxCtx = { accountId: number; packageId: number };
 async function ensureSandboxAuthLevelNone(accountId: number): Promise<void> {
   const db = getDb();
   await db.query(
-    `UPDATE docufill_packages SET auth_level = 'none' WHERE account_id = $1 AND auth_level != 'none'`,
+    `UPDATE docuplete_packages SET auth_level = 'none' WHERE account_id = $1 AND auth_level != 'none'`,
     [accountId],
   );
 }
@@ -77,7 +77,7 @@ async function getOrCreateSandbox(): Promise<SandboxCtx> {
   }
 
   // Seed demo package outside the advisory-lock transaction so seedDemoPackage
-  // can use its own internal mutex (docufill_migration_state ON CONFLICT).
+  // can use its own internal mutex (docuplete_migration_state ON CONFLICT).
   if (justCreated) {
     await seedDemoPackage(db, accountId);
   }
@@ -85,7 +85,7 @@ async function getOrCreateSandbox(): Promise<SandboxCtx> {
   // Refresh the sandbox package's fields on every cold start so the live DB
   // stays in sync with DEMO_FIELDS (fixes stale rows that pre-date interviewMode).
   await db.query(
-    `UPDATE docufill_packages SET fields = $1::jsonb WHERE account_id = $2 AND status = 'active'`,
+    `UPDATE docuplete_packages SET fields = $1::jsonb WHERE account_id = $2 AND status = 'active'`,
     [JSON.stringify(DEMO_FIELDS), accountId],
   );
 
@@ -96,7 +96,7 @@ async function getOrCreateSandbox(): Promise<SandboxCtx> {
 
   const pkgResult = await db.query<{ id: number; version: number; transaction_scope: string | null }>(
     `SELECT id, version, transaction_scope
-       FROM docufill_packages
+       FROM docuplete_packages
       WHERE account_id = $1 AND status = 'active'
       LIMIT 1`,
     [accountId],
@@ -117,7 +117,7 @@ async function getOrCreateSandbox(): Promise<SandboxCtx> {
  *
  * Publicly accessible — no API key or session token required.
  *
- * Creates a demo DocuFill session, optionally pre-filled with values
+ * Creates a demo Docuplete session, optionally pre-filled with values
  * supplied as URL query parameters, and returns the interview URL the
  * caller should redirect to.
  *
@@ -137,7 +137,7 @@ router.get("/start", async (req, res) => {
     // is undone before the new session is created. Cheap — indexed UPDATE is a no-op
     // when the values are already correct.
     await db.query(
-      `UPDATE docufill_packages
+      `UPDATE docuplete_packages
           SET fields = $1::jsonb, auth_level = 'none'
         WHERE account_id = $2 AND status = 'active'`,
       [JSON.stringify(DEMO_FIELDS), accountId],
@@ -162,7 +162,7 @@ router.get("/start", async (req, res) => {
 
     // Fetch live package metadata
     const pkg = await db.query<{ version: number; transaction_scope: string | null }>(
-      `SELECT version, transaction_scope FROM docufill_packages WHERE id = $1`,
+      `SELECT version, transaction_scope FROM docuplete_packages WHERE id = $1`,
       [packageId],
     );
     if (pkg.rows.length === 0) {
@@ -175,7 +175,7 @@ router.get("/start", async (req, res) => {
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1_000); // 7 days
 
     await db.query(
-      `INSERT INTO docufill_interview_sessions
+      `INSERT INTO docuplete_interview_sessions
          (token, package_id, package_version, transaction_scope, account_id,
           source, status, prefill, answers, expires_at)
        VALUES ($1, $2, $3, $4, $5, 'sandbox', 'draft', $6::jsonb, '{}'::jsonb, $7)`,

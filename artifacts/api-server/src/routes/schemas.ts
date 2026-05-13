@@ -5,7 +5,7 @@ import { z } from "zod";
 export const EmptyBodySchema = z.object({}).optional();
 export type EmptyBody = z.infer<typeof EmptyBodySchema>;
 
-// ── Docufill ──────────────────────────────────────────────────────────────────
+// ── Docuplete ──────────────────────────────────────────────────────────────────
 
 export const FieldLibraryCreateSchema = z.object({
   label: z.string(),
@@ -170,7 +170,7 @@ export const PdfUploadHeaderSchema = z.object({
 }).passthrough();
 export type PdfUploadHeader = z.infer<typeof PdfUploadHeaderSchema>;
 
-// ── Docufill GET query schemas ─────────────────────────────────────────────────
+// ── Docuplete GET query schemas ─────────────────────────────────────────────────
 
 export const SessionsQuerySchema = z.object({
   dealId: z.string().regex(/^\d+$/, "dealId must be a numeric string").optional(),

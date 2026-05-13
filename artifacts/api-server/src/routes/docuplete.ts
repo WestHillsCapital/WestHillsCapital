@@ -6,20 +6,20 @@ import PDFDocument from "pdfkit";
 import { getDb, seedDefaultTransactionTypes } from "../db";
 import { logger } from "../lib/logger";
 import {
-  buildDocuFillFallbackSummaryRows,
-  buildDocuFillPacketSummary,
+  buildDocupleteFallbackSummaryRows,
+  buildDocupletePacketSummary,
   fieldAnswerValue,
-  formatDocuFillMappedValue,
+  formatDocupleteMappedValue,
   hydratePackageFields,
-  parseDocuFillFields as parseFields,
+  parseDocupleteFields as parseFields,
   isSystemEsignFieldId,
   ESIGN_FIELD_ID_SIGNATURE,
   ESIGN_FIELD_ID_INITIALS,
   ESIGN_FIELD_ID_DATE,
-  type DocuFillFieldCondition,
-  type DocuFillFieldItem,
-} from "../lib/docufill-redaction";
-import { saveDocuFillPacketToDrive } from "../lib/google-drive";
+  type DocupleteFieldCondition,
+  type DocupleteFieldItem,
+} from "../lib/docuplete-redaction";
+import { saveDocupletePacketToDrive } from "../lib/google-drive";
 import { uploadSessionPdfToAccountDrive } from "../lib/google-drive-account";
 import { uploadToStorageProvider } from "../lib/storage-provider";
 import { upsertHubSpotContact, extractHubSpotProperties } from "../lib/hubspot-account";
@@ -88,7 +88,7 @@ import {
 const requireMemberRole = requireRole("member");
 
 const router: IRouter = Router();
-export const publicDocufillRouter: IRouter = Router();
+export const publicDocupleteRouter: IRouter = Router();
 const objectStorage = new ObjectStorageService();
 
 /**
@@ -127,13 +127,13 @@ async function requireAccountNotPurged(req: Request, res: Response, next: NextFu
  * Mounted at /api/v1/packages — requires requireApiKeyAuth + requireAccountId
  * upstream in index.ts.
  */
-export const apiKeyDocufillRouter: IRouter = Router();
+export const apiKeyDocupleteRouter: IRouter = Router();
 
 // Block content access for accounts whose trial data has been purged.
 router.use(requireAccountNotPurged);
-apiKeyDocufillRouter.use(requireAccountNotPurged);
+apiKeyDocupleteRouter.use(requireAccountNotPurged);
 
-apiKeyDocufillRouter.get("/:id/webhook-deliveries", async (req, res) => {
+apiKeyDocupleteRouter.get("/:id/webhook-deliveries", async (req, res) => {
   try {
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid package id" }); return; }
@@ -146,7 +146,7 @@ apiKeyDocufillRouter.get("/:id/webhook-deliveries", async (req, res) => {
 
     const db = getDb();
     const { rows: owned } = await db.query(
-      `SELECT id FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      `SELECT id FROM docuplete_packages WHERE id = $1 AND account_id = $2`,
       [id, accountId],
     );
     if (!owned[0]) { res.status(404).json({ error: "Package not found" }); return; }
@@ -174,7 +174,7 @@ apiKeyDocufillRouter.get("/:id/webhook-deliveries", async (req, res) => {
       offset,
     });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to fetch webhook deliveries (API key)");
+    logger.error({ err }, "[Docuplete] Failed to fetch webhook deliveries (API key)");
     res.status(500).json({ error: "Failed to fetch webhook deliveries" });
   }
 });
@@ -230,7 +230,7 @@ type DocItem = {
   updatedAt?: string;
 };
 
-type FieldItem = DocuFillFieldItem;
+type FieldItem = DocupleteFieldItem;
 
 type MappingItem = {
   fieldId?: string;
@@ -366,11 +366,11 @@ function parseId(value: unknown): number | null {
 }
 
 // System e-sign field definitions injected into email_otp packages
-const SYSTEM_ESIGN_FIELD_DEFS: DocuFillFieldItem[] = [
-  { id: ESIGN_FIELD_ID_SIGNATURE,  name: "Signature",   type: "text",     format: "signature", interviewMode: "omitted" } as DocuFillFieldItem & { format?: string },
+const SYSTEM_ESIGN_FIELD_DEFS: DocupleteFieldItem[] = [
+  { id: ESIGN_FIELD_ID_SIGNATURE,  name: "Signature",   type: "text",     format: "signature", interviewMode: "omitted" } as DocupleteFieldItem & { format?: string },
   { id: ESIGN_FIELD_ID_INITIALS,   name: "Initials",    type: "initials", interviewMode: "omitted" },
   { id: ESIGN_FIELD_ID_DATE,       name: "Signer Date", type: "date",     interviewMode: "omitted" },
-] as DocuFillFieldItem[];
+] as DocupleteFieldItem[];
 
 /**
  * For email_otp packages ensure the three e-sign system fields are present in the
@@ -378,7 +378,7 @@ const SYSTEM_ESIGN_FIELD_DEFS: DocuFillFieldItem[] = [
  * callers). For non-email_otp packages, strips system fields entirely so they don't
  * pollute the schema.
  */
-function normalizeEsignFields(fields: unknown, authLevel: string): DocuFillFieldItem[] {
+function normalizeEsignFields(fields: unknown, authLevel: string): DocupleteFieldItem[] {
   const parsed = parseFields(fields);
   if (authLevel !== "email_otp") {
     // Strip any stray system fields from non-e-sign packages
@@ -529,7 +529,7 @@ function signWebhookPayload(secret: string, body: string): string {
 }
 
 /**
- * Resolve the raw PDF bytes from a docufill_package_documents row.
+ * Resolve the raw PDF bytes from a docuplete_package_documents row.
  * Priority: encrypted ciphertext → plaintext pdf_data.
  * Encryption is per-account (DEK), so accountId is required to decrypt.
  */
@@ -543,7 +543,7 @@ async function decryptPdfFromDb(
       const dek = await getOrCreateAccountDek(accountId, client);
       return decryptBuffer(row.pdf_data_ciphertext, dek);
     } catch (err) {
-      logger.warn({ err, accountId }, "[DocuFill] PDF decryption failed — falling back to plaintext pdf_data");
+      logger.warn({ err, accountId }, "[Docuplete] PDF decryption failed — falling back to plaintext pdf_data");
     }
   }
   return row.pdf_data ?? undefined;
@@ -626,10 +626,10 @@ async function doWebhookDelivery(
     httpStatus = res.status;
     responseSnippet = (await res.text().catch(() => "")).slice(0, 1024);
     ok = res.ok;
-    if (!ok) logger.warn({ status: res.status, webhookUrl, attempt }, "[DocuFill] Webhook non-2xx");
+    if (!ok) logger.warn({ status: res.status, webhookUrl, attempt }, "[Docuplete] Webhook non-2xx");
   } catch (err) {
     responseSnippet = (err instanceof Error ? err.message : String(err)).slice(0, 1024);
-    logger.error({ err, webhookUrl, attempt }, "[DocuFill] Webhook request failed");
+    logger.error({ err, webhookUrl, attempt }, "[Docuplete] Webhook request failed");
   } finally {
     clearTimeout(timer);
   }
@@ -644,7 +644,7 @@ async function doWebhookDelivery(
     // was deleted before the retry row could be inserted — this happens in tests
     // when cleanup runs while a scheduled retry is still pending. Suppress it.
     if (e?.code === "23503" && e?.constraint === "webhook_deliveries_package_id_fkey") return;
-    logger.error({ e }, "[DocuFill] Failed to log webhook delivery");
+    logger.error({ e }, "[Docuplete] Failed to log webhook delivery");
   });
   return ok;
 }
@@ -671,13 +671,13 @@ async function retryWebhookDelivery(
   if (!success) {
     if (attempt <= WEBHOOK_RETRY_DELAYS_MS.length) {
       const delay = WEBHOOK_RETRY_DELAYS_MS[attempt - 1];
-      logger.warn({ packageId, attempt, nextDelayMs: delay }, "[DocuFill] Webhook failed — scheduling retry");
+      logger.warn({ packageId, attempt, nextDelayMs: delay }, "[Docuplete] Webhook failed — scheduling retry");
       setTimeout(
         () => void retryWebhookDelivery(db, packageId, accountId, webhookUrl, secret, bodyStr, attempt + 1, eventType, payloadHash),
         delay,
       ).unref();
     } else {
-      logger.error({ packageId, webhookUrl, totalAttempts: attempt }, "[DocuFill] Webhook delivery failed after all retries — giving up");
+      logger.error({ packageId, webhookUrl, totalAttempts: attempt }, "[Docuplete] Webhook delivery failed after all retries — giving up");
     }
   }
 }
@@ -708,13 +708,13 @@ function fireWebhookAsync(
     let secret: string | null = null;
     try {
       const { rows } = await db.query<{ webhook_secret: string }>(
-        `SELECT webhook_secret FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+        `SELECT webhook_secret FROM docuplete_packages WHERE id = $1 AND account_id = $2`,
         [packageId, accountId],
       );
       secret = rows[0]?.webhook_secret ?? null;
       if (!secret) throw new Error("webhook_secret is missing or null");
     } catch (err) {
-      logger.error({ err, packageId, accountId }, "[DocuFill] Cannot fetch webhook_secret — aborting delivery");
+      logger.error({ err, packageId, accountId }, "[Docuplete] Cannot fetch webhook_secret — aborting delivery");
       db.query(
         `INSERT INTO webhook_deliveries
            (package_id, account_id, event_type, payload_hash, attempt_number, http_status, response_body, duration_ms, payload_json)
@@ -722,7 +722,7 @@ function fireWebhookAsync(
         [packageId, accountId, eventType, payloadHash, "Secret unavailable — delivery aborted", bodyStr],
       ).catch((e) => {
         if (e?.code === "23503" && e?.constraint === "webhook_deliveries_package_id_fkey") return;
-        logger.error({ e }, "[DocuFill] Failed to log aborted delivery");
+        logger.error({ e }, "[Docuplete] Failed to log aborted delivery");
       });
       return;
     }
@@ -772,7 +772,7 @@ async function fireSubmissionEmailsAsync(
         ),
       ]);
       if (staffEmails.length) {
-        const appUrl = `${origin}/internal/docufill?session=${token}`;
+        const appUrl = `${origin}/internal/docuplete?session=${token}`;
         await sendDocupleteStaffSubmissionEmail({
           staffEmails,
           sessionToken: token,
@@ -787,10 +787,10 @@ async function fireSubmissionEmailsAsync(
           pdfFilename,
           emailSettings,
         });
-        logger.info({ staffEmails, token }, "[DocuFill] Staff submission emails sent");
+        logger.info({ staffEmails, token }, "[Docuplete] Staff submission emails sent");
       }
     } catch (err) {
-      logger.error({ err, token }, "[DocuFill] Failed to send staff submission email");
+      logger.error({ err, token }, "[Docuplete] Failed to send staff submission email");
     }
   }
 
@@ -806,9 +806,9 @@ async function fireSubmissionEmailsAsync(
         orgBrandColor,
         emailSettings,
       });
-      logger.info({ clientEmail, token }, "[DocuFill] Client confirmation email sent");
+      logger.info({ clientEmail, token }, "[Docuplete] Client confirmation email sent");
     } catch (err) {
-      logger.error({ err, token }, "[DocuFill] Failed to send client confirmation email");
+      logger.error({ err, token }, "[Docuplete] Failed to send client confirmation email");
     }
   }
 }
@@ -846,7 +846,7 @@ function parseGroupIds(groupIds: unknown, groupId: unknown): number[] {
 async function validateGroupIds(client: QueryClient, groupIds: number[], accountId: number): Promise<string | null> {
   if (groupIds.length === 0) return null;
   const { rows } = await client.query<{ id: number; kind: string }>(
-    `SELECT id, kind FROM docufill_groups WHERE id = ANY($1) AND account_id = $2`,
+    `SELECT id, kind FROM docuplete_groups WHERE id = ANY($1) AND account_id = $2`,
     [groupIds, accountId],
   );
   if (rows.length !== groupIds.length) {
@@ -871,11 +871,11 @@ async function validateGroupIds(client: QueryClient, groupIds: number[], account
 
 /** Replace all junction rows for a package with the given group ids (within a transaction). */
 async function syncPackageGroups(client: QueryClient, packageId: number, groupIds: number[]): Promise<void> {
-  await client.query(`DELETE FROM docufill_package_groups WHERE package_id = $1`, [packageId]);
+  await client.query(`DELETE FROM docuplete_package_groups WHERE package_id = $1`, [packageId]);
   if (groupIds.length > 0) {
     const values = groupIds.map((gid, i) => `($1, $${i + 2})`).join(", ");
     await client.query(
-      `INSERT INTO docufill_package_groups (package_id, group_id) VALUES ${values} ON CONFLICT DO NOTHING`,
+      `INSERT INTO docuplete_package_groups (package_id, group_id) VALUES ${values} ON CONFLICT DO NOTHING`,
       [packageId, ...groupIds],
     );
   }
@@ -890,7 +890,7 @@ function fieldLibrarySelectSql(): string {
                  validation_type AS "validationType", validation_pattern AS "validationPattern",
                  validation_message AS "validationMessage", active, sort_order AS "sortOrder",
                  COALESCE(compliance_tags, '[]'::jsonb) AS "complianceTags"
-            FROM docufill_fields`;
+            FROM docuplete_fields`;
 }
 
 type FieldUsageSummary = {
@@ -907,7 +907,7 @@ async function getFieldLibraryUsageSummary(client: QueryClient, accountId: numbe
          f->>'libraryFieldId' AS library_field_id,
          f->>'id'             AS field_id,
          p.id                 AS package_id
-       FROM docufill_packages p,
+       FROM docuplete_packages p,
        LATERAL jsonb_array_elements(p.fields) AS f
        WHERE p.account_id = $1
          AND jsonb_typeof(p.fields) = 'array'
@@ -929,7 +929,7 @@ async function getFieldLibraryUsageSummary(client: QueryClient, accountId: numbe
            WHERE s.answers ? pfm.field_id AND s.answers->>pfm.field_id <> ''
          ) AS last_answered
        FROM pkg_field_map pfm
-       JOIN docufill_interview_sessions s ON s.package_id = pfm.package_id
+       JOIN docuplete_interview_sessions s ON s.package_id = pfm.package_id
        WHERE s.account_id = $1
          AND s.status IN ('submitted', 'signed')
        GROUP BY pfm.library_field_id
@@ -991,15 +991,15 @@ async function getFieldLibrary(client: QueryClient = getDb(), accountId?: number
     `SELECT * FROM (
        -- Own fields (global + account-specific)
        SELECT *, FALSE AS inherited, NULL::text AS "inheritedFrom"
-         FROM docufill_fields
+         FROM docuplete_fields
         WHERE (account_id IS NULL OR account_id = $1)
        UNION ALL
        -- Parent account-specific fields not already owned by the child
        SELECT df.*, TRUE AS inherited, $3::text AS "inheritedFrom"
-         FROM docufill_fields df
+         FROM docuplete_fields df
         WHERE df.account_id = $2
           AND df.id NOT IN (
-            SELECT id FROM docufill_fields WHERE (account_id IS NULL OR account_id = $1)
+            SELECT id FROM docuplete_fields WHERE (account_id IS NULL OR account_id = $1)
           )
      ) combined
      ORDER BY inherited ASC, active DESC, sort_order ASC, label ASC`,
@@ -1066,7 +1066,7 @@ async function getPdfMetadata(buffer: Buffer): Promise<{ pageCount: number; page
   } catch {
     // Second attempt: raw-byte page count — works for encrypted, linearised,
     // and non-standard PDFs that pdf-lib cannot fully load.
-    logger.warn("[DocuFill] pdf-lib could not parse uploaded PDF — falling back to raw page count");
+    logger.warn("[Docuplete] pdf-lib could not parse uploaded PDF — falling back to raw page count");
     const pageCount = countPdfPagesFromBytes(buffer);
     return { pageCount, pageSizes: [] };
   }
@@ -1114,7 +1114,7 @@ async function hydrateStoredDocumentMetadata(packages: PackageRow[], client: Que
   if (ids.length === 0) return packages;
   const { rows } = await client.query(
     `SELECT package_id, document_id, filename, content_type, byte_size, page_count, page_sizes, created_at, updated_at
-       FROM docufill_package_documents
+       FROM docuplete_package_documents
       WHERE package_id = ANY($1::int[])`,
     [ids],
   );
@@ -1236,15 +1236,15 @@ async function getPackage(packageId: number, client: QueryClient = getDb(), hydr
   const [{ rows }, junctionRows] = await Promise.all([
     client.query(
       `SELECT p.*, c.name AS custodian_name, d.name AS depository_name, g.name AS group_name
-         FROM docufill_packages p
-         LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
-         LEFT JOIN docufill_depositories d ON d.id = p.depository_id
-         LEFT JOIN docufill_groups g ON g.id = p.group_id
+         FROM docuplete_packages p
+         LEFT JOIN docuplete_custodians c ON c.id = p.custodian_id
+         LEFT JOIN docuplete_depositories d ON d.id = p.depository_id
+         LEFT JOIN docuplete_groups g ON g.id = p.group_id
         WHERE p.id = $1 ${accountFilter}`,
       params,
     ),
     client.query(
-      `SELECT array_agg(group_id ORDER BY group_id) AS group_ids FROM docufill_package_groups WHERE package_id=$1`,
+      `SELECT array_agg(group_id ORDER BY group_id) AS group_ids FROM docuplete_package_groups WHERE package_id=$1`,
       [packageId],
     ),
   ]);
@@ -1282,11 +1282,11 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
             a.storage_provider, a.storage_access_token, a.storage_refresh_token, a.storage_folder_id,
             a.hubspot_access_token, a.hubspot_refresh_token,
             a.slack_webhook_url AS account_slack_webhook_url
-       FROM docufill_interview_sessions s
-       JOIN docufill_packages p ON p.id = s.package_id
-       LEFT JOIN docufill_custodians c ON c.id = p.custodian_id
-       LEFT JOIN docufill_depositories d ON d.id = p.depository_id
-       LEFT JOIN docufill_groups g ON g.id = p.group_id
+       FROM docuplete_interview_sessions s
+       JOIN docuplete_packages p ON p.id = s.package_id
+       LEFT JOIN docuplete_custodians c ON c.id = p.custodian_id
+       LEFT JOIN docuplete_depositories d ON d.id = p.depository_id
+       LEFT JOIN docuplete_groups g ON g.id = p.group_id
        LEFT JOIN accounts a ON a.id = p.account_id
       WHERE s.token = $1 ${accountFilter}
         AND s.expires_at > NOW()`,
@@ -1334,18 +1334,18 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
   return result;
 }
 
-function fieldInInterview(field: DocuFillFieldItem): boolean {
+function fieldInInterview(field: DocupleteFieldItem): boolean {
   if (field.interviewMode) return field.interviewMode !== "omitted";
   return field.interviewVisible !== false;
 }
 
-function fieldIsRequired(field: DocuFillFieldItem): boolean {
+function fieldIsRequired(field: DocupleteFieldItem): boolean {
   if (field.interviewMode) return field.interviewMode === "required";
   return field.required === true && field.interviewVisible !== false;
 }
 
 function evaluateFieldCondition(
-  condition: DocuFillFieldCondition | null | undefined,
+  condition: DocupleteFieldCondition | null | undefined,
   answers: Record<string, unknown>,
 ): boolean {
   if (!condition || !condition.fieldId) return true;
@@ -1499,20 +1499,20 @@ async function buildPacketPdfBuffer(
   const fields = parseFields(session.fields);
   const fieldsById = new Map(fields.map((field) => [field.id, field]));
   // Ensure system e-sign fields are resolvable even for older packages
-  const SYSTEM_ESIGN_FIELD_DEFAULTS: Record<string, Pick<DocuFillFieldItem, "id" | "name" | "type" | "interviewMode">> = {
+  const SYSTEM_ESIGN_FIELD_DEFAULTS: Record<string, Pick<DocupleteFieldItem, "id" | "name" | "type" | "interviewMode">> = {
     "__signature__": { id: "__signature__", name: "Signature", type: "text", interviewMode: "omitted" },
     "__initials__":  { id: "__initials__",  name: "Initials",  type: "initials", interviewMode: "omitted" },
     "__signer_date__": { id: "__signer_date__", name: "Signer Date", type: "date", interviewMode: "omitted" },
   };
   for (const [id, def] of Object.entries(SYSTEM_ESIGN_FIELD_DEFAULTS)) {
-    if (!fieldsById.has(id)) fieldsById.set(id, def as DocuFillFieldItem);
+    if (!fieldsById.has(id)) fieldsById.set(id, def as DocupleteFieldItem);
   }
   const packageId = Number(session.package_id);
   const storedDocuments = parseDocuments(session.documents).filter((sourceDoc) => sourceDoc.pdfStored);
   const storedRowsResult = Number.isInteger(packageId) && storedDocuments.length > 0
     ? await client.query(
       `SELECT document_id, filename, content_type, byte_size, page_count, pdf_data, pdf_gcs_key, pdf_data_ciphertext, created_at, updated_at
-         FROM docufill_package_documents
+         FROM docuplete_package_documents
         WHERE package_id=$1 AND document_id = ANY($2::text[])`,
       [packageId, storedDocuments.map((doc) => doc.id)],
     )
@@ -1538,7 +1538,7 @@ async function buildPacketPdfBuffer(
         try {
           pdfBuffer = await objectStorage.downloadObjectToBuffer(row.pdf_gcs_key);
         } catch (gcsErr) {
-          logger.warn({ err: gcsErr, documentId: sourceDoc.id }, "[DocuFill] GCS fetch failed for package PDF — falling back to DB");
+          logger.warn({ err: gcsErr, documentId: sourceDoc.id }, "[Docuplete] GCS fetch failed for package PDF — falling back to DB");
           pdfBuffer = row ? await decryptPdfFromDb(row, pkgAccountId, client) : undefined;
         }
       } else {
@@ -1653,7 +1653,7 @@ async function buildPacketPdfBuffer(
         }
 
         const value = fieldAnswerValue(field, answers, prefill);
-        const mappedValue = formatDocuFillMappedValue(value, mapping);
+        const mappedValue = formatDocupleteMappedValue(value, mapping);
         if (!mappedValue) continue;
         const fontSize = clampNumber(mapping.fontSize, 11, 5, 24);
         const align = mapping.align === "center" || mapping.align === "right" ? mapping.align : "left";
@@ -1694,7 +1694,7 @@ async function buildPacketPdfBuffer(
     doc.text(`Generated: ${new Date().toLocaleString()}`);
     doc.moveDown();
     doc.fontSize(14).text("Known Deal Data");
-    const fallbackRows = buildDocuFillFallbackSummaryRows(session);
+    const fallbackRows = buildDocupleteFallbackSummaryRows(session);
     fallbackRows.prefillRows.forEach((row) => {
       doc.fontSize(10).text(`${row.label}: ${row.displayValue}`);
     });
@@ -1911,7 +1911,7 @@ async function upsertPackageDocument(params: {
     const updatedAt = new Date().toISOString();
     const storage = await client.query(
       `SELECT COALESCE(SUM(byte_size), 0)::bigint AS total_bytes
-         FROM docufill_package_documents
+         FROM docuplete_package_documents
         WHERE package_id=$1 AND document_id <> $2`,
       [params.packageId, documentId],
     );
@@ -1927,7 +1927,7 @@ async function upsertPackageDocument(params: {
       "application/pdf",
     );
     await client.query(
-      `INSERT INTO docufill_package_documents
+      `INSERT INTO docuplete_package_documents
          (package_id, document_id, filename, content_type, byte_size, page_count, page_sizes, pdf_data, pdf_gcs_key)
        VALUES ($1,$2,$3,'application/pdf',$4,$5,$6::jsonb,NULL,$7)
        ON CONFLICT (package_id, document_id) DO UPDATE SET
@@ -1960,7 +1960,7 @@ async function upsertPackageDocument(params: {
       ? documents.map((item) => item.id === documentId ? { ...item, ...doc } : item)
       : [...documents, doc];
     await client.query(
-      `UPDATE docufill_packages
+      `UPDATE docuplete_packages
           SET documents=$1::jsonb, version=version+1, updated_at=NOW()
         WHERE id=$2 AND account_id=$3`,
       [JSON.stringify(nextDocuments), params.packageId, params.accountId],
@@ -1990,7 +1990,7 @@ router.post("/demo-session", requireMemberRole, async (req, res) => {
 
     // Find the demo package (active, name starts with "Demo —")
     const pkgResult = await db.query<{ id: number; version: number }>(
-      `SELECT id, version FROM docufill_packages
+      `SELECT id, version FROM docuplete_packages
        WHERE account_id = $1 AND name LIKE 'Demo%' AND status = 'active'
        ORDER BY id LIMIT 1`,
       [accountId],
@@ -2010,7 +2010,7 @@ router.post("/demo-session", requireMemberRole, async (req, res) => {
 
     const token = createSessionToken();
     await db.query(
-      `INSERT INTO docufill_interview_sessions
+      `INSERT INTO docuplete_interview_sessions
          (token, package_id, package_version, transaction_scope, deal_id, source,
           status, test_mode, prefill, answers, expires_at, account_id, locale)
        VALUES ($1,$2,$3,'',NULL,'demo','draft',true,$4::jsonb,'{}'::jsonb,
@@ -2020,7 +2020,7 @@ router.post("/demo-session", requireMemberRole, async (req, res) => {
 
     return void res.json({ token });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] demo-session creation failed");
+    logger.error({ err }, "[Docuplete] demo-session creation failed");
     return void res.status(500).json({ error: "Failed to create demo session." });
   }
 });
@@ -2038,7 +2038,7 @@ router.post("/seed-demo", requireAdminRole, async (req, res) => {
     await seedDemoPackage(getDb(), accountId);
     res.json({ ok: true });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] seed-demo failed");
+    logger.error({ err }, "[Docuplete] seed-demo failed");
     res.status(500).json({ error: "Failed to load sample package." });
   }
 });
@@ -2048,25 +2048,25 @@ router.get("/bootstrap", async (req, res) => {
     const accountId = acctId(req);
     const db = getDb();
     const [groups, transactionTypes, fieldLibrary, packages, packageGroupRows, accountRow, fieldGroupRows, groupUsageRows] = await Promise.all([
-      db.query("SELECT * FROM docufill_groups WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, name ASC", [accountId]),
-      db.query("SELECT * FROM docufill_transaction_types WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, label ASC", [accountId]),
+      db.query("SELECT * FROM docuplete_groups WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, name ASC", [accountId]),
+      db.query("SELECT * FROM docuplete_transaction_types WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, label ASC", [accountId]),
       getFieldLibrary(db, accountId),
       db.query(`SELECT p.*, g.name AS group_name
-                  FROM docufill_packages p
-                  LEFT JOIN docufill_groups g ON g.id = p.group_id
+                  FROM docuplete_packages p
+                  LEFT JOIN docuplete_groups g ON g.id = p.group_id
                  WHERE p.account_id = $1
                  ORDER BY p.updated_at DESC, p.name ASC`, [accountId]),
       db.query(`SELECT pg.package_id, array_agg(pg.group_id ORDER BY pg.group_id) AS group_ids
-                  FROM docufill_package_groups pg
-                  JOIN docufill_packages p ON p.id = pg.package_id
+                  FROM docuplete_package_groups pg
+                  JOIN docuplete_packages p ON p.id = pg.package_id
                  WHERE p.account_id = $1
                  GROUP BY pg.package_id`, [accountId]),
       db.query<{ slack_webhook_url: string | null }>(`SELECT slack_webhook_url FROM accounts WHERE id = $1`, [accountId]),
-      db.query(`SELECT * FROM docufill_field_groups WHERE account_id = $1 ORDER BY sort_order ASC, name ASC`, [accountId]),
+      db.query(`SELECT * FROM docuplete_field_groups WHERE account_id = $1 ORDER BY sort_order ASC, name ASC`, [accountId]),
       db.query(`
         SELECT fgu.group_id, fgu.package_id, p.name AS package_name
-          FROM docufill_field_group_usage fgu
-          JOIN docufill_packages p ON p.id = fgu.package_id
+          FROM docuplete_field_group_usage fgu
+          JOIN docuplete_packages p ON p.id = fgu.package_id
          WHERE fgu.account_id = $1
       `, [accountId]),
     ]);
@@ -2084,7 +2084,7 @@ router.get("/bootstrap", async (req, res) => {
     if (transactionTypeRows.length === 0) {
       await seedDefaultTransactionTypes(db, accountId);
       const seeded = await db.query(
-        "SELECT * FROM docufill_transaction_types WHERE account_id = $1 ORDER BY sort_order ASC, label ASC",
+        "SELECT * FROM docuplete_transaction_types WHERE account_id = $1 ORDER BY sort_order ASC, label ASC",
         [accountId],
       );
       transactionTypeRows = seeded.rows;
@@ -2115,7 +2115,7 @@ router.get("/bootstrap", async (req, res) => {
     });
     res.json({ groups: groups.rows, transactionTypes: transactionTypeRows, fieldLibrary, fieldGroups, packages: hydratedPackages.map(sanitizePackageForClient), slackConnected });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to load bootstrap data");
+    logger.error({ err }, "[Docuplete] Failed to load bootstrap data");
     res.status(500).json({ error: "Failed to load Docuplete data" });
   }
 });
@@ -2138,13 +2138,13 @@ router.get("/field-library", async (req, res) => {
         }
       } catch (usageErr) {
         // Non-fatal — list still returns without usage stats
-        logger.warn({ err: usageErr }, "[DocuFill] Failed to compute field usage summary");
+        logger.warn({ err: usageErr }, "[Docuplete] Failed to compute field usage summary");
       }
     }
 
     res.json({ fieldLibrary: library });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to load field library");
+    logger.error({ err }, "[Docuplete] Failed to load field library");
     res.status(500).json({ error: "Failed to load field library" });
   }
 });
@@ -2163,7 +2163,7 @@ router.get("/field-library/export", requireAdminRole, async (req, res) => {
         `${fieldLibrarySelectSql()} WHERE account_id = $1 ORDER BY active DESC, sort_order ASC, label ASC`,
         [accountId],
       ),
-      db.query(`SELECT * FROM docufill_field_groups WHERE account_id = $1 ORDER BY sort_order ASC, name ASC`, [accountId]),
+      db.query(`SELECT * FROM docuplete_field_groups WHERE account_id = $1 ORDER BY sort_order ASC, name ASC`, [accountId]),
     ]);
     const ownFields = ownFieldRows.rows as Array<Record<string, unknown> & { id: string }>;
     const ts = new Date().toISOString().slice(0, 10);
@@ -2237,7 +2237,7 @@ router.get("/field-library/export", requireAdminRole, async (req, res) => {
     res.setHeader("Content-Disposition", `attachment; filename="field-library-${ts}.json"`);
     res.json(payload);
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to export field library");
+    logger.error({ err }, "[Docuplete] Failed to export field library");
     res.status(500).json({ error: "Failed to export field library" });
   }
 });
@@ -2281,11 +2281,11 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
         let id = field.id ? cleanText(field.id) : fieldLibraryIdFromLabel(label);
         if (!id) id = fieldLibraryIdFromLabel(label);
         // Ensure id uniqueness
-        const { rows: idRows } = await db.query(`SELECT id FROM docufill_fields WHERE id = $1`, [id]);
+        const { rows: idRows } = await db.query(`SELECT id FROM docuplete_fields WHERE id = $1`, [id]);
         if (idRows[0]) {
           for (let suffix = 2; suffix < 1000; suffix++) {
             const candidate = `${id}_${suffix}`;
-            const { rows: cr } = await db.query(`SELECT id FROM docufill_fields WHERE id = $1`, [candidate]);
+            const { rows: cr } = await db.query(`SELECT id FROM docuplete_fields WHERE id = $1`, [candidate]);
             if (!cr[0]) { id = candidate; break; }
           }
         }
@@ -2293,7 +2293,7 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
           ? field.complianceTags.filter((t): t is string => typeof t === "string")
           : [];
         await db.query(
-          `INSERT INTO docufill_fields
+          `INSERT INTO docuplete_fields
              (id, label, category, field_type, source, options, sensitive, required,
               validation_type, validation_pattern, validation_message, active, sort_order,
               compliance_tags, account_id)
@@ -2332,7 +2332,7 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
 
     if (importGroups.length > 0) {
       const { rows: existingGroupRows } = await db.query(
-        `SELECT lower(name) AS name_lower FROM docufill_field_groups WHERE account_id = $1`,
+        `SELECT lower(name) AS name_lower FROM docuplete_field_groups WHERE account_id = $1`,
         [accountId],
       );
       const existingGroupNames = new Set(existingGroupRows.map((r: Record<string, string>) => r.name_lower));
@@ -2366,7 +2366,7 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
         }
         try {
           await db.query(
-            `INSERT INTO docufill_field_groups (account_id, name, description, field_ids, sort_order)
+            `INSERT INTO docuplete_field_groups (account_id, name, description, field_ids, sort_order)
              VALUES ($1, $2, $3, $4::jsonb, $5)`,
             [accountId, groupName, group.description ?? null, JSON.stringify(remappedIds), group.sortOrder ?? 0],
           );
@@ -2380,7 +2380,7 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
 
     res.json({ added, skipped, errors, groupsAdded, groupsSkipped });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to import field library");
+    logger.error({ err }, "[Docuplete] Failed to import field library");
     res.status(500).json({ error: "Failed to import field library" });
   }
 });
@@ -2397,7 +2397,7 @@ router.get("/field-library/:id/impact", requireAdminRole, async (req, res) => {
     // Count packages on this account whose fields JSONB array contains this libraryFieldId
     const { rows: pkgRows } = await db.query(
       `SELECT COUNT(DISTINCT p.id)::int AS package_count
-         FROM docufill_packages p
+         FROM docuplete_packages p
         WHERE p.account_id = $1
           AND EXISTS (
             SELECT 1
@@ -2412,8 +2412,8 @@ router.get("/field-library/:id/impact", requireAdminRole, async (req, res) => {
     // Count active (non-generated) sessions tied to those packages
     const { rows: sessRows } = await db.query(
       `SELECT COUNT(DISTINCT s.id)::int AS session_count
-         FROM docufill_interview_sessions s
-         JOIN docufill_packages p ON p.id = s.package_id
+         FROM docuplete_interview_sessions s
+         JOIN docuplete_packages p ON p.id = s.package_id
         WHERE p.account_id = $1
           AND s.status != 'generated'
           AND EXISTS (
@@ -2428,7 +2428,7 @@ router.get("/field-library/:id/impact", requireAdminRole, async (req, res) => {
 
     res.json({ packageCount, sessionCount });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to compute field library impact");
+    logger.error({ err }, "[Docuplete] Failed to compute field library impact");
     res.status(500).json({ error: "Failed to compute impact" });
   }
 });
@@ -2450,7 +2450,7 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
     // Label uniqueness is per-account scope (includes global NULL fields visible to the account).
     const { rows: labelDuplicateRows } = await db.query(
       `SELECT id, label
-         FROM docufill_fields
+         FROM docuplete_fields
         WHERE lower(label) = lower($1)
           AND (account_id IS NULL OR account_id = $2)
         LIMIT 1`,
@@ -2465,7 +2465,7 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
     }
     const { rows: idDuplicateRows } = await db.query(
       `SELECT id
-         FROM docufill_fields
+         FROM docuplete_fields
         WHERE id = $1
         LIMIT 1`,
       [id],
@@ -2479,7 +2479,7 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
         const candidateId = `${id}_${suffix}`;
         const { rows: candidateRows } = await db.query(
           `SELECT id
-             FROM docufill_fields
+             FROM docuplete_fields
             WHERE id = $1
             LIMIT 1`,
           [candidateId],
@@ -2492,7 +2492,7 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
     }
     const { rows } = await db.query(
       `WITH inserted AS (
-         INSERT INTO docufill_fields
+         INSERT INTO docuplete_fields
            (id, label, category, field_type, source, options, sensitive, required,
             validation_type, validation_pattern, validation_message, active, sort_order, account_id)
          VALUES ($1,$2,$3,$4,$5,$6::jsonb,$7,$8,$9,$10,$11,$12,$13,$14)
@@ -2537,13 +2537,13 @@ router.post("/field-library", requireAdminRole, async (req, res) => {
     if (isUniqueViolation(err)) {
       const accountId = acctId(req);
       const { rows: existingRows } = await getDb().query(
-        `SELECT id FROM docufill_fields WHERE lower(label) = lower($1) AND (account_id IS NULL OR account_id = $2) LIMIT 1`,
+        `SELECT id FROM docuplete_fields WHERE lower(label) = lower($1) AND (account_id IS NULL OR account_id = $2) LIMIT 1`,
         [label, accountId],
       ).catch(() => ({ rows: [] as { id: string }[] }));
       res.status(409).json({ error: "A field with that label already exists", fieldId: existingRows[0]?.id ?? null });
       return;
     }
-    logger.error({ err }, "[DocuFill] Failed to create field library item");
+    logger.error({ err }, "[Docuplete] Failed to create field library item");
     res.status(500).json({ error: "Failed to create field library item" });
   }
 });
@@ -2566,7 +2566,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
       `SELECT p.id FROM accounts a JOIN accounts p ON p.id = a.parent_account_id WHERE a.id = $1`, [accountId]);
       if (parentRows[0]) {
         const parentId = (parentRows[0] as { id: number }).id;
-        const { rows: inh } = await db.query(`SELECT 1 FROM docufill_fields WHERE id = $1 AND account_id = $2`, [id, parentId]);
+        const { rows: inh } = await db.query(`SELECT 1 FROM docuplete_fields WHERE id = $1 AND account_id = $2`, [id, parentId]);
         if (inh[0]) { res.status(403).json({ error: "Inherited fields are read-only. To modify this field, edit it in the parent account." }); return; }
       }
     }
@@ -2574,7 +2574,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
     // Run outside the transaction — it's a fast guard with no side effects.
     const { rows: duplicateRows } = await db.query(
       `SELECT id
-         FROM docufill_fields
+         FROM docuplete_fields
         WHERE lower(label) = lower($1) AND id <> $2
           AND (account_id IS NULL OR account_id = $3)
         LIMIT 1`,
@@ -2603,7 +2603,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
       const preUpdateSnapshot = priorRows[0];
       // Apply the update
       const { rows } = await client.query(
-        `UPDATE docufill_fields SET
+        `UPDATE docuplete_fields SET
             label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
             sensitive=$6, required=$7, validation_type=$8, validation_pattern=$9,
             validation_message=$10, active=$11, sort_order=$12, updated_at=NOW()
@@ -2638,12 +2638,12 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
       // to the original definition.  Uses a clock slightly in the past so the
       // post-update row sorts newer and the diff reads correctly in the UI.
       const { rows: existingVersions } = await client.query(
-        `SELECT 1 FROM docufill_field_versions WHERE field_id = $1 AND account_id = $2 LIMIT 1`,
+        `SELECT 1 FROM docuplete_field_versions WHERE field_id = $1 AND account_id = $2 LIMIT 1`,
         [id, accountId],
       );
       if (existingVersions.length === 0) {
         await client.query(
-          `INSERT INTO docufill_field_versions (field_id, account_id, changed_by, snapshot, changed_at)
+          `INSERT INTO docuplete_field_versions (field_id, account_id, changed_by, snapshot, changed_at)
            VALUES ($1, $2, $3, $4::jsonb, NOW() - interval '1 millisecond')`,
           [id, accountId, callerEmail(req), JSON.stringify(preUpdateSnapshot)],
         );
@@ -2651,7 +2651,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
       // Insert post-update snapshot — this represents the field state AFTER this save,
       // so timestamp/author/diff are all aligned to the same event.
       await client.query(
-        `INSERT INTO docufill_field_versions (field_id, account_id, changed_by, snapshot)
+        `INSERT INTO docuplete_field_versions (field_id, account_id, changed_by, snapshot)
          VALUES ($1, $2, $3, $4::jsonb)`,
         [id, accountId, callerEmail(req), JSON.stringify(rows[0])],
       );
@@ -2668,7 +2668,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
       res.status(409).json({ error: "A field with that label already exists" });
       return;
     }
-    logger.error({ err }, "[DocuFill] Failed to update field library item");
+    logger.error({ err }, "[Docuplete] Failed to update field library item");
     res.status(500).json({ error: "Failed to update field library item" });
   }
 });
@@ -2686,7 +2686,7 @@ router.get("/field-library/:id/versions", requireAdminRole, async (req, res) => 
               changed_by AS "changedBy",
               changed_at AS "changedAt",
               snapshot
-         FROM docufill_field_versions
+         FROM docuplete_field_versions
         WHERE field_id = $1 AND account_id = $2
         ORDER BY changed_at DESC
         LIMIT 50`,
@@ -2694,7 +2694,7 @@ router.get("/field-library/:id/versions", requireAdminRole, async (req, res) => 
     );
     res.json({ versions: rows });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to fetch field versions");
+    logger.error({ err }, "[Docuplete] Failed to fetch field versions");
     res.status(500).json({ error: "Failed to fetch field versions" });
   }
 });
@@ -2713,7 +2713,7 @@ router.post("/field-library/:id/versions/:versionId/restore", requireAdminRole, 
     // Fetch the target version outside the transaction — read-only, must be
     // scoped to this account and field before we proceed.
     const { rows: vrows } = await db.query(
-      `SELECT snapshot FROM docufill_field_versions
+      `SELECT snapshot FROM docuplete_field_versions
         WHERE id = $1 AND field_id = $2 AND account_id = $3`,
       [versionId, fieldId, accountId],
     );
@@ -2740,7 +2740,7 @@ router.post("/field-library/:id/versions/:versionId/restore", requireAdminRole, 
       const preRestoreSnapshot = currentRows[0];
       // Apply the snapshot back to the live field row
       const { rows } = await client.query(
-        `UPDATE docufill_fields SET
+        `UPDATE docuplete_fields SET
             label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
             sensitive=$6, required=$7, validation_type=$8, validation_pattern=$9,
             validation_message=$10, active=$11, sort_order=$12, updated_at=NOW()
@@ -2776,7 +2776,7 @@ router.post("/field-library/:id/versions/:versionId/restore", requireAdminRole, 
       // The pre-restore state (preRestoreSnapshot) is already present in the history
       // as the previous version row, so the restore is always undoable.
       await client.query(
-        `INSERT INTO docufill_field_versions (field_id, account_id, changed_by, snapshot)
+        `INSERT INTO docuplete_field_versions (field_id, account_id, changed_by, snapshot)
          VALUES ($1, $2, $3, $4::jsonb)`,
         [fieldId, accountId, callerEmail(req),
           JSON.stringify({ ...rows[0], restoredFromVersion: versionId })],
@@ -2790,7 +2790,7 @@ router.post("/field-library/:id/versions/:versionId/restore", requireAdminRole, 
       client.release();
     }
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to restore field version");
+    logger.error({ err }, "[Docuplete] Failed to restore field version");
     res.status(500).json({ error: "Failed to restore field version" });
   }
 });
@@ -2808,7 +2808,7 @@ router.get("/field-library/:id/analytics", requireAdminRole, async (req, res) =>
 
     // Verify field exists for this account (global or account-owned).
     const fieldRow = (await db.query<{ sensitive: boolean }>(
-      `SELECT sensitive FROM docufill_fields
+      `SELECT sensitive FROM docuplete_fields
        WHERE id = $1 AND (account_id IS NULL OR account_id = $2)`,
       [id, accountId],
     )).rows[0];
@@ -2818,7 +2818,7 @@ router.get("/field-library/:id/analytics", requireAdminRole, async (req, res) =>
     // Find all (package_id, local_field_id) pairs that reference this library field.
     const pairRows = (await db.query<{ package_id: number; field_id: string }>(
       `SELECT p.id AS package_id, f->>'id' AS field_id
-       FROM docufill_packages p,
+       FROM docuplete_packages p,
        LATERAL jsonb_array_elements(p.fields) AS f
        WHERE p.account_id = $1
          AND jsonb_typeof(p.fields) = 'array'
@@ -2846,7 +2846,7 @@ router.get("/field-library/:id/analytics", requireAdminRole, async (req, res) =>
          COUNT(*) FILTER (WHERE s.answers ? p.field_id AND s.answers->>p.field_id <> '')::text     AS answer_count,
          MAX(s.submitted_at) FILTER (WHERE s.answers ? p.field_id AND s.answers->>p.field_id <> '') AS last_answered
        FROM pairs p
-       JOIN docufill_interview_sessions s ON s.package_id = p.package_id
+       JOIN docuplete_interview_sessions s ON s.package_id = p.package_id
        WHERE s.account_id = ${acctParam}
          AND s.status IN ('submitted', 'signed')`,
       [...pairParams, accountId],
@@ -2865,7 +2865,7 @@ router.get("/field-library/:id/analytics", requireAdminRole, async (req, res) =>
          s.answers->>p.field_id AS value,
          COUNT(*)::int          AS count
        FROM pairs p
-       JOIN docufill_interview_sessions s ON s.package_id = p.package_id
+       JOIN docuplete_interview_sessions s ON s.package_id = p.package_id
        WHERE s.account_id = ${acctParam}
          AND s.status IN ('submitted', 'signed')
          AND s.answers ? p.field_id
@@ -2884,7 +2884,7 @@ router.get("/field-library/:id/analytics", requireAdminRole, async (req, res) =>
          to_char(date_trunc('day', s.submitted_at AT TIME ZONE 'UTC'), 'YYYY-MM-DD') AS date,
          COUNT(*)::int AS count
        FROM pairs p
-       JOIN docufill_interview_sessions s ON s.package_id = p.package_id
+       JOIN docuplete_interview_sessions s ON s.package_id = p.package_id
        WHERE s.account_id = ${acctParam}
          AND s.status IN ('submitted', 'signed')
          AND s.submitted_at >= NOW() - INTERVAL '30 days'
@@ -2897,7 +2897,7 @@ router.get("/field-library/:id/analytics", requireAdminRole, async (req, res) =>
 
     res.json({ packageCount, answerCount, totalSessions, lastAnswered, answerRate, topValues, histogram });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to load field analytics");
+    logger.error({ err }, "[Docuplete] Failed to load field analytics");
     res.status(500).json({ error: "Failed to load field analytics" });
   }
 });
@@ -2916,15 +2916,15 @@ router.delete("/field-library/:id", requireAdminRole, async (req, res) => {
       `SELECT p.id FROM accounts a JOIN accounts p ON p.id = a.parent_account_id WHERE a.id = $1`, [accountId]);
       if (parentRows[0]) {
         const parentId = (parentRows[0] as { id: number }).id;
-        const { rows: inh } = await db.query(`SELECT 1 FROM docufill_fields WHERE id = $1 AND account_id = $2`, [id, parentId]);
+        const { rows: inh } = await db.query(`SELECT 1 FROM docuplete_fields WHERE id = $1 AND account_id = $2`, [id, parentId]);
         if (inh[0]) { res.status(403).json({ error: "Inherited fields are read-only and cannot be deleted from a child account." }); return; }
       }
     }
     // Only allow deletion of fields owned by the requesting account.
-    await db.query(`DELETE FROM docufill_fields WHERE id = $1 AND account_id = $2`, [id, accountId]);
+    await db.query(`DELETE FROM docuplete_fields WHERE id = $1 AND account_id = $2`, [id, accountId]);
     res.json({ deletedFieldId: id });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to delete field library item");
+    logger.error({ err }, "[Docuplete] Failed to delete field library item");
     res.status(500).json({ error: "Failed to delete field library item" });
   }
 });
@@ -2942,7 +2942,7 @@ const BUILTIN_COMPLIANCE_TAGS = [
 async function seedBuiltinComplianceTags(db: ReturnType<typeof getDb>, accountId: number) {
   for (const tag of BUILTIN_COMPLIANCE_TAGS) {
     await db.query(
-      `INSERT INTO docufill_compliance_tags (account_id, name, color, description, is_required, is_builtin)
+      `INSERT INTO docuplete_compliance_tags (account_id, name, color, description, is_required, is_builtin)
        VALUES ($1, $2, $3, $4, $5, TRUE)
        ON CONFLICT (account_id, name) DO NOTHING`,
       [accountId, tag.name, tag.color, tag.description, tag.is_required],
@@ -2970,12 +2970,12 @@ router.get("/compliance-tags", requireAdminRole, async (req, res) => {
     const db = getDb();
     await seedBuiltinComplianceTags(db, accountId);
     const { rows } = await db.query(
-      `SELECT * FROM docufill_compliance_tags WHERE account_id = $1 ORDER BY is_builtin DESC, name ASC`,
+      `SELECT * FROM docuplete_compliance_tags WHERE account_id = $1 ORDER BY is_builtin DESC, name ASC`,
       [accountId],
     );
     res.json({ tags: (rows as Record<string, unknown>[]).map(normalizeComplianceTagRow) });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to list compliance tags");
+    logger.error({ err }, "[Docuplete] Failed to list compliance tags");
     res.status(500).json({ error: "Failed to list compliance tags" });
   }
 });
@@ -2991,7 +2991,7 @@ router.post("/compliance-tags", requireAdminRole, async (req, res) => {
     const accountId = acctId(req);
     const db = getDb();
     const { rows } = await db.query(
-      `INSERT INTO docufill_compliance_tags (account_id, name, color, description, is_required, is_builtin)
+      `INSERT INTO docuplete_compliance_tags (account_id, name, color, description, is_required, is_builtin)
        VALUES ($1, $2, $3, $4, $5, FALSE)
        RETURNING *`,
       [accountId, name, cleanText(body.color) || "#6B7A99", nullableText(body.description), body.isRequired === true],
@@ -2999,7 +2999,7 @@ router.post("/compliance-tags", requireAdminRole, async (req, res) => {
     res.status(201).json({ tag: normalizeComplianceTagRow(rows[0] as Record<string, unknown>) });
   } catch (err) {
     if (isUniqueViolation(err)) { res.status(409).json({ error: "A tag with that name already exists" }); return; }
-    logger.error({ err }, "[DocuFill] Failed to create compliance tag");
+    logger.error({ err }, "[Docuplete] Failed to create compliance tag");
     res.status(500).json({ error: "Failed to create compliance tag" });
   }
 });
@@ -3015,7 +3015,7 @@ router.patch("/compliance-tags/:id", requireAdminRole, async (req, res) => {
     const accountId = acctId(req);
     const db = getDb();
     const existing = (await db.query(
-      `SELECT * FROM docufill_compliance_tags WHERE id = $1 AND account_id = $2`,
+      `SELECT * FROM docuplete_compliance_tags WHERE id = $1 AND account_id = $2`,
       [tagId, accountId],
     )).rows[0] as Record<string, unknown> | undefined;
     if (!existing) { res.status(404).json({ error: "Tag not found" }); return; }
@@ -3024,7 +3024,7 @@ router.patch("/compliance-tags/:id", requireAdminRole, async (req, res) => {
     const desc    = body.description !== undefined ? nullableText(body.description) : (existing.description as string | null);
     const isReq   = body.isRequired !== undefined ? body.isRequired : (existing.is_required as boolean);
     const { rows } = await db.query(
-      `UPDATE docufill_compliance_tags SET name=$1, color=$2, description=$3, is_required=$4, updated_at=NOW()
+      `UPDATE docuplete_compliance_tags SET name=$1, color=$2, description=$3, is_required=$4, updated_at=NOW()
        WHERE id=$5 AND account_id=$6 RETURNING *`,
       [name, color, desc, isReq, tagId, accountId],
     );
@@ -3033,7 +3033,7 @@ router.patch("/compliance-tags/:id", requireAdminRole, async (req, res) => {
     const oldName = existing.name as string;
     if (name !== oldName) {
       await db.query(
-        `UPDATE docufill_fields
+        `UPDATE docuplete_fields
             SET compliance_tags = (
               SELECT COALESCE(jsonb_agg(CASE WHEN elem = $1 THEN $2::text ELSE elem END), '[]'::jsonb)
                 FROM jsonb_array_elements_text(COALESCE(compliance_tags, '[]'::jsonb)) AS elem
@@ -3047,7 +3047,7 @@ router.patch("/compliance-tags/:id", requireAdminRole, async (req, res) => {
     res.json({ tag: normalizeComplianceTagRow(rows[0] as Record<string, unknown>) });
   } catch (err) {
     if (isUniqueViolation(err)) { res.status(409).json({ error: "A tag with that name already exists" }); return; }
-    logger.error({ err }, "[DocuFill] Failed to update compliance tag");
+    logger.error({ err }, "[Docuplete] Failed to update compliance tag");
     res.status(500).json({ error: "Failed to update compliance tag" });
   }
 });
@@ -3060,28 +3060,28 @@ router.delete("/compliance-tags/:id", requireAdminRole, async (req, res) => {
     const accountId = acctId(req);
     const db = getDb();
     const existing = (await db.query(
-      `SELECT is_builtin FROM docufill_compliance_tags WHERE id = $1 AND account_id = $2`,
+      `SELECT is_builtin FROM docuplete_compliance_tags WHERE id = $1 AND account_id = $2`,
       [tagId, accountId],
     )).rows[0] as { is_builtin: boolean } | undefined;
     if (!existing) { res.status(404).json({ error: "Tag not found" }); return; }
     if (existing.is_builtin) { res.status(403).json({ error: "Built-in compliance tags cannot be deleted" }); return; }
     // Remove deleted tag name from all fields that reference it
     await db.query(
-      `UPDATE docufill_fields
+      `UPDATE docuplete_fields
           SET compliance_tags = (
             SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
               FROM jsonb_array_elements_text(COALESCE(compliance_tags, '[]'::jsonb)) AS elem
-             WHERE elem <> (SELECT name FROM docufill_compliance_tags WHERE id = $1)
+             WHERE elem <> (SELECT name FROM docuplete_compliance_tags WHERE id = $1)
           ),
           updated_at = NOW()
         WHERE account_id = $2
-          AND compliance_tags @> to_jsonb(ARRAY[(SELECT name FROM docufill_compliance_tags WHERE id = $1)])`,
+          AND compliance_tags @> to_jsonb(ARRAY[(SELECT name FROM docuplete_compliance_tags WHERE id = $1)])`,
       [tagId, accountId],
     );
-    await db.query(`DELETE FROM docufill_compliance_tags WHERE id = $1 AND account_id = $2`, [tagId, accountId]);
+    await db.query(`DELETE FROM docuplete_compliance_tags WHERE id = $1 AND account_id = $2`, [tagId, accountId]);
     res.json({ deletedTagId: tagId });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to delete compliance tag");
+    logger.error({ err }, "[Docuplete] Failed to delete compliance tag");
     res.status(500).json({ error: "Failed to delete compliance tag" });
   }
 });
@@ -3099,7 +3099,7 @@ router.patch("/field-library/:id/compliance-tags", requireAdminRole, async (req,
     // Validate that each tag name exists for this account
     if (complianceTags.length > 0) {
       const { rows: tagRows } = await db.query(
-        `SELECT name FROM docufill_compliance_tags WHERE account_id = $1`,
+        `SELECT name FROM docuplete_compliance_tags WHERE account_id = $1`,
         [accountId],
       );
       const validNames = new Set((tagRows as { name: string }[]).map((r) => r.name));
@@ -3110,7 +3110,7 @@ router.patch("/field-library/:id/compliance-tags", requireAdminRole, async (req,
       }
     }
     const { rows } = await db.query(
-      `UPDATE docufill_fields SET compliance_tags = $1::jsonb, updated_at = NOW()
+      `UPDATE docuplete_fields SET compliance_tags = $1::jsonb, updated_at = NOW()
        WHERE id = $2 AND account_id = $3
        RETURNING id, COALESCE(compliance_tags, '[]'::jsonb) AS "complianceTags"`,
       [JSON.stringify(complianceTags), fieldId, accountId],
@@ -3118,7 +3118,7 @@ router.patch("/field-library/:id/compliance-tags", requireAdminRole, async (req,
     if (!rows[0]) { res.status(404).json({ error: "Field not found or not editable" }); return; }
     res.json({ field: rows[0] });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to update field compliance tags");
+    logger.error({ err }, "[Docuplete] Failed to update field compliance tags");
     res.status(500).json({ error: "Failed to update field compliance tags" });
   }
 });
@@ -3135,7 +3135,7 @@ router.get("/compliance-audit", requireAdminRole, async (req, res) => {
 
     // Load all compliance tags for the account
     const { rows: tagRows } = await db.query(
-      `SELECT name, color, is_required FROM docufill_compliance_tags WHERE account_id = $1 ORDER BY name ASC`,
+      `SELECT name, color, is_required FROM docuplete_compliance_tags WHERE account_id = $1 ORDER BY name ASC`,
       [accountId],
     );
     const allTags = tagRows as Array<{ name: string; color: string; is_required: boolean }>;
@@ -3144,7 +3144,7 @@ router.get("/compliance-audit", requireAdminRole, async (req, res) => {
     // Load all library fields that have at least one compliance tag
     const { rows: fieldRows } = await db.query(
       `SELECT id, label, COALESCE(compliance_tags, '[]'::jsonb) AS compliance_tags
-         FROM docufill_fields
+         FROM docuplete_fields
         WHERE (account_id IS NULL OR account_id = $1)
           AND jsonb_array_length(COALESCE(compliance_tags, '[]'::jsonb)) > 0`,
       [accountId],
@@ -3155,7 +3155,7 @@ router.get("/compliance-audit", requireAdminRole, async (req, res) => {
     // Load all active packages with their fields JSONB
     const { rows: pkgRows } = await db.query(
       `SELECT p.id, p.name, p.status, p.fields
-         FROM docufill_packages p
+         FROM docuplete_packages p
         WHERE p.account_id = $1
         ORDER BY p.name ASC`,
       [accountId],
@@ -3202,7 +3202,7 @@ router.get("/compliance-audit", requireAdminRole, async (req, res) => {
 
     res.json({ tags: allTags, report });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to build compliance audit report");
+    logger.error({ err }, "[Docuplete] Failed to build compliance audit report");
     res.status(500).json({ error: "Failed to build compliance audit report" });
   }
 });
@@ -3234,12 +3234,12 @@ router.get("/field-library/groups", requireAdminRole, async (req, res) => {
     const accountId = acctId(req);
     const db = getDb();
     const [{ rows }, fieldLibrary, usageRows] = await Promise.all([
-      db.query(`SELECT * FROM docufill_field_groups WHERE account_id = $1 ORDER BY sort_order ASC, name ASC`, [accountId]),
+      db.query(`SELECT * FROM docuplete_field_groups WHERE account_id = $1 ORDER BY sort_order ASC, name ASC`, [accountId]),
       getFieldLibrary(db, accountId),
       db.query(`
         SELECT fgu.group_id, fgu.package_id, p.name AS package_name
-          FROM docufill_field_group_usage fgu
-          JOIN docufill_packages p ON p.id = fgu.package_id
+          FROM docuplete_field_group_usage fgu
+          JOIN docuplete_packages p ON p.id = fgu.package_id
          WHERE fgu.account_id = $1
       `, [accountId]),
     ]);
@@ -3256,7 +3256,7 @@ router.get("/field-library/groups", requireAdminRole, async (req, res) => {
       ),
     });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to load field groups");
+    logger.error({ err }, "[Docuplete] Failed to load field groups");
     res.status(500).json({ error: "Failed to load field groups" });
   }
 });
@@ -3270,7 +3270,7 @@ router.post("/field-library/groups", requireAdminRole, async (req, res) => {
     const accountId = acctId(req);
     const db = getDb();
     const [countRow, fieldLibrary] = await Promise.all([
-      db.query(`SELECT COUNT(*) AS n FROM docufill_field_groups WHERE account_id = $1`, [accountId]),
+      db.query(`SELECT COUNT(*) AS n FROM docuplete_field_groups WHERE account_id = $1`, [accountId]),
       getFieldLibrary(db, accountId),
     ]);
     const name = cleanText(body.name) || `New Group ${Number(countRow.rows[0]?.n ?? 0) + 1}`;
@@ -3281,14 +3281,14 @@ router.post("/field-library/groups", requireAdminRole, async (req, res) => {
     const fieldIds = [...new Set(rawIds)].filter((id) => validLibraryIds.has(id));
     const sortOrder = typeof body.sortOrder === "number" ? body.sortOrder : 100;
     const { rows } = await db.query(
-      `INSERT INTO docufill_field_groups (account_id, name, description, field_ids, sort_order)
+      `INSERT INTO docuplete_field_groups (account_id, name, description, field_ids, sort_order)
        VALUES ($1, $2, $3, $4::jsonb, $5) RETURNING *`,
       [accountId, name, description, JSON.stringify(fieldIds), sortOrder],
     );
     const fieldMap = new Map(fieldLibrary.map((f) => [f.id, f]));
     res.status(201).json({ fieldGroup: normalizeFieldGroupRow(rows[0] as Record<string, unknown>, fieldMap) });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to create field group");
+    logger.error({ err }, "[Docuplete] Failed to create field group");
     res.status(500).json({ error: "Failed to create field group" });
   }
 });
@@ -3324,7 +3324,7 @@ router.patch("/field-library/groups/:id", requireAdminRole, async (req, res) => 
       params.push(body.sortOrder); setClauses.push(`sort_order = $${params.length}`);
     }
     const { rows } = await db.query(
-      `UPDATE docufill_field_groups SET ${setClauses.join(", ")} WHERE id = $2 AND account_id = $1 RETURNING *`,
+      `UPDATE docuplete_field_groups SET ${setClauses.join(", ")} WHERE id = $2 AND account_id = $1 RETURNING *`,
       params,
     );
     if (!rows[0]) { res.status(404).json({ error: "Field group not found" }); return; }
@@ -3332,7 +3332,7 @@ router.patch("/field-library/groups/:id", requireAdminRole, async (req, res) => 
     const fieldMap = new Map(resolvedLibrary.map((f) => [f.id, f]));
     res.json({ fieldGroup: normalizeFieldGroupRow(rows[0] as Record<string, unknown>, fieldMap) });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to update field group");
+    logger.error({ err }, "[Docuplete] Failed to update field group");
     res.status(500).json({ error: "Failed to update field group" });
   }
 });
@@ -3343,10 +3343,10 @@ router.delete("/field-library/groups/:id", requireAdminRole, async (req, res) =>
     const id = parseId(req.params.id);
     if (!id) { res.status(400).json({ error: "Invalid group id" }); return; }
     const accountId = acctId(req);
-    await getDb().query(`DELETE FROM docufill_field_groups WHERE id = $1 AND account_id = $2`, [id, accountId]);
+    await getDb().query(`DELETE FROM docuplete_field_groups WHERE id = $1 AND account_id = $2`, [id, accountId]);
     res.json({ deletedId: id });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to delete field group");
+    logger.error({ err }, "[Docuplete] Failed to delete field group");
     res.status(500).json({ error: "Failed to delete field group" });
   }
 });
@@ -3362,20 +3362,20 @@ router.post("/field-library/groups/:id/apply", requireAdminRole, async (req, res
     const db = getDb();
     // Verify both group and package belong to this account (prevent cross-tenant data leak)
     const [groupCheck, packageCheck] = await Promise.all([
-      db.query(`SELECT id FROM docufill_field_groups WHERE id = $1 AND account_id = $2`, [id, accountId]),
-      db.query(`SELECT id FROM docufill_packages WHERE id = $1 AND account_id = $2`, [packageId, accountId]),
+      db.query(`SELECT id FROM docuplete_field_groups WHERE id = $1 AND account_id = $2`, [id, accountId]),
+      db.query(`SELECT id FROM docuplete_packages WHERE id = $1 AND account_id = $2`, [packageId, accountId]),
     ]);
     if (groupCheck.rowCount === 0) { res.status(404).json({ error: "Field group not found" }); return; }
     if (packageCheck.rowCount === 0) { res.status(404).json({ error: "Package not found" }); return; }
     await db.query(
-      `INSERT INTO docufill_field_group_usage (group_id, package_id, account_id)
+      `INSERT INTO docuplete_field_group_usage (group_id, package_id, account_id)
        VALUES ($1, $2, $3)
        ON CONFLICT (group_id, package_id) DO UPDATE SET applied_at = NOW()`,
       [id, packageId, accountId],
     );
     res.json({ ok: true });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to record group application");
+    logger.error({ err }, "[Docuplete] Failed to record group application");
     res.status(500).json({ error: "Failed to record group application" });
   }
 });
@@ -3385,18 +3385,18 @@ router.post("/groups", requireAdminRole, async (req, res) => {
     const _parse = EntityBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = _parse.data as EntityInput;
-    const count = (await getDb().query("SELECT COUNT(*) FROM docufill_groups WHERE account_id=$1", [acctId(req)])).rows[0]?.count ?? 0;
+    const count = (await getDb().query("SELECT COUNT(*) FROM docuplete_groups WHERE account_id=$1", [acctId(req)])).rows[0]?.count ?? 0;
     const name = cleanText(body.name) || `New Group ${Number(count) + 1}`;
     const accountId = acctId(req);
     const kind = nullableText(body.kind) ?? "general";
     const { rows } = await getDb().query(
-      `INSERT INTO docufill_groups (name, kind, phone, email, notes, active, sort_order, account_id)
+      `INSERT INTO docuplete_groups (name, kind, phone, email, notes, active, sort_order, account_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
       [name, kind, nullableText(body.phone), nullableText(body.email), nullableText(body.notes), body.active !== false, 100, accountId],
     );
     res.status(201).json({ group: rows[0] });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to create group");
+    logger.error({ err }, "[Docuplete] Failed to create group");
     res.status(500).json({ error: "Failed to create group" });
   }
 });
@@ -3419,7 +3419,7 @@ router.patch("/groups/:id", requireAdminRole, async (req, res) => {
     const accountId = acctId(req);
     const kind = nullableText(body.kind) ?? "general";
     const { rows } = await getDb().query(
-      `UPDATE docufill_groups SET name=$1, kind=$2, phone=$3, email=$4, notes=$5, active=$6, updated_at=NOW()
+      `UPDATE docuplete_groups SET name=$1, kind=$2, phone=$3, email=$4, notes=$5, active=$6, updated_at=NOW()
         WHERE id=$7 AND account_id=$8 RETURNING *`,
       [name, kind, nullableText(body.phone), nullableText(body.email), nullableText(body.notes), body.active !== false, id, accountId],
     );
@@ -3429,7 +3429,7 @@ router.patch("/groups/:id", requireAdminRole, async (req, res) => {
     }
     res.json({ group: rows[0] });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to update group");
+    logger.error({ err }, "[Docuplete] Failed to update group");
     res.status(500).json({ error: "Failed to update group" });
   }
 });
@@ -3442,10 +3442,10 @@ router.delete("/groups/:id", requireAdminRole, async (req, res) => {
       return;
     }
     const accountId = acctId(req);
-    await getDb().query(`DELETE FROM docufill_groups WHERE id=$1 AND account_id=$2`, [id, accountId]);
+    await getDb().query(`DELETE FROM docuplete_groups WHERE id=$1 AND account_id=$2`, [id, accountId]);
     res.json({ deletedGroupId: id });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to delete group");
+    logger.error({ err }, "[Docuplete] Failed to delete group");
     res.status(500).json({ error: "Failed to delete group" });
   }
 });
@@ -3465,14 +3465,14 @@ router.post("/transaction-types", requireAdminRole, async (req, res) => {
     const scope = `a${accountId}_${slug}`;
     const db = getDb();
     const { rows } = await db.query(
-      `INSERT INTO docufill_transaction_types (scope, account_id, label, active, sort_order)
+      `INSERT INTO docuplete_transaction_types (scope, account_id, label, active, sort_order)
        VALUES ($1,$2,$3,$4,$5)
        RETURNING *`,
       [scope, accountId, label, body.active !== false, Number(body.sortOrder ?? 100)],
     );
     res.status(201).json({ transactionType: rows[0] });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to create transaction type");
+    logger.error({ err }, "[Docuplete] Failed to create transaction type");
     res.status(500).json({ error: "Failed to create transaction type" });
   }
 });
@@ -3491,7 +3491,7 @@ router.patch("/transaction-types/:scope", requireAdminRole, async (req, res) => 
     }
     const db = getDb();
     const { rows } = await db.query(
-      `UPDATE docufill_transaction_types SET
+      `UPDATE docuplete_transaction_types SET
           label=$1, active=$2, sort_order=$3, updated_at=NOW()
         WHERE scope=$4 AND account_id=$5
         RETURNING *`,
@@ -3503,7 +3503,7 @@ router.patch("/transaction-types/:scope", requireAdminRole, async (req, res) => 
     }
     res.json({ transactionType: rows[0] });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to update transaction type");
+    logger.error({ err }, "[Docuplete] Failed to update transaction type");
     res.status(500).json({ error: "Failed to update transaction type" });
   }
 });
@@ -3518,7 +3518,7 @@ router.delete("/transaction-types/:scope", requireAdminRole, async (req, res) =>
     }
     const db = getDb();
     const { rowCount } = await db.query(
-      `DELETE FROM docufill_transaction_types WHERE scope=$1 AND account_id=$2`,
+      `DELETE FROM docuplete_transaction_types WHERE scope=$1 AND account_id=$2`,
       [scope, accountId],
     );
     if (!rowCount) {
@@ -3527,7 +3527,7 @@ router.delete("/transaction-types/:scope", requireAdminRole, async (req, res) =>
     }
     res.json({ ok: true });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to delete transaction type");
+    logger.error({ err }, "[Docuplete] Failed to delete transaction type");
     res.status(500).json({ error: "Failed to delete transaction type" });
   }
 });
@@ -3545,14 +3545,14 @@ router.post("/custodians", requireAdminRole, async (req, res) => {
     const accountId = acctId(req);
     const db = getDb();
     const { rows } = await db.query(
-      `INSERT INTO docufill_custodians (name, contact_name, email, phone, notes, active, account_id)
+      `INSERT INTO docuplete_custodians (name, contact_name, email, phone, notes, active, account_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7)
        RETURNING *`,
       [name, nullableText(body.contactName), nullableText(body.email), nullableText(body.phone), nullableText(body.notes), body.active !== false, accountId],
     );
     res.status(201).json({ custodian: rows[0] });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to create custodian");
+    logger.error({ err }, "[Docuplete] Failed to create custodian");
     res.status(500).json({ error: "Failed to create custodian" });
   }
 });
@@ -3575,7 +3575,7 @@ router.patch("/custodians/:id", requireAdminRole, async (req, res) => {
     const accountId = acctId(req);
     const db = getDb();
     const { rows } = await db.query(
-      `UPDATE docufill_custodians SET
+      `UPDATE docuplete_custodians SET
           name=$1, contact_name=$2, email=$3, phone=$4, notes=$5,
           active=$6, updated_at=NOW()
         WHERE id=$7 AND account_id=$8
@@ -3588,7 +3588,7 @@ router.patch("/custodians/:id", requireAdminRole, async (req, res) => {
     }
     res.json({ custodian: rows[0] });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to update custodian");
+    logger.error({ err }, "[Docuplete] Failed to update custodian");
     res.status(500).json({ error: "Failed to update custodian" });
   }
 });
@@ -3606,14 +3606,14 @@ router.post("/depositories", requireAdminRole, async (req, res) => {
     const accountId = acctId(req);
     const db = getDb();
     const { rows } = await db.query(
-      `INSERT INTO docufill_depositories (name, contact_name, email, phone, notes, active, account_id)
+      `INSERT INTO docuplete_depositories (name, contact_name, email, phone, notes, active, account_id)
        VALUES ($1,$2,$3,$4,$5,$6,$7)
        RETURNING *`,
       [name, nullableText(body.contactName), nullableText(body.email), nullableText(body.phone), nullableText(body.notes), body.active !== false, accountId],
     );
     res.status(201).json({ depository: rows[0] });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to create depository");
+    logger.error({ err }, "[Docuplete] Failed to create depository");
     res.status(500).json({ error: "Failed to create depository" });
   }
 });
@@ -3636,7 +3636,7 @@ router.patch("/depositories/:id", requireAdminRole, async (req, res) => {
     const accountId = acctId(req);
     const db = getDb();
     const { rows } = await db.query(
-      `UPDATE docufill_depositories SET
+      `UPDATE docuplete_depositories SET
           name=$1, contact_name=$2, email=$3, phone=$4, notes=$5,
           active=$6, updated_at=NOW()
         WHERE id=$7 AND account_id=$8
@@ -3649,7 +3649,7 @@ router.patch("/depositories/:id", requireAdminRole, async (req, res) => {
     }
     res.json({ depository: rows[0] });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to update depository");
+    logger.error({ err }, "[Docuplete] Failed to update depository");
     res.status(500).json({ error: "Failed to update depository" });
   }
 });
@@ -3677,7 +3677,7 @@ router.patch("/depositories/:id", requireAdminRole, async (req, res) => {
  *                 packages:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/DocuFillPackage'
+ *                     $ref: '#/components/schemas/DocupletePackage'
  *       401:
  *         description: Unauthorized
  *         content:
@@ -3693,16 +3693,16 @@ router.get("/packages", requireMemberRole, async (req, res) => {
     const [{ rows }, junctionResult] = await Promise.all([
       db.query(
         `SELECT p.*, g.name AS group_name
-           FROM docufill_packages p
-           LEFT JOIN docufill_groups g ON g.id = p.group_id
+           FROM docuplete_packages p
+           LEFT JOIN docuplete_groups g ON g.id = p.group_id
           WHERE p.account_id = $1
           ORDER BY p.updated_at DESC, p.name ASC`,
         [accountId],
       ),
       db.query(
         `SELECT pg.package_id, array_agg(pg.group_id ORDER BY pg.group_id) AS group_ids
-           FROM docufill_package_groups pg
-           JOIN docufill_packages p ON p.id = pg.package_id
+           FROM docuplete_package_groups pg
+           JOIN docuplete_packages p ON p.id = pg.package_id
           WHERE p.account_id = $1
           GROUP BY pg.package_id`,
         [accountId],
@@ -3719,7 +3719,7 @@ router.get("/packages", requireMemberRole, async (req, res) => {
     const hydrated = await hydratePackages(rowsWithGroupIds, db, undefined, accountId);
     res.json({ packages: hydrated.map(sanitizePackageForClient) });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to list packages");
+    logger.error({ err }, "[Docuplete] Failed to list packages");
     res.status(500).json({ error: "Failed to list packages" });
   }
 });
@@ -3752,7 +3752,7 @@ router.get("/packages", requireMemberRole, async (req, res) => {
  *               required: [package]
  *               properties:
  *                 package:
- *                   $ref: '#/components/schemas/DocuFillPackage'
+ *                   $ref: '#/components/schemas/DocupletePackage'
  *       401:
  *         description: Unauthorized
  *         content:
@@ -3781,7 +3781,7 @@ router.get("/packages/:id", requireMemberRole, async (req, res) => {
     }
     res.json({ package: sanitizePackageForClient(pkg) });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to get package");
+    logger.error({ err }, "[Docuplete] Failed to get package");
     res.status(500).json({ error: "Failed to get package" });
   }
 });
@@ -3840,7 +3840,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
     if (groupValidationError) { res.status(400).json({ error: groupValidationError }); return; }
     const primaryGroupId = incomingGroupIds[0] ?? null;
     const { rows } = await db.query(
-      `INSERT INTO docufill_packages
+      `INSERT INTO docuplete_packages
          (name, group_id, custodian_id, depository_id, transaction_scope, description, status, documents, fields, mappings, recipients, account_id, tags, webhook_enabled, webhook_url, webhook_secret,
           enable_interview, enable_csv, enable_customer_link, notify_staff_on_submit, notify_client_on_submit, auth_level, slack_notifications_enabled)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,$9::jsonb,$10::jsonb,$11::jsonb,$12,$13::jsonb,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
@@ -3879,7 +3879,7 @@ router.post("/packages", requireAdminRole, requireWithinPlanLimits("package"), a
     const withGroupIds: PackageRow = { ...hydrated[0], group_ids: incomingGroupIds };
     res.status(201).json({ package: sanitizePackageForClient(withGroupIds) });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to create package");
+    logger.error({ err }, "[Docuplete] Failed to create package");
     res.status(500).json({ error: "Failed to create package" });
   }
 });
@@ -3977,7 +3977,7 @@ router.patch("/packages/:id", async (req, res) => {
       await client.query("BEGIN");
       if (removedStoredDocumentIds.length > 0) {
         await client.query(
-          `DELETE FROM docufill_package_documents
+          `DELETE FROM docuplete_package_documents
             WHERE package_id=$1 AND document_id = ANY($2::text[])`,
           [id, removedStoredDocumentIds],
         );
@@ -3986,14 +3986,14 @@ router.patch("/packages/:id", async (req, res) => {
       if (incomingDocuments) {
         const storedMetadata = await client.query(
           `SELECT package_id, document_id, filename, content_type, byte_size, page_count, page_sizes, created_at, updated_at
-             FROM docufill_package_documents
+             FROM docuplete_package_documents
             WHERE package_id=$1 AND document_id = ANY($2::text[])`,
           [id, incomingDocuments.map((doc) => doc.id)],
         );
         nextDocumentsJson = JSON.stringify(mergeStoredDocumentMetadata(incomingDocuments, storedMetadata.rows as StoredDocumentRow[]));
       }
       const { rows } = await client.query(
-      `UPDATE docufill_packages SET
+      `UPDATE docuplete_packages SET
           name=$1, group_id=$2, custodian_id=$3, depository_id=$4, transaction_scope=$5,
           description=$6, status=$7, documents=$8::jsonb, fields=$9::jsonb,
           mappings=$10::jsonb, recipients=$11::jsonb, enable_interview=$12, enable_csv=$13,
@@ -4064,7 +4064,7 @@ router.patch("/packages/:id", async (req, res) => {
       const hydrated = await hydratePackages(rows as PackageRow[], client, undefined, accountId);
       // Fetch the up-to-date group_ids from the junction table to return to the client
       const { rows: pgRows } = await client.query(
-        `SELECT array_agg(group_id ORDER BY group_id) AS group_ids FROM docufill_package_groups WHERE package_id=$1`,
+        `SELECT array_agg(group_id ORDER BY group_id) AS group_ids FROM docuplete_package_groups WHERE package_id=$1`,
         [id],
       );
       const junctionGroupIds: number[] = (pgRows[0] as { group_ids: number[] | null })?.group_ids ?? [];
@@ -4078,7 +4078,7 @@ router.patch("/packages/:id", async (req, res) => {
       client.release();
     }
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to update package");
+    logger.error({ err }, "[Docuplete] Failed to update package");
     res.status(500).json({ error: "Failed to update package" });
   }
 });
@@ -4122,7 +4122,7 @@ router.post("/packages/:id/test-webhook", async (req, res) => {
     }
     res.json({ ok: true });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to send test webhook");
+    logger.error({ err }, "[Docuplete] Failed to send test webhook");
     res.status(500).json({ error: "Failed to send test webhook" });
   }
 });
@@ -4134,13 +4134,13 @@ router.get("/packages/:id/webhook-secret", requireAdminRole, async (req, res) =>
     if (!id) { res.status(400).json({ error: "Invalid package id" }); return; }
     const accountId = acctId(req);
     const { rows } = await getDb().query<{ webhook_secret: string | null }>(
-      `SELECT webhook_secret FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      `SELECT webhook_secret FROM docuplete_packages WHERE id = $1 AND account_id = $2`,
       [id, accountId],
     );
     if (!rows.length) { res.status(404).json({ error: "Package not found" }); return; }
     res.json({ webhook_secret: rows[0].webhook_secret });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to fetch webhook secret");
+    logger.error({ err }, "[Docuplete] Failed to fetch webhook secret");
     res.status(500).json({ error: "Failed to fetch webhook secret" });
   }
 });
@@ -4152,7 +4152,7 @@ router.get("/packages/:id/webhook-deliveries", requireAdminRole, async (req, res
     const accountId = acctId(req);
     const db = getDb();
     const { rows: owned } = await db.query(
-      `SELECT id FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      `SELECT id FROM docuplete_packages WHERE id = $1 AND account_id = $2`,
       [id, accountId],
     );
     if (!owned[0]) { res.status(404).json({ error: "Package not found" }); return; }
@@ -4167,7 +4167,7 @@ router.get("/packages/:id/webhook-deliveries", requireAdminRole, async (req, res
     );
     res.json({ deliveries: rows });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to fetch webhook deliveries");
+    logger.error({ err }, "[Docuplete] Failed to fetch webhook deliveries");
     res.status(500).json({ error: "Failed to fetch webhook deliveries" });
   }
 });
@@ -4196,7 +4196,7 @@ router.post("/packages/:id/webhook-deliveries/:deliveryId/retry", requireAdminRo
     }>(
       `SELECT wd.id, wd.payload_json, wd.payload_hash, wd.event_type, wd.http_status
          FROM webhook_deliveries wd
-         JOIN docufill_packages dp ON dp.id = wd.package_id
+         JOIN docuplete_packages dp ON dp.id = wd.package_id
         WHERE wd.id = $1 AND wd.package_id = $2 AND dp.account_id = $3`,
       [deliveryId, packageId, accountId],
     );
@@ -4221,7 +4221,7 @@ router.post("/packages/:id/webhook-deliveries/:deliveryId/retry", requireAdminRo
       webhook_url: string | null;
       webhook_secret: string;
     }>(
-      `SELECT webhook_url, webhook_secret FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      `SELECT webhook_url, webhook_secret FROM docuplete_packages WHERE id = $1 AND account_id = $2`,
       [packageId, accountId],
     );
     const pkg = pkgRows[0];
@@ -4243,7 +4243,7 @@ router.post("/packages/:id/webhook-deliveries/:deliveryId/retry", requireAdminRo
 
     res.json({ ok: true });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to retry webhook delivery");
+    logger.error({ err }, "[Docuplete] Failed to retry webhook delivery");
     res.status(500).json({ error: "Failed to retry delivery" });
   }
 });
@@ -4258,7 +4258,7 @@ router.delete("/packages/:id", async (req, res) => {
     const accountId = acctId(req);
     const db = getDb();
     const { rows: owned } = await db.query(
-      `SELECT id FROM docufill_packages WHERE id=$1 AND account_id=$2`,
+      `SELECT id FROM docuplete_packages WHERE id=$1 AND account_id=$2`,
       [id, accountId],
     );
     if (!owned[0]) {
@@ -4269,10 +4269,10 @@ router.delete("/packages/:id", async (req, res) => {
       res.status(403).json({ error: "You don't have permission to perform this action. Admin access is required." });
       return;
     }
-    await db.query(`DELETE FROM docufill_packages WHERE id=$1 AND account_id=$2`, [id, accountId]);
+    await db.query(`DELETE FROM docuplete_packages WHERE id=$1 AND account_id=$2`, [id, accountId]);
     res.json({ deletedPackageId: id });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to delete package");
+    logger.error({ err }, "[Docuplete] Failed to delete package");
     res.status(500).json({ error: "Failed to delete package" });
   }
 });
@@ -4300,7 +4300,7 @@ router.post("/packages/:id/documents", requireAdminRole, async (req, res) => {
     }
     res.status(201).json({ package: sanitizePackageForClient(pkg) });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to upload package PDF");
+    logger.error({ err }, "[Docuplete] Failed to upload package PDF");
     res.status(err instanceof PdfUploadError ? 400 : 500).json({ error: err instanceof Error ? err.message : "Failed to upload package PDF" });
   }
 });
@@ -4344,7 +4344,7 @@ router.put("/packages/:id/documents/:documentId/pdf", async (req, res) => {
     }
     res.json({ package: sanitizePackageForClient(pkg) });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to replace package PDF");
+    logger.error({ err }, "[Docuplete] Failed to replace package PDF");
     res.status(err instanceof PdfUploadError ? 400 : 500).json({ error: err instanceof Error ? err.message : "Failed to replace package PDF" });
   }
 });
@@ -4359,8 +4359,8 @@ router.get("/packages/:id/documents/:documentId.pdf", async (req, res) => {
     const db = getDb();
     const { rows } = await db.query(
       `SELECT d.filename, d.content_type, d.byte_size, d.pdf_data, d.pdf_gcs_key, d.pdf_data_ciphertext
-         FROM docufill_package_documents d
-         JOIN docufill_packages p ON p.id = d.package_id
+         FROM docuplete_package_documents d
+         JOIN docuplete_packages p ON p.id = d.package_id
         WHERE d.package_id=$1 AND d.document_id=$2 AND p.account_id=$3`,
       [packageId, req.params.documentId, acctId(req)],
     );
@@ -4390,7 +4390,7 @@ router.get("/packages/:id/documents/:documentId.pdf", async (req, res) => {
         return;
       } catch (storageErr) {
         if (!(storageErr instanceof ObjectNotFoundError)) {
-          logger.warn({ err: storageErr }, "[DocuFill] GCS read failed for package PDF — falling back to DB");
+          logger.warn({ err: storageErr }, "[Docuplete] GCS read failed for package PDF — falling back to DB");
         }
         if (!row.pdf_data && !row.pdf_data_ciphertext) {
           res.status(404).json({ error: "Package document PDF not found" });
@@ -4414,7 +4414,7 @@ router.get("/packages/:id/documents/:documentId.pdf", async (req, res) => {
     res.setHeader("Cache-Control", "private, no-store");
     res.end(pdfBytes);
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to load package PDF");
+    logger.error({ err }, "[Docuplete] Failed to load package PDF");
     if (!res.headersSent) res.status(500).json({ error: "Failed to load package PDF" });
   }
 });
@@ -4448,13 +4448,13 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
     try {
       await client.query("BEGIN");
       const { rows: docKeyRows } = await client.query(
-        "SELECT pdf_gcs_key FROM docufill_package_documents WHERE package_id=$1 AND document_id=$2",
+        "SELECT pdf_gcs_key FROM docuplete_package_documents WHERE package_id=$1 AND document_id=$2",
         [packageId, req.params.documentId],
       );
       deletedGcsKey = docKeyRows[0]?.pdf_gcs_key ?? null;
-      await client.query("DELETE FROM docufill_package_documents WHERE package_id=$1 AND document_id=$2", [packageId, req.params.documentId]);
+      await client.query("DELETE FROM docuplete_package_documents WHERE package_id=$1 AND document_id=$2", [packageId, req.params.documentId]);
       await client.query(
-        `UPDATE docufill_packages
+        `UPDATE docuplete_packages
             SET documents=$1::jsonb, mappings=$2::jsonb, version=version+1, updated_at=NOW()
           WHERE id=$3 AND account_id=$4`,
         [JSON.stringify(documents), JSON.stringify(mappings), packageId, requestAccountId],
@@ -4469,12 +4469,12 @@ router.delete("/packages/:id/documents/:documentId", async (req, res) => {
     if (deletedGcsKey) {
       objectStorage.getObjectEntityFile(deletedGcsKey)
         .then((f) => f.delete({ ignoreNotFound: true }))
-        .catch((err) => logger.warn({ err, gcsKey: deletedGcsKey }, "[DocuFill] GCS cleanup failed for deleted document (non-fatal)"));
+        .catch((err) => logger.warn({ err, gcsKey: deletedGcsKey }, "[Docuplete] GCS cleanup failed for deleted document (non-fatal)"));
     }
     const pkg = await getPackage(packageId, getDb(), true, requestAccountId);
     res.json({ package: pkg ? sanitizePackageForClient(pkg) : null });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to remove package document");
+    logger.error({ err }, "[Docuplete] Failed to remove package document");
     res.status(500).json({ error: "Failed to remove package document" });
   }
 });
@@ -4545,20 +4545,20 @@ router.post("/csv-batch", requireMemberRole, requirePlanFeature("csvBatch"), asy
         const token = createSessionToken();
         const csvCiphertext = csvBatchDek ? encryptAnswers(prefill, csvBatchDek) : null;
         await db.query(
-          `INSERT INTO docufill_interview_sessions
+          `INSERT INTO docuplete_interview_sessions
              (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers, answers_ciphertext, expires_at, account_id, batch_run_id)
            VALUES ($1,$2,$3,$4,NULL,'csv_batch','draft',false,$5::jsonb,'{}'::jsonb,$6,NOW() + INTERVAL '90 days',$7,$8)`,
           [token, packageId, packageVersion, transactionScope, csvBatchDek ? jsonParam({}) : jsonParam(prefill), csvCiphertext, acctId(req), batchRunId],
         );
         results.push({ rowIndex: i, token, status: "created" });
       } catch (err) {
-        logger.error({ err, rowIndex: i }, "[DocuFill] Batch row processing failed");
+        logger.error({ err, rowIndex: i }, "[Docuplete] Batch row processing failed");
         results.push({ rowIndex: i, token: null, status: "error", error: err instanceof Error ? err.message : "Unknown error" });
       }
     }
     res.json({ results, batchRunId });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to process CSV batch");
+    logger.error({ err }, "[Docuplete] Failed to process CSV batch");
     res.status(500).json({ error: "Failed to process CSV batch" });
   }
 });
@@ -4584,8 +4584,8 @@ router.get("/batch-runs", requireMemberRole, async (req, res) => {
          COUNT(*) FILTER (WHERE s.status IN ('draft','in_progress')) AS pending,
          COUNT(*) FILTER (WHERE s.status IN ('submitted','signed','generated')) AS completed,
          COUNT(*) FILTER (WHERE s.link_emailed_at IS NOT NULL) AS emailed
-       FROM docufill_interview_sessions s
-       JOIN docufill_packages p ON p.id = s.package_id
+       FROM docuplete_interview_sessions s
+       JOIN docuplete_packages p ON p.id = s.package_id
        WHERE s.account_id = $1
          AND s.batch_run_id IS NOT NULL
        GROUP BY s.batch_run_id, p.name, p.id
@@ -4595,13 +4595,13 @@ router.get("/batch-runs", requireMemberRole, async (req, res) => {
     );
 
     const { rows: countRows } = await db.query(
-      `SELECT COUNT(DISTINCT batch_run_id) AS count FROM docufill_interview_sessions WHERE account_id = $1 AND batch_run_id IS NOT NULL`,
+      `SELECT COUNT(DISTINCT batch_run_id) AS count FROM docuplete_interview_sessions WHERE account_id = $1 AND batch_run_id IS NOT NULL`,
       [accountId],
     );
 
     res.json({ runs: rows, total: Number(countRows[0]?.count ?? 0) });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to list batch runs");
+    logger.error({ err }, "[Docuplete] Failed to list batch runs");
     res.status(500).json({ error: "Failed to list batch runs" });
   }
 });
@@ -4622,8 +4622,8 @@ router.get("/batch-runs/:runId", requireMemberRole, async (req, res) => {
          s.batch_run_id,
          p.name AS package_name,
          p.id AS package_id
-       FROM docufill_interview_sessions s
-       JOIN docufill_packages p ON p.id = s.package_id
+       FROM docuplete_interview_sessions s
+       JOIN docuplete_packages p ON p.id = s.package_id
        WHERE s.account_id = $1
          AND s.batch_run_id = $2
        ORDER BY s.id ASC`,
@@ -4637,7 +4637,7 @@ router.get("/batch-runs/:runId", requireMemberRole, async (req, res) => {
 
     res.json({ sessions: rows });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to fetch batch run sessions");
+    logger.error({ err }, "[Docuplete] Failed to fetch batch run sessions");
     res.status(500).json({ error: "Failed to fetch batch run sessions" });
   }
 });
@@ -4719,7 +4719,7 @@ router.get("/batch-runs/:runId", requireMemberRole, async (req, res) => {
  *                 sessions:
  *                   type: array
  *                   items:
- *                     $ref: '#/components/schemas/DocuFillSessionListItem'
+ *                     $ref: '#/components/schemas/DocupleteSessionListItem'
  *                 total:
  *                   type: integer
  *                   description: Total number of sessions matching the filters (before pagination)
@@ -4747,7 +4747,7 @@ router.get("/sessions", async (req, res) => {
       const db = getDb();
       const { rows } = await db.query(
         `SELECT s.token
-           FROM docufill_interview_sessions s
+           FROM docuplete_interview_sessions s
           WHERE s.deal_id = $1
             AND s.account_id = $2
           ORDER BY s.created_at DESC
@@ -4817,7 +4817,7 @@ router.get("/sessions", async (req, res) => {
     const where = conditions.join(" AND ");
 
     const countRes = await db.query<{ count: string }>(
-      `SELECT COUNT(*) AS count FROM docufill_interview_sessions s WHERE ${where}`,
+      `SELECT COUNT(*) AS count FROM docuplete_interview_sessions s WHERE ${where}`,
       params,
     );
     const total = Number(countRes.rows[0]?.count ?? 0);
@@ -4828,8 +4828,8 @@ router.get("/sessions", async (req, res) => {
               s.created_at, s.updated_at, s.expires_at,
               s.answers, s.answers_ciphertext, s.prefill, s.generated_pdf_url,
               p.name AS package_name
-         FROM docufill_interview_sessions s
-         JOIN docufill_packages p ON p.id = s.package_id
+         FROM docuplete_interview_sessions s
+         JOIN docuplete_packages p ON p.id = s.package_id
         WHERE ${where}
         ORDER BY s.updated_at DESC, s.id DESC
         LIMIT $${params.length - 1} OFFSET $${params.length}`,
@@ -4854,7 +4854,7 @@ router.get("/sessions", async (req, res) => {
 
     res.json({ sessions: listRows, total });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to list sessions");
+    logger.error({ err }, "[Docuplete] Failed to list sessions");
     res.status(500).json({ error: "Failed to list sessions" });
   }
 });
@@ -4887,7 +4887,7 @@ router.get("/sessions/portal-list", async (req, res) => {
     const where = conditions.join(" AND ");
 
     const [countRes, { rows }] = await Promise.all([
-      db.query<{ count: string }>(`SELECT COUNT(*) AS count FROM docufill_interview_sessions s JOIN docufill_packages p ON p.id = s.package_id WHERE ${where}`, [...params]),
+      db.query<{ count: string }>(`SELECT COUNT(*) AS count FROM docuplete_interview_sessions s JOIN docuplete_packages p ON p.id = s.package_id WHERE ${where}`, [...params]),
       db.query(
         `SELECT s.token, s.id, s.package_id, s.status, s.source,
                 s.created_at, s.updated_at, s.expires_at,
@@ -4903,11 +4903,11 @@ router.get("/sessions/portal-list", async (req, res) => {
                 p.name AS package_name,
                 (signing_evt.metadata->>'scrollConfirmationRequired')::boolean AS signing_scroll_required,
                 signing_evt.metadata->>'scrollConfirmedAt' AS signing_scroll_confirmed_at
-           FROM docufill_interview_sessions s
-           JOIN docufill_packages p ON p.id = s.package_id
+           FROM docuplete_interview_sessions s
+           JOIN docuplete_packages p ON p.id = s.package_id
            LEFT JOIN LATERAL (
              SELECT metadata
-               FROM docufill_signing_events
+               FROM docuplete_signing_events
               WHERE session_token = s.token AND event_type = 'signed'
               ORDER BY id DESC
               LIMIT 1
@@ -4921,7 +4921,7 @@ router.get("/sessions/portal-list", async (req, res) => {
 
     res.json({ sessions: rows, total: Number(countRes.rows[0]?.count ?? 0) });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to list portal sessions");
+    logger.error({ err }, "[Docuplete] Failed to list portal sessions");
     res.status(500).json({ error: "Failed to list sessions" });
   }
 });
@@ -4948,7 +4948,7 @@ router.post("/sessions/:token/void", requireAdminRole, async (req, res) => {
     }
 
     await db.query(
-      `UPDATE docufill_interview_sessions
+      `UPDATE docuplete_interview_sessions
           SET status        = 'voided',
               voided_at     = NOW(),
               voided_reason = $1,
@@ -4963,11 +4963,11 @@ router.post("/sessions/:token/void", requireAdminRole, async (req, res) => {
     // productUserEmail is set for product/SaaS admins authenticated via Clerk.
     const actorEmail = req.internalEmail ?? req.productUserEmail ?? null;
     db.query(
-      `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, metadata)
+      `INSERT INTO docuplete_signing_events (session_token, account_id, event_type, actor_email, actor_ip, metadata)
        VALUES ($1, $2, 'voided', $3, $4, $5::jsonb)`,
       [token, acctId(req), actorEmail, req.ip ?? null,
        JSON.stringify({ reason, voidedBy: actorEmail })],
-    ).catch((err) => logger.warn({ err, token }, "[DocuFill] Void session signing event insert failed"));
+    ).catch((err) => logger.warn({ err, token }, "[Docuplete] Void session signing event insert failed"));
 
     // Optionally notify the signer via email
     if (notifySigner && typeof session.signer_email === "string" && session.signer_email) {
@@ -5018,7 +5018,7 @@ router.post("/sessions/:token/void", requireAdminRole, async (req, res) => {
 
 /**
  * @openapi
- * /internal/docufill/sessions:
+ * /internal/docuplete/sessions:
  *   post:
  *     tags:
  *       - Internal — Docuplete Sessions
@@ -5082,7 +5082,7 @@ router.post("/sessions/:token/void", requireAdminRole, async (req, res) => {
  *               type: object
  *               properties:
  *                 session:
- *                   $ref: '#/components/schemas/DocuFillSession'
+ *                   $ref: '#/components/schemas/DocupleteSession'
  *                 token:
  *                   type: string
  *                   description: Bearer token passed to the public interview form
@@ -5160,7 +5160,7 @@ router.post("/sessions/:token/void", requireAdminRole, async (req, res) => {
  *                 - interviewUrl
  *               properties:
  *                 session:
- *                   $ref: '#/components/schemas/DocuFillSession'
+ *                   $ref: '#/components/schemas/DocupleteSession'
  *                 token:
  *                   type: string
  *                   description: Bearer token passed to the public interview form
@@ -5260,7 +5260,7 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
         orgLocale          = typeof d.interview_default_locale    === "string" ? d.interview_default_locale    : "en";
       }
     } catch (defErr) {
-      logger.warn({ defErr }, "[DocuFill] Could not fetch interview defaults; using built-in defaults");
+      logger.warn({ defErr }, "[Docuplete] Could not fetch interview defaults; using built-in defaults");
     }
 
     // Validate and apply per-session overrides: request body takes precedence over org defaults.
@@ -5300,7 +5300,7 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
       : new Date(Date.now() + effectiveExpiryDays * 86400000);
 
     const { rows } = await db.query(
-      `INSERT INTO docufill_interview_sessions
+      `INSERT INTO docuplete_interview_sessions
          (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers,
           expires_at, account_id, locale, reminder_enabled, reminder_days)
        VALUES ($1,$2,$3,$4,$5,$6,'draft',$7,$8::jsonb,'{}'::jsonb,
@@ -5331,11 +5331,11 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
       if (dr?.custom_domain && dr.custom_domain_status === "active") {
         interviewOrigin = `https://${dr.custom_domain}`;
       }
-    } catch (err) { logger.warn({ err, accountId }, "[DocuFill] Custom domain lookup failed — using default interview origin"); }
+    } catch (err) { logger.warn({ err, accountId }, "[Docuplete] Custom domain lookup failed — using default interview origin"); }
     const interviewUrl = `${interviewOrigin}/docuplete/public/${token}`;
     res.status(201).json({ session: rows[0], token, interviewUrl });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to create interview session");
+    logger.error({ err }, "[Docuplete] Failed to create interview session");
     res.status(500).json({ error: "Failed to create interview session" });
   }
 });
@@ -5368,7 +5368,7 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
  *               required: [session]
  *               properties:
  *                 session:
- *                   $ref: '#/components/schemas/DocuFillSession'
+ *                   $ref: '#/components/schemas/DocupleteSession'
  *       401:
  *         description: Unauthorized
  *         content:
@@ -5391,7 +5391,7 @@ router.get("/sessions/:token", async (req, res) => {
       // Support lookup by numeric session ID (for Zapier and other integrations)
       const db = getDb();
       const { rows } = await db.query<{ token: string }>(
-        `SELECT token FROM docufill_interview_sessions
+        `SELECT token FROM docuplete_interview_sessions
           WHERE id = $1 AND account_id = $2 AND expires_at > NOW()`,
         [numericId, acctId(req)],
       );
@@ -5405,7 +5405,7 @@ router.get("/sessions/:token", async (req, res) => {
     }
     res.json({ session });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to load interview session");
+    logger.error({ err }, "[Docuplete] Failed to load interview session");
     res.status(500).json({ error: "Failed to load interview session" });
   }
 });
@@ -5426,7 +5426,7 @@ router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
       answersParam = jsonParam({});
     }
     const { rows } = await db.query(
-      `UPDATE docufill_interview_sessions SET
+      `UPDATE docuplete_interview_sessions SET
           answers=$1::jsonb, answers_ciphertext=$5, status=COALESCE($2, status), updated_at=NOW()
         WHERE token=$3
           AND expires_at > NOW()
@@ -5445,7 +5445,7 @@ router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
     }
     res.json({ session });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to save interview answers");
+    logger.error({ err }, "[Docuplete] Failed to save interview answers");
     res.status(500).json({ error: "Failed to save interview answers" });
   }
 });
@@ -5483,7 +5483,7 @@ router.post("/sessions/:token/send-link", requireMemberRole, requirePlanFeature(
       if (r2?.custom_domain && r2.custom_domain_status === "active") {
         interviewOrigin2 = `https://${r2.custom_domain}`;
       }
-    } catch (err) { logger.warn({ err, token: req.params.token }, "[DocuFill] Custom domain lookup failed for send-link — using default origin"); }
+    } catch (err) { logger.warn({ err, token: req.params.token }, "[Docuplete] Custom domain lookup failed for send-link — using default origin"); }
     const interviewUrl = `${interviewOrigin2}/docuplete/public/${req.params.token}`;
 
     const orgLogoUrl    = typeof session.org_logo_url === "string" ? session.org_logo_url : null;
@@ -5506,16 +5506,16 @@ router.post("/sessions/:token/send-link", requireMemberRole, requirePlanFeature(
     });
 
     await db.query(
-      `UPDATE docufill_interview_sessions
+      `UPDATE docuplete_interview_sessions
           SET link_emailed_at=NOW(), link_email_recipient=$1, updated_at=NOW()
         WHERE token=$2
-          AND package_id IN (SELECT id FROM docufill_packages WHERE account_id = $3)`,
+          AND package_id IN (SELECT id FROM docuplete_packages WHERE account_id = $3)`,
       [recipientEmail, req.params.token, acctId(req)],
     );
 
     res.json({ ok: true, sentTo: recipientEmail });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to send interview link email");
+    logger.error({ err }, "[Docuplete] Failed to send interview link email");
     res.status(500).json({ error: err instanceof Error ? err.message : "Failed to send email" });
   }
 });
@@ -5543,7 +5543,7 @@ router.post("/batch/send-links", requireMemberRole, requirePlanFeature("clientLi
       if (r?.custom_domain && r.custom_domain_status === "active") {
         interviewOrigin = `https://${r.custom_domain}`;
       }
-    } catch (err) { logger.warn({ err, accountId: aId }, "[DocuFill] Custom domain lookup failed for batch send-links — using default origin"); }
+    } catch (err) { logger.warn({ err, accountId: aId }, "[Docuplete] Custom domain lookup failed for batch send-links — using default origin"); }
 
     const orgRow = await db.query<{ name: string; logo_url: string | null; brand_color: string | null }>(
       `SELECT name, logo_url, brand_color FROM accounts WHERE id = $1`, [aId],
@@ -5556,7 +5556,7 @@ router.post("/batch/send-links", requireMemberRole, requirePlanFeature("clientLi
 
     const tokens = body.invitations.map((inv) => inv.token);
     const validRes = await db.query<{ token: string }>(
-      `SELECT token FROM docufill_interview_sessions WHERE token = ANY($1) AND account_id = $2`,
+      `SELECT token FROM docuplete_interview_sessions WHERE token = ANY($1) AND account_id = $2`,
       [tokens, aId],
     );
     const validTokenSet = new Set(validRes.rows.map((r) => r.token));
@@ -5588,7 +5588,7 @@ router.post("/batch/send-links", requireMemberRole, requirePlanFeature("clientLi
         // Small delay to avoid transactional email provider rate-limits on bulk sends
         await new Promise((r) => setTimeout(r, 150));
         await db.query(
-          `UPDATE docufill_interview_sessions
+          `UPDATE docuplete_interview_sessions
               SET link_emailed_at=NOW(), link_email_recipient=$1, updated_at=NOW()
             WHERE token=$2`,
           [inv.recipientEmail, inv.token],
@@ -5600,7 +5600,7 @@ router.post("/batch/send-links", requireMemberRole, requirePlanFeature("clientLi
     }
     res.json({ results });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to send batch interview links");
+    logger.error({ err }, "[Docuplete] Failed to send batch interview links");
     res.status(500).json({ error: "Failed to send batch invitations" });
   }
 });
@@ -5626,7 +5626,7 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
     if (!isQueueEnabled()) {
       const pdfBuffer = await buildPacketPdfBuffer(session, db);
       await db.query(
-        `UPDATE docufill_interview_sessions SET status = 'generated', updated_at = NOW() WHERE token = $1`,
+        `UPDATE docuplete_interview_sessions SET status = 'generated', updated_at = NOW() WHERE token = $1`,
         [String(req.params.token)],
       );
       // Mirror the queue worker's post-generation webhook trigger so that
@@ -5655,7 +5655,7 @@ router.post("/sessions/:token/generate", requireMemberRole, async (req, res) => 
     });
     res.status(202).json({ jobId, status: "pending" });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to enqueue operator generate job");
+    logger.error({ err }, "[Docuplete] Failed to enqueue operator generate job");
     const isConnectivityError = err instanceof Error && (
       err.message.includes("ECONNREFUSED") ||
       err.message.includes("ENOTFOUND") ||
@@ -5680,7 +5680,7 @@ router.get("/sessions/:token/generate-status", requireMemberRole, async (req, re
     const jobId = typeof req.query.jobId === "string" ? req.query.jobId : null;
     const db = getDb();
     const { rows } = await db.query<{ status: string }>(
-      `SELECT status FROM docufill_interview_sessions WHERE token = $1 AND account_id = $2`,
+      `SELECT status FROM docuplete_interview_sessions WHERE token = $1 AND account_id = $2`,
       [req.params.token, acctId(req)],
     );
     const row = rows[0];
@@ -5691,7 +5691,7 @@ router.get("/sessions/:token/generate-status", requireMemberRole, async (req, re
     if (row.status === "generated") {
       res.json({
         status: "ready",
-        downloadUrl: `/api/internal/docufill/sessions/${req.params.token}/packet.pdf`,
+        downloadUrl: `/api/internal/docuplete/sessions/${req.params.token}/packet.pdf`,
       });
       return;
     }
@@ -5703,7 +5703,7 @@ router.get("/sessions/:token/generate-status", requireMemberRole, async (req, re
           if (state === "completed") {
             res.json({
               status: "ready",
-              downloadUrl: `/api/internal/docufill/sessions/${req.params.token}/packet.pdf`,
+              downloadUrl: `/api/internal/docuplete/sessions/${req.params.token}/packet.pdf`,
             });
             return;
           }
@@ -5715,12 +5715,12 @@ router.get("/sessions/:token/generate-status", requireMemberRole, async (req, re
           return;
         }
       } catch (queueErr) {
-        logger.warn({ queueErr, jobId }, "[DocuFill] Failed to check BullMQ job state (non-fatal)");
+        logger.warn({ queueErr, jobId }, "[Docuplete] Failed to check BullMQ job state (non-fatal)");
       }
     }
     res.json({ status: "pending" });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to get operator generate status");
+    logger.error({ err }, "[Docuplete] Failed to get operator generate status");
     res.status(500).json({ error: "Failed to check generation status" });
   }
 });
@@ -5748,7 +5748,7 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
         const file = await objectStorage.getObjectEntityFile(storageKey);
         const storageRes = await objectStorage.downloadObject(file, 0);
         res.setHeader("Content-Type", "application/pdf");
-        res.setHeader("Content-Disposition", `attachment; filename=docufill-${req.params.token}.pdf`);
+        res.setHeader("Content-Disposition", `attachment; filename=docuplete-${req.params.token}.pdf`);
         const contentLength = storageRes.headers.get("Content-Length");
         if (contentLength) res.setHeader("Content-Length", contentLength);
         const reader = storageRes.body!.getReader();
@@ -5760,11 +5760,11 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
         };
         await pump();
         const { actorIp: dlIp, actorUa: dlUa } = actorContextFromRequest(req);
-        recordPdfAuditEvent({ accountId: acctId(req), sessionToken: req.params.token, eventType: "downloaded", actorType: req.internalEmail ? "staff" : "api", actorEmail: req.internalEmail ?? null, actorIp: dlIp, actorUa: dlUa }).catch((err) => logger.warn({ err, token: req.params.token }, "[DocuFill] PDF download audit event failed (storage path)"));
+        recordPdfAuditEvent({ accountId: acctId(req), sessionToken: req.params.token, eventType: "downloaded", actorType: req.internalEmail ? "staff" : "api", actorEmail: req.internalEmail ?? null, actorIp: dlIp, actorUa: dlUa }).catch((err) => logger.warn({ err, token: req.params.token }, "[Docuplete] PDF download audit event failed (storage path)"));
         return;
       } catch (storageErr) {
         if (!(storageErr instanceof ObjectNotFoundError)) {
-          logger.warn({ storageErr, token: req.params.token }, "[DocuFill] Storage read failed — falling back to regeneration");
+          logger.warn({ storageErr, token: req.params.token }, "[Docuplete] Storage read failed — falling back to regeneration");
         }
       }
     }
@@ -5790,7 +5790,7 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
       }
     }
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename=docufill-${req.params.token}.pdf`);
+    res.setHeader("Content-Disposition", `attachment; filename=docuplete-${req.params.token}.pdf`);
     res.setHeader("Content-Length", String(output.length));
     res.end(output);
     // Audit trail — non-blocking
@@ -5803,9 +5803,9 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
       actorEmail:   req.internalEmail ?? null,
       actorIp:      dlIp,
       actorUa:      dlUa,
-    }).catch((err) => logger.warn({ err, token: req.params.token }, "[DocuFill] PDF download audit event failed (regenerate path)"));
+    }).catch((err) => logger.warn({ err, token: req.params.token }, "[Docuplete] PDF download audit event failed (regenerate path)"));
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to download packet PDF");
+    logger.error({ err }, "[Docuplete] Failed to download packet PDF");
     if (!res.headersSent) res.status(500).json({ error: "Failed to download packet" });
   }
 });
@@ -5836,7 +5836,7 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
  *               type: object
  *               properties:
  *                 session:
- *                   $ref: '#/components/schemas/DocuFillSession'
+ *                   $ref: '#/components/schemas/DocupleteSession'
  *       404:
  *         description: Session not found or expired
  *         content:
@@ -5844,7 +5844,7 @@ router.get("/sessions/:token/packet.pdf", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-publicDocufillRouter.get("/sessions/:token", async (req, res) => {
+publicDocupleteRouter.get("/sessions/:token", async (req, res) => {
   try {
     const db = getDb();
     const session = await getSession(req.params.token, db);
@@ -5860,7 +5860,7 @@ publicDocufillRouter.get("/sessions/:token", async (req, res) => {
     setImmediate(async () => {
       try {
         const { rowCount } = await db.query(
-          `UPDATE docufill_interview_sessions
+          `UPDATE docuplete_interview_sessions
               SET first_viewed_at = NOW(), updated_at = NOW()
             WHERE token = $1 AND first_viewed_at IS NULL`,
           [req.params.token],
@@ -5884,11 +5884,11 @@ publicDocufillRouter.get("/sessions/:token", async (req, res) => {
           });
         }
       } catch (viewErr) {
-        logger.debug({ viewErr, token: req.params.token }, "[DocuFill] session.viewed tracking failed (non-fatal)");
+        logger.debug({ viewErr, token: req.params.token }, "[Docuplete] session.viewed tracking failed (non-fatal)");
       }
     });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to load public interview session");
+    logger.error({ err }, "[Docuplete] Failed to load public interview session");
     res.status(500).json({ error: "Failed to load interview session" });
   }
 });
@@ -5903,7 +5903,7 @@ publicDocufillRouter.get("/sessions/:token", async (req, res) => {
  * unavailable the endpoint falls back to synchronous generation and returns
  * the PDF bytes directly (Content-Type: application/pdf, status 200).
  */
-publicDocufillRouter.post("/sessions/:token/preview-pdf", async (req, res) => {
+publicDocupleteRouter.post("/sessions/:token/preview-pdf", async (req, res) => {
   try {
     const db = getDb();
     const session = await getSession(req.params.token, db);
@@ -5931,7 +5931,7 @@ publicDocufillRouter.post("/sessions/:token/preview-pdf", async (req, res) => {
     });
     res.status(202).json({ jobId, status: "pending" });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to initiate preview-pdf");
+    logger.error({ err }, "[Docuplete] Failed to initiate preview-pdf");
     const isConnectivityError = err instanceof Error && (
       err.message.includes("ECONNREFUSED") ||
       err.message.includes("ENOTFOUND") ||
@@ -5967,7 +5967,7 @@ publicDocufillRouter.post("/sessions/:token/preview-pdf", async (req, res) => {
 });
 
 /** Preview-PDF async polling status — queries the BullMQ job state. */
-publicDocufillRouter.get("/sessions/:token/preview-pdf/status", async (req, res) => {
+publicDocupleteRouter.get("/sessions/:token/preview-pdf/status", async (req, res) => {
   try {
     const jobId = typeof req.query.jobId === "string" ? req.query.jobId : null;
     if (!jobId || !generatePdfQueue) {
@@ -5993,13 +5993,13 @@ publicDocufillRouter.get("/sessions/:token/preview-pdf/status", async (req, res)
     }
     res.json({ status: state === "active" ? "processing" : "pending" });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to get preview-pdf status");
+    logger.error({ err }, "[Docuplete] Failed to get preview-pdf status");
     res.json({ status: "pending" });
   }
 });
 
 /** Download the preview PDF generated by the async worker. */
-publicDocufillRouter.get("/sessions/:token/preview-pdf/download", async (req, res) => {
+publicDocupleteRouter.get("/sessions/:token/preview-pdf/download", async (req, res) => {
   const storageKey = `previews/${req.params.token}.pdf`;
   try {
     const file = await objectStorage.getObjectEntityFile(storageKey);
@@ -6018,7 +6018,7 @@ publicDocufillRouter.get("/sessions/:token/preview-pdf/download", async (req, re
     await pump();
   } catch (storageErr) {
     // Not found in object storage — rebuild synchronously as a resilient fallback
-    logger.warn({ storageErr, token: req.params.token }, "[DocuFill] Preview PDF not in storage — regenerating synchronously");
+    logger.warn({ storageErr, token: req.params.token }, "[Docuplete] Preview PDF not in storage — regenerating synchronously");
     try {
       const db = getDb();
       const session = await getSession(req.params.token, db);
@@ -6036,7 +6036,7 @@ publicDocufillRouter.get("/sessions/:token/preview-pdf/download", async (req, re
       res.setHeader("Content-Length", String(pdfBuffer.length));
       res.end(pdfBuffer);
     } catch (fallbackErr) {
-      logger.error({ fallbackErr, token: req.params.token }, "[DocuFill] Preview PDF fallback generation failed");
+      logger.error({ fallbackErr, token: req.params.token }, "[Docuplete] Preview PDF fallback generation failed");
       if (!res.headersSent) res.status(500).json({ error: "Failed to generate preview" });
     }
   }
@@ -6055,7 +6055,7 @@ publicDocufillRouter.get("/sessions/:token/preview-pdf/download", async (req, re
  *       generate endpoint refuses to finalise a session that requires scroll
  *       confirmation unless this endpoint has been called first.
  */
-publicDocufillRouter.post("/sessions/:token/scroll-confirm", async (req, res) => {
+publicDocupleteRouter.post("/sessions/:token/scroll-confirm", async (req, res) => {
   try {
     const db = getDb();
     const session = await getSession(req.params.token, db);
@@ -6072,12 +6072,12 @@ publicDocufillRouter.post("/sessions/:token/scroll-confirm", async (req, res) =>
       return;
     }
     await db.query(
-      `UPDATE docufill_interview_sessions SET scroll_confirmed_at = NOW() WHERE token = $1`,
+      `UPDATE docuplete_interview_sessions SET scroll_confirmed_at = NOW() WHERE token = $1`,
       [req.params.token],
     );
     res.json({ ok: true });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to record scroll confirmation");
+    logger.error({ err }, "[Docuplete] Failed to record scroll confirmation");
     if (!res.headersSent) res.status(500).json({ error: "Failed to record scroll confirmation" });
   }
 });
@@ -6122,7 +6122,7 @@ publicDocufillRouter.post("/sessions/:token/scroll-confirm", async (req, res) =>
  *               type: object
  *               properties:
  *                 session:
- *                   $ref: '#/components/schemas/DocuFillSession'
+ *                   $ref: '#/components/schemas/DocupleteSession'
  *       404:
  *         description: Session not found or expired
  *         content:
@@ -6130,14 +6130,14 @@ publicDocufillRouter.post("/sessions/:token/scroll-confirm", async (req, res) =>
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
+publicDocupleteRouter.patch("/sessions/:token", async (req, res) => {
   try {
     const _parse = SessionAnswersBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
     const body = _parse.data as AnswersInput;
     const db = getDb();
     const { rows: metaRows } = await db.query<{ account_id: number }>(
-      `SELECT account_id FROM docufill_interview_sessions WHERE token=$1 AND expires_at > NOW()`,
+      `SELECT account_id FROM docuplete_interview_sessions WHERE token=$1 AND expires_at > NOW()`,
       [req.params.token],
     );
     if (!metaRows[0]) {
@@ -6161,7 +6161,7 @@ publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
       }
     }
     const { rows } = await db.query(
-      `UPDATE docufill_interview_sessions SET
+      `UPDATE docuplete_interview_sessions SET
           answers=$1::jsonb, answers_ciphertext=$4, status=COALESCE($2, status), updated_at=NOW(),
           submitted_at=CASE WHEN $2 IN ('submitted','signed') AND submitted_at IS NULL THEN NOW() ELSE submitted_at END
         WHERE token=$3
@@ -6185,7 +6185,7 @@ publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
     setImmediate(async () => {
       try {
         const { rowCount } = await db.query(
-          `UPDATE docufill_interview_sessions
+          `UPDATE docuplete_interview_sessions
               SET first_started_at = NOW()
             WHERE token = $1 AND first_started_at IS NULL`,
           [req.params.token],
@@ -6209,17 +6209,17 @@ publicDocufillRouter.patch("/sessions/:token", async (req, res) => {
           });
         }
       } catch (startErr) {
-        logger.debug({ startErr, token: req.params.token }, "[DocuFill] session.started tracking failed (non-fatal)");
+        logger.debug({ startErr, token: req.params.token }, "[Docuplete] session.started tracking failed (non-fatal)");
       }
     });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to save public interview answers");
+    logger.error({ err }, "[Docuplete] Failed to save public interview answers");
     res.status(500).json({ error: "Failed to save interview answers" });
   }
 });
 
 // ── E-sign v1: request OTP ────────────────────────────────────────────────────
-publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
+publicDocupleteRouter.post("/sessions/:token/request-otp", async (req, res) => {
   try {
     const _parse = OtpRequestBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
@@ -6244,7 +6244,7 @@ publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
     }
     // Rate-limit: max 3 active (unused, non-expired) OTPs per session per hour
     const { rows: recent } = await db.query(
-      `SELECT count(*)::int AS n FROM docufill_esign_otps
+      `SELECT count(*)::int AS n FROM docuplete_esign_otps
         WHERE session_token=$1
           AND used_at IS NULL
           AND expires_at > NOW()
@@ -6258,20 +6258,20 @@ publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
     const { code, hash } = generateOtp();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
     await db.query(
-      `INSERT INTO docufill_esign_otps (session_token, email, otp_hash, expires_at)
+      `INSERT INTO docuplete_esign_otps (session_token, email, otp_hash, expires_at)
        VALUES ($1, $2, $3, $4)`,
       [req.params.token, email, hash, expiresAt],
     );
     // Fire-and-forget audit event
     const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
     db.query(
-      `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
+      `INSERT INTO docuplete_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
        VALUES ($1, $2, 'otp_sent', $3, $4, $5, $6::jsonb)`,
       [req.params.token, pkgAccountId, email,
        (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? null,
        req.headers["user-agent"] ?? null,
        JSON.stringify({ packageName: session.package_name })],
-    ).catch((err) => logger.warn({ err, token: req.params.token, accountId: pkgAccountId }, "[DocuFill] OTP sent signing event insert failed"));
+    ).catch((err) => logger.warn({ err, token: req.params.token, accountId: pkgAccountId }, "[Docuplete] OTP sent signing event insert failed"));
     // Send OTP email
     const emailSettings = pkgAccountId ? await getOrgEmailSettings(pkgAccountId).catch(() => null) : null;
     await sendEsignOtpEmail({
@@ -6296,7 +6296,7 @@ publicDocufillRouter.post("/sessions/:token/request-otp", async (req, res) => {
 });
 
 // ── E-sign v1: verify OTP ─────────────────────────────────────────────────────
-publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
+publicDocupleteRouter.post("/sessions/:token/verify-otp", async (req, res) => {
   try {
     const _parse = OtpVerifyBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
@@ -6315,7 +6315,7 @@ publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
     const inputHash = hashOtp(code);
     // Fetch the most recent unused, non-expired OTP for this session+email
     const { rows: otpRows } = await db.query(
-      `SELECT id, attempt_count FROM docufill_esign_otps
+      `SELECT id, attempt_count FROM docuplete_esign_otps
         WHERE session_token=$1
           AND email=$2
           AND used_at IS NULL
@@ -6335,12 +6335,12 @@ publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
     }
     // Increment attempt counter first, then check hash (prevents timing oracle)
     await db.query(
-      `UPDATE docufill_esign_otps SET attempt_count=attempt_count+1 WHERE id=$1`,
+      `UPDATE docuplete_esign_otps SET attempt_count=attempt_count+1 WHERE id=$1`,
       [otpRow.id],
     );
     // Re-fetch to get the actual stored hash for comparison
     const { rows: fullRow } = await db.query(
-      `SELECT otp_hash FROM docufill_esign_otps WHERE id=$1`,
+      `SELECT otp_hash FROM docuplete_esign_otps WHERE id=$1`,
       [otpRow.id],
     );
     const storedHash = (fullRow[0] as { otp_hash: string } | undefined)?.otp_hash;
@@ -6350,19 +6350,19 @@ publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
     }
     // Mark OTP as used
     await db.query(
-      `UPDATE docufill_esign_otps SET used_at=NOW() WHERE id=$1`,
+      `UPDATE docuplete_esign_otps SET used_at=NOW() WHERE id=$1`,
       [otpRow.id],
     );
     // Audit event
     const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
     db.query(
-      `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
+      `INSERT INTO docuplete_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
        VALUES ($1, $2, 'otp_verified', $3, $4, $5, $6::jsonb)`,
       [req.params.token, pkgAccountId, email,
        (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? null,
        req.headers["user-agent"] ?? null,
        JSON.stringify({ packageName: session.package_name })],
-    ).catch((err) => logger.warn({ err, token: req.params.token, accountId: pkgAccountId }, "[DocuFill] OTP verified signing event insert failed"));
+    ).catch((err) => logger.warn({ err, token: req.params.token, accountId: pkgAccountId }, "[Docuplete] OTP verified signing event insert failed"));
     // Issue a short-lived identity token
     const identityToken = createEsignIdentityToken(req.params.token, email);
     res.json({ ok: true, identityToken });
@@ -6430,7 +6430,7 @@ publicDocufillRouter.post("/sessions/:token/verify-otp", async (req, res) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
+publicDocupleteRouter.post("/sessions/:token/generate", async (req, res) => {
   try {
     const _parse = GenerateSessionBodySchema.safeParse(req.body ?? {});
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
@@ -6504,7 +6504,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
         fieldIds: Array.isArray(session.fields) ? (session.fields as Array<{ id: string; interviewMode?: string }>).map((f) => `${f.id}:${f.interviewMode ?? "??"}`).join(",") : String(session.fields),
         hasCiphertext: !!(session as Record<string, unknown>).answers_ciphertext,
         source: session.source,
-      }, "[DocuFill] generate 400 — validation failed");
+      }, "[Docuplete] generate 400 — validation failed");
       res.status(400).json({ error: "Packet is missing required or valid fields", ...validation });
       return;
     }
@@ -6521,7 +6521,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
         initialsImage:  esignInitialsImage  ?? undefined,
       });
       await db.query(
-        `UPDATE docufill_interview_sessions SET status = 'generated', updated_at = NOW() WHERE token = $1`,
+        `UPDATE docuplete_interview_sessions SET status = 'generated', updated_at = NOW() WHERE token = $1`,
         [String(req.params.token)],
       );
       const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
@@ -6560,7 +6560,7 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
     const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
     if (pkgAccountId) void recordPdfGenerationEvent(pkgAccountId);
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to enqueue generate job");
+    logger.error({ err }, "[Docuplete] Failed to enqueue generate job");
     const isConnectivityError = err instanceof Error && (
       err.message.includes("ECONNREFUSED") ||
       err.message.includes("ENOTFOUND") ||
@@ -6586,13 +6586,13 @@ publicDocufillRouter.post("/sessions/:token/generate", async (req, res) => {
  * The DB session status is the authoritative source; BullMQ job state provides
  * finer-grained intermediate status (pending → processing → ready | failed).
  */
-publicDocufillRouter.get("/sessions/:token/generate-status", async (req, res) => {
+publicDocupleteRouter.get("/sessions/:token/generate-status", async (req, res) => {
   try {
     const jobId = typeof req.query.jobId === "string" ? req.query.jobId : null;
     const db = getDb();
     // DB is authoritative — check session status first
     const { rows } = await db.query<{ status: string }>(
-      `SELECT status FROM docufill_interview_sessions WHERE token = $1`,
+      `SELECT status FROM docuplete_interview_sessions WHERE token = $1`,
       [req.params.token],
     );
     const row = rows[0];
@@ -6628,12 +6628,12 @@ publicDocufillRouter.get("/sessions/:token/generate-status", async (req, res) =>
           return;
         }
       } catch (queueErr) {
-        logger.warn({ queueErr, jobId }, "[DocuFill] Failed to check BullMQ job state (non-fatal)");
+        logger.warn({ queueErr, jobId }, "[Docuplete] Failed to check BullMQ job state (non-fatal)");
       }
     }
     res.json({ status: "pending" });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to get generate status");
+    logger.error({ err }, "[Docuplete] Failed to get generate status");
     res.status(500).json({ error: "Failed to check generation status" });
   }
 });
@@ -6676,7 +6676,7 @@ publicDocufillRouter.get("/sessions/:token/generate-status", async (req, res) =>
  * Creates a new anonymous interview session for the package that owns this embed key.
  * Called by the embed/v1.js snippet running on a third-party webpage.
  */
-publicDocufillRouter.post("/embed/:embedKey/session", async (req, res) => {
+publicDocupleteRouter.post("/embed/:embedKey/session", async (req, res) => {
   try {
     const _parse = EmptyBodySchema.safeParse(req.body);
     if (!_parse.success) { res.status(400).json({ error: "Invalid request body", issues: _parse.error.issues.map(i => i.message) }); return; }
@@ -6688,7 +6688,7 @@ publicDocufillRouter.post("/embed/:embedKey/session", async (req, res) => {
     const db = getDb();
     const { rows: pkgRows } = await db.query(
       `SELECT p.*, a.custom_domain, a.custom_domain_status
-         FROM docufill_packages p
+         FROM docuplete_packages p
          JOIN accounts a ON a.id = p.account_id
         WHERE p.embed_key = $1 AND p.enable_embed = true AND p.status = 'active'`,
       [embedKey],
@@ -6701,7 +6701,7 @@ publicDocufillRouter.post("/embed/:embedKey/session", async (req, res) => {
     const token = createSessionToken();
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
     await db.query(
-      `INSERT INTO docufill_interview_sessions
+      `INSERT INTO docuplete_interview_sessions
          (token, package_id, package_version, transaction_scope, source, status, test_mode, prefill, answers, expires_at, account_id)
        VALUES ($1, $2, $3, $4, 'embed', 'draft', false, '{}'::jsonb, '{}'::jsonb, $5, $6)`,
       [token, pkg.id, pkg.version ?? 1, pkg.transaction_scope ?? "", expiresAt, pkg.account_id],
@@ -6715,7 +6715,7 @@ publicDocufillRouter.post("/embed/:embedKey/session", async (req, res) => {
     const interviewUrl = `${interviewOrigin}/docuplete/public/${token}`;
     res.status(201).json({ token, interviewUrl });
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to create embed session");
+    logger.error({ err }, "[Docuplete] Failed to create embed session");
     res.status(500).json({ error: "Failed to create session" });
   }
 });
@@ -6761,7 +6761,7 @@ function buildVerifyPayload(
  * Returns the signing metadata for a session (public, no auth required).
  * Optional query param ?hash=<sha256hex> — response includes hashMatches boolean.
  */
-publicDocufillRouter.get("/sessions/:token/verify", async (req, res) => {
+publicDocupleteRouter.get("/sessions/:token/verify", async (req, res) => {
   try {
     const db = getDb();
     const { rows } = await db.query(
@@ -6769,8 +6769,8 @@ publicDocufillRouter.get("/sessions/:token/verify", async (req, res) => {
               s.pdf_sha256, s.tsa_url, (s.tsa_token_b64 IS NOT NULL) AS tsa_obtained,
               s.voided_at, s.voided_reason,
               p.name AS package_name
-         FROM docufill_interview_sessions s
-         JOIN docufill_packages p ON p.id = s.package_id
+         FROM docuplete_interview_sessions s
+         JOIN docuplete_packages p ON p.id = s.package_id
         WHERE s.token = $1`,
       [req.params.token],
     );
@@ -6794,7 +6794,7 @@ publicDocufillRouter.get("/sessions/:token/verify", async (req, res) => {
     const hashParam = typeof req.query.hash === "string" ? req.query.hash.trim() : undefined;
     res.json(buildVerifyPayload(session, String(session.package_name ?? "Document Package"), hashParam));
   } catch (err) {
-    logger.error({ err }, "[DocuFill] verify by token failed");
+    logger.error({ err }, "[Docuplete] verify by token failed");
     res.status(500).json({ error: "Verification lookup failed" });
   }
 });
@@ -6803,7 +6803,7 @@ publicDocufillRouter.get("/sessions/:token/verify", async (req, res) => {
  * GET /docuplete/public/verify?hash=<sha256hex>
  * Finds a signed session by PDF SHA-256 hash and returns its signing metadata.
  */
-publicDocufillRouter.get("/verify", async (req, res) => {
+publicDocupleteRouter.get("/verify", async (req, res) => {
   try {
     const hash = typeof req.query.hash === "string" ? req.query.hash.trim().toLowerCase() : "";
     if (!hash || !/^[0-9a-f]{64}$/.test(hash)) {
@@ -6815,8 +6815,8 @@ publicDocufillRouter.get("/verify", async (req, res) => {
       `SELECT s.token, s.signer_name, s.signer_email, s.signed_at,
               s.pdf_sha256, s.tsa_url, (s.tsa_token_b64 IS NOT NULL) AS tsa_obtained,
               p.name AS package_name
-         FROM docufill_interview_sessions s
-         JOIN docufill_packages p ON p.id = s.package_id
+         FROM docuplete_interview_sessions s
+         JOIN docuplete_packages p ON p.id = s.package_id
         WHERE lower(s.pdf_sha256) = $1 AND s.signed_at IS NOT NULL`,
       [hash],
     );
@@ -6827,12 +6827,12 @@ publicDocufillRouter.get("/verify", async (req, res) => {
     }
     res.json(buildVerifyPayload(session, String(session.package_name ?? "Document Package"), hash));
   } catch (err) {
-    logger.error({ err }, "[DocuFill] verify by hash failed");
+    logger.error({ err }, "[Docuplete] verify by hash failed");
     res.status(500).json({ error: "Verification lookup failed" });
   }
 });
 
-publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
+publicDocupleteRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
   try {
     const db = getDb();
     const session = await getSession(req.params.token, db);
@@ -6854,7 +6854,7 @@ publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
         const file = await objectStorage.getObjectEntityFile(storageKey);
         const storageRes = await objectStorage.downloadObject(file, 0);
         res.setHeader("Content-Type", "application/pdf");
-        res.setHeader("Content-Disposition", `inline; filename=docufill-${req.params.token}.pdf`);
+        res.setHeader("Content-Disposition", `inline; filename=docuplete-${req.params.token}.pdf`);
         const contentLength = storageRes.headers.get("Content-Length");
         if (contentLength) res.setHeader("Content-Length", contentLength);
         const reader = storageRes.body!.getReader();
@@ -6868,7 +6868,7 @@ publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
         return;
       } catch (storageErr) {
         if (!(storageErr instanceof ObjectNotFoundError)) {
-          logger.warn({ storageErr, token: req.params.token }, "[DocuFill] Storage read failed — falling back to regeneration");
+          logger.warn({ storageErr, token: req.params.token }, "[Docuplete] Storage read failed — falling back to regeneration");
         }
       }
     }
@@ -6894,11 +6894,11 @@ publicDocufillRouter.get("/sessions/:token/packet.pdf", async (req, res) => {
       }
     }
     res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `inline; filename=docufill-${req.params.token}.pdf`);
+    res.setHeader("Content-Disposition", `inline; filename=docuplete-${req.params.token}.pdf`);
     res.setHeader("Content-Length", String(output.length));
     res.end(output);
   } catch (err) {
-    logger.error({ err }, "[DocuFill] Failed to preview public packet PDF");
+    logger.error({ err }, "[Docuplete] Failed to preview public packet PDF");
     if (!res.headersSent) res.status(500).json({ error: "Failed to preview packet" });
   }
 });
@@ -6951,7 +6951,7 @@ export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | 
         return;
       }
 
-      const generated = buildDocuFillPacketSummary(session);
+      const generated = buildDocupletePacketSummary(session);
       let pdfBuffer = await buildPacketPdfBuffer(session, db, {
         signatureImage: esignSignatureImage ?? undefined,
         signerName:     esignSignerName     ?? undefined,
@@ -6965,7 +6965,7 @@ export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | 
       if (rootFolderId) {
         try {
           const prefill = typeof session.prefill === "object" && session.prefill ? session.prefill as Record<string, unknown> : {};
-          driveResult = await saveDocuFillPacketToDrive(pdfBuffer, {
+          driveResult = await saveDocupletePacketToDrive(pdfBuffer, {
             dealId:      Number(session.deal_id) || null,
             firstName:   cleanText(prefill.firstName),
             lastName:    cleanText(prefill.lastName),
@@ -7073,7 +7073,7 @@ export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | 
 
       // ── Update DB ──────────────────────────────────────────────────────────
       await db.query(
-        `UPDATE docufill_interview_sessions
+        `UPDATE docuplete_interview_sessions
             SET status='generated',
                 generated_packet=$1::jsonb,
                 generated_pdf_drive_id=$2,
@@ -7103,7 +7103,7 @@ export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | 
       if (esignEmail) {
         const pkgAccountId = typeof session.package_account_id === "number" ? session.package_account_id : null;
         db.query(
-          `INSERT INTO docufill_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
+          `INSERT INTO docuplete_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
            VALUES ($1, $2, 'signed', $3, $4, $5, $6::jsonb)`,
           [sessionToken, pkgAccountId, esignEmail, signerIp ?? null, signerUa ?? null,
            JSON.stringify({
@@ -7265,7 +7265,7 @@ export function registerDeliverWebhookProcessor(): Worker<DeliverWebhookJobPaylo
       let secret: string | null = null;
       try {
         const { rows } = await db.query<{ webhook_secret: string }>(
-          `SELECT webhook_secret FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+          `SELECT webhook_secret FROM docuplete_packages WHERE id = $1 AND account_id = $2`,
           [packageId, accountId],
         );
         secret = rows[0]?.webhook_secret ?? null;

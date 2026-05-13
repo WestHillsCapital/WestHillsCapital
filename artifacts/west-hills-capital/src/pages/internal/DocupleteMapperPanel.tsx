@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useDocuFillStore } from "@/stores/useDocuFillStore";
+import { useDocupleteStore } from "@/stores/useDocupleteStore";
 import { useShallow } from "zustand/react/shallow";
 import { ChevronLeft, ChevronRight, Crosshair } from "lucide-react";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
@@ -7,17 +7,17 @@ import { DndContext, closestCenter, useSensors, type DragEndEvent } from "@dnd-k
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE, isSystemEsignFieldId } from "@/lib/docufill-redaction";
-import { type FieldItem, type MappingItem, type MappingFormat, type RecipientItem } from "@/lib/docufill-types";
-import type { DocItem, FieldLibraryItem, FieldGroup, PackageItem } from "@/lib/docufill-local-types";
+import { ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE, isSystemEsignFieldId } from "@/lib/docuplete-redaction";
+import { type FieldItem, type MappingItem, type MappingFormat, type RecipientItem } from "@/lib/docuplete-types";
+import type { DocItem, FieldLibraryItem, FieldGroup, PackageItem } from "@/lib/docuplete-local-types";
 import { MappingButton } from "@/components/MappingButton";
 import { FieldCard } from "@/components/FieldCard";
-import { EmptyState } from "@/components/DocuFillPanels";
+import { EmptyState } from "@/components/DocupletePanels";
 import { DocumentPreviewTile } from "@/components/DocumentPreviewTile";
-import { ScrollPageCanvas } from "@/components/DocuFillWidgets";
+import { ScrollPageCanvas } from "@/components/DocupleteWidgets";
 import { type BuilderStep, BUILDER_STEPS } from "@/components/PackagePickerSidebar";
-import { SortableItem, DragGuideLines, ResizeDimTooltip } from "@/components/DocuFillDndHelpers";
-import { labelForMappingFormat, sampleValueForMapping } from "@/lib/docufill-mapping-utils";
+import { SortableItem, DragGuideLines, ResizeDimTooltip } from "@/components/DocupleteDndHelpers";
+import { labelForMappingFormat, sampleValueForMapping } from "@/lib/docuplete-mapping-utils";
 import * as pdfjsLib from "pdfjs-dist";
 
 const SYSTEM_ESIGN_FIELDS: Array<{ id: string; name: string; type: FieldItem["type"]; description: string }> = [
@@ -171,7 +171,7 @@ function buildMultiDocPageIndex(
   return items;
 }
 
-export interface DocuFillMapperPanelProps {
+export interface DocupleteMapperPanelProps {
   selectedPackage: PackageItem;
   selectedDocument: DocItem | null;
   selectedDocumentId: string | null;
@@ -244,12 +244,12 @@ export interface DocuFillMapperPanelProps {
   removeRecipient: (id: string) => void;
   updateRecipient: (id: string, patch: Partial<RecipientItem>) => void;
   getAuthHeaders: () => HeadersInit;
-  docufillApiPath: string;
+  docupleteApiPath: string;
   documentPreviewCache: React.MutableRefObject<Record<string, string>>;
   documentPreviewCacheOrder: React.MutableRefObject<string[]>;
 }
 
-export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props: DocuFillMapperPanelProps) {
+export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(props: DocupleteMapperPanelProps) {
   const {
     selectedPackage, selectedDocument, selectedDocumentId, setSelectedDocumentId,
     selectedPage, setSelectedPage, nativePageW, nativePageH, effectiveScale,
@@ -265,20 +265,20 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
     removeField, removeSelectedMapping, updateSelectedMapping, chooseMappingFormat, duplicateMapping,
     openFieldEditorForEdit, openFieldEditorForAdd, autoMapFromPdfFields, dropFieldOnPage, placeFieldAtCoords,
     updateFieldInPackage, copyField, addLibraryFieldToPackage, fieldGroups, addGroupToPackage, removeRecipient, updateRecipient,
-    getAuthHeaders, docufillApiPath, documentPreviewCache, documentPreviewCacheOrder,
+    getAuthHeaders, docupleteApiPath, documentPreviewCache, documentPreviewCacheOrder,
   } = props;
 
   // ── Internal store subscriptions (these fire at 60fps during drag/resize) ─
-  const storeDragGuides = useDocuFillStore((s) => s.dragGuides);
-  const storeResizeDim = useDocuFillStore((s) => s.resizeDim);
-  const mapperTextMode = useDocuFillStore((s) => s.mapperTextMode);
-  const setMapperTextMode = useDocuFillStore((s) => s.setMapperTextMode);
-  const selectedMappingId = useDocuFillStore((s) => s.selectedMappingId);
-  const setSelectedMappingId = useDocuFillStore((s) => s.setSelectedMappingId);
-  const selectedMapping = useDocuFillStore((s) => s.mappings.find((m) => m.id === s.selectedMappingId) ?? null);
-  const storeMappings = useDocuFillStore((s) => s.mappings);
-  const storeRecipientList = useDocuFillStore((s) => s.recipientList);
-  const pageMappingIds = useDocuFillStore(
+  const storeDragGuides = useDocupleteStore((s) => s.dragGuides);
+  const storeResizeDim = useDocupleteStore((s) => s.resizeDim);
+  const mapperTextMode = useDocupleteStore((s) => s.mapperTextMode);
+  const setMapperTextMode = useDocupleteStore((s) => s.setMapperTextMode);
+  const selectedMappingId = useDocupleteStore((s) => s.selectedMappingId);
+  const setSelectedMappingId = useDocupleteStore((s) => s.setSelectedMappingId);
+  const selectedMapping = useDocupleteStore((s) => s.mappings.find((m) => m.id === s.selectedMappingId) ?? null);
+  const storeMappings = useDocupleteStore((s) => s.mappings);
+  const storeRecipientList = useDocupleteStore((s) => s.recipientList);
+  const pageMappingIds = useDocupleteStore(
     useShallow((s): string[] => {
       if (!selectedDocument) return [];
       const knownFieldIds = new Set(selectedPackage.fields.map((f) => f.id));
@@ -292,10 +292,10 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
 
   // ── Field list filter / sort / click-to-place ─────────────────────────────
   const [showUnplacedOnly, setShowUnplacedOnly] = useState(() => {
-    try { return localStorage.getItem("docufill-field-filter-unplaced") === "1"; } catch { return false; }
+    try { return localStorage.getItem("docuplete-field-filter-unplaced") === "1"; } catch { return false; }
   });
   const [fieldSort, setFieldSort] = useState<"default" | "alpha" | "unplaced-first">(() => {
-    const v = (() => { try { return localStorage.getItem("docufill-field-sort"); } catch { return null; } })();
+    const v = (() => { try { return localStorage.getItem("docuplete-field-sort"); } catch { return null; } })();
     return v === "alpha" || v === "unplaced-first" ? v : "default";
   });
   const [clickToPlaceFieldId, setClickToPlaceFieldId] = useState<string | null>(null);
@@ -367,7 +367,7 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
         if (!blobUrl) {
           try {
             const res = await fetch(
-              `${docufillApiPath}/packages/${selectedPackage.id}/documents/${doc.id}.pdf`,
+              `${docupleteApiPath}/packages/${selectedPackage.id}/documents/${doc.id}.pdf`,
               { headers: { ...getAuthHeadersRef.current() } },
             );
             if (!res.ok || cancelled) { setMultiScrollPdfDocs((p) => ({ ...p, [doc.id]: null })); continue; }
@@ -519,7 +519,7 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
                         order={index + 1}
                         selected={selectedDocument?.id === doc.id}
                         getAuthHeaders={getAuthHeaders}
-                        docufillApiPath={docufillApiPath}
+                        docupleteApiPath={docupleteApiPath}
                         previewCache={documentPreviewCache}
                         previewCacheOrder={documentPreviewCacheOrder}
                         onSelect={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }}
@@ -628,7 +628,7 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
               onClick={() => {
                 const next = inspectorMode === "panel" ? "modal" : "panel";
                 setInspectorMode(next);
-                localStorage.setItem("docufill-inspector-mode", next);
+                localStorage.setItem("docuplete-inspector-mode", next);
                 setPlacementModal(null);
               }}
               className="flex items-center gap-1.5 text-[11px] font-medium border border-[#DDD5C4] rounded-md px-2.5 h-[26px] leading-none bg-white text-[#6B7A8A] hover:bg-[#F8F5F0] hover:text-[#3A4A5A] transition-colors"
@@ -929,7 +929,7 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
                     setSelectedMappingId(mappingId);
                     setSelectedFieldId(meta.fieldId);
                     if (inspectorMode === "panel") {
-                      const fullM = useDocuFillStore.getState().mappings.find((m) => m.id === mappingId);
+                      const fullM = useDocupleteStore.getState().mappings.find((m) => m.id === mappingId);
                       setPlacementModal({ mappingId, pdfX: fullM?.x ?? 0, pdfY: fullM?.y ?? 0 });
                       setPlacementModalPos(null);
                     }
@@ -937,7 +937,7 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
                   onContextMenu={(e) => {
                     e.preventDefault(); e.stopPropagation();
                     setSelectedMappingId(mappingId); setSelectedFieldId(meta.fieldId);
-                    const fullM = useDocuFillStore.getState().mappings.find((m) => m.id === mappingId);
+                    const fullM = useDocupleteStore.getState().mappings.find((m) => m.id === mappingId);
                     setPlacementModal({ mappingId, pdfX: fullM?.x ?? 0, pdfY: fullM?.y ?? 0 });
                     setPlacementModalPos(null);
                   }}
@@ -1000,12 +1000,12 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
             <div className="flex items-center gap-3 text-[11px] font-medium border-b border-[#EFE8D8]">
               <button
                 type="button"
-                onClick={() => { setShowUnplacedOnly(false); try { localStorage.setItem("docufill-field-filter-unplaced", ""); } catch {} }}
+                onClick={() => { setShowUnplacedOnly(false); try { localStorage.setItem("docuplete-field-filter-unplaced", ""); } catch {} }}
                 className={`pb-1 transition-colors border-b-2 -mb-px ${!showUnplacedOnly ? "border-[#C49A38] text-[#0F1C3F]" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
               >All</button>
               <button
                 type="button"
-                onClick={() => { setShowUnplacedOnly(true); try { localStorage.setItem("docufill-field-filter-unplaced", "1"); } catch {} }}
+                onClick={() => { setShowUnplacedOnly(true); try { localStorage.setItem("docuplete-field-filter-unplaced", "1"); } catch {} }}
                 className={`pb-1 transition-colors border-b-2 -mb-px ${showUnplacedOnly ? "border-[#C49A38] text-[#0F1C3F]" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
               >Unplaced{unplacedCount > 0 ? <span className="ml-0.5 opacity-60">({unplacedCount})</span> : null}</button>
             </div>
@@ -1014,7 +1014,7 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
               onChange={(e) => {
                 const v = e.target.value as typeof fieldSort;
                 setFieldSort(v);
-                try { localStorage.setItem("docufill-field-sort", v); } catch {}
+                try { localStorage.setItem("docuplete-field-sort", v); } catch {}
               }}
               className="text-[10px] border border-[#DDD5C4] rounded bg-white text-[#6B7A99] h-[22px] px-1.5 leading-none cursor-pointer"
             >

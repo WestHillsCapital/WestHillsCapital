@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 import * as pdfjsLib from "pdfjs-dist";
-import type { DocItem } from "@/lib/docufill-local-types";
+import type { DocItem } from "@/lib/docuplete-local-types";
 
 const API_BASE = import.meta.env.DEV
   ? ""
@@ -12,7 +12,7 @@ interface DocumentPreviewTileProps {
   order: number;
   selected: boolean;
   getAuthHeaders: () => HeadersInit;
-  docufillApiPath: string;
+  docupleteApiPath: string;
   previewCache: { current: Record<string, string> };
   previewCacheOrder: { current: string[] };
   onSelect: () => void;
@@ -25,7 +25,7 @@ export const DocumentPreviewTile = memo(function DocumentPreviewTile({
   order,
   selected,
   getAuthHeaders,
-  docufillApiPath,
+  docupleteApiPath,
   previewCache,
   previewCacheOrder,
   onSelect,
@@ -50,7 +50,7 @@ export const DocumentPreviewTile = memo(function DocumentPreviewTile({
       setPreviewUrl(cachedUrl);
       return;
     }
-    fetch(`${API_BASE}${docufillApiPath}/packages/${packageId}/documents/${doc.id}.pdf`, { headers: { ...getAuthHeadersRef.current() } })
+    fetch(`${API_BASE}${docupleteApiPath}/packages/${packageId}/documents/${doc.id}.pdf`, { headers: { ...getAuthHeadersRef.current() } })
       .then((res) => {
         if (!res.ok) throw new Error("Could not load document preview");
         return res.blob();

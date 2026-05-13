@@ -1,6 +1,6 @@
 import { memo, type PointerEvent as ReactPointerEvent, type MouseEvent } from "react";
-import { type RecipientItem } from "@/lib/docufill-types";
-import { useDocuFillStore } from "@/stores/useDocuFillStore";
+import { type RecipientItem } from "@/lib/docuplete-types";
+import { useDocupleteStore } from "@/stores/useDocupleteStore";
 
 export interface MappingButtonProps {
   mappingId: string;
@@ -35,9 +35,9 @@ export const MappingButton = memo(function MappingButton({
   onClick,
   onContextMenu,
 }: MappingButtonProps) {
-  const m = useDocuFillStore((s) => s.mappings.find((item) => item.id === mappingId));
-  const isSelected = useDocuFillStore((s) => s.selectedMappingId === mappingId);
-  const mapperTextMode = useDocuFillStore((s) => s.mapperTextMode);
+  const m = useDocupleteStore((s) => s.mappings.find((item) => item.id === mappingId));
+  const isSelected = useDocupleteStore((s) => s.selectedMappingId === mappingId);
+  const mapperTextMode = useDocupleteStore((s) => s.mapperTextMode);
 
   if (!m) return null;
 

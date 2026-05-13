@@ -3,16 +3,16 @@ import { useLocation } from "wouter";
 import type { Customer } from "../types";
 import {
   DOCUFILL_TRANSACTION_TYPES,
-  getMatchingDocuFillPackages,
-  getDocuFillTransactionLabel,
-  resolveDocuFillSelections,
-  type DocuFillEntity,
-  type DocuFillPackage,
+  getMatchingDocupletePackages,
+  getDocupleteTransactionLabel,
+  resolveDocupleteSelections,
+  type DocupleteEntity,
+  type DocupletePackage,
 } from "../utils";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
-type DocuFillTransactionType = {
+type DocupleteTransactionType = {
   scope: string;
   label: string;
   active: boolean;
@@ -30,7 +30,7 @@ interface Props {
   onTransactionScopeChange: (scope: string) => void;
 }
 
-export function DocuFillPackagesSection({
+export function DocupletePackagesSection({
   customer,
   setCustomer,
   savedDealId,
@@ -42,10 +42,10 @@ export function DocuFillPackagesSection({
   onTransactionScopeChange,
 }: Props) {
   const [, navigate] = useLocation();
-  const [custodians, setCustodians] = useState<DocuFillEntity[]>([]);
-  const [depositories, setDepositories] = useState<DocuFillEntity[]>([]);
-  const [transactionTypes, setTransactionTypes] = useState<DocuFillTransactionType[]>([]);
-  const [packages, setPackages] = useState<DocuFillPackage[]>([]);
+  const [custodians, setCustodians] = useState<DocupleteEntity[]>([]);
+  const [depositories, setDepositories] = useState<DocupleteEntity[]>([]);
+  const [transactionTypes, setTransactionTypes] = useState<DocupleteTransactionType[]>([]);
+  const [packages, setPackages] = useState<DocupletePackage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -54,9 +54,9 @@ export function DocuFillPackagesSection({
 
   useEffect(() => {
     setIsLoading(true);
-    fetch(`${API_BASE}/api/internal/docufill/bootstrap`, { headers: { ...getAuthHeadersRef.current() } })
+    fetch(`${API_BASE}/api/internal/docuplete/bootstrap`, { headers: { ...getAuthHeadersRef.current() } })
       .then((res) => res.ok ? res.json() : Promise.reject(new Error("Could not load packages")))
-      .then((data: { custodians: DocuFillEntity[]; depositories: DocuFillEntity[]; transactionTypes?: DocuFillTransactionType[]; packages: DocuFillPackage[] }) => {
+      .then((data: { custodians: DocupleteEntity[]; depositories: DocupleteEntity[]; transactionTypes?: DocupleteTransactionType[]; packages: DocupletePackage[] }) => {
         setCustodians(data.custodians ?? []);
         setDepositories(data.depositories ?? []);
         setTransactionTypes(data.transactionTypes?.length ? data.transactionTypes : DOCUFILL_TRANSACTION_TYPES.map((item) => ({ scope: item.value, label: item.label, active: true })));
@@ -67,13 +67,13 @@ export function DocuFillPackagesSection({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const { selectedCustodian, selectedDepository } = resolveDocuFillSelections(customer, custodians, depositories);
+  const { selectedCustodian, selectedDepository } = resolveDocupleteSelections(customer, custodians, depositories);
 
   const matchingPackages = useMemo(() => {
-    return getMatchingDocuFillPackages(packages, selectedCustodian, selectedDepository, transactionScope);
+    return getMatchingDocupletePackages(packages, selectedCustodian, selectedDepository, transactionScope);
   }, [packages, selectedCustodian, selectedDepository, transactionScope]);
 
-  const labelForScope = (scope: string) => transactionTypes.find((item) => item.scope === scope)?.label ?? getDocuFillTransactionLabel(scope);
+  const labelForScope = (scope: string) => transactionTypes.find((item) => item.scope === scope)?.label ?? getDocupleteTransactionLabel(scope);
 
   useEffect(() => {
     const custodianDiffers = selectedCustodian && customer.custodianId !== String(selectedCustodian.id);
@@ -111,7 +111,7 @@ export function DocuFillPackagesSection({
         </div>
         <button
           type="button"
-          onClick={() => navigate("/internal/docufill")}
+          onClick={() => navigate("/internal/docuplete")}
           className="text-xs px-2.5 py-1.5 rounded border border-[#DDD5C4] text-[#6B7A99] hover:text-[#0F1C3F] shrink-0"
         >
           Manage

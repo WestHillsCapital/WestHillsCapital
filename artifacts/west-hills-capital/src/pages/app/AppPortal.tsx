@@ -2,12 +2,12 @@ import { lazy, Suspense, useEffect } from "react";
 import { Switch, Route, useLocation } from "wouter";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { useProductRole } from "@/hooks/useProductRole";
-import { DocuFillConfigProvider } from "@/hooks/useDocuFillConfig";
+import { DocupleteConfigProvider } from "@/hooks/useDocupleteConfig";
 import { InternalAuthProvider } from "@/hooks/useInternalAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { TwoFAGate } from "@/components/auth/TwoFAGate";
 import AppOnboard from "./AppOnboard";
-import DocuFill from "@/pages/internal/DocuFill";
+import Docuplete from "@/pages/internal/Docuplete";
 
 const AppSettings = lazy(() => import("./AppSettings"));
 const AppSessionsPage = lazy(() => import("./AppSessions"));
@@ -29,11 +29,11 @@ function SignInRedirect() {
   return <Spinner />;
 }
 
-function DocuFillWrapper({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
+function DocupleteWrapper({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }) {
   const { isAdmin } = useProductRole(getAuthHeaders);
   return (
     <InternalAuthProvider>
-      <DocuFillConfigProvider
+      <DocupleteConfigProvider
         config={{
           apiPath: "/api/v1/product/docuplete",
           getAuthHeaders,
@@ -41,9 +41,9 @@ function DocuFillWrapper({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit
         }}
       >
         <Suspense fallback={<Spinner />}>
-          <DocuFill />
+          <Docuplete />
         </Suspense>
-      </DocuFillConfigProvider>
+      </DocupleteConfigProvider>
     </InternalAuthProvider>
   );
 }
@@ -136,7 +136,7 @@ export default function AppPortal() {
             <AppSessionsPage getAuthHeaders={getAuthHeaders} />
           </Route>
           <Route>
-            <DocuFillWrapper getAuthHeaders={getAuthHeaders} />
+            <DocupleteWrapper getAuthHeaders={getAuthHeaders} />
           </Route>
         </Switch>
       </Suspense>

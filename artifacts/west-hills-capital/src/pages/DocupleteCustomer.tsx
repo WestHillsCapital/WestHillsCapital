@@ -3,7 +3,7 @@ import { useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { validateFieldValue, fieldFormatHint, buildSensitiveMask } from "@/lib/validateField";
-import { ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE } from "@/lib/docufill-redaction";
+import { ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE } from "@/lib/docuplete-redaction";
 import SignaturePad, { type SignaturePadRef } from "@/components/SignaturePad";
 import { MerlinCustomerChat } from "@/components/MerlinCustomerChat";
 import { HowItWorksAnimation } from "@/components/HowItWorksAnimation";
@@ -305,7 +305,7 @@ function PdfPageCanvas({ bitmap }: { bitmap: ImageBitmap }) {
   );
 }
 
-export default function DocuFillCustomer() {
+export default function DocupleteCustomer() {
   const params = useParams<{ token: string }>();
   const token = params.token ?? "";
   const isEmbed   = new URLSearchParams(window.location.search).get("embed")   === "1";

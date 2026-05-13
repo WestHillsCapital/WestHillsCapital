@@ -1,10 +1,10 @@
 import React, { type ReactNode, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import type { FieldItem } from "@/lib/docufill-types";
-import { validateCellValue, tryAutoFix, autoFixLabel, validationTypeHint } from "@/lib/docufill-field-utils";
-import { packageTemplateToCsv, downloadCsv, batchResultsToCsv } from "@/lib/docufill-csv";
-import type { PackageItem } from "@/lib/docufill-local-types";
+import type { FieldItem } from "@/lib/docuplete-types";
+import { validateCellValue, tryAutoFix, autoFixLabel, validationTypeHint } from "@/lib/docuplete-field-utils";
+import { packageTemplateToCsv, downloadCsv, batchResultsToCsv } from "@/lib/docuplete-csv";
+import type { PackageItem } from "@/lib/docuplete-local-types";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
 const CSV_BATCH_MAX = 3000;
@@ -43,7 +43,7 @@ type CsvInviteResult = {
 
 export type CsvDashboardTab = "import" | "dashboard";
 
-export interface DocuFillCsvPanelProps {
+export interface DocupleteCsvPanelProps {
   packages: PackageItem[];
   activePackages: PackageItem[];
   csvDashboardTab: CsvDashboardTab;
@@ -105,12 +105,12 @@ export interface DocuFillCsvPanelProps {
   setCsvInviteResults: React.Dispatch<React.SetStateAction<Record<string, CsvInviteResult>>>;
   labelForTransactionScope: (scope: string | null | undefined) => string;
   getAuthHeaders: () => HeadersInit;
-  docufillApiPath: string;
+  docupleteApiPath: string;
   handleCsvBatchFileChange: (file: File | null) => void;
   handleCsvBatchImport: (retryRowIndices?: number[]) => void;
 }
 
-export const DocuFillCsvPanel = React.memo(function DocuFillCsvPanel(props: DocuFillCsvPanelProps) {
+export const DocupleteCsvPanel = React.memo(function DocupleteCsvPanel(props: DocupleteCsvPanelProps) {
   const {
     packages, activePackages,
     csvDashboardTab, setCsvDashboardTab,
@@ -134,7 +134,7 @@ export const DocuFillCsvPanel = React.memo(function DocuFillCsvPanel(props: Docu
     csvInviteMessage, setCsvInviteMessage,
     csvInviteSending, setCsvInviteSending,
     csvInviteResults, setCsvInviteResults,
-    labelForTransactionScope, getAuthHeaders, docufillApiPath,
+    labelForTransactionScope, getAuthHeaders, docupleteApiPath,
     handleCsvBatchFileChange, handleCsvBatchImport,
   } = props;
 
@@ -193,7 +193,7 @@ export const DocuFillCsvPanel = React.memo(function DocuFillCsvPanel(props: Docu
                         setCsvDashExpanded(next);
                         if (next && !csvDashRunSessions[run.batch_run_id]) {
                           setCsvDashRunLoading((p) => ({ ...p, [run.batch_run_id]: true }));
-                          fetch(`${API_BASE}${docufillApiPath}/batch-runs/${run.batch_run_id}`, { headers: getAuthHeaders() })
+                          fetch(`${API_BASE}${docupleteApiPath}/batch-runs/${run.batch_run_id}`, { headers: getAuthHeaders() })
                             .then((r) => r.json())
                             .then((d: { sessions: typeof rowSessions }) => setCsvDashRunSessions((p) => ({ ...p, [run.batch_run_id]: d.sessions ?? [] })))
                             .catch(() => {})
@@ -253,7 +253,7 @@ export const DocuFillCsvPanel = React.memo(function DocuFillCsvPanel(props: Docu
                                     voided:    { label: "Voided",    cls: "bg-red-50 text-red-600" },
                                   };
                                   const statusInfo = statusMap[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-500" };
-                                  const pdfUrl = `${API_BASE}${docufillApiPath}/sessions/${s.token}/packet.pdf`;
+                                  const pdfUrl = `${API_BASE}${docupleteApiPath}/sessions/${s.token}/packet.pdf`;
                                   return (
                                     <tr key={s.token} className="hover:bg-[#FAFAF8]">
                                       <td className="px-4 py-2 text-xs text-[#8A9BB8]">{idx + 1}</td>
@@ -1048,7 +1048,7 @@ export const DocuFillCsvPanel = React.memo(function DocuFillCsvPanel(props: Docu
                       <td className="px-3 py-2 text-[#6B7A99] font-mono text-[10px] max-w-[160px] truncate">{result.token ?? "—"}</td>
                       <td className="px-3 py-2">
                         {result.status === "created" && result.token
-                          ? <a href={`/internal/docufill?session=${result.token}`} target="_blank" rel="noreferrer" className="text-[#C49A38] underline">Open session</a>
+                          ? <a href={`/internal/docuplete?session=${result.token}`} target="_blank" rel="noreferrer" className="text-[#C49A38] underline">Open session</a>
                           : <span className="text-[#8A9BB8]">—</span>
                         }
                       </td>
@@ -1131,7 +1131,7 @@ export const DocuFillCsvPanel = React.memo(function DocuFillCsvPanel(props: Docu
                                       recipientName: csvNameHeader ? (csvBatchRows[r.rowIndex]?.[csvNameHeader] ?? "").trim() : "",
                                     }));
                                     try {
-                                      const res = await fetch(`${API_BASE}${docufillApiPath}/batch/send-links`, {
+                                      const res = await fetch(`${API_BASE}${docupleteApiPath}/batch/send-links`, {
                                         method: "POST",
                                         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
                                         body: JSON.stringify({ invitations, customMessage: csvInviteMessage || null }),
@@ -1171,7 +1171,7 @@ export const DocuFillCsvPanel = React.memo(function DocuFillCsvPanel(props: Docu
                                           recipientName: csvNameHeader ? (csvBatchRows[r.rowIndex]?.[csvNameHeader] ?? "").trim() : "",
                                         }));
                                         try {
-                                          const res = await fetch(`${API_BASE}${docufillApiPath}/batch/send-links`, {
+                                          const res = await fetch(`${API_BASE}${docupleteApiPath}/batch/send-links`, {
                                             method: "POST",
                                             headers: { "Content-Type": "application/json", ...getAuthHeaders() },
                                             body: JSON.stringify({ invitations: retryInvitations, customMessage: csvInviteMessage || null }),

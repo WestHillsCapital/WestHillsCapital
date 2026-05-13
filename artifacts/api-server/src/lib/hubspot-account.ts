@@ -3,7 +3,7 @@
  *
  * Uses HubSpot's OAuth 2.0 flow to store per-account access + refresh tokens.
  * On submission, creates or updates a HubSpot contact with data extracted from
- * the DocuFill session (prefill values + interview answers).
+ * the Docuplete session (prefill values + interview answers).
  *
  * Access tokens expire after 30 minutes; the lib retries once with a fresh
  * token on 401 and returns the new token so callers can persist it.
@@ -226,7 +226,7 @@ export const SOURCE_KEY_TO_HUBSPOT: Record<string, keyof HubSpotContactPropertie
 const FULL_NAME_SOURCE_KEYS = new Set(["fullName", "clientName", "signerName", "name"]);
 
 /**
- * Derives HubSpot contact properties from a DocuFill session's prefill
+ * Derives HubSpot contact properties from a Docuplete session's prefill
  * values and interview answers.
  *
  * Priority order for each property:

@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from "react";
 import { CheckCircle2, AlertCircle, Minus, X, Lock, ChevronDown, Search, ArrowRight, Info, Zap, TrendingUp } from "lucide-react";
-import type { FieldItem } from "@/lib/docufill-types";
-import type { FieldLibraryItem } from "@/lib/docufill-local-types";
+import type { FieldItem } from "@/lib/docuplete-types";
+import type { FieldLibraryItem } from "@/lib/docuplete-local-types";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

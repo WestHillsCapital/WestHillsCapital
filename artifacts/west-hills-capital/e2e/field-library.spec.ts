@@ -12,7 +12,7 @@ import { test, expect } from "@playwright/test";
  * Skipped automatically when CLERK_SECRET_KEY is not set.
  */
 
-const FIELD_LIBRARY = "/internal/docufill";
+const FIELD_LIBRARY = "/internal/docuplete";
 
 test.describe("Field Library CRUD", () => {
   test.beforeEach(async ({ page }) => {

@@ -65,10 +65,10 @@ const InternalProspectingPipeline = lazy(() => import("@/pages/internal/Leads"))
 const InternalScheduledCalls      = lazy(() => import("@/pages/internal/Appointments"));
 const DealBuilder                 = lazy(() => import("@/pages/internal/DealBuilder"));
 const ContentEngine               = lazy(() => import("@/pages/internal/ContentEngine"));
-const DocuFillInternal            = lazy(() => import("@/pages/internal/DocuFill"));
+const DocupleteInternal            = lazy(() => import("@/pages/internal/Docuplete"));
 const SettingsInternal            = lazy(() => import("@/pages/internal/Settings"));
 const SuperAdminInternal          = lazy(() => import("@/pages/internal/SuperAdmin"));
-const DocuFillCustomer            = lazy(() => import("@/pages/DocuFillCustomer"));
+const DocupleteCustomer            = lazy(() => import("@/pages/DocupleteCustomer"));
 const SandboxLanding              = lazy(() => import("@/pages/Sandbox"));
 
 // ── Product portal pages (Clerk-auth, lazy-loaded) ────────────────────────────
@@ -122,9 +122,9 @@ function InternalRouter() {
           </ErrorBoundary>
         </Route>
         <Route path="/internal/content"              component={ContentEngine}               />
-        <Route path="/internal/docufill">
-          <ErrorBoundary inline label="DocuFill mapper">
-            <DocuFillInternal />
+        <Route path="/internal/docuplete">
+          <ErrorBoundary inline label="Docuplete mapper">
+            <DocupleteInternal />
           </ErrorBoundary>
         </Route>
         <Route path="/internal/settings"             component={SettingsInternal}            />
@@ -174,7 +174,7 @@ function Router() {
         <ErrorBoundary label="signing form" inline>
           <Suspense fallback={<PageSpinner />}>
             <Switch>
-              <Route path="/docuplete/public/:token" component={DocuFillCustomer} />
+              <Route path="/docuplete/public/:token" component={DocupleteCustomer} />
             </Switch>
           </Suspense>
         </ErrorBoundary>

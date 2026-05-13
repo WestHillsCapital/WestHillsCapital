@@ -1,12 +1,12 @@
-import { isSystemEsignFieldId } from "@/lib/docufill-redaction";
-import { mappingFormatOptionsForField } from "@/lib/docufill-mapping-utils";
+import { isSystemEsignFieldId } from "@/lib/docuplete-redaction";
+import { mappingFormatOptionsForField } from "@/lib/docuplete-mapping-utils";
 import {
   type FieldInterviewMode,
   type FieldItem,
   type MappingItem,
   type MappingFormat,
   type RecipientItem,
-} from "@/lib/docufill-types";
+} from "@/lib/docuplete-types";
 
 export interface PlacementModalProps {
   mapping: MappingItem;

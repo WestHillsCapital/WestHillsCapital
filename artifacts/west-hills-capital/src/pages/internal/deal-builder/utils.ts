@@ -46,13 +46,13 @@ export const EMPTY_ROWS: ProductRow[] = PRODUCT_DEFS.map((d) => ({
   ...d, qty: "", unitPrice: "",
 }));
 
-export type DocuFillEntity = {
+export type DocupleteEntity = {
   id: number;
   name: string;
   active: boolean;
 };
 
-export type DocuFillPackage = {
+export type DocupletePackage = {
   id: number;
   name: string;
   custodian_id: number | null;
@@ -74,11 +74,11 @@ export const DOCUFILL_TRANSACTION_TYPES = [
   { value: "address_change", label: "Address change" },
 ] as const;
 
-export function getDocuFillTransactionLabel(scope: string | null | undefined) {
+export function getDocupleteTransactionLabel(scope: string | null | undefined) {
   return DOCUFILL_TRANSACTION_TYPES.find((item) => item.value === scope)?.label ?? "IRA transfer / rollover";
 }
 
-export function normalizeDocuFillTransactionScope(scope: string | null | undefined) {
+export function normalizeDocupleteTransactionScope(scope: string | null | undefined) {
   if (DOCUFILL_TRANSACTION_TYPES.some((item) => item.value === scope)) return scope as string;
   const text = String(scope ?? "").toLowerCase();
   if (text.includes("contribution")) return "ira_contribution";
@@ -94,10 +94,10 @@ export function normalizeDocuFillTransactionScope(scope: string | null | undefin
   return "ira_transfer";
 }
 
-export function resolveDocuFillSelections(
+export function resolveDocupleteSelections(
   customer: Pick<Customer, "custodianId" | "custodian" | "depositoryId" | "depository">,
-  custodians: DocuFillEntity[],
-  depositories: DocuFillEntity[],
+  custodians: DocupleteEntity[],
+  depositories: DocupleteEntity[],
 ) {
   return {
     selectedCustodian: custodians.find((c) => String(c.id) === customer.custodianId)
@@ -107,17 +107,17 @@ export function resolveDocuFillSelections(
   };
 }
 
-export function getMatchingDocuFillPackages(
-  packages: DocuFillPackage[],
-  selectedCustodian: DocuFillEntity | undefined,
-  selectedDepository: DocuFillEntity | undefined,
+export function getMatchingDocupletePackages(
+  packages: DocupletePackage[],
+  selectedCustodian: DocupleteEntity | undefined,
+  selectedDepository: DocupleteEntity | undefined,
   transactionScope = "ira_transfer",
 ) {
   return packages.filter((pkg) => {
     if (pkg.status !== "active") return false;
     if (selectedCustodian && pkg.custodian_id !== selectedCustodian.id) return false;
     if (selectedDepository && pkg.depository_id !== selectedDepository.id) return false;
-    if (normalizeDocuFillTransactionScope(pkg.transaction_scope) !== transactionScope) return false;
+    if (normalizeDocupleteTransactionScope(pkg.transaction_scope) !== transactionScope) return false;
     return true;
   });
 }

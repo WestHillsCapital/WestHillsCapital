@@ -186,8 +186,8 @@ async function executeInternalTool(
 
       const { rows } = await db.query(
         `SELECT s.token, s.status, s.created_at, p.name AS package_name, s.prefill, s.signer_name, s.signer_email
-           FROM docufill_interview_sessions s
-           LEFT JOIN docufill_packages p ON p.id = s.package_id
+           FROM docuplete_interview_sessions s
+           LEFT JOIN docuplete_packages p ON p.id = s.package_id
           WHERE ${conditions.join(" AND ")}
           ORDER BY s.created_at DESC
           LIMIT $${idx}`,
@@ -211,8 +211,8 @@ async function executeInternalTool(
         `SELECT s.token, s.status, s.created_at, s.expires_at, s.answers,
                 s.prefill, p.name AS package_name, p.fields AS package_fields,
                 s.signer_name, s.signer_email, s.signed_at
-           FROM docufill_interview_sessions s
-           LEFT JOIN docufill_packages p ON p.id = s.package_id
+           FROM docuplete_interview_sessions s
+           LEFT JOIN docuplete_packages p ON p.id = s.package_id
           WHERE s.token = $1 AND s.account_id = $2
           LIMIT 1`,
         [token, accountId],
@@ -252,7 +252,7 @@ async function executeInternalTool(
         `SELECT id, name, status, auth_level, enable_interview, enable_customer_link,
                 jsonb_array_length(COALESCE(fields, '[]'::jsonb)) AS field_count,
                 created_at, updated_at
-           FROM docufill_packages
+           FROM docuplete_packages
           WHERE ${conditions.join(" AND ")}
           ORDER BY updated_at DESC
           LIMIT $${idx}`,
@@ -274,7 +274,7 @@ async function executeInternalTool(
         `SELECT id, name, status, auth_level, enable_interview, enable_customer_link,
                 enable_embed, enable_gdrive, enable_hubspot, webhook_enabled, webhook_url,
                 fields, description
-           FROM docufill_packages
+           FROM docuplete_packages
           WHERE id = $1 AND account_id = $2
           LIMIT 1`,
         [pkgId, accountId],
@@ -316,7 +316,7 @@ async function executeInternalTool(
 
       const { rows: countRows } = await db.query(
         `SELECT COUNT(*) AS total
-           FROM docufill_interview_sessions
+           FROM docuplete_interview_sessions
           WHERE account_id = $1 AND status = 'generated'
             AND created_at >= ${since} AND created_at < ${until}`,
         [accountId],
@@ -324,8 +324,8 @@ async function executeInternalTool(
 
       const { rows: byPkg } = await db.query(
         `SELECT p.name, COUNT(*) AS cnt
-           FROM docufill_interview_sessions s
-           LEFT JOIN docufill_packages p ON p.id = s.package_id
+           FROM docuplete_interview_sessions s
+           LEFT JOIN docuplete_packages p ON p.id = s.package_id
           WHERE s.account_id = $1 AND s.status = 'generated'
             AND s.created_at >= ${since} AND s.created_at < ${until}
           GROUP BY p.name
@@ -354,7 +354,7 @@ async function executeInternalTool(
 
       const { rows: monthRows } = await db.query(
         `SELECT COUNT(*) AS used
-           FROM docufill_interview_sessions
+           FROM docuplete_interview_sessions
           WHERE account_id = $1 AND status = 'generated'
             AND created_at >= DATE_TRUNC('month', NOW())`,
         [accountId],
@@ -580,8 +580,8 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
       `SELECT s.token, s.status, s.prefill, s.expires_at, s.customer_first_name,
               p.name AS package_name,
               p.fields AS package_fields, p.description AS package_description
-         FROM docufill_interview_sessions s
-         LEFT JOIN docufill_packages p ON p.id = s.package_id
+         FROM docuplete_interview_sessions s
+         LEFT JOIN docuplete_packages p ON p.id = s.package_id
         WHERE s.token = $1
           AND s.expires_at > NOW()
         LIMIT 1`,
@@ -729,7 +729,7 @@ publicMerlinRouter.post("/sessions/:token/merlin", async (req, res): Promise<voi
         const cleanedName = rawName.replace(/[\x00-\x1F\x7F]/g, " ").trim().slice(0, 100);
         if (cleanedName && cleanedName !== storedName) {
           await db.query(
-            `UPDATE docufill_interview_sessions SET customer_first_name = $1 WHERE token = $2`,
+            `UPDATE docuplete_interview_sessions SET customer_first_name = $1 WHERE token = $2`,
             [cleanedName, token],
           );
         }

@@ -190,7 +190,7 @@ const INDUSTRY_FIELDS: Record<IndustryKey, SeedField[]> = {
 
 /**
  * Seeds industry-specific fields into the account's field library (per-account scoped).
- * Fields are stored in `docufill_fields` with `account_id` set, so they are
+ * Fields are stored in `docuplete_fields` with `account_id` set, so they are
  * visible only to the account that onboarded — not to other tenants.
  *
  * Idempotent — uses ON CONFLICT (id) DO NOTHING on the primary key.
@@ -212,7 +212,7 @@ export async function seedIndustryFields(db: Pool, accountId: number, industry: 
     for (const f of toInsert) {
       const scopedId = `${f.id}_a${accountId}`;
       await db.query(
-        `INSERT INTO docufill_fields
+        `INSERT INTO docuplete_fields
            (id, label, category, field_type, source, options, sensitive, required,
             validation_type, validation_pattern, validation_message, active, sort_order, account_id)
          VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10, $11, TRUE, $12, $13)

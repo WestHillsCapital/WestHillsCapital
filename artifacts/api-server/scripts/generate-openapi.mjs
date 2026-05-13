@@ -22,10 +22,10 @@ const outFile = resolve(__dirname, "../src/lib/openapi-spec.json");
 const definition = {
   openapi: "3.1.0",
   info: {
-    title: "DocuPak / DocuFill API",
+    title: "DocuPak / Docuplete API",
     version: "1.0.0",
     description: [
-      "API for the **DocuPak** SaaS platform and its embedded **DocuFill** paperwork engine.",
+      "API for the **DocuPak** SaaS platform and its embedded **Docuplete** paperwork engine.",
       "",
       "## Authentication",
       "",
@@ -84,7 +84,7 @@ const definition = {
           brand_color: { type: "string", example: "#C49A38", description: "Six-digit hex accent color" },
         },
       },
-      DocuFillPackage: {
+      DocupletePackage: {
         type: "object",
         description: "A Docuplete package — a reusable interview template that defines the documents, fields, and configuration for a document workflow.",
         required: ["id", "name", "active", "created_at", "updated_at"],
@@ -107,7 +107,7 @@ const definition = {
           updated_at:       { type: "string", format: "date-time" },
         },
       },
-      DocuFillSessionListItem: {
+      DocupleteSessionListItem: {
         type: "object",
         description: "A session row returned by the session list endpoint. Includes answers, prefill, and PDF URL for integration use (e.g. Zapier).",
         required: ["id", "token", "package_id", "package_name", "status", "created_at", "updated_at", "expires_at"],
@@ -137,7 +137,7 @@ const definition = {
           role:        { type: "string", enum: ["admin", "member"], description: "Role of the authenticated user within the account." },
         },
       },
-      DocuFillSession: {
+      DocupleteSession: {
         type: "object",
         properties: {
           id:               { type: "integer" },
@@ -296,7 +296,7 @@ const spec = swaggerJsdoc({
   apis: [
     `${routesDir}/storage.ts`,
     `${routesDir}/settings.ts`,
-    `${routesDir}/docufill.ts`,
+    `${routesDir}/docuplete.ts`,
     `${routesDir}/deals.ts`,
     `${routesDir}/product-auth.ts`,
     `${routesDir}/headlessSessions.ts`,

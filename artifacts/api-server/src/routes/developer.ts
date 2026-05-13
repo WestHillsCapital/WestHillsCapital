@@ -3,7 +3,7 @@ import { z } from "zod";
 import { getDb } from "../db";
 import { logger } from "../lib/logger";
 import { requireRole } from "../middleware/requireRole";
-import { parseDocuFillFields, hydratePackageFields } from "../lib/docufill-redaction";
+import { parseDocupleteFields, hydratePackageFields } from "../lib/docuplete-redaction";
 import { SOURCE_KEY_TO_HUBSPOT } from "../lib/hubspot-account";
 
 const router = Router();
@@ -45,7 +45,7 @@ router.get("/source-keys", requireMemberRole, async (req, res) => {
       id: number; name: string; status: string; fields: unknown;
     }>(
       `SELECT id, name, status, fields
-         FROM docufill_packages
+         FROM docuplete_packages
         WHERE account_id = $1
         ORDER BY name ASC`,
       [accountId],
@@ -54,7 +54,7 @@ router.get("/source-keys", requireMemberRole, async (req, res) => {
     // Collect library field IDs referenced by any package
     const libraryIds = new Set<string>();
     for (const pkg of packages) {
-      for (const f of parseDocuFillFields(pkg.fields)) {
+      for (const f of parseDocupleteFields(pkg.fields)) {
         if (f.libraryFieldId) libraryIds.add(f.libraryFieldId);
       }
     }
@@ -64,7 +64,7 @@ router.get("/source-keys", requireMemberRole, async (req, res) => {
     if (libraryIds.size > 0) {
       const { rows } = await db.query<LibraryRow>(
         `SELECT id, label, category, type, source, options, sensitive, required
-           FROM docufill_fields
+           FROM docuplete_fields
           WHERE id = ANY($1::text[])`,
         [Array.from(libraryIds)],
       );
@@ -105,7 +105,7 @@ router.get("/source-keys", requireMemberRole, async (req, res) => {
     if (allPackageIds.length > 0) {
       const { rows: sessionRows } = await db.query<{ package_id: number; cnt: string }>(
         `SELECT package_id, COUNT(*) AS cnt
-           FROM docufill_interview_sessions
+           FROM docuplete_interview_sessions
           WHERE package_id = ANY($1::int[])
           GROUP BY package_id`,
         [allPackageIds],
@@ -167,20 +167,20 @@ router.patch("/source-keys", requireAdminRole, async (req, res) => {
     const accountId = acctId(req);
 
     const { rows } = await db.query<{ id: number; fields: unknown }>(
-      `SELECT id, fields FROM docufill_packages WHERE id = $1 AND account_id = $2 LIMIT 1`,
+      `SELECT id, fields FROM docuplete_packages WHERE id = $1 AND account_id = $2 LIMIT 1`,
       [packageId, accountId],
     );
     const pkg = rows[0];
     if (!pkg) return void res.status(404).json({ error: "Package not found" });
 
-    const fields  = parseDocuFillFields(pkg.fields);
+    const fields  = parseDocupleteFields(pkg.fields);
     const idx     = fields.findIndex((f) => f.id === fieldId);
     if (idx === -1) return void res.status(404).json({ error: "Field not found in package" });
 
     fields[idx] = { ...fields[idx], source: newSourceKey || "interview" };
 
     await db.query(
-      `UPDATE docufill_packages SET fields = $1::jsonb, updated_at = NOW() WHERE id = $2 AND account_id = $3`,
+      `UPDATE docuplete_packages SET fields = $1::jsonb, updated_at = NOW() WHERE id = $2 AND account_id = $3`,
       [JSON.stringify(fields), packageId, accountId],
     );
 

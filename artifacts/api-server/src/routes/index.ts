@@ -9,7 +9,7 @@ import internalAuthRouter  from "./internal-auth";
 import internalRouter      from "./internal";
 import dealsRouter         from "./deals";
 import fedexRouter         from "./fedex";
-import docufillRouter, { publicDocufillRouter, apiKeyDocufillRouter } from "./docufill";
+import docupleteRouter, { publicDocupleteRouter, apiKeyDocupleteRouter } from "./docuplete";
 import contentRouter, { publicContentRouter } from "./content";
 import productAuthRouter   from "./product-auth";
 import storageRouter       from "./storage";
@@ -59,13 +59,13 @@ router.use("/deals", requireInternalAuth, dealsRouter);
 // ── FedEx location search (internal tool) ─────────────────────────────────────
 router.use("/fedex", requireInternalAuth, fedexRouter);
 
-// ── DocuFill: WHC internal (session token) ────────────────────────────────────
+// ── Docuplete: WHC internal (session token) ────────────────────────────────────
 // requireAccountId runs after requireInternalAuth as a belt-and-suspenders
 // guard: if account resolution somehow fails, reject rather than fall through.
-router.use("/internal/docufill", requireInternalAuth, requireAccountId, docufillRouter);
+router.use("/internal/docuplete", requireInternalAuth, requireAccountId, docupleteRouter);
 
 // ── Merlin: WHC internal (session token) ──────────────────────────────────────
-// Same auth chain as internal docufill: internal session token + account guard.
+// Same auth chain as internal docuplete: internal session token + account guard.
 router.use("/internal/merlin", requireInternalAuth, requireAccountId, merlinRouter);
 
 // ── Content engine (internal tool — also require auth) ────────────────────────
@@ -82,17 +82,17 @@ router.use("/internal/affiliates", requireInternalAuth, affiliatesAdminRouter);
 // The old unversioned paths below redirect 301 → v1 for backward compatibility.
 const v1Router: IRouter = Router();
 
-v1Router.use("/docuplete/public",  publicDocufillRouter);
+v1Router.use("/docuplete/public",  publicDocupleteRouter);
 v1Router.use("/docuplete/public",  publicMerlinRouter);
-v1Router.use("/product/docuplete", requireProductAuth, requireAccountId, docufillRouter);
-// Backward compat: /api/v1/product/docufill → /api/v1/product/docuplete (301)
-v1Router.use("/product/docufill",  v1Redirect("/product/docuplete"));
-// Backward compat: /api/v1/docufill/public → /api/v1/docuplete/public (301)
-v1Router.use("/docufill/public",   v1Redirect("/docuplete/public"));
+v1Router.use("/product/docuplete", requireProductAuth, requireAccountId, docupleteRouter);
+// Backward compat: /api/v1/product/docuplete → /api/v1/product/docuplete (301)
+v1Router.use("/product/docuplete",  v1Redirect("/product/docuplete"));
+// Backward compat: /api/v1/docuplete/public → /api/v1/docuplete/public (301)
+v1Router.use("/docuplete/public",   v1Redirect("/docuplete/public"));
 v1Router.use("/product/auth",      productAuthRouter);
 v1Router.use("/product/settings",  requireProductAuth, settingsRouter);
 v1Router.use("/product/merlin",    requireProductAuth, requireAccountId, merlinRouter);
-v1Router.use("/packages",          requireApiKeyAuth,  requireAccountId, apiKeyDocufillRouter);
+v1Router.use("/packages",          requireApiKeyAuth,  requireAccountId, apiKeyDocupleteRouter);
 v1Router.use("/sessions",              headlessSessionsRouter);
 v1Router.use("/account/custom-domain", customDomainRouter);
 v1Router.use("/product/developer",     requireProductAuth, requireAccountId, developerRouter);
@@ -131,8 +131,8 @@ function v1Redirect(newPrefix: string) {
 // ── Legacy redirects: /api/product/... → /api/v1/product/... (301) ────────────
 // Preserves backward compatibility for any integrations built against the
 // unversioned paths. New code should target /api/v1/... directly.
-router.use("/docufill/public",  legacyRedirect("/docuplete/public"));
-router.use("/product/docufill", legacyRedirect("/product/docuplete"));
+router.use("/docuplete/public",  legacyRedirect("/docuplete/public"));
+router.use("/product/docuplete", legacyRedirect("/product/docuplete"));
 router.use("/product/auth",     legacyRedirect("/product/auth"));
 router.use("/product/settings", legacyRedirect("/product/settings"));
 

@@ -1,5 +1,5 @@
-import { type FieldItem, type MappingFormat, type MappingItem } from "@/lib/docufill-types";
-import { ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_SIGNATURE } from "@/lib/docufill-redaction";
+import { type FieldItem, type MappingFormat, type MappingItem } from "@/lib/docuplete-types";
+import { ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_SIGNATURE } from "@/lib/docuplete-redaction";
 
 export const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string; group: string }> = [
   { value: "first-name", label: "First", group: "Name" },

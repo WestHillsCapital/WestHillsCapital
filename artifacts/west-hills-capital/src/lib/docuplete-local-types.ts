@@ -1,4 +1,4 @@
-import type { FieldItem, MappingItem, RecipientItem } from "@/lib/docufill-types";
+import type { FieldItem, MappingItem, RecipientItem } from "@/lib/docuplete-types";
 
 export type Entity = {
   id: number;

@@ -1,4 +1,4 @@
-import { type FieldItem } from "@/lib/docufill-types";
+import { type FieldItem } from "@/lib/docuplete-types";
 import { fieldFormatHint } from "@/lib/validateField";
 
 export function validationTypeHint(vt: FieldItem["validationType"], message?: string): string {

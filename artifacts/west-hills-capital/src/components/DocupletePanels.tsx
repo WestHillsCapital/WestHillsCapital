@@ -3,8 +3,8 @@ import { Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
-import type { Entity, TransactionType, FieldLibraryItem, FieldVersionRow, FieldAnalytics, FieldGroup, ComplianceTag } from "@/lib/docufill-local-types";
-import type { FieldItem } from "@/lib/docufill-types";
+import type { Entity, TransactionType, FieldLibraryItem, FieldVersionRow, FieldAnalytics, FieldGroup, ComplianceTag } from "@/lib/docuplete-local-types";
+import type { FieldItem } from "@/lib/docuplete-types";
 
 export type FieldLibraryImportField = {
   id?: string;

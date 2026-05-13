@@ -6,15 +6,15 @@ import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { isSystemEsignFieldId } from "@/lib/docufill-redaction";
-import { type FieldItem, type MappingItem } from "@/lib/docufill-types";
-import type { DocItem, FieldLibraryItem, FieldGroup, PackageItem, Entity, TransactionType } from "@/lib/docufill-local-types";
-import { EmptyState } from "@/components/DocuFillPanels";
+import { isSystemEsignFieldId } from "@/lib/docuplete-redaction";
+import { type FieldItem, type MappingItem } from "@/lib/docuplete-types";
+import type { DocItem, FieldLibraryItem, FieldGroup, PackageItem, Entity, TransactionType } from "@/lib/docuplete-local-types";
+import { EmptyState } from "@/components/DocupletePanels";
 import { DocumentPreviewTile } from "@/components/DocumentPreviewTile";
 import { type BuilderStep, BUILDER_STEPS } from "@/components/PackagePickerSidebar";
-import { SortableItem } from "@/components/DocuFillDndHelpers";
-import { EntityPanel, TransactionTypesPanel, FieldLibraryPanel, FieldGroupsPanel, LabeledInput } from "@/components/DocuFillPanels";
-import { TagChipInput, EmbedSnippetPanel } from "@/components/DocuFillWidgets";
+import { SortableItem } from "@/components/DocupleteDndHelpers";
+import { EntityPanel, TransactionTypesPanel, FieldLibraryPanel, FieldGroupsPanel, LabeledInput } from "@/components/DocupletePanels";
+import { TagChipInput, EmbedSnippetPanel } from "@/components/DocupleteWidgets";
 import { DemoWelcomeBanner } from "@/components/DemoWelcomeBanner";
 import { formatOrgTime } from "@/lib/orgDateFormat";
 import { getCachedOrg } from "@/hooks/useOrgSettings";
@@ -32,7 +32,7 @@ type WebhookDelivery = {
   created_at: string;
 };
 
-export interface DocuFillBuilderPanelProps {
+export interface DocupleteBuilderPanelProps {
   selectedPackage: PackageItem | null;
   bootstrapLoaded: boolean;
   packages: PackageItem[];
@@ -84,7 +84,7 @@ export interface DocuFillBuilderPanelProps {
   documentPreviewCache: React.MutableRefObject<Record<string, string>>;
   documentPreviewCacheOrder: React.MutableRefObject<string[]>;
   getAuthHeaders: () => HeadersInit;
-  docufillApiPath: string;
+  docupleteApiPath: string;
   slackConnected: boolean;
   webhookTestStatus: { ok: boolean; message: string } | null;
   webhookSecret: string | null;
@@ -122,11 +122,11 @@ export interface DocuFillBuilderPanelProps {
   saveFieldLibraryItem: (item: FieldLibraryItem) => void;
   deleteFieldLibraryItem: (id: string) => void;
   addLibraryFieldToPackage: (item: FieldLibraryItem) => void;
-  loadFieldLibraryVersions?: (fieldId: string) => Promise<import("@/lib/docufill-local-types").FieldVersionRow[] | string>;
+  loadFieldLibraryVersions?: (fieldId: string) => Promise<import("@/lib/docuplete-local-types").FieldVersionRow[] | string>;
   restoreFieldLibraryVersion?: (fieldId: string, versionId: number) => Promise<string | null>;
-  loadFieldLibraryAnalytics?: (fieldId: string) => Promise<import("@/lib/docufill-local-types").FieldAnalytics | string>;
+  loadFieldLibraryAnalytics?: (fieldId: string) => Promise<import("@/lib/docuplete-local-types").FieldAnalytics | string>;
   exportFieldLibrary?: (format: "json" | "csv") => Promise<void>;
-  importFieldLibrary?: (data: import("@/components/DocuFillPanels").FieldLibraryImportPayload) => Promise<import("@/components/DocuFillPanels").FieldLibraryImportResult | string>;
+  importFieldLibrary?: (data: import("@/components/DocupletePanels").FieldLibraryImportPayload) => Promise<import("@/components/DocupletePanels").FieldLibraryImportResult | string>;
   fieldGroups: FieldGroup[];
   createFieldGroup: () => Promise<string | null>;
   updateFieldGroupLocal: (id: number, patch: Partial<FieldGroup>) => void;
@@ -143,7 +143,7 @@ export interface DocuFillBuilderPanelProps {
   handleOpenDemoInterview: () => void;
   handleSeedDemo: () => void;
   setStandalonePackageId: React.Dispatch<React.SetStateAction<string>>;
-  allComplianceTags?: import("@/lib/docufill-local-types").ComplianceTag[];
+  allComplianceTags?: import("@/lib/docuplete-local-types").ComplianceTag[];
   setFieldComplianceTags?: (fieldId: string, tags: string[]) => Promise<string | null>;
   setTab: React.Dispatch<React.SetStateAction<"packages" | "interview" | "mapper" | "csv" | "groups" | "compliance">>;
   sendTestWebhook: (packageId: number) => Promise<void>;
@@ -152,7 +152,7 @@ export interface DocuFillBuilderPanelProps {
   retryDelivery: (packageId: number, deliveryId: number) => Promise<void>;
 }
 
-export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(props: DocuFillBuilderPanelProps) {
+export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(props: DocupleteBuilderPanelProps) {
   const {
     selectedPackage, bootstrapLoaded, packages, groups, transactionTypes, storeMappings,
     packageInterviewFields, packageFixedOrHiddenFields, packageMappedFieldIds,
@@ -165,7 +165,7 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
     isDeletingPackage, isAdmin, builderStep, seedingDemo, demoUiState, demoSessionLoading,
     selectedDocument, setSelectedDocumentId, setSelectedPage,
     addingPackage, setAddingPackage, sortSensors, documentPreviewCache, documentPreviewCacheOrder,
-    getAuthHeaders, docufillApiPath, slackConnected,
+    getAuthHeaders, docupleteApiPath, slackConnected,
     webhookTestStatus, webhookSecret, webhookSecretLoading, webhookSecretRevealed, webhookSecretCopied,
     setWebhookTestStatus, setWebhookSecretRevealed, setWebhookSecretCopied,
     webhookDeliveries, webhookDeliveriesLoading, expandedDelivery, setExpandedDelivery, retryingDelivery,
@@ -611,7 +611,7 @@ export const DocuFillBuilderPanel = React.memo(function DocuFillBuilderPanel(pro
                                   order={index + 1}
                                   selected={selectedDocument?.id === doc.id}
                                   getAuthHeaders={getAuthHeaders}
-                                  docufillApiPath={docufillApiPath}
+                                  docupleteApiPath={docupleteApiPath}
                                   previewCache={documentPreviewCache}
                                   previewCacheOrder={documentPreviewCacheOrder}
                                   onSelect={() => { setSelectedDocumentId(doc.id); setSelectedPage(1); }}

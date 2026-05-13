@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test";
 
-const MAPPER = "/internal/docufill";
+const MAPPER = "/internal/docuplete";
 
-test.describe("DocuFill mapper — authentication required", () => {
+test.describe("Docuplete mapper — authentication required", () => {
   test.beforeEach(async ({ page }) => {
     if (!process.env.CLERK_SECRET_KEY) {
       test.skip();
@@ -16,7 +16,7 @@ test.describe("DocuFill mapper — authentication required", () => {
   // -----------------------------------------------------------------------
   test("page loads without crash", async ({ page }) => {
     const url = page.url();
-    expect(url).toContain("docufill");
+    expect(url).toContain("docuplete");
     const errorBanner = page.locator("text=Unexpected end of JSON input");
     await expect(errorBanner).not.toBeVisible({ timeout: 3_000 }).catch(() => {});
     const crashIndicator = page.locator("text=Something went wrong");

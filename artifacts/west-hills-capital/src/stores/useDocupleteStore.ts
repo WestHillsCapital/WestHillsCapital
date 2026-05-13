@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import { type MappingItem, type RecipientItem } from "@/lib/docufill-types";
-import { type PackageItem } from "@/lib/docufill-local-types";
+import { type MappingItem, type RecipientItem } from "@/lib/docuplete-types";
+import { type PackageItem } from "@/lib/docuplete-local-types";
 
-interface DocuFillState {
+interface DocupleteState {
   selectedMappingId: string | null;
   selectedFieldId: string | null;
   mapperTextMode: boolean;
@@ -46,7 +46,7 @@ interface DocuFillState {
   updateSelectedPackage: (updater: (pkg: PackageItem) => PackageItem, targetId?: number) => void;
 }
 
-export const useDocuFillStore = create<DocuFillState>()((set, get) => ({
+export const useDocupleteStore = create<DocupleteState>()((set, get) => ({
   selectedMappingId: null,
   selectedFieldId: null,
   mapperTextMode: true,
@@ -61,7 +61,7 @@ export const useDocuFillStore = create<DocuFillState>()((set, get) => ({
   packages: [],
   selectedPackageId: (() => {
     try {
-      const saved = sessionStorage.getItem("docufill:selectedPackageId");
+      const saved = sessionStorage.getItem("docuplete:selectedPackageId");
       if (saved) { const n = Number(saved); if (!isNaN(n) && n > 0) return n; }
     } catch { /* sessionStorage unavailable */ }
     return null;

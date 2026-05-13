@@ -23,17 +23,17 @@ import supertest from "supertest";
 import express from "express";
 import { Pool } from "pg";
 import sandboxRouter from "../routes/sandbox.js";
-import { publicDocufillRouter } from "../routes/docufill.js";
+import { publicDocupleteRouter } from "../routes/docuplete.js";
 
 // ── Test app ──────────────────────────────────────────────────────────────────
-// Mounts both the sandbox router and the public DocuFill router at the same
+// Mounts both the sandbox router and the public Docuplete router at the same
 // paths they occupy in the real API (relative to /api/v1).
 
 function buildSandboxTestApp() {
   const app = express();
   app.use(express.json());
   app.use("/sandbox",           sandboxRouter);
-  app.use("/docuplete/public",  publicDocufillRouter);
+  app.use("/docuplete/public",  publicDocupleteRouter);
   return app;
 }
 
@@ -75,7 +75,7 @@ describe("Sandbox demo – form submission flow", () => {
     // or demo package — they are intentionally long-lived.
     if (createdTokens.length > 0) {
       await pool.query(
-        `DELETE FROM docufill_interview_sessions WHERE token = ANY($1::text[])`,
+        `DELETE FROM docuplete_interview_sessions WHERE token = ANY($1::text[])`,
         [createdTokens],
       );
     }

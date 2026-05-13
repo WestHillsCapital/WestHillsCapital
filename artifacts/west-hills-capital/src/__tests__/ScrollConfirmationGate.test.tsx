@@ -137,7 +137,7 @@ async function renderAndReachPreview() {
   render(
     <React.StrictMode>
       {React.createElement(
-        (await import("@/pages/DocuFillCustomer")).default,
+        (await import("@/pages/DocupleteCustomer")).default,
       )}
     </React.StrictMode>,
   );
@@ -215,7 +215,7 @@ describe("Scroll confirmation gate", () => {
 
     render(
       React.createElement(
-        (await import("@/pages/DocuFillCustomer")).default,
+        (await import("@/pages/DocupleteCustomer")).default,
       ),
     );
 

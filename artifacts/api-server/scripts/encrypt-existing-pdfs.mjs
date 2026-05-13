@@ -1,6 +1,6 @@
 /**
  * PDF data encryption migration script — encrypts any plaintext pdf_data rows in
- * docufill_package_documents using the per-account AES-256-GCM DEK system.
+ * docuplete_package_documents using the per-account AES-256-GCM DEK system.
  *
  * Usage (from project root):
  *   node artifacts/api-server/scripts/encrypt-existing-pdfs.mjs [--dry-run]
@@ -130,8 +130,8 @@ async function main() {
   // Count affected rows
   const { rows: countRows } = await db.query(
     `SELECT COUNT(*) AS total
-       FROM docufill_package_documents d
-       JOIN docufill_packages p ON p.id = d.package_id
+       FROM docuplete_package_documents d
+       JOIN docuplete_packages p ON p.id = d.package_id
       WHERE d.pdf_data IS NOT NULL
         AND d.pdf_data_ciphertext IS NULL`,
   );
@@ -149,8 +149,8 @@ async function main() {
     // Preview affected accounts without loading binary data
     const { rows: preview } = await db.query(
       `SELECT p.account_id, COUNT(*) AS doc_count, SUM(d.byte_size) AS total_bytes
-         FROM docufill_package_documents d
-         JOIN docufill_packages p ON p.id = d.package_id
+         FROM docuplete_package_documents d
+         JOIN docuplete_packages p ON p.id = d.package_id
         WHERE d.pdf_data IS NOT NULL
           AND d.pdf_data_ciphertext IS NULL
         GROUP BY p.account_id
@@ -190,8 +190,8 @@ async function main() {
   while (true) {
     const { rows } = await db.query(
       `SELECT d.package_id, d.document_id, d.pdf_data, p.account_id
-         FROM docufill_package_documents d
-         JOIN docufill_packages p ON p.id = d.package_id
+         FROM docuplete_package_documents d
+         JOIN docuplete_packages p ON p.id = d.package_id
         WHERE d.pdf_data IS NOT NULL
           AND d.pdf_data_ciphertext IS NULL
         ORDER BY d.package_id, d.document_id
@@ -214,7 +214,7 @@ async function main() {
         try {
           await client.query("BEGIN");
           await client.query(
-            `UPDATE docufill_package_documents
+            `UPDATE docuplete_package_documents
                 SET pdf_data_ciphertext = $1,
                     pdf_data = NULL,
                     updated_at = NOW()
@@ -248,7 +248,7 @@ async function main() {
   } else {
     console.log();
     console.log("Verify with:");
-    console.log("  SELECT COUNT(*) FROM docufill_package_documents WHERE pdf_data IS NOT NULL AND pdf_data_ciphertext IS NULL;");
+    console.log("  SELECT COUNT(*) FROM docuplete_package_documents WHERE pdf_data IS NOT NULL AND pdf_data_ciphertext IS NULL;");
     console.log("  -- Should return 0");
   }
 

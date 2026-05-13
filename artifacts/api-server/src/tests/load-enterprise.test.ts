@@ -215,7 +215,7 @@ before(async () => {
 
   // Seed package and 20 sessions as read-load data
   const { rows: [pkg] } = await pool.query<{ id: number }>(
-    `INSERT INTO docufill_packages
+    `INSERT INTO docuplete_packages
        (name, account_id, status, version, documents, fields, mappings, recipients, tags, webhook_secret)
      VALUES ($1, $2, 'active', 1, '[]'::jsonb, '[]'::jsonb, '{}'::jsonb, '[]'::jsonb, '[]'::jsonb, $3)
      RETURNING id`,
@@ -227,7 +227,7 @@ before(async () => {
   for (let i = 0; i < 20; i++) {
     const tok = `df_load_${i}_${randomBytes(8).toString("hex")}`;
     await pool.query(
-      `INSERT INTO docufill_interview_sessions (token, status, account_id, package_id, package_version, expires_at)
+      `INSERT INTO docuplete_interview_sessions (token, status, account_id, package_id, package_version, expires_at)
        VALUES ($1, 'draft', $2, $3, 1, NOW() + INTERVAL '1 day')`,
       [tok, accountId, packageId],
     );
@@ -239,10 +239,10 @@ before(async () => {
 after(async () => {
   if (pool && accountId) {
     // Delete child records before the account to satisfy FK constraints
-    await pool.query(`DELETE FROM docufill_audit_logs WHERE account_id = $1`, [accountId]);
-    await pool.query(`DELETE FROM docufill_session_signers WHERE account_id = $1`, [accountId]);
-    await pool.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [accountId]);
-    await pool.query(`DELETE FROM docufill_packages WHERE account_id = $1`, [accountId]);
+    await pool.query(`DELETE FROM docuplete_audit_logs WHERE account_id = $1`, [accountId]);
+    await pool.query(`DELETE FROM docuplete_session_signers WHERE account_id = $1`, [accountId]);
+    await pool.query(`DELETE FROM docuplete_interview_sessions WHERE account_id = $1`, [accountId]);
+    await pool.query(`DELETE FROM docuplete_packages WHERE account_id = $1`, [accountId]);
     await pool.query(`DELETE FROM scim_tokens WHERE account_id = $1`, [accountId]);
     await pool.query(`DELETE FROM account_users WHERE account_id = $1`, [accountId]);
     await pool.query(`DELETE FROM account_api_keys WHERE account_id = $1`, [accountId]);

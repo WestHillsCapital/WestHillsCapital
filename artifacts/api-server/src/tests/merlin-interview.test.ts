@@ -237,7 +237,7 @@ describe("Merlin customer interview – conversation flow", () => {
     // Package with fields (including one conditional field).
     // webhook_secret is NOT NULL with no default, so must be provided.
     const { rows: [pkg] } = await pool.query<{ id: number }>(
-      `INSERT INTO docufill_packages (account_id, name, status, fields, webhook_secret)
+      `INSERT INTO docuplete_packages (account_id, name, status, fields, webhook_secret)
        VALUES ($1, $2, 'active', $3::jsonb, $4) RETURNING id`,
       [accountId, `_Test Merlin Package ${suffix}`, JSON.stringify(TEST_FIELDS), `wsec_${suffix}`],
     );
@@ -260,12 +260,12 @@ describe("Merlin customer interview – conversation flow", () => {
   after(async () => {
     if (createdTokens.length > 0) {
       await pool?.query(
-        `DELETE FROM docufill_interview_sessions WHERE token = ANY($1::text[])`,
+        `DELETE FROM docuplete_interview_sessions WHERE token = ANY($1::text[])`,
         [createdTokens],
       );
     }
     if (accountId) {
-      await pool?.query(`DELETE FROM docufill_packages WHERE account_id = $1`, [accountId]);
+      await pool?.query(`DELETE FROM docuplete_packages WHERE account_id = $1`, [accountId]);
       await pool?.query(`DELETE FROM accounts WHERE id = $1`, [accountId]);
     }
     await pool?.end();
@@ -285,7 +285,7 @@ describe("Merlin customer interview – conversation flow", () => {
     const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
     await pool.query(
-      `INSERT INTO docufill_interview_sessions
+      `INSERT INTO docuplete_interview_sessions
          (token, account_id, package_id, package_version, status, prefill, expires_at, customer_first_name)
        VALUES ($1, $2, $3, 1, $4, $5::jsonb, $6, $7)`,
       [
@@ -582,7 +582,7 @@ describe("Merlin customer interview – conversation flow", () => {
     assert.ok(parseSSE(res.text).some((e) => e["type"] === "field_updates"));
 
     const { rows } = await pool.query<{ customer_first_name: string }>(
-      `SELECT customer_first_name FROM docufill_interview_sessions WHERE token = $1`,
+      `SELECT customer_first_name FROM docuplete_interview_sessions WHERE token = $1`,
       [token],
     );
     assert.equal(

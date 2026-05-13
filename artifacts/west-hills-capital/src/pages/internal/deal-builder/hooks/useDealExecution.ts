@@ -13,7 +13,7 @@ export const EXECUTION_STEPS = [
   "Saving to Drive…",
 ];
 
-interface DocuFillParams {
+interface DocupleteParams {
   packageId: string;
   transactionScope: string;
 }
@@ -24,12 +24,12 @@ export function useDealExecution(
   subtotal: number,
   shipping: number,
   total: number,
-  docufillParams: DocuFillParams | null = null,
+  docupleteParams: DocupleteParams | null = null,
 ) {
   const [isSaving,              setIsSaving]              = useState(false);
   const [executionStep,         setExecutionStep]         = useState(0);
   const [saveError,             setSaveError]             = useState<string | null>(null);
-  const [docufillSessionToken,  setDocufillSessionToken]  = useState<string | null>(null);
+  const [docupleteSessionToken,  setDocupleteSessionToken]  = useState<string | null>(null);
 
   const lockDeal = useCallback(async () => {
     setSaveError(null);
@@ -128,15 +128,15 @@ export function useDealExecution(
         window.history.replaceState(null, "", window.location.pathname + `?dealId=${dealId}`);
       } catch { /* ignore — some mobile browsers restrict this */ }
 
-      // ── Auto-create DocuFill session if a package was selected ───────────
-      if (docufillParams?.packageId) {
+      // ── Auto-create Docuplete session if a package was selected ───────────
+      if (docupleteParams?.packageId) {
         try {
-          const sessionRes = await fetch(`${API_BASE}/api/internal/docufill/sessions`, {
+          const sessionRes = await fetch(`${API_BASE}/api/internal/docuplete/sessions`, {
             method:  "POST",
             headers: { "Content-Type": "application/json", ...getAuthHeaders() },
             body: JSON.stringify({
-              packageId:       Number(docufillParams.packageId),
-              transactionScope: docufillParams.transactionScope,
+              packageId:       Number(docupleteParams.packageId),
+              transactionScope: docupleteParams.transactionScope,
               custodianId:     s.customer.custodianId ? Number(s.customer.custodianId) : null,
               depositoryId:    s.customer.depositoryId ? Number(s.customer.depositoryId) : null,
               dealId,
@@ -158,7 +158,7 @@ export function useDealExecution(
           });
           if (sessionRes.ok) {
             const sessionData = await sessionRes.json();
-            if (sessionData.token) setDocufillSessionToken(sessionData.token);
+            if (sessionData.token) setDocupleteSessionToken(sessionData.token);
           }
           // Session creation failure is non-fatal — deal is already locked
         } catch { /* session creation failure is non-fatal */ }
@@ -176,7 +176,7 @@ export function useDealExecution(
       setIsSaving(false);
       setExecutionStep(0);
     }
-  }, [getAuthHeaders, s, subtotal, shipping, total, docufillParams]);
+  }, [getAuthHeaders, s, subtotal, shipping, total, docupleteParams]);
 
-  return { lockDeal, isSaving, executionStep, saveError, docufillSessionToken };
+  return { lockDeal, isSaving, executionStep, saveError, docupleteSessionToken };
 }

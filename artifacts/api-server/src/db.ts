@@ -245,7 +245,7 @@ export async function runDrizzleMigrations(): Promise<void> {
         }
       }
 
-      // Migration 0003: adds pdf_gcs_key to docufill_package_documents.
+      // Migration 0003: adds pdf_gcs_key to docuplete_package_documents.
       // Same dual pattern: reconcile if the column exists, apply inline if not.
       const entry0003 = journal.entries.find((e) => e.idx === 3);
       if (entry0003) {
@@ -253,7 +253,7 @@ export async function runDrizzleMigrations(): Promise<void> {
         const { rows: gcsColRows } = await db.query<{ exists: boolean }>(
           `SELECT EXISTS(
              SELECT 1 FROM information_schema.columns
-              WHERE table_name = 'docufill_package_documents' AND column_name = 'pdf_gcs_key'
+              WHERE table_name = 'docuplete_package_documents' AND column_name = 'pdf_gcs_key'
            ) AS exists`,
         );
         if (gcsColRows[0]?.exists) {
@@ -699,7 +699,7 @@ export async function initDb(): Promise<void> {
   `);
 
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_custodians (
+    CREATE TABLE IF NOT EXISTS docuplete_custodians (
       id           SERIAL PRIMARY KEY,
       name         TEXT NOT NULL UNIQUE,
       contact_name TEXT,
@@ -713,7 +713,7 @@ export async function initDb(): Promise<void> {
   `);
 
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_depositories (
+    CREATE TABLE IF NOT EXISTS docuplete_depositories (
       id           SERIAL PRIMARY KEY,
       name         TEXT NOT NULL UNIQUE,
       contact_name TEXT,
@@ -727,7 +727,7 @@ export async function initDb(): Promise<void> {
   `);
 
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_transaction_types (
+    CREATE TABLE IF NOT EXISTS docuplete_transaction_types (
       scope      TEXT PRIMARY KEY,
       label      TEXT NOT NULL,
       active     BOOLEAN NOT NULL DEFAULT TRUE,
@@ -738,18 +738,18 @@ export async function initDb(): Promise<void> {
   `);
   // Migration: add per-org isolation — each account manages its own types
   await db.query(`
-    ALTER TABLE docufill_transaction_types
+    ALTER TABLE docuplete_transaction_types
       ADD COLUMN IF NOT EXISTS account_id INT REFERENCES accounts(id) ON DELETE CASCADE
   `);
   await db.query(`
-    CREATE INDEX IF NOT EXISTS docufill_transaction_types_account_idx
-      ON docufill_transaction_types(account_id)
+    CREATE INDEX IF NOT EXISTS docuplete_transaction_types_account_idx
+      ON docuplete_transaction_types(account_id)
   `);
   // Seed default types for account 1 (West Hills Capital) using prefixed scopes
   await seedDefaultTransactionTypes(db, 1);
 
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_fields (
+    CREATE TABLE IF NOT EXISTS docuplete_fields (
       id                 TEXT PRIMARY KEY,
       label              TEXT NOT NULL,
       category           TEXT NOT NULL DEFAULT 'General',
@@ -768,13 +768,13 @@ export async function initDb(): Promise<void> {
     )
   `);
   // NOTE: the global label-uniqueness index was replaced by per-scope partial indexes
-  // via migration docufill_fields_scoped_label_v1 (see migration block below).
-  // Do NOT recreate docufill_fields_label_unique here — the migration drops it
-  // once and creates docufill_fields_global_label_unique + docufill_fields_account_label_unique.
+  // via migration docuplete_fields_scoped_label_v1 (see migration block below).
+  // Do NOT recreate docuplete_fields_label_unique here — the migration drops it
+  // once and creates docuplete_fields_global_label_unique + docuplete_fields_account_label_unique.
   // Add per-account scoping column (NULL = global system field, set = account-owned field)
-  await db.query(`ALTER TABLE docufill_fields ADD COLUMN IF NOT EXISTS account_id INTEGER REFERENCES accounts(id)`);
+  await db.query(`ALTER TABLE docuplete_fields ADD COLUMN IF NOT EXISTS account_id INTEGER REFERENCES accounts(id)`);
   await db.query(`
-    INSERT INTO docufill_fields
+    INSERT INTO docuplete_fields
       (id, label, category, field_type, source, options, sensitive, required, validation_type, validation_message, active, sort_order)
     VALUES
       ('client_name', 'Name', 'Customer identity', 'text', 'clientName', '[]'::jsonb, FALSE, TRUE, 'name', NULL, TRUE, 5),
@@ -799,7 +799,7 @@ export async function initDb(): Promise<void> {
     ON CONFLICT DO NOTHING
   `);
   await db.query(`
-    UPDATE docufill_fields
+    UPDATE docuplete_fields
        SET validation_pattern = '^\\d{5}(-\\d{4})?$',
            validation_message = COALESCE(validation_message, 'Enter a valid ZIP code.'),
            updated_at = NOW()
@@ -811,9 +811,9 @@ export async function initDb(): Promise<void> {
   // ── Field version history ──────────────────────────────────────────────────
   // One row per save of a library field definition (including rollbacks).
   // account_id is denormalized here so history is queryable without joining
-  // docufill_fields (which may have been deleted).
+  // docuplete_fields (which may have been deleted).
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_field_versions (
+    CREATE TABLE IF NOT EXISTS docuplete_field_versions (
       id          SERIAL PRIMARY KEY,
       field_id    TEXT NOT NULL,
       account_id  INTEGER NOT NULL,
@@ -823,13 +823,13 @@ export async function initDb(): Promise<void> {
     )
   `);
   await db.query(`
-    CREATE INDEX IF NOT EXISTS docufill_field_versions_field_idx
-      ON docufill_field_versions (field_id, account_id, changed_at DESC)
+    CREATE INDEX IF NOT EXISTS docuplete_field_versions_field_idx
+      ON docuplete_field_versions (field_id, account_id, changed_at DESC)
   `);
 
   // ── Field groups (bundles of library fields for one-click package addition) ─
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_field_groups (
+    CREATE TABLE IF NOT EXISTS docuplete_field_groups (
       id          SERIAL PRIMARY KEY,
       account_id  INTEGER NOT NULL REFERENCES accounts(id),
       name        TEXT NOT NULL,
@@ -841,15 +841,15 @@ export async function initDb(): Promise<void> {
     )
   `);
   await db.query(`
-    CREATE INDEX IF NOT EXISTS docufill_field_groups_account_idx
-      ON docufill_field_groups (account_id, sort_order ASC, name ASC)
+    CREATE INDEX IF NOT EXISTS docuplete_field_groups_account_idx
+      ON docuplete_field_groups (account_id, sort_order ASC, name ASC)
   `);
 
   // ── Compliance tags ────────────────────────────────────────────────────────
   // Account-configurable tags for marking library fields as required by specific
   // regulations (KYC, FINRA, AML, etc.). is_required drives the audit report.
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_compliance_tags (
+    CREATE TABLE IF NOT EXISTS docuplete_compliance_tags (
       id          SERIAL PRIMARY KEY,
       account_id  INTEGER NOT NULL REFERENCES accounts(id),
       name        TEXT NOT NULL,
@@ -863,18 +863,18 @@ export async function initDb(): Promise<void> {
     )
   `);
   await db.query(`
-    CREATE INDEX IF NOT EXISTS docufill_compliance_tags_account_idx
-      ON docufill_compliance_tags (account_id, name ASC)
+    CREATE INDEX IF NOT EXISTS docuplete_compliance_tags_account_idx
+      ON docuplete_compliance_tags (account_id, name ASC)
   `);
-  // Add compliance_tags JSONB column to docufill_fields (array of tag names, e.g. ["KYC","AML"])
-  await db.query(`ALTER TABLE docufill_fields ADD COLUMN IF NOT EXISTS compliance_tags JSONB NOT NULL DEFAULT '[]'::jsonb`);
+  // Add compliance_tags JSONB column to docuplete_fields (array of tag names, e.g. ["KYC","AML"])
+  await db.query(`ALTER TABLE docuplete_fields ADD COLUMN IF NOT EXISTS compliance_tags JSONB NOT NULL DEFAULT '[]'::jsonb`);
 
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_packages (
+    CREATE TABLE IF NOT EXISTS docuplete_packages (
       id                SERIAL PRIMARY KEY,
       name              TEXT NOT NULL,
-      custodian_id      INTEGER REFERENCES docufill_custodians(id) ON DELETE SET NULL,
-      depository_id     INTEGER REFERENCES docufill_depositories(id) ON DELETE SET NULL,
+      custodian_id      INTEGER REFERENCES docuplete_custodians(id) ON DELETE SET NULL,
+      depository_id     INTEGER REFERENCES docuplete_depositories(id) ON DELETE SET NULL,
       transaction_scope TEXT NOT NULL DEFAULT '',
       description       TEXT,
       status            TEXT NOT NULL DEFAULT 'draft',
@@ -889,23 +889,23 @@ export async function initDb(): Promise<void> {
 
   // Usage tracking: records which packages each field group has been applied to (created after both referenced tables)
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_field_group_usage (
-      group_id    INTEGER NOT NULL REFERENCES docufill_field_groups(id) ON DELETE CASCADE,
-      package_id  INTEGER NOT NULL REFERENCES docufill_packages(id) ON DELETE CASCADE,
+    CREATE TABLE IF NOT EXISTS docuplete_field_group_usage (
+      group_id    INTEGER NOT NULL REFERENCES docuplete_field_groups(id) ON DELETE CASCADE,
+      package_id  INTEGER NOT NULL REFERENCES docuplete_packages(id) ON DELETE CASCADE,
       account_id  INTEGER NOT NULL REFERENCES accounts(id),
       applied_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (group_id, package_id)
     )
   `);
   await db.query(`
-    CREATE INDEX IF NOT EXISTS docufill_field_group_usage_account_idx
-      ON docufill_field_group_usage (account_id)
+    CREATE INDEX IF NOT EXISTS docuplete_field_group_usage_account_idx
+      ON docuplete_field_group_usage (account_id)
   `);
 
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_package_documents (
+    CREATE TABLE IF NOT EXISTS docuplete_package_documents (
       id             SERIAL PRIMARY KEY,
-      package_id     INTEGER NOT NULL REFERENCES docufill_packages(id) ON DELETE CASCADE,
+      package_id     INTEGER NOT NULL REFERENCES docuplete_packages(id) ON DELETE CASCADE,
       document_id    TEXT NOT NULL,
       filename       TEXT NOT NULL,
       content_type   TEXT NOT NULL DEFAULT 'application/pdf',
@@ -919,70 +919,70 @@ export async function initDb(): Promise<void> {
   `);
 
   await db.query(`
-    ALTER TABLE docufill_package_documents
+    ALTER TABLE docuplete_package_documents
     ADD COLUMN IF NOT EXISTS page_sizes JSONB NOT NULL DEFAULT '[]'::jsonb
   `);
   // GCS key for template PDFs — new writes go to GCS; pdf_data kept for legacy reads
-  await db.query(`ALTER TABLE docufill_package_documents ADD COLUMN IF NOT EXISTS pdf_gcs_key TEXT`);
-  await db.query(`ALTER TABLE docufill_package_documents ALTER COLUMN pdf_data DROP NOT NULL`);
+  await db.query(`ALTER TABLE docuplete_package_documents ADD COLUMN IF NOT EXISTS pdf_gcs_key TEXT`);
+  await db.query(`ALTER TABLE docuplete_package_documents ALTER COLUMN pdf_data DROP NOT NULL`);
   // AES-256-GCM encrypted form of pdf_data (SOC 2 CC6.1) — same envelope-encryption scheme as answers_ciphertext
-  await db.query(`ALTER TABLE docufill_package_documents ADD COLUMN IF NOT EXISTS pdf_data_ciphertext TEXT`);
+  await db.query(`ALTER TABLE docuplete_package_documents ADD COLUMN IF NOT EXISTS pdf_data_ciphertext TEXT`);
   await db.query(`
-    ALTER TABLE docufill_packages
+    ALTER TABLE docuplete_packages
     ADD COLUMN IF NOT EXISTS transaction_scope TEXT NOT NULL DEFAULT ''
   `);
   await db.query(`
-    ALTER TABLE docufill_packages
+    ALTER TABLE docuplete_packages
     ADD COLUMN IF NOT EXISTS recipients JSONB NOT NULL DEFAULT '[]'::jsonb
   `);
   await db.query(`
-    ALTER TABLE docufill_packages
+    ALTER TABLE docuplete_packages
     ADD COLUMN IF NOT EXISTS enable_interview BOOLEAN NOT NULL DEFAULT true
   `);
   await db.query(`
-    ALTER TABLE docufill_packages
+    ALTER TABLE docuplete_packages
     ADD COLUMN IF NOT EXISTS enable_csv BOOLEAN NOT NULL DEFAULT true
   `);
   await db.query(`
-    ALTER TABLE docufill_packages
+    ALTER TABLE docuplete_packages
     ADD COLUMN IF NOT EXISTS enable_customer_link BOOLEAN NOT NULL DEFAULT false
   `);
   await db.query(`
-    ALTER TABLE docufill_packages
+    ALTER TABLE docuplete_packages
     ADD COLUMN IF NOT EXISTS tags JSONB NOT NULL DEFAULT '[]'::jsonb
   `);
   await db.query(`
-    ALTER TABLE docufill_packages
+    ALTER TABLE docuplete_packages
     ADD COLUMN IF NOT EXISTS webhook_enabled BOOLEAN NOT NULL DEFAULT false
   `);
   await db.query(`
-    ALTER TABLE docufill_packages
+    ALTER TABLE docuplete_packages
     ADD COLUMN IF NOT EXISTS webhook_url TEXT
   `);
   await db.query(`
-    ALTER TABLE docufill_packages
+    ALTER TABLE docuplete_packages
     ADD COLUMN IF NOT EXISTS slack_notifications_enabled BOOLEAN NOT NULL DEFAULT false
   `);
 
   // ── Multi-tenancy: account_id columns + backfill ──────────────────────────
   // Nullable so existing rows don't fail; backfill immediately sets them to 1.
-  for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
+  for (const table of ["docuplete_custodians", "docuplete_depositories", "docuplete_packages"]) {
     await db.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS account_id INTEGER REFERENCES accounts(id)`).catch(() => {});
     await db.query(`UPDATE ${table} SET account_id = 1 WHERE account_id IS NULL`).catch(() => {});
   }
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_migration_state (
+    CREATE TABLE IF NOT EXISTS docuplete_migration_state (
       key        TEXT PRIMARY KEY,
       applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
   const sharedFieldBackfill = await db.query(
-    "SELECT 1 FROM docufill_migration_state WHERE key = $1",
+    "SELECT 1 FROM docuplete_migration_state WHERE key = $1",
     ["shared_field_backfill_v1"],
   );
   if (!sharedFieldBackfill.rows[0]) {
     const backfillResult = await db.query(`
-      UPDATE docufill_packages p
+      UPDATE docuplete_packages p
          SET fields = COALESCE((
            SELECT jsonb_agg(
              CASE
@@ -995,7 +995,7 @@ export async function initDb(): Promise<void> {
            FROM jsonb_array_elements(p.fields) WITH ORDINALITY AS field_item(item, ordinality)
            LEFT JOIN LATERAL (
              SELECT id
-               FROM docufill_fields
+               FROM docuplete_fields
               WHERE lower(label) = lower(COALESCE(field_item.item->>'label', field_item.item->>'name'))
                  OR (
                    COALESCE(field_item.item->>'label', field_item.item->>'name', '') = ''
@@ -1009,63 +1009,63 @@ export async function initDb(): Promise<void> {
          AND p.fields <> '[]'::jsonb
     `);
     await db.query(
-      "INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
+      "INSERT INTO docuplete_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
       ["shared_field_backfill_v1"],
     );
     logger.info({ updatedPackages: backfillResult.rowCount }, "Docuplete shared field backfill completed");
   }
 
-  // ── docufill_fields account-scoping migration ─────────────────────────────
+  // ── docuplete_fields account-scoping migration ─────────────────────────────
   // Replaces global label uniqueness with per-scope partial indexes so
   // industry-seeded (per-account) fields don't collide with global system fields.
   const fieldScopeMig = await db.query(
-    "SELECT 1 FROM docufill_migration_state WHERE key = $1",
-    ["docufill_fields_scoped_label_v1"],
+    "SELECT 1 FROM docuplete_migration_state WHERE key = $1",
+    ["docuplete_fields_scoped_label_v1"],
   );
   if (!fieldScopeMig.rows[0]) {
     try {
-      await db.query(`DROP INDEX IF EXISTS docufill_fields_label_unique`);
+      await db.query(`DROP INDEX IF EXISTS docuplete_fields_label_unique`);
       // Deduplicate global fields (account_id IS NULL) before building the partial
       // unique index — production data may have duplicate labels if the global index
       // was absent. Keep the row with the lowest sort_order (system fields first).
       await db.query(`
-        DELETE FROM docufill_fields
+        DELETE FROM docuplete_fields
         WHERE account_id IS NULL
           AND id NOT IN (
             SELECT DISTINCT ON (lower(label)) id
-              FROM docufill_fields
+              FROM docuplete_fields
              WHERE account_id IS NULL
              ORDER BY lower(label), sort_order ASC, id ASC
           )
       `);
       // Deduplicate per-account fields similarly.
       await db.query(`
-        DELETE FROM docufill_fields
+        DELETE FROM docuplete_fields
         WHERE account_id IS NOT NULL
           AND id NOT IN (
             SELECT DISTINCT ON (account_id, lower(label)) id
-              FROM docufill_fields
+              FROM docuplete_fields
              WHERE account_id IS NOT NULL
              ORDER BY account_id, lower(label), sort_order ASC, id ASC
           )
       `);
       await db.query(`
-        CREATE UNIQUE INDEX IF NOT EXISTS docufill_fields_global_label_unique
-          ON docufill_fields (lower(label)) WHERE account_id IS NULL
+        CREATE UNIQUE INDEX IF NOT EXISTS docuplete_fields_global_label_unique
+          ON docuplete_fields (lower(label)) WHERE account_id IS NULL
       `);
       await db.query(`
-        CREATE UNIQUE INDEX IF NOT EXISTS docufill_fields_account_label_unique
-          ON docufill_fields (account_id, lower(label)) WHERE account_id IS NOT NULL
+        CREATE UNIQUE INDEX IF NOT EXISTS docuplete_fields_account_label_unique
+          ON docuplete_fields (account_id, lower(label)) WHERE account_id IS NOT NULL
       `);
       await db.query(
-        "INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
-        ["docufill_fields_scoped_label_v1"],
+        "INSERT INTO docuplete_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
+        ["docuplete_fields_scoped_label_v1"],
       );
-      logger.info("[DB] docufill_fields_scoped_label_v1: per-scope label uniqueness applied");
+      logger.info("[DB] docuplete_fields_scoped_label_v1: per-scope label uniqueness applied");
     } catch (migErr) {
       // Non-fatal: log and continue so the server stays up.
       // The migration will be retried on next restart once the data issue is resolved.
-      logger.error({ err: migErr }, "[DB] docufill_fields_scoped_label_v1 migration failed (non-fatal) — server will continue");
+      logger.error({ err: migErr }, "[DB] docuplete_fields_scoped_label_v1 migration failed (non-fatal) — server will continue");
     }
   }
 
@@ -1075,7 +1075,7 @@ export async function initDb(): Promise<void> {
   // account_id indexes. Runs in a single transaction; state row written only
   // after post-migration verification passes. Idempotent on retry.
   const isolationV1 = await db.query(
-    "SELECT 1 FROM docufill_migration_state WHERE key = $1",
+    "SELECT 1 FROM docuplete_migration_state WHERE key = $1",
     ["account_id_isolation_v1"],
   );
   if (!isolationV1.rows[0]) {
@@ -1084,12 +1084,12 @@ export async function initDb(): Promise<void> {
       await client.query("BEGIN");
 
       // Backfill any NULLs before enforcing NOT NULL
-      for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
+      for (const table of ["docuplete_custodians", "docuplete_depositories", "docuplete_packages"]) {
         await client.query(`UPDATE ${table} SET account_id = 1 WHERE account_id IS NULL`);
       }
 
       // NOT NULL + FK constraints (idempotent DO blocks)
-      for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
+      for (const table of ["docuplete_custodians", "docuplete_depositories", "docuplete_packages"]) {
         await client.query(`
           DO $$
           BEGIN
@@ -1123,18 +1123,18 @@ export async function initDb(): Promise<void> {
       }
 
       // Per-account uniqueness for custodians/depositories; account_id indexes
-      for (const table of ["docufill_custodians", "docufill_depositories"]) {
+      for (const table of ["docuplete_custodians", "docuplete_depositories"]) {
         await client.query(`ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${table}_name_key`);
         await client.query(`
           CREATE UNIQUE INDEX IF NOT EXISTS ${table}_account_name_idx ON ${table} (account_id, name)
         `);
       }
-      await client.query(`CREATE INDEX IF NOT EXISTS docufill_custodians_account_idx ON docufill_custodians (account_id)`);
-      await client.query(`CREATE INDEX IF NOT EXISTS docufill_depositories_account_idx ON docufill_depositories (account_id)`);
-      await client.query(`CREATE INDEX IF NOT EXISTS docufill_packages_account_idx ON docufill_packages (account_id)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS docuplete_custodians_account_idx ON docuplete_custodians (account_id)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS docuplete_depositories_account_idx ON docuplete_depositories (account_id)`);
+      await client.query(`CREATE INDEX IF NOT EXISTS docuplete_packages_account_idx ON docuplete_packages (account_id)`);
 
       // Verify NOT NULL is actually enforced before recording success
-      for (const table of ["docufill_custodians", "docufill_depositories", "docufill_packages"]) {
+      for (const table of ["docuplete_custodians", "docuplete_depositories", "docuplete_packages"]) {
         const check = await client.query(
           `SELECT is_nullable FROM information_schema.columns WHERE table_name = $1 AND column_name = 'account_id'`,
           [table],
@@ -1145,7 +1145,7 @@ export async function initDb(): Promise<void> {
       }
 
       await client.query(
-        "INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
+        "INSERT INTO docuplete_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
         ["account_id_isolation_v1"],
       );
       await client.query("COMMIT");
@@ -1160,10 +1160,10 @@ export async function initDb(): Promise<void> {
   }
 
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_interview_sessions (
+    CREATE TABLE IF NOT EXISTS docuplete_interview_sessions (
       id               SERIAL PRIMARY KEY,
       token            TEXT NOT NULL UNIQUE,
-      package_id       INTEGER NOT NULL REFERENCES docufill_packages(id) ON DELETE CASCADE,
+      package_id       INTEGER NOT NULL REFERENCES docuplete_packages(id) ON DELETE CASCADE,
       package_version  INTEGER NOT NULL,
       deal_id          INTEGER REFERENCES deals(id) ON DELETE SET NULL,
       source           TEXT NOT NULL DEFAULT 'deal_builder',
@@ -1178,44 +1178,44 @@ export async function initDb(): Promise<void> {
   `);
 
   await db.query(`
-    ALTER TABLE docufill_interview_sessions
+    ALTER TABLE docuplete_interview_sessions
     ADD COLUMN IF NOT EXISTS transaction_scope TEXT NOT NULL DEFAULT ''
   `);
   await db.query(`
-    ALTER TABLE docufill_interview_sessions
+    ALTER TABLE docuplete_interview_sessions
     ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ
   `);
   await db.query(`
-    ALTER TABLE docufill_interview_sessions
+    ALTER TABLE docuplete_interview_sessions
     ADD COLUMN IF NOT EXISTS generated_pdf_drive_id TEXT
   `);
   await db.query(`
-    ALTER TABLE docufill_interview_sessions
+    ALTER TABLE docuplete_interview_sessions
     ADD COLUMN IF NOT EXISTS generated_pdf_url TEXT
   `);
   await db.query(`
-    ALTER TABLE docufill_interview_sessions
+    ALTER TABLE docuplete_interview_sessions
     ADD COLUMN IF NOT EXISTS generated_pdf_saved_at TIMESTAMPTZ
   `);
   await db.query(`
-    UPDATE docufill_interview_sessions
+    UPDATE docuplete_interview_sessions
        SET expires_at = NOW() + INTERVAL '90 days'
      WHERE expires_at IS NULL
   `);
   await db.query(`
-    ALTER TABLE docufill_interview_sessions
+    ALTER TABLE docuplete_interview_sessions
     ALTER COLUMN expires_at SET DEFAULT (NOW() + INTERVAL '90 days')
   `);
   await db.query(`
-    ALTER TABLE docufill_interview_sessions
+    ALTER TABLE docuplete_interview_sessions
     ADD COLUMN IF NOT EXISTS test_mode BOOLEAN NOT NULL DEFAULT false
   `);
   await db.query(`
-    ALTER TABLE docufill_interview_sessions
+    ALTER TABLE docuplete_interview_sessions
     ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ
   `);
   await db.query(`
-    ALTER TABLE docufill_interview_sessions
+    ALTER TABLE docuplete_interview_sessions
     ADD COLUMN IF NOT EXISTS voided_reason TEXT
   `);
 
@@ -1223,50 +1223,50 @@ export async function initDb(): Promise<void> {
   // Older migrations used 'Custodial paperwork' / 'ira_transfer' as defaults.
   // The UI treats empty string as "Not specified", so we align the DB to match.
   await db.query(`
-    ALTER TABLE docufill_packages
+    ALTER TABLE docuplete_packages
     ALTER COLUMN transaction_scope SET DEFAULT ''
   `);
   await db.query(`
-    UPDATE docufill_packages
+    UPDATE docuplete_packages
        SET transaction_scope = ''
      WHERE transaction_scope IN ('ira_transfer', 'Custodial paperwork')
   `);
   await db.query(`
-    ALTER TABLE docufill_interview_sessions
+    ALTER TABLE docuplete_interview_sessions
     ALTER COLUMN transaction_scope SET DEFAULT ''
   `);
   await db.query(`
-    UPDATE docufill_interview_sessions
+    UPDATE docuplete_interview_sessions
        SET transaction_scope = ''
      WHERE transaction_scope IN ('ira_transfer', 'Custodial paperwork')
   `);
 
   await db.query(`
-    CREATE INDEX IF NOT EXISTS docufill_packages_combo_idx
-      ON docufill_packages (custodian_id, depository_id, status)
+    CREATE INDEX IF NOT EXISTS docuplete_packages_combo_idx
+      ON docuplete_packages (custodian_id, depository_id, status)
   `);
   await db.query(`
-    CREATE INDEX IF NOT EXISTS docufill_packages_workflow_idx
-      ON docufill_packages (transaction_scope, status)
-  `);
-
-  await db.query(`
-    CREATE INDEX IF NOT EXISTS docufill_package_documents_package_idx
-      ON docufill_package_documents (package_id)
+    CREATE INDEX IF NOT EXISTS docuplete_packages_workflow_idx
+      ON docuplete_packages (transaction_scope, status)
   `);
 
   await db.query(`
-    CREATE INDEX IF NOT EXISTS docufill_interview_sessions_token_idx
-      ON docufill_interview_sessions (token)
+    CREATE INDEX IF NOT EXISTS docuplete_package_documents_package_idx
+      ON docuplete_package_documents (package_id)
+  `);
+
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS docuplete_interview_sessions_token_idx
+      ON docuplete_interview_sessions (token)
   `);
 
   // ── Session account ownership (migration v1) ──────────────────────────────
-  // Adds account_id directly to docufill_interview_sessions so any query can
-  // scope by account without a JOIN to docufill_packages. Idempotent: guarded
-  // by docufill_migration_state; runs in a transaction; verifies NOT NULL
+  // Adds account_id directly to docuplete_interview_sessions so any query can
+  // scope by account without a JOIN to docuplete_packages. Idempotent: guarded
+  // by docuplete_migration_state; runs in a transaction; verifies NOT NULL
   // before recording success.
   const sessionAccountV1 = await db.query(
-    "SELECT 1 FROM docufill_migration_state WHERE key = $1",
+    "SELECT 1 FROM docuplete_migration_state WHERE key = $1",
     ["session_account_id_v1"],
   );
   if (!sessionAccountV1.rows[0]) {
@@ -1276,15 +1276,15 @@ export async function initDb(): Promise<void> {
 
       // Add nullable column (safe for existing rows)
       await client.query(`
-        ALTER TABLE docufill_interview_sessions
+        ALTER TABLE docuplete_interview_sessions
         ADD COLUMN IF NOT EXISTS account_id INTEGER REFERENCES accounts(id)
       `);
 
       // Backfill from the session's package's account_id
       await client.query(`
-        UPDATE docufill_interview_sessions s
+        UPDATE docuplete_interview_sessions s
            SET account_id = p.account_id
-          FROM docufill_packages p
+          FROM docuplete_packages p
          WHERE p.id = s.package_id
            AND s.account_id IS NULL
       `);
@@ -1295,33 +1295,33 @@ export async function initDb(): Promise<void> {
         BEGIN
           IF EXISTS (
             SELECT 1 FROM information_schema.columns
-             WHERE table_name = 'docufill_interview_sessions'
+             WHERE table_name = 'docuplete_interview_sessions'
                AND column_name = 'account_id'
                AND is_nullable = 'YES'
           ) THEN
-            ALTER TABLE docufill_interview_sessions ALTER COLUMN account_id SET NOT NULL;
+            ALTER TABLE docuplete_interview_sessions ALTER COLUMN account_id SET NOT NULL;
           END IF;
         END$$
       `);
 
       // Index for fast per-account lookups
       await client.query(`
-        CREATE INDEX IF NOT EXISTS docufill_interview_sessions_account_idx
-          ON docufill_interview_sessions (account_id)
+        CREATE INDEX IF NOT EXISTS docuplete_interview_sessions_account_idx
+          ON docuplete_interview_sessions (account_id)
       `);
 
       // Verify before recording success
       const check = await client.query(
         `SELECT is_nullable FROM information_schema.columns
-          WHERE table_name = 'docufill_interview_sessions'
+          WHERE table_name = 'docuplete_interview_sessions'
             AND column_name = 'account_id'`,
       );
       if (!check.rows[0] || check.rows[0].is_nullable !== "NO") {
-        throw new Error("[DB] Migration verification: docufill_interview_sessions.account_id is still nullable");
+        throw new Error("[DB] Migration verification: docuplete_interview_sessions.account_id is still nullable");
       }
 
       await client.query(
-        "INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
+        "INSERT INTO docuplete_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
         ["session_account_id_v1"],
       );
       await client.query("COMMIT");
@@ -1390,16 +1390,16 @@ export async function initDb(): Promise<void> {
   await db.query(`UPDATE account_users SET status = 'active' WHERE status IS NULL OR status = ''`);
 
   // ── Task #194: interview link email tracking ───────────────────────────────
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS link_emailed_at TIMESTAMPTZ`);
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS link_email_recipient TEXT`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS link_emailed_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS link_email_recipient TEXT`);
 
   // ── Task #195: per-package submission notification toggles ─────────────────
-  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS notify_staff_on_submit BOOLEAN NOT NULL DEFAULT false`);
-  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS notify_client_on_submit BOOLEAN NOT NULL DEFAULT false`);
+  await db.query(`ALTER TABLE docuplete_packages ADD COLUMN IF NOT EXISTS notify_staff_on_submit BOOLEAN NOT NULL DEFAULT false`);
+  await db.query(`ALTER TABLE docuplete_packages ADD COLUMN IF NOT EXISTS notify_client_on_submit BOOLEAN NOT NULL DEFAULT false`);
 
   // ── Embed JS snippet output channel ────────────────────────────────────────
-  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS enable_embed BOOLEAN NOT NULL DEFAULT false`);
-  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS embed_key TEXT`);
+  await db.query(`ALTER TABLE docuplete_packages ADD COLUMN IF NOT EXISTS enable_embed BOOLEAN NOT NULL DEFAULT false`);
+  await db.query(`ALTER TABLE docuplete_packages ADD COLUMN IF NOT EXISTS embed_key TEXT`);
 
   // ── Task #196: self-serve onboarding state ──────────────────────────────────
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS onboarding_completed_steps JSONB NOT NULL DEFAULT '{}'::jsonb`);
@@ -1408,32 +1408,32 @@ export async function initDb(): Promise<void> {
   // webhook_secret: HMAC-SHA256 key for X-Docuplete-Signature header.
   // Generated once on package creation; never changes; admin-only visible.
   await db.query(`
-    ALTER TABLE docufill_packages
+    ALTER TABLE docuplete_packages
     ADD COLUMN IF NOT EXISTS webhook_secret TEXT
   `);
   // Backfill any existing packages that pre-date the column — generate secrets
   // in Node.js to avoid a pgcrypto dependency.
   {
     const { rows: missing } = await db.query<{ id: number }>(
-      `SELECT id FROM docufill_packages WHERE webhook_secret IS NULL`,
+      `SELECT id FROM docuplete_packages WHERE webhook_secret IS NULL`,
     );
     for (const row of missing) {
       await db.query(
-        `UPDATE docufill_packages SET webhook_secret = $1 WHERE id = $2`,
+        `UPDATE docuplete_packages SET webhook_secret = $1 WHERE id = $2`,
         [randomBytes(32).toString("hex"), row.id],
       );
     }
   }
   // Enforce NOT NULL now that all rows are backfilled.
   await db.query(`
-    ALTER TABLE docufill_packages
+    ALTER TABLE docuplete_packages
     ALTER COLUMN webhook_secret SET NOT NULL
   `);
   // Delivery log: one row per HTTP attempt (initial + each retry)
   await db.query(`
     CREATE TABLE IF NOT EXISTS webhook_deliveries (
       id             SERIAL PRIMARY KEY,
-      package_id     INTEGER NOT NULL REFERENCES docufill_packages(id) ON DELETE CASCADE,
+      package_id     INTEGER NOT NULL REFERENCES docuplete_packages(id) ON DELETE CASCADE,
       account_id     INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
       event_type     TEXT NOT NULL DEFAULT 'interview.submitted',
       payload_hash   TEXT NOT NULL,
@@ -1467,10 +1467,10 @@ export async function initDb(): Promise<void> {
   `);
 
   // ── Task #247: groups table, kind column, multi-group junction ───────────────
-  // docufill_groups may have been created by an earlier manual migration on some
+  // docuplete_groups may have been created by an earlier manual migration on some
   // environments; CREATE TABLE IF NOT EXISTS makes this idempotent everywhere.
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_groups (
+    CREATE TABLE IF NOT EXISTS docuplete_groups (
       id         SERIAL PRIMARY KEY,
       name       TEXT NOT NULL,
       kind       TEXT NOT NULL DEFAULT 'general',
@@ -1484,33 +1484,33 @@ export async function initDb(): Promise<void> {
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
-  await db.query(`ALTER TABLE docufill_groups ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'general'`);
-  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES docufill_groups(id) ON DELETE SET NULL`);
-  await db.query(`ALTER TABLE docufill_groups ADD COLUMN IF NOT EXISTS account_id INTEGER REFERENCES accounts(id)`);
+  await db.query(`ALTER TABLE docuplete_groups ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL DEFAULT 'general'`);
+  await db.query(`ALTER TABLE docuplete_packages ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES docuplete_groups(id) ON DELETE SET NULL`);
+  await db.query(`ALTER TABLE docuplete_groups ADD COLUMN IF NOT EXISTS account_id INTEGER REFERENCES accounts(id)`);
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_package_groups (
-      package_id INTEGER NOT NULL REFERENCES docufill_packages(id) ON DELETE CASCADE,
-      group_id   INTEGER NOT NULL REFERENCES docufill_groups(id)   ON DELETE CASCADE,
+    CREATE TABLE IF NOT EXISTS docuplete_package_groups (
+      package_id INTEGER NOT NULL REFERENCES docuplete_packages(id) ON DELETE CASCADE,
+      group_id   INTEGER NOT NULL REFERENCES docuplete_groups(id)   ON DELETE CASCADE,
       PRIMARY KEY (package_id, group_id)
     )
   `);
   await db.query(`
-    CREATE INDEX IF NOT EXISTS docufill_package_groups_package_idx
-      ON docufill_package_groups (package_id)
+    CREATE INDEX IF NOT EXISTS docuplete_package_groups_package_idx
+      ON docuplete_package_groups (package_id)
   `);
   // Backfill legacy single group_id into junction table (idempotent via ON CONFLICT)
   {
     const migKey = "package_groups_backfill_v1";
-    const { rows: mig } = await db.query("SELECT 1 FROM docufill_migration_state WHERE key = $1", [migKey]);
+    const { rows: mig } = await db.query("SELECT 1 FROM docuplete_migration_state WHERE key = $1", [migKey]);
     if (!mig[0]) {
       await db.query(`
-        INSERT INTO docufill_package_groups (package_id, group_id)
+        INSERT INTO docuplete_package_groups (package_id, group_id)
           SELECT id, group_id
-            FROM docufill_packages
+            FROM docuplete_packages
            WHERE group_id IS NOT NULL
         ON CONFLICT DO NOTHING
       `);
-      await db.query("INSERT INTO docufill_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING", [migKey]);
+      await db.query("INSERT INTO docuplete_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING", [migKey]);
       logger.info("[DB] package_groups_backfill_v1 applied");
     }
   }
@@ -1555,7 +1555,7 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gdrive_folder_name TEXT`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gdrive_connected_at TIMESTAMPTZ`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS gdrive_oauth_state TEXT`);
-  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS enable_gdrive BOOLEAN NOT NULL DEFAULT false`);
+  await db.query(`ALTER TABLE docuplete_packages ADD COLUMN IF NOT EXISTS enable_gdrive BOOLEAN NOT NULL DEFAULT false`);
 
   // ── Provider-agnostic cloud storage — OneDrive & Dropbox additions ───────────
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS storage_provider TEXT`);
@@ -1587,7 +1587,7 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS hubspot_hub_domain TEXT`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS hubspot_connected_at TIMESTAMPTZ`);
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS hubspot_oauth_state TEXT`);
-  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS enable_hubspot BOOLEAN NOT NULL DEFAULT false`);
+  await db.query(`ALTER TABLE docuplete_packages ADD COLUMN IF NOT EXISTS enable_hubspot BOOLEAN NOT NULL DEFAULT false`);
 
   // ── Per-user notification preferences ────────────────────────────────────────
   await db.query(`
@@ -1678,9 +1678,9 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS interview_default_locale TEXT NOT NULL DEFAULT 'en'`);
 
   // ── Interview session — per-session locale and reminder preferences ───────────
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'en'`);
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS reminder_enabled BOOLEAN NOT NULL DEFAULT false`);
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS reminder_days INTEGER NOT NULL DEFAULT 2`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS locale TEXT NOT NULL DEFAULT 'en'`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS reminder_enabled BOOLEAN NOT NULL DEFAULT false`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS reminder_days INTEGER NOT NULL DEFAULT 2`);
 
   // ── Timezone & Locale ─────────────────────────────────────────────────────────
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS timezone TEXT NOT NULL DEFAULT 'America/New_York'`);
@@ -1821,24 +1821,24 @@ export async function initDb(): Promise<void> {
   await db.query(`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS pkg_default_esign BOOLEAN NOT NULL DEFAULT false`);
   // Encrypted JSONB answers column; plaintext `answers` kept as fallback during
   // dual-mode migration period then cleared after all rows are migrated.
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS answers_ciphertext TEXT`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS answers_ciphertext TEXT`);
 
   // ── E-sign v1 — email OTP identity verification ───────────────────────────
   // Per-package auth level: 'none' (default) or 'email_otp'
-  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS auth_level TEXT NOT NULL DEFAULT 'none'`);
+  await db.query(`ALTER TABLE docuplete_packages ADD COLUMN IF NOT EXISTS auth_level TEXT NOT NULL DEFAULT 'none'`);
   // Signing record stored on the completed interview session
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signer_email TEXT`);
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signer_name TEXT`);
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signed_at TIMESTAMPTZ`);
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS pdf_sha256 TEXT`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS signer_email TEXT`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS signer_name TEXT`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS signed_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS pdf_sha256 TEXT`);
   // RFC 3161 trusted timestamp — raw TimeStampResp DER stored as base64, verifiable with openssl ts -verify
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS tsa_token_b64 TEXT`);
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS tsa_url TEXT`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS tsa_token_b64 TEXT`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS tsa_url TEXT`);
   // Immutable signed PDF stored in GCS — /objects/signed-pdfs/{token}.pdf
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS generated_pdf_storage_key TEXT`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS generated_pdf_storage_key TEXT`);
   // One row per OTP send; hashed code, expiry, attempt counter
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_esign_otps (
+    CREATE TABLE IF NOT EXISTS docuplete_esign_otps (
       id            SERIAL PRIMARY KEY,
       session_token TEXT NOT NULL,
       email         TEXT NOT NULL,
@@ -1850,12 +1850,12 @@ export async function initDb(): Promise<void> {
     )
   `);
   await db.query(`
-    CREATE INDEX IF NOT EXISTS docufill_esign_otps_session_idx
-      ON docufill_esign_otps (session_token, created_at DESC)
+    CREATE INDEX IF NOT EXISTS docuplete_esign_otps_session_idx
+      ON docuplete_esign_otps (session_token, created_at DESC)
   `);
   // Append-only audit trail for all e-sign lifecycle events
   await db.query(`
-    CREATE TABLE IF NOT EXISTS docufill_signing_events (
+    CREATE TABLE IF NOT EXISTS docuplete_signing_events (
       id            SERIAL PRIMARY KEY,
       session_token TEXT NOT NULL,
       account_id    INTEGER,
@@ -1868,25 +1868,25 @@ export async function initDb(): Promise<void> {
     )
   `);
   await db.query(`
-    CREATE INDEX IF NOT EXISTS docufill_signing_events_session_idx
-      ON docufill_signing_events (session_token, created_at)
+    CREATE INDEX IF NOT EXISTS docuplete_signing_events_session_idx
+      ON docuplete_signing_events (session_token, created_at)
   `);
   // Migration: actor_ua may not exist on tables created before this column was added
-  await db.query(`ALTER TABLE docufill_signing_events ADD COLUMN IF NOT EXISTS actor_ua TEXT`);
+  await db.query(`ALTER TABLE docuplete_signing_events ADD COLUMN IF NOT EXISTS actor_ua TEXT`);
 
   // ── Signer context on sessions (IP, user-agent, geo) ────────────────────────
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signer_ip TEXT`);
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signer_ua TEXT`);
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS signer_geo TEXT`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS signer_ip TEXT`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS signer_ua TEXT`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS signer_geo TEXT`);
 
   // ── Batch run tracking ──────────────────────────────────────────────────────
   // batch_run_id: UUID shared by all sessions from the same CSV upload run.
   // submitted_at: when the client completed/submitted their interview.
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS batch_run_id TEXT`);
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ`);
-  await db.query(`CREATE INDEX IF NOT EXISTS dis_batch_run_idx ON docufill_interview_sessions (batch_run_id) WHERE batch_run_id IS NOT NULL`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS batch_run_id TEXT`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ`);
+  await db.query(`CREATE INDEX IF NOT EXISTS dis_batch_run_idx ON docuplete_interview_sessions (batch_run_id) WHERE batch_run_id IS NOT NULL`);
   // Back-fill submitted_at for sessions already in a terminal state
-  await db.query(`UPDATE docufill_interview_sessions SET submitted_at = updated_at WHERE submitted_at IS NULL AND status IN ('submitted', 'signed', 'generated') AND source NOT IN ('csv_batch', 'deal_builder')`);
+  await db.query(`UPDATE docuplete_interview_sessions SET submitted_at = updated_at WHERE submitted_at IS NULL AND status IN ('submitted', 'signed', 'generated') AND source NOT IN ('csv_batch', 'deal_builder')`);
 
   // ── Submission bank ──────────────────────────────────────────────────────────
   // Each row is a deposit of submissions into an account's bank.
@@ -1933,7 +1933,7 @@ export async function initDb(): Promise<void> {
   // ── Ensure all demo packages use email_otp auth (e-sign + OTP required) ────
   // Packages seeded before this migration defaulted to 'none'. Idempotent.
   await db.query(`
-    UPDATE docufill_packages
+    UPDATE docuplete_packages
        SET auth_level = 'email_otp'
      WHERE name LIKE 'Demo%'
        AND auth_level != 'email_otp'
@@ -1941,13 +1941,13 @@ export async function initDb(): Promise<void> {
   `);
 
   // ── Mandate preview: require signers to view the filled PDF before signing ──
-  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS require_preview BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.query(`ALTER TABLE docuplete_packages ADD COLUMN IF NOT EXISTS require_preview BOOLEAN NOT NULL DEFAULT FALSE`);
 
   // ── Mandate full scroll: require signers to scroll through the entire document ──
-  await db.query(`ALTER TABLE docufill_packages ADD COLUMN IF NOT EXISTS require_scroll_confirmation BOOLEAN NOT NULL DEFAULT FALSE`);
+  await db.query(`ALTER TABLE docuplete_packages ADD COLUMN IF NOT EXISTS require_scroll_confirmation BOOLEAN NOT NULL DEFAULT FALSE`);
 
   // ── Server-side scroll confirmation: persisted timestamp when signer attests full scroll ──
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS scroll_confirmed_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS scroll_confirmed_at TIMESTAMPTZ`);
 
   // ── Submission-scale composite indexes (task #592) ───────────────────────────
   // These are also created by Drizzle migration 0004_submission_scale_indexes.
@@ -1957,20 +1957,20 @@ export async function initDb(): Promise<void> {
   // CONCURRENTLY cannot run inside a transaction, so these must remain outside
   // the transactional migration path.
   await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS dis_account_created_idx
-    ON docufill_interview_sessions (account_id, created_at DESC NULLS LAST)`);
+    ON docuplete_interview_sessions (account_id, created_at DESC NULLS LAST)`);
   await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS dis_account_package_idx
-    ON docufill_interview_sessions (account_id, package_id)`);
+    ON docuplete_interview_sessions (account_id, package_id)`);
   await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS dis_account_status_idx
-    ON docufill_interview_sessions (account_id, status)`);
+    ON docuplete_interview_sessions (account_id, status)`);
   await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS dis_account_expires_idx
-    ON docufill_interview_sessions (account_id, expires_at)`);
-  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS docufill_packages_account_created_idx
-    ON docufill_packages (account_id, created_at DESC NULLS LAST)`);
+    ON docuplete_interview_sessions (account_id, expires_at)`);
+  await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS docuplete_packages_account_created_idx
+    ON docuplete_packages (account_id, created_at DESC NULLS LAST)`);
   await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS webhook_deliveries_account_created_idx
     ON webhook_deliveries (account_id, created_at DESC NULLS LAST)`);
   // Ensure the session_id column exists before creating the session index.
   // Migration 0004 adds this column; this guard protects the fallback path.
-  await db.query(`ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS session_id INTEGER REFERENCES docufill_interview_sessions(id) ON DELETE SET NULL`);
+  await db.query(`ALTER TABLE webhook_deliveries ADD COLUMN IF NOT EXISTS session_id INTEGER REFERENCES docuplete_interview_sessions(id) ON DELETE SET NULL`);
   await db.query(`CREATE INDEX CONCURRENTLY IF NOT EXISTS webhook_deliveries_session_created_idx
     ON webhook_deliveries (session_id, created_at DESC NULLS LAST)`);
 
@@ -2063,7 +2063,44 @@ export async function initDb(): Promise<void> {
   // ── Merlin session: persist customer's first name for reliable name recall ──
   // Extracted from the first "first name" field Merlin records and injected
   // back into every subsequent system prompt so the name survives long sessions.
-  await db.query(`ALTER TABLE docufill_interview_sessions ADD COLUMN IF NOT EXISTS customer_first_name TEXT`);
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS customer_first_name TEXT`);
+
+  // ── Rename all docuplete_* tables → docuplete_* ────────────────────────────
+  // Rename the migration-state table first so the idempotency check below
+  // works the same way on both existing and fresh installs.
+  await db.query(`ALTER TABLE IF EXISTS docuplete_migration_state RENAME TO docuplete_migration_state`).catch(() => {});
+  const tablRenameApplied = await db.query(
+    "SELECT 1 FROM docuplete_migration_state WHERE key = $1",
+    ["rename_docuplete_to_docuplete_v1"],
+  ).catch(() => ({ rows: [] as Record<string, unknown>[] }));
+  if (!tablRenameApplied.rows[0]) {
+    for (const [oldName, newName] of [
+      ["docuplete_audit_logs",         "docuplete_audit_logs"],
+      ["docuplete_compliance_tags",    "docuplete_compliance_tags"],
+      ["docuplete_custodians",         "docuplete_custodians"],
+      ["docuplete_depositories",       "docuplete_depositories"],
+      ["docuplete_esign_otps",         "docuplete_esign_otps"],
+      ["docuplete_field_groups",       "docuplete_field_groups"],
+      ["docuplete_field_group_usage",  "docuplete_field_group_usage"],
+      ["docuplete_fields",             "docuplete_fields"],
+      ["docuplete_field_versions",     "docuplete_field_versions"],
+      ["docuplete_groups",             "docuplete_groups"],
+      ["docuplete_interview_sessions", "docuplete_interview_sessions"],
+      ["docuplete_package_documents",  "docuplete_package_documents"],
+      ["docuplete_package_groups",     "docuplete_package_groups"],
+      ["docuplete_packages",           "docuplete_packages"],
+      ["docuplete_session_signers",    "docuplete_session_signers"],
+      ["docuplete_signing_events",     "docuplete_signing_events"],
+      ["docuplete_transaction_types",  "docuplete_transaction_types"],
+    ] as const) {
+      await db.query(`ALTER TABLE IF EXISTS ${oldName} RENAME TO ${newName}`).catch(() => {});
+    }
+    await db.query(
+      "INSERT INTO docuplete_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
+      ["rename_docuplete_to_docuplete_v1"],
+    ).catch(() => {});
+    logger.info("Renamed all docuplete_* tables → docuplete_*");
+  }
 }
 
 // ── Scheduler functions (exported for BullMQ worker) ─────────────────────────
@@ -2092,7 +2129,7 @@ export async function pruneRetainedSubmissions(): Promise<void> {
     // Collect GCS keys before deleting so object storage stays in sync
     const { rows: keyRows } = await db.query<{ generated_pdf_storage_key: string | null }>(
       `SELECT dis.generated_pdf_storage_key
-       FROM docufill_interview_sessions dis
+       FROM docuplete_interview_sessions dis
        JOIN accounts a ON dis.account_id = a.id
        WHERE a.submission_retention_days IS NOT NULL
          AND dis.created_at < NOW() - (a.submission_retention_days || ' days')::INTERVAL
@@ -2111,7 +2148,7 @@ export async function pruneRetainedSubmissions(): Promise<void> {
       logger.info({ count: gcsKeys.length }, "[DB] GCS objects deleted for retention-pruned sessions");
     }
     const { rowCount } = await db.query(`
-      DELETE FROM docufill_interview_sessions dis
+      DELETE FROM docuplete_interview_sessions dis
       USING accounts a
       WHERE dis.account_id = a.id
         AND a.submission_retention_days IS NOT NULL
@@ -2159,11 +2196,11 @@ export async function processScheduledDeletions(): Promise<void> {
       const client = await db.connect();
       try {
         await client.query("BEGIN");
-        await client.query(`DELETE FROM docufill_custodians   WHERE account_id = $1`, [account.id]);
-        await client.query(`DELETE FROM docufill_depositories WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docuplete_custodians   WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docuplete_depositories WHERE account_id = $1`, [account.id]);
         // Clean up GCS objects before removing session rows
         const { rows: sessionKeyRows } = await client.query<{ generated_pdf_storage_key: string | null }>(
-          `SELECT generated_pdf_storage_key FROM docufill_interview_sessions
+          `SELECT generated_pdf_storage_key FROM docuplete_interview_sessions
            WHERE account_id = $1 AND generated_pdf_storage_key IS NOT NULL`,
           [account.id],
         );
@@ -2178,9 +2215,9 @@ export async function processScheduledDeletions(): Promise<void> {
             ),
           );
         }
-        await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
-        await client.query(`DELETE FROM docufill_packages WHERE account_id = $1`, [account.id]);
-        await client.query(`DELETE FROM docufill_groups   WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docuplete_interview_sessions WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docuplete_packages WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docuplete_groups   WHERE account_id = $1`, [account.id]);
         await client.query(`DELETE FROM accounts WHERE id = $1`, [account.id]);
         await client.query("COMMIT");
         logger.info({ accountId: account.id, name: account.name }, "[DB] Hard-deleted account after grace period");
@@ -2210,12 +2247,12 @@ export async function purgeExpiredTrialData(): Promise<void> {
       const client = await db.connect();
       try {
         await client.query("BEGIN");
-        await client.query(`DELETE FROM docufill_custodians        WHERE account_id = $1`, [account.id]);
-        await client.query(`DELETE FROM docufill_depositories      WHERE account_id = $1`, [account.id]);
-        await client.query(`DELETE FROM docufill_fields            WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docuplete_custodians        WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docuplete_depositories      WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docuplete_fields            WHERE account_id = $1`, [account.id]);
         // Clean up GCS objects before removing session rows
         const { rows: trialSessionKeyRows } = await client.query<{ generated_pdf_storage_key: string | null }>(
-          `SELECT generated_pdf_storage_key FROM docufill_interview_sessions
+          `SELECT generated_pdf_storage_key FROM docuplete_interview_sessions
            WHERE account_id = $1 AND generated_pdf_storage_key IS NOT NULL`,
           [account.id],
         );
@@ -2230,13 +2267,13 @@ export async function purgeExpiredTrialData(): Promise<void> {
             ),
           );
         }
-        await client.query(`DELETE FROM docufill_interview_sessions WHERE account_id = $1`, [account.id]);
-        await client.query(`DELETE FROM docufill_packages          WHERE account_id = $1`, [account.id]);
-        await client.query(`DELETE FROM docufill_groups            WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docuplete_interview_sessions WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docuplete_packages          WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docuplete_groups            WHERE account_id = $1`, [account.id]);
         await client.query(`DELETE FROM account_api_keys           WHERE account_id = $1`, [account.id]);
         await client.query(`DELETE FROM account_users              WHERE account_id = $1`, [account.id]);
-        await client.query(`DELETE FROM docufill_signing_events    WHERE account_id = $1`, [account.id]);
-        await client.query(`DELETE FROM docufill_transaction_types WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docuplete_signing_events    WHERE account_id = $1`, [account.id]);
+        await client.query(`DELETE FROM docuplete_transaction_types WHERE account_id = $1`, [account.id]);
         await client.query(`DELETE FROM usage_events               WHERE account_id = $1`, [account.id]);
         await client.query(`DELETE FROM submission_bank            WHERE account_id = $1`, [account.id]);
         await client.query(`DELETE FROM pack_subscriptions         WHERE account_id = $1`, [account.id]);
@@ -2278,13 +2315,13 @@ export async function purgeExpiredExports(): Promise<void> {
   }
 }
 
-export async function pruneExpiredDocufillSessions(): Promise<void> {
+export async function pruneExpiredDocupleteSessions(): Promise<void> {
   try {
     const db = getDb();
     // Collect GCS keys for sessions that have passed their expiry without completing
     const { rows: keyRows } = await db.query<{ generated_pdf_storage_key: string | null }>(
       `SELECT generated_pdf_storage_key
-       FROM docufill_interview_sessions
+       FROM docuplete_interview_sessions
        WHERE expires_at < NOW()
          AND status IN ('draft', 'in_progress')
          AND generated_pdf_storage_key IS NOT NULL`,
@@ -2302,7 +2339,7 @@ export async function pruneExpiredDocufillSessions(): Promise<void> {
       logger.info({ count: gcsKeys.length }, "[DB] GCS objects deleted for expired draft/in_progress sessions");
     }
     const { rowCount } = await db.query(
-      `DELETE FROM docufill_interview_sessions
+      `DELETE FROM docuplete_interview_sessions
        WHERE expires_at < NOW()
          AND status IN ('draft', 'in_progress')`,
     );
@@ -2310,7 +2347,7 @@ export async function pruneExpiredDocufillSessions(): Promise<void> {
       logger.info({ rowCount }, "[DB] Pruned expired draft/in_progress interview sessions");
     }
   } catch (err) {
-    logger.error({ err }, "[DB] Expired docufill session prune failed (non-fatal)");
+    logger.error({ err }, "[DB] Expired docuplete session prune failed (non-fatal)");
   }
 }
 
@@ -2381,7 +2418,7 @@ const DEFAULT_TRANSACTION_TYPES = [
 export async function seedDefaultTransactionTypes(db: Pool, accountId: number): Promise<void> {
   for (const t of DEFAULT_TRANSACTION_TYPES) {
     await db.query(
-      `INSERT INTO docufill_transaction_types (scope, account_id, label, active, sort_order)
+      `INSERT INTO docuplete_transaction_types (scope, account_id, label, active, sort_order)
        VALUES ($1, $2, $3, TRUE, $4)
        ON CONFLICT (scope) DO NOTHING`,
       [`a${accountId}_${t.slug}`, accountId, t.label, t.sortOrder],

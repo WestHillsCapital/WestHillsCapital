@@ -13,7 +13,7 @@ export function isSystemEsignFieldId(id: string): boolean {
   return (SYSTEM_ESIGN_FIELD_IDS as readonly string[]).includes(id);
 }
 
-export type DocuFillRedactionField = {
+export type DocupleteRedactionField = {
   name: string;
   source: string;
   sensitive: boolean;
@@ -28,11 +28,11 @@ export function maskSensitiveValue(value: unknown) {
   return visible ? `••••${visible}` : "••••";
 }
 
-export function isSensitivePrefillKey(key: string, fields: DocuFillRedactionField[]) {
+export function isSensitivePrefillKey(key: string, fields: DocupleteRedactionField[]) {
   if (SENSITIVE_PREFILL_PATTERN.test(key)) return true;
   return fields.some((field) => field.sensitive && [field.source, field.name].includes(key));
 }
 
-export function getDocuFillPrefillDisplayValue(key: string, value: unknown, fields: DocuFillRedactionField[]) {
+export function getDocupletePrefillDisplayValue(key: string, value: unknown, fields: DocupleteRedactionField[]) {
   return isSensitivePrefillKey(key, fields) ? maskSensitiveValue(value) : String(value);
 }

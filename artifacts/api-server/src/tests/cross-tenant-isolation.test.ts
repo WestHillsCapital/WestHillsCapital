@@ -10,7 +10,7 @@
  * ─────────────
  * 1. Two throw-away accounts (A, B) are created directly in the DB.
  * 2. A package, a seeded PDF document, and a session are created under Account A.
- * 3. A minimal Express app mounts the docufill router with a simple middleware
+ * 3. A minimal Express app mounts the docuplete router with a simple middleware
  *    that injects req.internalAccountId — exactly what the real auth middleware
  *    does after token validation.  Auth logic itself is tested separately.
  * 4. Account B's app makes requests against Account A's real resource IDs / tokens.
@@ -34,7 +34,7 @@ import { randomBytes } from "node:crypto";
 import supertest from "supertest";
 import express from "express";
 import { Pool } from "pg";
-import docufillRouter from "../routes/docufill.js";
+import docupleteRouter from "../routes/docuplete.js";
 
 const MINIMAL_PDF = Buffer.from(
   "%PDF-1.4\n1 0 obj<</Type /Catalog /Pages 2 0 R>>endobj " +
@@ -53,7 +53,7 @@ function buildTestApp(accountId: number) {
     req.productUserRole = "admin";
     next();
   });
-  app.use("/", docufillRouter);
+  app.use("/", docupleteRouter);
   return app;
 }
 
@@ -100,7 +100,7 @@ describe("Cross-tenant data isolation", () => {
 
     // Create package with one stored document in its documents JSON
     const { rows: [pkgRow] } = await pool.query<{ id: number }>(
-      `INSERT INTO docufill_packages
+      `INSERT INTO docuplete_packages
          (name, account_id, status, transaction_scope, documents, webhook_secret)
        VALUES ('Package A', $1, 'active', 'ira_transfer', $2::jsonb, $3)
        RETURNING id`,
@@ -120,7 +120,7 @@ describe("Cross-tenant data isolation", () => {
 
     // Insert the actual PDF binary so the GET /packages/:id/documents/:docId.pdf route can serve it
     await pool.query(
-      `INSERT INTO docufill_package_documents
+      `INSERT INTO docuplete_package_documents
          (package_id, document_id, filename, content_type, byte_size, page_count, pdf_data)
        VALUES ($1, $2, 'test.pdf', 'application/pdf', $3, 1, $4)`,
       [packageAId, documentAId, MINIMAL_PDF.length, MINIMAL_PDF],
@@ -128,7 +128,7 @@ describe("Cross-tenant data isolation", () => {
 
     sessionAToken = `_test_iso_${suffix}`;
     await pool.query(
-      `INSERT INTO docufill_interview_sessions
+      `INSERT INTO docuplete_interview_sessions
          (token, package_id, package_version, transaction_scope, source, status, prefill, answers, expires_at, account_id)
        VALUES ($1, $2, 1, 'ira_transfer', 'test', 'draft', '{}', '{}', NOW() + INTERVAL '90 days', $3)`,
       [sessionAToken, packageAId, accountAId],
@@ -137,13 +137,13 @@ describe("Cross-tenant data isolation", () => {
 
   after(async () => {
     if (!pool) return;
-    // Cascade deletes handle docufill_package_documents when the package is deleted
+    // Cascade deletes handle docuplete_package_documents when the package is deleted
     await pool.query(
-      `DELETE FROM docufill_interview_sessions WHERE token = $1`,
+      `DELETE FROM docuplete_interview_sessions WHERE token = $1`,
       [sessionAToken],
     );
     await pool.query(
-      `DELETE FROM docufill_packages WHERE id = $1`,
+      `DELETE FROM docuplete_packages WHERE id = $1`,
       [packageAId],
     );
     await pool.query(

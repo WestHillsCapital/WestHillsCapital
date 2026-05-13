@@ -78,8 +78,8 @@ async function main() {
   try {
     const { rows: demoPkgs } = await pool.query(`
       SELECT p.id AS package_id, d.document_id
-      FROM docufill_packages p
-      JOIN docufill_package_documents d ON d.package_id = p.id
+      FROM docuplete_packages p
+      JOIN docuplete_package_documents d ON d.package_id = p.id
       WHERE p.name = 'Demo — Client Information'
       ORDER BY p.id
     `);
@@ -96,13 +96,13 @@ async function main() {
 
     for (const { package_id, document_id } of demoPkgs) {
       await pool.query(
-        `UPDATE docufill_package_documents
+        `UPDATE docuplete_package_documents
             SET pdf_data = $1, byte_size = $2, updated_at = now()
           WHERE package_id = $3 AND document_id = $4`,
         [buf, buf.length, package_id, document_id],
       );
       await pool.query(
-        `UPDATE docufill_packages
+        `UPDATE docuplete_packages
             SET documents = (
               SELECT jsonb_agg(
                 CASE WHEN (elem->>'id') = $2

@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { sessionToCsv, downloadCsv } from "@/lib/docufill-csv";
+import { sessionToCsv, downloadCsv } from "@/lib/docuplete-csv";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
@@ -61,7 +61,7 @@ function fieldIsReadonly(field: InterviewField): boolean {
   return field.interviewMode === "readonly";
 }
 
-export function DocuFillInterviewPanel({ token, getAuthHeaders }: Props) {
+export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
   const [, navigate] = useLocation();
   const [session, setSession] = useState<InterviewSession | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -77,7 +77,7 @@ export function DocuFillInterviewPanel({ token, getAuthHeaders }: Props) {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/sessions/${token}`, {
+      const res = await fetch(`${API_BASE}/api/internal/docuplete/sessions/${token}`, {
         headers: { ...getAuthHeaders() },
       });
       if (!res.ok) throw new Error("Could not load interview");
@@ -85,7 +85,7 @@ export function DocuFillInterviewPanel({ token, getAuthHeaders }: Props) {
       setSession(data);
       setAnswers(data.answers ?? {});
       if (data.status === "complete") {
-        setPacketUrl(`${API_BASE}/api/internal/docufill/sessions/${token}/packet.pdf`);
+        setPacketUrl(`${API_BASE}/api/internal/docuplete/sessions/${token}/packet.pdf`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not load interview");
@@ -102,7 +102,7 @@ export function DocuFillInterviewPanel({ token, getAuthHeaders }: Props) {
     setSaveMessage(null);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/api/internal/docufill/sessions/${token}`, {
+      const res = await fetch(`${API_BASE}/api/internal/docuplete/sessions/${token}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ answers }),
@@ -122,14 +122,14 @@ export function DocuFillInterviewPanel({ token, getAuthHeaders }: Props) {
     setIsGenerating(true);
     setError(null);
     try {
-      const saveRes = await fetch(`${API_BASE}/api/internal/docufill/sessions/${token}`, {
+      const saveRes = await fetch(`${API_BASE}/api/internal/docuplete/sessions/${token}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
         body: JSON.stringify({ answers }),
       });
       if (!saveRes.ok) throw new Error("Could not save answers before generating");
 
-      const res = await fetch(`${API_BASE}/api/internal/docufill/sessions/${token}/generate`, {
+      const res = await fetch(`${API_BASE}/api/internal/docuplete/sessions/${token}/generate`, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...getAuthHeaders() },
       });
@@ -145,13 +145,13 @@ export function DocuFillInterviewPanel({ token, getAuthHeaders }: Props) {
         for (let i = 0; i < MAX_POLLS; i++) {
           await new Promise<void>((r) => setTimeout(r, POLL_INTERVAL));
           const sr = await fetch(
-            `${API_BASE}/api/internal/docufill/sessions/${token}/generate-status?jobId=${encodeURIComponent(jobId)}`,
+            `${API_BASE}/api/internal/docuplete/sessions/${token}/generate-status?jobId=${encodeURIComponent(jobId)}`,
             { headers: { ...getAuthHeaders() } },
           );
           if (!sr.ok) continue;
           const sd = await sr.json() as { status: string; error?: string };
           if (sd.status === "ready") {
-            setPacketUrl(`${API_BASE}/api/internal/docufill/sessions/${token}/packet.pdf`);
+            setPacketUrl(`${API_BASE}/api/internal/docuplete/sessions/${token}/packet.pdf`);
             ready = true;
             break;
           }
@@ -163,7 +163,7 @@ export function DocuFillInterviewPanel({ token, getAuthHeaders }: Props) {
           throw new Error("Generation is taking longer than expected. The document may still be processing — please refresh the page.");
         }
       } else {
-        setPacketUrl(`${API_BASE}/api/internal/docufill/sessions/${token}/packet.pdf`);
+        setPacketUrl(`${API_BASE}/api/internal/docuplete/sessions/${token}/packet.pdf`);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not generate packet");
@@ -228,7 +228,7 @@ export function DocuFillInterviewPanel({ token, getAuthHeaders }: Props) {
         </div>
         <button
           type="button"
-          onClick={() => navigate(`/internal/docufill?session=${token}`)}
+          onClick={() => navigate(`/internal/docuplete?session=${token}`)}
           className="text-xs text-[#6B7A99] border border-[#DDD5C4] rounded px-2.5 py-1.5 hover:text-[#0F1C3F] whitespace-nowrap shrink-0"
         >
           Open full view →
@@ -421,7 +421,7 @@ export function DocuFillInterviewPanel({ token, getAuthHeaders }: Props) {
                 answers,
                 prefill: session.prefill,
               });
-              downloadCsv(csv, `docufill-${safeName}-${date}.csv`);
+              downloadCsv(csv, `docuplete-${safeName}-${date}.csv`);
             }}
             className="text-[#6B7A99] border-[#DDD5C4]"
           >

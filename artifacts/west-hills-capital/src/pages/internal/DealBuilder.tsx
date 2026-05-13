@@ -19,8 +19,8 @@ import { ProductsTable }    from "./deal-builder/sections/ProductsTable";
 import { SummarySection }   from "./deal-builder/sections/SummarySection";
 import { ExecutionSection } from "./deal-builder/sections/ExecutionSection";
 import { FulfillmentSection } from "./deal-builder/sections/FulfillmentSection";
-import { DocuFillPackagesSection } from "./deal-builder/sections/DocuFillPackagesSection";
-import { DocuFillInterviewPanel } from "./deal-builder/components/DocuFillInterviewPanel";
+import { DocupletePackagesSection } from "./deal-builder/sections/DocupletePackagesSection";
+import { DocupleteInterviewPanel } from "./deal-builder/components/DocupleteInterviewPanel";
 
 import { parseNum, parseQty } from "./deal-builder/utils";
 import type { Customer }      from "./deal-builder/types";
@@ -49,22 +49,22 @@ export default function DealBuilder() {
   // ── All form state ────────────────────────────────────────────────────────
   const s = useDealState(urlDealId, urlLeadId, urlConfirmationId, getAuthHeaders);
 
-  // ── DocuFill package selection (lifted from DocuFillPackagesSection) ──────
-  const [docufillPackageId,        setDocufillPackageId]        = useState("");
-  const [docufillTransactionScope, setDocufillTransactionScope] = useState("ira_transfer");
+  // ── Docuplete package selection (lifted from DocupletePackagesSection) ──────
+  const [docupletePackageId,        setDocupletePackageId]        = useState("");
+  const [docupleteTransactionScope, setDocupleteTransactionScope] = useState("ira_transfer");
 
-  const handlePackageChange = useCallback((id: string) => setDocufillPackageId(id), []);
-  const handleTransactionScopeChange = useCallback((scope: string) => setDocufillTransactionScope(scope), []);
+  const handlePackageChange = useCallback((id: string) => setDocupletePackageId(id), []);
+  const handleTransactionScopeChange = useCallback((scope: string) => setDocupleteTransactionScope(scope), []);
 
   // Keep a stable ref to getAuthHeaders so effects don't re-fire when auth state resolves on load
   const getAuthHeadersRef = useRef(getAuthHeaders);
   getAuthHeadersRef.current = getAuthHeaders;
 
-  // ── Restore DocuFill session when reopening a locked deal via URL ─────────
+  // ── Restore Docuplete session when reopening a locked deal via URL ─────────
   const [restoredSessionToken, setRestoredSessionToken] = useState<string | null>(null);
   useEffect(() => {
     if (!urlDealId || !s.savedDealId || s.dealType !== "ira" || restoredSessionToken) return;
-    fetch(`${API_BASE}/api/internal/docufill/sessions?dealId=${s.savedDealId}`, {
+    fetch(`${API_BASE}/api/internal/docuplete/sessions?dealId=${s.savedDealId}`, {
       headers: { ...getAuthHeadersRef.current() },
     })
       .then((r) => (r.ok ? r.json() : Promise.reject()))
@@ -109,14 +109,14 @@ export default function DealBuilder() {
     setShipToZip:              s.setShipToZip,
   });
 
-  const { lockDeal, isSaving, executionStep, saveError, docufillSessionToken } = useDealExecution(
+  const { lockDeal, isSaving, executionStep, saveError, docupleteSessionToken } = useDealExecution(
     getAuthHeaders,
     s,
     subtotal,
     shipping,
     total,
-    s.dealType === "ira" && docufillPackageId
-      ? { packageId: docufillPackageId, transactionScope: docufillTransactionScope }
+    s.dealType === "ira" && docupletePackageId
+      ? { packageId: docupletePackageId, transactionScope: docupleteTransactionScope }
       : null,
   );
 
@@ -239,15 +239,15 @@ export default function DealBuilder() {
           />
 
           {s.dealType === "ira" && (
-            <DocuFillPackagesSection
+            <DocupletePackagesSection
               customer={s.customer}
               setCustomer={s.setCustomer}
               savedDealId={s.savedDealId}
               locked={s.isLocked}
               getAuthHeaders={getAuthHeaders}
-              packageId={docufillPackageId}
+              packageId={docupletePackageId}
               onPackageChange={handlePackageChange}
-              transactionScope={docufillTransactionScope}
+              transactionScope={docupleteTransactionScope}
               onTransactionScopeChange={handleTransactionScopeChange}
             />
           )}
@@ -365,9 +365,9 @@ export default function DealBuilder() {
       </div>
 
       {/* ── IRA Paperwork Interview — appears inline after lock / on reload ── */}
-      {(docufillSessionToken ?? restoredSessionToken) && (
-        <DocuFillInterviewPanel
-          token={(docufillSessionToken ?? restoredSessionToken)!}
+      {(docupleteSessionToken ?? restoredSessionToken) && (
+        <DocupleteInterviewPanel
+          token={(docupleteSessionToken ?? restoredSessionToken)!}
           getAuthHeaders={getAuthHeaders}
         />
       )}

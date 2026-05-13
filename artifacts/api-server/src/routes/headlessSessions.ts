@@ -92,7 +92,7 @@ async function writeAuditLog(opts: {
   try {
     const db = getDb();
     await db.query(
-      `INSERT INTO docufill_audit_logs
+      `INSERT INTO docuplete_audit_logs
          (session_id, session_token, account_id, event, actor_type, actor_email, actor_ip, actor_ua, metadata)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb)`,
       [
@@ -126,7 +126,7 @@ async function fireLifecycleWebhook(opts: {
       webhook_enabled: boolean;
       webhook_url: string | null;
     }>(
-      `SELECT webhook_enabled, webhook_url FROM docufill_packages WHERE id = $1 AND account_id = $2`,
+      `SELECT webhook_enabled, webhook_url FROM docuplete_packages WHERE id = $1 AND account_id = $2`,
       [opts.packageId, opts.accountId],
     );
     const pkg = rows[0];
@@ -199,7 +199,7 @@ async function createOneSession(
     transaction_scope: string | null;
   }>(
     `SELECT id, version, status, transaction_scope
-       FROM docufill_packages
+       FROM docuplete_packages
       WHERE id = $1 AND account_id = $2
       LIMIT 1`,
     [packageId, accountId],
@@ -226,7 +226,7 @@ async function createOneSession(
   const cleanPrefill = sanitizePrefill(params.prefill);
 
   const insertResult = await db.query<{ id: number }>(
-    `INSERT INTO docufill_interview_sessions
+    `INSERT INTO docuplete_interview_sessions
        (token, package_id, package_version, transaction_scope, source, status,
         test_mode, prefill, answers, expires_at, account_id, locale,
         reminder_enabled, reminder_days)
@@ -256,7 +256,7 @@ async function createOneSession(
       const s = sortedSigners[i];
       const signerToken = `df_sgn_${randomBytes(16).toString("hex")}`;
       await db.query(
-        `INSERT INTO docufill_session_signers
+        `INSERT INTO docuplete_session_signers
            (session_id, account_id, signer_order, email, name, status, token)
          VALUES ($1, $2, $3, $4, $5, $6, $7)`,
         [
@@ -369,8 +369,8 @@ router.get(
                   dis.status, dis.source, dis.prefill, dis.locale,
                   dis.created_at, dis.updated_at, dis.expires_at,
                   dis.submitted_at, dis.voided_at, dis.test_mode
-             FROM docufill_interview_sessions dis
-             JOIN docufill_packages dp ON dp.id = dis.package_id
+             FROM docuplete_interview_sessions dis
+             JOIN docuplete_packages dp ON dp.id = dis.package_id
             WHERE ${where}
             ORDER BY dis.created_at DESC
             LIMIT $${idx} OFFSET $${idx + 1}`,
@@ -378,7 +378,7 @@ router.get(
         ),
         db.query(
           `SELECT COUNT(*) AS total
-             FROM docufill_interview_sessions dis
+             FROM docuplete_interview_sessions dis
             WHERE ${where}`,
           params,
         ),
@@ -538,8 +538,8 @@ router.get(
                 dis.generated_pdf_url, dis.signer_name, dis.signer_email,
                 dis.signed_at, dis.batch_run_id,
                 dp.fields AS package_fields
-           FROM docufill_interview_sessions dis
-           JOIN docufill_packages dp ON dp.id = dis.package_id
+           FROM docuplete_interview_sessions dis
+           JOIN docuplete_packages dp ON dp.id = dis.package_id
           WHERE dis.token = $1 AND dis.account_id = $2
           LIMIT 1`,
         [token, accountId],
@@ -618,7 +618,7 @@ router.get(
 
       // Verify session ownership
       const { rows: sessionRows } = await db.query<{ id: number }>(
-        `SELECT id FROM docufill_interview_sessions WHERE token = $1 AND account_id = $2 LIMIT 1`,
+        `SELECT id FROM docuplete_interview_sessions WHERE token = $1 AND account_id = $2 LIMIT 1`,
         [token, accountId],
       );
       if (!sessionRows[0]) {
@@ -627,7 +627,7 @@ router.get(
 
       const { rows } = await db.query(
         `SELECT id, event, actor_type, actor_email, actor_ip, metadata, created_at
-           FROM docufill_audit_logs
+           FROM docuplete_audit_logs
           WHERE session_token = $1 AND account_id = $2
           ORDER BY created_at ASC
           LIMIT $3`,
@@ -670,7 +670,7 @@ router.get(
       const db = getDb();
 
       const { rows: sessionRows } = await db.query<{ id: number }>(
-        `SELECT id FROM docufill_interview_sessions WHERE token = $1 AND account_id = $2 LIMIT 1`,
+        `SELECT id FROM docuplete_interview_sessions WHERE token = $1 AND account_id = $2 LIMIT 1`,
         [token, accountId],
       );
       if (!sessionRows[0]) {
@@ -680,7 +680,7 @@ router.get(
       const { rows } = await db.query(
         `SELECT id, signer_order, email, name, status, token AS signer_token,
                 notified_at, signed_at, declined_at, declined_reason, created_at
-           FROM docufill_session_signers
+           FROM docuplete_session_signers
           WHERE session_id = $1
           ORDER BY signer_order ASC`,
         [sessionRows[0].id],

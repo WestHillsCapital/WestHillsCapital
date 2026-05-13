@@ -5,11 +5,11 @@ import type { RequestHandler } from "express";
  *
  * Both auth middlewares already reject unauthenticated requests, but this
  * provides a belt-and-suspenders guarantee: if req.internalAccountId is somehow
- * still undefined when a docufill route handler runs, we reject with 401 rather
+ * still undefined when a docuplete route handler runs, we reject with 401 rather
  * than silently falling back to account 1 or another tenant's data.
  *
  * Usage: mount between the auth middleware and the route handler.
- *   router.use("/product/docufill", requireProductAuth, requireAccountId, docufillRouter);
+ *   router.use("/product/docuplete", requireProductAuth, requireAccountId, docupleteRouter);
  */
 export const requireAccountId: RequestHandler = (req, res, next) => {
   if (req.internalAccountId === undefined || req.internalAccountId === null) {

@@ -292,7 +292,7 @@ async function cleanupSession(
   try {
     const db = getDb();
     await db.query(
-      `DELETE FROM docufill_interview_sessions WHERE token = $1`,
+      `DELETE FROM docuplete_interview_sessions WHERE token = $1`,
       [token],
     );
     steps.cleanup = { ok: true, durationMs: Date.now() - t0 };

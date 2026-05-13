@@ -1,18 +1,18 @@
 import { useCallback, useRef, type RefObject, type PointerEvent as ReactPointerEvent } from "react";
-import { useDocuFillStore } from "@/stores/useDocuFillStore";
+import { useDocupleteStore } from "@/stores/useDocupleteStore";
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, Number.isFinite(value) ? value : min));
 }
 
-export interface UseDocuFillPointerOptions {
+export interface UseDocupletePointerOptions {
   pageFrameRef: RefObject<HTMLElement | null>;
   snapGrid: boolean;
   nativePageW: number;
   nativePageH: number;
 }
 
-export function useDocuFillPointer(options: UseDocuFillPointerOptions) {
+export function useDocupletePointer(options: UseDocupletePointerOptions) {
   const optionsRef = useRef(options);
   optionsRef.current = options;
 
@@ -31,9 +31,9 @@ export function useDocuFillPointer(options: UseDocuFillPointerOptions) {
         setSelectedMappingId,
         setSelectedFieldId,
         updateMapping,
-      } = useDocuFillStore.getState();
+      } = useDocupleteStore.getState();
 
-      const mapping = useDocuFillStore.getState().mappings.find((m) => m.id === mappingId);
+      const mapping = useDocupleteStore.getState().mappings.find((m) => m.id === mappingId);
       if (!mapping) return;
 
       const frame = frameEl ?? pageFrameRef.current;
@@ -88,7 +88,7 @@ export function useDocuFillPointer(options: UseDocuFillPointerOptions) {
         const T = newY, B = newY + height, CY = newY + height / 2;
         const guideXs: number[] = [], guideYs: number[] = [];
 
-        const otherMappings = useDocuFillStore.getState().mappings.filter(
+        const otherMappings = useDocupleteStore.getState().mappings.filter(
           (item) => item.id !== mapping.id &&
             item.documentId === mapping.documentId &&
             (item.page ?? 1) === (mapping.page ?? 1),

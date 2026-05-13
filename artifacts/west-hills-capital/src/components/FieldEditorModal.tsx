@@ -5,7 +5,7 @@ import type {
   FieldItem,
   FieldInterviewMode,
   FieldCondition,
-} from "@/lib/docufill-types";
+} from "@/lib/docuplete-types";
 
 export type FieldEditorDraft = {
   name: string;

@@ -1,6 +1,6 @@
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import * as pdfjsLib from "pdfjs-dist";
-import type { PackageItem } from "@/lib/docufill-local-types";
+import type { PackageItem } from "@/lib/docuplete-local-types";
 
 export function TagChipInput({ tags, onChange, placeholder }: {
   tags: string[];

@@ -1,12 +1,12 @@
 import React, { type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EmptyState } from "@/components/DocuFillPanels";
-import { PackagePickerWithTags } from "@/components/DocuFillWidgets";
+import { EmptyState } from "@/components/DocupletePanels";
+import { PackagePickerWithTags } from "@/components/DocupleteWidgets";
 import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
-import { getDocuFillPrefillDisplayValue } from "@/lib/docufill-redaction";
-import type { PackageItem } from "@/lib/docufill-local-types";
-import type { FieldItem } from "@/lib/docufill-types";
+import { getDocupletePrefillDisplayValue } from "@/lib/docuplete-redaction";
+import type { PackageItem } from "@/lib/docuplete-local-types";
+import type { FieldItem } from "@/lib/docuplete-types";
 import type { BuilderStep } from "@/components/PackagePickerSidebar";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "";
@@ -77,7 +77,7 @@ type PortalSession = {
   signing_scroll_confirmed_at?: string | null;
 };
 
-export interface DocuFillInterviewPanelProps {
+export interface DocupleteInterviewPanelProps {
   session: Session | null;
   isPublicSession: boolean;
   isSaving: boolean;
@@ -130,7 +130,7 @@ export interface DocuFillInterviewPanelProps {
   driveUrl: string | null;
   driveWarnings: string[];
   isDownloading: boolean;
-  docufillApiPath: string;
+  docupleteApiPath: string;
   labelForTransactionScope: (scope: string | null | undefined) => string;
   fieldIsRequired: (f: { interviewMode?: string; required?: boolean; interviewVisible?: boolean }) => boolean;
   goBuilderStep: (step: BuilderStep) => void;
@@ -146,7 +146,7 @@ export interface DocuFillInterviewPanelProps {
   handleInterviewFieldBlur: (field: FieldItem, value: string) => void;
 }
 
-export const DocuFillInterviewPanel = React.memo(function DocuFillInterviewPanel(props: DocuFillInterviewPanelProps) {
+export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPanel(props: DocupleteInterviewPanelProps) {
   const {
     session, isPublicSession, isSaving, activePackages, packages,
     standalonePackageId, setStandalonePackageId,
@@ -165,7 +165,7 @@ export const DocuFillInterviewPanel = React.memo(function DocuFillInterviewPanel
     portalSessions, portalLoading, portalError, portalTotal,
     answers, setAnswers, fieldErrors, visibleInterviewFields,
     missingRequiredFields, answeredFieldCount,
-    generatedUrl, driveUrl, driveWarnings, isDownloading, docufillApiPath,
+    generatedUrl, driveUrl, driveWarnings, isDownloading, docupleteApiPath,
     labelForTransactionScope, fieldIsRequired,
     goBuilderStep, setTab, launchStandaloneInterview, generateCustomerLink,
     copyCustomerLink, handleSendLinkByEmail, saveAnswers, generatePacket,
@@ -398,7 +398,7 @@ export const DocuFillInterviewPanel = React.memo(function DocuFillInterviewPanel
                           voided:    { label: "Voided",    cls: "bg-red-50 text-red-600" },
                         };
                         const statusInfo = statusMap[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-500" };
-                        const pdfUrl = `${API_BASE}${docufillApiPath}/sessions/${s.token}/packet.pdf`;
+                        const pdfUrl = `${API_BASE}${docupleteApiPath}/sessions/${s.token}/packet.pdf`;
                         const isCompleted = s.status === "generated" || s.status === "signed";
                         const signingScrollRequired = s.signing_scroll_required === true;
                         const signingScrollConfirmed = signingScrollRequired && Boolean(s.signing_scroll_confirmed_at);
@@ -475,7 +475,7 @@ export const DocuFillInterviewPanel = React.memo(function DocuFillInterviewPanel
             <h3 className="text-sm font-semibold mb-2">Prefilled from Deal Builder</h3>
             <div className="grid sm:grid-cols-2 gap-2 text-xs text-[#6B7A99]">
               {Object.entries(session.prefill ?? {}).filter(([, value]) => String(value ?? "").trim()).map(([key, value]) => (
-                <div key={key}><span className="font-medium text-[#0F1C3F]">{key}:</span> {getDocuFillPrefillDisplayValue(key, value, session.fields)}</div>
+                <div key={key}><span className="font-medium text-[#0F1C3F]">{key}:</span> {getDocupletePrefillDisplayValue(key, value, session.fields)}</div>
               ))}
             </div>
           </div>

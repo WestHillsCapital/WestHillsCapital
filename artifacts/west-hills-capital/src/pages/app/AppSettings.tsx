@@ -6266,7 +6266,7 @@ const ALL_SETTINGS_NAV: Array<{ id: string; label: string; adminOnly?: boolean; 
   { id: "billing-section",            label: "Billing" },
   { id: "custom-domain-section",      label: "Custom domain",  adminOnly: true },
   { id: "team-section",               label: "Team" },
-  // DocuFill — how the interview product behaves
+  // Docuplete — how the interview product behaves
   { id: "interview-defaults-section", label: "Interview",      group: "Docuplete" },
   { id: "email-section",              label: "Email" },
   // Connect — external tools and developer APIs

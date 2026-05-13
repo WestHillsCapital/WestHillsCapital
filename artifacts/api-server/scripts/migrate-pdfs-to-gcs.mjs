@@ -1,5 +1,5 @@
 /**
- * One-time migration: move pdf_data blobs from docufill_package_documents
+ * One-time migration: move pdf_data blobs from docuplete_package_documents
  * to GCS, writing back the pdf_gcs_key and optionally nulling pdf_data.
  *
  * Usage (from project root):
@@ -101,8 +101,8 @@ async function main() {
   const { rows } = await pool.query(`
     SELECT d.id, d.package_id, d.document_id, d.byte_size,
            p.account_id
-      FROM docufill_package_documents d
-      JOIN docufill_packages p ON p.id = d.package_id
+      FROM docuplete_package_documents d
+      JOIN docuplete_packages p ON p.id = d.package_id
      WHERE d.pdf_data IS NOT NULL
        AND d.pdf_gcs_key IS NULL
      ORDER BY d.id
@@ -130,7 +130,7 @@ async function main() {
     try {
       // Fetch the binary data
       const { rows: dataRows } = await pool.query(
-        "SELECT pdf_data FROM docufill_package_documents WHERE id=$1",
+        "SELECT pdf_data FROM docuplete_package_documents WHERE id=$1",
         [row.id],
       );
       const pdfBuffer = dataRows[0]?.pdf_data;
@@ -145,12 +145,12 @@ async function main() {
       // Write back key (and optionally null pdf_data)
       if (NULL_PDF_DATA) {
         await pool.query(
-          "UPDATE docufill_package_documents SET pdf_gcs_key=$1, pdf_data=NULL, updated_at=NOW() WHERE id=$2",
+          "UPDATE docuplete_package_documents SET pdf_gcs_key=$1, pdf_data=NULL, updated_at=NOW() WHERE id=$2",
           [gcsKey, row.id],
         );
       } else {
         await pool.query(
-          "UPDATE docufill_package_documents SET pdf_gcs_key=$1, updated_at=NOW() WHERE id=$2",
+          "UPDATE docuplete_package_documents SET pdf_gcs_key=$1, updated_at=NOW() WHERE id=$2",
           [gcsKey, row.id],
         );
       }

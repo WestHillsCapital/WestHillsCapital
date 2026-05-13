@@ -24,10 +24,10 @@ export default async function globalSetup(_config: FullConfig) {
   const page = await context.newPage();
 
   await setupClerkTestingToken({ page });
-  await page.goto(`${BASE}/internal/docufill`);
+  await page.goto(`${BASE}/internal/docuplete`);
   await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
 
-  const res = await page.request.post(`${BASE}/api/internal/docufill/seed-demo`).catch(() => null);
+  const res = await page.request.post(`${BASE}/api/internal/docuplete/seed-demo`).catch(() => null);
   if (res && res.ok()) {
     await page.waitForTimeout(1_500);
   }

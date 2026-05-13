@@ -51,16 +51,16 @@ async function nav(page: Page, url: string, wait = 2500) {
 }
 
 /**
- * Navigate to DocuFill page with a specific tab set via sessionStorage.
+ * Navigate to Docuplete page with a specific tab set via sessionStorage.
  * sessionStorage persists across navigations in the same tab, so we set it
  * BEFORE the navigation, then navigate, then the React app reads it on init.
  */
-async function navDocuFillTab(page: Page, tabValue: string, extraParams = "") {
+async function navDocupleteTab(page: Page, tabValue: string, extraParams = "") {
   // Pre-set the session key so React initialises with the correct tab
   await page.evaluate((tab) => {
-    try { sessionStorage.setItem("docufill:tab", tab); } catch {}
+    try { sessionStorage.setItem("docuplete:tab", tab); } catch {}
   }, tabValue);
-  await page.goto(`${BASE}/internal/docufill?packageId=183${extraParams}`, { waitUntil: "domcontentloaded" });
+  await page.goto(`${BASE}/internal/docuplete?packageId=183${extraParams}`, { waitUntil: "domcontentloaded" });
   await page.waitForTimeout(3500);
   await dismissBanner(page);
   await dismissOverlay(page);
@@ -97,7 +97,7 @@ async function getClerkTicket(): Promise<string | null> {
 
 async function main() {
   console.log("Seeding demo data…");
-  await fetch(`${BASE}/api/internal/docufill/seed-demo`, { method: "POST" }).catch(() => {});
+  await fetch(`${BASE}/api/internal/docuplete/seed-demo`, { method: "POST" }).catch(() => {});
   await new Promise((r) => setTimeout(r, 2000));
 
   const browser = await chromium.launch({
@@ -113,13 +113,13 @@ async function main() {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     await ctx.addInitScript(() => {
       try {
-        localStorage.setItem("docufill:demo-ui", "dismissed");
+        localStorage.setItem("docuplete:demo-ui", "dismissed");
         // Clear tab so it shows default packages view
-        sessionStorage.removeItem("docufill:tab");
+        sessionStorage.removeItem("docuplete:tab");
       } catch {}
     });
     const p = await ctx.newPage();
-    await nav(p, `${BASE}/internal/docufill`, 3500);
+    await nav(p, `${BASE}/internal/docuplete`, 3500);
     // Scroll slightly to show the package list below the nav
     await p.evaluate(() => window.scrollBy(0, 80));
     await p.waitForTimeout(400);
@@ -128,17 +128,17 @@ async function main() {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // PART 2 — Main DocuFill screenshots
+  // PART 2 — Main Docuplete screenshots
   // ─────────────────────────────────────────────────────────────────────────
   const ctx1 = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   await ctx1.addInitScript(() => {
-    try { localStorage.setItem("docufill:demo-ui", "dismissed"); } catch {}
+    try { localStorage.setItem("docuplete:demo-ui", "dismissed"); } catch {}
   });
   const page = await ctx1.newPage();
 
   // ── 2. quickstart-upload: Documents step, showing the upload zone ────────
   console.log("§2 quickstart-upload");
-  await navDocuFillTab(page, "packages");
+  await navDocupleteTab(page, "packages");
   await shot(page, "quickstart-upload");
 
   // ── 3. upload-dialog: scroll to show the PDF drop-zone / doc list area ──
@@ -154,7 +154,7 @@ async function main() {
   // ── 5–8. Mapper: click "Map Fields" step button to enter mapper tab ─────
   console.log("§5 mapper-overview");
   // Re-navigate to packages tab then click Map Fields
-  await navDocuFillTab(page, "packages");
+  await navDocupleteTab(page, "packages");
   await page.waitForTimeout(500);
   const mapBtn = page.locator("button").filter({ hasText: /Map Fields/ }).first();
   if (await mapBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
@@ -178,7 +178,7 @@ async function main() {
   // Use wider viewport so the PDF canvas is ~160px wider — visually distinct from §5/§6
   await page.setViewportSize({ width: 1440, height: 900 });
   // Re-navigate to mapper at new width (forces re-render at wider proportions)
-  await navDocuFillTab(page, "mapper");
+  await navDocupleteTab(page, "mapper");
   await page.waitForTimeout(3000); // PDF needs time to render at new size
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(600);
@@ -189,7 +189,7 @@ async function main() {
   console.log("§8 textbox-config");
   // Navigate to packages tab and click the "Finalize" step to show interview/finalize config
   // This is completely different content from the mapper PDF canvas view
-  await navDocuFillTab(page, "packages");
+  await navDocupleteTab(page, "packages");
   await page.waitForTimeout(500);
   // Click the "Finalize" step button (3rd step in the Package Builder wizard)
   const finalizeBtn = page.locator("button").filter({ hasText: /Finalize/ }).first();
@@ -263,8 +263,8 @@ async function main() {
 
   console.log("§9 interviews-list");
   // Use sessionStorage tab + URL param ?tab=sessions for redundancy
-  await page.evaluate(() => { try { sessionStorage.setItem("docufill:tab", "interview"); } catch {} });
-  await nav(page, `${BASE}/internal/docufill?packageId=183&tab=sessions`, 3500);
+  await page.evaluate(() => { try { sessionStorage.setItem("docuplete:tab", "interview"); } catch {} });
+  await nav(page, `${BASE}/internal/docuplete?packageId=183&tab=sessions`, 3500);
   // Click "Interview Dashboard" sub-tab to show the session history table (now populated)
   const interviewDashBtn = page.locator("button").filter({ hasText: /Interview Dashboard/ }).first();
   if (await interviewDashBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
@@ -279,15 +279,15 @@ async function main() {
   // NOTE: the "Interviews" button in the main nav bar has the same text as the sub-tab button.
   //       Using .first() accidentally clicks the main-nav button (no state change), so we
   //       navigate instead to force a clean re-initialisation.
-  await nav(page, `${BASE}/internal/docufill?packageId=183&tab=sessions`, 4500);
+  await nav(page, `${BASE}/internal/docuplete?packageId=183&tab=sessions`, 4500);
   // Stay on the default "Interviews" sub-tab — no extra click needed.
   await shot(page, "create-session-dialog");
 
   console.log("§11 quickstart-download");
   // Navigate to Interview Dashboard — scroll 220px to show bottom rows of populated session table
   // (rows 5-10 visible at top instead of rows 1-5 at scroll 0)
-  await page.evaluate(() => { try { sessionStorage.setItem("docufill:tab", "interview"); } catch {} });
-  await nav(page, `${BASE}/internal/docufill?packageId=183&tab=sessions`, 3000);
+  await page.evaluate(() => { try { sessionStorage.setItem("docuplete:tab", "interview"); } catch {} });
+  await nav(page, `${BASE}/internal/docuplete?packageId=183&tab=sessions`, 3000);
   const dashBtn2 = page.locator("button").filter({ hasText: /Interview Dashboard/ }).first();
   if (await dashBtn2.isVisible({ timeout: 2000 }).catch(() => false)) {
     await dashBtn2.click({ force: true });
@@ -303,7 +303,7 @@ async function main() {
 
   // ── 12–17. Batch CSV tab (set via sessionStorage) ─────────────────────────
   console.log("§12 batch-upload-step");
-  await navDocuFillTab(page, "csv");
+  await navDocupleteTab(page, "csv");
   // Default sub-tab is "import" — shows file upload interface with no package selected
   await shot(page, "batch-upload-step");
 
@@ -367,7 +367,7 @@ async function main() {
     "run_20250506_xyz9": JSON.stringify({ sessions: ERROR_SESSIONS }),
   };
 
-  await page.route("**/docufill/batch-runs**", (route) => {
+  await page.route("**/docuplete/batch-runs**", (route) => {
     const url = route.request().url();
     // Session detail request: /batch-runs/<id>
     const sessionMatch = url.match(/\/batch-runs\/([^/?]+)/);
@@ -411,7 +411,7 @@ async function main() {
     total: 1,
   });
   // Navigate fresh to CSV tab so the mocked Batch Dashboard reloads with new data
-  await navDocuFillTab(page, "csv");
+  await navDocupleteTab(page, "csv");
   const batchDashBtn2 = page.locator("button").filter({ hasText: /Batch Dashboard/ }).first();
   if (await batchDashBtn2.isVisible({ timeout: 3000 }).catch(() => false)) {
     await batchDashBtn2.click({ force: true });
@@ -431,18 +431,18 @@ async function main() {
   await shot(page, "batch-errors");
 
   // Remove the batch-runs route mock so it doesn't affect later requests
-  await page.unroute("**/docufill/batch-runs**");
+  await page.unroute("**/docuplete/batch-runs**");
 
   // ── 18–19. Field Library screenshots ─────────────────────────────────────
   console.log("§18 field-library-list");
   // Groups tab: shows the "All Groups" EntityPanel (group management)
-  await navDocuFillTab(page, "groups");
+  await navDocupleteTab(page, "groups");
   await shot(page, "field-library-list");
 
   console.log("§19 add-library-fields");
   // Packages tab → open "Advanced lists and reusable fields" details
   // → scroll to show the FieldLibraryPanel ("Shared Field Library") — distinct from groups
-  await navDocuFillTab(page, "packages");
+  await navDocupleteTab(page, "packages");
   await page.waitForTimeout(500);
   // Open the "Advanced lists" <details> element
   const advancedDetails = page.locator("details").filter({ hasText: /Advanced lists and reusable fields/ }).first();
@@ -467,7 +467,7 @@ async function main() {
   // ── 20–22. Public interview form ────────────────────────────────────────
   console.log("§20-22 public interview");
   const SESSION_TOKEN = process.env.E2E_DOCUFILL_SESSION_TOKEN ?? "";
-  await nav(page, `${BASE}/docufill/${SESSION_TOKEN}`, 5000);
+  await nav(page, `${BASE}/docuplete/${SESSION_TOKEN}`, 5000);
   await shot(page, "quickstart-interview");
 
   await scrollBy(page, 350);
