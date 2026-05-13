@@ -413,7 +413,7 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
   }, [selectedDocumentId, mapperScrollMode]);
 
   return (
-    <div className="grid lg:grid-cols-[190px_1fr_260px] gap-4 min-h-[720px] items-stretch">
+    <div className="grid lg:grid-cols-[190px_1fr_260px] gap-4 items-stretch" style={{ height: 'calc(100vh - 220px)', minHeight: '620px' }}>
       {/* ── Click-to-place banner ── */}
       {clickToPlaceFieldId && (() => {
         const activePlaceField = selectedPackage.fields.find((f) => f.id === clickToPlaceFieldId);
@@ -543,7 +543,7 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
       </section>
 
       {/* ── Center: toolbar + canvas ── */}
-      <section ref={setMapperContainerEl} className="bg-white border border-[#DDD5C4] rounded-lg p-4">
+      <section ref={setMapperContainerEl} className="bg-white border border-[#DDD5C4] rounded-lg p-4 overflow-y-auto flex flex-col h-full">
         <div className="mb-2">
           <h2 className="text-sm font-semibold">Assign Package Fields and Rules</h2>
           <p className="text-xs text-[#8A9BB8]">Place fields on PDFs, then decide which are required, fixed/defaulted, validated, or omitted from the generated interview.</p>
