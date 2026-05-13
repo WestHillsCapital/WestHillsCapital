@@ -511,11 +511,40 @@ export function TransactionTypesPanel({
   const [savedScope, setSavedScope] = useState<string | null>(null);
   const [deletingScope, setDeletingScope] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
-  const [txSearch, setTxSearch] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedScope, setSelectedScope] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
+  const [selectLastOnAdd, setSelectLastOnAdd] = useState(false);
+  const prevItemsLengthRef = useRef(items.length);
+  const listScrollRef = useRef<HTMLDivElement | null>(null);
+  const selectedRowRef = useRef<HTMLButtonElement | null>(null);
 
-  const filteredTxTypes = txSearch.trim()
-    ? items.filter((i) => i.label.toLowerCase().includes(txSearch.toLowerCase()))
-    : items;
+  const q = searchQuery.trim().toLowerCase();
+  const visibleItems = q ? items.filter((i) => i.label.toLowerCase().includes(q)) : items;
+  const selectedItem = items.find((i) => i.scope === selectedScope) ?? null;
+
+  useEffect(() => {
+    if (selectLastOnAdd && items.length > prevItemsLengthRef.current) {
+      const newest = items[items.length - 1];
+      if (newest) {
+        setSelectedScope(newest.scope);
+        setMobileView("detail");
+        setTimeout(() => selectedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
+      }
+      setSelectLastOnAdd(false);
+    }
+    prevItemsLengthRef.current = items.length;
+  }, [items, selectLastOnAdd]);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    const first = visibleItems[0];
+    if (first) {
+      setSelectedScope(first.scope);
+      setTimeout(() => selectedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
 
   async function handleAdd() {
     setAdding(true);
@@ -523,6 +552,7 @@ export function TransactionTypesPanel({
     const err = await onAdd();
     setAdding(false);
     if (err) setPanelError(err);
+    else setSelectLastOnAdd(true);
   }
 
   async function handleSave(item: TransactionType) {
@@ -546,58 +576,176 @@ export function TransactionTypesPanel({
     setPanelError(null);
     const err = await onDelete(item.scope);
     setDeletingScope(null);
-    if (err) setPanelError(err);
+    if (err) {
+      setPanelError(err);
+    } else {
+      setSelectedScope(null);
+    }
   }
 
   return (
-    <div className="border border-[#DDD5C4] rounded p-3">
+    <div>
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h3 className="text-sm font-semibold">Types</h3>
+          <h3 className="text-sm font-semibold">Transaction Types</h3>
           <p className="text-[11px] text-[#8A9BB8]">Manage the types available to packages and interview launchers.</p>
         </div>
         <button type="button" onClick={handleAdd} disabled={adding} className="text-xs text-[#C49A38] disabled:opacity-50">
-          {adding ? "Adding…" : "Add"}
+          {adding ? "Adding…" : "+ Add"}
         </button>
       </div>
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
-      <div className="mb-2 relative">
-        <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#B0BCCE] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
-        <input type="text" placeholder="Search types…" value={txSearch} onChange={(e) => setTxSearch(e.target.value)} className="w-full h-7 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-2 bg-white focus:outline-none focus:border-[#1B4FD8]" />
-      </div>
-      <div className="grid md:grid-cols-2 gap-2 text-sm">
-        {filteredTxTypes.map((item) => (
-          <div key={item.scope} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
-            <Input value={item.label} onChange={(e) => onChange(item.scope, { label: e.target.value })} className="h-8 text-xs bg-white" />
-            <div className="flex items-center justify-between">
-              <label className="flex items-center gap-1 text-[11px] text-[#6B7A99]">
-                <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.scope, { active: e.target.checked })} />
-                Active
-              </label>
-              <div className="flex items-center gap-2">
-                {onDelete && (
+
+      {/* Two-pane master-detail */}
+      <div className="flex border border-[#DDD5C4] rounded overflow-hidden" style={{ height: "400px" }}>
+        {/* LEFT: list */}
+        <div
+          className={`flex flex-col border-r border-[#DDD5C4] bg-[#F8F6F0] shrink-0 ${mobileView === "detail" ? "hidden md:flex" : "flex"}`}
+          style={{ width: "200px" }}
+        >
+          {/* Search */}
+          <div className="p-2 border-b border-[#E8E0D4] bg-[#F8F6F0]">
+            <div className="relative">
+              <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#B0BCCE] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
+              <input
+                type="text"
+                placeholder="Search types…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-7 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-6 bg-white focus:outline-none focus:border-[#1B4FD8]"
+              />
+              {searchQuery && (
+                <button type="button" onClick={() => setSearchQuery("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#B0BCCE] hover:text-[#6B7A99]">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M18 6L6 18M6 6l12 12"/></svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Scrollable list — ↑/↓ keyboard navigation */}
+          <div
+            ref={listScrollRef}
+            className="flex-1 overflow-y-auto"
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+              if (visibleItems.length === 0) return;
+              e.preventDefault();
+              const currentIdx = visibleItems.findIndex((i) => i.scope === selectedScope);
+              let nextIdx: number;
+              if (e.key === "ArrowDown") {
+                nextIdx = currentIdx < visibleItems.length - 1 ? currentIdx + 1 : 0;
+              } else {
+                nextIdx = currentIdx > 0 ? currentIdx - 1 : visibleItems.length - 1;
+              }
+              const next = visibleItems[nextIdx];
+              if (next) {
+                setSelectedScope(next.scope);
+                setMobileView("detail");
+                setTimeout(() => selectedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 16);
+              }
+            }}
+          >
+            {visibleItems.map((item) => {
+              const isSel = item.scope === selectedScope;
+              return (
+                <button
+                  key={item.scope}
+                  ref={isSel ? selectedRowRef : null}
+                  type="button"
+                  onClick={() => { setSelectedScope(item.scope); setMobileView("detail"); }}
+                  className={`w-full text-left px-3 py-2 border-b border-[#EFE8D8] transition-colors ${isSel ? "bg-[#0F1C3F]" : "bg-transparent hover:bg-[#EDE7D9]"}`}
+                >
+                  <div className={`text-[11px] font-medium leading-tight line-clamp-2 ${!item.label ? "italic opacity-50" : isSel ? "text-white" : "text-[#0F1C3F]"}`}>
+                    {item.label || "untitled"}
+                  </div>
+                  <div className={`text-[10px] mt-0.5 ${isSel ? "text-white/60" : "text-[#8A9BB8]"}`}>
+                    {item.active ? "Active" : "Inactive"}
+                  </div>
+                </button>
+              );
+            })}
+            {visibleItems.length === 0 && (
+              <div className="p-5 text-[11px] text-[#8A9BB8] text-center">
+                {searchQuery ? `No results for "${searchQuery}".` : "No types yet."}
+              </div>
+            )}
+          </div>
+
+          {/* Count footer */}
+          <div className="px-3 py-1.5 border-t border-[#E8E0D4] text-[10px] text-[#8A9BB8] shrink-0 bg-[#F8F6F0]">
+            {visibleItems.length} of {items.length} type{items.length !== 1 ? "s" : ""}
+          </div>
+        </div>
+
+        {/* RIGHT: detail / edit */}
+        <div className={`flex-1 min-w-0 overflow-y-auto bg-[#FDFCFA] ${mobileView === "list" ? "hidden md:block" : "block"}`}>
+          {selectedItem ? (
+            <div className="p-4 space-y-3 text-sm">
+              <button type="button" onClick={() => setMobileView("list")} className="md:hidden flex items-center gap-1 text-[11px] text-[#6B7A99] hover:text-[#0F1C3F] mb-2">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                Back to list
+              </button>
+
+              <div>
+                <div className="text-[10px] text-[#8A9BB8] font-medium uppercase tracking-wide mb-1">Label</div>
+                <Input
+                  value={selectedItem.label}
+                  onChange={(e) => onChange(selectedItem.scope, { label: e.target.value })}
+                  className="h-8 text-xs bg-white"
+                />
+              </div>
+
+              <div>
+                <div className="text-[10px] text-[#8A9BB8] font-medium uppercase tracking-wide mb-1">Sort order</div>
+                <Input
+                  type="number"
+                  value={selectedItem.sort_order}
+                  onChange={(e) => onChange(selectedItem.scope, { sort_order: Number(e.target.value || 0) })}
+                  className="h-8 text-xs bg-white"
+                />
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
+                <label className="flex items-center gap-1">
+                  <input
+                    type="checkbox"
+                    checked={selectedItem.active}
+                    onChange={(e) => onChange(selectedItem.scope, { active: e.target.checked })}
+                  />
+                  Active
+                </label>
+              </div>
+
+              <div className="flex items-center justify-between pt-3 border-t border-[#EFE8D8]">
+                <span className="text-[10px] text-[#B0BCCE]">{selectedItem.scope}</span>
+                <div className="flex gap-3">
+                  {onDelete && (
+                    <button
+                      type="button"
+                      onClick={() => void handleDelete(selectedItem)}
+                      disabled={deletingScope === selectedItem.scope}
+                      className="text-[11px] text-red-500 disabled:opacity-50"
+                    >
+                      {deletingScope === selectedItem.scope ? "Deleting…" : "Delete"}
+                    </button>
+                  )}
                   <button
                     type="button"
-                    onClick={() => handleDelete(item)}
-                    disabled={deletingScope === item.scope}
-                    className="text-[11px] text-red-500 disabled:opacity-50"
+                    onClick={() => void handleSave(selectedItem)}
+                    disabled={savingScope === selectedItem.scope}
+                    className="text-[11px] font-medium text-[#C49A38] disabled:opacity-50"
                   >
-                    {deletingScope === item.scope ? "Deleting…" : "Delete"}
+                    {savingScope === selectedItem.scope ? "Saving…" : savedScope === selectedItem.scope ? "✓ Saved" : "Save"}
                   </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => handleSave(item)}
-                  disabled={savingScope === item.scope}
-                  className="text-[11px] text-[#C49A38] disabled:opacity-50"
-                >
-                  {savingScope === item.scope ? "Saving…" : savedScope === item.scope ? "✓ Saved" : "Save"}
-                </button>
+                </div>
               </div>
             </div>
-            <div className="text-[10px] text-[#8A9BB8]">{item.scope}</div>
-          </div>
-        ))}
+          ) : (
+            <div className="h-full flex items-center justify-center text-[11px] text-[#8A9BB8]">
+              Select a type to edit
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
