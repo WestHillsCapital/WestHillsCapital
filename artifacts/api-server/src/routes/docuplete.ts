@@ -889,7 +889,8 @@ function fieldLibrarySelectSql(): string {
   return `SELECT id, label, category, field_type AS type, source, options, sensitive, required,
                  validation_type AS "validationType", validation_pattern AS "validationPattern",
                  validation_message AS "validationMessage", active, sort_order AS "sortOrder",
-                 COALESCE(compliance_tags, '[]'::jsonb) AS "complianceTags"
+                 COALESCE(compliance_tags, '[]'::jsonb) AS "complianceTags",
+                 account_id IS NULL AS "isGlobal"
             FROM docuplete_fields`;
 }
 

@@ -311,22 +311,28 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
 }
 
 function normalizeFieldLibrary(items: FieldLibraryItem[]): FieldLibraryItem[] {
-  return Array.isArray(items) ? items.map((item) => ({
-    ...item,
-    category: item.category || "General",
-    type: ["text", "date", "radio", "checkbox", "dropdown"].includes(item.type) ? item.type : "text",
-    source: item.source || "interview",
-    options: Array.isArray(item.options) ? item.options : [],
-    sensitive: item.sensitive === true,
-    required: item.required === true,
-    validationType: item.validationType ?? "none",
-    validationPattern: item.validationPattern ?? "",
-    validationMessage: item.validationMessage ?? "",
-    active: item.active !== false,
-    sortOrder: Number(item.sortOrder ?? 100),
-    inherited: item.inherited === true,
-    inheritedFrom: item.inheritedFrom ?? undefined,
-  })) : [];
+  return Array.isArray(items) ? items.map((item) => {
+    // isGlobal is returned by the API when account_id IS NULL — global fields
+    // belong to no account so they cannot be PATCH-ed; mark them as inherited
+    // so the UI disables editing (compliance tags, save, delete, etc.).
+    const isGlobal = (item as FieldLibraryItem & { isGlobal?: boolean }).isGlobal === true;
+    return {
+      ...item,
+      category: item.category || "General",
+      type: ["text", "date", "radio", "checkbox", "dropdown"].includes(item.type) ? item.type : "text",
+      source: item.source || "interview",
+      options: Array.isArray(item.options) ? item.options : [],
+      sensitive: item.sensitive === true,
+      required: item.required === true,
+      validationType: item.validationType ?? "none",
+      validationPattern: item.validationPattern ?? "",
+      validationMessage: item.validationMessage ?? "",
+      active: item.active !== false,
+      sortOrder: Number(item.sortOrder ?? 100),
+      inherited: item.inherited === true || isGlobal,
+      inheritedFrom: item.inheritedFrom ?? (isGlobal ? "global library" : undefined),
+    };
+  }) : [];
 }
 
 const SEMANTIC_PREFILL_LABELS: Record<string, string> = {

@@ -1146,8 +1146,29 @@ export function FieldLibraryPanel({
               </button>
             </div>
           )}
-          {/* Scrollable field list */}
-          <div ref={listScrollRef} className="flex-1 overflow-y-auto">
+          {/* Scrollable field list — ↑/↓ keyboard navigation */}
+          <div
+            ref={listScrollRef}
+            className="flex-1 overflow-y-auto"
+            onKeyDown={(e) => {
+              if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+              if (visibleItems.length === 0) return;
+              e.preventDefault();
+              const currentIdx = visibleItems.findIndex((i) => i.id === selectedId);
+              let nextIdx: number;
+              if (e.key === "ArrowDown") {
+                nextIdx = currentIdx < visibleItems.length - 1 ? currentIdx + 1 : 0;
+              } else {
+                nextIdx = currentIdx > 0 ? currentIdx - 1 : visibleItems.length - 1;
+              }
+              const nextItem = visibleItems[nextIdx];
+              if (nextItem) {
+                setSelectedId(nextItem.id);
+                setMobileView("detail");
+                setTimeout(() => selectedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 16);
+              }
+            }}
+          >
             {visibleItems.map((item) => {
               const isSel = item.id === selectedId;
               const pkgCount = item.packageCount ?? 0;
