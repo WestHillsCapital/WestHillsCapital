@@ -755,6 +755,7 @@ export function FieldLibraryPanel({
   const [savedId, setSavedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
+  const [showHints, setShowHints] = useState(false);
   const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
   const [historyMap, setHistoryMap] = useState<Map<string, FieldVersionRow[]>>(() => new Map());
   const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
@@ -1022,6 +1023,22 @@ export function FieldLibraryPanel({
         <div>
           <div className="flex items-center gap-1.5">
             <h3 className="text-sm font-semibold">Shared Field Library</h3>
+            <span className="relative">
+              <button type="button" onClick={() => setShowHints((v) => !v)} className={`flex items-center justify-center w-4 h-4 rounded-full border text-[10px] leading-none select-none transition-colors ${showHints ? "bg-[#C49A38] border-[#C49A38] text-white" : "border-[#C4B99A] text-[#8A9BB8] hover:border-[#C49A38] hover:text-[#C49A38]"}`}>?</button>
+              {showHints && (
+                <div className="absolute left-0 top-full mt-1.5 w-72 rounded-lg border border-[#DDD5C4] bg-white shadow-lg text-[11px] text-[#4A5568] leading-relaxed px-3 py-2.5 z-50 space-y-1.5">
+                  <p><span className="font-semibold text-[#0F1C3F]">Label</span> — the question or prompt shown to the client during the interview.</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Category</span> — groups this field with related fields (e.g. "Personal info", "Account details").</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Prefill source</span> — the variable key used when mapping this field to a document template (e.g. "firstName").</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Sort order</span> — controls where this field appears relative to others. Lower numbers appear first.</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Field type</span> — the kind of input shown: text, date, radio, checkbox, or dropdown.</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Validation rule</span> — applies a built-in format check (Name, Email, Phone, SSN, etc.) to the client's entry.</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Options</span> — for dropdown, radio, or checkbox fields only. Enter one option per line — plain text, no quotes or commas needed.</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Validation message</span> — shown when the client's input fails validation. Leave blank for the default message.</p>
+                  <p><span className="font-semibold text-[#0F1C3F]">Active</span> — include in interviews. <span className="font-semibold text-[#0F1C3F]">Required</span> — client must fill in. <span className="font-semibold text-[#0F1C3F]">Sensitive</span> — masked in logs and exports (SSNs, account numbers, etc.).</p>
+                </div>
+              )}
+            </span>
           </div>
           <p className="text-[11px] text-[#8A9BB8]">Define common fields once and reuse them across your document packages.</p>
         </div>
