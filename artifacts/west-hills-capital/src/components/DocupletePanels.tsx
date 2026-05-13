@@ -147,6 +147,7 @@ export function FieldGroupsPanel({
   const [panelError, setPanelError] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [fieldSearch, setFieldSearch] = useState("");
+  const [groupSearch, setGroupSearch] = useState("");
 
   async function handleAdd() {
     setAdding(true);
@@ -208,9 +209,13 @@ export function FieldGroupsPanel({
         </button>
       </div>
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
+      <div className="mb-2 relative">
+        <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#B0BCCE] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" placeholder="Search groups…" value={groupSearch} onChange={(e) => setGroupSearch(e.target.value)} className="w-full h-8 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-2 bg-white focus:outline-none focus:border-[#1B4FD8]" />
+      </div>
       {items.length === 0 && <div className="text-xs text-[#8A9BB8]">No field groups yet. Add one to bundle fields for fast package setup.</div>}
-      <div className="space-y-2">
-        {items.map((item) => {
+      <div className="grid md:grid-cols-2 gap-2">
+        {items.filter((i) => !groupSearch.trim() || i.name.toLowerCase().includes(groupSearch.toLowerCase())).map((item) => {
           const isExpanded = expandedId === item.id;
           const memberCount = item.fieldIds.length;
           const usagePackages = item.usagePackages ?? [];
@@ -329,6 +334,9 @@ export function FieldGroupsPanel({
             </div>
           );
         })}
+        {items.length > 0 && groupSearch.trim() && !items.some((i) => i.name.toLowerCase().includes(groupSearch.toLowerCase())) && (
+          <div className="text-xs text-[#8A9BB8] col-span-2">No groups match "{groupSearch}".</div>
+        )}
       </div>
     </div>
   );
@@ -512,39 +520,9 @@ export function TransactionTypesPanel({
   const [deletingScope, setDeletingScope] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedScope, setSelectedScope] = useState<string | null>(null);
-  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
-  const [selectLastOnAdd, setSelectLastOnAdd] = useState(false);
-  const prevItemsLengthRef = useRef(items.length);
-  const listScrollRef = useRef<HTMLDivElement | null>(null);
-  const selectedRowRef = useRef<HTMLButtonElement | null>(null);
 
   const q = searchQuery.trim().toLowerCase();
   const visibleItems = q ? items.filter((i) => i.label.toLowerCase().includes(q)) : items;
-  const selectedItem = items.find((i) => i.scope === selectedScope) ?? null;
-
-  useEffect(() => {
-    if (selectLastOnAdd && items.length > prevItemsLengthRef.current) {
-      const newest = items[items.length - 1];
-      if (newest) {
-        setSelectedScope(newest.scope);
-        setMobileView("detail");
-        setTimeout(() => selectedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
-      }
-      setSelectLastOnAdd(false);
-    }
-    prevItemsLengthRef.current = items.length;
-  }, [items, selectLastOnAdd]);
-
-  useEffect(() => {
-    if (!searchQuery.trim()) return;
-    const first = visibleItems[0];
-    if (first) {
-      setSelectedScope(first.scope);
-      setTimeout(() => selectedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery]);
 
   async function handleAdd() {
     setAdding(true);
@@ -552,7 +530,6 @@ export function TransactionTypesPanel({
     const err = await onAdd();
     setAdding(false);
     if (err) setPanelError(err);
-    else setSelectLastOnAdd(true);
   }
 
   async function handleSave(item: TransactionType) {
@@ -576,11 +553,7 @@ export function TransactionTypesPanel({
     setPanelError(null);
     const err = await onDelete(item.scope);
     setDeletingScope(null);
-    if (err) {
-      setPanelError(err);
-    } else {
-      setSelectedScope(null);
-    }
+    if (err) setPanelError(err);
   }
 
   return (
@@ -613,137 +586,32 @@ export function TransactionTypesPanel({
         )}
       </div>
 
-      {/* Two-pane master-detail */}
-      <div className="flex border border-[#DDD5C4] rounded overflow-hidden" style={{ height: "400px" }}>
-        {/* LEFT: list */}
-        <div
-          className={`flex flex-col border-r border-[#DDD5C4] bg-[#F8F6F0] shrink-0 ${mobileView === "detail" ? "hidden md:flex" : "flex"}`}
-          style={{ width: "200px" }}
-        >
-          {/* Scrollable list — ↑/↓ keyboard navigation */}
-          <div
-            ref={listScrollRef}
-            className="flex-1 overflow-y-auto"
-            onKeyDown={(e) => {
-              if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-              if (visibleItems.length === 0) return;
-              e.preventDefault();
-              const currentIdx = visibleItems.findIndex((i) => i.scope === selectedScope);
-              let nextIdx: number;
-              if (e.key === "ArrowDown") {
-                nextIdx = currentIdx < visibleItems.length - 1 ? currentIdx + 1 : 0;
-              } else {
-                nextIdx = currentIdx > 0 ? currentIdx - 1 : visibleItems.length - 1;
-              }
-              const next = visibleItems[nextIdx];
-              if (next) {
-                setSelectedScope(next.scope);
-                setMobileView("detail");
-                setTimeout(() => selectedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 16);
-              }
-            }}
-          >
-            {visibleItems.map((item) => {
-              const isSel = item.scope === selectedScope;
-              return (
-                <button
-                  key={item.scope}
-                  ref={isSel ? selectedRowRef : null}
-                  type="button"
-                  onClick={() => { setSelectedScope(item.scope); setMobileView("detail"); }}
-                  className={`w-full text-left px-3 py-2 border-b border-[#EFE8D8] transition-colors ${isSel ? "bg-[#0F1C3F]" : "bg-transparent hover:bg-[#EDE7D9]"}`}
-                >
-                  <div className={`text-[11px] font-medium leading-tight line-clamp-2 ${!item.label ? "italic opacity-50" : isSel ? "text-white" : "text-[#0F1C3F]"}`}>
-                    {item.label || "untitled"}
-                  </div>
-                  <div className={`text-[10px] mt-0.5 ${isSel ? "text-white/60" : "text-[#8A9BB8]"}`}>
-                    {item.active ? "Active" : "Inactive"}
-                  </div>
-                </button>
-              );
-            })}
-            {visibleItems.length === 0 && (
-              <div className="p-5 text-[11px] text-[#8A9BB8] text-center">
-                {searchQuery ? `No results for "${searchQuery}".` : "No types yet."}
-              </div>
-            )}
-          </div>
-
-          {/* Count footer */}
-          <div className="px-3 py-1.5 border-t border-[#E8E0D4] text-[10px] text-[#8A9BB8] shrink-0 bg-[#F8F6F0]">
-            {visibleItems.length} of {items.length} type{items.length !== 1 ? "s" : ""}
-          </div>
-        </div>
-
-        {/* RIGHT: detail / edit */}
-        <div className={`flex-1 min-w-0 overflow-y-auto bg-[#FDFCFA] ${mobileView === "list" ? "hidden md:block" : "block"}`}>
-          {selectedItem ? (
-            <div className="p-4 space-y-3 text-sm">
-              <button type="button" onClick={() => setMobileView("list")} className="md:hidden flex items-center gap-1 text-[11px] text-[#6B7A99] hover:text-[#0F1C3F] mb-2">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
-                Back to list
-              </button>
-
-              <div>
-                <div className="text-[10px] text-[#8A9BB8] font-medium uppercase tracking-wide mb-1">Label</div>
-                <Input
-                  value={selectedItem.label}
-                  onChange={(e) => onChange(selectedItem.scope, { label: e.target.value })}
-                  className="h-8 text-xs bg-white"
-                />
-              </div>
-
-              <div>
-                <div className="text-[10px] text-[#8A9BB8] font-medium uppercase tracking-wide mb-1">Sort order</div>
-                <Input
-                  type="number"
-                  value={selectedItem.sort_order}
-                  onChange={(e) => onChange(selectedItem.scope, { sort_order: Number(e.target.value || 0) })}
-                  className="h-8 text-xs bg-white"
-                />
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
-                <label className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    checked={selectedItem.active}
-                    onChange={(e) => onChange(selectedItem.scope, { active: e.target.checked })}
-                  />
-                  Active
-                </label>
-              </div>
-
-              <div className="flex items-center justify-between pt-3 border-t border-[#EFE8D8]">
-                <span className="text-[10px] text-[#B0BCCE]">{selectedItem.scope}</span>
-                <div className="flex gap-3">
-                  {onDelete && (
-                    <button
-                      type="button"
-                      onClick={() => void handleDelete(selectedItem)}
-                      disabled={deletingScope === selectedItem.scope}
-                      className="text-[11px] text-red-500 disabled:opacity-50"
-                    >
-                      {deletingScope === selectedItem.scope ? "Deleting…" : "Delete"}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => void handleSave(selectedItem)}
-                    disabled={savingScope === selectedItem.scope}
-                    className="text-[11px] font-medium text-[#C49A38] disabled:opacity-50"
-                  >
-                    {savingScope === selectedItem.scope ? "Saving…" : savedScope === selectedItem.scope ? "✓ Saved" : "Save"}
+      <div className="grid md:grid-cols-2 gap-2">
+        {visibleItems.map((item) => (
+          <div key={item.scope} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
+            <Input value={item.label} onChange={(e) => onChange(item.scope, { label: e.target.value })} className="h-8 text-xs bg-white" placeholder="Label" />
+            <Input type="number" value={item.sort_order} onChange={(e) => onChange(item.scope, { sort_order: Number(e.target.value || 0) })} className="h-8 text-xs bg-white" placeholder="Sort order" />
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-1 text-[11px] text-[#6B7A99]">
+                <input type="checkbox" checked={item.active} onChange={(e) => onChange(item.scope, { active: e.target.checked })} />
+                Active
+              </label>
+              <div className="flex items-center gap-2">
+                {onDelete && (
+                  <button type="button" onClick={() => void handleDelete(item)} disabled={deletingScope === item.scope} className="text-[11px] text-red-500 disabled:opacity-50">
+                    {deletingScope === item.scope ? "Deleting…" : "Delete"}
                   </button>
-                </div>
+                )}
+                <button type="button" onClick={() => void handleSave(item)} disabled={savingScope === item.scope} className="text-[11px] text-[#C49A38] disabled:opacity-50">
+                  {savingScope === item.scope ? "Saving…" : savedScope === item.scope ? "✓ Saved" : "Save"}
+                </button>
               </div>
             </div>
-          ) : (
-            <div className="h-full flex items-center justify-center text-[11px] text-[#8A9BB8]">
-              Select a type to edit
-            </div>
-          )}
-        </div>
+            <div className="text-[10px] text-[#B0BCCE]">{item.scope}</div>
+          </div>
+        ))}
+        {items.length === 0 && <div className="text-xs text-[#8A9BB8] col-span-2">No types yet. Click + Add to create one.</div>}
+        {items.length > 0 && visibleItems.length === 0 && <div className="text-xs text-[#8A9BB8] col-span-2">No results for "{searchQuery}".</div>}
       </div>
     </div>
   );
@@ -888,14 +756,11 @@ export function FieldLibraryPanel({
   const [savedId, setSavedId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [panelError, setPanelError] = useState<string | null>(null);
-  const [showHints, setShowHints] = useState(false);
   const [historyOpenId, setHistoryOpenId] = useState<string | null>(null);
   const [historyMap, setHistoryMap] = useState<Map<string, FieldVersionRow[]>>(() => new Map());
   const [historyLoadingId, setHistoryLoadingId] = useState<string | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [restoringVersionId, setRestoringVersionId] = useState<number | null>(null);
-  const [sortBy, setSortBy] = useState<"default" | "most-answered">("default");
-  const [showNeverUsed, setShowNeverUsed] = useState(false);
   const [analyticsOpenId, setAnalyticsOpenId] = useState<string | null>(null);
   const [analyticsMap, setAnalyticsMap] = useState<Map<string, FieldAnalytics>>(() => new Map());
   const [analyticsLoadingId, setAnalyticsLoadingId] = useState<string | null>(null);
@@ -917,13 +782,8 @@ export function FieldLibraryPanel({
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<FieldLibraryImportResult | null>(null);
   const exportMenuRef = useRef<HTMLDivElement>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [searchQuery, setSearchQuery] = useState("");
-  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
-  const [selectLastOnAdd, setSelectLastOnAdd] = useState(false);
-  const prevItemsLengthRef = useRef(items.length);
-  const listScrollRef = useRef<HTMLDivElement | null>(null);
-  const selectedRowRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!exportMenuOpen) return;
@@ -936,33 +796,6 @@ export function FieldLibraryPanel({
     return () => document.removeEventListener("mousedown", handler);
   }, [exportMenuOpen]);
 
-  useEffect(() => {
-    if (selectLastOnAdd && items.length > prevItemsLengthRef.current) {
-      const newest = items[items.length - 1];
-      if (newest) {
-        setSelectedId(newest.id);
-        setMobileView("detail");
-        setTimeout(() => selectedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
-      }
-      setSelectLastOnAdd(false);
-    }
-    prevItemsLengthRef.current = items.length;
-  }, [items, selectLastOnAdd]);
-
-  // When search produces a filtered list, auto-select and scroll to first match
-  useEffect(() => {
-    if (!searchQuery.trim()) return;
-    const q = searchQuery.trim().toLowerCase();
-    const first = items.find((i) =>
-      i.label.toLowerCase().includes(q) ||
-      (i.category ?? "").toLowerCase().includes(q) ||
-      (i.source ?? "").toLowerCase().includes(q)
-    );
-    if (first) {
-      setSelectedId(first.id);
-      setTimeout(() => selectedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
-    }
-  }, [searchQuery, items]);
 
   async function handleExport(format: "json" | "csv") {
     if (!onExport) return;
@@ -1025,7 +858,6 @@ export function FieldLibraryPanel({
     const err = await onAdd();
     setAdding(false);
     if (err) setPanelError(err);
-    else setSelectLastOnAdd(true);
   }
 
   async function handleSave(item: FieldLibraryItem) {
@@ -1052,7 +884,6 @@ export function FieldLibraryPanel({
     const err = await onDelete(item.id);
     setDeletingId(null);
     if (err) setPanelError(err);
-    else setSelectedId(null);
   }
 
   async function toggleHistory(fieldId: string) {
@@ -1106,21 +937,14 @@ export function FieldLibraryPanel({
     }
   }
 
-  // Filtering / sorting
-  const hasUsageData = items.some((i) => i.packageCount !== undefined);
   const q = searchQuery.trim().toLowerCase();
-  let visibleItems = [...items];
-  if (q) visibleItems = visibleItems.filter((i) =>
-    i.label.toLowerCase().includes(q) ||
-    (i.category ?? "").toLowerCase().includes(q) ||
-    (i.source ?? "").toLowerCase().includes(q)
-  );
-  if (showNeverUsed) visibleItems = visibleItems.filter((i) => (i.packageCount ?? 0) === 0);
-  if (sortBy === "most-answered") visibleItems = [...visibleItems].sort((a, b) => (b.answerCount ?? 0) - (a.answerCount ?? 0));
-
-  const selectedItem = items.find((i) => i.id === selectedId) ?? null;
-  const isInherited = !!(selectedItem?.inherited || (selectedItem as (FieldLibraryItem & { inheritedFrom?: string }) | null)?.inheritedFrom);
-  const h = showHints;
+  const visibleItems = q
+    ? items.filter((i) =>
+        i.label.toLowerCase().includes(q) ||
+        (i.category ?? "").toLowerCase().includes(q) ||
+        (i.source ?? "").toLowerCase().includes(q)
+      )
+    : items;
 
   return (
     <div className="border border-[#DDD5C4] rounded p-3">
@@ -1199,22 +1023,6 @@ export function FieldLibraryPanel({
         <div>
           <div className="flex items-center gap-1.5">
             <h3 className="text-sm font-semibold">Shared Field Library</h3>
-            <span className="relative">
-              <button type="button" onClick={() => setShowHints((v) => !v)} className={`flex items-center justify-center w-4 h-4 rounded-full border text-[10px] leading-none select-none transition-colors ${showHints ? "bg-[#C49A38] border-[#C49A38] text-white" : "border-[#C4B99A] text-[#8A9BB8] hover:border-[#C49A38] hover:text-[#C49A38]"}`}>?</button>
-              {showHints && (
-                <div className="absolute left-0 top-full mt-1.5 w-72 rounded-lg border border-[#DDD5C4] bg-white shadow-lg text-[11px] text-[#4A5568] leading-relaxed px-3 py-2.5 z-50 space-y-1.5">
-                  <p><span className="font-semibold text-[#0F1C3F]">Label</span> — the question or prompt shown to the client during the interview.</p>
-                  <p><span className="font-semibold text-[#0F1C3F]">Category</span> — groups this field with related fields (e.g. "Personal info", "Account details").</p>
-                  <p><span className="font-semibold text-[#0F1C3F]">Prefill source</span> — the variable key used when mapping this field to a document template (e.g. "firstName").</p>
-                  <p><span className="font-semibold text-[#0F1C3F]">Sort order</span> — controls where this field appears relative to others. Lower numbers appear first.</p>
-                  <p><span className="font-semibold text-[#0F1C3F]">Field type</span> — the kind of input shown: text, date, radio, checkbox, or dropdown.</p>
-                  <p><span className="font-semibold text-[#0F1C3F]">Validation rule</span> — applies a built-in format check (Name, Email, Phone, SSN, etc.) to the client's entry.</p>
-                  <p><span className="font-semibold text-[#0F1C3F]">Options</span> — for dropdown, radio, or checkbox fields only. Enter one option per line — plain text, no quotes or commas needed. Example:<br /><code className="font-mono text-[10px] text-[#1B4FD8]">Option A<br />Option B<br />Option C</code></p>
-                  <p><span className="font-semibold text-[#0F1C3F]">Validation message</span> — shown when the client's input fails validation. Leave blank for the default message.</p>
-                  <p><span className="font-semibold text-[#0F1C3F]">Active</span> — include in interviews. <span className="font-semibold text-[#0F1C3F]">Required</span> — client must fill in. <span className="font-semibold text-[#0F1C3F]">Sensitive</span> — masked in logs and exports (SSNs, account numbers, etc.).</p>
-                </div>
-              )}
-            </span>
           </div>
           <p className="text-[11px] text-[#8A9BB8]">Define common fields once and reuse them across your document packages.</p>
         </div>
@@ -1271,344 +1079,163 @@ export function FieldLibraryPanel({
           </button>
         )}
       </div>
-      {/* Two-pane master-detail */}
-      <div className="flex border border-[#DDD5C4] rounded overflow-hidden" style={{ height: "520px" }}>
-        {/* LEFT: settings-nav style field list */}
-        <div
-          className={`flex flex-col border-r border-[#DDD5C4] bg-[#F8F6F0] shrink-0 ${mobileView === "detail" ? "hidden md:flex" : "flex"}`}
-          style={{ width: "200px" }}
-        >
-          {/* Sort / filter (usage data only) */}
-          {hasUsageData && (
-            <div className="px-2 py-1.5 border-b border-[#E8E0D4] flex flex-wrap items-center gap-1.5 bg-[#F8F6F0]">
-              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "default" | "most-answered")} className="h-5 text-[10px] border border-[#D4C9B5] rounded px-1 bg-white text-[#4A5568]">
-                <option value="default">Sort: default</option>
-                <option value="most-answered">Most answered</option>
-              </select>
-              <button type="button" onClick={() => setShowNeverUsed((v) => !v)} className={`h-5 text-[10px] px-1.5 rounded border transition-colors ${showNeverUsed ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "border-[#D4C9B5] text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F] bg-white"}`}>
-                {showNeverUsed ? "✕" : "Unused"}
-              </button>
-            </div>
-          )}
-          {/* Scrollable field list — ↑/↓ keyboard navigation */}
-          <div
-            ref={listScrollRef}
-            className="flex-1 overflow-y-auto"
-            onKeyDown={(e) => {
-              if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
-              if (visibleItems.length === 0) return;
-              e.preventDefault();
-              const currentIdx = visibleItems.findIndex((i) => i.id === selectedId);
-              let nextIdx: number;
-              if (e.key === "ArrowDown") {
-                nextIdx = currentIdx < visibleItems.length - 1 ? currentIdx + 1 : 0;
+      <div className="grid md:grid-cols-2 gap-2">
+        {visibleItems.map((item) => {
+          const isExpanded = expandedIds.has(item.id);
+          const itemIsInherited = !!(item.inherited || (item as FieldLibraryItem & { inheritedFrom?: string }).inheritedFrom);
+          const displayTags = optimisticTagsMap.get(item.id) ?? item.complianceTags ?? [];
+          const applyTagChange = (next: string[]) => {
+            setOptimisticTagsMap((m) => { const n = new Map(m); n.set(item.id, next); return n; });
+            setTagSavingId(item.id);
+            void onSetComplianceTags!(item.id, next).then((err) => {
+              setTagSavingId(null);
+              if (err) {
+                setOptimisticTagsMap((m) => { const n = new Map(m); n.delete(item.id); return n; });
+                setPanelError(err);
               } else {
-                nextIdx = currentIdx > 0 ? currentIdx - 1 : visibleItems.length - 1;
+                setOptimisticTagsMap((m) => { const n = new Map(m); n.delete(item.id); return n; });
               }
-              const nextItem = visibleItems[nextIdx];
-              if (nextItem) {
-                setSelectedId(nextItem.id);
-                setMobileView("detail");
-                setTimeout(() => selectedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 16);
-              }
-            }}
-          >
-            {visibleItems.map((item) => {
-              const isSel = item.id === selectedId;
-              const pkgCount = item.packageCount ?? 0;
-              const listTags = optimisticTagsMap.get(item.id) ?? item.complianceTags ?? [];
-              return (
-                <button
-                  key={item.id}
-                  ref={isSel ? selectedRowRef : null}
-                  type="button"
-                  onClick={() => { setSelectedId(item.id); setMobileView("detail"); }}
-                  className={`w-full text-left px-3 py-2 border-b border-[#EFE8D8] transition-colors ${isSel ? "bg-[#0F1C3F]" : "bg-transparent hover:bg-[#EDE7D9]"}`}
-                >
-                  <div className="flex items-start justify-between gap-1">
-                    <span className={`text-[11px] font-medium leading-tight line-clamp-2 ${!item.label ? "italic opacity-50" : isSel ? "text-white" : "text-[#0F1C3F]"}`}>
-                      {item.label || "untitled"}
-                    </span>
-                    <span className={`shrink-0 mt-0.5 text-[9px] px-1 rounded capitalize ${isSel ? "bg-white/20 text-white" : "bg-[#EFE8D8] text-[#6B7A99]"}`}>{item.type}</span>
+            });
+          };
+          return (
+            <div key={item.id} className="rounded bg-[#F8F6F0] border border-[#EFE8D8] p-2 space-y-2">
+              {item.packageCount !== undefined && (
+                <div className="flex flex-wrap items-center gap-1 text-[10px]">
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full font-medium ${item.packageCount > 0 ? "bg-[#EBF0FB] text-[#1B4FD8]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{item.packageCount}p</span>
+                  <span className={`inline-flex items-center px-1.5 py-0.5 rounded-full font-medium ${(item.answerCount ?? 0) > 0 ? "bg-[#ECFDF5] text-[#059669]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{(item.answerCount ?? 0).toLocaleString()} ans</span>
+                  {item.lastAnswered && <span className="text-[#8A9BB8]">last {relativeTime(item.lastAnswered)}</span>}
+                </div>
+              )}
+              <Input value={item.label} onChange={(e) => onChange(item.id, { label: e.target.value })} className="h-8 text-xs bg-white" placeholder="Label" />
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="Category" value={item.category} onChange={(e) => onChange(item.id, { category: e.target.value })} className="h-8 text-xs bg-white" />
+                <div className="flex flex-wrap gap-1">
+                  {(["text", "radio", "checkbox", "dropdown"] as const).map((t) => (
+                    <button key={t} type="button" onClick={() => onChange(item.id, { type: t })} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${item.type === t ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F]"}`}>{t}</button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
+                <label className="flex items-center gap-1"><input type="checkbox" checked={item.active} onChange={(e) => onChange(item.id, { active: e.target.checked })} /> Active</label>
+                <label className="flex items-center gap-1"><input type="checkbox" checked={item.required} onChange={(e) => onChange(item.id, { required: e.target.checked })} /> Required</label>
+                <label className="flex items-center gap-1"><input type="checkbox" checked={item.sensitive} onChange={(e) => onChange(item.id, { sensitive: e.target.checked })} /> Sensitive</label>
+              </div>
+              <button type="button" onClick={() => setExpandedIds((prev) => { const n = new Set(prev); isExpanded ? n.delete(item.id) : n.add(item.id); return n; })} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
+                {isExpanded ? "▲ Less" : "▾ More options"}
+              </button>
+              {isExpanded && (
+                <div className="space-y-2 border-t border-[#EFE8D8] pt-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input placeholder="Prefill source" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" />
+                    <Input type="number" placeholder="Sort order" value={item.sortOrder} onChange={(e) => onChange(item.id, { sortOrder: Number(e.target.value || 100) })} className="h-8 text-xs bg-white" />
                   </div>
-                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
-                    {item.category && <span className={`text-[10px] truncate ${isSel ? "text-white/70" : "text-[#8A9BB8]"}`}>{item.category}</span>}
-                    {hasUsageData && pkgCount > 0 && <span className={`shrink-0 text-[9px] font-medium ${isSel ? "text-white/80" : "text-[#1B4FD8]"}`}>{pkgCount}p</span>}
-                    {listTags.length > 0 && allComplianceTags && (
-                      <div className="flex gap-0.5 shrink-0 ml-auto">
-                        {listTags.slice(0, 4).map((tagName) => {
+                  <div className="flex flex-wrap gap-1">
+                    {(["none", "name", "email", "phone", "ssn", "number", "currency", "date", "custom"] as const).map((v) => (
+                      <button key={v} type="button" onClick={() => onChange(item.id, { validationType: v as FieldLibraryItem["validationType"] })} className={`px-2 py-0.5 text-[10px] rounded border capitalize transition-colors ${(item.validationType ?? "none") === v ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F]"}`}>{v}</button>
+                    ))}
+                  </div>
+                  {item.validationType === "custom" && <Input placeholder="Regex pattern" value={item.validationPattern ?? ""} onChange={(e) => onChange(item.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" />}
+                  <Input placeholder="Validation message" value={item.validationMessage ?? ""} onChange={(e) => onChange(item.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" />
+                  <Textarea
+                    placeholder={item.type === "checkbox" ? "One checkbox per line" : item.type === "radio" ? "One choice per line" : item.type === "dropdown" ? "One option per line" : "Options (one per line)"}
+                    value={item.options.join("\n")}
+                    onChange={(e) => onChange(item.id, { options: e.target.value.split("\n").filter(Boolean) })}
+                    className="min-h-16 text-xs bg-white"
+                  />
+                  {allComplianceTags !== undefined && (
+                    <div>
+                      <div className="flex flex-wrap items-center gap-1 min-h-[20px]">
+                        {displayTags.map((tagName) => {
                           const tagMeta = allComplianceTags.find((t) => t.name === tagName);
-                          return <span key={tagName} className="w-1.5 h-1.5 rounded-full opacity-80" style={{ backgroundColor: tagMeta?.color ?? "#6B7A99" }} />;
+                          return <ComplianceTagChip key={tagName} name={tagName} color={tagMeta?.color ?? "#6B7A99"} onRemove={onSetComplianceTags ? () => applyTagChange(displayTags.filter((n) => n !== tagName)) : undefined} />;
                         })}
+                        {onSetComplianceTags && (
+                          <button type="button" onClick={() => setTagPickerOpenId((prev) => prev === item.id ? null : item.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] px-1">
+                            {tagSavingId === item.id ? "Saving…" : "+ Tags"}
+                          </button>
+                        )}
                       </div>
+                      {tagPickerOpenId === item.id && onSetComplianceTags && (
+                        <ComplianceTagPicker allTags={allComplianceTags} selectedTagNames={displayTags} onToggle={(tagName) => applyTagChange(displayTags.includes(tagName) ? displayTags.filter((n) => n !== tagName) : [...displayTags, tagName])} onClose={() => setTagPickerOpenId(null)} />
+                      )}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-3">
+                    {onLoadVersions && (
+                      <button type="button" onClick={() => void toggleHistory(item.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
+                        {historyOpenId === item.id ? "▲ Hide history" : "▾ History"}
+                      </button>
+                    )}
+                    {onLoadAnalytics && (
+                      <button type="button" onClick={() => void toggleAnalytics(item.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
+                        {analyticsOpenId === item.id ? "▲ Hide analytics" : "▾ Analytics"}
+                      </button>
                     )}
                   </div>
-                </button>
-              );
-            })}
-            {visibleItems.length === 0 && (
-              <div className="p-5 text-[11px] text-[#8A9BB8] text-center">
-                {searchQuery ? `No results for "${searchQuery}".` : showNeverUsed ? "All fields are used." : "No shared fields yet."}
-              </div>
-            )}
-          </div>
-          {/* Count footer */}
-          <div className="px-3 py-1.5 border-t border-[#E8E0D4] text-[10px] text-[#8A9BB8] shrink-0 bg-[#F8F6F0]">
-            {visibleItems.length} of {items.length} field{items.length !== 1 ? "s" : ""}
-          </div>
-        </div>
-
-        {/* RIGHT: detail / edit panel */}
-        <div className={`flex-1 min-w-0 overflow-y-auto bg-[#FDFCFA] ${mobileView === "list" ? "hidden md:block" : "block"}`}>
-          {selectedItem ? (
-            <div className="p-4 space-y-2 text-sm">
-              <button type="button" onClick={() => setMobileView("list")} className="md:hidden flex items-center gap-1 text-[11px] text-[#6B7A99] hover:text-[#0F1C3F] mb-2">
-                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
-                Back to list
-              </button>
-              {panelError && <div className="rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
-              {selectedItem.packageCount !== undefined && (
-                <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-medium ${selectedItem.packageCount > 0 ? "bg-[#EBF0FB] text-[#1B4FD8]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{selectedItem.packageCount} pkg{selectedItem.packageCount !== 1 ? "s" : ""}</span>
-                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-medium ${(selectedItem.answerCount ?? 0) > 0 ? "bg-[#ECFDF5] text-[#059669]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{(selectedItem.answerCount ?? 0).toLocaleString()} answered</span>
-                  {selectedItem.lastAnswered && <span className="text-[#8A9BB8]">last {relativeTime(selectedItem.lastAnswered)}</span>}
-                </div>
-              )}
-              <div className="relative pt-1">
-                {h && <HL>Label</HL>}
-                <Input value={selectedItem.label} onChange={(e) => onChange(selectedItem.id, { label: e.target.value })} className="h-8 text-xs bg-white" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="relative pt-1">
-                  {h && <HL>Category</HL>}
-                  <Input placeholder="Category" value={selectedItem.category} onChange={(e) => onChange(selectedItem.id, { category: e.target.value })} className="h-8 text-xs bg-white" />
-                </div>
-                <div className="relative pt-1">
-                  {h && <HL>Prefill source</HL>}
-                  <Input placeholder="Prefill source" value={selectedItem.source} onChange={(e) => onChange(selectedItem.id, { source: e.target.value })} className="h-8 text-xs bg-white" />
-                </div>
-              </div>
-              <div className="relative pt-1">
-                {h && <HL>Sort order</HL>}
-                <Input type="number" placeholder="Sort order" value={selectedItem.sortOrder} onChange={(e) => onChange(selectedItem.id, { sortOrder: Number(e.target.value || 100) })} className="h-8 text-xs bg-white" />
-              </div>
-              <div className="relative pt-1">
-                {h && <HL>Field type</HL>}
-                <div className="flex flex-wrap gap-1">
-                  {([
-                    { value: "text",     label: "Text",     tip: "A freeform typed response — any text the user types" },
-                    { value: "radio",    label: "Radio",    tip: "One selection from a group — only one option can be chosen" },
-                    { value: "checkbox", label: "Checkbox", tip: "A checked or unchecked box — supports multiple selections when options are defined" },
-                    { value: "dropdown", label: "Dropdown", tip: "A choice from a predefined list — single selection from a dropdown menu" },
-                  ] as const).map(({ value, label, tip }) => (
-                    <Tooltip key={value}>
-                      <TooltipTrigger asChild>
-                        <button type="button" onClick={() => onChange(selectedItem.id, { type: value })} className={`px-2 py-0.5 text-xs rounded border transition-colors ${selectedItem.type === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}>{label}</button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-xs">{tip}</TooltipContent>
-                    </Tooltip>
-                  ))}
-                </div>
-              </div>
-              <div className="relative pt-1">
-                {h && <HL>Validation rule</HL>}
-                <div role="group" aria-label="Validation rule" className="flex flex-wrap gap-1">
-                  {([
-                    { value: "none",     label: "None",     tip: "No validation — any input is accepted" },
-                    { value: "name",     label: "Name",     tip: "Validates as a person's name — letters, spaces, hyphens, and apostrophes" },
-                    { value: "email",    label: "Email",    tip: "Validates as an email address — must contain @ and a valid domain" },
-                    { value: "phone",    label: "Phone",    tip: "Validates as a US phone number — 10 digits, accepts common formats like (555) 555-5555" },
-                    { value: "ssn",      label: "SSN",      tip: "Validates as a Social Security Number — expects NNN-NN-NNNN format" },
-                    { value: "number",   label: "Number",   tip: "Validates as a numeric value — digits only, no formatting" },
-                    { value: "currency", label: "Currency", tip: "Validates as a dollar amount — accepts values like 1,234.56 or $1234" },
-                    { value: "date",     label: "Date",     tip: "Validates as a date — expects MM/DD/YYYY format" },
-                    { value: "custom",   label: "Custom",   tip: "Validates against a custom regular expression pattern you provide below" },
-                  ] as const).map(({ value, label, tip }) => (
-                    <Tooltip key={value}>
-                      <TooltipTrigger asChild>
-                        <button type="button" aria-pressed={(selectedItem.validationType ?? "none") === value} onClick={() => onChange(selectedItem.id, { validationType: value as FieldItem["validationType"] })} className={`px-2 py-0.5 text-xs rounded border transition-colors ${(selectedItem.validationType ?? "none") === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}>{label}</button>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-xs">{tip}</TooltipContent>
-                    </Tooltip>
-                  ))}
-                </div>
-              </div>
-              <div className="relative pt-1">
-                {h && <HL>Options</HL>}
-                <Textarea
-                  placeholder={
-                    selectedItem.type === "checkbox"
-                      ? "One checkbox per line, e.g.\nI agree to the terms and conditions\nI am a US person or entity"
-                      : selectedItem.type === "dropdown"
-                      ? "One option per line, e.g.\nOption A\nOption B\nOption C"
-                      : selectedItem.type === "radio"
-                      ? "One choice per line, e.g.\nYes\nNo\nUnsure"
-                      : "One option per line (used for Radio, Checkbox, or Dropdown fields)"
-                  }
-                  value={selectedItem.options.join("\n")}
-                  onChange={(e) => onChange(selectedItem.id, { options: e.target.value.split("\n").filter(Boolean) })}
-                  className="min-h-16 text-xs bg-white"
-                />
-              </div>
-              {selectedItem.validationType === "custom" && <Input placeholder="Regex pattern" value={selectedItem.validationPattern ?? ""} onChange={(e) => onChange(selectedItem.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" />}
-              <div className="relative pt-1">
-                {h && <HL>Validation message</HL>}
-                <Input placeholder="Validation message" value={selectedItem.validationMessage ?? ""} onChange={(e) => onChange(selectedItem.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" />
-              </div>
-              <div className="relative pt-1">
-                {h && <HL>Active · Required · Sensitive</HL>}
-                <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
-                  <label className="flex items-center gap-1">
-                    <input type="checkbox" checked={selectedItem.active} onChange={(e) => onChange(selectedItem.id, { active: e.target.checked })} />
-                    Active
-                    <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-[180px] text-xs">Field appears in the interview form when active.</TooltipContent></Tooltip>
-                  </label>
-                  <label className="flex items-center gap-1">
-                    <input type="checkbox" checked={selectedItem.required} onChange={(e) => onChange(selectedItem.id, { required: e.target.checked })} />
-                    Required
-                    <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-[180px] text-xs">Staff must fill this field before the document can be generated.</TooltipContent></Tooltip>
-                  </label>
-                  <label className="flex items-center gap-1">
-                    <input type="checkbox" checked={selectedItem.sensitive} onChange={(e) => onChange(selectedItem.id, { sensitive: e.target.checked })} />
-                    Sensitive
-                    <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-[180px] text-xs">Value is masked in logs and exports to protect private data.</TooltipContent></Tooltip>
-                  </label>
-                </div>
-              </div>
-              {allComplianceTags !== undefined && (
-                <div className="relative pt-1">
-                  {(() => {
-                    const displayTags = optimisticTagsMap.get(selectedItem.id) ?? selectedItem.complianceTags ?? [];
-                    const applyTagChange = (next: string[]) => {
-                      setOptimisticTagsMap((m) => { const n = new Map(m); n.set(selectedItem.id, next); return n; });
-                      setTagSavingId(selectedItem.id);
-                      void onSetComplianceTags!(selectedItem.id, next).then((err) => {
-                        setTagSavingId(null);
-                        if (err) {
-                          setOptimisticTagsMap((m) => { const n = new Map(m); n.delete(selectedItem.id); return n; });
-                          setPanelError(err);
-                        } else {
-                          setOptimisticTagsMap((m) => { const n = new Map(m); n.delete(selectedItem.id); return n; });
-                        }
-                      });
-                    };
-                    return (
-                      <>
-                        <div className="flex flex-wrap items-center gap-1 min-h-[20px]">
-                          {displayTags.map((tagName) => {
-                            const tagMeta = allComplianceTags.find((t) => t.name === tagName);
-                            return (
-                              <ComplianceTagChip
-                                key={tagName}
-                                name={tagName}
-                                color={tagMeta?.color ?? "#6B7A99"}
-                                onRemove={onSetComplianceTags ? () => {
-                                  applyTagChange(displayTags.filter((n) => n !== tagName));
-                                } : undefined}
-                              />
-                            );
-                          })}
-                          {onSetComplianceTags && (
-                            <button type="button" onClick={() => setTagPickerOpenId((prev) => prev === selectedItem.id ? null : selectedItem.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors px-1">
-                              {tagSavingId === selectedItem.id ? "Saving…" : "+ Tags"}
-                            </button>
-                          )}
-                        </div>
-                        {tagPickerOpenId === selectedItem.id && onSetComplianceTags && (
-                          <ComplianceTagPicker
-                            allTags={allComplianceTags}
-                            selectedTagNames={displayTags}
-                            onToggle={(tagName) => {
-                              const next = displayTags.includes(tagName)
-                                ? displayTags.filter((n) => n !== tagName)
-                                : [...displayTags, tagName];
-                              applyTagChange(next);
-                            }}
-                            onClose={() => setTagPickerOpenId(null)}
-                          />
-                        )}
-                      </>
-                    );
-                  })()}
-                </div>
-              )}
-              <div className="flex flex-wrap gap-3 pt-1">
-                {onLoadVersions && (
-                  <button type="button" onClick={() => void toggleHistory(selectedItem.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
-                    {historyOpenId === selectedItem.id ? "▲ Hide history" : "▾ History"}
-                  </button>
-                )}
-                {onLoadAnalytics && (
-                  <button type="button" onClick={() => void toggleAnalytics(selectedItem.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
-                    {analyticsOpenId === selectedItem.id ? "▲ Hide analytics" : "▾ Analytics"}
-                  </button>
-                )}
-              </div>
-              {onLoadVersions && historyOpenId === selectedItem.id && (
-                <div className="rounded border border-[#E8E0D4] bg-[#F8F5EF] p-2 text-[11px]">
-                  {historyLoadingId === selectedItem.id && <p className="text-[#8A9BB8]">Loading history…</p>}
-                  {historyError && <p className="text-red-500">{historyError}</p>}
-                  {!historyLoadingId && !historyError && (() => {
-                    const versions = historyMap.get(selectedItem.id) ?? [];
-                    if (versions.length === 0) return <p className="text-[#8A9BB8]">No saved versions yet.</p>;
-                    return (
-                      <ul className="space-y-1">
-                        {versions.map((v, idx) => {
-                          const prevSnap = versions[idx + 1]?.snapshot;
-                          const summary  = diffSummary(prevSnap, v.snapshot);
-                          const author   = v.changedBy ?? "unknown";
-                          return (
-                            <li key={v.id} className="flex items-start justify-between gap-2">
-                              <div className="min-w-0">
-                                <span className="font-medium text-[#0B1220]">{relativeTime(v.changedAt)}</span>
-                                {" · "}
-                                <span className="text-[#6B7A99] truncate max-w-[140px] inline-block align-bottom">{author}</span>
-                                <div className="text-[10px] text-[#8A9BB8] truncate">{summary}</div>
-                              </div>
-                              {onRestoreVersion && (
-                                <button type="button" disabled={restoringVersionId === v.id} onClick={() => void handleRestore(selectedItem.id, v.id)} className="shrink-0 text-[10px] text-[#C49A38] hover:text-[#A07820] disabled:opacity-50">
-                                  {restoringVersionId === v.id ? "Restoring…" : "Restore"}
-                                </button>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    );
-                  })()}
-                </div>
-              )}
-              {onLoadAnalytics && analyticsOpenId === selectedItem.id && (
-                <div>
-                  {analyticsLoadingId === selectedItem.id && <p className="text-[11px] text-[#8A9BB8]">Loading analytics…</p>}
-                  {analyticsError && analyticsOpenId === selectedItem.id && <p className="text-[11px] text-red-500">{analyticsError}</p>}
-                  {!analyticsLoadingId && !analyticsError && analyticsMap.has(selectedItem.id) && (
-                    <FieldAnalyticsPanel analytics={analyticsMap.get(selectedItem.id)!} isSensitive={selectedItem.sensitive} />
+                  {onLoadVersions && historyOpenId === item.id && (
+                    <div className="rounded border border-[#E8E0D4] bg-[#F8F5EF] p-2 text-[11px]">
+                      {historyLoadingId === item.id && <p className="text-[#8A9BB8]">Loading history…</p>}
+                      {historyError && <p className="text-red-500">{historyError}</p>}
+                      {!historyLoadingId && !historyError && (() => {
+                        const versions = historyMap.get(item.id) ?? [];
+                        if (versions.length === 0) return <p className="text-[#8A9BB8]">No saved versions yet.</p>;
+                        return (
+                          <ul className="space-y-1">
+                            {versions.map((v, idx) => {
+                              const prevSnap = versions[idx + 1]?.snapshot;
+                              const summary = diffSummary(prevSnap, v.snapshot);
+                              const author = v.changedBy ?? "unknown";
+                              return (
+                                <li key={v.id} className="flex items-start justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <span className="font-medium text-[#0B1220]">{relativeTime(v.changedAt)}</span>
+                                    {" · "}
+                                    <span className="text-[#6B7A99] truncate max-w-[140px] inline-block align-bottom">{author}</span>
+                                    <div className="text-[10px] text-[#8A9BB8] truncate">{summary}</div>
+                                  </div>
+                                  {onRestoreVersion && (
+                                    <button type="button" disabled={restoringVersionId === v.id} onClick={() => void handleRestore(item.id, v.id)} className="shrink-0 text-[10px] text-[#C49A38] hover:text-[#A07820] disabled:opacity-50">
+                                      {restoringVersionId === v.id ? "Restoring…" : "Restore"}
+                                    </button>
+                                  )}
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        );
+                      })()}
+                    </div>
+                  )}
+                  {onLoadAnalytics && analyticsOpenId === item.id && (
+                    <div>
+                      {analyticsLoadingId === item.id && <p className="text-[11px] text-[#8A9BB8]">Loading analytics…</p>}
+                      {analyticsError && <p className="text-[11px] text-red-500">{analyticsError}</p>}
+                      {!analyticsLoadingId && !analyticsError && analyticsMap.has(item.id) && (
+                        <FieldAnalyticsPanel analytics={analyticsMap.get(item.id)!} isSensitive={item.sensitive} />
+                      )}
+                    </div>
                   )}
                 </div>
               )}
-              <div className="flex items-center justify-between pt-3 border-t border-[#EFE8D8]">
-                <span className="text-[10px] text-[#B0BCCE]">{selectedItem.id}</span>
-                <div className="flex gap-3">
-                  <button type="button" onClick={() => onUse(selectedItem)} className="text-[11px] text-[#6B7A99] hover:text-[#0F1C3F]">Use in package</button>
-                  {onDelete && !isInherited && (
-                    <button type="button" onClick={() => void handleDelete(selectedItem)} disabled={deletingId === selectedItem.id} className="text-[11px] text-red-500 disabled:opacity-50">
-                      {deletingId === selectedItem.id ? "Deleting…" : "Delete"}
+              <div className="flex items-center justify-between pt-2 border-t border-[#EFE8D8]">
+                <span className="text-[10px] text-[#B0BCCE]">{item.id}</span>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => onUse(item)} className="text-[11px] text-[#6B7A99] hover:text-[#0F1C3F]">Use</button>
+                  {onDelete && !itemIsInherited && (
+                    <button type="button" onClick={() => void handleDelete(item)} disabled={deletingId === item.id} className="text-[11px] text-red-500 disabled:opacity-50">
+                      {deletingId === item.id ? "Deleting…" : "Delete"}
                     </button>
                   )}
-                  <button type="button" onClick={() => void handleSave(selectedItem)} disabled={savingId === selectedItem.id} className="text-[11px] font-medium text-[#C49A38] disabled:opacity-50">
-                    {savingId === selectedItem.id ? "Saving…" : savedId === selectedItem.id ? "✓ Saved" : "Save"}
+                  <button type="button" onClick={() => void handleSave(item)} disabled={savingId === item.id} className="text-[11px] font-medium text-[#C49A38] disabled:opacity-50">
+                    {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
                   </button>
                 </div>
               </div>
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center p-8">
-              <svg className="w-8 h-8 text-[#C4B99A] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h4.5M3.75 6a2.25 2.25 0 012.25-2.25h12A2.25 2.25 0 0120.25 6v12a2.25 2.25 0 01-2.25 2.25h-12A2.25 2.25 0 013.75 18V6z"/></svg>
-              <p className="text-[11px] text-[#8A9BB8]">Select a field to edit, or click <strong className="text-[#C49A38]">+ Add</strong> to create a new one.</p>
-            </div>
-          )}
-        </div>
+          );
+        })}
+        {items.length === 0 && <div className="text-xs text-[#8A9BB8] col-span-2">No fields yet. Click + Add to create one.</div>}
+        {items.length > 0 && visibleItems.length === 0 && <div className="text-xs text-[#8A9BB8] col-span-2">No results for "{searchQuery}".</div>}
       </div>
     </div>
   );
