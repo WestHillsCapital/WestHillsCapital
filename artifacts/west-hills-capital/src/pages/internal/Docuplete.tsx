@@ -1924,7 +1924,12 @@ export default function Docuplete() {
         });
         const data = await res.json().catch(() => ({}));
         if (res.ok) {
-          await loadBootstrap();
+          // Append just the new field — do NOT call loadBootstrap() here,
+          // which would reload all packages from the server and wipe any
+          // unsaved local changes (placed fields, document order, etc.).
+          if (data.field) {
+            setFieldLibrary((prev) => [...normalizeFieldLibrary([data.field]), ...prev]);
+          }
           return null;
         }
         if (res.status === 409) continue; // label or id collision — retry with new random suffix
