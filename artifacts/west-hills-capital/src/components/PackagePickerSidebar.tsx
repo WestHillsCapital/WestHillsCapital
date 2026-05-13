@@ -16,7 +16,7 @@ export const BUILDER_STEPS: Array<{ value: BuilderStep; label: string; helper: s
 interface PackagePickerSidebarProps {
   isAdmin: boolean;
   isSaving: boolean;
-  tab: "packages" | "mapper" | "interview" | "csv" | "groups" | "compliance";
+  tab: "packages" | "mapper" | "sessions" | "batch" | "library";
   isPublicSession: boolean;
   addingPackage: boolean;
   setAddingPackage: React.Dispatch<React.SetStateAction<boolean>>;

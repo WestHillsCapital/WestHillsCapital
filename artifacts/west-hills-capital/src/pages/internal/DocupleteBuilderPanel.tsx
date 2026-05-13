@@ -9,11 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { isSystemEsignFieldId } from "@/lib/docuplete-redaction";
 import { type FieldItem, type MappingItem } from "@/lib/docuplete-types";
 import type { DocItem, FieldLibraryItem, FieldGroup, PackageItem, Entity, TransactionType } from "@/lib/docuplete-local-types";
-import { EmptyState } from "@/components/DocupletePanels";
+import { EmptyState, LabeledInput } from "@/components/DocupletePanels";
 import { DocumentPreviewTile } from "@/components/DocumentPreviewTile";
 import { type BuilderStep, BUILDER_STEPS } from "@/components/PackagePickerSidebar";
 import { SortableItem } from "@/components/DocupleteDndHelpers";
-import { EntityPanel, TransactionTypesPanel, FieldLibraryPanel, FieldGroupsPanel, LabeledInput } from "@/components/DocupletePanels";
 import { TagChipInput, EmbedSnippetPanel } from "@/components/DocupleteWidgets";
 import { DemoWelcomeBanner } from "@/components/DemoWelcomeBanner";
 import { formatOrgTime } from "@/lib/orgDateFormat";
@@ -145,7 +144,7 @@ export interface DocupleteBuilderPanelProps {
   setStandalonePackageId: React.Dispatch<React.SetStateAction<string>>;
   allComplianceTags?: import("@/lib/docuplete-local-types").ComplianceTag[];
   setFieldComplianceTags?: (fieldId: string, tags: string[]) => Promise<string | null>;
-  setTab: React.Dispatch<React.SetStateAction<"packages" | "interview" | "mapper" | "csv" | "groups" | "compliance">>;
+  setTab: React.Dispatch<React.SetStateAction<"packages" | "sessions" | "mapper" | "batch" | "library">>;
   sendTestWebhook: (packageId: number) => Promise<void>;
   fetchWebhookDeliveries: (packageId: number) => Promise<void>;
   fetchWebhookSecret: (packageId: number) => Promise<void>;
@@ -483,53 +482,10 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                     />
                   </div>
                 </details>
-                <details className="rounded-lg border border-[#DDD5C4] bg-white p-4">
-                  <summary className="cursor-pointer text-sm font-semibold">Advanced lists and reusable fields</summary>
-                  <p className="mt-1 text-xs text-[#8A9BB8]">Manage groups, types, and the shared field library.</p>
-                  <div className="mt-4 space-y-4">
-                    <EntityPanel
-                      title="Groups"
-                      items={groups}
-                      onAdd={createGroup as () => Promise<string | null>}
-                      onChange={(id, patch) => updateGroupLocal(id, patch)}
-                      onSave={saveGroup as (g: Entity) => Promise<string | null>}
-                      onDelete={deleteGroup as (id: number) => Promise<string | null>}
-                    />
-                    <TransactionTypesPanel
-                      items={transactionTypes}
-                      onAdd={createTransactionType as () => Promise<string | null>}
-                      onChange={updateTransactionTypeLocal}
-                      onSave={saveTransactionType as (item: TransactionType) => Promise<string | null>}
-                      onDelete={deleteTransactionType as (scope: string) => Promise<string | null>}
-                    />
-                  </div>
-                  <div className="mt-4 space-y-4">
-                    <FieldGroupsPanel
-                      items={fieldGroups}
-                      fieldLibrary={fieldLibrary}
-                      onAdd={createFieldGroup}
-                      onChange={updateFieldGroupLocal}
-                      onSave={saveFieldGroup}
-                      onDelete={deleteFieldGroup}
-                      onUseGroup={addGroupToPackage}
-                    />
-                    <FieldLibraryPanel
-                      items={fieldLibrary}
-                      allComplianceTags={allComplianceTags}
-                      onAdd={createFieldLibraryItem as () => Promise<string | null>}
-                      onChange={updateFieldLibraryLocal}
-                      onSave={saveFieldLibraryItem as (item: FieldLibraryItem) => Promise<string | null>}
-                      onSetComplianceTags={setFieldComplianceTags}
-                      onUse={addLibraryFieldToPackage}
-                      onDelete={deleteFieldLibraryItem as (id: string) => Promise<string | null>}
-                      onLoadVersions={loadFieldLibraryVersions}
-                      onRestoreVersion={restoreFieldLibraryVersion}
-                      onLoadAnalytics={loadFieldLibraryAnalytics}
-                      onExport={exportFieldLibrary}
-                      onImport={importFieldLibrary}
-                    />
-                  </div>
-                </details>
+                <div className="rounded-lg border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-3 flex items-center justify-between gap-3">
+                  <p className="text-xs text-[#6B7A99]">Groups, types, field groups, and the shared field library are managed in the Library tab.</p>
+                  <button type="button" onClick={() => setTab("library")} className="shrink-0 text-xs text-[#C49A38] hover:underline font-medium">Open Library →</button>
+                </div>
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <h2 className="text-sm font-semibold">Package documents</h2>
@@ -1058,7 +1014,7 @@ export const DocupleteBuilderPanel = React.memo(function DocupleteBuilderPanel(p
                         Preview Interview
                       </Button>
                     )}
-                    {selectedPackage.status === "active" && <Button onClick={() => { setStandalonePackageId(String(selectedPackage.id)); setTab("interview"); }} variant="outline">Go to Interviews →</Button>}
+                    {selectedPackage.status === "active" && <Button onClick={() => { setStandalonePackageId(String(selectedPackage.id)); setTab("sessions"); }} variant="outline">Go to Sessions →</Button>}
                     {selectedPackage.id && isAdmin && (
                       <button type="button" onClick={() => deletePackage(selectedPackage)} disabled={isDeletingPackage} className="ml-auto text-xs text-red-500 hover:text-red-700 disabled:opacity-50 transition-colors">
                         {isDeletingPackage ? "Deleting…" : "Delete package"}

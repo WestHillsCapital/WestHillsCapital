@@ -394,12 +394,12 @@ export default function Docuplete() {
   })());
   const urlParamsApplied = useRef(false);
 
-  const [tab, setTab] = useState<"packages" | "mapper" | "interview" | "csv" | "groups" | "compliance">(() => {
-    if (sessionToken) return "interview";
-    if (_initSp.get("tab") === "sessions") return "interview";
+  const [tab, setTab] = useState<"packages" | "mapper" | "sessions" | "batch" | "library">(() => {
+    if (sessionToken) return "sessions";
+    if (_initSp.get("tab") === "sessions") return "sessions";
     try {
       const saved = sessionStorage.getItem("docuplete:tab");
-      if (saved === "packages" || saved === "mapper" || saved === "csv" || saved === "groups" || saved === "compliance") return saved;
+      if (saved === "packages" || saved === "mapper" || saved === "sessions" || saved === "batch" || saved === "library") return saved;
     } catch { /* sessionStorage unavailable */ }
     return "packages";
   });
@@ -410,6 +410,7 @@ export default function Docuplete() {
     } catch { /* sessionStorage unavailable */ }
     return "documents";
   });
+  const [librarySubTab, setLibrarySubTab] = useState<"fields" | "field-groups" | "types" | "groups" | "compliance">("fields");
   const [groups, setGroups] = useState<Entity[]>([]);
   const [custodians, setCustodians] = useState<Entity[]>([]);
   const [depositories, setDepositories] = useState<Entity[]>([]);
@@ -733,7 +734,7 @@ export default function Docuplete() {
   const [portalTotal, setPortalTotal] = useState(0);
 
   useEffect(() => {
-    if (tab !== "csv" || csvDashboardTab !== "dashboard") return;
+    if (tab !== "batch" || csvDashboardTab !== "dashboard") return;
     setCsvDashLoading(true);
     setCsvDashError(null);
     fetch(`${API_BASE}${docupleteApiPath}/batch-runs?limit=50`, { headers: getAuthHeaders() })
@@ -744,7 +745,7 @@ export default function Docuplete() {
   }, [tab, csvDashboardTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (tab !== "interview" || isPublicSession) return;
+    if (tab !== "sessions" || isPublicSession) return;
     setPortalLoading(true);
     setPortalError(null);
     fetch(`${API_BASE}${docupleteApiPath}/sessions/portal-list?excludeSource=csv_batch&limit=100`, { headers: getAuthHeaders() })
@@ -1204,7 +1205,7 @@ export default function Docuplete() {
         setAnswers(data.session.answers ?? {});
         setDriveUrl(data.session.generated_pdf_url ?? null);
         setGeneratedUrl(data.session.status === "generated" ? `${API_BASE}${sessionBasePath}/${sessionToken}/packet.pdf` : null);
-        setTab("interview");
+        setTab("sessions");
       })
       .catch((err: unknown) => setError(err instanceof Error ? err.message : "Could not load interview"));
   }, [sessionToken, sessionBasePath, isPublicSession]);
@@ -1379,7 +1380,7 @@ export default function Docuplete() {
     }
 
     // Tab: cycle through interview answer fields
-    if (e.key === "Tab" && tab === "interview") {
+    if (e.key === "Tab" && tab === "sessions") {
       const inputs = Array.from(document.querySelectorAll<HTMLElement>("[data-interview-input]"));
       if (inputs.length === 0) return;
       const focusedIdx = inputs.findIndex((el) => el === document.activeElement || el.contains(document.activeElement));
@@ -3803,25 +3804,25 @@ export default function Docuplete() {
         {!isPublicSession && <div className="flex items-stretch">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={() => goBuilderStep(builderStep)} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "packages" || tab === "mapper" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Package Builder</button>
+              <button onClick={() => goBuilderStep(builderStep)} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "packages" || tab === "mapper" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Packages</button>
             </TooltipTrigger>
             <TooltipContent side="bottom">A Package bundles multiple PDF forms into one guided interview session. Configure documents, fields, and automation here.</TooltipContent>
           </Tooltip>
           <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
           <Tooltip>
             <TooltipTrigger asChild>
-              <button onClick={() => setTab("interview")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "interview" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Interviews</button>
+              <button onClick={() => setTab("sessions")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "sessions" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Sessions</button>
             </TooltipTrigger>
             <TooltipContent side="bottom">Launch a single interview session for one package at a time — staff-guided or via a customer self-service link.</TooltipContent>
           </Tooltip>
           <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
-          <button onClick={() => setTab("csv")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "csv" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch CSV</button>
+          <button onClick={() => setTab("batch")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "batch" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch</button>
           <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
           <button
-            onClick={() => { setTab("compliance"); void loadComplianceAudit(); }}
-            className={`px-4 py-2 text-sm border-b-2 transition-colors flex items-center gap-1.5 ${tab === "compliance" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+            onClick={() => setTab("library")}
+            className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "library" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
           >
-            Compliance
+            Library
           </button>
         </div>}
       </div>
@@ -4101,7 +4102,7 @@ export default function Docuplete() {
         )
       )}
 
-      {tab === "interview" && (
+      {tab === "sessions" && (
         <DocupleteInterviewPanel
           session={session}
           isPublicSession={isPublicSession}
@@ -4172,24 +4173,7 @@ export default function Docuplete() {
         />
       )}
 
-      {!isPublicSession && tab === "groups" && (
-        <section className="max-w-4xl mx-auto space-y-6">
-          <div>
-            <h2 className="text-lg font-semibold text-[#0F1C3F]">Groups</h2>
-            <p className="text-sm text-[#6B7A99] mt-1">Create and manage groups used to organize packages and recipients.</p>
-          </div>
-          <EntityPanel
-            title="All Groups"
-            items={groups}
-            onAdd={createGroup}
-            onChange={(id, patch) => updateGroupLocal(id, patch)}
-            onSave={saveGroup}
-            onDelete={deleteGroup}
-          />
-        </section>
-      )}
-
-      {!isPublicSession && tab === "csv" && (
+      {!isPublicSession && tab === "batch" && (
         <DocupleteCsvPanel
           packages={packages}
           activePackages={activePackages}
@@ -4253,128 +4237,198 @@ export default function Docuplete() {
         />
       )}
 
-      {tab === "compliance" && !isPublicSession && (
+      {!isPublicSession && tab === "library" && (
         <div className="mt-4">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-sm font-semibold text-[#0F1C3F]">Compliance Audit</h2>
-              <p className="text-[11px] text-[#8A9BB8]">For each package, shows which required-tagged library fields are present or missing.</p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => void loadComplianceAudit()}
-                disabled={complianceAuditLoading}
-                className="px-3 py-1.5 text-xs rounded border border-[#DDD5C4] bg-white text-[#0F1C3F] hover:border-[#1B4FD8] disabled:opacity-50 transition-colors"
-              >
-                {complianceAuditLoading ? "Loading…" : "Refresh"}
-              </button>
-              {complianceAudit && complianceAudit.report.length > 0 && (
+          <div className="flex items-center border-b border-[#DDD5C4] mb-6">
+            {(["fields", "field-groups", "types", "groups", "compliance"] as const).map((sub) => {
+              const label = sub === "field-groups" ? "Field Groups" : sub.charAt(0).toUpperCase() + sub.slice(1);
+              return (
                 <button
-                  type="button"
-                  onClick={() => {
-                    const headers = ["Package", "Status", "Has Gap", "Required Missing", "Present Fields", "Missing Fields"];
-                    const rows = complianceAudit.report.map((row) => [
-                      row.packageName,
-                      row.status,
-                      row.hasGap ? "Yes" : "No",
-                      String(row.requiredMissingCount),
-                      row.present.map((f) => `${f.label} [${f.tags.join(",")}]`).join("; "),
-                      row.missing.map((f) => `${f.label} [${f.tags.join(",")}]`).join("; "),
-                    ]);
-                    const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
-                    const blob = new Blob([csv], { type: "text/csv" });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a"); a.href = url; a.download = "compliance-audit.csv"; a.click();
-                    URL.revokeObjectURL(url);
-                  }}
-                  className="px-3 py-1.5 text-xs rounded border border-[#DDD5C4] bg-white text-[#0F1C3F] hover:border-[#C49A38] transition-colors"
+                  key={sub}
+                  onClick={() => { setLibrarySubTab(sub); if (sub === "compliance") void loadComplianceAudit(); }}
+                  className={`px-4 py-2 text-sm border-b-2 -mb-px transition-colors ${librarySubTab === sub ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
                 >
-                  Export CSV
+                  {label}
                 </button>
-              )}
-            </div>
+              );
+            })}
           </div>
-          {complianceAuditError && (
-            <div className="mb-3 rounded border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">{complianceAuditError}</div>
+
+          {librarySubTab === "fields" && (
+            <FieldLibraryPanel
+              items={fieldLibrary}
+              allComplianceTags={allComplianceTags}
+              onAdd={createFieldLibraryItem as () => Promise<string | null>}
+              onChange={updateFieldLibraryLocal}
+              onSave={saveFieldLibraryItem as (item: FieldLibraryItem) => Promise<string | null>}
+              onSetComplianceTags={setFieldComplianceTags}
+              onUse={addLibraryFieldToPackage}
+              onDelete={deleteFieldLibraryItem as (id: string) => Promise<string | null>}
+              onLoadVersions={loadFieldLibraryVersions}
+              onRestoreVersion={restoreFieldLibraryVersion}
+              onLoadAnalytics={loadFieldLibraryAnalytics}
+              onExport={exportFieldLibrary}
+              onImport={importFieldLibrary}
+            />
           )}
-          {!complianceAudit && !complianceAuditLoading && !complianceAuditError && (
-            <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-6 text-center text-sm text-[#8A9BB8]">
-              Click <strong>Refresh</strong> to generate the compliance audit report.
-            </div>
+
+          {librarySubTab === "field-groups" && (
+            <FieldGroupsPanel
+              items={fieldGroups}
+              fieldLibrary={fieldLibrary}
+              onAdd={createFieldGroup}
+              onChange={updateFieldGroupLocal}
+              onSave={saveFieldGroup}
+              onDelete={deleteFieldGroup}
+              onUseGroup={addGroupToPackage}
+            />
           )}
-          {complianceAudit && (
-            <div className="space-y-3">
-              {complianceAudit.report.length === 0 && (
-                <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-6 text-center text-sm text-[#8A9BB8]">No packages found.</div>
+
+          {librarySubTab === "types" && (
+            <TransactionTypesPanel
+              items={transactionTypes}
+              onAdd={createTransactionType as () => Promise<string | null>}
+              onChange={updateTransactionTypeLocal}
+              onSave={saveTransactionType as (item: TransactionType) => Promise<string | null>}
+              onDelete={deleteTransactionType as (scope: string) => Promise<string | null>}
+            />
+          )}
+
+          {librarySubTab === "groups" && (
+            <EntityPanel
+              title="All Groups"
+              items={groups}
+              onAdd={createGroup as () => Promise<string | null>}
+              onChange={(id, patch) => updateGroupLocal(id, patch)}
+              onSave={saveGroup as (g: Entity) => Promise<string | null>}
+              onDelete={deleteGroup as (id: number) => Promise<string | null>}
+            />
+          )}
+
+          {librarySubTab === "compliance" && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h2 className="text-sm font-semibold text-[#0F1C3F]">Compliance Audit</h2>
+                  <p className="text-[11px] text-[#8A9BB8]">For each package, shows which required-tagged library fields are present or missing.</p>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void loadComplianceAudit()}
+                    disabled={complianceAuditLoading}
+                    className="px-3 py-1.5 text-xs rounded border border-[#DDD5C4] bg-white text-[#0F1C3F] hover:border-[#1B4FD8] disabled:opacity-50 transition-colors"
+                  >
+                    {complianceAuditLoading ? "Loading…" : "Refresh"}
+                  </button>
+                  {complianceAudit && complianceAudit.report.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const headers = ["Package", "Status", "Has Gap", "Required Missing", "Present Fields", "Missing Fields"];
+                        const rows = complianceAudit.report.map((row) => [
+                          row.packageName,
+                          row.status,
+                          row.hasGap ? "Yes" : "No",
+                          String(row.requiredMissingCount),
+                          row.present.map((f) => `${f.label} [${f.tags.join(",")}]`).join("; "),
+                          row.missing.map((f) => `${f.label} [${f.tags.join(",")}]`).join("; "),
+                        ]);
+                        const csv = [headers, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(",")).join("\n");
+                        const blob = new Blob([csv], { type: "text/csv" });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement("a"); a.href = url; a.download = "compliance-audit.csv"; a.click();
+                        URL.revokeObjectURL(url);
+                      }}
+                      className="px-3 py-1.5 text-xs rounded border border-[#DDD5C4] bg-white text-[#0F1C3F] hover:border-[#C49A38] transition-colors"
+                    >
+                      Export CSV
+                    </button>
+                  )}
+                </div>
+              </div>
+              {complianceAuditError && (
+                <div className="mb-3 rounded border border-red-200 bg-red-50 text-red-700 px-3 py-2 text-sm">{complianceAuditError}</div>
               )}
-              {complianceAudit.report.map((row) => (
-                <div key={row.packageId} className={`rounded border ${row.hasGap ? "border-[#FCA5A5] bg-[#FFF5F5]" : "border-[#D1FAE5] bg-[#F0FDF4]"} p-4`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="font-semibold text-sm text-[#0F1C3F]">{row.packageName}</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#EBF0FB] text-[#1B4FD8] font-medium">{row.status}</span>
-                    {row.hasGap && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#DC2626] font-semibold">
-                        {row.requiredMissingCount} required missing
-                      </span>
-                    )}
-                    {!row.hasGap && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#D1FAE5] text-[#059669] font-semibold">✓ Compliant</span>
-                    )}
-                  </div>
-                  <div className="grid md:grid-cols-2 gap-3 text-[11px]">
-                    <div>
-                      <div className="font-semibold text-[#059669] mb-1">Present ({row.present.length})</div>
-                      {row.present.length === 0 ? (
-                        <span className="text-[#8A9BB8]">None</span>
-                      ) : (
-                        <ul className="space-y-0.5">
-                          {row.present.map((f) => (
-                            <li key={f.fieldId} className="flex items-center gap-1 flex-wrap">
-                              <span className="text-[#0F1C3F]">{f.label}</span>
-                              {f.tags.map((t) => {
-                                const tm = complianceAudit.tags.find((x) => x.name === t);
+              {!complianceAudit && !complianceAuditLoading && !complianceAuditError && (
+                <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-6 text-center text-sm text-[#8A9BB8]">
+                  Click <strong>Refresh</strong> to generate the compliance audit report.
+                </div>
+              )}
+              {complianceAudit && (
+                <div className="space-y-3">
+                  {complianceAudit.report.length === 0 && (
+                    <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] px-4 py-6 text-center text-sm text-[#8A9BB8]">No packages found.</div>
+                  )}
+                  {complianceAudit.report.map((row) => (
+                    <div key={row.packageId} className={`rounded border ${row.hasGap ? "border-[#FCA5A5] bg-[#FFF5F5]" : "border-[#D1FAE5] bg-[#F0FDF4]"} p-4`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="font-semibold text-sm text-[#0F1C3F]">{row.packageName}</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#EBF0FB] text-[#1B4FD8] font-medium">{row.status}</span>
+                        {row.hasGap && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#FEE2E2] text-[#DC2626] font-semibold">
+                            {row.requiredMissingCount} required missing
+                          </span>
+                        )}
+                        {!row.hasGap && (
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#D1FAE5] text-[#059669] font-semibold">✓ Compliant</span>
+                        )}
+                      </div>
+                      <div className="grid md:grid-cols-2 gap-3 text-[11px]">
+                        <div>
+                          <div className="font-semibold text-[#059669] mb-1">Present ({row.present.length})</div>
+                          {row.present.length === 0 ? (
+                            <span className="text-[#8A9BB8]">None</span>
+                          ) : (
+                            <ul className="space-y-0.5">
+                              {row.present.map((f) => (
+                                <li key={f.fieldId} className="flex items-center gap-1 flex-wrap">
+                                  <span className="text-[#0F1C3F]">{f.label}</span>
+                                  {f.tags.map((t) => {
+                                    const tm = complianceAudit.tags.find((x) => x.name === t);
+                                    return (
+                                      <span key={t} className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium"
+                                        style={{ backgroundColor: `${tm?.color ?? "#6B7A99"}22`, color: tm?.color ?? "#6B7A99", border: `1px solid ${tm?.color ?? "#6B7A99"}55` }}>
+                                        {t}
+                                      </span>
+                                    );
+                                  })}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </div>
+                        <div>
+                          <div className="font-semibold text-[#DC2626] mb-1">Missing ({row.missing.length})</div>
+                          {row.missing.length === 0 ? (
+                            <span className="text-[#8A9BB8]">None</span>
+                          ) : (
+                            <ul className="space-y-0.5">
+                              {row.missing.map((f) => {
+                                const hasRequired = f.tags.some((t) => complianceAudit.tags.find((x) => x.name === t)?.is_required);
                                 return (
-                                  <span key={t} className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium"
-                                    style={{ backgroundColor: `${tm?.color ?? "#6B7A99"}22`, color: tm?.color ?? "#6B7A99", border: `1px solid ${tm?.color ?? "#6B7A99"}55` }}>
-                                    {t}
-                                  </span>
+                                  <li key={f.fieldId} className="flex items-center gap-1 flex-wrap">
+                                    <span className={hasRequired ? "text-[#DC2626] font-medium" : "text-[#6B7A99]"}>{f.label}</span>
+                                    {f.tags.map((t) => {
+                                      const tm = complianceAudit.tags.find((x) => x.name === t);
+                                      return (
+                                        <span key={t} className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium"
+                                          style={{ backgroundColor: `${tm?.color ?? "#6B7A99"}22`, color: tm?.color ?? "#6B7A99", border: `1px solid ${tm?.color ?? "#6B7A99"}55` }}>
+                                          {t}
+                                        </span>
+                                      );
+                                    })}
+                                  </li>
                                 );
                               })}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="font-semibold text-[#DC2626] mb-1">Missing ({row.missing.length})</div>
-                      {row.missing.length === 0 ? (
-                        <span className="text-[#8A9BB8]">None</span>
-                      ) : (
-                        <ul className="space-y-0.5">
-                          {row.missing.map((f) => {
-                            const hasRequired = f.tags.some((t) => complianceAudit.tags.find((x) => x.name === t)?.is_required);
-                            return (
-                              <li key={f.fieldId} className="flex items-center gap-1 flex-wrap">
-                                <span className={hasRequired ? "text-[#DC2626] font-medium" : "text-[#6B7A99]"}>{f.label}</span>
-                                {f.tags.map((t) => {
-                                  const tm = complianceAudit.tags.find((x) => x.name === t);
-                                  return (
-                                    <span key={t} className="inline-flex items-center px-1 py-0.5 rounded text-[9px] font-medium"
-                                      style={{ backgroundColor: `${tm?.color ?? "#6B7A99"}22`, color: tm?.color ?? "#6B7A99", border: `1px solid ${tm?.color ?? "#6B7A99"}55` }}>
-                                      {t}
-                                    </span>
-                                  );
-                                })}
-                              </li>
-                            );
-                          })}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
+                  ))}
                 </div>
-              ))}
+              )}
             </div>
           )}
         </div>
