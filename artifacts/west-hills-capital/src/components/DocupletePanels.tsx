@@ -1096,7 +1096,7 @@ export function FieldLibraryPanel({
       </div>
       <div className="grid md:grid-cols-2 gap-2">
         {visibleItems.map((item) => {
-          const isExpanded = expandedIds.has(item.id);
+          const isExpanded = expandedIds.has(item.id) || showHints;
           const itemIsInherited = !!(item.inherited || (item as FieldLibraryItem & { inheritedFrom?: string }).inheritedFrom);
           const displayTags = optimisticTagsMap.get(item.id) ?? item.complianceTags ?? [];
           const applyTagChange = (next: string[]) => {
