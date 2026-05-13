@@ -1218,7 +1218,6 @@ export function FieldLibraryPanel({
               <div className="flex items-center justify-between pt-2 border-t border-[#EFE8D8]">
                 <span className="text-[10px] text-[#B0BCCE]">{item.id}</span>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => onUse(item)} className="text-[11px] text-[#6B7A99] hover:text-[#0F1C3F]">Use</button>
                   {onDelete && !itemIsInherited && (
                     <button type="button" onClick={() => void handleDelete(item)} disabled={deletingId === item.id} className="text-[11px] text-red-500 disabled:opacity-50">
                       {deletingId === item.id ? "Deleting…" : "Delete"}
