@@ -4244,21 +4244,22 @@ export default function Docuplete() {
       )}
 
       {!isPublicSession && tab === "library" && (
-        <div className="mt-4">
-          <div className="flex items-center border-b border-[#DDD5C4] mb-6">
+        <section className="bg-white border border-[#DDD5C4] rounded-lg max-w-4xl mx-auto overflow-hidden mt-4">
+          <div className="flex border-b border-[#DDD5C4]">
             {(["fields", "field-groups", "types", "groups", "compliance"] as const).map((sub) => {
               const label = sub === "field-groups" ? "Field Groups" : sub.charAt(0).toUpperCase() + sub.slice(1);
               return (
                 <button
                   key={sub}
                   onClick={() => { setLibrarySubTab(sub); if (sub === "compliance") void loadComplianceAudit(); }}
-                  className={`px-4 py-2 text-sm border-b-2 -mb-px transition-colors ${librarySubTab === sub ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+                  className={`px-5 py-3 text-sm font-medium border-b-2 transition-colors ${librarySubTab === sub ? "border-[#0F1C3F] text-[#0F1C3F]" : "border-transparent text-[#8A9BB8] hover:text-[#0F1C3F] hover:border-[#DDD5C4]"}`}
                 >
                   {label}
                 </button>
               );
             })}
           </div>
+          <div className="p-5">
 
           {librarySubTab === "fields" && (
             <FieldLibraryPanel
@@ -4437,7 +4438,8 @@ export default function Docuplete() {
               )}
             </div>
           )}
-        </div>
+          </div>
+        </section>
       )}
 
       {inspectorMode === "modal" && placementModal && selectedPackage && (() => {
