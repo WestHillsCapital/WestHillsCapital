@@ -1243,9 +1243,17 @@ export function FieldLibraryPanel({
                   const applyTagChange = (next: string[]) => {
                     setOptimisticTagsMap((m) => { const n = new Map(m); n.set(item.id, next); return n; });
                     setTagSavingId(item.id);
-                    void onSetComplianceTags!(item.id, next).then(() => {
+                    void onSetComplianceTags!(item.id, next).then((err) => {
                       setTagSavingId(null);
-                      setOptimisticTagsMap((m) => { const n = new Map(m); n.delete(item.id); return n; });
+                      if (err) {
+                        // Revert optimistic state and surface the error
+                        setOptimisticTagsMap((m) => { const n = new Map(m); n.delete(item.id); return n; });
+                        setPanelError(err);
+                      } else {
+                        // Success — fieldLibrary has been updated by the caller;
+                        // drop optimistic so the display picks up the server value.
+                        setOptimisticTagsMap((m) => { const n = new Map(m); n.delete(item.id); return n; });
+                      }
                     });
                   };
                   return (
