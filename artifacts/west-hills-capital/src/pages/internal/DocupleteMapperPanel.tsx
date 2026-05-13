@@ -208,6 +208,7 @@ export interface DocupleteMapperPanelProps {
   sortSensors: ReturnType<typeof useSensors>;
   isUploadingDocument: boolean;
   isSaving: boolean;
+  autoSaveStatus: "idle" | "pending" | "saving" | "saved" | "error";
   showShortcutsPopover: boolean;
   setShowShortcutsPopover: React.Dispatch<React.SetStateAction<boolean>>;
   shortcutsPopoverRef: React.RefObject<HTMLDivElement | null>;
@@ -258,7 +259,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
     isPdfRendering, pdfRenderError, fieldLibrary, inspectorMode, setInspectorMode,
     placementModal, setPlacementModal, setPlacementModalPos,
     recipientsExpanded, setRecipientsExpanded, setRecipientPickerOpen, sortSensors,
-    isUploadingDocument, isSaving, showShortcutsPopover, setShowShortcutsPopover, shortcutsPopoverRef,
+    isUploadingDocument, isSaving, autoSaveStatus, showShortcutsPopover, setShowShortcutsPopover, shortcutsPopoverRef,
     beginMappingPointer, mappingStartedDocIds, selectedField, fieldDragFromHandle, setSelectedFieldId,
     scrollContainerRef, scrollPdfDoc, canvasRef, pageFrameRef, setMapperContainerEl,
     goBuilderStep, savePackage, updateSelectedPackage, uploadDocument, removeDocument,
@@ -974,7 +975,19 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
           </div>
           </div>
         </div>}
-        <div className="mt-4 flex flex-wrap justify-end gap-2">
+        <div className="mt-4 flex flex-wrap items-center justify-end gap-2">
+          {autoSaveStatus !== "idle" && (
+            <span className={`text-xs ${
+              autoSaveStatus === "saved"  ? "text-green-600" :
+              autoSaveStatus === "error"  ? "text-amber-600" :
+              "text-[#8A9BB8]"
+            }`}>
+              {autoSaveStatus === "pending" ? "Changes pending…" :
+               autoSaveStatus === "saving"  ? "Auto-saving…" :
+               autoSaveStatus === "saved"   ? "Auto-saved ✓" :
+               "Auto-save failed — save manually"}
+            </span>
+          )}
           <Button onClick={() => goBuilderStep("interview", { autoSort: true })} variant="outline">Review Generated Interview</Button>
           <Button
             onClick={() => savePackage(selectedPackage)}

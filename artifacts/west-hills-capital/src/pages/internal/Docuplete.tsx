@@ -432,6 +432,7 @@ export default function Docuplete() {
   const [complianceAuditLoading, setComplianceAuditLoading] = useState(false);
   const [complianceAuditError, setComplianceAuditError] = useState<string | null>(null);
   const [bootstrapLoaded, setBootstrapLoaded] = useState(false);
+  const [autoSaveStatus, setAutoSaveStatus] = useState<"idle" | "pending" | "saving" | "saved" | "error">("idle");
   const [seedingDemo, setSeedingDemo] = useState(false);
   const [demoUiState, setDemoUiState] = useState<"try" | "open" | "dismissed">(() => {
     try {
@@ -617,6 +618,10 @@ export default function Docuplete() {
   const popUndo = useDocupleteStore((s) => s.popUndo);
   const keyHandlerRef = useRef<(e: KeyboardEvent) => void>(() => {});
   const mapperContainerRef = useRef<HTMLElement | null>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const autoSaveEnabledRef = useRef(false);
+  const prevPackageContentRef = useRef<{ fields: unknown; documents: unknown; pkgId: number | null } | null>(null);
   const [mapperContainerWidth, setMapperContainerWidth] = useState(800);
   const [viewportHeight, setViewportHeight] = useState(() => window.innerHeight);
   const [acroAnnotations, setAcroAnnotations] = useState<AcroAnnotation[]>([]);
@@ -1061,6 +1066,49 @@ export default function Docuplete() {
     if (isPublicSession) return;
     loadBootstrap();
   }, [isPublicSession]);
+
+  // Enable auto-save 500 ms after bootstrap settles so the initial data load
+  // doesn't immediately trigger a redundant save.
+  useEffect(() => {
+    if (!bootstrapLoaded) return;
+    const t = setTimeout(() => { autoSaveEnabledRef.current = true; }, 500);
+    return () => clearTimeout(t);
+  }, [bootstrapLoaded]);
+
+  // Watch Zustand store for mapping / recipient changes → schedule auto-save.
+  useEffect(() => {
+    if (!bootstrapLoaded) return;
+    const unsubStore = useDocupleteStore.subscribe((state, prev) => {
+      if (!autoSaveEnabledRef.current) return;
+      if (state.mappings !== prev.mappings || state.recipientList !== prev.recipientList) {
+        scheduleAutoSave();
+      }
+    });
+    return () => {
+      unsubStore();
+      if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+      if (autoSaveFadeTimerRef.current) clearTimeout(autoSaveFadeTimerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bootstrapLoaded]);
+
+  // Watch selected package fields / documents for reorder or field edits.
+  // Reset the tracker whenever the selected package switches.
+  useEffect(() => {
+    prevPackageContentRef.current = null;
+  }, [selectedPackageId]);
+
+  useEffect(() => {
+    if (!autoSaveEnabledRef.current || !selectedPackage) return;
+    const curr = { fields: selectedPackage.fields, documents: selectedPackage.documents, pkgId: selectedPackage.id };
+    const prev = prevPackageContentRef.current;
+    prevPackageContentRef.current = curr;
+    if (!prev || prev.pkgId !== curr.pkgId) return; // first run for this package
+    if (curr.fields !== prev.fields || curr.documents !== prev.documents) {
+      scheduleAutoSave();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPackage?.fields, selectedPackage?.documents, selectedPackage?.id]);
 
   // Clear deep-link URL params from the address bar immediately on mount so
   // they don't persist or show up if the user copies the URL.
@@ -1514,6 +1562,70 @@ export default function Docuplete() {
     } finally {
       setIsSaving(false);
     }
+  }
+
+  // Lightweight background save — does NOT call loadBootstrap so it never
+  // wipes unsaved mapper state. Used exclusively by the auto-save system.
+  async function autoSavePackage(pkg: PackageItem): Promise<boolean> {
+    if (isSaving) return false; // let the in-progress manual save finish
+    try {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/packages/${pkg.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          name: pkg.name,
+          groupIds: pkg.group_ids ?? [],
+          groupId: pkg.group_id,
+          custodianId: pkg.custodian_id,
+          depositoryId: pkg.depository_id,
+          transactionScope: pkg.transaction_scope,
+          description: pkg.description,
+          status: pkg.status,
+          documents: pkg.documents,
+          fields: pkg.fields,
+          mappings: useDocupleteStore.getState().mappings,
+          recipients: useDocupleteStore.getState().recipientList,
+          enableInterview: pkg.enable_interview,
+          enableCsv: pkg.enable_csv,
+          enableCustomerLink: pkg.enable_customer_link,
+          webhookEnabled: pkg.webhook_enabled,
+          webhookUrl: pkg.webhook_url ?? null,
+          slackNotificationsEnabled: pkg.slack_notifications_enabled,
+          tags: pkg.tags ?? [],
+          notifyStaffOnSubmit: pkg.notify_staff_on_submit,
+          notifyClientOnSubmit: pkg.notify_client_on_submit,
+          enableEmbed: pkg.enable_embed,
+          enableGdrive: pkg.enable_gdrive,
+          enableHubspot: pkg.enable_hubspot,
+          authLevel: pkg.auth_level,
+          requirePreview: pkg.require_preview,
+          requireScrollConfirmation: pkg.require_scroll_confirmation,
+        }),
+      });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  function scheduleAutoSave() {
+    if (!autoSaveEnabledRef.current) return;
+    if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+    setAutoSaveStatus("pending");
+    autoSaveTimerRef.current = setTimeout(() => {
+      const storeState = useDocupleteStore.getState();
+      const pkg = storeState.packages.find((p) => p.id === storeState.selectedPackageId);
+      if (!pkg) return;
+      setAutoSaveStatus("saving");
+      void autoSavePackage(pkg).then((ok) => {
+        if (autoSaveFadeTimerRef.current) clearTimeout(autoSaveFadeTimerRef.current);
+        setAutoSaveStatus(ok ? "saved" : "error");
+        autoSaveFadeTimerRef.current = setTimeout(
+          () => setAutoSaveStatus((s) => (s === "saved" || s === "error" ? "idle" : s)),
+          2500,
+        );
+      });
+    }, 2000);
   }
 
   async function fetchWebhookSecret(pkgId: number) {
@@ -3124,7 +3236,7 @@ export default function Docuplete() {
           x: snapX,
           y: snapY,
           w: 26,
-          h: 6,
+          h: 4,
           fontSize: 11,
           align: "left",
           format: defaultMappingFormat(copy),
@@ -3203,7 +3315,7 @@ export default function Docuplete() {
       x: clampPercent(x, 0, 74),
       y: clampPercent(y, 0, 94),
       w: 26,
-      h: 6,
+      h: 4,
       fontSize: 11,
       align: "left",
       format: defaultMappingFormat(field),
@@ -3984,6 +4096,7 @@ export default function Docuplete() {
             docupleteApiPath={docupleteApiPath}
             documentPreviewCache={documentPreviewCache}
             documentPreviewCacheOrder={documentPreviewCacheOrder}
+            autoSaveStatus={autoSaveStatus}
           />
         )
       )}
