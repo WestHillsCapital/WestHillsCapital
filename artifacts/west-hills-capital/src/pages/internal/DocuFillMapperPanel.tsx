@@ -18,7 +18,7 @@ import { ScrollPageCanvas } from "@/components/DocuFillWidgets";
 import { type BuilderStep, BUILDER_STEPS } from "@/components/PackagePickerSidebar";
 import { SortableItem, DragGuideLines, ResizeDimTooltip } from "@/components/DocuFillDndHelpers";
 import { labelForMappingFormat, sampleValueForMapping } from "@/lib/docufill-mapping-utils";
-import type * as pdfjsLib from "pdfjs-dist";
+import * as pdfjsLib from "pdfjs-dist";
 
 const SYSTEM_ESIGN_FIELDS: Array<{ id: string; name: string; type: FieldItem["type"]; description: string }> = [
   { id: ESIGN_FIELD_ID_SIGNATURE, name: "Signature",   type: "text",     description: "Drawn or typed signature" },
@@ -149,6 +149,28 @@ function GroupPicker({
   );
 }
 
+// ─── Multi-doc scroll helpers ─────────────────────────────────────────────────
+const MDSCROLL_DOC_HEADER_H = 40;
+const MDSCROLL_PAGE_GAP = 16;
+const MDSCROLL_TOP_PAD = 16;
+
+function buildMultiDocPageIndex(
+  docs: Array<{ id: string; pages?: number | null }>,
+  scaledPageH: number,
+): Array<{ docId: string; pageNum: number; pageTop: number }> {
+  const items: Array<{ docId: string; pageNum: number; pageTop: number }> = [];
+  let y = MDSCROLL_TOP_PAD;
+  for (const doc of docs) {
+    y += MDSCROLL_DOC_HEADER_H + MDSCROLL_PAGE_GAP;
+    const pages = Math.max(doc.pages ?? 1, 1);
+    for (let p = 1; p <= pages; p++) {
+      items.push({ docId: doc.id, pageNum: p, pageTop: y });
+      y += scaledPageH + MDSCROLL_PAGE_GAP;
+    }
+  }
+  return items;
+}
+
 export interface DocuFillMapperPanelProps {
   selectedPackage: PackageItem;
   selectedDocument: DocItem | null;
@@ -229,7 +251,7 @@ export interface DocuFillMapperPanelProps {
 
 export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props: DocuFillMapperPanelProps) {
   const {
-    selectedPackage, selectedDocument, setSelectedDocumentId,
+    selectedPackage, selectedDocument, selectedDocumentId, setSelectedDocumentId,
     selectedPage, setSelectedPage, nativePageW, nativePageH, effectiveScale,
     mapperViewW, mapperViewH, mapperScrollMode, setMapperScrollMode, userZoom, setUserZoom,
     snapGrid, setSnapGrid, documentPreviewUrl, acroAnnotations, showAcroLayer, setShowAcroLayer,
@@ -279,6 +301,14 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
   const [clickToPlaceFieldId, setClickToPlaceFieldId] = useState<string | null>(null);
   const clickToPlaceFrameRef = useRef<HTMLElement | null>(null);
 
+  // ── Multi-doc scroll state ────────────────────────────────────────────────
+  const [multiScrollPdfDocs, setMultiScrollPdfDocs] = useState<Record<string, pdfjsLib.PDFDocumentProxy | null>>({});
+  const multiScrollPdfDocRefsMap = useRef<Record<string, pdfjsLib.PDFDocumentProxy | null>>({});
+  const getAuthHeadersRef = useRef(getAuthHeaders);
+  getAuthHeadersRef.current = getAuthHeaders;
+  const isUserScrollingRef = useRef(false);
+  const userScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const displayFields = useMemo(() => {
     let fields = selectedPackage.fields;
     if (showUnplacedOnly) fields = fields.filter((f) => !packageMappedFieldIds.has(f.id));
@@ -318,6 +348,69 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
     if (!selectedMappingId) return;
     if (!pageMappingIds.includes(selectedMappingId)) setSelectedMappingId(null);
   }, [pageMappingIds, selectedMappingId, setSelectedMappingId]);
+
+  // ── Load PDFs for all docs when scroll mode is active ────────────────────
+  useEffect(() => {
+    if (!mapperScrollMode) {
+      Object.values(multiScrollPdfDocRefsMap.current).forEach((d) => d?.destroy().catch(() => {}));
+      multiScrollPdfDocRefsMap.current = {};
+      setMultiScrollPdfDocs({});
+      return;
+    }
+    let cancelled = false;
+    const docsToLoad = selectedPackage.documents.filter((d) => d.pdfStored);
+    (async () => {
+      for (const doc of docsToLoad) {
+        if (cancelled) break;
+        const cacheKey = `${selectedPackage.id}:${doc.id}`;
+        let blobUrl = documentPreviewCache.current[cacheKey];
+        if (!blobUrl) {
+          try {
+            const res = await fetch(
+              `${docufillApiPath}/packages/${selectedPackage.id}/documents/${doc.id}.pdf`,
+              { headers: { ...getAuthHeadersRef.current() } },
+            );
+            if (!res.ok || cancelled) { setMultiScrollPdfDocs((p) => ({ ...p, [doc.id]: null })); continue; }
+            const blob = await res.blob();
+            if (cancelled) break;
+            blobUrl = URL.createObjectURL(blob);
+            documentPreviewCacheOrder.current.push(cacheKey);
+            documentPreviewCache.current[cacheKey] = blobUrl;
+            while (documentPreviewCacheOrder.current.length > 8) {
+              const oldest = documentPreviewCacheOrder.current.shift();
+              if (oldest) { const u = documentPreviewCache.current[oldest]; if (u) { URL.revokeObjectURL(u); delete documentPreviewCache.current[oldest]; } }
+            }
+          } catch { setMultiScrollPdfDocs((p) => ({ ...p, [doc.id]: null })); continue; }
+        }
+        if (cancelled) break;
+        try {
+          const pdfDoc = await pdfjsLib.getDocument(blobUrl).promise;
+          if (cancelled) { pdfDoc.destroy(); break; }
+          multiScrollPdfDocRefsMap.current = { ...multiScrollPdfDocRefsMap.current, [doc.id]: pdfDoc };
+          setMultiScrollPdfDocs((p) => ({ ...p, [doc.id]: pdfDoc }));
+        } catch { setMultiScrollPdfDocs((p) => ({ ...p, [doc.id]: null })); }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      Object.values(multiScrollPdfDocRefsMap.current).forEach((d) => d?.destroy().catch(() => {}));
+      multiScrollPdfDocRefsMap.current = {};
+      setMultiScrollPdfDocs({});
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapperScrollMode, selectedPackage.id, selectedPackage.documents]);
+
+  // ── When left panel selection changes, scroll the multi-doc view to match ─
+  useEffect(() => {
+    if (!mapperScrollMode || !scrollContainerRef.current || !selectedDocumentId || isUserScrollingRef.current) return;
+    const scaledPageH = Math.round(nativePageH * effectiveScale);
+    const items = buildMultiDocPageIndex(selectedPackage.documents, scaledPageH);
+    const firstPage = items.find((item) => item.docId === selectedDocumentId);
+    if (firstPage) {
+      scrollContainerRef.current.scrollTo({ top: Math.max(0, firstPage.pageTop - MDSCROLL_TOP_PAD - 4), behavior: "smooth" });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDocumentId, mapperScrollMode]);
 
   return (
     <div className="grid lg:grid-cols-[190px_1fr_260px] gap-4 min-h-[720px] items-stretch">
@@ -585,93 +678,164 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
 
         {isUploadingDocument && <div className="mb-2 text-xs text-[#6B7A99]">Uploading PDF…</div>}
 
-        {mapperScrollMode && selectedDocument && documentPreviewUrl && (
+        {mapperScrollMode && (
           <div
             ref={scrollContainerRef}
             className="bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-y-auto"
             style={{ width: mapperViewW, height: mapperViewH }}
             onScroll={(e) => {
+              if (selectedPackage.documents.length === 0) return;
               const container = e.currentTarget;
               const scaledPageH = Math.round(nativePageH * effectiveScale);
-              const itemH = scaledPageH + 16;
-              const topPad = 16;
               const scrollMid = container.scrollTop + container.clientHeight / 2;
-              const idx = Math.floor((scrollMid - topPad) / itemH);
-              const totalPages = Math.max(selectedDocument.pages ?? 1, 1);
-              setSelectedPage(Math.max(1, Math.min(totalPages, idx + 1)));
+              const items = buildMultiDocPageIndex(selectedPackage.documents, scaledPageH);
+              if (items.length === 0) return;
+              let best = items[0]!;
+              let bestDist = Math.abs(scrollMid - (best.pageTop + scaledPageH / 2));
+              for (const item of items) {
+                const dist = Math.abs(scrollMid - (item.pageTop + scaledPageH / 2));
+                if (dist < bestDist) { bestDist = dist; best = item; }
+              }
+              isUserScrollingRef.current = true;
+              if (userScrollTimerRef.current) clearTimeout(userScrollTimerRef.current);
+              userScrollTimerRef.current = setTimeout(() => { isUserScrollingRef.current = false; }, 300);
+              setSelectedDocumentId(best.docId);
+              setSelectedPage(best.pageNum);
             }}
           >
-            <div style={{ display: "flex", flexDirection: "column", gap: 16, padding: "16px 0", alignItems: "flex-start" }}>
-              {Array.from({ length: Math.max(selectedDocument.pages ?? 1, 1) }, (_, i) => i + 1).map((pageNum) => {
-                const _knownFieldIds = new Set((selectedPackage.fields ?? []).map((f) => f.id));
-                const pageMs = storeMappings.filter(
-                  (m) => m.documentId === selectedDocument.id && m.page === pageNum && _knownFieldIds.has(m.fieldId)
-                );
-                return (
-                  <div key={pageNum} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    <div style={{ width: Math.round(nativePageW * effectiveScale), height: Math.round(nativePageH * effectiveScale), position: "relative", flexShrink: 0 }}>
-                      <div
-                        onDragOver={(e) => e.preventDefault()}
-                        onDrop={(e) => dropFieldOnPage(e, e.currentTarget, pageNum)}
-                        onClick={(e) => {
-                          if (clickToPlaceFieldId) {
-                            placeFieldAtCoords(clickToPlaceFieldId, e.clientX, e.clientY, e.currentTarget, pageNum);
-                            setClickToPlaceFieldId(null);
-                            return;
-                          }
-                          setSelectedPage(pageNum);
-                          setPlacementModal(null);
-                        }}
-                        className="absolute top-0 left-0 bg-white border border-[#D4C9B5] shadow-sm overflow-hidden"
-                        style={{ cursor: clickToPlaceFieldId ? "crosshair" : undefined, width: nativePageW, height: nativePageH, transform: `scale(${effectiveScale})`, transformOrigin: "top left" }}
-                      >
-                        <ScrollPageCanvas pageNum={pageNum} pdfDoc={scrollPdfDoc} nativeW={nativePageW} nativeH={nativePageH} />
-                        {pageMs.map((m) => {
-                          const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
-                          const recipient = m.recipientId ? storeRecipientList.find((r) => r.id === m.recipientId) : undefined;
-                          const fieldColor = recipient?.color ?? (isSystemEsignFieldId(m.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
-                          return (
-                            <MappingButton
-                              key={m.id}
-                              mappingId={m.id}
-                              fieldName={field?.name ?? "Field"}
-                              sampleValue={sampleValueForMapping(field, m.format)}
-                              formatLabel={labelForMappingFormat(m.format)}
-                              fieldColor={fieldColor}
-                              recipient={recipient}
-                              onMoveStart={(e) => beginMappingPointer(e, m.id, "move", e.currentTarget.parentElement as HTMLElement)}
-                              onResizeStart={(e) => beginMappingPointer(e, m.id, "resize", e.currentTarget.parentElement?.parentElement as HTMLElement)}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSelectedPage(pageNum);
-                                setSelectedMappingId(m.id);
-                                setSelectedFieldId(m.fieldId);
-                                if (inspectorMode === "panel") {
-                                  setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
-                                  setPlacementModalPos(null);
-                                }
-                              }}
-                              onContextMenu={(e) => {
-                                e.preventDefault(); e.stopPropagation();
-                                setSelectedPage(pageNum);
-                                setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId);
-                                setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
-                                setPlacementModalPos(null);
-                              }}
-                            />
-                          );
-                        })}
+            {selectedPackage.documents.length === 0 ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-xs text-[#8A9BB8]">No documents in this package yet.</p>
+              </div>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", padding: `${MDSCROLL_TOP_PAD}px 0 ${MDSCROLL_PAGE_GAP}px`, alignItems: "flex-start" }}>
+                {selectedPackage.documents.map((doc, docIdx) => {
+                  const scaledW = Math.round(nativePageW * effectiveScale);
+                  const scaledH = Math.round(nativePageH * effectiveScale);
+                  const pdfDoc = multiScrollPdfDocs[doc.id] ?? null;
+                  const isSelectedDoc = selectedDocumentId === doc.id;
+                  const knownFieldIds = new Set(selectedPackage.fields.map((f) => f.id));
+                  return (
+                    <div key={doc.id} style={{ display: "flex", flexDirection: "column", width: scaledW }}>
+                      {/* Document separator */}
+                      <div style={{
+                        height: MDSCROLL_DOC_HEADER_H,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        paddingLeft: 4,
+                        paddingRight: 4,
+                        marginBottom: MDSCROLL_PAGE_GAP,
+                        borderBottom: `2px solid ${isSelectedDoc ? "#C49A38" : "#DDD5C4"}`,
+                      }}>
+                        <span style={{
+                          fontSize: 10,
+                          fontWeight: 700,
+                          lineHeight: 1,
+                          backgroundColor: isSelectedDoc ? "#C49A38" : "#DDD5C4",
+                          color: isSelectedDoc ? "#FFF" : "#8A9BB8",
+                          borderRadius: 3,
+                          padding: "2px 5px",
+                          flexShrink: 0,
+                        }}>
+                          {docIdx + 1}
+                        </span>
+                        <span style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          color: isSelectedDoc ? "#8A6520" : "#3A4A5A",
+                          flex: 1,
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                        }}>
+                          {doc.title || doc.fileName || `Document ${docIdx + 1}`}
+                        </span>
+                        {!doc.pdfStored && (
+                          <span style={{ fontSize: 10, color: "#8A9BB8", fontStyle: "italic", flexShrink: 0 }}>no PDF</span>
+                        )}
                       </div>
+                      {/* Pages for this document */}
+                      {!doc.pdfStored ? (
+                        <div style={{ width: scaledW, height: scaledH, display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #DDD5C4", backgroundColor: "#FFF", marginBottom: MDSCROLL_PAGE_GAP }}>
+                          <span style={{ fontSize: 11, color: "#8A9BB8", fontStyle: "italic" }}>Upload a PDF to preview</span>
+                        </div>
+                      ) : !pdfDoc ? (
+                        <div style={{ width: scaledW, height: scaledH, display: "flex", alignItems: "center", justifyContent: "center", border: "1px dashed #DDD5C4", backgroundColor: "#FFF", marginBottom: MDSCROLL_PAGE_GAP }}>
+                          <div className="w-5 h-5 border-2 border-[#C49A38] border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      ) : (
+                        Array.from({ length: Math.max(doc.pages ?? 1, 1) }, (_, i) => i + 1).map((pageNum) => {
+                          const pageMs = storeMappings.filter(
+                            (m) => m.documentId === doc.id && (m.page ?? 1) === pageNum && knownFieldIds.has(m.fieldId)
+                          );
+                          return (
+                            <div key={pageNum} style={{ marginBottom: MDSCROLL_PAGE_GAP, width: scaledW, height: scaledH, position: "relative", flexShrink: 0 }}>
+                              <div
+                                onDragOver={(e) => { e.preventDefault(); if (selectedDocumentId !== doc.id) setSelectedDocumentId(doc.id); }}
+                                onDrop={(e) => { setSelectedDocumentId(doc.id); dropFieldOnPage(e, e.currentTarget, pageNum); }}
+                                onClick={(e) => {
+                                  if (clickToPlaceFieldId) {
+                                    setSelectedDocumentId(doc.id);
+                                    placeFieldAtCoords(clickToPlaceFieldId, e.clientX, e.clientY, e.currentTarget, pageNum);
+                                    setClickToPlaceFieldId(null);
+                                    return;
+                                  }
+                                  setSelectedDocumentId(doc.id);
+                                  setSelectedPage(pageNum);
+                                  setPlacementModal(null);
+                                }}
+                                className="absolute top-0 left-0 bg-white border border-[#D4C9B5] shadow-sm overflow-hidden"
+                                style={{ cursor: clickToPlaceFieldId ? "crosshair" : undefined, width: nativePageW, height: nativePageH, transform: `scale(${effectiveScale})`, transformOrigin: "top left" }}
+                              >
+                                <ScrollPageCanvas pageNum={pageNum} pdfDoc={pdfDoc} nativeW={nativePageW} nativeH={nativePageH} />
+                                {pageMs.map((m) => {
+                                  const field = selectedPackage.fields.find((f) => f.id === m.fieldId);
+                                  const recipient = m.recipientId ? storeRecipientList.find((r) => r.id === m.recipientId) : undefined;
+                                  const fieldColor = recipient?.color ?? (isSystemEsignFieldId(m.fieldId) ? "#9CA3AF" : (field?.color ?? "#C49A38"));
+                                  return (
+                                    <MappingButton
+                                      key={m.id}
+                                      mappingId={m.id}
+                                      fieldName={field?.name ?? "Field"}
+                                      sampleValue={sampleValueForMapping(field, m.format)}
+                                      formatLabel={labelForMappingFormat(m.format)}
+                                      fieldColor={fieldColor}
+                                      recipient={recipient}
+                                      onMoveStart={(e) => beginMappingPointer(e, m.id, "move", e.currentTarget.parentElement as HTMLElement)}
+                                      onResizeStart={(e) => beginMappingPointer(e, m.id, "resize", e.currentTarget.parentElement?.parentElement as HTMLElement)}
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setSelectedDocumentId(doc.id);
+                                        setSelectedPage(pageNum);
+                                        setSelectedMappingId(m.id);
+                                        setSelectedFieldId(m.fieldId);
+                                        if (inspectorMode === "panel") {
+                                          setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
+                                          setPlacementModalPos(null);
+                                        }
+                                      }}
+                                      onContextMenu={(e) => {
+                                        e.preventDefault(); e.stopPropagation();
+                                        setSelectedDocumentId(doc.id);
+                                        setSelectedPage(pageNum);
+                                        setSelectedMappingId(m.id); setSelectedFieldId(m.fieldId);
+                                        setPlacementModal({ mappingId: m.id, pdfX: m.x, pdfY: m.y });
+                                        setPlacementModalPos(null);
+                                      }}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-        {mapperScrollMode && (!selectedDocument || !documentPreviewUrl) && (
-          <div className="bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner flex items-center justify-center" style={{ width: mapperViewW, height: mapperViewH }}>
-            <p className="text-xs text-[#8A9BB8]">{selectedDocument ? "Upload a PDF to enable scroll view." : "Select a document to get started."}</p>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
         {!mapperScrollMode && <div className="relative bg-[#F8F6F0] border border-[#DDD5C4] shadow-inner overflow-auto" style={{ width: mapperViewW, height: mapperViewH }}>
