@@ -320,7 +320,7 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
   }, [pageMappingIds, selectedMappingId, setSelectedMappingId]);
 
   return (
-    <div className="grid lg:grid-cols-[190px_1fr_260px] gap-4 min-h-[720px] items-start">
+    <div className="grid lg:grid-cols-[190px_1fr_260px] gap-4 min-h-[720px] items-stretch">
       {/* ── Click-to-place banner ── */}
       {clickToPlaceFieldId && (() => {
         const activePlaceField = selectedPackage.fields.find((f) => f.id === clickToPlaceFieldId);
@@ -336,7 +336,7 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
         );
       })()}
       {/* ── Left sidebar: recipients + documents ── */}
-      <section className="bg-white border border-[#DDD5C4] rounded-lg p-3 flex flex-col gap-3">
+      <section className="bg-white border border-[#DDD5C4] rounded-lg p-3 flex flex-col gap-3 h-full overflow-hidden">
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <button type="button" onClick={() => setRecipientsExpanded((v) => !v)} className="flex items-center gap-1 text-sm font-semibold text-[#0F1C3F] hover:text-[#C49A38] transition-colors">
@@ -410,7 +410,7 @@ export const DocuFillMapperPanel = React.memo(function DocuFillMapperPanel(props
           }}
         >
           <SortableContext items={selectedPackage.documents.map((d) => d.id)} strategy={verticalListSortingStrategy}>
-            <div className="space-y-2 overflow-y-auto flex-1">
+            <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
               {selectedPackage.documents.map((doc, index) => (
                 <SortableItem key={doc.id} id={doc.id}>
                   {({ handleProps, wrapperRef, wrapperStyle, isDragging }) => (
