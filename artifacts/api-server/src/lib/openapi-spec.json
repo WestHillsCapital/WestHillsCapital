@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "DocuPak / DocuFill API",
+    "title": "DocuPak / Docuplete API",
     "version": "1.0.0",
-    "description": "API for the **DocuPak** SaaS platform and its embedded **DocuFill** paperwork engine.\n\n## Authentication\n\n| Scope | Scheme | How to obtain |\n|-------|--------|---------------|\n| Public routes | None | N/A |\n| Product portal (SaaS) | `Authorization: Bearer <clerk_jwt>` | Clerk front-end SDK |\n| Product portal (API key) | `Authorization: Bearer dp_live_…` | `POST /api/v1/product/auth/api-keys` |\n| Internal (WHC staff) | `Authorization: Bearer <session_token>` | `POST /api/internal/auth/sign-in` |\n\n## API Key Authentication\n\nExternal integration partners can authenticate using a long-lived API key instead of a Clerk JWT. API keys:\n- Are prefixed with `dp_live_`\n- Are stored hashed (SHA-256) — the plaintext is returned only once on creation\n- Can be named, listed, and revoked via `/api/v1/product/auth/api-keys`\n- Are accepted wherever a Clerk JWT is accepted on product routes\n\n## Base URL\nAll paths below are relative to `/api/v1`.",
+    "description": "API for the **DocuPak** SaaS platform and its embedded **Docuplete** paperwork engine.\n\n## Authentication\n\n| Scope | Scheme | How to obtain |\n|-------|--------|---------------|\n| Public routes | None | N/A |\n| Product portal (SaaS) | `Authorization: Bearer <clerk_jwt>` | Clerk front-end SDK |\n| Product portal (API key) | `Authorization: Bearer dp_live_…` | `POST /api/v1/product/auth/api-keys` |\n| Internal (WHC staff) | `Authorization: Bearer <session_token>` | `POST /api/internal/auth/sign-in` |\n\n## API Key Authentication\n\nExternal integration partners can authenticate using a long-lived API key instead of a Clerk JWT. API keys:\n- Are prefixed with `dp_live_`\n- Are stored hashed (SHA-256) — the plaintext is returned only once on creation\n- Can be named, listed, and revoked via `/api/v1/product/auth/api-keys`\n- Are accepted wherever a Clerk JWT is accepted on product routes\n\n## Base URL\nAll paths below are relative to `/api/v1`.",
     "contact": {
       "name": "DocuPak Engineering"
     }
@@ -62,7 +62,7 @@
           }
         }
       },
-      "DocuFillPackage": {
+      "DocupletePackage": {
         "type": "object",
         "description": "A Docuplete package — a reusable interview template that defines the documents, fields, and configuration for a document workflow.",
         "required": [
@@ -145,7 +145,7 @@
           }
         }
       },
-      "DocuFillSessionListItem": {
+      "DocupleteSessionListItem": {
         "type": "object",
         "description": "A session row returned by the session list endpoint. Includes answers, prefill, and PDF URL for integration use (e.g. Zapier).",
         "required": [
@@ -249,7 +249,7 @@
           }
         }
       },
-      "DocuFillSession": {
+      "DocupleteSession": {
         "type": "object",
         "properties": {
           "id": {
@@ -1147,7 +1147,7 @@
                     "packages": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/DocuFillPackage"
+                        "$ref": "#/components/schemas/DocupletePackage"
                       }
                     }
                   }
@@ -1206,7 +1206,7 @@
                   ],
                   "properties": {
                     "package": {
-                      "$ref": "#/components/schemas/DocuFillPackage"
+                      "$ref": "#/components/schemas/DocupletePackage"
                     }
                   }
                 }
@@ -1331,7 +1331,7 @@
                     "sessions": {
                       "type": "array",
                       "items": {
-                        "$ref": "#/components/schemas/DocuFillSessionListItem"
+                        "$ref": "#/components/schemas/DocupleteSessionListItem"
                       }
                     },
                     "total": {
@@ -1437,7 +1437,7 @@
                   ],
                   "properties": {
                     "session": {
-                      "$ref": "#/components/schemas/DocuFillSession"
+                      "$ref": "#/components/schemas/DocupleteSession"
                     },
                     "token": {
                       "type": "string",
@@ -1487,7 +1487,7 @@
         }
       }
     },
-    "/internal/docufill/sessions": {
+    "/internal/docuplete/sessions": {
       "post": {
         "tags": [
           "Internal — Docuplete Sessions"
@@ -1563,7 +1563,7 @@
                   "type": "object",
                   "properties": {
                     "session": {
-                      "$ref": "#/components/schemas/DocuFillSession"
+                      "$ref": "#/components/schemas/DocupleteSession"
                     },
                     "token": {
                       "type": "string",
@@ -1645,7 +1645,7 @@
                   ],
                   "properties": {
                     "session": {
-                      "$ref": "#/components/schemas/DocuFillSession"
+                      "$ref": "#/components/schemas/DocupleteSession"
                     }
                   }
                 }
@@ -1702,7 +1702,7 @@
                   "type": "object",
                   "properties": {
                     "session": {
-                      "$ref": "#/components/schemas/DocuFillSession"
+                      "$ref": "#/components/schemas/DocupleteSession"
                     }
                   }
                 }
@@ -1771,7 +1771,7 @@
                   "type": "object",
                   "properties": {
                     "session": {
-                      "$ref": "#/components/schemas/DocuFillSession"
+                      "$ref": "#/components/schemas/DocupleteSession"
                     }
                   }
                 }
