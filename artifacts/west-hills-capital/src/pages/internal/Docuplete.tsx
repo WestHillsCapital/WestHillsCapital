@@ -4264,9 +4264,9 @@ export default function Docuplete() {
               onSetComplianceTags={setFieldComplianceTags}
               onUse={addLibraryFieldToPackage}
               onDelete={deleteFieldLibraryItem as (id: string) => Promise<string | null>}
-              onLoadVersions={loadFieldLibraryVersions}
-              onRestoreVersion={restoreFieldLibraryVersion}
-              onLoadAnalytics={loadFieldLibraryAnalytics}
+              onLoadVersions={loadFieldVersions}
+              onRestoreVersion={restoreFieldVersion}
+              onLoadAnalytics={loadFieldAnalytics}
               onExport={exportFieldLibrary}
               onImport={importFieldLibrary}
             />
