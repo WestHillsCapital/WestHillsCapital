@@ -773,9 +773,11 @@ export function FieldLibraryPanel({
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
   const [selectLastOnAdd, setSelectLastOnAdd] = useState(false);
   const prevItemsLengthRef = useRef(items.length);
-  const selectedRowRef = useRef<HTMLDivElement | null>(null);
+  const listScrollRef = useRef<HTMLDivElement | null>(null);
+  const selectedRowRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     if (!exportMenuOpen) return;
@@ -793,12 +795,28 @@ export function FieldLibraryPanel({
       const newest = items[items.length - 1];
       if (newest) {
         setSelectedId(newest.id);
+        setMobileView("detail");
         setTimeout(() => selectedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
       }
       setSelectLastOnAdd(false);
     }
     prevItemsLengthRef.current = items.length;
   }, [items, selectLastOnAdd]);
+
+  // When search produces a filtered list, auto-select and scroll to first match
+  useEffect(() => {
+    if (!searchQuery.trim()) return;
+    const q = searchQuery.trim().toLowerCase();
+    const first = items.find((i) =>
+      i.label.toLowerCase().includes(q) ||
+      (i.category ?? "").toLowerCase().includes(q) ||
+      (i.source ?? "").toLowerCase().includes(q)
+    );
+    if (first) {
+      setSelectedId(first.id);
+      setTimeout(() => selectedRowRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 60);
+    }
+  }, [searchQuery, items]);
 
   async function handleExport(format: "json" | "csv") {
     if (!onExport) return;
@@ -954,6 +972,8 @@ export function FieldLibraryPanel({
   if (showNeverUsed) visibleItems = visibleItems.filter((i) => (i.packageCount ?? 0) === 0);
   if (sortBy === "most-answered") visibleItems = [...visibleItems].sort((a, b) => (b.answerCount ?? 0) - (a.answerCount ?? 0));
 
+  const selectedItem = items.find((i) => i.id === selectedId) ?? null;
+  const isInherited = !!(selectedItem?.inherited || (selectedItem as (FieldLibraryItem & { inheritedFrom?: string }) | null)?.inheritedFrom);
   const h = showHints;
 
   return (
@@ -1089,331 +1109,350 @@ export function FieldLibraryPanel({
           </button>
         </div>
       </div>
-      {/* Search + filters bar */}
-      <div className="flex flex-wrap items-center gap-2 mb-2">
-        <div className="relative flex-1 min-w-[180px]">
-          <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#B0BCCE] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
-          <input
-            type="text"
-            placeholder="Search fields…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-7 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-6 bg-white focus:outline-none focus:border-[#1B4FD8]"
-          />
-          {searchQuery && (
-            <button type="button" onClick={() => setSearchQuery("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#B0BCCE] hover:text-[#6B7A99]">
-              <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M18 6L6 18M6 6l12 12"/></svg>
-            </button>
-          )}
-        </div>
-        {hasUsageData && (
-          <>
-            <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "default" | "most-answered")} className="h-7 text-[11px] border border-[#D4C9B5] rounded px-2 bg-white text-[#4A5568]">
-              <option value="default">Sort: default</option>
-              <option value="most-answered">Most answered</option>
-            </select>
-            <button type="button" onClick={() => setShowNeverUsed((v) => !v)} className={`h-7 text-[11px] px-2 rounded border transition-colors ${showNeverUsed ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "border-[#D4C9B5] text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F] bg-white"}`}>
-              {showNeverUsed ? "✕ Clear" : "Never used"}
-            </button>
-          </>
-        )}
-        <span className="text-[10px] text-[#B0BCCE] ml-auto shrink-0">{visibleItems.length} of {items.length}</span>
-      </div>
-
-      {/* Flat accordion list */}
-      <div className="border border-[#DDD5C4] rounded overflow-hidden">
-        {visibleItems.length === 0 ? (
-          <div className="p-8 text-[11px] text-[#8A9BB8] text-center">
-            {searchQuery ? `No results for "${searchQuery}".` : showNeverUsed ? "All fields are used in at least one package." : "No shared fields yet. Click + Add to create one."}
-          </div>
-        ) : (
-          visibleItems.map((item) => {
-            const isOpen = item.id === selectedId;
-            const isItemInherited = !!(item as FieldLibraryItem & { inheritedFrom?: string }).inheritedFrom;
-            const pkgCount = item.packageCount ?? 0;
-            const rowTags = optimisticTagsMap.get(item.id) ?? item.complianceTags ?? [];
-            return (
-              <div
-                key={item.id}
-                ref={isOpen ? selectedRowRef : null}
-                className={`border-b border-[#EFE8D8] last:border-b-0 ${isOpen ? "bg-[#FDFCFA]" : "bg-white"}`}
-              >
-                {/* Row header — click to expand/collapse */}
-                <button
-                  type="button"
-                  onClick={() => setSelectedId(isOpen ? null : item.id)}
-                  className={`w-full text-left px-4 py-2.5 flex items-center gap-3 transition-colors border-l-2 ${isOpen ? "border-l-[#C49A38]" : "border-l-transparent hover:bg-[#F8F6F0]"}`}
-                >
-                  <svg className={`w-3 h-3 shrink-0 text-[#B0BCCE] transition-transform ${isOpen ? "rotate-90" : ""}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
-                  <span className={`flex-1 text-[12px] font-medium truncate ${!item.label ? "italic text-[#B0BCCE]" : isOpen ? "text-[#0F1C3F]" : "text-[#2D3A52]"}`}>
-                    {item.label || "untitled"}
-                  </span>
-                  <span className="shrink-0 text-[10px] px-1.5 py-0.5 rounded bg-[#EFE8D8] text-[#6B7A99] capitalize">{item.type}</span>
-                  {item.category && <span className="shrink-0 text-[10px] text-[#8A9BB8] hidden sm:inline">{item.category}</span>}
-                  {hasUsageData && pkgCount > 0 && <span className="shrink-0 text-[10px] text-[#1B4FD8] font-medium">{pkgCount}p</span>}
-                  {rowTags.length > 0 && allComplianceTags && (
-                    <div className="flex gap-0.5 shrink-0">
-                      {rowTags.slice(0, 4).map((tagName) => {
-                        const tagMeta = allComplianceTags.find((t) => t.name === tagName);
-                        return <span key={tagName} className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: tagMeta?.color ?? "#6B7A99" }} />;
-                      })}
-                    </div>
-                  )}
+      {/* Two-pane master-detail */}
+      <div className="flex border border-[#DDD5C4] rounded overflow-hidden" style={{ height: "520px" }}>
+        {/* LEFT: settings-nav style field list */}
+        <div
+          className={`flex flex-col border-r border-[#DDD5C4] bg-[#F8F6F0] shrink-0 ${mobileView === "detail" ? "hidden md:flex" : "flex"}`}
+          style={{ width: "200px" }}
+        >
+          {/* Sticky search */}
+          <div className="p-2 border-b border-[#E8E0D4] bg-[#F8F6F0]">
+            <div className="relative">
+              <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#B0BCCE] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
+              <input
+                type="text"
+                placeholder="Search fields…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-7 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-6 bg-white focus:outline-none focus:border-[#1B4FD8]"
+              />
+              {searchQuery && (
+                <button type="button" onClick={() => setSearchQuery("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#B0BCCE] hover:text-[#6B7A99]">
+                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M18 6L6 18M6 6l12 12"/></svg>
                 </button>
-
-                {/* Expanded edit form */}
-                {isOpen && (
-                  <div className="px-4 pb-4 pt-1 space-y-2 text-sm border-t border-[#EFE8D8]">
-                    {panelError && <div className="rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
-                    {isItemInherited && (
-                      <div className="flex items-center gap-1.5 text-[10px] font-medium text-[#1B4FD8] bg-[#E8EFFE] border border-[#C8D7F5] rounded px-2 py-1">
-                        <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-                        Inherited from {(item as FieldLibraryItem & { inheritedFrom?: string }).inheritedFrom ?? "parent account"} · read-only
-                      </div>
-                    )}
-                    {item.packageCount !== undefined && (
-                      <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-medium ${item.packageCount > 0 ? "bg-[#EBF0FB] text-[#1B4FD8]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{item.packageCount} pkg{item.packageCount !== 1 ? "s" : ""}</span>
-                        <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-medium ${(item.answerCount ?? 0) > 0 ? "bg-[#ECFDF5] text-[#059669]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{(item.answerCount ?? 0).toLocaleString()} answered</span>
-                        {item.lastAnswered && <span className="text-[#8A9BB8]">last {relativeTime(item.lastAnswered)}</span>}
-                      </div>
-                    )}
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="relative pt-1 col-span-2">
-                        {h && <HL>Label</HL>}
-                        <Input value={item.label} onChange={(e) => onChange(item.id, { label: e.target.value })} className="h-8 text-xs bg-white" disabled={isItemInherited} />
-                      </div>
-                      <div className="relative pt-1">
-                        {h && <HL>Category</HL>}
-                        <Input placeholder="Category" value={item.category} onChange={(e) => onChange(item.id, { category: e.target.value })} className="h-8 text-xs bg-white" disabled={isItemInherited} />
-                      </div>
-                      <div className="relative pt-1">
-                        {h && <HL>Prefill source</HL>}
-                        <Input placeholder="Prefill source" value={item.source} onChange={(e) => onChange(item.id, { source: e.target.value })} className="h-8 text-xs bg-white" disabled={isItemInherited} />
-                      </div>
-                      <div className="relative pt-1">
-                        {h && <HL>Sort order</HL>}
-                        <Input type="number" placeholder="Sort order" value={item.sortOrder} onChange={(e) => onChange(item.id, { sortOrder: Number(e.target.value || 100) })} className="h-8 text-xs bg-white" disabled={isItemInherited} />
-                      </div>
-                    </div>
-                    <div className="relative pt-1">
-                      {h && <HL>Field type</HL>}
-                      <div className="flex flex-wrap gap-1">
-                        {([
-                          { value: "text",     label: "Text",     tip: "A freeform typed response — any text the user types" },
-                          { value: "radio",    label: "Radio",    tip: "One selection from a group — only one option can be chosen" },
-                          { value: "checkbox", label: "Checkbox", tip: "A checked or unchecked box — supports multiple selections when options are defined" },
-                          { value: "dropdown", label: "Dropdown", tip: "A choice from a predefined list — single selection from a dropdown menu" },
-                        ] as const).map(({ value, label, tip }) => (
-                          <Tooltip key={value}>
-                            <TooltipTrigger asChild>
-                              <button type="button" onClick={() => !isItemInherited && onChange(item.id, { type: value })} disabled={isItemInherited} className={`px-2 py-0.5 text-xs rounded border transition-colors ${item.type === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"} disabled:opacity-60 disabled:cursor-default`}>{label}</button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs">{tip}</TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="relative pt-1">
-                      {h && <HL>Validation rule</HL>}
-                      <div role="group" aria-label="Validation rule" className="flex flex-wrap gap-1">
-                        {([
-                          { value: "none",     label: "None",     tip: "No validation — any input is accepted" },
-                          { value: "name",     label: "Name",     tip: "Validates as a person's name — letters, spaces, hyphens, and apostrophes" },
-                          { value: "email",    label: "Email",    tip: "Validates as an email address — must contain @ and a valid domain" },
-                          { value: "phone",    label: "Phone",    tip: "Validates as a US phone number — 10 digits, accepts common formats like (555) 555-5555" },
-                          { value: "ssn",      label: "SSN",      tip: "Validates as a Social Security Number — expects NNN-NN-NNNN format" },
-                          { value: "number",   label: "Number",   tip: "Validates as a numeric value — digits only, no formatting" },
-                          { value: "currency", label: "Currency", tip: "Validates as a dollar amount — accepts values like 1,234.56 or $1234" },
-                          { value: "date",     label: "Date",     tip: "Validates as a date — expects MM/DD/YYYY format" },
-                          { value: "custom",   label: "Custom",   tip: "Validates against a custom regular expression pattern you provide below" },
-                        ] as const).map(({ value, label, tip }) => (
-                          <Tooltip key={value}>
-                            <TooltipTrigger asChild>
-                              <button type="button" aria-pressed={(item.validationType ?? "none") === value} onClick={() => !isItemInherited && onChange(item.id, { validationType: value as FieldItem["validationType"] })} disabled={isItemInherited} className={`px-2 py-0.5 text-xs rounded border transition-colors ${(item.validationType ?? "none") === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"} disabled:opacity-60 disabled:cursor-default`}>{label}</button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="max-w-xs">{tip}</TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="relative pt-1">
-                      {h && <HL>Options</HL>}
-                      <Textarea
-                        placeholder={
-                          item.type === "checkbox"
-                            ? "One checkbox per line, e.g.\nI agree to the terms and conditions\nI am a US person or entity"
-                            : item.type === "dropdown"
-                            ? "One option per line, e.g.\nOption A\nOption B\nOption C"
-                            : item.type === "radio"
-                            ? "One choice per line, e.g.\nYes\nNo\nUnsure"
-                            : "One option per line (used for Radio, Checkbox, or Dropdown fields)"
-                        }
-                        value={item.options.join("\n")}
-                        onChange={(e) => onChange(item.id, { options: e.target.value.split("\n").filter(Boolean) })}
-                        className="min-h-16 text-xs bg-white"
-                        disabled={isItemInherited}
-                      />
-                    </div>
-                    {item.validationType === "custom" && <Input placeholder="Regex pattern" value={item.validationPattern ?? ""} onChange={(e) => onChange(item.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" disabled={isItemInherited} />}
-                    <div className="relative pt-1">
-                      {h && <HL>Validation message</HL>}
-                      <Input placeholder="Validation message" value={item.validationMessage ?? ""} onChange={(e) => onChange(item.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" disabled={isItemInherited} />
-                    </div>
-                    <div className="relative pt-1">
-                      {h && <HL>Active · Required · Sensitive</HL>}
-                      <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
-                        <label className={`flex items-center gap-1 ${isItemInherited ? "opacity-60 cursor-default" : ""}`}>
-                          <input type="checkbox" checked={item.active} onChange={(e) => !isItemInherited && onChange(item.id, { active: e.target.checked })} disabled={isItemInherited} />
-                          Active
-                          <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-[180px] text-xs">Field appears in the interview form when active.</TooltipContent></Tooltip>
-                        </label>
-                        <label className={`flex items-center gap-1 ${isItemInherited ? "opacity-60 cursor-default" : ""}`}>
-                          <input type="checkbox" checked={item.required} onChange={(e) => !isItemInherited && onChange(item.id, { required: e.target.checked })} disabled={isItemInherited} />
-                          Required
-                          <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-[180px] text-xs">Staff must fill this field before the document can be generated.</TooltipContent></Tooltip>
-                        </label>
-                        <label className={`flex items-center gap-1 ${isItemInherited ? "opacity-60 cursor-default" : ""}`}>
-                          <input type="checkbox" checked={item.sensitive} onChange={(e) => !isItemInherited && onChange(item.id, { sensitive: e.target.checked })} disabled={isItemInherited} />
-                          Sensitive
-                          <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-[180px] text-xs">Value is masked in logs and exports to protect private data.</TooltipContent></Tooltip>
-                        </label>
-                      </div>
-                    </div>
-                    {allComplianceTags !== undefined && (
-                      <div className="relative pt-1">
-                        {(() => {
-                          const displayTags = optimisticTagsMap.get(item.id) ?? item.complianceTags ?? [];
-                          const applyTagChange = (next: string[]) => {
-                            setOptimisticTagsMap((m) => { const n = new Map(m); n.set(item.id, next); return n; });
-                            setTagSavingId(item.id);
-                            void onSetComplianceTags!(item.id, next).then((err) => {
-                              setTagSavingId(null);
-                              if (err) {
-                                setOptimisticTagsMap((m) => { const n = new Map(m); n.delete(item.id); return n; });
-                                setPanelError(err);
-                              } else {
-                                setOptimisticTagsMap((m) => { const n = new Map(m); n.delete(item.id); return n; });
-                              }
-                            });
-                          };
-                          return (
-                            <>
-                              <div className="flex flex-wrap items-center gap-1 min-h-[20px]">
-                                {displayTags.map((tagName) => {
-                                  const tagMeta = allComplianceTags.find((t) => t.name === tagName);
-                                  return (
-                                    <ComplianceTagChip
-                                      key={tagName}
-                                      name={tagName}
-                                      color={tagMeta?.color ?? "#6B7A99"}
-                                      onRemove={!isItemInherited && onSetComplianceTags ? () => {
-                                        applyTagChange(displayTags.filter((n) => n !== tagName));
-                                      } : undefined}
-                                    />
-                                  );
-                                })}
-                                {onSetComplianceTags && !isItemInherited && (
-                                  <button type="button" onClick={() => setTagPickerOpenId((prev) => prev === item.id ? null : item.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors px-1">
-                                    {tagSavingId === item.id ? "Saving…" : "+ Tags"}
-                                  </button>
-                                )}
-                              </div>
-                              {tagPickerOpenId === item.id && onSetComplianceTags && !isItemInherited && (
-                                <ComplianceTagPicker
-                                  allTags={allComplianceTags}
-                                  selectedTagNames={displayTags}
-                                  onToggle={(tagName) => {
-                                    const next = displayTags.includes(tagName)
-                                      ? displayTags.filter((n) => n !== tagName)
-                                      : [...displayTags, tagName];
-                                    applyTagChange(next);
-                                  }}
-                                  onClose={() => setTagPickerOpenId(null)}
-                                />
-                              )}
-                            </>
-                          );
-                        })()}
-                      </div>
-                    )}
-                    <div className="flex flex-wrap gap-3 pt-1">
-                      {onLoadVersions && (
-                        <button type="button" onClick={() => void toggleHistory(item.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
-                          {historyOpenId === item.id ? "▲ Hide history" : "▾ History"}
-                        </button>
-                      )}
-                      {onLoadAnalytics && (
-                        <button type="button" onClick={() => void toggleAnalytics(item.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
-                          {analyticsOpenId === item.id ? "▲ Hide analytics" : "▾ Analytics"}
-                        </button>
-                      )}
-                    </div>
-                    {onLoadVersions && historyOpenId === item.id && (
-                      <div className="rounded border border-[#E8E0D4] bg-[#F8F5EF] p-2 text-[11px]">
-                        {historyLoadingId === item.id && <p className="text-[#8A9BB8]">Loading history…</p>}
-                        {historyError && <p className="text-red-500">{historyError}</p>}
-                        {!historyLoadingId && !historyError && (() => {
-                          const versions = historyMap.get(item.id) ?? [];
-                          if (versions.length === 0) return <p className="text-[#8A9BB8]">No saved versions yet.</p>;
-                          return (
-                            <ul className="space-y-1">
-                              {versions.map((v, idx) => {
-                                const prevSnap = versions[idx + 1]?.snapshot;
-                                const summary  = diffSummary(prevSnap, v.snapshot);
-                                const author   = v.changedBy ?? "unknown";
-                                return (
-                                  <li key={v.id} className="flex items-start justify-between gap-2">
-                                    <div className="min-w-0">
-                                      <span className="font-medium text-[#0B1220]">{relativeTime(v.changedAt)}</span>
-                                      {" · "}
-                                      <span className="text-[#6B7A99] truncate max-w-[140px] inline-block align-bottom">{author}</span>
-                                      <div className="text-[10px] text-[#8A9BB8] truncate">{summary}</div>
-                                    </div>
-                                    {onRestoreVersion && (
-                                      <button type="button" disabled={restoringVersionId === v.id} onClick={() => void handleRestore(item.id, v.id)} className="shrink-0 text-[10px] text-[#C49A38] hover:text-[#A07820] disabled:opacity-50">
-                                        {restoringVersionId === v.id ? "Restoring…" : "Restore"}
-                                      </button>
-                                    )}
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          );
-                        })()}
-                      </div>
-                    )}
-                    {onLoadAnalytics && analyticsOpenId === item.id && (
-                      <div>
-                        {analyticsLoadingId === item.id && <p className="text-[11px] text-[#8A9BB8]">Loading analytics…</p>}
-                        {analyticsError && analyticsOpenId === item.id && <p className="text-[11px] text-red-500">{analyticsError}</p>}
-                        {!analyticsLoadingId && !analyticsError && analyticsMap.has(item.id) && (
-                          <FieldAnalyticsPanel analytics={analyticsMap.get(item.id)!} isSensitive={item.sensitive} />
-                        )}
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between pt-3 border-t border-[#EFE8D8]">
-                      <span className="text-[10px] text-[#B0BCCE]">{item.id}</span>
-                      <div className="flex gap-3">
-                        <button type="button" onClick={() => onUse(item)} className="text-[11px] text-[#6B7A99] hover:text-[#0F1C3F]">Use in package</button>
-                        {onDelete && !isItemInherited && (
-                          <button type="button" onClick={() => void handleDelete(item)} disabled={deletingId === item.id} className="text-[11px] text-red-500 disabled:opacity-50">
-                            {deletingId === item.id ? "Deleting…" : "Delete"}
-                          </button>
-                        )}
-                        {!isItemInherited && (
-                          <button type="button" onClick={() => void handleSave(item)} disabled={savingId === item.id} className="text-[11px] font-medium text-[#C49A38] disabled:opacity-50">
-                            {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
-                          </button>
-                        )}
-                      </div>
-                    </div>
+              )}
+            </div>
+          </div>
+          {/* Sort / filter (usage data only) */}
+          {hasUsageData && (
+            <div className="px-2 py-1.5 border-b border-[#E8E0D4] flex flex-wrap items-center gap-1.5 bg-[#F8F6F0]">
+              <select value={sortBy} onChange={(e) => setSortBy(e.target.value as "default" | "most-answered")} className="h-5 text-[10px] border border-[#D4C9B5] rounded px-1 bg-white text-[#4A5568]">
+                <option value="default">Sort: default</option>
+                <option value="most-answered">Most answered</option>
+              </select>
+              <button type="button" onClick={() => setShowNeverUsed((v) => !v)} className={`h-5 text-[10px] px-1.5 rounded border transition-colors ${showNeverUsed ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "border-[#D4C9B5] text-[#6B7A99] hover:border-[#0F1C3F] hover:text-[#0F1C3F] bg-white"}`}>
+                {showNeverUsed ? "✕" : "Unused"}
+              </button>
+            </div>
+          )}
+          {/* Scrollable field list */}
+          <div ref={listScrollRef} className="flex-1 overflow-y-auto">
+            {visibleItems.map((item) => {
+              const isSel = item.id === selectedId;
+              const pkgCount = item.packageCount ?? 0;
+              const listTags = optimisticTagsMap.get(item.id) ?? item.complianceTags ?? [];
+              return (
+                <button
+                  key={item.id}
+                  ref={isSel ? selectedRowRef : null}
+                  type="button"
+                  onClick={() => { setSelectedId(item.id); setMobileView("detail"); }}
+                  className={`w-full text-left px-3 py-2 border-b border-[#EFE8D8] transition-colors ${isSel ? "bg-[#0F1C3F]" : "bg-transparent hover:bg-[#EDE7D9]"}`}
+                >
+                  <div className="flex items-start justify-between gap-1">
+                    <span className={`text-[11px] font-medium leading-tight line-clamp-2 ${!item.label ? "italic opacity-50" : isSel ? "text-white" : "text-[#0F1C3F]"}`}>
+                      {item.label || "untitled"}
+                    </span>
+                    <span className={`shrink-0 mt-0.5 text-[9px] px-1 rounded capitalize ${isSel ? "bg-white/20 text-white" : "bg-[#EFE8D8] text-[#6B7A99]"}`}>{item.type}</span>
                   </div>
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    {item.category && <span className={`text-[10px] truncate ${isSel ? "text-white/70" : "text-[#8A9BB8]"}`}>{item.category}</span>}
+                    {hasUsageData && pkgCount > 0 && <span className={`shrink-0 text-[9px] font-medium ${isSel ? "text-white/80" : "text-[#1B4FD8]"}`}>{pkgCount}p</span>}
+                    {listTags.length > 0 && allComplianceTags && (
+                      <div className="flex gap-0.5 shrink-0 ml-auto">
+                        {listTags.slice(0, 4).map((tagName) => {
+                          const tagMeta = allComplianceTags.find((t) => t.name === tagName);
+                          return <span key={tagName} className="w-1.5 h-1.5 rounded-full opacity-80" style={{ backgroundColor: tagMeta?.color ?? "#6B7A99" }} />;
+                        })}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+            {visibleItems.length === 0 && (
+              <div className="p-5 text-[11px] text-[#8A9BB8] text-center">
+                {searchQuery ? `No results for "${searchQuery}".` : showNeverUsed ? "All fields are used." : "No shared fields yet."}
+              </div>
+            )}
+          </div>
+          {/* Count footer */}
+          <div className="px-3 py-1.5 border-t border-[#E8E0D4] text-[10px] text-[#8A9BB8] shrink-0 bg-[#F8F6F0]">
+            {visibleItems.length} of {items.length} field{items.length !== 1 ? "s" : ""}
+          </div>
+        </div>
+
+        {/* RIGHT: detail / edit panel */}
+        <div className={`flex-1 min-w-0 overflow-y-auto bg-[#FDFCFA] ${mobileView === "list" ? "hidden md:block" : "block"}`}>
+          {selectedItem ? (
+            <div className="p-4 space-y-2 text-sm">
+              <button type="button" onClick={() => setMobileView("list")} className="md:hidden flex items-center gap-1 text-[11px] text-[#6B7A99] hover:text-[#0F1C3F] mb-2">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
+                Back to list
+              </button>
+              {panelError && <div className="rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
+              {isInherited && (
+                <div className="flex items-center gap-1.5 text-[10px] font-medium text-[#1B4FD8] bg-[#E8EFFE] border border-[#C8D7F5] rounded px-2 py-1">
+                  <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+                  Inherited from {(selectedItem as FieldLibraryItem & { inheritedFrom?: string }).inheritedFrom ?? "parent account"} · read-only
+                </div>
+              )}
+              {selectedItem.packageCount !== undefined && (
+                <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-medium ${selectedItem.packageCount > 0 ? "bg-[#EBF0FB] text-[#1B4FD8]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{selectedItem.packageCount} pkg{selectedItem.packageCount !== 1 ? "s" : ""}</span>
+                  <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-medium ${(selectedItem.answerCount ?? 0) > 0 ? "bg-[#ECFDF5] text-[#059669]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{(selectedItem.answerCount ?? 0).toLocaleString()} answered</span>
+                  {selectedItem.lastAnswered && <span className="text-[#8A9BB8]">last {relativeTime(selectedItem.lastAnswered)}</span>}
+                </div>
+              )}
+              <div className="relative pt-1">
+                {h && <HL>Label</HL>}
+                <Input value={selectedItem.label} onChange={(e) => onChange(selectedItem.id, { label: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="relative pt-1">
+                  {h && <HL>Category</HL>}
+                  <Input placeholder="Category" value={selectedItem.category} onChange={(e) => onChange(selectedItem.id, { category: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />
+                </div>
+                <div className="relative pt-1">
+                  {h && <HL>Prefill source</HL>}
+                  <Input placeholder="Prefill source" value={selectedItem.source} onChange={(e) => onChange(selectedItem.id, { source: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />
+                </div>
+              </div>
+              <div className="relative pt-1">
+                {h && <HL>Sort order</HL>}
+                <Input type="number" placeholder="Sort order" value={selectedItem.sortOrder} onChange={(e) => onChange(selectedItem.id, { sortOrder: Number(e.target.value || 100) })} className="h-8 text-xs bg-white" disabled={isInherited} />
+              </div>
+              <div className="relative pt-1">
+                {h && <HL>Field type</HL>}
+                <div className="flex flex-wrap gap-1">
+                  {([
+                    { value: "text",     label: "Text",     tip: "A freeform typed response — any text the user types" },
+                    { value: "radio",    label: "Radio",    tip: "One selection from a group — only one option can be chosen" },
+                    { value: "checkbox", label: "Checkbox", tip: "A checked or unchecked box — supports multiple selections when options are defined" },
+                    { value: "dropdown", label: "Dropdown", tip: "A choice from a predefined list — single selection from a dropdown menu" },
+                  ] as const).map(({ value, label, tip }) => (
+                    <Tooltip key={value}>
+                      <TooltipTrigger asChild>
+                        <button type="button" onClick={() => !isInherited && onChange(selectedItem.id, { type: value })} disabled={isInherited} className={`px-2 py-0.5 text-xs rounded border transition-colors ${selectedItem.type === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"} disabled:opacity-60 disabled:cursor-default`}>{label}</button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">{tip}</TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              </div>
+              <div className="relative pt-1">
+                {h && <HL>Validation rule</HL>}
+                <div role="group" aria-label="Validation rule" className="flex flex-wrap gap-1">
+                  {([
+                    { value: "none",     label: "None",     tip: "No validation — any input is accepted" },
+                    { value: "name",     label: "Name",     tip: "Validates as a person's name — letters, spaces, hyphens, and apostrophes" },
+                    { value: "email",    label: "Email",    tip: "Validates as an email address — must contain @ and a valid domain" },
+                    { value: "phone",    label: "Phone",    tip: "Validates as a US phone number — 10 digits, accepts common formats like (555) 555-5555" },
+                    { value: "ssn",      label: "SSN",      tip: "Validates as a Social Security Number — expects NNN-NN-NNNN format" },
+                    { value: "number",   label: "Number",   tip: "Validates as a numeric value — digits only, no formatting" },
+                    { value: "currency", label: "Currency", tip: "Validates as a dollar amount — accepts values like 1,234.56 or $1234" },
+                    { value: "date",     label: "Date",     tip: "Validates as a date — expects MM/DD/YYYY format" },
+                    { value: "custom",   label: "Custom",   tip: "Validates against a custom regular expression pattern you provide below" },
+                  ] as const).map(({ value, label, tip }) => (
+                    <Tooltip key={value}>
+                      <TooltipTrigger asChild>
+                        <button type="button" aria-pressed={(selectedItem.validationType ?? "none") === value} onClick={() => !isInherited && onChange(selectedItem.id, { validationType: value as FieldItem["validationType"] })} disabled={isInherited} className={`px-2 py-0.5 text-xs rounded border transition-colors ${(selectedItem.validationType ?? "none") === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"} disabled:opacity-60 disabled:cursor-default`}>{label}</button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">{tip}</TooltipContent>
+                    </Tooltip>
+                  ))}
+                </div>
+              </div>
+              <div className="relative pt-1">
+                {h && <HL>Options</HL>}
+                <Textarea
+                  placeholder={
+                    selectedItem.type === "checkbox"
+                      ? "One checkbox per line, e.g.\nI agree to the terms and conditions\nI am a US person or entity"
+                      : selectedItem.type === "dropdown"
+                      ? "One option per line, e.g.\nOption A\nOption B\nOption C"
+                      : selectedItem.type === "radio"
+                      ? "One choice per line, e.g.\nYes\nNo\nUnsure"
+                      : "One option per line (used for Radio, Checkbox, or Dropdown fields)"
+                  }
+                  value={selectedItem.options.join("\n")}
+                  onChange={(e) => onChange(selectedItem.id, { options: e.target.value.split("\n").filter(Boolean) })}
+                  className="min-h-16 text-xs bg-white"
+                  disabled={isInherited}
+                />
+              </div>
+              {selectedItem.validationType === "custom" && <Input placeholder="Regex pattern" value={selectedItem.validationPattern ?? ""} onChange={(e) => onChange(selectedItem.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />}
+              <div className="relative pt-1">
+                {h && <HL>Validation message</HL>}
+                <Input placeholder="Validation message" value={selectedItem.validationMessage ?? ""} onChange={(e) => onChange(selectedItem.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />
+              </div>
+              <div className="relative pt-1">
+                {h && <HL>Active · Required · Sensitive</HL>}
+                <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
+                  <label className={`flex items-center gap-1 ${isInherited ? "opacity-60 cursor-default" : ""}`}>
+                    <input type="checkbox" checked={selectedItem.active} onChange={(e) => !isInherited && onChange(selectedItem.id, { active: e.target.checked })} disabled={isInherited} />
+                    Active
+                    <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-[180px] text-xs">Field appears in the interview form when active.</TooltipContent></Tooltip>
+                  </label>
+                  <label className={`flex items-center gap-1 ${isInherited ? "opacity-60 cursor-default" : ""}`}>
+                    <input type="checkbox" checked={selectedItem.required} onChange={(e) => !isInherited && onChange(selectedItem.id, { required: e.target.checked })} disabled={isInherited} />
+                    Required
+                    <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-[180px] text-xs">Staff must fill this field before the document can be generated.</TooltipContent></Tooltip>
+                  </label>
+                  <label className={`flex items-center gap-1 ${isInherited ? "opacity-60 cursor-default" : ""}`}>
+                    <input type="checkbox" checked={selectedItem.sensitive} onChange={(e) => !isInherited && onChange(selectedItem.id, { sensitive: e.target.checked })} disabled={isInherited} />
+                    Sensitive
+                    <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-[180px] text-xs">Value is masked in logs and exports to protect private data.</TooltipContent></Tooltip>
+                  </label>
+                </div>
+              </div>
+              {allComplianceTags !== undefined && (
+                <div className="relative pt-1">
+                  {(() => {
+                    const displayTags = optimisticTagsMap.get(selectedItem.id) ?? selectedItem.complianceTags ?? [];
+                    const applyTagChange = (next: string[]) => {
+                      setOptimisticTagsMap((m) => { const n = new Map(m); n.set(selectedItem.id, next); return n; });
+                      setTagSavingId(selectedItem.id);
+                      void onSetComplianceTags!(selectedItem.id, next).then((err) => {
+                        setTagSavingId(null);
+                        if (err) {
+                          setOptimisticTagsMap((m) => { const n = new Map(m); n.delete(selectedItem.id); return n; });
+                          setPanelError(err);
+                        } else {
+                          setOptimisticTagsMap((m) => { const n = new Map(m); n.delete(selectedItem.id); return n; });
+                        }
+                      });
+                    };
+                    return (
+                      <>
+                        <div className="flex flex-wrap items-center gap-1 min-h-[20px]">
+                          {displayTags.map((tagName) => {
+                            const tagMeta = allComplianceTags.find((t) => t.name === tagName);
+                            return (
+                              <ComplianceTagChip
+                                key={tagName}
+                                name={tagName}
+                                color={tagMeta?.color ?? "#6B7A99"}
+                                onRemove={!isInherited && onSetComplianceTags ? () => {
+                                  applyTagChange(displayTags.filter((n) => n !== tagName));
+                                } : undefined}
+                              />
+                            );
+                          })}
+                          {onSetComplianceTags && !isInherited && (
+                            <button type="button" onClick={() => setTagPickerOpenId((prev) => prev === selectedItem.id ? null : selectedItem.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors px-1">
+                              {tagSavingId === selectedItem.id ? "Saving…" : "+ Tags"}
+                            </button>
+                          )}
+                        </div>
+                        {tagPickerOpenId === selectedItem.id && onSetComplianceTags && !isInherited && (
+                          <ComplianceTagPicker
+                            allTags={allComplianceTags}
+                            selectedTagNames={displayTags}
+                            onToggle={(tagName) => {
+                              const next = displayTags.includes(tagName)
+                                ? displayTags.filter((n) => n !== tagName)
+                                : [...displayTags, tagName];
+                              applyTagChange(next);
+                            }}
+                            onClose={() => setTagPickerOpenId(null)}
+                          />
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
+              )}
+              <div className="flex flex-wrap gap-3 pt-1">
+                {onLoadVersions && (
+                  <button type="button" onClick={() => void toggleHistory(selectedItem.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
+                    {historyOpenId === selectedItem.id ? "▲ Hide history" : "▾ History"}
+                  </button>
+                )}
+                {onLoadAnalytics && (
+                  <button type="button" onClick={() => void toggleAnalytics(selectedItem.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors">
+                    {analyticsOpenId === selectedItem.id ? "▲ Hide analytics" : "▾ Analytics"}
+                  </button>
                 )}
               </div>
-            );
-          })
-        )}
+              {onLoadVersions && historyOpenId === selectedItem.id && (
+                <div className="rounded border border-[#E8E0D4] bg-[#F8F5EF] p-2 text-[11px]">
+                  {historyLoadingId === selectedItem.id && <p className="text-[#8A9BB8]">Loading history…</p>}
+                  {historyError && <p className="text-red-500">{historyError}</p>}
+                  {!historyLoadingId && !historyError && (() => {
+                    const versions = historyMap.get(selectedItem.id) ?? [];
+                    if (versions.length === 0) return <p className="text-[#8A9BB8]">No saved versions yet.</p>;
+                    return (
+                      <ul className="space-y-1">
+                        {versions.map((v, idx) => {
+                          const prevSnap = versions[idx + 1]?.snapshot;
+                          const summary  = diffSummary(prevSnap, v.snapshot);
+                          const author   = v.changedBy ?? "unknown";
+                          return (
+                            <li key={v.id} className="flex items-start justify-between gap-2">
+                              <div className="min-w-0">
+                                <span className="font-medium text-[#0B1220]">{relativeTime(v.changedAt)}</span>
+                                {" · "}
+                                <span className="text-[#6B7A99] truncate max-w-[140px] inline-block align-bottom">{author}</span>
+                                <div className="text-[10px] text-[#8A9BB8] truncate">{summary}</div>
+                              </div>
+                              {onRestoreVersion && (
+                                <button type="button" disabled={restoringVersionId === v.id} onClick={() => void handleRestore(selectedItem.id, v.id)} className="shrink-0 text-[10px] text-[#C49A38] hover:text-[#A07820] disabled:opacity-50">
+                                  {restoringVersionId === v.id ? "Restoring…" : "Restore"}
+                                </button>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    );
+                  })()}
+                </div>
+              )}
+              {onLoadAnalytics && analyticsOpenId === selectedItem.id && (
+                <div>
+                  {analyticsLoadingId === selectedItem.id && <p className="text-[11px] text-[#8A9BB8]">Loading analytics…</p>}
+                  {analyticsError && analyticsOpenId === selectedItem.id && <p className="text-[11px] text-red-500">{analyticsError}</p>}
+                  {!analyticsLoadingId && !analyticsError && analyticsMap.has(selectedItem.id) && (
+                    <FieldAnalyticsPanel analytics={analyticsMap.get(selectedItem.id)!} isSensitive={selectedItem.sensitive} />
+                  )}
+                </div>
+              )}
+              <div className="flex items-center justify-between pt-3 border-t border-[#EFE8D8]">
+                <span className="text-[10px] text-[#B0BCCE]">{selectedItem.id}</span>
+                <div className="flex gap-3">
+                  <button type="button" onClick={() => onUse(selectedItem)} className="text-[11px] text-[#6B7A99] hover:text-[#0F1C3F]">Use in package</button>
+                  {onDelete && !isInherited && (
+                    <button type="button" onClick={() => void handleDelete(selectedItem)} disabled={deletingId === selectedItem.id} className="text-[11px] text-red-500 disabled:opacity-50">
+                      {deletingId === selectedItem.id ? "Deleting…" : "Delete"}
+                    </button>
+                  )}
+                  {!isInherited && (
+                    <button type="button" onClick={() => void handleSave(selectedItem)} disabled={savingId === selectedItem.id} className="text-[11px] font-medium text-[#C49A38] disabled:opacity-50">
+                      {savingId === selectedItem.id ? "Saving…" : savedId === selectedItem.id ? "✓ Saved" : "Save"}
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center p-8">
+              <svg className="w-8 h-8 text-[#C4B99A] mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h7.5M8.25 12h7.5m-7.5 5.25h4.5M3.75 6a2.25 2.25 0 012.25-2.25h12A2.25 2.25 0 0120.25 6v12a2.25 2.25 0 01-2.25 2.25h-12A2.25 2.25 0 013.75 18V6z"/></svg>
+              <p className="text-[11px] text-[#8A9BB8]">Select a field to edit, or click <strong className="text-[#C49A38]">+ Add</strong> to create a new one.</p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
