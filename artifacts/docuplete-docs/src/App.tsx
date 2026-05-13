@@ -19,10 +19,12 @@ import Mapper from "@/pages/docs/building/Mapper";
 import TextBoxes from "@/pages/docs/building/TextBoxes";
 import Validation from "@/pages/docs/building/Validation";
 import Configuration from "@/pages/docs/building/Configuration";
+import HowToFirstPackage from "@/pages/docs/building/HowToFirstPackage";
 
 import FieldLibraryOverview from "@/pages/docs/field-library/FieldLibraryOverview";
 import AddingLibraryFields from "@/pages/docs/field-library/AddingLibraryFields";
 import EditingSharedFields from "@/pages/docs/field-library/EditingSharedFields";
+import FieldLibraryBestPractices from "@/pages/docs/field-library/FieldLibraryBestPractices";
 
 import SendingSessions from "@/pages/docs/sending/Sessions";
 import Experience from "@/pages/docs/sending/Experience";
@@ -71,6 +73,11 @@ import ComplianceSheet from "@/pages/docs/enterprise/ComplianceSheet";
 
 import QuickstartGuide from "@/pages/docs/developer/QuickstartGuide";
 
+import CommonErrors from "@/pages/docs/troubleshooting/CommonErrors";
+import MappingIssues from "@/pages/docs/troubleshooting/MappingIssues";
+
+import Changelog from "@/pages/docs/changelog/Changelog";
+
 function NotFound() {
   return (
     <div className="docs-content">
@@ -101,6 +108,7 @@ function Router() {
         <Route path="/core-concepts/mappings" component={Mappings} />
 
         {/* Building a Package */}
+        <Route path="/building-a-package/first-package" component={HowToFirstPackage} />
         <Route path="/building-a-package/uploading" component={Uploading} />
         <Route path="/building-a-package/acroform-review" component={AcroFormReview} />
         <Route path="/building-a-package/fields" component={BuildingFields} />
@@ -114,6 +122,7 @@ function Router() {
         <Route path="/field-library/overview" component={FieldLibraryOverview} />
         <Route path="/field-library/adding" component={AddingLibraryFields} />
         <Route path="/field-library/editing" component={EditingSharedFields} />
+        <Route path="/field-library/best-practices" component={FieldLibraryBestPractices} />
 
         {/* Sending to Clients */}
         <Route path="/sending-to-clients/sessions" component={SendingSessions} />
@@ -168,6 +177,13 @@ function Router() {
         <Route path="/account/branding" component={Branding} />
         <Route path="/account/channels" component={Channels} />
         <Route path="/account/api-keys" component={ApiKeys} />
+
+        {/* Troubleshooting */}
+        <Route path="/troubleshooting/common-errors" component={CommonErrors} />
+        <Route path="/troubleshooting/mapping" component={MappingIssues} />
+
+        {/* What's New */}
+        <Route path="/changelog" component={Changelog} />
 
         <Route component={NotFound} />
       </Switch>

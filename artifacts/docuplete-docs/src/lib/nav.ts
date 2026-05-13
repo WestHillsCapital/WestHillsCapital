@@ -28,6 +28,7 @@ export const NAV: NavItem[] = [
     title: "Building a Package",
     slug: "building-a-package",
     children: [
+      { title: "How To: Build Your First Package", slug: "building-a-package/first-package" },
       { title: "Uploading a PDF", slug: "building-a-package/uploading" },
       { title: "Fillable PDF Import & Field Review", slug: "building-a-package/acroform-review" },
       { title: "Adding & Editing Fields", slug: "building-a-package/fields" },
@@ -45,6 +46,7 @@ export const NAV: NavItem[] = [
       { title: "What is the Field Library?", slug: "field-library/overview" },
       { title: "Adding Library Fields", slug: "field-library/adding" },
       { title: "Editing Shared Fields", slug: "field-library/editing" },
+      { title: "Best Practices", slug: "field-library/best-practices" },
     ],
   },
   {
@@ -131,6 +133,21 @@ export const NAV: NavItem[] = [
       { title: "Organization Branding", slug: "account/branding" },
       { title: "Channel Defaults", slug: "account/channels" },
       { title: "API Keys", slug: "account/api-keys" },
+    ],
+  },
+  {
+    title: "Troubleshooting",
+    slug: "troubleshooting",
+    children: [
+      { title: "Common Errors", slug: "troubleshooting/common-errors" },
+      { title: "Mapping Issues", slug: "troubleshooting/mapping" },
+    ],
+  },
+  {
+    title: "What's New",
+    slug: "changelog",
+    children: [
+      { title: "Changelog", slug: "changelog" },
     ],
   },
 ];
