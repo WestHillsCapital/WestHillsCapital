@@ -89,12 +89,15 @@ export const MappingButton = memo(function MappingButton({
       }}
     >
       {mapperTextMode ? (
-        <span
-          className="block leading-none select-none pointer-events-none truncate"
-          style={{ color: "#111", fontFamily: "Helvetica, Arial, sans-serif" }}
-        >
-          {sampleValue || "\u00A0"}
-        </span>
+        <>
+          <span
+            className="block leading-none select-none pointer-events-none truncate"
+            style={{ color: "#111", fontFamily: "Helvetica, Arial, sans-serif" }}
+          >
+            {sampleValue || "\u00A0"}
+          </span>
+          <div style={{ borderBottom: `0.5px solid ${fieldColor}80`, marginTop: "1px" }} />
+        </>
       ) : (
         <div className="pointer-events-none w-full overflow-hidden">
           <span className="block leading-tight">{fieldName}</span>

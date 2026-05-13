@@ -844,6 +844,12 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                                     />
                                   );
                                 })}
+                                {(() => {
+                                  const activeMappingId = selectedMappingId;
+                                  const activeM = storeMappings.find((m) => m.id === activeMappingId);
+                                  const isThisPage = activeM?.documentId === doc.id && (activeM?.page ?? 1) === pageNum;
+                                  return isThisPage ? <DragGuideLines dragGuides={storeDragGuides} /> : null;
+                                })()}
                               </div>
                             </div>
                           );
