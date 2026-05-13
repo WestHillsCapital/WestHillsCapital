@@ -1224,9 +1224,9 @@ export function FieldLibraryPanel({
               </button>
               {panelError && <div className="rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
               {isInherited && (
-                <div className="flex items-center gap-1.5 text-[10px] font-medium text-[#1B4FD8] bg-[#E8EFFE] border border-[#C8D7F5] rounded px-2 py-1">
-                  <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
-                  Inherited from {(selectedItem as FieldLibraryItem & { inheritedFrom?: string }).inheritedFrom ?? "parent account"} · read-only
+                <div className="flex items-center gap-1.5 text-[10px] text-[#1B4FD8] bg-[#E8EFFE] border border-[#C8D7F5] rounded px-2 py-1">
+                  <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path strokeLinecap="round" d="M12 8v4m0 4h.01"/></svg>
+                  From {(selectedItem as FieldLibraryItem & { inheritedFrom?: string }).inheritedFrom ?? "parent account"} — changes apply to this account only
                 </div>
               )}
               {selectedItem.packageCount !== undefined && (
@@ -1238,21 +1238,21 @@ export function FieldLibraryPanel({
               )}
               <div className="relative pt-1">
                 {h && <HL>Label</HL>}
-                <Input value={selectedItem.label} onChange={(e) => onChange(selectedItem.id, { label: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />
+                <Input value={selectedItem.label} onChange={(e) => onChange(selectedItem.id, { label: e.target.value })} className="h-8 text-xs bg-white" />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="relative pt-1">
                   {h && <HL>Category</HL>}
-                  <Input placeholder="Category" value={selectedItem.category} onChange={(e) => onChange(selectedItem.id, { category: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />
+                  <Input placeholder="Category" value={selectedItem.category} onChange={(e) => onChange(selectedItem.id, { category: e.target.value })} className="h-8 text-xs bg-white" />
                 </div>
                 <div className="relative pt-1">
                   {h && <HL>Prefill source</HL>}
-                  <Input placeholder="Prefill source" value={selectedItem.source} onChange={(e) => onChange(selectedItem.id, { source: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />
+                  <Input placeholder="Prefill source" value={selectedItem.source} onChange={(e) => onChange(selectedItem.id, { source: e.target.value })} className="h-8 text-xs bg-white" />
                 </div>
               </div>
               <div className="relative pt-1">
                 {h && <HL>Sort order</HL>}
-                <Input type="number" placeholder="Sort order" value={selectedItem.sortOrder} onChange={(e) => onChange(selectedItem.id, { sortOrder: Number(e.target.value || 100) })} className="h-8 text-xs bg-white" disabled={isInherited} />
+                <Input type="number" placeholder="Sort order" value={selectedItem.sortOrder} onChange={(e) => onChange(selectedItem.id, { sortOrder: Number(e.target.value || 100) })} className="h-8 text-xs bg-white" />
               </div>
               <div className="relative pt-1">
                 {h && <HL>Field type</HL>}
@@ -1265,7 +1265,7 @@ export function FieldLibraryPanel({
                   ] as const).map(({ value, label, tip }) => (
                     <Tooltip key={value}>
                       <TooltipTrigger asChild>
-                        <button type="button" onClick={() => !isInherited && onChange(selectedItem.id, { type: value })} disabled={isInherited} className={`px-2 py-0.5 text-xs rounded border transition-colors ${selectedItem.type === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"} disabled:opacity-60 disabled:cursor-default`}>{label}</button>
+                        <button type="button" onClick={() => onChange(selectedItem.id, { type: value })} className={`px-2 py-0.5 text-xs rounded border transition-colors ${selectedItem.type === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}>{label}</button>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-xs">{tip}</TooltipContent>
                     </Tooltip>
@@ -1288,7 +1288,7 @@ export function FieldLibraryPanel({
                   ] as const).map(({ value, label, tip }) => (
                     <Tooltip key={value}>
                       <TooltipTrigger asChild>
-                        <button type="button" aria-pressed={(selectedItem.validationType ?? "none") === value} onClick={() => !isInherited && onChange(selectedItem.id, { validationType: value as FieldItem["validationType"] })} disabled={isInherited} className={`px-2 py-0.5 text-xs rounded border transition-colors ${(selectedItem.validationType ?? "none") === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"} disabled:opacity-60 disabled:cursor-default`}>{label}</button>
+                        <button type="button" aria-pressed={(selectedItem.validationType ?? "none") === value} onClick={() => onChange(selectedItem.id, { validationType: value as FieldItem["validationType"] })} className={`px-2 py-0.5 text-xs rounded border transition-colors ${(selectedItem.validationType ?? "none") === value ? "bg-[#0F1C3F] text-white border-[#0F1C3F]" : "bg-white text-[#6B7A99] border-[#D4C9B5] hover:border-[#0F1C3F] hover:text-[#0F1C3F]"}`}>{label}</button>
                       </TooltipTrigger>
                       <TooltipContent side="top" className="max-w-xs">{tip}</TooltipContent>
                     </Tooltip>
@@ -1310,29 +1310,28 @@ export function FieldLibraryPanel({
                   value={selectedItem.options.join("\n")}
                   onChange={(e) => onChange(selectedItem.id, { options: e.target.value.split("\n").filter(Boolean) })}
                   className="min-h-16 text-xs bg-white"
-                  disabled={isInherited}
                 />
               </div>
-              {selectedItem.validationType === "custom" && <Input placeholder="Regex pattern" value={selectedItem.validationPattern ?? ""} onChange={(e) => onChange(selectedItem.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />}
+              {selectedItem.validationType === "custom" && <Input placeholder="Regex pattern" value={selectedItem.validationPattern ?? ""} onChange={(e) => onChange(selectedItem.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" />}
               <div className="relative pt-1">
                 {h && <HL>Validation message</HL>}
-                <Input placeholder="Validation message" value={selectedItem.validationMessage ?? ""} onChange={(e) => onChange(selectedItem.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />
+                <Input placeholder="Validation message" value={selectedItem.validationMessage ?? ""} onChange={(e) => onChange(selectedItem.id, { validationMessage: e.target.value })} className="h-8 text-xs bg-white" />
               </div>
               <div className="relative pt-1">
                 {h && <HL>Active · Required · Sensitive</HL>}
                 <div className="flex flex-wrap items-center gap-3 text-[11px] text-[#6B7A99]">
-                  <label className={`flex items-center gap-1 ${isInherited ? "opacity-60 cursor-default" : ""}`}>
-                    <input type="checkbox" checked={selectedItem.active} onChange={(e) => !isInherited && onChange(selectedItem.id, { active: e.target.checked })} disabled={isInherited} />
+                  <label className="flex items-center gap-1">
+                    <input type="checkbox" checked={selectedItem.active} onChange={(e) => onChange(selectedItem.id, { active: e.target.checked })} />
                     Active
                     <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-[180px] text-xs">Field appears in the interview form when active.</TooltipContent></Tooltip>
                   </label>
-                  <label className={`flex items-center gap-1 ${isInherited ? "opacity-60 cursor-default" : ""}`}>
-                    <input type="checkbox" checked={selectedItem.required} onChange={(e) => !isInherited && onChange(selectedItem.id, { required: e.target.checked })} disabled={isInherited} />
+                  <label className="flex items-center gap-1">
+                    <input type="checkbox" checked={selectedItem.required} onChange={(e) => onChange(selectedItem.id, { required: e.target.checked })} />
                     Required
                     <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-[180px] text-xs">Staff must fill this field before the document can be generated.</TooltipContent></Tooltip>
                   </label>
-                  <label className={`flex items-center gap-1 ${isInherited ? "opacity-60 cursor-default" : ""}`}>
-                    <input type="checkbox" checked={selectedItem.sensitive} onChange={(e) => !isInherited && onChange(selectedItem.id, { sensitive: e.target.checked })} disabled={isInherited} />
+                  <label className="flex items-center gap-1">
+                    <input type="checkbox" checked={selectedItem.sensitive} onChange={(e) => onChange(selectedItem.id, { sensitive: e.target.checked })} />
                     Sensitive
                     <Tooltip><TooltipTrigger asChild><span className="inline-flex items-center text-[#B0BCCE] cursor-default"><Info className="w-2.5 h-2.5" /></span></TooltipTrigger><TooltipContent side="top" className="max-w-[180px] text-xs">Value is masked in logs and exports to protect private data.</TooltipContent></Tooltip>
                   </label>
@@ -1365,19 +1364,19 @@ export function FieldLibraryPanel({
                                 key={tagName}
                                 name={tagName}
                                 color={tagMeta?.color ?? "#6B7A99"}
-                                onRemove={!isInherited && onSetComplianceTags ? () => {
+                                onRemove={onSetComplianceTags ? () => {
                                   applyTagChange(displayTags.filter((n) => n !== tagName));
                                 } : undefined}
                               />
                             );
                           })}
-                          {onSetComplianceTags && !isInherited && (
+                          {onSetComplianceTags && (
                             <button type="button" onClick={() => setTagPickerOpenId((prev) => prev === selectedItem.id ? null : selectedItem.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors px-1">
                               {tagSavingId === selectedItem.id ? "Saving…" : "+ Tags"}
                             </button>
                           )}
                         </div>
-                        {tagPickerOpenId === selectedItem.id && onSetComplianceTags && !isInherited && (
+                        {tagPickerOpenId === selectedItem.id && onSetComplianceTags && (
                           <ComplianceTagPicker
                             allTags={allComplianceTags}
                             selectedTagNames={displayTags}
@@ -1459,11 +1458,9 @@ export function FieldLibraryPanel({
                       {deletingId === selectedItem.id ? "Deleting…" : "Delete"}
                     </button>
                   )}
-                  {!isInherited && (
-                    <button type="button" onClick={() => void handleSave(selectedItem)} disabled={savingId === selectedItem.id} className="text-[11px] font-medium text-[#C49A38] disabled:opacity-50">
-                      {savingId === selectedItem.id ? "Saving…" : savedId === selectedItem.id ? "✓ Saved" : "Save"}
-                    </button>
-                  )}
+                  <button type="button" onClick={() => void handleSave(selectedItem)} disabled={savingId === selectedItem.id} className="text-[11px] font-medium text-[#C49A38] disabled:opacity-50">
+                    {savingId === selectedItem.id ? "Saving…" : savedId === selectedItem.id ? "✓ Saved" : "Save"}
+                  </button>
                 </div>
               </div>
             </div>
