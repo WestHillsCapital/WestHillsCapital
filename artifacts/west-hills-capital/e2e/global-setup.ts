@@ -7,13 +7,15 @@ const AUTH_FILE = path.join(import.meta.dirname, ".auth/user.json");
 
 export default async function globalSetup(_config: FullConfig) {
   const PORT = process.env.PORT ?? "3000";
-  const BASE = `http://localhost:${PORT}`;
+  const BASE = process.env.BASE_URL ?? `http://localhost:${PORT}`;
 
-  if (!process.env.CLERK_SECRET_KEY) {
-    console.warn(
-      "\n[e2e] CLERK_SECRET_KEY is not set — writing empty auth state. " +
-      "Auth-dependent tests will be skipped.\n"
-    );
+  const isExternal = BASE.startsWith("https://") || (BASE.startsWith("http://") && !BASE.includes("localhost"));
+
+  if (!process.env.CLERK_SECRET_KEY || isExternal) {
+    const reason = isExternal
+      ? `targeting external URL ${BASE} — skipping browser auth setup`
+      : "CLERK_SECRET_KEY is not set — auth-dependent tests will be skipped";
+    console.warn(`\n[e2e] ${reason}.\n`);
     fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
     fs.writeFileSync(AUTH_FILE, JSON.stringify({ cookies: [], origins: [] }));
     return;
