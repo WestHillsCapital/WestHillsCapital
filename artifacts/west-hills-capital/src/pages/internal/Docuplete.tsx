@@ -749,6 +749,16 @@ export default function Docuplete() {
       .finally(() => setPortalLoading(false));
   }, [tab]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Scroll to top whenever the active tab changes (e.g. moving from package
+  // creation to the mapper step) or when the user selects a different document.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [tab]);
+
+  useEffect(() => {
+    if (selectedDocumentId) window.scrollTo({ top: 0, behavior: "instant" });
+  }, [selectedDocumentId]);
+
   useEffect(() => {
     setCsvBreakdownHighlightedField(null);
   }, [csvBatchRows, csvBatchPackageId]);
