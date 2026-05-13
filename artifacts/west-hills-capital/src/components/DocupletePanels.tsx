@@ -1223,12 +1223,6 @@ export function FieldLibraryPanel({
                 Back to list
               </button>
               {panelError && <div className="rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
-              {isInherited && (
-                <div className="flex items-center gap-1.5 text-[10px] text-[#1B4FD8] bg-[#E8EFFE] border border-[#C8D7F5] rounded px-2 py-1">
-                  <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="12" cy="12" r="10"/><path strokeLinecap="round" d="M12 8v4m0 4h.01"/></svg>
-                  From {(selectedItem as FieldLibraryItem & { inheritedFrom?: string }).inheritedFrom ?? "parent account"} — changes apply to this account only
-                </div>
-              )}
               {selectedItem.packageCount !== undefined && (
                 <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
                   <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full font-medium ${selectedItem.packageCount > 0 ? "bg-[#EBF0FB] text-[#1B4FD8]" : "bg-[#F0F0F0] text-[#9CA3AF]"}`}>{selectedItem.packageCount} pkg{selectedItem.packageCount !== 1 ? "s" : ""}</span>
