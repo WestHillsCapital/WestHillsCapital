@@ -1091,7 +1091,7 @@ export function FieldLibraryPanel({
         {/* LEFT: field list */}
         <div
           className={`flex flex-col border-r border-[#DDD5C4] bg-white shrink-0 ${mobileView === "detail" ? "hidden md:flex" : "flex"}`}
-          style={{ width: "256px" }}
+          style={{ width: "280px" }}
         >
           {/* Sticky search */}
           <div className="p-2 border-b border-[#EFE8D8] bg-white">
@@ -1174,7 +1174,7 @@ export function FieldLibraryPanel({
         {/* RIGHT: detail / edit panel */}
         <div className={`flex-1 min-w-0 overflow-y-auto bg-[#FDFCFA] ${mobileView === "list" ? "hidden md:block" : "block"}`}>
           {selectedItem ? (
-            <div className="p-4 space-y-2 text-sm">
+            <div className="p-4 space-y-2 text-sm max-w-xl">
               <button type="button" onClick={() => setMobileView("list")} className="md:hidden flex items-center gap-1 text-[11px] text-[#6B7A99] hover:text-[#0F1C3F] mb-2">
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7"/></svg>
                 Back to list
