@@ -731,6 +731,9 @@ export function FieldLibraryPanel({
   const [analyticsError, setAnalyticsError] = useState<string | null>(null);
   const [tagPickerOpenId, setTagPickerOpenId] = useState<string | null>(null);
   const [tagSavingId, setTagSavingId] = useState<string | null>(null);
+  // Optimistic map: fieldId → tag names — updated immediately on click so the
+  // picker dot and chips reflect the change before the API responds.
+  const [optimisticTagsMap, setOptimisticTagsMap] = useState<Map<string, string[]>>(() => new Map());
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
   const [exportLoading, setExportLoading] = useState<"json" | "csv" | null>(null);
   const importFileRef = useRef<HTMLInputElement>(null);
@@ -1234,47 +1237,59 @@ export function FieldLibraryPanel({
             </div>
             {allComplianceTags !== undefined && (
               <div className="relative pt-1">
-                <div className="flex flex-wrap items-center gap-1 min-h-[20px]">
-                  {(item.complianceTags ?? []).map((tagName) => {
-                    const tagMeta = allComplianceTags.find((t) => t.name === tagName);
-                    return (
-                      <ComplianceTagChip
-                        key={tagName}
-                        name={tagName}
-                        color={tagMeta?.color ?? "#6B7A99"}
-                        onRemove={!isInherited && onSetComplianceTags ? () => {
-                          const next = (item.complianceTags ?? []).filter((n) => n !== tagName);
-                          setTagSavingId(item.id);
-                          void onSetComplianceTags(item.id, next).then(() => setTagSavingId(null));
-                        } : undefined}
-                      />
-                    );
-                  })}
-                  {onSetComplianceTags && !isInherited && (
-                    <button
-                      type="button"
-                      onClick={() => setTagPickerOpenId((prev) => prev === item.id ? null : item.id)}
-                      className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors px-1"
-                    >
-                      {tagSavingId === item.id ? "Saving…" : "+ Tags"}
-                    </button>
-                  )}
-                </div>
-                {tagPickerOpenId === item.id && onSetComplianceTags && !isInherited && (
-                  <ComplianceTagPicker
-                    allTags={allComplianceTags}
-                    selectedTagNames={item.complianceTags ?? []}
-                    onToggle={(tagName) => {
-                      const current = item.complianceTags ?? [];
-                      const next = current.includes(tagName)
-                        ? current.filter((n) => n !== tagName)
-                        : [...current, tagName];
-                      setTagSavingId(item.id);
-                      void onSetComplianceTags(item.id, next).then(() => setTagSavingId(null));
-                    }}
-                    onClose={() => setTagPickerOpenId(null)}
-                  />
-                )}
+                {(() => {
+                  // Prefer the optimistic value while an API call is in-flight.
+                  const displayTags = optimisticTagsMap.get(item.id) ?? item.complianceTags ?? [];
+                  const applyTagChange = (next: string[]) => {
+                    setOptimisticTagsMap((m) => { const n = new Map(m); n.set(item.id, next); return n; });
+                    setTagSavingId(item.id);
+                    void onSetComplianceTags!(item.id, next).then(() => {
+                      setTagSavingId(null);
+                      setOptimisticTagsMap((m) => { const n = new Map(m); n.delete(item.id); return n; });
+                    });
+                  };
+                  return (
+                    <>
+                      <div className="flex flex-wrap items-center gap-1 min-h-[20px]">
+                        {displayTags.map((tagName) => {
+                          const tagMeta = allComplianceTags.find((t) => t.name === tagName);
+                          return (
+                            <ComplianceTagChip
+                              key={tagName}
+                              name={tagName}
+                              color={tagMeta?.color ?? "#6B7A99"}
+                              onRemove={!isInherited && onSetComplianceTags ? () => {
+                                applyTagChange(displayTags.filter((n) => n !== tagName));
+                              } : undefined}
+                            />
+                          );
+                        })}
+                        {onSetComplianceTags && !isInherited && (
+                          <button
+                            type="button"
+                            onClick={() => setTagPickerOpenId((prev) => prev === item.id ? null : item.id)}
+                            className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] transition-colors px-1"
+                          >
+                            {tagSavingId === item.id ? "Saving…" : "+ Tags"}
+                          </button>
+                        )}
+                      </div>
+                      {tagPickerOpenId === item.id && onSetComplianceTags && !isInherited && (
+                        <ComplianceTagPicker
+                          allTags={allComplianceTags}
+                          selectedTagNames={displayTags}
+                          onToggle={(tagName) => {
+                            const next = displayTags.includes(tagName)
+                              ? displayTags.filter((n) => n !== tagName)
+                              : [...displayTags, tagName];
+                            applyTagChange(next);
+                          }}
+                          onClose={() => setTagPickerOpenId(null)}
+                        />
+                      )}
+                    </>
+                  );
+                })()}
               </div>
             )}
             <div className="flex flex-wrap gap-3 pt-1">
