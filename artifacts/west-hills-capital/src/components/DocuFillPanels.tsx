@@ -1065,7 +1065,7 @@ export function FieldLibraryPanel({
         {visibleItems.map((item, idx) => {
           const h = showHints && idx === 1;
           const HL = ({ children }: { children: string }) => (
-            <span className="absolute -top-2 left-1.5 z-10 text-[9px] bg-[#C49A38] text-white font-semibold rounded px-1 leading-4 pointer-events-none">{children}</span>
+            <span className="absolute -top-[9px] left-1.5 z-10 text-[9px] text-[#8A9BB8] font-medium bg-[#F8F6F0] px-0.5 leading-none pointer-events-none tracking-wide">{children}</span>
           );
           const pkgCount    = item.packageCount ?? 0;
           const ansCount    = item.answerCount  ?? 0;
