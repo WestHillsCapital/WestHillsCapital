@@ -596,6 +596,23 @@ export function TransactionTypesPanel({
       </div>
       {panelError && <div className="mb-2 rounded bg-red-50 border border-red-200 text-red-700 px-2 py-1 text-[11px]">{panelError}</div>}
 
+      {/* Search bar — full width, above the two-pane */}
+      <div className="relative mb-2">
+        <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#B0BCCE] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
+        <input
+          type="text"
+          placeholder="Search types…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full h-8 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-6 bg-white focus:outline-none focus:border-[#1B4FD8]"
+        />
+        {searchQuery && (
+          <button type="button" onClick={() => setSearchQuery("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#B0BCCE] hover:text-[#6B7A99]">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        )}
+      </div>
+
       {/* Two-pane master-detail */}
       <div className="flex border border-[#DDD5C4] rounded overflow-hidden" style={{ height: "400px" }}>
         {/* LEFT: list */}
@@ -603,25 +620,6 @@ export function TransactionTypesPanel({
           className={`flex flex-col border-r border-[#DDD5C4] bg-[#F8F6F0] shrink-0 ${mobileView === "detail" ? "hidden md:flex" : "flex"}`}
           style={{ width: "200px" }}
         >
-          {/* Search */}
-          <div className="p-2 border-b border-[#E8E0D4] bg-[#F8F6F0]">
-            <div className="relative">
-              <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#B0BCCE] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
-              <input
-                type="text"
-                placeholder="Search types…"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full h-7 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-6 bg-white focus:outline-none focus:border-[#1B4FD8]"
-              />
-              {searchQuery && (
-                <button type="button" onClick={() => setSearchQuery("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#B0BCCE] hover:text-[#6B7A99]">
-                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" d="M18 6L6 18M6 6l12 12"/></svg>
-                </button>
-              )}
-            </div>
-          </div>
-
           {/* Scrollable list — ↑/↓ keyboard navigation */}
           <div
             ref={listScrollRef}
@@ -1257,7 +1255,7 @@ export function FieldLibraryPanel({
           </button>
         </div>
       </div>
-      {/* Search bar above the two-pane layout */}
+      {/* Search bar — full width, above the two-pane */}
       <div className="relative mb-2">
         <svg className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-[#B0BCCE] pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/></svg>
         <input
@@ -1265,7 +1263,7 @@ export function FieldLibraryPanel({
           placeholder="Search fields…"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full h-7 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-6 bg-white focus:outline-none focus:border-[#1B4FD8]"
+          className="w-full h-8 text-[11px] rounded border border-[#D4C9B5] pl-6 pr-6 bg-white focus:outline-none focus:border-[#1B4FD8]"
         />
         {searchQuery && (
           <button type="button" onClick={() => setSearchQuery("")} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-[#B0BCCE] hover:text-[#6B7A99]">
