@@ -2592,7 +2592,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
       // Lock the row and capture pre-update state. We need this both to prevent
       // concurrent updates and to create a baseline version for first-edit recoverability.
       const { rows: priorRows } = await client.query(
-        `${fieldLibrarySelectSql()} WHERE id = $1 AND account_id = $2 FOR UPDATE`,
+        `${fieldLibrarySelectSql()} WHERE id = $1 AND (account_id IS NULL OR account_id = $2) FOR UPDATE`,
         [id, accountId],
       );
       if (!priorRows[0]) {
@@ -2607,7 +2607,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
             label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
             sensitive=$6, required=$7, validation_type=$8, validation_pattern=$9,
             validation_message=$10, active=$11, sort_order=$12, updated_at=NOW()
-          WHERE id=$13 AND account_id = $14
+          WHERE id=$13 AND (account_id IS NULL OR account_id = $14)
           RETURNING id, label, category, field_type AS type, source, options, sensitive, required,
                     validation_type AS "validationType", validation_pattern AS "validationPattern",
                     validation_message AS "validationMessage", active, sort_order AS "sortOrder"`,
@@ -2729,7 +2729,7 @@ router.post("/field-library/:id/versions/:versionId/restore", requireAdminRole, 
       await client.query("BEGIN");
       // Lock and capture the pre-restore state so the restore itself can later be undone.
       const { rows: currentRows } = await client.query(
-        `${fieldLibrarySelectSql()} WHERE id = $1 AND account_id = $2 FOR UPDATE`,
+        `${fieldLibrarySelectSql()} WHERE id = $1 AND (account_id IS NULL OR account_id = $2) FOR UPDATE`,
         [fieldId, accountId],
       );
       if (!currentRows[0]) {
@@ -2744,7 +2744,7 @@ router.post("/field-library/:id/versions/:versionId/restore", requireAdminRole, 
             label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
             sensitive=$6, required=$7, validation_type=$8, validation_pattern=$9,
             validation_message=$10, active=$11, sort_order=$12, updated_at=NOW()
-          WHERE id=$13 AND account_id=$14
+          WHERE id=$13 AND (account_id IS NULL OR account_id=$14)
           RETURNING id, label, category, field_type AS type, source, options, sensitive, required,
                     validation_type AS "validationType", validation_pattern AS "validationPattern",
                     validation_message AS "validationMessage", active, sort_order AS "sortOrder"`,
