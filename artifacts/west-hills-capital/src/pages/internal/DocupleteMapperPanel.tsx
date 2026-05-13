@@ -308,6 +308,12 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
   getAuthHeadersRef.current = getAuthHeaders;
   const isUserScrollingRef = useRef(false);
   const userScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Always-current page value so the scroll-on-toggle effect can read it
+  // without needing it in the dependency array (which would cause scroll jank).
+  const selectedPageRef = useRef(selectedPage);
+  useEffect(() => { selectedPageRef.current = selectedPage; }, [selectedPage]);
+  // Track the previous scroll-mode value to detect the toggle-on moment.
+  const prevScrollModeRef = useRef(mapperScrollMode);
 
   const displayFields = useMemo(() => {
     let fields = selectedPackage.fields;
@@ -405,9 +411,20 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
     if (!mapperScrollMode || !scrollContainerRef.current || !selectedDocumentId || isUserScrollingRef.current) return;
     const scaledPageH = Math.round(nativePageH * effectiveScale);
     const items = buildMultiDocPageIndex(selectedPackage.documents, scaledPageH);
-    const firstPage = items.find((item) => item.docId === selectedDocumentId);
-    if (firstPage) {
-      scrollContainerRef.current.scrollTo({ top: Math.max(0, firstPage.pageTop - MDSCROLL_TOP_PAD - 4), behavior: "smooth" });
+
+    // When the user just toggled INTO scroll mode, land on the exact page they
+    // were viewing in paginated mode (selectedPageRef holds the current value).
+    // When the selected document changes via the left panel, scroll to its start.
+    const justToggledOn = !prevScrollModeRef.current && mapperScrollMode;
+    prevScrollModeRef.current = mapperScrollMode;
+
+    const targetItem = justToggledOn
+      ? (items.find((item) => item.docId === selectedDocumentId && item.pageNum === selectedPageRef.current)
+          ?? items.find((item) => item.docId === selectedDocumentId))
+      : items.find((item) => item.docId === selectedDocumentId);
+
+    if (targetItem) {
+      scrollContainerRef.current.scrollTo({ top: Math.max(0, targetItem.pageTop - MDSCROLL_TOP_PAD - 4), behavior: "smooth" });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedDocumentId, mapperScrollMode]);
