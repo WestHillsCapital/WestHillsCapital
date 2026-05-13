@@ -27,6 +27,14 @@ if (SENTRY_DSN && import.meta.env.PROD) {
   });
 }
 
+// When the dev/prod server restarts, previously cached lazy-chunk URLs become
+// stale (content hash changes). Vite fires "vite:preloadError" when a dynamic
+// import fails for this reason. Reloading the page fetches the fresh manifest
+// and restores navigation without the user seeing a blank screen.
+window.addEventListener("vite:preloadError", () => {
+  window.location.reload();
+});
+
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import "./index.css";

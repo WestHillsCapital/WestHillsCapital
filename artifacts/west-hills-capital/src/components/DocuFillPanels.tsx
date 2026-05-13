@@ -1176,7 +1176,21 @@ export function FieldLibraryPanel({
             </div>
             <div className="relative pt-1">
               {h && <HL>Options</HL>}
-              <Textarea placeholder="Options, one per line" value={item.options.join("\n")} onChange={(e) => onChange(item.id, { options: e.target.value.split("\n").filter(Boolean) })} className="min-h-16 text-xs bg-white" disabled={isInherited} />
+              <Textarea
+                placeholder={
+                  item.type === "checkbox"
+                    ? "One checkbox per line, e.g.\nI agree to the terms and conditions\nI am a US person or entity"
+                    : item.type === "dropdown"
+                    ? "One option per line, e.g.\nChecking\nSavings\nIRA\nTrust"
+                    : item.type === "radio"
+                    ? "One choice per line, e.g.\nYes\nNo\nUnsure"
+                    : "One option per line (used for Radio, Checkbox, or Dropdown fields)"
+                }
+                value={item.options.join("\n")}
+                onChange={(e) => onChange(item.id, { options: e.target.value.split("\n").filter(Boolean) })}
+                className="min-h-16 text-xs bg-white"
+                disabled={isInherited}
+              />
             </div>
             {item.validationType === "custom" && <Input placeholder="Regex pattern" value={item.validationPattern ?? ""} onChange={(e) => onChange(item.id, { validationPattern: e.target.value })} className="h-8 text-xs bg-white" disabled={isInherited} />}
             <div className="relative pt-1">
