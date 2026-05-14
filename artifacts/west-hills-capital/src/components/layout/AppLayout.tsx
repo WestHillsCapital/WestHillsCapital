@@ -3,6 +3,7 @@ import { useLocation, Link } from "wouter";
 import { useProductAuth } from "@/hooks/useProductAuth";
 import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 import { MerlinWidget } from "@/components/MerlinWidget";
+import { HelpDrawer } from "@/components/HelpDrawer";
 
 const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 const SETTINGS_BASE = `${API_BASE}/api/v1/product/settings`;
@@ -57,6 +58,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const { account, user, signOut, getAuthHeaders, token } = useProductAuth();
   const [location] = useLocation();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const [profileData, setProfileData] = useState<UserProfileData | null>(null);
   const getAuthHeadersRef = useRef(getAuthHeaders);
@@ -159,6 +161,16 @@ export function AppLayout({ children }: { children: ReactNode }) {
                 {displayName || displayEmail}
               </span>
             )}
+            <button
+              onClick={() => setHelpOpen(true)}
+              className="flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 hover:bg-gray-200 text-gray-500 hover:text-gray-800 transition-colors shrink-0"
+              aria-label="Open help guide"
+              title="Help guide"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
             <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setDropdownOpen((o) => !o)}
@@ -247,6 +259,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       </main>
 
       <MerlinWidget getAuthHeaders={getAuthHeaders} brandColor={orgBrandColor} />
+      <HelpDrawer open={helpOpen} onClose={() => setHelpOpen(false)} />
     </div>
   );
 }

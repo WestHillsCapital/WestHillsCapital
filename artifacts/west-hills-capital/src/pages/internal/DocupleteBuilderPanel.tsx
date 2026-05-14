@@ -144,7 +144,7 @@ export interface DocupleteBuilderPanelProps {
   setStandalonePackageId: React.Dispatch<React.SetStateAction<string>>;
   allComplianceTags?: import("@/lib/docuplete-local-types").ComplianceTag[];
   setFieldComplianceTags?: (fieldId: string, tags: string[]) => Promise<string | null>;
-  setTab: React.Dispatch<React.SetStateAction<"packages" | "sessions" | "mapper" | "batch" | "library">>;
+  setTab: React.Dispatch<React.SetStateAction<"packages" | "sessions" | "mapper" | "batch" | "library" | "help">>;
   sendTestWebhook: (packageId: number) => Promise<void>;
   fetchWebhookDeliveries: (packageId: number) => Promise<void>;
   fetchWebhookSecret: (packageId: number) => Promise<void>;

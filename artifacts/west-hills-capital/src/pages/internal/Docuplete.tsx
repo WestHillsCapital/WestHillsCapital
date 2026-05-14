@@ -59,6 +59,7 @@ import { DocupleteBuilderPanel } from "./DocupleteBuilderPanel";
 import { DocupleteMapperPanel } from "./DocupleteMapperPanel";
 import { DocupleteInterviewPanel } from "./DocupleteInterviewPanel";
 import { DocupleteCsvPanel } from "./DocupleteCsvPanel";
+import AppHelp from "@/pages/app/AppHelp";
 import { AcroFieldReviewOverlay, type PendingAnnotation, type RowChoice } from "@/components/AcroFieldReviewOverlay";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).href;
@@ -400,7 +401,7 @@ export default function Docuplete() {
   })());
   const urlParamsApplied = useRef(false);
 
-  const [tab, setTab] = useState<"packages" | "mapper" | "sessions" | "batch" | "library">(() => {
+  const [tab, setTab] = useState<"packages" | "mapper" | "sessions" | "batch" | "library" | "help">(() => {
     if (sessionToken) return "sessions";
     if (_initSp.get("tab") === "sessions") return "sessions";
     try {
@@ -3826,14 +3827,39 @@ export default function Docuplete() {
             <TooltipContent side="bottom">Launch a single interview session for one package at a time — staff-guided or via a customer self-service link.</TooltipContent>
           </Tooltip>
           <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
-          <button onClick={() => setTab("batch")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "batch" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch</button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button onClick={() => setTab("batch")} className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "batch" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}>Batch</button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Upload a CSV to create many sessions at once — one row per client.</TooltipContent>
+          </Tooltip>
           <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
-          <button
-            onClick={() => setTab("library")}
-            className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "library" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
-          >
-            Library
-          </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setTab("library")}
+                className={`px-4 py-2 text-sm border-b-2 transition-colors ${tab === "library" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+              >
+                Library
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Shared field definitions, field groups, and compliance tags reusable across all packages.</TooltipContent>
+          </Tooltip>
+          <div className="w-px self-stretch my-1 bg-[#DDD5C4]" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                onClick={() => setTab("help")}
+                className={`px-4 py-2 text-sm border-b-2 transition-colors flex items-center gap-1.5 ${tab === "help" ? "border-[#C49A38] text-[#0F1C3F] font-medium" : "border-transparent text-[#6B7A99] hover:text-[#0F1C3F]"}`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                Help
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">User guide — step-by-step explanations for every feature.</TooltipContent>
+          </Tooltip>
         </div>}
       </div>
       {error && <div className="mb-4 rounded border border-red-200 bg-red-50 text-red-800 px-3 py-2 text-sm">{error}</div>}
@@ -4445,6 +4471,10 @@ export default function Docuplete() {
           )}
           </div>
         </section>
+      )}
+
+      {!isPublicSession && tab === "help" && (
+        <AppHelp />
       )}
 
       {inspectorMode === "modal" && placementModal && selectedPackage && (() => {

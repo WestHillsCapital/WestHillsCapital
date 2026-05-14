@@ -134,7 +134,7 @@ export interface DocupleteInterviewPanelProps {
   labelForTransactionScope: (scope: string | null | undefined) => string;
   fieldIsRequired: (f: { interviewMode?: string; required?: boolean; interviewVisible?: boolean }) => boolean;
   goBuilderStep: (step: BuilderStep) => void;
-  setTab: React.Dispatch<React.SetStateAction<"packages" | "sessions" | "mapper" | "batch" | "library">>;
+  setTab: React.Dispatch<React.SetStateAction<"packages" | "sessions" | "mapper" | "batch" | "library" | "help">>;
   launchStandaloneInterview: () => void;
   generateCustomerLink: () => void;
   copyCustomerLink: () => void;
