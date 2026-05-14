@@ -2826,7 +2826,7 @@ export default function Docuplete() {
     setFieldEditorModal({ mode: "edit", fieldId });
   }
 
-  function autoPlacementsForOptions(fieldId: string, opts: string[], existingMappings: MappingItem[], allOptions?: string[]): MappingItem[] {
+  function autoPlacementsForOptions(fieldId: string, opts: string[], existingMappings: MappingItem[], allOptions?: string[], fieldType?: FieldItem["type"]): MappingItem[] {
     if (!selectedDocument || opts.length === 0) return [];
     const existingFormats = new Set(
       existingMappings
@@ -2835,6 +2835,7 @@ export default function Docuplete() {
     );
     const newOpts = opts.filter((opt) => !existingFormats.has(`checkbox-option:${opt}`));
     const existingCount = existingMappings.filter((m) => m.fieldId === fieldId && m.documentId === selectedDocument.id && m.page === selectedPage).length;
+    const defaultMark = fieldType === "radio" ? "●" : "X";
     return newOpts.map((opt, i) => {
       const colorIndex = allOptions ? allOptions.indexOf(opt) : (existingCount + i);
       return {
@@ -2850,6 +2851,7 @@ export default function Docuplete() {
         align: "left" as const,
         format: `checkbox-option:${opt}`,
         optionColor: OPTION_COLORS[colorIndex % OPTION_COLORS.length],
+        mark: defaultMark,
       };
     });
   }
@@ -3167,7 +3169,7 @@ export default function Docuplete() {
       };
       setSelectedFieldId(field.id);
       const currentStoreMappings = useDocupleteStore.getState().mappings;
-      const autoMappings = isChoiceType ? autoPlacementsForOptions(field.id, cleanOpts, currentStoreMappings, cleanOpts) : [];
+      const autoMappings = isChoiceType ? autoPlacementsForOptions(field.id, cleanOpts, currentStoreMappings, cleanOpts, type) : [];
       if (autoMappings.length > 0) pushUndo([...currentStoreMappings]);
       autoMappings.forEach((m) => useDocupleteStore.getState().addMapping(m));
       updateSelectedPackage((pkg) => ({
@@ -3178,7 +3180,7 @@ export default function Docuplete() {
     } else if (fieldEditorModal.fieldId) {
       const fid = fieldEditorModal.fieldId;
       const currentStoreMappings = useDocupleteStore.getState().mappings;
-      const autoMappings = isChoiceType ? autoPlacementsForOptions(fid, cleanOpts, currentStoreMappings, cleanOpts) : [];
+      const autoMappings = isChoiceType ? autoPlacementsForOptions(fid, cleanOpts, currentStoreMappings, cleanOpts, type) : [];
       if (autoMappings.length > 0) pushUndo([...currentStoreMappings]);
       autoMappings.forEach((m) => useDocupleteStore.getState().addMapping(m));
       updateSelectedPackage((pkg) => ({
@@ -3344,6 +3346,7 @@ export default function Docuplete() {
           align: "left",
           format: `checkbox-option:${opt}`,
           optionColor: OPTION_COLORS[i % OPTION_COLORS.length],
+          mark: field.type === "radio" ? "●" : "X",
         });
       });
       setSelectedMappingId(lastId);

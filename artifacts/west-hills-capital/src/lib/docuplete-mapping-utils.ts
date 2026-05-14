@@ -73,7 +73,7 @@ export function inferFieldCategory(field: FieldItem): "name" | "first" | "last" 
   return "general";
 }
 
-export function sampleValueForMapping(field: FieldItem | undefined, format: MappingFormat | string | undefined): string {
+export function sampleValueForMapping(field: FieldItem | undefined, format: MappingFormat | string | undefined, mark?: string): string {
   if (!field) return "…";
   const fmt = format ?? "as-entered";
 
@@ -82,7 +82,8 @@ export function sampleValueForMapping(field: FieldItem | undefined, format: Mapp
   if (fmt.startsWith("checkbox-option:")) {
     const optionValue = fmt.slice("checkbox-option:".length).trim();
     const sample = field.defaultValue?.trim() || (field.options?.[0] ?? "");
-    return sample.split(",").map((s) => s.trim()).includes(optionValue) ? "X" : "";
+    const activeMark = mark ?? "X";
+    return sample.split(",").map((s) => s.trim()).includes(optionValue) ? activeMark : "";
   }
 
   if (field.defaultValue) {

@@ -61,6 +61,7 @@ export type DocupleteMappingFormat =
 
 export type DocupleteMappingItem = {
   format?: DocupleteMappingFormat | string;
+  mark?: string;
 };
 
 export type DocupletePacketSummary = {
@@ -261,11 +262,11 @@ export function formatDocupleteMappedValue(value: string, mapping: DocupleteMapp
       return `${mm}/${dd}/${yyyy}`;
     }
   }
-  if (format === "checkbox-yes") return /^(true|yes|y|1|checked)$/i.test(text) ? "X" : "";
+  if (format === "checkbox-yes") return /^(true|yes|y|1|checked)$/i.test(text) ? (mapping.mark ?? "X") : "";
   if (format.startsWith("checkbox-option:")) {
     const optionValue = format.slice("checkbox-option:".length).trim();
     const selectedOptions = text.split(",").map((s) => s.trim());
-    return selectedOptions.includes(optionValue) ? "X" : "";
+    return selectedOptions.includes(optionValue) ? (mapping.mark ?? "X") : "";
   }
   return text;
 }

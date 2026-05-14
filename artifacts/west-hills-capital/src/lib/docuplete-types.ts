@@ -60,6 +60,7 @@ export type MappingItem = {
   multiLine?: boolean;
   rotation?: 0 | 90 | 180 | 270;
   optionColor?: string;
+  mark?: string;
 };
 
 export type RecipientItem = {

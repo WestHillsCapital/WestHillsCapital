@@ -111,17 +111,12 @@ export const MappingButton = memo(function MappingButton({
       ) : isOptionMapping ? (
         <div className="pointer-events-none w-full overflow-hidden px-0.5">
           <div className="flex items-center gap-1 leading-tight">
-            {fieldType === "radio" ? (
-              <span
-                className="flex-shrink-0 w-2.5 h-2.5 rounded-full border-2 inline-block"
-                style={{ borderColor: effectiveColor }}
-              />
-            ) : (
-              <span
-                className="flex-shrink-0 w-2.5 h-2.5 rounded-sm border-2 inline-block"
-                style={{ borderColor: effectiveColor }}
-              />
-            )}
+            <span
+              className={`flex-shrink-0 w-2.5 h-2.5 ${fieldType === "radio" ? "rounded-full" : "rounded-sm"} border-2 inline-flex items-center justify-center text-[7px] font-bold leading-none`}
+              style={{ borderColor: effectiveColor, color: effectiveColor }}
+            >
+              {m.mark ?? (fieldType === "radio" ? "●" : "X")}
+            </span>
             <span className="block text-[10px] font-semibold truncate leading-tight" style={{ color: effectiveColor }}>
               {optionLabel}
             </span>
