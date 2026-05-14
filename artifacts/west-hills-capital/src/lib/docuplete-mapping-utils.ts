@@ -42,7 +42,8 @@ export const NAME_MAPPING_FORMATS: MappingFormat[] = [
 export function labelForMappingFormat(format: MappingFormat | string | undefined) {
   const fmt = format ?? "as-entered";
   if (fmt.startsWith("checkbox-option:")) return `Option: ${fmt.slice("checkbox-option:".length).trim()}`;
-  return MAPPING_FORMAT_OPTIONS.find((option) => option.value === fmt)?.label ?? "Whole answer";
+  if (fmt === "as-entered") return "As entered";
+  return MAPPING_FORMAT_OPTIONS.find((option) => option.value === fmt)?.label ?? "As entered";
 }
 
 export function inferFieldCategory(field: FieldItem): "name" | "first" | "last" | "address" | "city" | "state" | "zip" | "phone" | "email" | "ssn" | "dob" | "account" | "relationship" | "share" | "date" | "signature" | "general" {
