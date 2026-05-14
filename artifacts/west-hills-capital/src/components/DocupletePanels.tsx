@@ -1185,19 +1185,19 @@ export function FieldLibraryPanel({
                     />
                   </div>
                   {allComplianceTags !== undefined && (
-                    <div>
+                    <div className="relative">
                       <div className="flex flex-wrap items-center gap-1 min-h-[20px]">
                         {displayTags.map((tagName) => {
                           const tagMeta = allComplianceTags.find((t) => t.name === tagName);
-                          return <ComplianceTagChip key={tagName} name={tagName} color={tagMeta?.color ?? "#6B7A99"} onRemove={onSetComplianceTags ? () => applyTagChange(displayTags.filter((n) => n !== tagName)) : undefined} />;
+                          return <ComplianceTagChip key={tagName} name={tagName} color={tagMeta?.color ?? "#6B7A99"} onRemove={(!itemIsInherited && onSetComplianceTags) ? () => applyTagChange(displayTags.filter((n) => n !== tagName)) : undefined} />;
                         })}
-                        {onSetComplianceTags && (
+                        {!itemIsInherited && onSetComplianceTags && (
                           <button type="button" onClick={() => setTagPickerOpenId((prev) => prev === item.id ? null : item.id)} className="text-[10px] text-[#8A9BB8] hover:text-[#1B4FD8] px-1">
                             {tagSavingId === item.id ? "Saving…" : "+ Tags"}
                           </button>
                         )}
                       </div>
-                      {tagPickerOpenId === item.id && onSetComplianceTags && (
+                      {tagPickerOpenId === item.id && !itemIsInherited && onSetComplianceTags && (
                         <ComplianceTagPicker allTags={allComplianceTags} selectedTagNames={displayTags} onToggle={(tagName) => applyTagChange(displayTags.includes(tagName) ? displayTags.filter((n) => n !== tagName) : [...displayTags, tagName])} onClose={() => setTagPickerOpenId(null)} />
                       )}
                     </div>
