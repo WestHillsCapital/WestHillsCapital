@@ -708,11 +708,6 @@ export function AcroFieldReviewOverlay({
             </div>
           )}
           <div className="flex-1" />
-          {packageFields.length === 0 && (
-            <span className="text-xs font-medium" style={{ color: "#B45309" }}>
-              No package fields yet — add fields in the Builder first to get auto-matches.
-            </span>
-          )}
           {autoMappableCount > 0 && (
             <button
               onClick={autoMapAll}
