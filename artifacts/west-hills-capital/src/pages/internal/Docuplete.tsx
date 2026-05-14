@@ -47,6 +47,7 @@ import {
   mappingFormatOptionsForField,
   clampPercent,
   defaultMappingFormat,
+  OPTION_COLORS,
 } from "@/lib/docuplete-mapping-utils";
 import {
   validationTypeHint,
@@ -2825,7 +2826,7 @@ export default function Docuplete() {
     setFieldEditorModal({ mode: "edit", fieldId });
   }
 
-  function autoPlacementsForOptions(fieldId: string, opts: string[], existingMappings: MappingItem[]): MappingItem[] {
+  function autoPlacementsForOptions(fieldId: string, opts: string[], existingMappings: MappingItem[], allOptions?: string[]): MappingItem[] {
     if (!selectedDocument || opts.length === 0) return [];
     const existingFormats = new Set(
       existingMappings
@@ -2834,19 +2835,23 @@ export default function Docuplete() {
     );
     const newOpts = opts.filter((opt) => !existingFormats.has(`checkbox-option:${opt}`));
     const existingCount = existingMappings.filter((m) => m.fieldId === fieldId && m.documentId === selectedDocument.id && m.page === selectedPage).length;
-    return newOpts.map((opt, i) => ({
-      id: newId("map"),
-      fieldId,
-      documentId: selectedDocument.id,
-      page: selectedPage,
-      x: clampPercent(15, 0, 74),
-      y: clampPercent(15 + (existingCount + i) * 7, 0, 94),
-      w: 4,
-      h: 4,
-      fontSize: 11,
-      align: "left" as const,
-      format: `checkbox-option:${opt}`,
-    }));
+    return newOpts.map((opt, i) => {
+      const colorIndex = allOptions ? allOptions.indexOf(opt) : (existingCount + i);
+      return {
+        id: newId("map"),
+        fieldId,
+        documentId: selectedDocument.id,
+        page: selectedPage,
+        x: clampPercent(15, 0, 74),
+        y: clampPercent(15 + (existingCount + i) * 6, 0, 94),
+        w: 16,
+        h: 4,
+        fontSize: 11,
+        align: "left" as const,
+        format: `checkbox-option:${opt}`,
+        optionColor: OPTION_COLORS[colorIndex % OPTION_COLORS.length],
+      };
+    });
   }
 
   /**
@@ -3162,18 +3167,18 @@ export default function Docuplete() {
       };
       setSelectedFieldId(field.id);
       const currentStoreMappings = useDocupleteStore.getState().mappings;
-      const autoMappings = isChoiceType ? autoPlacementsForOptions(field.id, cleanOpts, currentStoreMappings) : [];
+      const autoMappings = isChoiceType ? autoPlacementsForOptions(field.id, cleanOpts, currentStoreMappings, cleanOpts) : [];
       if (autoMappings.length > 0) pushUndo([...currentStoreMappings]);
       autoMappings.forEach((m) => useDocupleteStore.getState().addMapping(m));
       updateSelectedPackage((pkg) => ({
         ...pkg,
-        fields: [...pkg.fields, field],
+        fields: [field, ...pkg.fields],
         mappings: [...currentStoreMappings, ...autoMappings],
       }));
     } else if (fieldEditorModal.fieldId) {
       const fid = fieldEditorModal.fieldId;
       const currentStoreMappings = useDocupleteStore.getState().mappings;
-      const autoMappings = isChoiceType ? autoPlacementsForOptions(fid, cleanOpts, currentStoreMappings) : [];
+      const autoMappings = isChoiceType ? autoPlacementsForOptions(fid, cleanOpts, currentStoreMappings, cleanOpts) : [];
       if (autoMappings.length > 0) pushUndo([...currentStoreMappings]);
       autoMappings.forEach((m) => useDocupleteStore.getState().addMapping(m));
       updateSelectedPackage((pkg) => ({
@@ -3316,9 +3321,39 @@ export default function Docuplete() {
 
   function addMappingForField(field: FieldItem, x: number, y: number, pageOverride?: number) {
     if (!selectedDocument) return;
+    const targetPage = pageOverride ?? selectedPage;
+    const isChoiceType = field.type === "radio" || field.type === "checkbox";
+    const opts = field.options?.filter(Boolean) ?? [];
+
+    if (isChoiceType && opts.length > 0) {
+      pushUndo([...useDocupleteStore.getState().mappings]);
+      let lastId = "";
+      opts.forEach((opt, i) => {
+        const mappingId = newId("map");
+        lastId = mappingId;
+        useDocupleteStore.getState().addMapping({
+          id: mappingId,
+          fieldId: field.id,
+          documentId: selectedDocument!.id,
+          page: targetPage,
+          x: clampPercent(x, 0, 74),
+          y: clampPercent(y + i * 6, 0, 94),
+          w: 16,
+          h: 4,
+          fontSize: 11,
+          align: "left",
+          format: `checkbox-option:${opt}`,
+          optionColor: OPTION_COLORS[i % OPTION_COLORS.length],
+        });
+      });
+      setSelectedMappingId(lastId);
+      setSelectedFieldId(field.id);
+      setPlacementModal(null);
+      return;
+    }
+
     pushUndo([...useDocupleteStore.getState().mappings]);
     const mappingId = newId("map");
-    const targetPage = pageOverride ?? selectedPage;
     useDocupleteStore.getState().addMapping({
       id: mappingId,
       fieldId: field.id,

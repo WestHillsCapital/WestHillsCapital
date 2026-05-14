@@ -1,5 +1,5 @@
 import { memo, type PointerEvent as ReactPointerEvent, type MouseEvent } from "react";
-import { type RecipientItem } from "@/lib/docuplete-types";
+import { type FieldItem, type RecipientItem } from "@/lib/docuplete-types";
 import { useDocupleteStore } from "@/stores/useDocupleteStore";
 
 export interface MappingButtonProps {
@@ -8,6 +8,7 @@ export interface MappingButtonProps {
   sampleValue: string;
   formatLabel: string;
   fieldColor: string;
+  fieldType?: FieldItem["type"];
   recipient: RecipientItem | undefined;
   /**
    * Controls border/background style in non-text mode.
@@ -28,6 +29,7 @@ export const MappingButton = memo(function MappingButton({
   sampleValue,
   formatLabel,
   fieldColor,
+  fieldType,
   recipient,
   isFullyDefined,
   onMoveStart,
@@ -41,23 +43,31 @@ export const MappingButton = memo(function MappingButton({
 
   if (!m) return null;
 
+  const isOptionMapping = String(m.format ?? "").startsWith("checkbox-option:");
+  const optionLabel = isOptionMapping ? String(m.format).slice("checkbox-option:".length).trim() : null;
+  const effectiveColor = (isOptionMapping && m.optionColor) ? m.optionColor : fieldColor;
+
   const isCheckboxMark =
-    m.format === "checkbox-yes" || String(m.format ?? "").startsWith("checkbox-option:");
-  const flexJustify = isCheckboxMark ? "justify-center" : "justify-end";
+    m.format === "checkbox-yes" || isOptionMapping;
+  const flexJustify = isCheckboxMark && !isOptionMapping ? "justify-center" : "justify-end";
 
   const borderStyle = mapperTextMode
-    ? `1px ${isSelected ? "solid" : "dashed"} ${fieldColor}${isSelected ? "" : "80"}`
-    : isFullyDefined === undefined
-      ? `2px ${isSelected ? "solid" : "dashed"} ${fieldColor}`
-      : isFullyDefined
-        ? `2px solid ${fieldColor}`
-        : `2px dashed ${fieldColor}88`;
+    ? `1px ${isSelected ? "solid" : "dashed"} ${effectiveColor}${isSelected ? "" : "80"}`
+    : isOptionMapping
+      ? `2px dashed ${effectiveColor}`
+      : isFullyDefined === undefined
+        ? `2px ${isSelected ? "solid" : "dashed"} ${effectiveColor}`
+        : isFullyDefined
+          ? `2px solid ${effectiveColor}`
+          : `2px dashed ${effectiveColor}88`;
 
   const bgColor = mapperTextMode
-    ? isSelected ? fieldColor + "18" : "transparent"
-    : isFullyDefined === false
-      ? "rgba(255,255,255,0.55)"
-      : "rgba(255,255,255,0.93)";
+    ? isSelected ? effectiveColor + "18" : "transparent"
+    : isOptionMapping
+      ? `${effectiveColor}10`
+      : isFullyDefined === false
+        ? "rgba(255,255,255,0.55)"
+        : "rgba(255,255,255,0.93)";
 
   return (
     <button
@@ -96,8 +106,28 @@ export const MappingButton = memo(function MappingButton({
           >
             {sampleValue || "\u00A0"}
           </span>
-          <div style={{ borderBottom: `0.5px solid ${fieldColor}80`, marginTop: "1px" }} />
+          <div style={{ borderBottom: `0.5px solid ${effectiveColor}80`, marginTop: "1px" }} />
         </>
+      ) : isOptionMapping ? (
+        <div className="pointer-events-none w-full overflow-hidden px-0.5">
+          <div className="flex items-center gap-1 leading-tight">
+            {fieldType === "radio" ? (
+              <span
+                className="flex-shrink-0 w-2.5 h-2.5 rounded-full border-2 inline-block"
+                style={{ borderColor: effectiveColor }}
+              />
+            ) : (
+              <span
+                className="flex-shrink-0 w-2.5 h-2.5 rounded-sm border-2 inline-block"
+                style={{ borderColor: effectiveColor }}
+              />
+            )}
+            <span className="block text-[10px] font-semibold truncate leading-tight" style={{ color: effectiveColor }}>
+              {optionLabel}
+            </span>
+          </div>
+          <span className="block text-[9px] text-[#9AAAC0] truncate leading-tight">{fieldName}</span>
+        </div>
       ) : (
         <div className="pointer-events-none w-full overflow-hidden">
           <span className="block leading-tight">{fieldName}</span>

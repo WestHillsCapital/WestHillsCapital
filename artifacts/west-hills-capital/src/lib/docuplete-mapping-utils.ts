@@ -1,6 +1,23 @@
 import { type FieldItem, type MappingFormat, type MappingItem } from "@/lib/docuplete-types";
 import { ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_SIGNATURE } from "@/lib/docuplete-redaction";
 
+export const OPTION_COLORS = [
+  "#E53E3E",
+  "#3182CE",
+  "#38A169",
+  "#D69E2E",
+  "#805AD5",
+  "#DD6B20",
+  "#319795",
+  "#E53E8B",
+  "#2B6CB0",
+  "#276749",
+];
+
+export function optionColorForIndex(i: number): string {
+  return OPTION_COLORS[i % OPTION_COLORS.length];
+}
+
 export const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string; group: string }> = [
   { value: "first-name", label: "First", group: "Name" },
   { value: "middle-name", label: "Middle", group: "Name" },

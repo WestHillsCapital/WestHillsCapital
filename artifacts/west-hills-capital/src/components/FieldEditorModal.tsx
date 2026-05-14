@@ -1,6 +1,7 @@
 import { Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
+import { OPTION_COLORS } from "@/lib/docuplete-mapping-utils";
 import type {
   FieldItem,
   FieldInterviewMode,
@@ -181,6 +182,17 @@ export function FieldEditorModal({
                     className="flex items-center gap-2 bg-[#F8F6F0] rounded px-2 py-1.5 border border-[#EFE8D8]"
                   >
                     <span className="text-[#C4B99A] cursor-grab select-none text-sm">⠿</span>
+                    {(draft.type === "radio" || draft.type === "checkbox") && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className="w-3 h-3 rounded-full flex-shrink-0 border-2 cursor-default"
+                            style={{ borderColor: OPTION_COLORS[i % OPTION_COLORS.length], backgroundColor: OPTION_COLORS[i % OPTION_COLORS.length] + "33" }}
+                          />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs">Mapper color for this option</TooltipContent>
+                      </Tooltip>
+                    )}
                     <input
                       type="text"
                       value={opt}
@@ -195,6 +207,9 @@ export function FieldEditorModal({
                   </div>
                 ))}
                 {draft.options.length === 0 && <p className="text-xs text-[#8A9BB8] italic py-1">No options yet — click "+ Add option" above</p>}
+                {(draft.type === "radio" || draft.type === "checkbox") && draft.options.filter(Boolean).length > 0 && (
+                  <p className="text-[10px] text-[#8A9BB8] italic pt-0.5">Each option gets its own colored box on the PDF mapper.</p>
+                )}
               </div>
             </div>
           )}

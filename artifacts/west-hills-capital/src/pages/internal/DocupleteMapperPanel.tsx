@@ -819,6 +819,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                                       sampleValue={sampleValueForMapping(field, m.format)}
                                       formatLabel={labelForMappingFormat(m.format)}
                                       fieldColor={fieldColor}
+                                      fieldType={field?.type}
                                       recipient={recipient}
                                       onMoveStart={(e) => beginMappingPointer(e, m.id, "move", e.currentTarget.parentElement as HTMLElement)}
                                       onResizeStart={(e) => beginMappingPointer(e, m.id, "resize", e.currentTarget.parentElement?.parentElement as HTMLElement)}
@@ -973,6 +974,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                   sampleValue={sampleValueForMapping(field, meta.format)}
                   formatLabel={labelForMappingFormat(meta.format)}
                   fieldColor={fieldColor}
+                  fieldType={field?.type}
                   recipient={recipient}
                   isFullyDefined={isFullyDefined}
                   onMoveStart={(e) => beginMappingPointer(e, mappingId, "move")}

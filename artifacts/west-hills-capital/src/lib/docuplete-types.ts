@@ -57,6 +57,7 @@ export type MappingItem = {
   recipientId?: string;
   multiLine?: boolean;
   rotation?: 0 | 90 | 180 | 270;
+  optionColor?: string;
 };
 
 export type RecipientItem = {
