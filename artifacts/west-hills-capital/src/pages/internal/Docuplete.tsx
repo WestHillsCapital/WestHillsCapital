@@ -106,6 +106,7 @@ type AcroAnnotation = {
   fieldName: string;
   rect: [number, number, number, number];
   fieldType: string;
+  page: number;
 };
 
 type ComplianceAuditEntry = {
@@ -1456,23 +1457,24 @@ export default function Docuplete() {
           if (!cancelled) {
             setScrollPdfDoc(doc);
             setIsPdfRendering(false);
-            const scrollPage = await doc.getPage(selectedPage);
-            if (!cancelled) {
-              const rawAnnotations = await scrollPage.getAnnotations();
-              if (!cancelled) {
-                const widgets: AcroAnnotation[] = [];
-                for (const ann of rawAnnotations) {
-                  const a = ann as Record<string, unknown>;
-                  if (a["subtype"] !== "Widget") continue;
-                  const r = a["rect"];
-                  if (!Array.isArray(r) || r.length < 4) continue;
-                  const [x1, y1, x2, y2] = r.map(Number);
-                  if (x2 - x1 < 2 || y2 - y1 < 2) continue;
-                  widgets.push({ fieldName: String(a["fieldName"] ?? a["alternativeText"] ?? ""), rect: [x1, y1, x2, y2], fieldType: String(a["fieldType"] ?? "") });
-                }
-                setAcroAnnotations(widgets);
+            // Fetch annotations for ALL pages so the PDF Fields overlay works in scroll mode
+            const allWidgets: AcroAnnotation[] = [];
+            for (let p = 1; p <= doc.numPages; p++) {
+              if (cancelled) break;
+              const pg = await doc.getPage(p);
+              const rawAnnotations = await pg.getAnnotations();
+              if (cancelled) break;
+              for (const ann of rawAnnotations) {
+                const a = ann as Record<string, unknown>;
+                if (a["subtype"] !== "Widget") continue;
+                const r = a["rect"];
+                if (!Array.isArray(r) || r.length < 4) continue;
+                const [x1, y1, x2, y2] = r.map(Number);
+                if (x2 - x1 < 2 || y2 - y1 < 2) continue;
+                allWidgets.push({ fieldName: String(a["fieldName"] ?? a["alternativeText"] ?? ""), rect: [x1, y1, x2, y2], fieldType: String(a["fieldType"] ?? ""), page: p });
               }
             }
+            if (!cancelled) setAcroAnnotations(allWidgets);
           }
           return;
         }
@@ -1503,7 +1505,7 @@ export default function Docuplete() {
           if (!Array.isArray(r) || r.length < 4) continue;
           const [x1, y1, x2, y2] = r.map(Number);
           if (x2 - x1 < 2 || y2 - y1 < 2) continue;
-          widgets.push({ fieldName: String(a["fieldName"] ?? a["alternativeText"] ?? ""), rect: [x1, y1, x2, y2], fieldType: String(a["fieldType"] ?? "") });
+          widgets.push({ fieldName: String(a["fieldName"] ?? a["alternativeText"] ?? ""), rect: [x1, y1, x2, y2], fieldType: String(a["fieldType"] ?? ""), page: selectedPage });
         }
         setAcroAnnotations(widgets);
       } catch (err) {
@@ -3026,6 +3028,9 @@ export default function Docuplete() {
 
   function autoMapFromPdfFields() {
     if (!selectedDocument || !selectedPackage || !acroAnnotations.length) return;
+    // Only auto-map fields on the currently visible page
+    const pageAnnotations = acroAnnotations.filter((a) => a.page === selectedPage);
+    if (!pageAnnotations.length) return;
     let placed = 0;
     let skipped = 0;
     // Track which fields were matched in this run for _2/_3 disambiguation.
@@ -3035,7 +3040,7 @@ export default function Docuplete() {
     const currentMappings = useDocupleteStore.getState().mappings;
     pushUndo([...currentMappings]);
     let newMappings = [...currentMappings];
-    for (const ann of acroAnnotations) {
+    for (const ann of pageAnnotations) {
       const [x1, y1, x2, y2] = ann.rect;
       // Convert from PDF coords (bottom-left origin) to percentage (top-left origin)
       const xPct = clampPercent((x1 / nativePageW) * 100, 0, 98);
@@ -3092,10 +3097,10 @@ export default function Docuplete() {
         : `${resolvedNames.slice(0, MAX_NAMES).join(", ")} +${resolvedNames.length - MAX_NAMES} more`;
       flashStatus(`Mapped ${placed} field${placed === 1 ? "" : "s"} from PDF: ${nameList}${skipNote}`);
     } else {
-      const pdfNames = acroAnnotations.map((a) => a.fieldName).filter(Boolean).slice(0, 5).join(", ");
+      const pdfNames = pageAnnotations.map((a) => a.fieldName).filter(Boolean).slice(0, 5).join(", ");
       flashStatus(
-        skipped === acroAnnotations.length
-          ? `No PDF fields matched package fields${pdfNames ? ` (PDF has: ${pdfNames}${acroAnnotations.length > 5 ? "…" : ""})` : ""}. Rename package fields to match, or drag manually.`
+        skipped === pageAnnotations.length
+          ? `No PDF fields matched package fields${pdfNames ? ` (PDF has: ${pdfNames}${pageAnnotations.length > 5 ? "…" : ""})` : ""}. Rename package fields to match, or drag manually.`
           : "All matching PDF fields are already mapped on this page.",
       );
     }

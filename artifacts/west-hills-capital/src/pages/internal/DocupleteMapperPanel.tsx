@@ -41,7 +41,7 @@ function makeSystemEsignFieldItem(id: string): FieldItem {
   };
 }
 
-type AcroAnnotation = { fieldName: string; rect: [number, number, number, number]; fieldType: string };
+type AcroAnnotation = { fieldName: string; rect: [number, number, number, number]; fieldType: string; page: number };
 
 // ─── Compact searchable group picker for the field list ────────────────────────
 function GroupPicker({
@@ -850,6 +850,34 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                                   const isThisPage = activeM?.documentId === doc.id && (activeM?.page ?? 1) === pageNum;
                                   return isThisPage ? <DragGuideLines dragGuides={storeDragGuides} /> : null;
                                 })()}
+                                {showAcroLayer && acroAnnotations
+                                  .filter((ann) => ann.page === pageNum)
+                                  .map((ann, i) => {
+                                    const [x1, y1, x2, y2] = ann.rect;
+                                    return (
+                                      <div
+                                        key={i}
+                                        className="absolute pointer-events-none"
+                                        style={{
+                                          left: `${(x1 / nativePageW) * 100}%`,
+                                          top: `${((nativePageH - y2) / nativePageH) * 100}%`,
+                                          width: `${((x2 - x1) / nativePageW) * 100}%`,
+                                          height: `${((y2 - y1) / nativePageH) * 100}%`,
+                                          border: "1px dashed rgba(37,99,235,0.45)",
+                                          backgroundColor: "rgba(37,99,235,0.04)",
+                                          boxSizing: "border-box",
+                                          zIndex: 1,
+                                        }}
+                                        title={ann.fieldName || `PDF ${ann.fieldType || "field"}`}
+                                      >
+                                        {ann.fieldName ? (
+                                          <span className="block overflow-hidden whitespace-nowrap select-none leading-none" style={{ fontSize: "6px", color: "rgba(37,99,235,0.6)", paddingLeft: "1px", paddingTop: "1px" }}>
+                                            {ann.fieldName}
+                                          </span>
+                                        ) : null}
+                                      </div>
+                                    );
+                                  })}
                               </div>
                             </div>
                           );
