@@ -16,7 +16,7 @@ const doc = new PDFDocument({
   margins: { top: 72, bottom: 72, left: 72, right: 72 },
   info: {
     Title:    "Docuplete Affiliate Program Agreement",
-    Author:   "West Hills Capital",
+    Author:   "Docuplete, Inc.",
     Subject:  "Affiliate Program Terms",
     Keywords: "affiliate, commission, docuplete",
   },
@@ -67,7 +67,7 @@ doc.font("Helvetica-Bold").fontSize(20).fillColor("#FFFFFF")
 doc.font("Helvetica").fontSize(20).fillColor(GOLD).text("  Affiliate Program Agreement");
 
 doc.font("Helvetica").fontSize(10).fillColor("rgba(255,255,255,0.65)")
-   .text("West Hills Capital  ·  westhillscapital.com  ·  affiliates@westhillscapital.com", 72, 60);
+   .text("Docuplete, Inc.  ·  docuplete.com  ·  affiliates@docuplete.com", 72, 60);
 
 doc.font("Helvetica").fontSize(9).fillColor("rgba(255,255,255,0.45)")
    .text("Effective upon electronic acceptance by the Affiliate. Last updated: May 2026.", 72, 82);
@@ -79,14 +79,9 @@ doc.y = 132;
 headerRule();
 
 body(
-  "This Affiliate Program Agreement (\"Agreement\") is entered into between West Hills Capital, a " +
-  "Wyoming company (\"Company,\" \"we,\" or \"us\"), the operator of the Docuplete document-automation " +
-  "platform, and the individual or entity that accepts this Agreement electronically " +
-  "(\"Affiliate,\" \"you,\" or \"your\").\n\n" +
-  "Note: Docuplete is anticipated to be incorporated as a Florida Corporation. Upon formation, " +
-  "this Agreement and all rights and obligations hereunder will be assigned to and assumed by " +
-  "Docuplete, Inc. (Florida) pursuant to the assignment provisions in Section 15. Affiliates will " +
-  "be notified of any such assignment by email.\n\n" +
+  "This Affiliate Program Agreement (\"Agreement\") is entered into between Docuplete, Inc., a " +
+  "Florida Corporation (\"Company,\" \"we,\" or \"us\"), and the individual or entity that accepts " +
+  "this Agreement electronically (\"Affiliate,\" \"you,\" or \"your\").\n\n" +
   "By checking the acceptance box on the Docuplete affiliate application form, you agree to be bound by " +
   "all terms of this Agreement. If you are accepting on behalf of a company or other legal entity, you " +
   "represent that you have the authority to bind that entity."
@@ -177,7 +172,7 @@ bullet([
   "Not misrepresent Docuplete's features, pricing, or capabilities.",
   "Disclose the affiliate relationship clearly and conspicuously in any promotional content, in " +
   "compliance with applicable law (including FTC guidelines).",
-  "Not engage in paid search advertising on branded terms (\"Docuplete,\" \"West Hills Capital,\" " +
+  "Not engage in paid search advertising on branded terms (\"Docuplete\" " +
   "or confusingly similar terms) without prior written consent.",
   "Not send unsolicited bulk email (spam) using the Referral Link.",
   "Keep referral codes and Referral Links confidential and not share them in a manner intended to " +
@@ -233,7 +228,7 @@ sectionTitle("9. Term and Termination");
 bullet([
   "This Agreement begins on the date of electronic acceptance and continues until terminated.",
   "Either party may terminate this Agreement for any reason with 14 days' written notice (email " +
-  "to affiliates@westhillscapital.com is sufficient).",
+  "to affiliates@docuplete.com is sufficient).",
   "The Company may terminate immediately upon breach of Sections 5 or 6.",
   "Upon termination, the Affiliate will cease all use of the Referral Link and Company trademarks.",
   "Commissions earned prior to the effective termination date will be paid in the normal course, " +
@@ -289,9 +284,8 @@ body(
 sectionTitle("14. Governing Law; Dispute Resolution");
 
 body(
-  "This Agreement is governed by the laws of the State of Wyoming, without regard to conflict-of-law " +
-  "principles. Upon assignment to Docuplete, Inc. (Florida), the governing law will transition to the " +
-  "State of Florida. Any dispute arising under or relating to this Agreement shall first be subject to " +
+  "This Agreement is governed by the laws of the State of Florida, without regard to conflict-of-law " +
+  "principles. Any dispute arising under or relating to this Agreement shall first be subject to " +
   "good-faith negotiation between the parties. If unresolved within 30 days, disputes shall be " +
   "submitted to binding arbitration administered by the American Arbitration Association under its " +
   "Commercial Arbitration Rules, conducted remotely or at a mutually agreed location. Judgment on " +
@@ -309,8 +303,7 @@ bullet([
   "Waiver: Failure to enforce any provision is not a waiver of the right to enforce it later.",
   "Assignment: The Affiliate may not assign this Agreement without prior written consent. The " +
   "Company may assign it in connection with a merger, acquisition, or sale of substantially all assets.",
-  "Notices: Legal notices to the Company should be sent to: West Hills Capital (a Wyoming company), " +
-  "affiliates@westhillscapital.com.",
+  "Notices: Legal notices to the Company should be sent to: Docuplete, Inc., affiliates@docuplete.com.",
 ]);
 
 // ── SIGNATURE BLOCK ───────────────────────────────────────────────────────
@@ -340,7 +333,7 @@ doc.moveTo(col2x, lineY).lineTo(col2x + 180, lineY).strokeColor("#aaaaaa").lineW
 
 doc.font("Helvetica").fontSize(8.5).fillColor(LIGHT)
    .text("Affiliate — Name",                col1x, lineY + 5)
-   .text("West Hills Capital (Wyoming)",      col2x, lineY + 5);
+   .text("Docuplete, Inc.",                    col2x, lineY + 5);
 
 doc.moveDown(2);
 const lineY2 = doc.y;
@@ -358,7 +351,7 @@ for (let i = range.start; i < range.start + range.count; i++) {
   doc.switchToPage(i);
   doc.font("Helvetica").fontSize(8).fillColor(LIGHT)
      .text(
-       `Docuplete Affiliate Program Agreement  ·  West Hills Capital (Wyoming)  ·  Page ${i + 1}`,
+       `Docuplete Affiliate Program Agreement  ·  Docuplete, Inc.  ·  Page ${i + 1}`,
        72, 756, { align: "center", width: 468 }
      );
 }
