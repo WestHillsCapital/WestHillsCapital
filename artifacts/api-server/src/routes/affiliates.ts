@@ -324,9 +324,20 @@ router.get("/:id/commissions", async (req, res) => {
   const db = getDb();
   try {
     const { rows } = await db.query(`
-      SELECT ac.*, ar.stripe_subscription_id, ar.plan_type, ar.monthly_amount_cents
+      SELECT ac.*,
+             ar.stripe_subscription_id,
+             ar.plan_type,
+             ar.monthly_amount_cents,
+             ar.status           AS referral_status,
+             ar.commission_months_total,
+             ar.commission_months_paid,
+             acc.id              AS account_id,
+             acc.name            AS account_name,
+             acc.plan_tier       AS account_plan_tier,
+             acc.subscription_status AS account_subscription_status
         FROM affiliate_commissions ac
         JOIN affiliate_referrals ar ON ar.id = ac.referral_id
+        LEFT JOIN accounts acc ON acc.stripe_customer_id = ar.stripe_customer_id
        WHERE ac.affiliate_id = $1
        ORDER BY ac.due_date ASC NULLS LAST, ac.created_at ASC
     `, [id]);

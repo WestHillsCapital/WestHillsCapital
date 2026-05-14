@@ -643,6 +643,14 @@ interface CommissionRow {
   period_label: string | null;
   stripe_subscription_id: string | null;
   plan_type: string;
+  monthly_amount_cents: number;
+  referral_status: string;
+  commission_months_total: number;
+  commission_months_paid: number;
+  account_id: number | null;
+  account_name: string | null;
+  account_plan_tier: string | null;
+  account_subscription_status: string | null;
 }
 
 const AFFILIATE_BASE = `${API_BASE}/api/internal/affiliates`;
@@ -973,17 +981,40 @@ function AffiliatesTab({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }
                       <table className="w-full text-xs">
                         <thead>
                           <tr className="bg-gray-50 border-b border-gray-100">
-                            {["Period", "Amount", "Status", "Due date", "Action"].map((h) => (
+                            {["Customer", "Plan", "Sub status", "Period", "Bill / mo", "Commission", "Progress", "Due date", "Action"].map((h) => (
                               <th key={h} className="px-3 py-2 text-left text-[10px] font-semibold text-gray-500 uppercase tracking-wider whitespace-nowrap">{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
                           {commissions.map((c) => (
-                            <tr key={c.id}>
+                            <tr key={c.id} className="hover:bg-gray-50/60">
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                {c.account_name
+                                  ? <span className="font-medium text-gray-800">{c.account_name}</span>
+                                  : <span className="text-gray-400 font-mono text-[10px]">{c.stripe_subscription_id?.slice(0, 12) ?? "—"}</span>}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                {c.account_plan_tier
+                                  ? planBadge(c.account_plan_tier)
+                                  : <span className="text-gray-400">—</span>}
+                              </td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                {c.account_subscription_status
+                                  ? <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-medium ${
+                                      c.account_subscription_status === "active" ? "bg-green-50 text-green-700 border-green-200" :
+                                      c.account_subscription_status === "canceled" ? "bg-red-50 text-red-600 border-red-200" :
+                                      "bg-yellow-50 text-yellow-700 border-yellow-200"
+                                    }`}>{c.account_subscription_status}</span>
+                                  : <span className="text-gray-400">—</span>}
+                              </td>
                               <td className="px-3 py-2 text-gray-700 whitespace-nowrap">{c.period_label ?? "—"}</td>
-                              <td className="px-3 py-2 font-medium text-gray-900">{formatMoney(c.amount_cents)}</td>
-                              <td className="px-3 py-2">{statusBadge(c.status)}</td>
+                              <td className="px-3 py-2 text-gray-600 whitespace-nowrap">{c.monthly_amount_cents ? formatMoney(c.monthly_amount_cents) : "—"}</td>
+                              <td className="px-3 py-2 font-medium text-gray-900 whitespace-nowrap">{formatMoney(c.amount_cents)} {statusBadge(c.status)}</td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                <span className="text-gray-600">{c.commission_months_paid ?? 0}</span>
+                                <span className="text-gray-400"> / {c.commission_months_total ?? "?"} mo</span>
+                              </td>
                               <td className="px-3 py-2 text-gray-500 whitespace-nowrap">{c.due_date ? formatDate(c.due_date) : "—"}</td>
                               <td className="px-3 py-2">
                                 {c.status === "pending" && (
