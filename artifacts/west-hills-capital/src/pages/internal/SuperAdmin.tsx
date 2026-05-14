@@ -629,6 +629,7 @@ interface AffiliateRow {
   referral_count: string;
   pending_cents: string;
   paid_cents: string;
+  agreement_accepted_at: string | null;
 }
 
 interface CommissionRow {
@@ -965,6 +966,26 @@ function AffiliatesTab({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }
                   <div><span className="text-gray-400 block mb-0.5">Commission rate</span>{(parseFloat(selected.commission_rate) * 100).toFixed(0)}%</div>
                   <div><span className="text-gray-400 block mb-0.5">Duration</span>{selected.commission_months} months</div>
                   <div><span className="text-gray-400 block mb-0.5">Member since</span>{formatDate(selected.created_at)}</div>
+                </div>
+
+                {/* Agreement row */}
+                <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-3 text-[11px]">
+                  <span className="text-gray-400 flex-shrink-0">Agreement</span>
+                  {selected.agreement_accepted_at ? (
+                    <span className="inline-flex items-center gap-1.5 text-green-700">
+                      <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                      Accepted {formatDate(selected.agreement_accepted_at)}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 text-amber-600">
+                      <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 3a9 9 0 100 18A9 9 0 0012 3z" />
+                      </svg>
+                      Not yet accepted
+                    </span>
+                  )}
                 </div>
 
                 {/* Commissions */}

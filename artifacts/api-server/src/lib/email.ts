@@ -2706,11 +2706,12 @@ export async function sendFeedbackEmail(params: {
  * payout schedule, program T&C summary, and next steps.
  */
 export async function sendAffiliateWelcomeEmail(params: {
-  name:             string;
-  email:            string;
-  referralCode:     string;
-  commissionRate:   number;   // decimal, e.g. 0.20
-  commissionMonths: number;   // e.g. 12
+  name:                string;
+  email:               string;
+  referralCode:        string;
+  commissionRate:      number;   // decimal, e.g. 0.20
+  commissionMonths:    number;   // e.g. 12
+  stripeOnboardingUrl?: string;  // when provided, embed a "Set Up Payout Account" CTA button
 }): Promise<void> {
   const G      = "40px";
   const NAVY   = "#0F1C3F";
@@ -2726,6 +2727,37 @@ export async function sendAffiliateWelcomeEmail(params: {
   const origin        = process.env.APP_ORIGIN ?? "https://docuplete.com";
   const referralLink  = `${origin}?ref=${params.referralCode}`;
   const firstName     = params.name.split(" ")[0] || params.name;
+
+  const stripeBlock = params.stripeOnboardingUrl ? `
+        <!-- STRIPE CONNECT CTA -->
+        <tr>
+          <td style="background:#ffffff;padding:28px ${G} 0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+                   style="background:${CBACK};border:1px solid ${LGOLD};border-top:3px solid ${GOLD};border-radius:0 0 3px 3px;">
+              <tr>
+                <td style="padding:9px 22px 8px;border-bottom:1px solid ${LGOLD};">
+                  <p style="margin:0;font-size:9px;font-family:'DM Sans',Arial,sans-serif;color:${GOLD};letter-spacing:.16em;text-transform:uppercase;font-weight:bold;">Action Required &mdash; Set Up Your Payout Account</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:20px 22px;">
+                  <p style="margin:0 0 14px;font-family:'DM Sans',Arial,sans-serif;font-size:13px;color:${BODY};line-height:1.65;">
+                    To receive your commission payments, you need to connect a bank account via Stripe. This takes about 5 minutes. Click below to get started &mdash; this link is unique to you and expires in 24 hours.
+                  </p>
+                  <a href="${params.stripeOnboardingUrl}" style="display:inline-block;background:${GOLD};color:#ffffff;font-family:'DM Sans',Arial,sans-serif;font-size:13px;font-weight:600;text-decoration:none;padding:13px 32px;border-radius:2px;letter-spacing:.02em;">Set Up Your Payout Account &rarr;</a>
+                  <p style="margin:14px 0 0;font-family:'DM Sans',Arial,sans-serif;font-size:11px;color:${MUTED};line-height:1.65;">
+                    No Stripe account? You&rsquo;ll create one during onboarding. Your bank details are stored securely by Stripe &mdash; we never see them.
+                  </p>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+` : "";
+
+  const step1Text = params.stripeOnboardingUrl
+    ? `<strong>Set up your payout account.</strong> Use the button above to connect your bank account through Stripe. It only takes about 5 minutes, and your banking details are held securely by Stripe.`
+    : `<strong>Set up your payout account.</strong> We&rsquo;ll send you a Stripe Connect onboarding link so you can connect your bank account for direct monthly transfers. No Stripe account? You&rsquo;ll create one during onboarding &mdash; it takes about 5 minutes.`;
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -2874,6 +2906,8 @@ export async function sendAffiliateWelcomeEmail(params: {
           </td>
         </tr>
 
+        ${stripeBlock}
+
         <!-- NEXT STEPS -->
         <tr>
           <td style="background:#ffffff;padding:24px ${G} 0;">
@@ -2884,7 +2918,7 @@ export async function sendAffiliateWelcomeEmail(params: {
                   <span style="display:inline-block;width:20px;height:20px;background:${NAVY};color:#fff;font-family:'DM Sans',Arial,sans-serif;font-size:11px;font-weight:bold;text-align:center;line-height:20px;border-radius:50%;">1</span>
                 </td>
                 <td style="padding:0 0 14px 10px;font-size:13px;color:${BODY};font-family:'DM Sans',Arial,sans-serif;line-height:1.65;vertical-align:top;">
-                  <strong>Set up your payout account.</strong> We&rsquo;ll send you a Stripe Connect onboarding link so you can connect your bank account for direct monthly transfers. No Stripe account? You&rsquo;ll create one during onboarding &mdash; it takes about 5 minutes.
+                  ${step1Text}
                 </td>
               </tr>
               <tr>

@@ -24,6 +24,7 @@ const AffiliateApplySchema = z.object({
   company: z.string().max(200).optional(),
   website: z.string().url().max(500).optional().or(z.literal("")),
   message: z.string().min(10).max(2000),
+  agreementAccepted: z.literal(true, { errorMap: () => ({ message: "You must accept the affiliate program agreement." }) }),
 });
 
 const AffiliateInviteSchema = z.object({
@@ -64,11 +65,12 @@ publicAffiliateRouter.post("/apply", async (req, res) => {
       return;
     }
 
-    const referralCode = generateReferralCode();
+    const referralCode  = generateReferralCode();
+    const ip            = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.socket?.remoteAddress ?? null;
     await db.query(
-      `INSERT INTO affiliates (name, email, company, website, referral_code, status, notes)
-       VALUES ($1, $2, $3, $4, $5, 'pending', $6)`,
-      [name, email.toLowerCase(), company ?? null, website ?? null, referralCode, message],
+      `INSERT INTO affiliates (name, email, company, website, referral_code, status, notes, agreement_accepted_at, agreement_ip)
+       VALUES ($1, $2, $3, $4, $5, 'pending', $6, NOW(), $7)`,
+      [name, email.toLowerCase(), company ?? null, website ?? null, referralCode, message, ip],
     );
 
     logger.info({ email }, "[Affiliates] New affiliate application submitted");
@@ -94,11 +96,13 @@ router.get("/", async (req, res) => {
       stripe_account_status: string | null; commission_rate: string;
       commission_months: number; created_at: string;
       referral_count: string; pending_cents: string; paid_cents: string;
+      agreement_accepted_at: string | null;
     }>(`
       SELECT
         a.id, a.name, a.email, a.company, a.referral_code, a.status,
         a.stripe_account_id, a.stripe_account_status,
         a.commission_rate, a.commission_months, a.created_at,
+        a.agreement_accepted_at,
         COUNT(DISTINCT ar.id)                                      AS referral_count,
         COALESCE(SUM(ac.amount_cents) FILTER (WHERE ac.status = 'pending'), 0) AS pending_cents,
         COALESCE(SUM(ac.amount_cents) FILTER (WHERE ac.status = 'paid'),    0) AS paid_cents
@@ -218,8 +222,9 @@ router.patch("/:id", async (req, res) => {
     const { rows: current } = await db.query<{
       name: string; email: string; referral_code: string;
       status: string; commission_rate: string; commission_months: number;
+      stripe_account_id: string | null;
     }>(
-      `SELECT name, email, referral_code, status, commission_rate, commission_months FROM affiliates WHERE id = $1`,
+      `SELECT name, email, referral_code, status, commission_rate, commission_months, stripe_account_id FROM affiliates WHERE id = $1`,
       [id],
     );
     if (!current[0]) { res.status(404).json({ error: "Not found" }); return; }
@@ -247,12 +252,47 @@ router.patch("/:id", async (req, res) => {
     if (parse.data.status === "approved" && prev.status !== "approved") {
       const commissionRate   = parse.data.commissionRate   ?? parseFloat(prev.commission_rate);
       const commissionMonths = parse.data.commissionMonths ?? prev.commission_months;
+
+      // Attempt to pre-generate Stripe Connect onboarding URL so we can embed it directly
+      // in the welcome email. Non-fatal — welcome email sends regardless.
+      let stripeOnboardingUrl: string | undefined;
+      try {
+        const stripe = await getUncachableStripeClient();
+        let stripeAccountId = prev.stripe_account_id;
+        if (!stripeAccountId) {
+          const account = await stripe.accounts.create({
+            type:             "express",
+            email:            prev.email,
+            capabilities:     { transfers: { requested: true } },
+            business_profile: { name: prev.name },
+            settings:         { payouts: { schedule: { interval: "manual" } } },
+          });
+          stripeAccountId = account.id;
+          await db.query(
+            `UPDATE affiliates SET stripe_account_id = $1, stripe_account_status = 'pending_onboarding', updated_at = NOW() WHERE id = $2`,
+            [stripeAccountId, id],
+          );
+        }
+        const origin = process.env.APP_ORIGIN ?? "https://app.docuplete.com";
+        const accountLink = await stripe.accountLinks.create({
+          account:     stripeAccountId,
+          refresh_url: `${origin}/internal/super-admin`,
+          return_url:  `${origin}/internal/super-admin`,
+          type:        "account_onboarding",
+        });
+        stripeOnboardingUrl = accountLink.url;
+        logger.info({ affiliateId: id }, "[Affiliates] Pre-generated Stripe onboarding URL for welcome email");
+      } catch (stripeErr) {
+        logger.warn({ stripeErr, affiliateId: id }, "[Affiliates] Could not pre-generate Stripe onboarding URL — welcome email will omit the button");
+      }
+
       sendAffiliateWelcomeEmail({
         name:             prev.name,
         email:            prev.email,
         referralCode:     prev.referral_code,
         commissionRate,
         commissionMonths,
+        stripeOnboardingUrl,
       }).catch((err) => {
         logger.error({ err, affiliateId: id }, "[Affiliates] Failed to send welcome email on approval");
       });

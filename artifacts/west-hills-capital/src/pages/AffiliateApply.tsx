@@ -10,6 +10,7 @@ export default function AffiliateApply() {
     website: "",
     message: "",
   });
+  const [agreementAccepted, setAgreementAccepted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,12 +26,16 @@ export default function AffiliateApply() {
       setError("Please fill in all required fields.");
       return;
     }
+    if (!agreementAccepted) {
+      setError("Please read and accept the Affiliate Program Agreement to continue.");
+      return;
+    }
     setSubmitting(true);
     try {
       const res = await fetch(`${API_BASE}/api/affiliates/apply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, agreementAccepted }),
       });
       const data = await res.json() as { error?: string };
       if (!res.ok) {
@@ -186,6 +191,29 @@ export default function AffiliateApply() {
                   />
                 </div>
 
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
+                  <label className="flex items-start gap-3 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={agreementAccepted}
+                      onChange={(e) => setAgreementAccepted(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 rounded border-gray-300 text-[#C49A38] accent-[#C49A38] flex-shrink-0"
+                    />
+                    <span className="text-sm text-gray-700 leading-relaxed">
+                      I have read and agree to the{" "}
+                      <a
+                        href="/affiliate-program-agreement.pdf"
+                        target="_blank"
+                        rel="noreferrer"
+                        className="text-[#C49A38] hover:underline font-medium"
+                      >
+                        Affiliate Program Agreement
+                      </a>
+                      , including the commission terms, payout conditions, and program guidelines.
+                    </span>
+                  </label>
+                </div>
+
                 {error && (
                   <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {error}
@@ -194,7 +222,7 @@ export default function AffiliateApply() {
 
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || !agreementAccepted}
                   className="w-full bg-[#C49A38] hover:bg-[#b08830] text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                 >
                   {submitting ? "Submitting…" : "Submit application"}

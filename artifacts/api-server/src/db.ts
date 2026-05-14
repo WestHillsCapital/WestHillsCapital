@@ -2000,6 +2000,8 @@ export async function initDb(): Promise<void> {
     )
   `);
   await db.query(`CREATE INDEX IF NOT EXISTS affiliates_status_idx ON affiliates (status)`);
+  await db.query(`ALTER TABLE affiliates ADD COLUMN IF NOT EXISTS agreement_accepted_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE affiliates ADD COLUMN IF NOT EXISTS agreement_ip TEXT`);
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS affiliate_referrals (
