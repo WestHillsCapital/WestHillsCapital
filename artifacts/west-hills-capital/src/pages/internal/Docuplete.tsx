@@ -2982,7 +2982,7 @@ export default function Docuplete() {
 
     for (let i = 0; i < choices.length; i++) {
       const choice = choices[i];
-      if (!choice || choice.source === "none") continue;
+      if (!choice || choice.source === "none" || choice.source === "mapper") continue;
       const ann = annotations[i];
       if (!ann) continue;
 
@@ -3984,10 +3984,11 @@ export default function Docuplete() {
           documentTitle={pendingAcroReview.docTitle}
           documentIndex={pendingAcroReviewTotal > 0 ? pendingAcroReviewTotal - pendingAcroReviewQueue.length : undefined}
           documentTotal={pendingAcroReviewTotal > 1 ? pendingAcroReviewTotal : undefined}
+          pdfUrl={documentPreviewUrl}
           onConfirm={(choices) => {
             const snapshot = { ...pendingAcroReview };
             const result = applyReviewChoices(snapshot.documentId, snapshot.annotations, choices);
-            const deferred = choices.filter((c) => c.source === "none").length;
+            const deferred = choices.filter((c) => c.source === "none" || c.source === "mapper").length;
             const parts: string[] = [];
             if (result.addedFromLibrary > 0) parts.push(`pulled ${result.addedFromLibrary} from library`);
             if (result.mapped > 0) parts.push(`mapped ${result.mapped}`);
