@@ -258,23 +258,30 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
         const token = requireString(input, "token");
         const result = await client.sessions.generate(token);
 
-        const lines = [
-          `PDF generated successfully.`,
-          ``,
-          `Download URL: ${result.downloadUrl}`,
-        ];
-
-        if (result.drive) {
-          lines.push(`Google Drive: ${result.drive.url}`);
-        }
-
-        if (result.warnings.length > 0) {
-          lines.push(``, `Warnings:`);
-          result.warnings.forEach((w) => lines.push(`  • ${w}`));
+        if (result.status === "pending") {
+          return {
+            content: [{
+              type: "text",
+              text: [
+                `PDF generation is in progress.`,
+                ``,
+                `Job ID: ${result.jobId}`,
+                ``,
+                `Use get-generate-status to poll until ready.`,
+              ].join("\n"),
+            }],
+          };
         }
 
         return {
-          content: [{ type: "text", text: lines.join("\n") }],
+          content: [{
+            type: "text",
+            text: [
+              `PDF generated successfully.`,
+              ``,
+              `Download URL: ${result.downloadUrl}`,
+            ].join("\n"),
+          }],
         };
       }
 
