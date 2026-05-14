@@ -3109,7 +3109,7 @@ router.patch("/field-library/:id/compliance-tags", requireAdminRole, async (req,
     }
     const { rows } = await db.query(
       `UPDATE docuplete_fields SET compliance_tags = $1::jsonb, updated_at = NOW()
-       WHERE id = $2 AND account_id = $3
+       WHERE id = $2 AND (account_id = $3 OR account_id IS NULL)
        RETURNING id, COALESCE(compliance_tags, '[]'::jsonb) AS "complianceTags"`,
       [JSON.stringify(complianceTags), fieldId, accountId],
     );
