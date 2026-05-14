@@ -637,7 +637,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            packages: components["schemas"]["DocuFillPackage"][];
+                            packages: components["schemas"]["DocupletePackage"][];
                         };
                     };
                 };
@@ -690,7 +690,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            package: components["schemas"]["DocuFillPackage"];
+                            package: components["schemas"]["DocupletePackage"];
                         };
                     };
                 };
@@ -775,7 +775,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            sessions: components["schemas"]["DocuFillSessionListItem"][];
+                            sessions: components["schemas"]["DocupleteSessionListItem"][];
                             /** @description Total number of sessions matching the filters (before pagination) */
                             total: number;
                         };
@@ -843,7 +843,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            session: components["schemas"]["DocuFillSession"];
+                            session: components["schemas"]["DocupleteSession"];
                             /** @description Bearer token passed to the public interview form */
                             token: string;
                             /**
@@ -890,7 +890,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/internal/docufill/sessions": {
+    "/internal/docuplete/sessions": {
         parameters: {
             query?: never;
             header?: never;
@@ -956,7 +956,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            session?: components["schemas"]["DocuFillSession"];
+                            session?: components["schemas"]["DocupleteSession"];
                             /** @description Bearer token passed to the public interview form */
                             token?: string;
                         };
@@ -1027,7 +1027,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            session: components["schemas"]["DocuFillSession"];
+                            session: components["schemas"]["DocupleteSession"];
                         };
                     };
                 };
@@ -1090,7 +1090,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            session?: components["schemas"]["DocuFillSession"];
+                            session?: components["schemas"]["DocupleteSession"];
                         };
                     };
                 };
@@ -1147,7 +1147,7 @@ export interface paths {
                     };
                     content: {
                         "application/json": {
-                            session?: components["schemas"]["DocuFillSession"];
+                            session?: components["schemas"]["DocupleteSession"];
                         };
                     };
                 };
@@ -1856,7 +1856,7 @@ export interface components {
             brand_color?: string;
         };
         /** @description A Docuplete package — a reusable interview template that defines the documents, fields, and configuration for a document workflow. */
-        DocuFillPackage: {
+        DocupletePackage: {
             /** @example 7 */
             id: number;
             account_id?: number;
@@ -1883,7 +1883,7 @@ export interface components {
             updated_at: string;
         };
         /** @description A session row returned by the session list endpoint. Includes answers, prefill, and PDF URL for integration use (e.g. Zapier). */
-        DocuFillSessionListItem: {
+        DocupleteSessionListItem: {
             id: number;
             /** @example df_abc123 */
             token: string;
@@ -1933,7 +1933,7 @@ export interface components {
              */
             role: "admin" | "member";
         };
-        DocuFillSession: {
+        DocupleteSession: {
             id?: number;
             /** @example df_abc123 */
             token?: string;

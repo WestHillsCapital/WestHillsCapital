@@ -2,12 +2,12 @@ import type { components } from "./openapi.js";
 
 export type SessionStatus = "draft" | "pending" | "in_progress" | "submitted" | "signed" | "generated" | "voided" | "expired";
 
-export type Package = Required<components["schemas"]["DocuFillPackage"]> & {
+export type Package = Required<components["schemas"]["DocupletePackage"]> & {
   fields: unknown[];
   documents: unknown[];
 };
 
-export type SessionListItem = Omit<components["schemas"]["DocuFillSessionListItem"], "status"> & {
+export type SessionListItem = Omit<components["schemas"]["DocupleteSessionListItem"], "status"> & {
   id: number;
   token: string;
   packageId: number;
@@ -24,7 +24,7 @@ export type SessionListItem = Omit<components["schemas"]["DocuFillSessionListIte
   voidedAt: string | null;
 };
 
-export type Session = Omit<components["schemas"]["DocuFillSession"], "status"> & {
+export type Session = Omit<components["schemas"]["DocupleteSession"], "status"> & {
   id: number;
   token: string;
   package_id: number;
