@@ -9,7 +9,7 @@ export default function EditingSharedFields() {
 
       <h2>Editing a library field</h2>
       <ol>
-        <li>Go to <strong>Organization → Field Library</strong>.</li>
+        <li>Click the <strong>Library</strong> tab in the main navigation.</li>
         <li>Click the field you want to edit.</li>
         <li>Make your changes.</li>
         <li>Review the <strong>Impact</strong> panel — it shows how many packages and active sessions use this field.</li>

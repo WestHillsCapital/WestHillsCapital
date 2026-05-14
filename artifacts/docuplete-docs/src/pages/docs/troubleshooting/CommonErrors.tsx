@@ -48,7 +48,7 @@ export default function CommonErrors() {
       <h2>Field library errors</h2>
 
       <h3>"Cannot edit — field is inherited" message</h3>
-      <p>You are viewing a library field from inside a package. Library fields are read-only at the package level by design — edits must be made in <strong>Organization → Field Library</strong>. Changes made there propagate to all packages using the field.</p>
+      <p>You are viewing a library field from inside a package. Library fields are read-only at the package level by design — edits must be made via the <strong>Library</strong> tab in the main navigation. Changes made there propagate to all packages using the field.</p>
 
       <h3>"This field is used in X packages" warning on delete</h3>
       <p>Docuplete prevents deletion of library fields that are still linked to packages. Remove the field from each package first (or unlink it in the package's field list), then delete it from the library.</p>

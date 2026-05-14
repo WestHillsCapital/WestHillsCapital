@@ -35,7 +35,7 @@ export default function FieldLibraryOverview() {
       </ul>
 
       <h2>Accessing the Field Library</h2>
-      <p>Navigate to <strong>Organization → Field Library</strong> in the main sidebar. You'll see all library fields with their type, validation, and which packages currently use them.</p>
+      <p>Click the <strong>Library</strong> tab in the main navigation (alongside Packages, Sessions, and Batch). You'll see all library fields organized into Fields, Field Groups, Types, Groups, and Compliance tabs.</p>
 
       <div className="callout callout-info">
         <strong>Permissions:</strong> Only Admins can create, edit, or delete library fields. Members can import library fields into packages they have edit access to.
