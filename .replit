@@ -153,7 +153,6 @@ STRIPE_EXTRA_SEAT_ANNUAL_PRICE_ID = "price_1TSRnrCEIcvhoL7nMy9NtZVq"
 STRIPE_PUBLISHABLE_KEY = "pk_live_51H5v8MCEIcvhoL7nuNI74iJsVoZMRdITBAaFBH37vXP0j4yjAnihgmi29Gae7pKss5E4qqxBADil5Wt3zL6MfWRK00sM0TS6YU"
 VITE_STRIPE_PUBLISHABLE_KEY = "pk_live_51H5v8MCEIcvhoL7nuNI74iJsVoZMRdITBAaFBH37vXP0j4yjAnihgmi29Gae7pKss5E4qqxBADil5Wt3zL6MfWRK00sM0TS6YU"
 APP_ORIGIN = "https://app.docuplete.com"
-E2E_EMAIL = "successdripsclues@gmail.com"
 
 [userenv.development]
 VITE_API_URL = "https://workspaceapi-server-production-987b.up.railway.app"
