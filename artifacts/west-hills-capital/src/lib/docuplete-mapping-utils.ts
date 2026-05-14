@@ -31,6 +31,8 @@ export const MAPPING_FORMAT_OPTIONS: Array<{ value: MappingFormat; label: string
   { value: "last-four", label: "Last four", group: "Numbers" },
   { value: "currency", label: "Currency", group: "Numbers" },
   { value: "date-mm-dd-yyyy", label: "Date MM/DD/YYYY", group: "Dates" },
+  { value: "date-dd-mm-yyyy", label: "Date DD/MM/YYYY", group: "Dates" },
+  { value: "date-yyyy-mm-dd", label: "Date YYYY-MM-DD", group: "Dates" },
   { value: "checkbox-yes", label: "Checkbox mark when yes", group: "Checks" },
   { value: "signature", label: "Drawn / typed signature", group: "Signature" },
 ];
@@ -97,10 +99,22 @@ export function sampleValueForMapping(field: FieldItem | undefined, format: Mapp
     if (fmt === "last-four") return field.defaultValue.replace(/\D/g, "").slice(-4);
     if (fmt === "currency") { const n = parseFloat(field.defaultValue.replace(/[^\d.]/g, "")); return isNaN(n) ? field.defaultValue : `$${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`; }
     if (fmt === "date-mm-dd-yyyy") return field.defaultValue;
+    if (fmt === "date-dd-mm-yyyy" || fmt === "date-yyyy-mm-dd") {
+      const m = field.defaultValue.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (m) {
+        const [, mm, dd, yyyy] = m;
+        return fmt === "date-dd-mm-yyyy"
+          ? `${dd.padStart(2,"0")}/${mm.padStart(2,"0")}/${yyyy}`
+          : `${yyyy}-${mm.padStart(2,"0")}-${dd.padStart(2,"0")}`;
+      }
+      return field.defaultValue;
+    }
     return field.defaultValue;
   }
 
   if (field.type === "checkbox") return "X";
+  if (fmt === "date-dd-mm-yyyy") return "22/04/1965";
+  if (fmt === "date-yyyy-mm-dd") return "1965-04-22";
   if (field.type === "date" || fmt === "date-mm-dd-yyyy" || field.validationType === "date") return "04/22/1965";
   if ((field.type === "radio" || field.type === "dropdown") && field.options && field.options.length > 0) return field.options[0];
 

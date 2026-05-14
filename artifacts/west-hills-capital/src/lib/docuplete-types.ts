@@ -39,6 +39,8 @@ export type MappingFormat =
   | "last-four"
   | "currency"
   | "date-mm-dd-yyyy"
+  | "date-dd-mm-yyyy"
+  | "date-yyyy-mm-dd"
   | "checkbox-yes"
   | "signature";
 

@@ -55,6 +55,8 @@ export type DocupleteMappingFormat =
   | "last-four"
   | "currency"
   | "date-mm-dd-yyyy"
+  | "date-dd-mm-yyyy"
+  | "date-yyyy-mm-dd"
   | "checkbox-yes";
 
 export type DocupleteMappingItem = {
@@ -248,12 +250,14 @@ export function formatDocupleteMappedValue(value: string, mapping: DocupleteMapp
     const numeric = Number(text.replace(/[$,]/g, ""));
     return Number.isFinite(numeric) ? numeric.toLocaleString("en-US", { style: "currency", currency: "USD" }) : text;
   }
-  if (format === "date-mm-dd-yyyy") {
+  if (format === "date-mm-dd-yyyy" || format === "date-dd-mm-yyyy" || format === "date-yyyy-mm-dd") {
     const date = new Date(text);
     if (!Number.isNaN(date.getTime())) {
       const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
       const dd = String(date.getUTCDate()).padStart(2, "0");
       const yyyy = String(date.getUTCFullYear());
+      if (format === "date-dd-mm-yyyy") return `${dd}/${mm}/${yyyy}`;
+      if (format === "date-yyyy-mm-dd") return `${yyyy}-${mm}-${dd}`;
       return `${mm}/${dd}/${yyyy}`;
     }
   }
