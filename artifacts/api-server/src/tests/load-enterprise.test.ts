@@ -25,6 +25,13 @@ import http from "node:http";
 import { createHash, randomBytes } from "node:crypto";
 import { Pool } from "pg";
 
+// Skip gracefully in environments without a live API server (e.g. CI).
+// Set LOAD_TESTS_ENABLED=true explicitly to run these tests.
+const LOAD_TESTS_ENABLED = process.env["LOAD_TESTS_ENABLED"] === "true";
+const SKIP_OPTS = LOAD_TESTS_ENABLED
+  ? {}
+  : { skip: "LOAD_TESTS_ENABLED is not set — load tests require a live API server at localhost:8080" };
+
 // ── Config ─────────────────────────────────────────────────────────────────────
 
 const BASE_URL    = "http://localhost:8080";
@@ -168,6 +175,8 @@ const suffix = randomBytes(4).toString("hex");
 // ── Global before / after ─────────────────────────────────────────────────────
 
 before(async () => {
+  if (!LOAD_TESTS_ENABLED) return; // describes are skipped; nothing to set up
+
   const url = process.env["DATABASE_URL"];
   if (!url) throw new Error("DATABASE_URL must be set");
   pool = new Pool({ connectionString: url, max: 10 });
@@ -237,6 +246,7 @@ before(async () => {
 });
 
 after(async () => {
+  if (!LOAD_TESTS_ENABLED) return;
   if (pool && accountId) {
     // Delete child records before the account to satisfy FK constraints
     await pool.query(`DELETE FROM docuplete_audit_logs WHERE account_id = $1`, [accountId]);
@@ -255,7 +265,7 @@ after(async () => {
 // 1. Sessions List — read-heavy load
 // ═══════════════════════════════════════════════════════════════════════════════
 
-describe("Load Test — Sessions List (GET /api/v1/sessions)", () => {
+describe("Load Test — Sessions List (GET /api/v1/sessions)", SKIP_OPTS, () => {
   it(`sustains ${TOTAL_REQS} requests at ${CONCURRENCY} concurrent within thresholds`, async () => {
     const metrics = await runLoad(
       "GET /api/v1/sessions",
@@ -304,7 +314,7 @@ describe("Load Test — Sessions List (GET /api/v1/sessions)", () => {
 // 2. Bulk Session Creation — write-heavy load
 // ═══════════════════════════════════════════════════════════════════════════════
 
-describe("Load Test — Bulk Session Creation (POST /api/v1/sessions/bulk)", () => {
+describe("Load Test — Bulk Session Creation (POST /api/v1/sessions/bulk)", SKIP_OPTS, () => {
   it("creates sessions in bulk at sustained concurrency", async () => {
     const body = JSON.stringify({
       sessions: Array.from({ length: 5 }, () => ({
@@ -344,7 +354,7 @@ describe("Load Test — Bulk Session Creation (POST /api/v1/sessions/bulk)", () 
 // 3. SCIM Users List — read load
 // ═══════════════════════════════════════════════════════════════════════════════
 
-describe("Load Test — SCIM Users List (GET /api/scim/v2/Users)", () => {
+describe("Load Test — SCIM Users List (GET /api/scim/v2/Users)", SKIP_OPTS, () => {
   it(`sustains ${TOTAL_REQS} SCIM list requests within thresholds`, async () => {
     const metrics = await runLoad(
       "GET /api/scim/v2/Users",
@@ -374,7 +384,7 @@ describe("Load Test — SCIM Users List (GET /api/scim/v2/Users)", () => {
 // 4. Mixed concurrency stress test
 // ═══════════════════════════════════════════════════════════════════════════════
 
-describe("Stress Test — Mixed concurrent endpoint calls", () => {
+describe("Stress Test — Mixed concurrent endpoint calls", SKIP_OPTS, () => {
   it("handles simultaneous read and write requests without errors", async () => {
     const readFn = () => httpRequest({
       method:  "GET",
@@ -437,7 +447,7 @@ describe("Stress Test — Mixed concurrent endpoint calls", () => {
 // 5. Auth rejection load test (should never hit the DB)
 // ═══════════════════════════════════════════════════════════════════════════════
 
-describe("Load Test — Auth rejection throughput", () => {
+describe("Load Test — Auth rejection throughput", SKIP_OPTS, () => {
   it("rejects 100 invalid keys quickly without degradation", async () => {
     const metrics = await runLoad(
       "GET /api/v1/sessions (invalid key)",

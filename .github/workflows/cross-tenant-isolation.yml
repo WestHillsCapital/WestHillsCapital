@@ -45,6 +45,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Build SDK (required by sdk-enterprise tests)
+        run: pnpm --filter @docuplete/sdk build
+
       - name: Initialise database schema
         run: node --import tsx/esm scripts/init-test-db.ts
         working-directory: artifacts/api-server
