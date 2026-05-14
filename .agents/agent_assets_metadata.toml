@@ -29,3 +29,9 @@ id = "GCU-49Xo_-dL_FdO1rV_U"
 uri = "file://artifacts/west-hills-capital/public/images/apple-touch-icon.png"
 type = "image"
 title = "Mobile Bookmark Icon (apple-touch-icon)"
+
+[[outputs]]
+id = "yUjwkgEFPJLwJiHzlCdOV"
+uri = "file://artifacts/west-hills-capital/public/affiliate-program-agreement.pdf"
+type = "pdf"
+title = "Docuplete Affiliate Program Agreement (Draft)"
