@@ -675,8 +675,13 @@ function AffiliatesTab({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }
   const [loading,     setLoading]     = useState(true);
   const [error,       setError]       = useState<string | null>(null);
   const [selected,    setSelected]    = useState<AffiliateRow | null>(null);
-  const [commissions, setCommissions] = useState<CommissionRow[]>([]);
-  const [commLoading, setCommLoading] = useState(false);
+  const [commissions,   setCommissions]   = useState<CommissionRow[]>([]);
+  const [commLoading,   setCommLoading]   = useState(false);
+  const [referralStats, setReferralStats] = useState<{
+    total: number; active: number;
+    breakdown: { plan_tier: string; total: number; active: number }[];
+  } | null>(null);
+  const [statsLoading, setStatsLoading] = useState(false);
   const [actionMsg,   setActionMsg]   = useState<string | null>(null);
   const [showInvite,  setShowInvite]  = useState(false);
   const [invite,      setInvite]      = useState({ name: "", email: "", company: "", notes: "" });
@@ -707,11 +712,32 @@ function AffiliatesTab({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }
       .finally(() => setCommLoading(false));
   }
 
+  function loadReferralStats(affiliateId: number) {
+    setStatsLoading(true);
+    setReferralStats(null);
+    fetch(`${AFFILIATE_BASE}/${affiliateId}/referral-stats`, { headers: getAuthHeaders() })
+      .then(async (r) => {
+        const data = await r.json() as {
+          total?: number; active?: number;
+          breakdown?: { plan_tier: string; total: number; active: number }[];
+        };
+        setReferralStats({
+          total:     data.total     ?? 0,
+          active:    data.active    ?? 0,
+          breakdown: data.breakdown ?? [],
+        });
+      })
+      .catch(() => {})
+      .finally(() => setStatsLoading(false));
+  }
+
   function selectAffiliate(a: AffiliateRow) {
     setSelected(a);
     setCommissions([]);
+    setReferralStats(null);
     setActionMsg(null);
     loadCommissions(a.id);
+    loadReferralStats(a.id);
   }
 
   async function handleApprove(a: AffiliateRow) {
@@ -986,6 +1012,60 @@ function AffiliatesTab({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit }
                       Not yet accepted
                     </span>
                   )}
+                </div>
+
+                {/* Referred Accounts */}
+                <div className="px-5 py-4 border-b border-gray-100">
+                  <p className="text-xs font-semibold text-gray-700 mb-3">Referred Accounts</p>
+                  {statsLoading ? (
+                    <div className="flex justify-center py-3">
+                      <div className="w-4 h-4 border-2 border-gray-200 border-t-[#C49A38] rounded-full animate-spin" />
+                    </div>
+                  ) : referralStats ? (
+                    <>
+                      <div className="flex gap-6 mb-3 text-[11px]">
+                        <div>
+                          <span className="text-2xl font-bold text-[#0F1C3F]">{referralStats.total}</span>
+                          <span className="text-gray-400 ml-1">total</span>
+                        </div>
+                        <div>
+                          <span className="text-2xl font-bold text-green-700">{referralStats.active}</span>
+                          <span className="text-gray-400 ml-1">active</span>
+                        </div>
+                        {referralStats.total > 0 && referralStats.total !== referralStats.active && (
+                          <div>
+                            <span className="text-2xl font-bold text-gray-400">{referralStats.total - referralStats.active}</span>
+                            <span className="text-gray-400 ml-1">inactive</span>
+                          </div>
+                        )}
+                      </div>
+                      {referralStats.breakdown.length > 0 && (
+                        <div className="rounded-lg border border-gray-100 overflow-hidden">
+                          <table className="w-full text-[11px]">
+                            <thead>
+                              <tr className="bg-gray-50 border-b border-gray-100">
+                                <th className="px-3 py-1.5 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Plan</th>
+                                <th className="px-3 py-1.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Total</th>
+                                <th className="px-3 py-1.5 text-right text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Active</th>
+                              </tr>
+                            </thead>
+                            <tbody className="divide-y divide-gray-50">
+                              {referralStats.breakdown.map((b) => (
+                                <tr key={b.plan_tier}>
+                                  <td className="px-3 py-1.5">{planBadge(b.plan_tier)}</td>
+                                  <td className="px-3 py-1.5 text-right font-medium text-gray-700">{b.total}</td>
+                                  <td className="px-3 py-1.5 text-right text-green-700 font-medium">{b.active}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                      {referralStats.total === 0 && (
+                        <p className="text-xs text-gray-400">No referred accounts yet.</p>
+                      )}
+                    </>
+                  ) : null}
                 </div>
 
                 {/* Commissions */}

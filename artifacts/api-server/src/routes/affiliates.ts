@@ -357,6 +357,50 @@ router.post("/:id/connect", async (req, res) => {
   }
 });
 
+// GET /:id/referral-stats — account counts and plan-type breakdown for an affiliate
+router.get("/:id/referral-stats", async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!id) { res.status(400).json({ error: "Invalid id" }); return; }
+  const db = getDb();
+  try {
+    const { rows: summary } = await db.query<{ total: string; active: string }>(`
+      SELECT
+        COUNT(*)                                                             AS total,
+        COUNT(*) FILTER (WHERE acc.subscription_status = 'active')          AS active
+      FROM affiliate_referrals ar
+      LEFT JOIN accounts acc ON acc.stripe_customer_id = ar.stripe_customer_id
+      WHERE ar.affiliate_id = $1
+    `, [id]);
+
+    const { rows: breakdown } = await db.query<{
+      plan_tier: string; total: string; active: string;
+    }>(`
+      SELECT
+        COALESCE(acc.plan_tier, 'unknown')                                   AS plan_tier,
+        COUNT(*)                                                             AS total,
+        COUNT(*) FILTER (WHERE acc.subscription_status = 'active')          AS active
+      FROM affiliate_referrals ar
+      LEFT JOIN accounts acc ON acc.stripe_customer_id = ar.stripe_customer_id
+      WHERE ar.affiliate_id = $1
+      GROUP BY COALESCE(acc.plan_tier, 'unknown')
+      ORDER BY COUNT(*) DESC
+    `, [id]);
+
+    res.json({
+      total:     parseInt(summary[0]?.total  ?? "0", 10),
+      active:    parseInt(summary[0]?.active ?? "0", 10),
+      breakdown: breakdown.map((r) => ({
+        plan_tier: r.plan_tier,
+        total:     parseInt(r.total,  10),
+        active:    parseInt(r.active, 10),
+      })),
+    });
+  } catch (err) {
+    logger.error({ err }, "[Affiliates] Failed to load referral stats");
+    res.status(500).json({ error: "Failed to load referral stats." });
+  }
+});
+
 // GET /:id/commissions — list all commissions for an affiliate
 router.get("/:id/commissions", async (req, res) => {
   const id = parseInt(req.params.id, 10);
