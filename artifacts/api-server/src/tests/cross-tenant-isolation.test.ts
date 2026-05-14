@@ -35,6 +35,7 @@ import supertest from "supertest";
 import express from "express";
 import { Pool } from "pg";
 import docupleteRouter from "../routes/docuplete.js";
+import { initDb } from "../db.js";
 
 const MINIMAL_PDF = Buffer.from(
   "%PDF-1.4\n1 0 obj<</Type /Catalog /Pages 2 0 R>>endobj " +
@@ -72,6 +73,9 @@ describe("Cross-tenant data isolation", () => {
     if (!url) {
       throw new Error("DATABASE_URL must be set to run cross-tenant isolation tests");
     }
+    // Ensure all docuplete_* tables exist (creates them and runs the
+    // docufill_* → docuplete_* rename if this is a fresh CI database).
+    await initDb();
     pool = new Pool({ connectionString: url, max: 5 });
 
     const suffix = Date.now().toString(36);

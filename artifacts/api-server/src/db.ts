@@ -2065,41 +2065,41 @@ export async function initDb(): Promise<void> {
   // back into every subsequent system prompt so the name survives long sessions.
   await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS customer_first_name TEXT`);
 
-  // ── Rename all docuplete_* tables → docuplete_* ────────────────────────────
+  // ── Rename all docufill_* tables → docuplete_* ────────────────────────────
   // Rename the migration-state table first so the idempotency check below
   // works the same way on both existing and fresh installs.
-  await db.query(`ALTER TABLE IF EXISTS docuplete_migration_state RENAME TO docuplete_migration_state`).catch(() => {});
+  await db.query(`ALTER TABLE IF EXISTS docufill_migration_state RENAME TO docuplete_migration_state`).catch(() => {});
   const tablRenameApplied = await db.query(
     "SELECT 1 FROM docuplete_migration_state WHERE key = $1",
-    ["rename_docuplete_to_docuplete_v1"],
+    ["rename_docufill_to_docuplete_v1"],
   ).catch(() => ({ rows: [] as Record<string, unknown>[] }));
   if (!tablRenameApplied.rows[0]) {
     for (const [oldName, newName] of [
-      ["docuplete_audit_logs",         "docuplete_audit_logs"],
-      ["docuplete_compliance_tags",    "docuplete_compliance_tags"],
-      ["docuplete_custodians",         "docuplete_custodians"],
-      ["docuplete_depositories",       "docuplete_depositories"],
-      ["docuplete_esign_otps",         "docuplete_esign_otps"],
-      ["docuplete_field_groups",       "docuplete_field_groups"],
-      ["docuplete_field_group_usage",  "docuplete_field_group_usage"],
-      ["docuplete_fields",             "docuplete_fields"],
-      ["docuplete_field_versions",     "docuplete_field_versions"],
-      ["docuplete_groups",             "docuplete_groups"],
-      ["docuplete_interview_sessions", "docuplete_interview_sessions"],
-      ["docuplete_package_documents",  "docuplete_package_documents"],
-      ["docuplete_package_groups",     "docuplete_package_groups"],
-      ["docuplete_packages",           "docuplete_packages"],
-      ["docuplete_session_signers",    "docuplete_session_signers"],
-      ["docuplete_signing_events",     "docuplete_signing_events"],
-      ["docuplete_transaction_types",  "docuplete_transaction_types"],
+      ["docufill_audit_logs",         "docuplete_audit_logs"],
+      ["docufill_compliance_tags",    "docuplete_compliance_tags"],
+      ["docufill_custodians",         "docuplete_custodians"],
+      ["docufill_depositories",       "docuplete_depositories"],
+      ["docufill_esign_otps",         "docuplete_esign_otps"],
+      ["docufill_field_groups",       "docuplete_field_groups"],
+      ["docufill_field_group_usage",  "docuplete_field_group_usage"],
+      ["docufill_fields",             "docuplete_fields"],
+      ["docufill_field_versions",     "docuplete_field_versions"],
+      ["docufill_groups",             "docuplete_groups"],
+      ["docufill_interview_sessions", "docuplete_interview_sessions"],
+      ["docufill_package_documents",  "docuplete_package_documents"],
+      ["docufill_package_groups",     "docuplete_package_groups"],
+      ["docufill_packages",           "docuplete_packages"],
+      ["docufill_session_signers",    "docuplete_session_signers"],
+      ["docufill_signing_events",     "docuplete_signing_events"],
+      ["docufill_transaction_types",  "docuplete_transaction_types"],
     ] as const) {
       await db.query(`ALTER TABLE IF EXISTS ${oldName} RENAME TO ${newName}`).catch(() => {});
     }
     await db.query(
       "INSERT INTO docuplete_migration_state (key) VALUES ($1) ON CONFLICT (key) DO NOTHING",
-      ["rename_docuplete_to_docuplete_v1"],
+      ["rename_docufill_to_docuplete_v1"],
     ).catch(() => {});
-    logger.info("Renamed all docuplete_* tables → docuplete_*");
+    logger.info("Renamed all docufill_* tables → docuplete_*");
   }
 }
 
