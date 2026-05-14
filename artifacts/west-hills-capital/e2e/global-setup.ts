@@ -18,9 +18,9 @@ export default async function globalSetup(_config: FullConfig) {
 
   fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
 
-  // --- Production: real browser login via E2E_TEST_EMAIL + E2E_TEST_PASSWORD ---
-  if (isExternal && process.env.E2E_TEST_EMAIL && process.env.E2E_TEST_PASSWORD) {
-    console.log(`\n[e2e] logging in to ${BASE} as ${process.env.E2E_TEST_EMAIL}...\n`);
+  // --- Production: real browser login via E2E_EMAIL + E2E_TEST_PASSWORD ---
+  if (isExternal && process.env.E2E_EMAIL && process.env.E2E_TEST_PASSWORD) {
+    console.log(`\n[e2e] logging in to ${BASE} as ${process.env.E2E_EMAIL}...\n`);
 
     const executablePath = fs.existsSync(NIX_CHROMIUM) ? NIX_CHROMIUM : undefined;
     const browser = await chromium.launch({
@@ -32,38 +32,24 @@ export default async function globalSetup(_config: FullConfig) {
 
     // Navigate to sign-in
     await page.goto(`${BASE}/app/sign-in`, { waitUntil: "domcontentloaded" });
-    await page.waitForLoadState("networkidle", { timeout: 20_000 }).catch(() => {});
 
-    // Fill email
-    const emailInput = page.locator(
-      "input[name='identifier'], input[type='email'], input[name='email']"
-    ).first();
+    // Step 1: fill email and press Enter
+    // (pressing Enter avoids accidentally clicking "Continue with Google")
+    const emailInput = page.locator("input[name='identifier']").first();
     await emailInput.waitFor({ state: "visible", timeout: 15_000 });
-    await emailInput.fill(process.env.E2E_TEST_EMAIL);
+    await emailInput.fill(process.env.E2E_EMAIL!);
+    await emailInput.press("Enter");
 
-    // Click Continue / Next
-    const continueBtn = page
-      .locator("button")
-      .filter({ hasText: /continue|next/i })
-      .first();
-    await continueBtn.click();
-    await page.waitForTimeout(1_500);
-
-    // Fill password (may appear on same page or next step)
-    const passwordInput = page.locator("input[type='password']").first();
+    // Step 2: Clerk navigates to /factor-one where the password field is enabled.
+    await page.waitForURL(/sign-in\/factor-one/, { timeout: 15_000 });
+    const passwordInput = page.locator("input[name='password']").first();
     await passwordInput.waitFor({ state: "visible", timeout: 10_000 });
-    await passwordInput.fill(process.env.E2E_TEST_PASSWORD);
+    await passwordInput.fill(process.env.E2E_TEST_PASSWORD!);
+    await passwordInput.press("Enter");
 
-    // Click Continue / Sign in
-    const signInBtn = page
-      .locator("button[type='submit'], button")
-      .filter({ hasText: /continue|sign in|log in/i })
-      .first();
-    await signInBtn.click();
-
-    // Wait until we leave the sign-in page
+    // Step 3: Wait until we fully leave sign-in (any sign-in sub-path)
     await page
-      .waitForURL((url) => !url.pathname.includes("sign-in"), { timeout: 20_000 })
+      .waitForURL((url) => !url.pathname.startsWith("/app/sign-in"), { timeout: 20_000 })
       .catch(() => {});
     await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
 
@@ -82,7 +68,7 @@ export default async function globalSetup(_config: FullConfig) {
   // --- External URL without credentials: skip auth, run only unauthenticated tests ---
   if (isExternal) {
     console.warn(
-      `\n[e2e] targeting external URL ${BASE} — E2E_TEST_EMAIL not set, skipping auth setup.\n`
+      `\n[e2e] targeting external URL ${BASE} — E2E_EMAIL not set, skipping auth setup.\n`
     );
     fs.writeFileSync(AUTH_FILE, JSON.stringify({ cookies: [], origins: [] }));
     return;

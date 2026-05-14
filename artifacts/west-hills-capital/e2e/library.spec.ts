@@ -32,7 +32,7 @@ test.describe("Field Library — unauthenticated", () => {
 
 test.describe("Field Library — authenticated", () => {
   test.beforeEach(() => {
-    if (!process.env.CLERK_SECRET_KEY && !process.env.E2E_TEST_EMAIL) test.skip();
+    if (!process.env.CLERK_SECRET_KEY && !process.env.E2E_EMAIL) test.skip();
   });
 
   test("Library tab is visible and clickable", async ({ page }) => {

@@ -1,1 +1,85 @@
-{"cookies":[],"origins":[]}
+{
+  "cookies": [
+    {
+      "name": "_ga",
+      "value": "GA1.1.1616947073.1778721364",
+      "domain": ".westhillscapital.com",
+      "path": "/",
+      "expires": 1813281364.12132,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__client",
+      "value": "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNsaWVudF8zRGg1R08zMTJ6V1drSU9GTXNKenBLdVV2Y0siLCJyb3RhdGluZ190b2tlbiI6Ijl3aHJhejQxYjh4dHNzeWd5OWI0bnBuYzZlbndpMTR2cXg5dnFyMmMifQ.eCpUVwJBNKsk-nfGaTmAeOgCgM08QZEwb-YquCwRq4aYkxJipq-njSE_4V0fWqJH6Neh3itsgY35524UEGwWm0Y2LJaQ_NzcXsxIKNG8VnDkYTNqC7hUdPbt_HHz4tkriGHjJpHoZ4r5U47IAStRXKV25x7Bt9a8Pgh0EcMyPdCh7_0rRSx9e9c0KPO5aDZjmM1sy0QHOH1KSVMLRzB0HkXhMcToQohU_SC8aNKXZNiwv3sGykqLT8zkQMxynWJyXVAvgGSY7JFWlBMmw-y9fHQxzOZpHvw5h1ofoTSCVcODJXdkt8KQjgPjxI8zCwl1ApyyRxWnAdYL_aNxZ-UN4A",
+      "domain": ".clerk.westhillscapital.com",
+      "path": "/",
+      "expires": 1813281364.634467,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__client_uat",
+      "value": "0",
+      "domain": ".westhillscapital.com",
+      "path": "/",
+      "expires": 1813281366.122979,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__client_uat_s7ltpEN9",
+      "value": "0",
+      "domain": ".westhillscapital.com",
+      "path": "/",
+      "expires": 1813281366.123187,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "Lax"
+    },
+    {
+      "name": "__cf_bm",
+      "value": "fHB9xQeQZqgrkw1YF5DTLvLL42eR6LvUwZSy23moE9A-1778721364-1.0.1.1-euG3.Qyc7gMMq1dnQZdS7WBGXW74oohwSREiOQkMRfbVu_qf4u3L5mjrmV8Wt3.mSUFOQ2pZgSL8gKqyxjsV9qLPEDNErznaZY30_SOOtOQ",
+      "domain": ".clerk.westhillscapital.com",
+      "path": "/",
+      "expires": 1778723164.63487,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_cfuvid",
+      "value": "CI5YBJoCIO0TuFgnWtRc5P6FzKAuJZhzsxzbCTHNC0E-1778721364627-0.0.1.1-604800000",
+      "domain": ".clerk.westhillscapital.com",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "_ga_CL0N3NWYHM",
+      "value": "GS2.1.s1778721364$o1$g1$t1778721366$j58$l0$h0",
+      "domain": ".westhillscapital.com",
+      "path": "/",
+      "expires": 1813281366.847244,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Lax"
+    }
+  ],
+  "origins": [
+    {
+      "origin": "https://www.westhillscapital.com",
+      "localStorage": [
+        {
+          "name": "__clerk_environment",
+          "value": "{\"value\":{\"object\":\"environment\",\"auth_config\":{\"claimed_at\":null,\"id\":\"\",\"object\":\"auth_config\",\"reverification\":true,\"single_session_mode\":true,\"session_minter\":false},\"display_config\":{\"object\":\"display_config\",\"after_create_organization_url\":\"https://westhillscapital.com\",\"after_join_waitlist_url\":\"https://westhillscapital.com\",\"after_leave_organization_url\":\"https://westhillscapital.com\",\"after_sign_in_url\":\"https://westhillscapital.com\",\"after_sign_out_all_url\":\"https://accounts.westhillscapital.com/sign-in\",\"after_sign_out_one_url\":\"https://accounts.westhillscapital.com/sign-in/choose\",\"after_sign_up_url\":\"https://westhillscapital.com\",\"after_switch_session_url\":\"https://westhillscapital.com\",\"application_name\":\"My Application\",\"branded\":true,\"captcha_heartbeat\":false,\"captcha_oauth_bypass\":[],\"captcha_provider\":\"turnstile\",\"captcha_public_key_invisible\":\"0x4AAAAAAAFV93qQdS0ycilX\",\"captcha_public_key\":\"0x4AAAAAAAWXJGBD7bONzLBd\",\"captcha_widget_type\":\"smart\",\"clerk_js_version\":\"6\",\"create_organization_url\":\"https://accounts.westhillscapital.com/create-organization\",\"favicon_image_url\":\"\",\"home_url\":\"https://westhillscapital.com\",\"id\":\"display_config_3Cx9C8gj1S4OiVh6shWRp7RCTtj\",\"instance_environment_type\":\"production\",\"logo_image_url\":\"\",\"organization_profile_url\":\"https://accounts.westhillscapital.com/organization\",\"preferred_sign_in_strategy\":\"password\",\"privacy_policy_url\":\"\",\"show_devmode_warning\":false,\"sign_in_url\":\"https://accounts.westhillscapital.com/sign-in\",\"sign_up_url\":\"https://accounts.westhillscapital.com/sign-up\",\"support_email\":\"\",\"terms_url\":\"\",\"theme\":{\"buttons\":{\"font_color\":\"#ffffff\",\"font_family\":\"\\\"Source Sans Pro\\\", sans-serif\",\"font_weight\":\"600\"},\"general\":{\"color\":\"#6c47ff\",\"padding\":\"1em\",\"box_shadow\":\"0 2px 8px rgba(0, 0, 0, 0.2)\",\"font_color\":\"#151515\",\"font_family\":\"\\\"Source Sans Pro\\\", sans-serif\",\"border_radius\":\"0.5em\",\"background_color\":\"#ffffff\",\"label_font_weight\":\"600\"},\"accounts\":{\"background_color\":\"#ffffff\"}},\"user_profile_url\":\"https://accounts.westhillscapital.com/user\",\"waitlist_url\":\"https://accounts.westhillscapital.com/waitlist\"},\"id\":\"\",\"maintenance_mode\":false,\"client_debug_mode\":false,\"partitioned_cookies\":false,\"organization_settings\":{\"actions\":{\"admin_delete\":true},\"domains\":{\"enabled\":false,\"enrollment_modes\":[],\"default_role\":\"\"},\"enabled\":false,\"max_allowed_memberships\":5},\"user_settings\":{\"actions\":{\"delete_self\":true,\"create_organization\":true,\"create_organizations_limit\":null},\"attributes\":{\"email_address\":{\"enabled\":true,\"required\":true,\"used_for_first_factor\":true,\"first_factors\":[\"email_code\"],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[\"email_code\"],\"verify_at_sign_up\":true,\"immutable\":false,\"name\":\"email_address\"},\"phone_number\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"phone_number\"},\"username\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"username\"},\"web3_wallet\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"web3_wallet\"},\"first_name\":{\"enabled\":true,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"first_name\"},\"last_name\":{\"enabled\":true,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"last_name\"},\"password\":{\"enabled\":true,\"required\":true,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"password\"},\"authenticator_app\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"authenticator_app\"},\"ticket\":{\"enabled\":true,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"ticket\"},\"backup_code\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"backup_code\"},\"passkey\":{\"enabled\":false,\"required\":false,\"used_for_first_factor\":false,\"first_factors\":[],\"used_for_second_factor\":false,\"second_factors\":[],\"verifications\":[],\"verify_at_sign_up\":false,\"immutable\":false,\"name\":\"passkey\"}},\"passkey_settings\":{\"allow_autofill\":true,\"show_sign_in_button\":true},\"password_settings\":{\"disable_hibp\":false,\"min_length\":8,\"max_length\":72,\"require_special_char\":false,\"require_numbers\":false,\"require_uppercase\":false,\"require_lowercase\":false,\"show_zxcvbn\":false,\"min_zxcvbn_strength\":0,\"enforce_hibp_on_sign_in\":true,\"allowed_special_characters\":\"!\\\"#$%&'()*+,-./:;<=>?@[]^_`{|}~\"},\"sign_in\":{\"second_factor\":{\"required\":false}},\"sign_up\":{\"captcha_enabled\":true,\"captcha_widget_type\":\"smart\",\"custom_action_required\":false,\"progressive\":true,\"mode\":\"public\",\"legal_consent_enabled\":false,\"mfa\":{\"required\":false}},\"social\":{\"oauth_google\":{\"enabled\":true,\"required\":false,\"authenticatable\":true,\"block_email_subaddresses\":true,\"strategy\":\"oauth_google\",\"not_selectable\":false,\"deprecated\":false,\"name\":\"Google\",\"logo_url\":\"https://img.clerk.com/static/google.png\"}}},\"commerce_settings\":{\"billing\":{\"stripe_publishable_key\":null,\"organization\":{\"enabled\":false,\"has_paid_plans\":false},\"user\":{\"enabled\":false,\"has_paid_plans\":false}}},\"api_keys_settings\":{\"user_api_keys_enabled\":false,\"orgs_api_keys_enabled\":false},\"protect_config\":{\"object\":\"protect_config\",\"id\":\"\"}},\"exp\":1778807764594}"
+        }
+      ]
+    }
+  ]
+}

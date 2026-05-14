@@ -5,9 +5,9 @@ export const modules: ModuleMap = {
   "./components/mockups/acroform-review/FieldReview.tsx": () => import("../components/mockups/acroform-review/FieldReview.tsx"),
   "./components/mockups/acroform-review/ReviewStats.tsx": () => import("../components/mockups/acroform-review/ReviewStats.tsx"),
   "./components/mockups/acroform-review/VisualMapper.tsx": () => import("../components/mockups/acroform-review/VisualMapper.tsx"),
+  "./components/mockups/whc-internal/PolishedWarmth.tsx": () => import("../components/mockups/whc-internal/PolishedWarmth.tsx"),
+  "./components/mockups/whc-internal/StructuredPrecision.tsx": () => import("../components/mockups/whc-internal/StructuredPrecision.tsx"),
   "./components/mockups/docufill-layouts/CommandDeck.tsx": () => import("../components/mockups/docufill-layouts/CommandDeck.tsx"),
   "./components/mockups/docufill-layouts/LeftRailNav.tsx": () => import("../components/mockups/docufill-layouts/LeftRailNav.tsx"),
-  "./components/mockups/docufill-layouts/MasterDetail.tsx": () => import("../components/mockups/docufill-layouts/MasterDetail.tsx"),
-  "./components/mockups/whc-internal/PolishedWarmth.tsx": () => import("../components/mockups/whc-internal/PolishedWarmth.tsx"),
-  "./components/mockups/whc-internal/StructuredPrecision.tsx": () => import("../components/mockups/whc-internal/StructuredPrecision.tsx")
+  "./components/mockups/docufill-layouts/MasterDetail.tsx": () => import("../components/mockups/docufill-layouts/MasterDetail.tsx")
 };
