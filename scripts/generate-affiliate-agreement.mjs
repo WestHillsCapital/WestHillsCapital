@@ -79,9 +79,14 @@ doc.y = 132;
 headerRule();
 
 body(
-  "This Affiliate Program Agreement (\"Agreement\") is entered into between West Hills Capital, LLC " +
-  "(\"Company,\" \"we,\" or \"us\"), the operator of the Docuplete document-automation platform, and the " +
-  "individual or entity that accepts this Agreement electronically (\"Affiliate,\" \"you,\" or \"your\").\n\n" +
+  "This Affiliate Program Agreement (\"Agreement\") is entered into between West Hills Capital, a " +
+  "Wyoming company (\"Company,\" \"we,\" or \"us\"), the operator of the Docuplete document-automation " +
+  "platform, and the individual or entity that accepts this Agreement electronically " +
+  "(\"Affiliate,\" \"you,\" or \"your\").\n\n" +
+  "Note: Docuplete is anticipated to be incorporated as a Florida Corporation. Upon formation, " +
+  "this Agreement and all rights and obligations hereunder will be assigned to and assumed by " +
+  "Docuplete, Inc. (Florida) pursuant to the assignment provisions in Section 15. Affiliates will " +
+  "be notified of any such assignment by email.\n\n" +
   "By checking the acceptance box on the Docuplete affiliate application form, you agree to be bound by " +
   "all terms of this Agreement. If you are accepting on behalf of a company or other legal entity, you " +
   "represent that you have the authority to bind that entity."
@@ -284,12 +289,13 @@ body(
 sectionTitle("14. Governing Law; Dispute Resolution");
 
 body(
-  "This Agreement is governed by the laws of the State of California, without regard to conflict-of-law " +
-  "principles. Any dispute arising under or relating to this Agreement shall first be subject to " +
+  "This Agreement is governed by the laws of the State of Wyoming, without regard to conflict-of-law " +
+  "principles. Upon assignment to Docuplete, Inc. (Florida), the governing law will transition to the " +
+  "State of Florida. Any dispute arising under or relating to this Agreement shall first be subject to " +
   "good-faith negotiation between the parties. If unresolved within 30 days, disputes shall be " +
   "submitted to binding arbitration administered by the American Arbitration Association under its " +
-  "Commercial Arbitration Rules, conducted in Los Angeles County, California. Judgment on the award " +
-  "may be entered in any court of competent jurisdiction."
+  "Commercial Arbitration Rules, conducted remotely or at a mutually agreed location. Judgment on " +
+  "the award may be entered in any court of competent jurisdiction."
 );
 
 // ── 15 GENERAL ────────────────────────────────────────────────────────────
@@ -303,7 +309,7 @@ bullet([
   "Waiver: Failure to enforce any provision is not a waiver of the right to enforce it later.",
   "Assignment: The Affiliate may not assign this Agreement without prior written consent. The " +
   "Company may assign it in connection with a merger, acquisition, or sale of substantially all assets.",
-  "Notices: Legal notices to the Company should be sent to: West Hills Capital, LLC, " +
+  "Notices: Legal notices to the Company should be sent to: West Hills Capital (a Wyoming company), " +
   "affiliates@westhillscapital.com.",
 ]);
 
@@ -334,7 +340,7 @@ doc.moveTo(col2x, lineY).lineTo(col2x + 180, lineY).strokeColor("#aaaaaa").lineW
 
 doc.font("Helvetica").fontSize(8.5).fillColor(LIGHT)
    .text("Affiliate — Name",                col1x, lineY + 5)
-   .text("West Hills Capital, LLC",          col2x, lineY + 5);
+   .text("West Hills Capital (Wyoming)",      col2x, lineY + 5);
 
 doc.moveDown(2);
 const lineY2 = doc.y;
@@ -352,7 +358,7 @@ for (let i = range.start; i < range.start + range.count; i++) {
   doc.switchToPage(i);
   doc.font("Helvetica").fontSize(8).fillColor(LIGHT)
      .text(
-       `Docuplete Affiliate Program Agreement  ·  West Hills Capital, LLC  ·  Page ${i + 1}`,
+       `Docuplete Affiliate Program Agreement  ·  West Hills Capital (Wyoming)  ·  Page ${i + 1}`,
        72, 756, { align: "center", width: 468 }
      );
 }
