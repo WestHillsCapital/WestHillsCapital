@@ -33,7 +33,7 @@ test.describe("Packages — unauthenticated", () => {
 
 test.describe("Packages — authenticated", () => {
   test.beforeEach(() => {
-    if (!process.env.CLERK_SECRET_KEY) test.skip();
+    if (!process.env.CLERK_SECRET_KEY && !process.env.E2E_TEST_EMAIL) test.skip();
   });
 
   test("Packages tab renders without crash", async ({ page }) => {

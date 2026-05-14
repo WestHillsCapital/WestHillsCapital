@@ -73,9 +73,7 @@ test.describe("/app portal — unauthenticated", () => {
 
 test.describe("/app portal — authenticated", () => {
   test.beforeEach(() => {
-    if (!process.env.CLERK_SECRET_KEY) {
-      test.skip();
-    }
+    if (!process.env.CLERK_SECRET_KEY && !process.env.E2E_TEST_EMAIL) test.skip();
   });
 
   test("sessions page loads and shows sessions UI", async ({ page }) => {
