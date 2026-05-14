@@ -484,7 +484,7 @@ function DocPreviewDrawer({ pdfUrl, onClose }: { pdfUrl: string | null | undefin
       <div className="flex-1 overflow-hidden">
         {pdfUrl ? (
           <iframe
-            src={pdfUrl}
+            src={`${pdfUrl}#navpanes=0`}
             className="w-full h-full border-none"
             title="Document preview"
           />
