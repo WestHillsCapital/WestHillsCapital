@@ -14,6 +14,8 @@ const APP = "/app";
 const SIGN_IN = "/app/sign-in";
 
 test.describe("Packages — unauthenticated", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test("unauthenticated /app redirects to sign-in without crash", async ({ page }) => {
     await page.goto(APP, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(5_000);

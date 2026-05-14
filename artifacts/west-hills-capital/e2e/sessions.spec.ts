@@ -14,6 +14,8 @@ const SESSIONS = "/app/sessions";
 const SIGN_IN = "/app/sign-in";
 
 test.describe("Sessions — unauthenticated", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test("unauthenticated /app/sessions redirects to sign-in without crash", async ({ page }) => {
     await page.goto(SESSIONS, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(5_000);
@@ -41,8 +43,9 @@ test.describe("Sessions — authenticated", () => {
 
     await expect(page.locator("text=Something went wrong")).not.toBeVisible({ timeout: 3_000 }).catch(() => {});
 
-    const sessionsTab = page.locator("button, [role='tab']").filter({ hasText: /^sessions$/i }).first();
-    await expect(sessionsTab).toBeVisible({ timeout: 10_000 });
+    // Page heading is "Sessions"; tabs within are "Interviews" and "Batch Runs"
+    const heading = page.locator("h1, h2, h3").filter({ hasText: /^sessions$/i }).first();
+    await expect(heading).toBeVisible({ timeout: 10_000 });
   });
 
   test("sessions list renders table or empty state without crash", async ({ page }) => {

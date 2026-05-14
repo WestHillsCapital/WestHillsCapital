@@ -14,6 +14,8 @@ const SESSIONS = "/app/sessions";
 const SIGN_IN = "/app/sign-in";
 
 test.describe("Batch Runs — unauthenticated", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test("unauthenticated /app/sessions redirects to sign-in without crash", async ({ page }) => {
     await page.goto(SESSIONS, { waitUntil: "domcontentloaded" });
     await page.waitForTimeout(5_000);

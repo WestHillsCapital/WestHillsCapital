@@ -21,6 +21,8 @@ const SESSIONS = "/app/sessions";
 const SETTINGS = "/app/settings";
 
 test.describe("/app portal — unauthenticated", () => {
+  test.use({ storageState: { cookies: [], origins: [] } });
+
   test("sign-in page renders Clerk UI and is not blank", async ({ page }) => {
     await page.goto(SIGN_IN, { waitUntil: "domcontentloaded" });
     await page.waitForLoadState("networkidle", { timeout: 15_000 }).catch(() => {});
