@@ -24,6 +24,7 @@ import express from "express";
 import { Pool } from "pg";
 import sandboxRouter from "../routes/sandbox.js";
 import { publicDocupleteRouter } from "../routes/docuplete.js";
+import { initDb } from "../db.js";
 
 // ── Test app ──────────────────────────────────────────────────────────────────
 // Mounts both the sandbox router and the public Docuplete router at the same
@@ -65,6 +66,8 @@ describe("Sandbox demo – form submission flow", () => {
     if (!url) {
       throw new Error("DATABASE_URL must be set to run sandbox flow tests");
     }
+    // Ensure all docuplete_* tables exist on a fresh CI database.
+    await initDb();
     pool = new Pool({ connectionString: url, max: 3 });
     app  = buildSandboxTestApp();
   });

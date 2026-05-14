@@ -30,9 +30,15 @@ import express from "express";
 import supertest from "supertest";
 import { Pool } from "pg";
 
+import { readFileSync } from "node:fs";
+import { resolve, dirname } from "node:path";
+import { fileURLToPath } from "node:url";
 import headlessSessionsRouter from "../routes/headlessSessions.js";
 import customDomainRouter from "../routes/customDomain.js";
 import scimRouter from "../routes/scim.js";
+import { initDb, getDb } from "../db.js";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // ── Shared state ───────────────────────────────────────────────────────────────
 
@@ -73,6 +79,14 @@ function buildBypassApp(accountId: number, router: express.Router, mountPath = "
 before(async () => {
   const url = process.env["DATABASE_URL"];
   if (!url) throw new Error("DATABASE_URL must be set");
+  // Ensure all docuplete_* tables exist and enterprise tables/columns are present
+  // so this test is self-contained on a fresh CI database.
+  await initDb();
+  const enterpriseSql = readFileSync(
+    resolve(__dirname, "../../src/lib/migrate-enterprise.sql"),
+    "utf8",
+  );
+  await getDb().query(enterpriseSql);
   pool = new Pool({ connectionString: url, max: 5 });
 
   // Create test account

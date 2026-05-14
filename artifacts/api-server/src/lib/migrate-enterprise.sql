@@ -3,27 +3,27 @@
 -- Run this against your PostgreSQL database to enable all 8 enterprise features.
 --
 -- Tables added:
---   1. docufill_audit_logs         — Audit log API (Feature 4)
---   2. docufill_session_signers    — Multi-party sequential signing (Feature 8)
---   3. scim_tokens                 — SCIM 2.0 provisioning (Feature 7)
+--   1. docuplete_audit_logs         — Audit log API (Feature 4)
+--   2. docuplete_session_signers    — Multi-party sequential signing (Feature 8)
+--   3. scim_tokens                  — SCIM 2.0 provisioning (Feature 7)
 --
 -- Columns added:
 --   accounts.reminder_enabled     — Reminder config (Feature 5, if not present)
 --   accounts.reminder_days        — Reminder config (Feature 5, if not present)
---   docufill_interview_sessions.reminder_enabled — Per-session reminder override
---   docufill_interview_sessions.reminder_days    — Per-session reminder override
---   docufill_interview_sessions.first_viewed_at  — session.viewed webhook tracking
---   docufill_interview_sessions.first_started_at — session.started webhook tracking
+--   docuplete_interview_sessions.reminder_enabled — Per-session reminder override
+--   docuplete_interview_sessions.reminder_days    — Per-session reminder override
+--   docuplete_interview_sessions.first_viewed_at  — session.viewed webhook tracking
+--   docuplete_interview_sessions.first_started_at — session.started webhook tracking
 -- =============================================================================
 
 BEGIN;
 
 -- ---------------------------------------------------------------------------
--- 1. docufill_audit_logs — general-purpose session audit trail
+-- 1. docuplete_audit_logs — general-purpose session audit trail
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS docufill_audit_logs (
+CREATE TABLE IF NOT EXISTS docuplete_audit_logs (
   id           SERIAL PRIMARY KEY,
-  session_id   INTEGER REFERENCES docufill_interview_sessions(id) ON DELETE CASCADE,
+  session_id   INTEGER REFERENCES docuplete_interview_sessions(id) ON DELETE CASCADE,
   session_token TEXT NOT NULL,
   account_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   event        TEXT NOT NULL,
@@ -35,21 +35,21 @@ CREATE TABLE IF NOT EXISTS docufill_audit_logs (
   created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS docufill_audit_logs_session_token_idx
-  ON docufill_audit_logs (session_token);
+CREATE INDEX IF NOT EXISTS docuplete_audit_logs_session_token_idx
+  ON docuplete_audit_logs (session_token);
 
-CREATE INDEX IF NOT EXISTS docufill_audit_logs_session_id_idx
-  ON docufill_audit_logs (session_id);
+CREATE INDEX IF NOT EXISTS docuplete_audit_logs_session_id_idx
+  ON docuplete_audit_logs (session_id);
 
-CREATE INDEX IF NOT EXISTS docufill_audit_logs_account_created_idx
-  ON docufill_audit_logs (account_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS docuplete_audit_logs_account_created_idx
+  ON docuplete_audit_logs (account_id, created_at DESC);
 
 -- ---------------------------------------------------------------------------
--- 2. docufill_session_signers — multi-party sequential signing
+-- 2. docuplete_session_signers — multi-party sequential signing
 -- ---------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS docufill_session_signers (
+CREATE TABLE IF NOT EXISTS docuplete_session_signers (
   id              SERIAL PRIMARY KEY,
-  session_id      INTEGER NOT NULL REFERENCES docufill_interview_sessions(id) ON DELETE CASCADE,
+  session_id      INTEGER NOT NULL REFERENCES docuplete_interview_sessions(id) ON DELETE CASCADE,
   account_id      INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
   signer_order    INTEGER NOT NULL DEFAULT 0,
   email           TEXT NOT NULL,
@@ -66,14 +66,14 @@ CREATE TABLE IF NOT EXISTS docufill_session_signers (
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX IF NOT EXISTS docufill_session_signers_session_idx
-  ON docufill_session_signers (session_id);
+CREATE INDEX IF NOT EXISTS docuplete_session_signers_session_idx
+  ON docuplete_session_signers (session_id);
 
-CREATE INDEX IF NOT EXISTS docufill_session_signers_token_idx
-  ON docufill_session_signers (token);
+CREATE INDEX IF NOT EXISTS docuplete_session_signers_token_idx
+  ON docuplete_session_signers (token);
 
-CREATE INDEX IF NOT EXISTS docufill_session_signers_account_idx
-  ON docufill_session_signers (account_id);
+CREATE INDEX IF NOT EXISTS docuplete_session_signers_account_idx
+  ON docuplete_session_signers (account_id);
 
 -- ---------------------------------------------------------------------------
 -- 3. scim_tokens — bearer tokens for SCIM 2.0 provisioning
@@ -96,12 +96,12 @@ CREATE INDEX IF NOT EXISTS scim_tokens_hash_idx    ON scim_tokens (token_hash);
 -- 4. Per-session reminder config columns
 --    (accounts table should already have interview_reminder_enabled/days)
 -- ---------------------------------------------------------------------------
-ALTER TABLE docufill_interview_sessions
+ALTER TABLE docuplete_interview_sessions
   ADD COLUMN IF NOT EXISTS reminder_enabled BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS reminder_days    INTEGER NOT NULL DEFAULT 2;
 
 -- Track first-view and first-answer for lifecycle webhooks
-ALTER TABLE docufill_interview_sessions
+ALTER TABLE docuplete_interview_sessions
   ADD COLUMN IF NOT EXISTS first_viewed_at  TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS first_started_at TIMESTAMPTZ;
 
