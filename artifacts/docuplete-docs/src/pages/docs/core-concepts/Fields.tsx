@@ -22,7 +22,7 @@ export default function Fields() {
             <tr><td><code>radio</code></td><td>Pick one from a list</td><td>Selected option label</td></tr>
             <tr><td><code>select</code></td><td>Dropdown — pick one from a list</td><td>Selected option label</td></tr>
             <tr><td><code>multi-select</code></td><td>Pick multiple from a list</td><td>Comma-separated labels</td></tr>
-            <tr><td><code>signature</code></td><td>E-sign field (Enterprise/Pro)</td><td>Signature image</td></tr>
+            <tr><td><code>signature</code></td><td>E-sign field (all plans)</td><td>Signature image</td></tr>
             <tr><td><code>initials</code></td><td>Initials e-sign field</td><td>Initials image</td></tr>
           </tbody>
         </table>

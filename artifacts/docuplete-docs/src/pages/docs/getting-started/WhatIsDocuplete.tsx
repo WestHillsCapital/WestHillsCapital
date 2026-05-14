@@ -51,7 +51,7 @@ export default function WhatIsDocuplete() {
 
       <h3>Webhooks & API access</h3>
       <p>
-        Enterprise accounts can configure a webhook URL per package. When a client submits, Docuplete fires a signed HTTP POST to your server with the submitted answers. This enables real-time integration with CRMs, databases, or downstream workflows.
+        Developer and Enterprise accounts can configure a webhook URL per package. When a client submits, Docuplete fires a signed HTTP POST to your server with the submitted answers. This enables real-time integration with CRMs, databases, or downstream workflows. The Developer plan also includes a full REST API with TypeScript and Python SDKs, headless interview embedding, and bulk session creation.
       </p>
 
       <h3>Integrations</h3>
