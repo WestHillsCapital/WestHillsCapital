@@ -76,9 +76,24 @@ async function getOrCreateSandbox(): Promise<SandboxCtx> {
     client.release();
   }
 
-  // Seed demo package outside the advisory-lock transaction so seedDemoPackage
-  // can use its own internal mutex (docuplete_migration_state ON CONFLICT).
-  if (justCreated) {
+  // Check whether a demo package actually exists — the account may be present
+  // in the DB (justCreated = false) but its package deleted or never seeded.
+  const existingPkg = await db.query<{ id: number }>(
+    `SELECT id FROM docuplete_packages WHERE account_id = $1 AND status = 'active' LIMIT 1`,
+    [accountId],
+  );
+  const packageMissing = existingPkg.rows.length === 0;
+
+  if (justCreated || packageMissing) {
+    if (packageMissing && !justCreated) {
+      // Clear the migration-state guard so seedDemoPackage can run again.
+      // This handles the case where the account pre-exists but the package
+      // was deleted (manually or by a migration), or the original seed failed.
+      await db.query(
+        `DELETE FROM docuplete_migration_state WHERE key = $1`,
+        [`demo_package_account_${accountId}`],
+      );
+    }
     await seedDemoPackage(db, accountId);
   }
 
