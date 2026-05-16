@@ -201,6 +201,7 @@ export interface DocupleteInterviewPanelProps {
   handleDownloadInterviewCsv: () => void;
   downloadGeneratedPacket: () => void;
   handleInterviewFieldBlur: (field: FieldItem, value: string) => void;
+  clearSession: () => void;
   sendForSignature: (deferredFieldIds: Set<string>) => void;
   sigLink: string | null;
   sigLinkCopied: boolean;
@@ -248,7 +249,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
     goBuilderStep, setTab, launchStandaloneInterview, generateCustomerLink,
     copyCustomerLink, handleSendLinkByEmail, saveAnswers, generatePacket,
     handleDownloadInterviewCsv, downloadGeneratedPacket, handleInterviewFieldBlur,
-    sendForSignature, sigLink, sigLinkCopied, isSendingForSig,
+    clearSession, sendForSignature, sigLink, sigLinkCopied, isSendingForSig,
     showSigSendForm, setShowSigSendForm,
     sigSendEmail, setSigSendEmail, sigSendName, setSigSendName,
     sigSendMessage, setSigSendMessage,
@@ -548,7 +549,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
           <div>
             <button
               type="button"
-              onClick={() => setInterviewSubTab("interviews")}
+              onClick={() => { clearSession(); setInterviewSubTab("interviews"); }}
               className="flex items-center gap-1 text-xs text-[#8A9BB8] hover:text-[#334155] mb-3 transition-colors"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
