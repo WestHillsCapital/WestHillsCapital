@@ -89,6 +89,10 @@ export function InternalLayout({ children }: InternalLayoutProps) {
                     {user.name.charAt(0).toUpperCase()}
                   </div>
                 )}
+                <span className="text-xs text-[#4A5B7A] font-medium hidden sm:block">
+                  {user.name.split(" ")[0]}
+                </span>
+                <div className="w-px h-4 bg-[#DDD5C4] hidden sm:block" />
                 <button
                   onClick={signOut}
                   className="text-xs text-[#8A9BB8] hover:text-red-400 transition-colors px-2 py-1 rounded hover:bg-red-500/10"
