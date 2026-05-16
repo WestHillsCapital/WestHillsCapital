@@ -47,20 +47,43 @@ const MERLIN_IDENTITY = `You are Merlin, the AI assistant for Docuplete — a do
 Your identity: You are wise, trustworthy, and quietly powerful in the background. The wizard archetype is deliberate — the most trusted advisor, the one who makes difficult things look effortless, who works his craft without fanfare. Document automation is your domain. You use wizard framing with a light touch — it is seasoning, not a costume. Phrases like "consider it handled" and "a little wizardry goes a long way" feel natural from you. You earn trust through accuracy and clarity rather than personality tricks. You never make people feel foolish for not knowing something. You are never sarcastic, never robotic, and never over-explain.`;
 
 const DOCUPLETE_CONCEPTS = `Docuplete concepts you understand deeply:
-- Packages: document sets containing PDFs, fields, conditions, and field-to-PDF coordinate mappings. Each package creates sessions.
-- Sessions: individual interview instances with a unique token link sent to a customer. A session has status: draft (not started), in_progress (form open), or generated (PDF ready).
-- Fields: the questions on a form. Types: text, date, radio, checkbox, dropdown, initials. Each has interviewMode: required, optional, readonly (pre-filled), or omitted (hidden).
-- Conditional logic: a field can show or hide based on another field's answer (equals, not_equals, is_answered, is_not_answered operators).
-- Submissions: when a customer completes a session and generates their documents. Counted against the account's monthly quota.
-- E-sign (email_otp): identity verification via OTP email + drawn or typed signature + RFC 3161 timestamp for legal standing.
-- Custom domains: white-label interview links at forms.yourcompany.com via CNAME.
-- Submission bank: purchased bundles of extra submissions (50/100/300/500/1000) that supplement plan quotas and roll over for 12 months.
-- Plans: Starter ($49/mo, 100 submissions), Pro ($249/mo, 500 submissions), Enterprise ($3k/mo, unlimited). Features are gated by plan tier.
-- Prefill: key-value data injected into a session at creation time so the customer doesn't have to re-enter known info.
-- Webhooks: HTTP callbacks fired when a session generates documents, used for CRM integrations.
+
+CORE OBJECTS
+- Packages: document sets containing PDFs, fields, conditions, and field-to-PDF coordinate mappings. Each package creates sessions. A package has status: draft or active. Packages can have auth_level "none" (no e-sign) or "email_otp" (e-sign).
+- Sessions: individual interview instances with a unique token link. Status: draft (not started), in_progress (form open), or generated (PDF ready). Sessions belong to a package and an account.
+- Fields: the questions on a form. Types: text, date, radio, checkbox, dropdown, initials, signature. Each has interviewMode: required (must be answered), optional, readonly (pre-filled, shown but locked), or omitted (hidden, value injected silently). Fields can be sensitive (masked input, e.g. SSN, DOB).
+- Conditional logic: a field can show or hide based on another field's answer. Operators: equals, not_equals, is_answered, is_not_answered.
+
+WORKFLOWS — HOW SESSIONS GET CREATED
+- Staff Interview: staff opens a package, starts a session, and walks the client through the fields on a call. Staff types in the answers. After saving, staff can generate the packet immediately or send it to the client for signature.
+- Customer Link: staff generates a unique public URL for a specific package and sends it to the client. The client opens the link, fills in the fields themselves, and submits — no staff involvement needed during completion.
+- Send for Signature: staff completes a Staff Interview (or partial interview), then clicks "Create Signing Link." Docuplete creates a new client-facing session pre-filled with the staff's answers. The client receives a link, must scroll through every document page (mandatory scroll confirmation), and signs electronically. Sensitive fields marked "defer to client" are left blank for the client to fill in securely.
+- Batch CSV: staff uploads a CSV where each row becomes a session. Useful for bulk processing (e.g. annual disclosures).
+- Embed: packages can be embedded as an iframe on a third-party website.
+
+FIELD LIBRARY & FIELD GROUPS
+- Field Library: a shared pool of reusable field definitions available account-wide. Each library field has a label, type, optional validation type (phone, ssn, email, date, zip, currency, etc.), sensitive flag, and whether it is required by default. When a library field is used in a package, the package field links to it via libraryFieldId — updating the library field can cascade to all packages using it.
+- Field Groups: named collections of library fields. Staff can insert a group into a package all at once instead of adding fields one by one. Example: "IRA Beneficiary Block" might group beneficiary name, relationship, DOB, and percentage fields. You can create new field groups or list existing ones.
+
+SESSION METADATA
+- Transaction Scope: categorizes a session by transaction type (ira_transfer, ira_contribution, ira_distribution, cash_purchase, storage_change, beneficiary_update, liquidation, buy_sell_direction, address_change). Used for filtering and reporting.
+- Prefill: key-value data injected into a session at creation time (client name, email, account number, etc.) so the customer doesn't have to re-enter known info.
+- Sensitive fields: fields with sensitive=true show masked input (like a password field). In a Staff Interview, sensitive fields can be "deferred to client" — staff skips them and the client enters them securely during signing.
+
+INTEGRATIONS & FEATURES
+- E-sign (email_otp): identity verification via one-time-password email + drawn or typed signature + RFC 3161 timestamp for legal standing.
 - Google Drive: automatic PDF upload to a linked Drive folder when a session generates.
 - HubSpot: contact upsert with extracted field data on session completion.
-- API keys: sk_live_… tokens for programmatic session creation via the Docuplete REST API.`;
+- Webhooks: HTTP callbacks fired when a session generates documents.
+- Custom domains: white-label interview links at forms.yourcompany.com via CNAME.
+- Customer portal: clients can log in to a portal and view their submitted sessions and signed PDFs.
+- API keys: sk_live_… tokens for programmatic session creation via the Docuplete REST API.
+
+BILLING
+- Submissions: counted when a customer completes a session and generates documents. Counted against the account's monthly quota.
+- Submission bank: purchased bundles of extra submissions (50/100/300/500/1000) that supplement plan quotas and roll over for 12 months.
+- Plans: Starter ($49/mo, 100 submissions), Pro ($249/mo, 500 submissions), Enterprise ($3k/mo, unlimited). Features are gated by plan tier.
+- Seats: each team member who can log in to the staff interface counts as a seat.`;
 
 // ─── Internal tools ───────────────────────────────────────────────────────────
 
@@ -147,6 +170,58 @@ const INTERNAL_TOOLS: Anthropic.Tool[] = [
         status: { type: "string", enum: ["active", "pending", "all"], description: "Filter by status. Default: all." },
       },
       required: [],
+    },
+  },
+  {
+    name: "search_library_fields",
+    description: "Search or list the shared field library for this account. Returns field IDs, labels, types, validation types, and whether each field is sensitive or required. Use before creating a field to check if it already exists.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string", description: "Search term to filter by label. Leave empty to list all." },
+        type:  { type: "string", description: "Filter by field type (text, date, radio, checkbox, dropdown)." },
+        limit: { type: "number", description: "Maximum results (1-100). Default: 50." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "create_library_field",
+    description: "Create a new shared library field available to all packages on this account. Only creates the field definition — to add it to a specific package, the user still needs to do that in the package builder. Before creating, search to confirm it doesn't already exist.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        label:          { type: "string", description: "Human-readable label shown in the interview (e.g. 'Social Security Number'). Required." },
+        type:           { type: "string", enum: ["text", "date", "radio", "checkbox", "dropdown"], description: "Field input type. Default: text." },
+        sensitive:      { type: "boolean", description: "If true, input is masked like a password (use for SSN, DOB, account numbers). Default: false." },
+        required:       { type: "boolean", description: "Whether this field defaults to required in packages. Default: false." },
+        validationType: { type: "string", description: "Built-in format validation: phone, ssn, email, date, zip, zip4, currency, number, percent, name, string, time. Leave empty for no validation." },
+        options:        { type: "array", items: { type: "string" }, description: "For radio, checkbox, or dropdown — the list of choices." },
+        category:       { type: "string", description: "Optional grouping label (e.g. 'Client Info', 'IRA Details')." },
+      },
+      required: ["label"],
+    },
+  },
+  {
+    name: "list_field_groups",
+    description: "List the field groups on this account. Field groups are named collections of library fields that can be inserted into a package all at once. Returns group IDs, names, descriptions, and which fields they contain.",
+    input_schema: {
+      type: "object" as const,
+      properties: {},
+      required: [],
+    },
+  },
+  {
+    name: "create_field_group",
+    description: "Create a new field group — a named collection of existing library fields that can be inserted into packages together. All field IDs must already exist in the library. Use search_library_fields to find valid field IDs first.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        name:        { type: "string", description: "Name of the group (e.g. 'IRA Beneficiary Block'). Required." },
+        description: { type: "string", description: "Optional description of what this group is for." },
+        fieldIds:    { type: "array", items: { type: "string" }, description: "Ordered list of library field IDs to include in the group." },
+      },
+      required: ["name"],
     },
   },
 ];
@@ -421,6 +496,134 @@ async function executeInternalTool(
         `Seats used: ${activeCount} of ${seatLimit}`,
         `\nTeam members (${rows.length}):\n${lines.join("\n")}`,
       ].join("\n");
+    }
+
+    if (toolName === "search_library_fields") {
+      const query = typeof toolInput.query === "string" ? toolInput.query.trim() : "";
+      const type  = typeof toolInput.type  === "string" ? toolInput.type.trim()  : "";
+      const limit = typeof toolInput.limit === "number" ? Math.min(toolInput.limit, 100) : 50;
+
+      const conditions: string[] = ["(account_id IS NULL OR account_id = $1)", "active = true"];
+      const params: unknown[] = [accountId];
+      let idx = 2;
+      if (query) { conditions.push(`label ILIKE $${idx++}`); params.push(`%${query}%`); }
+      if (type)  { conditions.push(`type = $${idx++}`);       params.push(type); }
+      params.push(limit);
+
+      const { rows } = await db.query(
+        `SELECT id, label, type, validation_type, sensitive, required, category, options, account_id
+           FROM docuplete_fields
+          WHERE ${conditions.join(" AND ")}
+          ORDER BY active DESC, label ASC
+          LIMIT $${idx}`,
+        params,
+      );
+
+      if (rows.length === 0) return "No library fields found matching those criteria.";
+      const lines = rows.map((r) => {
+        const scope = r.account_id ? "account" : "global";
+        const flags = [r.sensitive ? "sensitive" : null, r.required ? "required" : null].filter(Boolean).join(", ");
+        const opts = Array.isArray(r.options) && r.options.length ? ` options: [${(r.options as string[]).join(", ")}]` : "";
+        return `• ${r.id} | ${r.label} (${r.type}${r.validation_type ? `/${r.validation_type}` : ""})${flags ? ` [${flags}]` : ""}${opts} [${scope}]`;
+      });
+      return `Found ${rows.length} library field(s):\n\n${lines.join("\n")}`;
+    }
+
+    if (toolName === "create_library_field") {
+      const label = typeof toolInput.label === "string" ? toolInput.label.trim() : "";
+      if (!label) return "label is required to create a library field.";
+
+      const type           = typeof toolInput.type           === "string"  ? toolInput.type           : "text";
+      const sensitive      = typeof toolInput.sensitive      === "boolean" ? toolInput.sensitive      : false;
+      const required       = typeof toolInput.required       === "boolean" ? toolInput.required       : false;
+      const validationType = typeof toolInput.validationType === "string"  ? toolInput.validationType.trim() : null;
+      const category       = typeof toolInput.category       === "string"  ? toolInput.category.trim() : null;
+      const options        = Array.isArray(toolInput.options)               ? toolInput.options        : null;
+
+      // Check for duplicates
+      const { rows: dupeRows } = await db.query(
+        `SELECT id, label FROM docuplete_fields WHERE lower(label) = lower($1) AND (account_id IS NULL OR account_id = $2) LIMIT 1`,
+        [label, accountId],
+      );
+      if (dupeRows[0]) return `A field with that label already exists: ID "${dupeRows[0].id}" — "${dupeRows[0].label}". No new field was created.`;
+
+      // Generate an ID from the label
+      let id = label.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 64) || "field";
+      const { rows: idRows } = await db.query(`SELECT id FROM docuplete_fields WHERE id = $1 LIMIT 1`, [id]);
+      if (idRows[0]) {
+        for (let s = 2; s < 1000; s++) {
+          const candidate = `${id}_${s}`;
+          const { rows: cr } = await db.query(`SELECT id FROM docuplete_fields WHERE id = $1 LIMIT 1`, [candidate]);
+          if (!cr[0]) { id = candidate; break; }
+        }
+      }
+
+      const { rows } = await db.query(
+        `INSERT INTO docuplete_fields (id, label, type, sensitive, required, validation_type, category, options, account_id, active, sort_order, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, true, 100, NOW(), NOW())
+         RETURNING id, label, type`,
+        [id, label, type, sensitive, required, validationType, category, options ? JSON.stringify(options) : null, accountId],
+      );
+
+      const f = rows[0] as Record<string, unknown>;
+      return `Created library field:\n• ID: ${f.id}\n• Label: ${f.label}\n• Type: ${f.type}\n\nIt is now available in the field library and can be added to packages via the package builder.`;
+    }
+
+    if (toolName === "list_field_groups") {
+      const { rows } = await db.query(
+        `SELECT id, name, description, field_ids, sort_order, created_at
+           FROM docuplete_field_groups
+          WHERE account_id = $1
+          ORDER BY sort_order ASC, name ASC`,
+        [accountId],
+      );
+
+      if (rows.length === 0) return "No field groups found on this account.";
+
+      // Get library field labels for display
+      const { rows: libRows } = await db.query(
+        `SELECT id, label FROM docuplete_fields WHERE (account_id IS NULL OR account_id = $1)`,
+        [accountId],
+      );
+      const labelMap = new Map(libRows.map((r) => [r.id as string, r.label as string]));
+
+      const lines = rows.map((r) => {
+        const ids = Array.isArray(r.field_ids) ? (r.field_ids as string[]) : [];
+        const fieldLabels = ids.map((fid) => labelMap.get(fid) ?? fid).join(", ");
+        return `• ID ${r.id}: ${r.name}${r.description ? ` — ${r.description}` : ""}\n  Fields (${ids.length}): ${fieldLabels || "(none)"}`;
+      });
+      return `Found ${rows.length} field group(s):\n\n${lines.join("\n\n")}`;
+    }
+
+    if (toolName === "create_field_group") {
+      const name        = typeof toolInput.name        === "string" ? toolInput.name.trim()        : "";
+      const description = typeof toolInput.description === "string" ? toolInput.description.trim() : null;
+      const fieldIds    = Array.isArray(toolInput.fieldIds) ? (toolInput.fieldIds as unknown[]).filter((x) => typeof x === "string") as string[] : [];
+
+      if (!name) return "name is required to create a field group.";
+
+      // Validate fieldIds against the library
+      const { rows: libRows } = await db.query(
+        `SELECT id, label FROM docuplete_fields WHERE (account_id IS NULL OR account_id = $1) AND id = ANY($2::text[])`,
+        [accountId, fieldIds],
+      );
+      const validIds = new Set(libRows.map((r) => r.id as string));
+      const labelMap = new Map(libRows.map((r) => [r.id as string, r.label as string]));
+      const invalidIds = fieldIds.filter((id) => !validIds.has(id));
+      if (invalidIds.length) return `These field IDs were not found in the library and cannot be added: ${invalidIds.join(", ")}. Use search_library_fields to find valid IDs.`;
+
+      const ordered = [...new Set(fieldIds)].filter((id) => validIds.has(id));
+
+      const { rows } = await db.query(
+        `INSERT INTO docuplete_field_groups (account_id, name, description, field_ids, sort_order, created_at, updated_at)
+         VALUES ($1, $2, $3, $4::jsonb, 100, NOW(), NOW())
+         RETURNING id, name`,
+        [accountId, name, description, JSON.stringify(ordered)],
+      );
+
+      const g = rows[0] as Record<string, unknown>;
+      const fieldSummary = ordered.map((id) => `"${labelMap.get(id) ?? id}"`).join(", ");
+      return `Created field group:\n• ID: ${g.id}\n• Name: ${g.name}\n• Fields (${ordered.length}): ${fieldSummary}\n\nStaff can now insert this group into any package from the package builder.`;
     }
 
     return `Unknown tool: ${toolName}`;
