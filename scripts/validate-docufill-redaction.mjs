@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { buildDocuFillFallbackSummaryRows, buildDocuFillPacketSummary, fieldAnswerValue, formatDocuFillMappedValue, hydratePackageFields } from "../artifacts/api-server/src/lib/docufill-redaction.ts";
-import { getDocuFillPrefillDisplayValue } from "../artifacts/west-hills-capital/src/lib/docufill-redaction.ts";
+import { buildDocupleteFallbackSummaryRows, buildDocupletePacketSummary, fieldAnswerValue, formatDocupleteMappedValue, hydratePackageFields } from "../artifacts/api-server/src/lib/docuplete-redaction.ts";
+import { getDocupletePrefillDisplayValue } from "../artifacts/west-hills-capital/src/lib/docuplete-redaction.ts";
 
 const sensitiveValue = "123-45-6789";
 const accountValue = "IRA-9988776655";
@@ -36,7 +36,7 @@ const session = {
   answers: { ssn_field: sensitiveValue, name_field: publicValue },
 };
 
-const packetSummary = buildDocuFillPacketSummary(session, "2026-04-21T00:00:00.000Z");
+const packetSummary = buildDocupletePacketSummary(session, "2026-04-21T00:00:00.000Z");
 assert.equal(packetSummary.sensitiveFieldCount, 2);
 assert.equal(packetSummary.documentCount, 1);
 assert.equal(packetSummary.mappingCount, 1);
@@ -44,7 +44,7 @@ assert.deepEqual(JSON.stringify(packetSummary).includes(sensitiveValue), false);
 assert.deepEqual(JSON.stringify(packetSummary).includes(accountValue), false);
 assert.match(packetSummary.valuePolicy, /Sensitive answers are omitted/);
 
-const fallbackRows = buildDocuFillFallbackSummaryRows(session);
+const fallbackRows = buildDocupleteFallbackSummaryRows(session);
 const fallbackText = JSON.stringify(fallbackRows);
 assert.equal(fallbackText.includes(sensitiveValue), false);
 assert.equal(fallbackText.includes(accountValue), false);
@@ -52,9 +52,9 @@ assert.equal(fallbackText.includes("••••6789"), true);
 assert.equal(fallbackText.includes("••••6655"), true);
 assert.equal(fallbackText.includes(publicValue), true);
 
-const prefillDisplay = getDocuFillPrefillDisplayValue("ssn", sensitiveValue, session.fields);
-const accountDisplay = getDocuFillPrefillDisplayValue("iraAccountNumber", accountValue, session.fields);
-const publicDisplay = getDocuFillPrefillDisplayValue("clientName", publicValue, session.fields);
+const prefillDisplay = getDocupletePrefillDisplayValue("ssn", sensitiveValue, session.fields);
+const accountDisplay = getDocupletePrefillDisplayValue("iraAccountNumber", accountValue, session.fields);
+const publicDisplay = getDocupletePrefillDisplayValue("clientName", publicValue, session.fields);
 assert.equal(prefillDisplay, "••••6789");
 assert.equal(accountDisplay, "••••6655");
 assert.equal(publicDisplay, publicValue);
@@ -62,23 +62,23 @@ assert.equal(publicDisplay, publicValue);
 const overlayValue = fieldAnswerValue(sensitiveField, session.answers, session.prefill);
 assert.equal(overlayValue, sensitiveValue);
 assert.equal(fieldAnswerValue({ id: "concept_name", name: "Name", source: "clientName" }, {}, { firstName: "Alice", lastName: "Investor" }), "Alice Investor");
-assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "first-name" }), "Alice");
-assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "middle-name" }), "Beth");
-assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "last-name" }), "Investor");
-assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "first-last" }), "Alice Investor");
-assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "last-first-m" }), "Investor, Alice B.", "three-part name: Last, First M.");
-assert.equal(formatDocuFillMappedValue("Alice Investor", { format: "last-first-m" }), "Investor, Alice", "two-part name: Last, First (no middle)");
-assert.equal(formatDocuFillMappedValue("Investor", { format: "last-first-m" }), "Investor", "single-part name: returned as-is");
-assert.equal(formatDocuFillMappedValue("Alice Beth Marie Investor", { format: "last-first-m" }), "Investor, Alice B.", "four-part name: still uses first middle initial only");
-assert.equal(formatDocuFillMappedValue("Alice Beth Investor", { format: "initials" }), "ABI");
+assert.equal(formatDocupleteMappedValue("Alice Beth Investor", { format: "first-name" }), "Alice");
+assert.equal(formatDocupleteMappedValue("Alice Beth Investor", { format: "middle-name" }), "Beth");
+assert.equal(formatDocupleteMappedValue("Alice Beth Investor", { format: "last-name" }), "Investor");
+assert.equal(formatDocupleteMappedValue("Alice Beth Investor", { format: "first-last" }), "Alice Investor");
+assert.equal(formatDocupleteMappedValue("Alice Beth Investor", { format: "last-first-m" }), "Investor, Alice B.", "three-part name: Last, First M.");
+assert.equal(formatDocupleteMappedValue("Alice Investor", { format: "last-first-m" }), "Investor, Alice", "two-part name: Last, First (no middle)");
+assert.equal(formatDocupleteMappedValue("Investor", { format: "last-first-m" }), "Investor", "single-part name: returned as-is");
+assert.equal(formatDocupleteMappedValue("Alice Beth Marie Investor", { format: "last-first-m" }), "Investor, Alice B.", "four-part name: still uses first middle initial only");
+assert.equal(formatDocupleteMappedValue("Alice Beth Investor", { format: "initials" }), "ABI");
 
-assert.equal(formatDocuFillMappedValue("Primary", { format: "checkbox-option:Primary" }), "X", "matching option prints X");
-assert.equal(formatDocuFillMappedValue("Contingent", { format: "checkbox-option:Primary" }), "", "non-matching option prints blank");
-assert.equal(formatDocuFillMappedValue("Primary", { format: "checkbox-option:Contingent" }), "", "option value comparison is exact");
-assert.equal(formatDocuFillMappedValue("Primary, Contingent", { format: "checkbox-option:Contingent" }), "X", "comma-separated multi-select matches correctly");
-assert.equal(formatDocuFillMappedValue("Primary, Contingent", { format: "checkbox-option:Primary" }), "X", "first item in multi-select also matches");
-assert.equal(formatDocuFillMappedValue("", { format: "checkbox-option:Primary" }), "", "empty answer always prints blank");
-assert.equal(formatDocuFillMappedValue("primary", { format: "checkbox-option:Primary" }), "", "option matching is case-sensitive");
+assert.equal(formatDocupleteMappedValue("Primary", { format: "checkbox-option:Primary" }), "X", "matching option prints X");
+assert.equal(formatDocupleteMappedValue("Contingent", { format: "checkbox-option:Primary" }), "", "non-matching option prints blank");
+assert.equal(formatDocupleteMappedValue("Primary", { format: "checkbox-option:Contingent" }), "", "option value comparison is exact");
+assert.equal(formatDocupleteMappedValue("Primary, Contingent", { format: "checkbox-option:Contingent" }), "X", "comma-separated multi-select matches correctly");
+assert.equal(formatDocupleteMappedValue("Primary, Contingent", { format: "checkbox-option:Primary" }), "X", "first item in multi-select also matches");
+assert.equal(formatDocupleteMappedValue("", { format: "checkbox-option:Primary" }), "", "empty answer always prints blank");
+assert.equal(formatDocupleteMappedValue("primary", { format: "checkbox-option:Primary" }), "", "option matching is case-sensitive");
 
 const hydratedFields = hydratePackageFields(
   [
