@@ -1097,8 +1097,10 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
           {(() => {
             const usedLibraryIds = new Set(selectedPackage.fields.map((f) => f.libraryFieldId).filter(Boolean));
             const availableLibraryFields = fieldLibrary.filter((item) => item.active && !usedLibraryIds.has(item.id));
-            const esignPkgIds = new Set(selectedPackage.fields.filter((f) => f.source === "esign-system").map((f) => f.id));
-            const availableEsignFields = SYSTEM_ESIGN_FIELDS.filter((sf) => !esignPkgIds.has(sf.id));
+            const esignPkgIds = new Set(selectedPackage.fields.filter((f) => isSystemEsignFieldId(f.id)).map((f) => f.id));
+            const availableEsignFields = selectedPackage.auth_level === "email_otp"
+              ? SYSTEM_ESIGN_FIELDS.filter((sf) => !esignPkgIds.has(sf.id))
+              : [];
             if (availableLibraryFields.length === 0 && availableEsignFields.length === 0) return null;
             return (
               <label className="block mb-2 flex-shrink-0">

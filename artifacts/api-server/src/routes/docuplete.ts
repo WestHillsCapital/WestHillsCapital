@@ -368,9 +368,9 @@ function parseId(value: unknown): number | null {
 
 // System e-sign field definitions injected into email_otp packages
 const SYSTEM_ESIGN_FIELD_DEFS: DocupleteFieldItem[] = [
-  { id: ESIGN_FIELD_ID_SIGNATURE,  name: "Signature",   type: "text",     format: "signature", interviewMode: "omitted" } as DocupleteFieldItem & { format?: string },
-  { id: ESIGN_FIELD_ID_INITIALS,   name: "Initials",    type: "initials", interviewMode: "omitted" },
-  { id: ESIGN_FIELD_ID_DATE,       name: "Signer Date", type: "date",     interviewMode: "omitted" },
+  { id: ESIGN_FIELD_ID_SIGNATURE,  name: "Signature",   type: "text",     format: "signature", interviewMode: "omitted", source: "esign-system" } as DocupleteFieldItem & { format?: string },
+  { id: ESIGN_FIELD_ID_INITIALS,   name: "Initials",    type: "initials", interviewMode: "omitted", source: "esign-system" },
+  { id: ESIGN_FIELD_ID_DATE,       name: "Signer Date", type: "date",     interviewMode: "omitted", source: "esign-system" },
 ] as DocupleteFieldItem[];
 
 /**
