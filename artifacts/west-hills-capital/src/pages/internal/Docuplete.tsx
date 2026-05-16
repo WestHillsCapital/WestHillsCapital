@@ -598,7 +598,7 @@ export default function Docuplete() {
     document.addEventListener("touchcancel", onEnd);
     fieldEditorDragCleanupRef.current = cleanup;
   }, [fieldEditorPos.x, fieldEditorPos.y]);
-  const [fieldEditorDraft, setFieldEditorDraft] = useState<FieldEditorDraft>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false, condition: null, condition2: null });
+  const [fieldEditorDraft, setFieldEditorDraft] = useState<FieldEditorDraft>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false, condition: null, condition2: null, conditionOperator: "and" });
   const sortSensors = useSensors(useSensor(SmartPointerSensor, { activationConstraint: { distance: 6 } }));
   const [session, setSession] = useState<Session | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -857,8 +857,14 @@ export default function Docuplete() {
       default:                return true;
     }
   }
+  function evaluateFieldConditions(f: { condition?: FieldCondition | null; condition2?: FieldCondition | null; conditionOperator?: "and" | "or" }, ans: Record<string, string>): boolean {
+    const c1 = evaluateFieldCondition(f.condition, ans);
+    if (!f.condition2?.fieldId) return c1;
+    const c2 = evaluateFieldCondition(f.condition2, ans);
+    return (f.conditionOperator ?? "and") === "or" ? c1 || c2 : c1 && c2;
+  }
   const visibleInterviewFields = useMemo(() => {
-    const fields = (session?.fields ?? []).filter((f) => fieldInInterview(f) && evaluateFieldCondition(f.condition, answers) && evaluateFieldCondition(f.condition2, answers));
+    const fields = (session?.fields ?? []).filter((f) => fieldInInterview(f) && evaluateFieldConditions(f, answers));
     if (selectedPackage && selectedPackage.fields.length > 0) {
       const orderMap = new Map(selectedPackage.fields.map((f, i) => [f.id, i]));
       return [...fields].sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999));
@@ -2820,7 +2826,7 @@ export default function Docuplete() {
       type: "text", options: [], interviewMode: "optional",
       hasDefault: false, defaultValue: "",
       validationType: "none", validationPattern: "", validationMessage: "",
-      packageOnly: false, condition: null, condition2: null,
+      packageOnly: false, condition: null, condition2: null, conditionOperator: "and",
     });
     setFieldEditorModal({ mode: "add", fieldId: null });
   }
@@ -2838,7 +2844,7 @@ export default function Docuplete() {
       validationType: field.validationType ?? "none",
       validationPattern: field.validationPattern ?? "",
       validationMessage: field.validationMessage ?? "",
-      packageOnly: false, condition: field.condition ?? null, condition2: field.condition2 ?? null,
+      packageOnly: false, condition: field.condition ?? null, condition2: field.condition2 ?? null, conditionOperator: field.conditionOperator ?? "and",
     });
     setSelectedFieldId(fieldId);
     setFieldEditorModal({ mode: "edit", fieldId });
@@ -3134,7 +3140,7 @@ export default function Docuplete() {
 
   async function saveFieldFromModal() {
     if (!fieldEditorModal || !selectedPackage) return;
-    const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage, packageOnly, condition, condition2 } = fieldEditorDraft;
+    const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage, packageOnly, condition, condition2, conditionOperator } = fieldEditorDraft;
     const cleanOpts = options.filter(Boolean);
     const isChoiceType = type === "radio" || type === "checkbox";
 
@@ -3184,6 +3190,7 @@ export default function Docuplete() {
         validationType: validationType ?? "none", validationPattern, validationMessage,
         condition: condition ?? undefined,
         condition2: condition2 ?? undefined,
+        conditionOperator: conditionOperator,
       };
       setSelectedFieldId(field.id);
       const currentStoreMappings = useDocupleteStore.getState().mappings;
@@ -3210,6 +3217,7 @@ export default function Docuplete() {
           validationType: validationType ?? "none", validationPattern, validationMessage,
           condition: condition ?? undefined,
           condition2: condition2 ?? undefined,
+          conditionOperator: conditionOperator,
         } : f),
         mappings: [...currentStoreMappings, ...autoMappings],
       }));
@@ -3507,7 +3515,7 @@ export default function Docuplete() {
 
   function validateInterviewAnswers(): boolean {
     if (!session) return true;
-    const activeFields = session.fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly" && evaluateFieldCondition(f.condition, answers) && evaluateFieldCondition(f.condition2, answers));
+    const activeFields = session.fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly" && evaluateFieldConditions(f, answers));
     const newErrors: Record<string, string> = {};
     for (const field of activeFields) {
       const value = interviewFieldValue(field, answers, session.prefill);

@@ -22,6 +22,7 @@ export type FieldEditorDraft = {
   packageOnly: boolean;
   condition: FieldCondition | null;
   condition2: FieldCondition | null;
+  conditionOperator: "and" | "or";
 };
 
 interface FieldEditorModalProps {
@@ -332,12 +333,23 @@ export function FieldEditorModal({
                       onClick={() => setDraft((d) => ({ ...d, condition2: { fieldId: "", operator: "is_answered", value: "" } }))}
                       className="text-xs text-[#6B7A99] hover:text-[#0F1C3F] underline underline-offset-2"
                     >
-                      + Add second condition (AND)
+                      + Add second condition
                     </button>
                   ) : (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-[#6B7A99] uppercase tracking-wide">AND</span>
+                        <div className="flex items-center gap-1 rounded border border-[#D4C9B5] overflow-hidden text-xs">
+                          <button
+                            type="button"
+                            onClick={() => setDraft((d) => ({ ...d, conditionOperator: "and" }))}
+                            className={`px-2 py-0.5 font-semibold uppercase tracking-wide transition-colors ${draft.conditionOperator !== "or" ? "bg-[#0F1C3F] text-white" : "bg-white text-[#6B7A99] hover:bg-[#F0EDE6]"}`}
+                          >AND</button>
+                          <button
+                            type="button"
+                            onClick={() => setDraft((d) => ({ ...d, conditionOperator: "or" }))}
+                            className={`px-2 py-0.5 font-semibold uppercase tracking-wide transition-colors ${draft.conditionOperator === "or" ? "bg-[#0F1C3F] text-white" : "bg-white text-[#6B7A99] hover:bg-[#F0EDE6]"}`}
+                          >OR</button>
+                        </div>
                         <button type="button" onClick={() => setDraft((d) => ({ ...d, condition2: null }))} className="text-xs text-red-500 hover:underline">Remove</button>
                       </div>
                       <div>

@@ -23,6 +23,7 @@ export type FieldItem = {
   validationMessage?: string;
   condition?: FieldCondition | null;
   condition2?: FieldCondition | null;
+  conditionOperator?: "and" | "or";
 };
 
 export type MappingFormat =
