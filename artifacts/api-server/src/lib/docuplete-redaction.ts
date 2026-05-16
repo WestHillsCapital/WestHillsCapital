@@ -39,6 +39,8 @@ export type DocupleteFieldItem = {
   validationMessage?: string;
   condition?: DocupleteFieldCondition | null;
   condition2?: DocupleteFieldCondition | null;
+  conditionOperator?: "and" | "or";
+  nameMode?: "inherit" | "override";
 };
 
 export type DocupleteMappingFormat =
