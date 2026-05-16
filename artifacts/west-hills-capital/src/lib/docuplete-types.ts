@@ -24,6 +24,7 @@ export type FieldItem = {
   condition?: FieldCondition | null;
   condition2?: FieldCondition | null;
   conditionOperator?: "and" | "or";
+  nameMode?: "inherit" | "override";
 };
 
 export type MappingFormat =

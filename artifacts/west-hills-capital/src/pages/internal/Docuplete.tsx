@@ -3191,6 +3191,7 @@ export default function Docuplete() {
         condition: condition ?? undefined,
         condition2: condition2 ?? undefined,
         conditionOperator: conditionOperator,
+        nameMode: "inherit",
       };
       setSelectedFieldId(field.id);
       const currentStoreMappings = useDocupleteStore.getState().mappings;
@@ -3204,6 +3205,10 @@ export default function Docuplete() {
       }));
     } else if (fieldEditorModal.fieldId) {
       const fid = fieldEditorModal.fieldId;
+      const editedField = selectedPackage.fields.find((f) => f.id === fid);
+      const libField = editedField?.libraryFieldId ? fieldLibrary.find((f) => f.id === editedField.libraryFieldId) : undefined;
+      const savedName = name.trim() || editedField?.name || "";
+      const nameMode: "inherit" | "override" = libField && savedName.toLowerCase() !== libField.label.toLowerCase() ? "override" : "inherit";
       const currentStoreMappings = useDocupleteStore.getState().mappings;
       const autoMappings = isChoiceType ? autoPlacementsForOptions(fid, cleanOpts, currentStoreMappings, cleanOpts, type) : [];
       if (autoMappings.length > 0) pushUndo([...currentStoreMappings]);
@@ -3218,6 +3223,7 @@ export default function Docuplete() {
           condition: condition ?? undefined,
           condition2: condition2 ?? undefined,
           conditionOperator: conditionOperator,
+          nameMode,
         } : f),
         mappings: [...currentStoreMappings, ...autoMappings],
       }));

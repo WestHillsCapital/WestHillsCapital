@@ -145,7 +145,7 @@ export function hydratePackageFields(fields: unknown, library: Array<Record<stri
       ...field,
       libraryFieldId: libraryField.id,
       optionsMode,
-      name: cleanText(field.name) || String(libraryField.label ?? ""),
+      name: field.nameMode === "override" ? cleanText(field.name) || String(libraryField.label ?? "") : String(libraryField.label ?? ""),
       label: String(libraryField.label ?? field.label ?? ""),
       category: String(libraryField.category ?? field.category ?? ""),
       type: String(libraryField.type ?? field.type ?? "text"),
