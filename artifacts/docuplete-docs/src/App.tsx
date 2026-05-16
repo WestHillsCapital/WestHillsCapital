@@ -22,6 +22,7 @@ import Configuration from "@/pages/docs/building/Configuration";
 import HowToFirstPackage from "@/pages/docs/building/HowToFirstPackage";
 
 import ConditionalSections from "@/pages/docs/patterns/ConditionalSections";
+import RepeatingFieldGroups from "@/pages/docs/patterns/RepeatingFieldGroups";
 import UnmappedRoutingFields from "@/pages/docs/patterns/UnmappedRoutingFields";
 import CheckboxOptions from "@/pages/docs/patterns/CheckboxOptions";
 
@@ -124,6 +125,7 @@ function Router() {
 
         {/* Common Patterns */}
         <Route path="/common-patterns/conditional-sections" component={ConditionalSections} />
+        <Route path="/common-patterns/repeating-field-groups" component={RepeatingFieldGroups} />
         <Route path="/common-patterns/unmapped-routing-fields" component={UnmappedRoutingFields} />
         <Route path="/common-patterns/checkbox-options" component={CheckboxOptions} />
 
