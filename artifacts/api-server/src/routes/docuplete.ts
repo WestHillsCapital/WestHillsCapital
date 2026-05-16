@@ -1318,6 +1318,12 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
     if (!mappedFieldIds.has("__initials__")) {
       merged = merged.filter((f) => String(f.id ?? "") !== "__initials__");
     }
+    // Force interviewMode: "omitted" on all system fields that are already present in the
+    // fields array. The injection above only adds missing fields; older packages may store
+    // system fields with a stale / missing interviewMode that would expose them in interviews.
+    merged = merged.map((f) =>
+      isSystemEsignFieldId(String(f.id ?? "")) ? { ...f, interviewMode: "omitted" } : f,
+    );
     result.fields = merged;
   }
   if (isEncryptionEnabled() && result.answers_ciphertext) {

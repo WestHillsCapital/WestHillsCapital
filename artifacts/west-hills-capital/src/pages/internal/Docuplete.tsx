@@ -277,7 +277,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
         ...field,
         libraryFieldId: field.libraryFieldId ?? "",
         sensitive: field.sensitive === true,
-        interviewMode: validModes.includes(raw.interviewMode) ? raw.interviewMode : legacyMode,
+        interviewMode: isSystemEsignFieldId(field.id) ? "omitted" : (validModes.includes(raw.interviewMode) ? raw.interviewMode : legacyMode),
         options: Array.isArray(field.options) ? field.options : undefined,
         optionsMode: field.optionsMode === "inherit" || field.optionsMode === "override" ? field.optionsMode : field.libraryFieldId && (!Array.isArray(field.options) || field.options.length === 0) ? "inherit" : "override",
         validationType: field.validationType ?? "none",
