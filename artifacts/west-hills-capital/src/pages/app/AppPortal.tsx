@@ -36,6 +36,7 @@ function DocupleteWrapper({ getAuthHeaders }: { getAuthHeaders: () => HeadersIni
       <DocupleteConfigProvider
         config={{
           apiPath: "/api/v1/product/docuplete",
+          interviewBasePath: "/app",
           getAuthHeaders,
           isAdmin,
         }}

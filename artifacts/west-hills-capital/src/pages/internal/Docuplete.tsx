@@ -391,6 +391,7 @@ export default function Docuplete() {
   const getAuthHeadersRef = useRef(getAuthHeaders);
   getAuthHeadersRef.current = getAuthHeaders;
   const docupleteApiPath = docupleteConfig?.apiPath ?? "/api/internal/docuplete";
+  const interviewBasePath = docupleteConfig?.interviewBasePath ?? "/internal/docuplete";
   const isAdmin = docupleteConfig?.isAdmin ?? true;
 
   // Capture deep-link URL params on first mount (before they are cleared)
@@ -3603,7 +3604,7 @@ export default function Docuplete() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not launch test interview");
-      navigate(`/internal/docuplete?session=${data.token}`);
+      navigate(`${interviewBasePath}?session=${data.token}`);
       flashStatus("Test interview session created.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not launch test interview");
@@ -3637,7 +3638,7 @@ export default function Docuplete() {
         return;
       }
       if (!res.ok) throw new Error(data.error ?? "Could not launch interview");
-      navigate(`/internal/docuplete?session=${data.token}`);
+      navigate(`${interviewBasePath}?session=${data.token}`);
       flashStatus("Interview session created.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not launch interview");
