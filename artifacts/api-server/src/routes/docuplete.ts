@@ -309,6 +309,7 @@ type SessionInput = {
   locale?: string;
   reminderEnabled?: boolean;
   reminderDays?: number;
+  forceScrollConfirmation?: boolean;
 };
 
 type AnswersInput = {
