@@ -1432,8 +1432,13 @@ export default function Docuplete() {
   }, []);
 
   const isMapperVisible = tab === "mapper";
+  // True while the AcroFieldReviewOverlay is covering the mapper for the current doc.
+  // The mapper panel (and its <canvas>) is unmounted during this time, so the PDF
+  // render effect must not try to draw — and must re-fire when the overlay closes so
+  // it can paint the freshly-mounted canvas.
+  const isMapperBlocked = !!(pendingAcroReview && pendingAcroReview.documentId === selectedDocumentId);
   useEffect(() => {
-    if (!isMapperVisible || !documentPreviewUrl) { setAcroAnnotations([]); setScrollPdfDoc(null); return; }
+    if (!isMapperVisible || isMapperBlocked || !documentPreviewUrl) { setAcroAnnotations([]); setScrollPdfDoc(null); return; }
     let cancelled = false;
     if (renderTaskRef.current) {
       renderTaskRef.current.cancel();
@@ -1524,7 +1529,7 @@ export default function Docuplete() {
         renderTaskRef.current = null;
       }
     };
-  }, [isMapperVisible, documentPreviewUrl, selectedPage, mapperScrollMode]);
+  }, [isMapperVisible, isMapperBlocked, documentPreviewUrl, selectedPage, mapperScrollMode]);
 
   async function savePackage(pkg: PackageItem) {
     setIsSaving(true);
