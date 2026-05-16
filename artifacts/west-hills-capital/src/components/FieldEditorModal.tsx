@@ -250,6 +250,11 @@ export function FieldEditorModal({
                   <option value="required">Required — must answer before generating</option>
                   <option value="readonly">Read only — shown but not editable</option>
                 </select>
+                {draft.interviewMode === "required" && draft.condition !== null && (
+                  <p className="mt-2 text-[11px] text-[#7A6A3A] bg-[#FDF8EC] border border-[#E8D9A0] rounded px-2.5 py-1.5 leading-snug">
+                    This field is required <em>only when its conditions are met</em>. If they're not, it's hidden and skipped automatically.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -374,6 +379,11 @@ export function FieldEditorModal({
                     </div>
                   )}
                 </div>
+              )}
+              {draft.condition !== null && (
+                <p className="mt-1 text-[11px] text-[#7A6A3A] bg-[#FDF8EC] border border-[#E8D9A0] rounded px-2.5 py-1.5 leading-snug">
+                  The trigger field doesn't need a PDF placement. A field used only to drive conditions can be left unmapped — it still gates the interview without writing to the document.
+                </p>
               )}
             </div>
           )}

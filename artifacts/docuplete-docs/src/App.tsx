@@ -21,6 +21,10 @@ import Validation from "@/pages/docs/building/Validation";
 import Configuration from "@/pages/docs/building/Configuration";
 import HowToFirstPackage from "@/pages/docs/building/HowToFirstPackage";
 
+import ConditionalSections from "@/pages/docs/patterns/ConditionalSections";
+import UnmappedRoutingFields from "@/pages/docs/patterns/UnmappedRoutingFields";
+import CheckboxOptions from "@/pages/docs/patterns/CheckboxOptions";
+
 import FieldLibraryOverview from "@/pages/docs/field-library/FieldLibraryOverview";
 import AddingLibraryFields from "@/pages/docs/field-library/AddingLibraryFields";
 import EditingSharedFields from "@/pages/docs/field-library/EditingSharedFields";
@@ -117,6 +121,11 @@ function Router() {
         <Route path="/building-a-package/text-boxes" component={TextBoxes} />
         <Route path="/building-a-package/validation" component={Validation} />
         <Route path="/building-a-package/configuration" component={Configuration} />
+
+        {/* Common Patterns */}
+        <Route path="/common-patterns/conditional-sections" component={ConditionalSections} />
+        <Route path="/common-patterns/unmapped-routing-fields" component={UnmappedRoutingFields} />
+        <Route path="/common-patterns/checkbox-options" component={CheckboxOptions} />
 
         {/* Field Library */}
         <Route path="/field-library/overview" component={FieldLibraryOverview} />

@@ -40,6 +40,15 @@ export const NAV: NavItem[] = [
     ],
   },
   {
+    title: "Common Patterns",
+    slug: "common-patterns",
+    children: [
+      { title: "Conditional Sections", slug: "common-patterns/conditional-sections" },
+      { title: "Unmapped Routing Fields", slug: "common-patterns/unmapped-routing-fields" },
+      { title: "Multi-Format Checkbox Fields", slug: "common-patterns/checkbox-options" },
+    ],
+  },
+  {
     title: "Field Library",
     slug: "field-library",
     children: [
