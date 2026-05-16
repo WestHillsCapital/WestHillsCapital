@@ -58,11 +58,23 @@ export default function UnmappedRoutingFields() {
       <ol>
         <li>Create the field with the appropriate type (Dropdown, Radio, or Text).</li>
         <li>Set Interview behavior to <strong>Required</strong> so it must be answered before generation.</li>
-        <li><strong>Do not place it in the Visual Mapper.</strong> Simply leave it unmapped — the field will appear in the "Unmapped" section of the field list but that's expected.</li>
         <li>Reference it in the conditions of other fields using <code>equals</code>, <code>not_equals</code>, or <code>is_answered</code>.</li>
       </ol>
 
+      <h2>Making a field required without a PDF placement</h2>
+      <p>The field editor lets you set Interview behavior independently of whether a field is mapped. However, you may notice that a newly created field defaults to Optional. To mark it Required and leave it unmapped, the deliberate workflow is:</p>
+      <ol>
+        <li>In the field editor, set Interview behavior to <strong>Required</strong> and save.</li>
+        <li>Open the <strong>Visual Mapper</strong>. Drag the field onto the PDF to give it a placement — this is what activates the Required enforcement.</li>
+        <li>Right-click the placed field on the PDF and remove the mapping.</li>
+        <li>The field now has no PDF placement but remains Required in the interview.</li>
+      </ol>
+
       <div className="callout-tip">
+        <strong>This workflow is intentional.</strong> Placing and then removing the mapping is a deliberate step — it ensures you've thought through where the field sits in the document before deciding to leave it unmapped. A field that drives conditions without a placement is a purposeful design choice, not an accident.
+      </div>
+
+      <div className="callout-info">
         <strong>The "No placement" badge is not an error.</strong> In the mapper's field list, unmapped fields show a grey "No placement" badge. For routing fields this is intentional — you can leave them there without issue.
       </div>
 
