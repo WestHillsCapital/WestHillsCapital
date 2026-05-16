@@ -1,9 +1,9 @@
-import React, { type ReactNode } from "react";
+import React, { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { EmptyState } from "@/components/DocupletePanels";
 import { PackagePickerWithTags } from "@/components/DocupleteWidgets";
-import { validateFieldValue, fieldFormatHint } from "@/lib/validateField";
+import { validateFieldValue, fieldFormatHint, buildSensitiveMask } from "@/lib/validateField";
 import { getDocupletePrefillDisplayValue } from "@/lib/docuplete-redaction";
 import type { PackageItem } from "@/lib/docuplete-local-types";
 import type { FieldItem } from "@/lib/docuplete-types";
@@ -47,6 +47,63 @@ function safeInterviewDisplayValue(field: FieldItem, value: string) {
   if (!field.sensitive) return value;
   const compact = value.replace(/\s+/g, "");
   return compact.length > 4 ? `••••${compact.slice(-4)}` : "••••";
+}
+
+// ─── Field helpers shared with the client interview ───────────────────────────
+const DATE_TEMPLATE = "MM/DD/YYYY";
+const DATE_SEPARATOR_POSITIONS = new Set([2, 5]);
+
+function MaskedDateFormatGuide({ value, field }: { value: string; field: { validationType?: string; validationMessage?: string } }) {
+  const isComplete = value.length >= 10;
+  const isValid = isComplete && validateFieldValue({ ...field, interviewMode: "optional" }, value) === null;
+  if (isValid) {
+    return (
+      <div className="mt-1.5 flex items-center gap-1 text-xs text-green-600" aria-hidden>
+        <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+        <span className="font-medium">Valid date</span>
+      </div>
+    );
+  }
+  return (
+    <div className="mt-1.5 flex gap-px font-mono text-xs leading-none select-none" aria-hidden>
+      {Array.from(DATE_TEMPLATE).map((templateChar, i) => {
+        const isSep = DATE_SEPARATOR_POSITIONS.has(i);
+        const inputChar = value[i];
+        if (!inputChar) {
+          return <span key={i} className={isSep ? "text-[#8A9BB8]" : "text-[#B8C4D8]"}>{templateChar}</span>;
+        }
+        const isCorrect = isSep ? inputChar === "/" : /\d/.test(inputChar);
+        return <span key={i} className={isCorrect ? "text-green-600" : "text-red-500"}>{isSep ? inputChar : "•"}</span>;
+      })}
+    </div>
+  );
+}
+
+function SensitiveFormatGhost({ value, validationType }: { value: string; validationType: string }) {
+  const mask = buildSensitiveMask(value, validationType);
+  if (!mask) return null;
+  return (
+    <div className="mt-1.5 font-mono text-xs text-[#8A9BB8] tracking-wide select-none" aria-hidden>
+      {mask}
+    </div>
+  );
+}
+
+function augmentField<T extends { validationType?: string; name: string }>(field: T): T {
+  if (field.validationType) return field;
+  const name = field.name.toLowerCase();
+  if (/\bstate\b/.test(name) && !name.includes("statement")) {
+    return { ...field, validationType: "state" };
+  }
+  return field;
+}
+
+function isStateField(field: { validationType?: string; name: string }): boolean {
+  if (field.validationType === "state") return true;
+  const name = field.name.toLowerCase();
+  return /\bstate\b/.test(name) && !name.includes("statement");
 }
 
 export type InterviewSubTab = "interviews" | "dashboard";
@@ -147,6 +204,7 @@ export interface DocupleteInterviewPanelProps {
 }
 
 export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPanel(props: DocupleteInterviewPanelProps) {
+  const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
   const {
     session, isPublicSession, isSaving, activePackages, packages,
     standalonePackageId, setStandalonePackageId,
@@ -485,35 +543,38 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
               const isReadonly = mode === "readonly";
               const currentValue = interviewFieldValue(field, answers, session.prefill as Record<string, string> | undefined);
               const fieldError = fieldErrors[field.id];
+              const isMissing = missingRequiredFields.includes(field.name);
+              const augmented = augmentField(field);
               return (
-              <div key={field.id} className={`block border rounded p-3 ${isReadonly ? "opacity-75" : ""} ${fieldError ? "border-red-400" : ""}`} style={fieldError ? undefined : { borderColor: field.color }}>
-                <span className="flex items-center justify-between gap-2 text-sm font-medium mb-1">
+              <div key={field.id} id={`field-${field.id}`} className={`block border rounded p-3 ${isReadonly ? "opacity-75" : ""} ${fieldError ? "border-red-400" : isMissing ? "border-amber-400" : ""}`} style={fieldError || isMissing ? undefined : { borderColor: field.color }}>
+                <label htmlFor={`input-${field.id}`} className="flex items-center justify-between gap-2 text-sm font-medium mb-1">
                   <span>{field.name}</span>
                   <span className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${
                     mode === "required" ? "bg-red-50 text-red-700 border border-red-100"
                     : mode === "readonly" ? "bg-blue-50 text-blue-700 border border-blue-100"
                     : "bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8]"
                   }`}>{mode === "required" ? "Required" : mode === "readonly" ? "Read only" : "Optional"}</span>
-                </span>
+                </label>
                 {isReadonly ? (
                   <div className="px-3 py-2 text-sm bg-[#F8F6F0] rounded border border-[#DDD5C4] text-[#334155]">
                     {currentValue || <span className="text-[#8A9BB8] italic">—</span>}
                   </div>
                 ) : field.type === "dropdown" ? (
                   <select
+                    id={`input-${field.id}`}
                     data-interview-input
                     value={currentValue}
                     onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))}
                     onBlur={(e) => handleInterviewFieldBlur(field, e.target.value)}
-                    className={`w-full border rounded px-3 py-2 ${fieldError ? "border-red-400" : "border-[#D4C9B5]"}`}
+                    className={`w-full border rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 ${fieldError ? "border-red-400" : isMissing ? "border-amber-400" : "border-[#D4C9B5]"}`}
                   >
-                    <option value="">{mode === "required" ? "— select —" : "Select"}</option>
+                    <option value="">{mode === "required" ? "— select —" : "Select…"}</option>
                     {(field.options ?? []).map((option) => <option key={option} value={option}>{option}</option>)}
                   </select>
                 ) : field.type === "radio" ? (
-                  <div className="space-y-1 pt-1">
+                  <div className="space-y-2 pt-1">
                     {((field.options ?? []).length ? field.options ?? [] : []).map((option) => (
-                      <label key={option} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <label key={option} className="flex items-center gap-2.5 text-sm cursor-pointer">
                         <input
                           data-interview-input
                           type="radio"
@@ -521,8 +582,9 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                           value={option}
                           checked={currentValue === option}
                           onChange={() => { setAnswers((prev) => ({ ...prev, [field.id]: option })); handleInterviewFieldBlur(field, option); }}
+                          className="w-4 h-4 accent-[#0F1C3F]"
                         />
-                        {option}
+                        <span className="text-[#0F1C3F]">{option}</span>
                       </label>
                     ))}
                     {currentValue && (
@@ -530,10 +592,10 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                     )}
                   </div>
                 ) : field.type === "checkbox" ? (
-                  <div className="space-y-1 pt-1">{((field.options ?? []).length ? field.options ?? [] : ["Yes"]).map((option) => {
+                  <div className="space-y-2 pt-1">{((field.options ?? []).length ? field.options ?? [] : ["Yes"]).map((option) => {
                     const parseChecked = (v: string) => v.split(",").map((s) => s.trim()).filter(Boolean);
                     return (
-                      <label key={option} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <label key={option} className="flex items-center gap-2.5 text-sm cursor-pointer">
                         <input
                           data-interview-input
                           type="checkbox"
@@ -545,26 +607,42 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                             handleInterviewFieldBlur(field, next[field.id]);
                             return next;
                           })}
+                          className="w-4 h-4 accent-[#0F1C3F] rounded"
                         />
-                        {option}
+                        <span className="text-[#0F1C3F]">{option}</span>
                       </label>
                     );
                   })}</div>
                 ) : (
-                  <Input
-                    data-interview-input
-                    type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"}
-                    value={currentValue}
-                    onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))}
-                    onBlur={(e) => handleInterviewFieldBlur(field, e.target.value)}
-                    className={fieldError ? "border-red-400 focus-visible:ring-red-300" : ""}
-                  />
+                  <>
+                    <Input
+                      id={`input-${field.id}`}
+                      data-interview-input
+                      type={field.sensitive ? "password" : field.type === "date" ? "date" : "text"}
+                      value={currentValue}
+                      onChange={(e) => setAnswers((prev) => ({ ...prev, [field.id]: e.target.value }))}
+                      onFocus={() => setFocusedFieldId(field.id)}
+                      onBlur={(e) => { handleInterviewFieldBlur(field, e.target.value); setFocusedFieldId(null); }}
+                      className={fieldError ? "border-red-400 focus-visible:ring-red-300" : isMissing ? "border-amber-400 focus-visible:ring-amber-300" : ""}
+                    />
+                    {field.sensitive && field.validationType === "date" && (focusedFieldId === field.id || currentValue !== "") && (
+                      <MaskedDateFormatGuide value={currentValue} field={field} />
+                    )}
+                    {field.sensitive && field.validationType && field.validationType !== "date" && (focusedFieldId === field.id || currentValue !== "") && (
+                      <SensitiveFormatGhost value={currentValue} validationType={field.validationType} />
+                    )}
+                  </>
                 )}
                 {fieldError && <p className="mt-1 text-xs text-red-600">{fieldError}</p>}
+                {!fieldError && isStateField(field) && currentValue.trim() && validateFieldValue(augmented, currentValue) !== null && (
+                  <p className="mt-1 text-xs text-red-600">Please enter a 2-letter state code (e.g. KS, TX, CA).</p>
+                )}
                 {(() => {
-                  const hint = fieldFormatHint(field.validationType, field.validationMessage ?? undefined);
-                  const hasValidValue = currentValue.trim() !== "" && validateFieldValue(field, currentValue) === null;
-                  return hint && !fieldError && !hasValidValue ? (
+                  const hint = fieldFormatHint(augmented.validationType, field.validationMessage ?? undefined);
+                  const hasValidValue = currentValue.trim() !== "" && validateFieldValue(augmented, currentValue) === null;
+                  const isMaskedDate = field.sensitive && field.validationType === "date";
+                  const hasSensitiveGhost = field.sensitive && !!field.validationType && field.validationType !== "date" && buildSensitiveMask("1", field.validationType) !== null;
+                  return hint && !fieldError && !hasValidValue && !isMaskedDate && !hasSensitiveGhost ? (
                     <p className="mt-1 text-[11px] text-[#8A9BB8]">Format: {hint}</p>
                   ) : null;
                 })()}
