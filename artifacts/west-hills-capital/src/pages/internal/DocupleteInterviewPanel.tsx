@@ -201,10 +201,30 @@ export interface DocupleteInterviewPanelProps {
   handleDownloadInterviewCsv: () => void;
   downloadGeneratedPacket: () => void;
   handleInterviewFieldBlur: (field: FieldItem, value: string) => void;
+  sendForSignature: (deferredFieldIds: Set<string>) => void;
+  sigLink: string | null;
+  sigLinkCopied: boolean;
+  isSendingForSig: boolean;
+  showSigSendForm: boolean;
+  setShowSigSendForm: React.Dispatch<React.SetStateAction<boolean>>;
+  sigSendEmail: string;
+  setSigSendEmail: React.Dispatch<React.SetStateAction<string>>;
+  sigSendName: string;
+  setSigSendName: React.Dispatch<React.SetStateAction<string>>;
+  sigSendMessage: string;
+  setSigSendMessage: React.Dispatch<React.SetStateAction<string>>;
+  sigSendEmailSent: string | null;
+  sigSendError: string | null;
+  isSendingSigEmail: boolean;
+  handleSigSendByEmail: () => void | Promise<void>;
+  copySigLink: () => void;
 }
+
+const SYSTEM_FIELD_IDS = new Set(["__signature__", "__initials__", "__signer_date__"]);
 
 export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPanel(props: DocupleteInterviewPanelProps) {
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
+  const [deferredFieldIds, setDeferredFieldIds] = useState<Set<string>>(() => new Set());
   const {
     session, isPublicSession, isSaving, activePackages, packages,
     standalonePackageId, setStandalonePackageId,
@@ -228,7 +248,18 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
     goBuilderStep, setTab, launchStandaloneInterview, generateCustomerLink,
     copyCustomerLink, handleSendLinkByEmail, saveAnswers, generatePacket,
     handleDownloadInterviewCsv, downloadGeneratedPacket, handleInterviewFieldBlur,
+    sendForSignature, sigLink, sigLinkCopied, isSendingForSig,
+    showSigSendForm, setShowSigSendForm,
+    sigSendEmail, setSigSendEmail, sigSendName, setSigSendName,
+    sigSendMessage, setSigSendMessage,
+    sigSendEmailSent, sigSendError, isSendingSigEmail,
+    handleSigSendByEmail, copySigLink,
   } = props;
+
+  // Sensitive fields available in the current session (excludes system fields)
+  const sensitiveDeferrableFields = visibleInterviewFields.filter(
+    (f) => f.sensitive && !SYSTEM_FIELD_IDS.has(f.id) && f.interviewMode !== "readonly" && f.interviewMode !== "omitted"
+  );
 
   return (
     <section className="bg-white border border-[#DDD5C4] rounded-lg max-w-4xl mx-auto overflow-hidden">
@@ -538,24 +569,47 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
             </div>
           </div>
           <div className="space-y-3">
-            {visibleInterviewFields.map((field) => {
+            {visibleInterviewFields.filter((f) => !SYSTEM_FIELD_IDS.has(f.id)).map((field) => {
               const mode = field.interviewMode ?? (fieldIsRequired(field) ? "required" : "optional");
               const isReadonly = mode === "readonly";
+              const isDeferred = deferredFieldIds.has(field.id);
               const currentValue = interviewFieldValue(field, answers, session.prefill as Record<string, string> | undefined);
               const fieldError = fieldErrors[field.id];
               const isMissing = missingRequiredFields.includes(field.name);
               const augmented = augmentField(field);
               return (
-              <div key={field.id} id={`field-${field.id}`} className={`block border rounded p-3 ${isReadonly ? "opacity-75" : ""} ${fieldError ? "border-red-400" : isMissing ? "border-amber-400" : ""}`} style={fieldError || isMissing ? undefined : { borderColor: field.color }}>
-                <label htmlFor={`input-${field.id}`} className="flex items-center justify-between gap-2 text-sm font-medium mb-1">
-                  <span>{field.name}</span>
-                  <span className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${
-                    mode === "required" ? "bg-red-50 text-red-700 border border-red-100"
-                    : mode === "readonly" ? "bg-blue-50 text-blue-700 border border-blue-100"
-                    : "bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8]"
-                  }`}>{mode === "required" ? "Required" : mode === "readonly" ? "Read only" : "Optional"}</span>
-                </label>
-                {isReadonly ? (
+              <div key={field.id} id={`field-${field.id}`} className={`block border rounded p-3 ${isReadonly ? "opacity-75" : ""} ${isDeferred ? "border-violet-300 bg-violet-50/30" : fieldError ? "border-red-400" : isMissing ? "border-amber-400" : ""}`} style={isDeferred || fieldError || isMissing ? undefined : { borderColor: field.color }}>
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <label htmlFor={isDeferred ? undefined : `input-${field.id}`} className="text-sm font-medium">{field.name}</label>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {field.sensitive && !isReadonly && (
+                      <button
+                        type="button"
+                        onClick={() => setDeferredFieldIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(field.id)) next.delete(field.id); else next.add(field.id);
+                          return next;
+                        })}
+                        title={isDeferred ? "Staff will collect this field" : "Client fills this in during signing"}
+                        className={`flex items-center gap-1 text-[10px] px-2 py-0.5 rounded border transition-colors ${isDeferred ? "bg-violet-100 text-violet-700 border-violet-300 hover:bg-violet-200" : "bg-white text-[#8A9BB8] border-[#DDD5C4] hover:text-violet-700 hover:border-violet-300"}`}
+                      >
+                        <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                        {isDeferred ? "Client fills in" : "Defer to client"}
+                      </button>
+                    )}
+                    <span className={`rounded px-2 py-0.5 text-[10px] uppercase tracking-wide ${
+                      mode === "required" ? "bg-red-50 text-red-700 border border-red-100"
+                      : mode === "readonly" ? "bg-blue-50 text-blue-700 border border-blue-100"
+                      : "bg-[#F8F6F0] text-[#6B7A99] border border-[#EFE8D8]"
+                    }`}>{mode === "required" ? "Required" : mode === "readonly" ? "Read only" : "Optional"}</span>
+                  </div>
+                </div>
+                {isDeferred ? (
+                  <div className="flex items-center gap-2 px-3 py-2 rounded bg-violet-50 border border-violet-200 text-xs text-violet-700">
+                    <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                    Client will enter this securely during signing
+                  </div>
+                ) : isReadonly ? (
                   <div className="px-3 py-2 text-sm bg-[#F8F6F0] rounded border border-[#DDD5C4] text-[#334155]">
                     {currentValue || <span className="text-[#8A9BB8] italic">—</span>}
                   </div>
@@ -633,11 +687,11 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                     )}
                   </>
                 )}
-                {fieldError && <p className="mt-1 text-xs text-red-600">{fieldError}</p>}
-                {!fieldError && isStateField(field) && currentValue.trim() && validateFieldValue(augmented, currentValue) !== null && (
+                {!isDeferred && fieldError && <p className="mt-1 text-xs text-red-600">{fieldError}</p>}
+                {!isDeferred && !fieldError && isStateField(field) && currentValue.trim() && validateFieldValue(augmented, currentValue) !== null && (
                   <p className="mt-1 text-xs text-red-600">Please enter a 2-letter state code (e.g. KS, TX, CA).</p>
                 )}
-                {(() => {
+                {!isDeferred && (() => {
                   const hint = fieldFormatHint(augmented.validationType, field.validationMessage ?? undefined);
                   const hasValidValue = currentValue.trim() !== "" && validateFieldValue(augmented, currentValue) === null;
                   const isMaskedDate = field.sensitive && field.validationType === "date";
@@ -653,9 +707,19 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
           <div className="rounded border border-[#DDD5C4] bg-white p-4">
             <h3 className="text-sm font-semibold mb-2">Preview before send</h3>
             <div className="grid sm:grid-cols-2 gap-2 text-xs text-[#6B7A99]">
-              {visibleInterviewFields.map((field) => {
+              {visibleInterviewFields.filter((f) => !SYSTEM_FIELD_IDS.has(f.id)).map((field) => {
+                const isDeferred = deferredFieldIds.has(field.id);
                 const value = interviewFieldValue(field, answers, session.prefill as Record<string, string> | undefined).trim();
-                return <div key={field.id}><span className="font-medium text-[#0F1C3F]">{field.name}:</span> {value ? safeInterviewDisplayValue(field, value) : <span className="text-[#B58B2B]">{field.interviewMode === "required" ? "Missing" : "Not provided"}</span>}</div>;
+                return (
+                  <div key={field.id}>
+                    <span className="font-medium text-[#0F1C3F]">{field.name}:</span>{" "}
+                    {isDeferred
+                      ? <span className="text-violet-600 italic">Client fills in</span>
+                      : value
+                        ? safeInterviewDisplayValue(field, value)
+                        : <span className="text-[#B58B2B]">{field.interviewMode === "required" ? "Missing" : "Not provided"}</span>}
+                  </div>
+                );
               })}
             </div>
           </div>
@@ -671,6 +735,126 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
             {driveUrl && <a href={driveUrl} target="_blank" rel="noreferrer" className="text-sm text-[#C49A38] underline">Open saved Drive packet</a>}
           </div>
           {driveWarnings.length > 0 && <div className="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">{driveWarnings.join(" ")}</div>}
+
+          {/* Send for Signature section — only for staff non-public sessions */}
+          {!isPublicSession && (
+            <div className="rounded-lg border border-[#DDD5C4] bg-[#FAFAF8] p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-[#0F1C3F]">Send for Client Signature</h3>
+                  <p className="text-xs text-[#6B7A99] mt-0.5">Pre-fill the client interview with your answers and send a signing link.</p>
+                </div>
+                {!sigLink && (
+                  <Button
+                    onClick={() => sendForSignature(deferredFieldIds)}
+                    disabled={isSendingForSig}
+                    className="shrink-0 disabled:opacity-60"
+                  >
+                    {isSendingForSig ? "Creating link…" : "Create Signing Link"}
+                  </Button>
+                )}
+              </div>
+
+              {sigSendError && (
+                <div className="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{sigSendError}</div>
+              )}
+
+              {sigLink && (
+                <div className="space-y-3">
+                  {sensitiveDeferrableFields.length > 0 && deferredFieldIds.size > 0 && (
+                    <div className="flex items-start gap-2 rounded border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-800">
+                      <svg className="w-3.5 h-3.5 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+                      <span>
+                        {deferredFieldIds.size === 1
+                          ? "1 sensitive field"
+                          : `${deferredFieldIds.size} sensitive fields`} will be entered securely by the client during signing.
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <input
+                      readOnly
+                      value={sigLink}
+                      className="flex-1 rounded border border-[#DDD5C4] bg-white px-3 py-1.5 text-xs text-[#334155] font-mono select-all"
+                      onClick={(e) => (e.target as HTMLInputElement).select()}
+                    />
+                    <button
+                      type="button"
+                      onClick={copySigLink}
+                      className={`shrink-0 rounded border px-3 py-1.5 text-xs font-medium transition-colors ${sigLinkCopied ? "bg-green-50 border-green-300 text-green-700" : "bg-white border-[#DDD5C4] text-[#334155] hover:border-[#C49A38] hover:text-[#C49A38]"}`}
+                    >
+                      {sigLinkCopied ? "Copied!" : "Copy"}
+                    </button>
+                  </div>
+
+                  {sigSendEmailSent ? (
+                    <div className="flex items-center gap-2 rounded border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-800">
+                      <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      Signing link sent to {sigSendEmailSent}
+                    </div>
+                  ) : !showSigSendForm ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowSigSendForm(true)}
+                      className="text-xs text-[#C49A38] underline hover:text-[#A07B2E]"
+                    >
+                      Send by email instead
+                    </button>
+                  ) : (
+                    <div className="space-y-2 rounded border border-[#DDD5C4] bg-white p-3">
+                      <h4 className="text-xs font-semibold text-[#0F1C3F]">Send signing link by email</h4>
+                      <input
+                        type="email"
+                        placeholder="Client email *"
+                        value={sigSendEmail}
+                        onChange={(e) => setSigSendEmail(e.target.value)}
+                        className="w-full rounded border border-[#DDD5C4] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C49A38]/30"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Client name (optional)"
+                        value={sigSendName}
+                        onChange={(e) => setSigSendName(e.target.value)}
+                        className="w-full rounded border border-[#DDD5C4] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C49A38]/30"
+                      />
+                      <textarea
+                        placeholder="Add a personal message (optional)"
+                        value={sigSendMessage}
+                        onChange={(e) => setSigSendMessage(e.target.value)}
+                        rows={2}
+                        className="w-full rounded border border-[#DDD5C4] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#C49A38]/30 resize-none"
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          onClick={handleSigSendByEmail}
+                          disabled={isSendingSigEmail || !sigSendEmail.trim()}
+                          className="disabled:opacity-60"
+                        >
+                          {isSendingSigEmail ? "Sending…" : "Send Email"}
+                        </Button>
+                        <button
+                          type="button"
+                          onClick={() => setShowSigSendForm(false)}
+                          className="text-xs text-[#6B7A99] hover:text-[#334155]"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => sendForSignature(deferredFieldIds)}
+                    disabled={isSendingForSig}
+                    className="text-xs text-[#6B7A99] underline hover:text-[#334155] disabled:opacity-60"
+                  >
+                    {isSendingForSig ? "Regenerating…" : "Regenerate link"}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
     </section>

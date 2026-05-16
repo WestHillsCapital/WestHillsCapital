@@ -1271,7 +1271,8 @@ async function getSession(token: string, client: QueryClient = getDb(), accountI
             p.notify_staff_on_submit, p.notify_client_on_submit,
             p.enable_embed, p.embed_key,
             p.enable_gdrive, p.enable_hubspot,
-            p.auth_level, p.require_preview, p.require_scroll_confirmation,
+            p.auth_level, p.require_preview,
+            (p.require_scroll_confirmation OR s.force_scroll_confirmation) AS require_scroll_confirmation,
             p.account_id AS package_account_id,
             c.name AS custodian_name, d.name AS depository_name, g.name AS group_name,
             a.name AS org_name,
@@ -5297,12 +5298,13 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
       ? NEVER_EXPIRES
       : new Date(Date.now() + effectiveExpiryDays * 86400000);
 
+    const forceScrollConfirmation = body.forceScrollConfirmation === true;
     const { rows } = await db.query(
       `INSERT INTO docuplete_interview_sessions
          (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode, prefill, answers,
-          expires_at, account_id, locale, reminder_enabled, reminder_days)
+          expires_at, account_id, locale, reminder_enabled, reminder_days, force_scroll_confirmation)
        VALUES ($1,$2,$3,$4,$5,$6,'draft',$7,$8::jsonb,'{}'::jsonb,
-               $10,$9,$11,$12,$13)
+               $10,$9,$11,$12,$13,$14)
        RETURNING *`,
       [
         token, packageId, pkg.version ?? 1, requestedScope,
@@ -5310,6 +5312,7 @@ router.post("/sessions", requireMemberRole, requireWithinPlanLimits("submission"
         jsonParam(body.prefill ?? {}), accountId,
         finalExpiresAt,
         effectiveLocale, effectiveReminderEnabled, effectiveReminderDays,
+        forceScrollConfirmation,
       ],
     );
     // Record submission usage event (fire-and-forget, non-fatal; test sessions skipped)

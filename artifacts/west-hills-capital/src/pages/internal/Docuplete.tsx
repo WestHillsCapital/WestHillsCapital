@@ -469,6 +469,18 @@ export default function Docuplete() {
   const [linkEmailSent, setLinkEmailSent] = useState<string | null>(null);
   const [linkEmailError, setLinkEmailError] = useState<string | null>(null);
   const [showRecipientOverride, setShowRecipientOverride] = useState(false);
+  // Send-for-signature (from staff interview, sensitive fields deferred to signer)
+  const [sigLink, setSigLink] = useState<string | null>(null);
+  const [sigLinkToken, setSigLinkToken] = useState<string | null>(null);
+  const [sigLinkCopied, setSigLinkCopied] = useState(false);
+  const [isSendingForSig, setIsSendingForSig] = useState(false);
+  const [showSigSendForm, setShowSigSendForm] = useState(false);
+  const [sigSendEmail, setSigSendEmail] = useState("");
+  const [sigSendName, setSigSendName] = useState("");
+  const [sigSendMessage, setSigSendMessage] = useState("");
+  const [sigSendEmailSent, setSigSendEmailSent] = useState<string | null>(null);
+  const [sigSendError, setSigSendError] = useState<string | null>(null);
+  const [isSendingSigEmail, setIsSendingSigEmail] = useState(false);
   const [newPackageName, setNewPackageName] = useState("");
   const [newPackageGroupId, setNewPackageGroupId] = useState("");
   const [addingPackage, setAddingPackage] = useState(() => initialUrlAction.current === "new-package");
@@ -3559,6 +3571,90 @@ export default function Docuplete() {
     }
   }
 
+  async function sendForSignature(deferredFieldIds: Set<string>) {
+    if (!session) return;
+    setIsSendingForSig(true);
+    setSigLink(null);
+    setSigLinkToken(null);
+    setSigSendError(null);
+    setShowSigSendForm(false);
+    setSigSendEmailSent(null);
+    setSigLinkCopied(false);
+    try {
+      // Save current answers first
+      const saved = await saveAnswers("in_progress");
+      if (!saved) { setIsSendingForSig(false); return; }
+      // Build prefill from all staff answers, excluding deferred sensitive fields
+      const prefill: Record<string, string> = {};
+      for (const field of session.fields) {
+        if (deferredFieldIds.has(field.id)) continue;
+        const val = interviewFieldValue(field, answers, session.prefill as Record<string, string> | undefined);
+        if (val.trim()) prefill[field.id] = val;
+      }
+      // Also include deal prefill (name, email, etc.)
+      for (const [k, v] of Object.entries(session.prefill ?? {})) {
+        if (String(v ?? "").trim() && !(k in prefill)) prefill[k] = String(v);
+      }
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/sessions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          packageId: session.package_id,
+          transactionScope: session.transaction_scope,
+          source: "staff_send_for_signature",
+          prefill,
+          forceScrollConfirmation: true,
+        }),
+      });
+      const data = await res.json() as { error?: string; upgrade_required?: boolean; limit_type?: string; required_plan?: string; token?: string; feature?: string; interviewUrl?: string };
+      if (res.status === 402 && data.upgrade_required) {
+        showUpgrade({ feature: data.feature, limitType: (data.limit_type as "packages" | "submissions" | "seats") ?? "submissions", requiredPlan: (data.required_plan as "pro" | "enterprise") ?? "pro" });
+        return;
+      }
+      if (!res.ok) throw new Error(data.error ?? "Could not create signing session");
+      if (!data.interviewUrl) throw new Error("Server did not return a signing URL");
+      setSigLink(data.interviewUrl);
+      setSigLinkToken(data.token as string);
+    } catch (err) {
+      setSigSendError(err instanceof Error ? err.message : "Could not create signing session");
+    } finally {
+      setIsSendingForSig(false);
+    }
+  }
+
+  async function handleSigSendByEmail() {
+    if (!sigLinkToken || !sigSendEmail.trim()) return;
+    setIsSendingSigEmail(true);
+    setSigSendError(null);
+    try {
+      const res = await fetch(`${API_BASE}${docupleteApiPath}/sessions/${sigLinkToken}/send-link`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        body: JSON.stringify({
+          recipientEmail: sigSendEmail.trim(),
+          recipientName: sigSendName.trim(),
+          customMessage: sigSendMessage.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Could not send email");
+      setSigSendEmailSent(sigSendEmail.trim());
+      setShowSigSendForm(false);
+    } catch (err) {
+      setSigSendError(err instanceof Error ? err.message : "Could not send email");
+    } finally {
+      setIsSendingSigEmail(false);
+    }
+  }
+
+  function copySigLink() {
+    if (!sigLink) return;
+    navigator.clipboard.writeText(sigLink).then(() => {
+      setSigLinkCopied(true);
+      setTimeout(() => setSigLinkCopied(false), 2500);
+    });
+  }
+
   async function downloadGeneratedPacket() {
     if (!generatedUrl || !session) return;
     setIsDownloading(true);
@@ -4251,6 +4347,23 @@ export default function Docuplete() {
           handleDownloadInterviewCsv={handleDownloadInterviewCsv}
           downloadGeneratedPacket={downloadGeneratedPacket}
           handleInterviewFieldBlur={handleInterviewFieldBlur}
+          sendForSignature={sendForSignature}
+          sigLink={sigLink}
+          sigLinkCopied={sigLinkCopied}
+          isSendingForSig={isSendingForSig}
+          showSigSendForm={showSigSendForm}
+          setShowSigSendForm={setShowSigSendForm}
+          sigSendEmail={sigSendEmail}
+          setSigSendEmail={setSigSendEmail}
+          sigSendName={sigSendName}
+          setSigSendName={setSigSendName}
+          sigSendMessage={sigSendMessage}
+          setSigSendMessage={setSigSendMessage}
+          sigSendEmailSent={sigSendEmailSent}
+          sigSendError={sigSendError}
+          isSendingSigEmail={isSendingSigEmail}
+          handleSigSendByEmail={handleSigSendByEmail}
+          copySigLink={copySigLink}
         />
       )}
 

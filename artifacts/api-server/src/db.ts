@@ -1949,6 +1949,9 @@ export async function initDb(): Promise<void> {
   // ── Server-side scroll confirmation: persisted timestamp when signer attests full scroll ──
   await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS scroll_confirmed_at TIMESTAMPTZ`);
 
+  // ── Per-session scroll confirmation override: set when staff sends a pre-filled interview for signature ──
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS force_scroll_confirmation BOOLEAN NOT NULL DEFAULT FALSE`);
+
   // ── Submission-scale composite indexes (task #592) ───────────────────────────
   // These are also created by Drizzle migration 0004_submission_scale_indexes.
   // Running them here with CONCURRENTLY ensures large production tables get a
