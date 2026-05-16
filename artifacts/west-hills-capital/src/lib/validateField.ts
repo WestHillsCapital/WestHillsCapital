@@ -57,7 +57,7 @@ export function buildSensitiveMask(value: string, validationType: string): strin
 
 export function fieldFormatHint(vt: string | undefined, message?: string): string | null {
   switch (vt) {
-    case "phone":    return "555-123-4567";
+    case "phone":    return "(555) 123-4567";
     case "ssn":      return "XXX-XX-XXXX";
     case "email":    return "user@example.com";
     case "currency": return "1234.56";

@@ -546,6 +546,14 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
       ) : (
         <div className="p-5 space-y-5">
           <div>
+            <button
+              type="button"
+              onClick={() => setInterviewSubTab("interviews")}
+              className="flex items-center gap-1 text-xs text-[#8A9BB8] hover:text-[#334155] mb-3 transition-colors"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+              Back to Sessions
+            </button>
             <h2 className="text-xl font-semibold">{session.package_name}</h2>
             <p className="text-sm text-[#6B7A99]">
               {[session.group_name, session.custodian_name, session.depository_name, labelForTransactionScope(session.transaction_scope)].filter(Boolean).join(" · ") || "No additional info"}
