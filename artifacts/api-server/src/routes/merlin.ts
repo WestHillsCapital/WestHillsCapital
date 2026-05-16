@@ -1,3 +1,4 @@
+import { randomBytes } from "crypto";
 import { Router, type IRouter, type Response } from "express";
 import Anthropic from "@anthropic-ai/sdk";
 import { getDb } from "../db";
@@ -44,7 +45,19 @@ function sseWrite(res: Response, data: object): void {
 
 const MERLIN_IDENTITY = `You are Merlin, the AI assistant for Docuplete — a document automation platform for financial advisors and wealth management firms.
 
-Your identity: You are wise, trustworthy, and quietly powerful in the background. The wizard archetype is deliberate — the most trusted advisor, the one who makes difficult things look effortless, who works his craft without fanfare. Document automation is your domain. You use wizard framing with a light touch — it is seasoning, not a costume. Phrases like "consider it handled" and "a little wizardry goes a long way" feel natural from you. You earn trust through accuracy and clarity rather than personality tricks. You never make people feel foolish for not knowing something. You are never sarcastic, never robotic, and never over-explain.`;
+Your identity: You are wise, trustworthy, and quietly powerful. The wizard archetype is deliberate — the most trusted advisor, the one who makes difficult things look effortless. You work without fanfare. Document automation is your domain. You earn trust through accuracy and clarity, not personality tricks.
+
+Your communication style:
+- Lead with the answer, not with process. Don't announce that you're about to do something — just do it.
+- Match length to the question. A simple question gets a crisp response. A complex request gets a thorough one. Never pad.
+- Be warm and human. Behind every session is a real client's financial life. Behind every staff request is someone trying to do their job well. Treat both with care.
+- Ask clarifying questions only when they would genuinely change your response — and ask one at a time, never a list. If you can make a reasonable assumption, make it and say so.
+- When presenting data, give it context. Don't just list rows — tell the person what it means or what they should do next.
+- Offer next steps naturally when the path forward is obvious. Don't wait to be asked.
+- When you create something — a session, a field, a group — confirm it clearly and surface the one thing they need immediately: the link, the ID, the next action.
+- For conceptual questions, explain in plain language. Avoid jargon unless the user is clearly technical.
+- Wizard framing is seasoning, not a costume. "Consider it done" and "a little wizardry goes a long way" can land well — but only when they fit naturally. You are never theatrical.
+- You never make someone feel foolish for not knowing something. You are never sarcastic, never robotic, and never over-explain.`;
 
 const DOCUPLETE_CONCEPTS = `Docuplete concepts you understand deeply:
 
@@ -222,6 +235,56 @@ const INTERNAL_TOOLS: Anthropic.Tool[] = [
         fieldIds:    { type: "array", items: { type: "string" }, description: "Ordered list of library field IDs to include in the group." },
       },
       required: ["name"],
+    },
+  },
+  {
+    name: "create_customer_link",
+    description: "Create a new interview session for a client and return the link. Use when staff asks to 'start an interview', 'create a session', 'generate a link', or 'send a form' for a specific client and package. The link is ready to share immediately.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        package_name_or_id: { type: "string", description: "Package name (partial match OK) or numeric ID. Required." },
+        first_name:         { type: "string", description: "Client's first name — pre-fills the form." },
+        last_name:          { type: "string", description: "Client's last name — pre-fills the form." },
+        email:              { type: "string", description: "Client's email address — pre-fills the form." },
+        source:             { type: "string", enum: ["customer_link", "staff_interview", "send_for_signature"], description: "Session type. Default: customer_link." },
+        force_scroll:       { type: "boolean", description: "If true, client must scroll through all document pages before signing. Default: false." },
+      },
+      required: ["package_name_or_id"],
+    },
+  },
+  {
+    name: "get_morning_briefing",
+    description: "Summarise all pending (draft and in_progress) sessions on this account, grouped by package, oldest first. Use when staff asks 'what's pending?', 'what's on my plate?', 'give me a briefing', or 'morning summary'.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        status: { type: "string", enum: ["draft", "in_progress", "both"], description: "Which statuses to include. Default: both." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "check_package_health",
+    description: "Inspect one or all packages for common issues: no documents uploaded, no fields configured, active packages with no delivery method enabled. Use when staff asks 'is everything set up?', 'which packages have problems?', or 'do a health check'.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        package_id: { type: "number", description: "Check a specific package by ID. Leave empty to check all packages on the account." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "search_portal_sessions",
+    description: "Look up completed (generated) sessions for a specific client by name or email. Use when staff asks 'has [client] completed their forms?', 'show me [name]'s submissions', or 'find submitted sessions for [email]'.",
+    input_schema: {
+      type: "object" as const,
+      properties: {
+        query: { type: "string", description: "Client name or email to search across submitted sessions. Required." },
+        limit: { type: "number", description: "Maximum results (1–20). Default: 10." },
+      },
+      required: ["query"],
     },
   },
 ];
@@ -626,6 +689,201 @@ async function executeInternalTool(
       return `Created field group:\n• ID: ${g.id}\n• Name: ${g.name}\n• Fields (${ordered.length}): ${fieldSummary}\n\nStaff can now insert this group into any package from the package builder.`;
     }
 
+    if (toolName === "create_customer_link") {
+      const nameOrId = typeof toolInput.package_name_or_id === "string" ? toolInput.package_name_or_id.trim() : "";
+      if (!nameOrId) return "package_name_or_id is required.";
+
+      const firstName  = typeof toolInput.first_name === "string" ? toolInput.first_name.trim() : "";
+      const lastName   = typeof toolInput.last_name  === "string" ? toolInput.last_name.trim()  : "";
+      const email      = typeof toolInput.email      === "string" ? toolInput.email.trim()      : "";
+      const source     = typeof toolInput.source     === "string" ? toolInput.source            : "customer_link";
+      const forceScroll = toolInput.force_scroll === true;
+
+      // Look up package by numeric ID or name
+      const numId = Number(nameOrId);
+      let pkgRow: Record<string, unknown> | null = null;
+      if (!isNaN(numId) && numId > 0) {
+        const { rows } = await db.query(
+          `SELECT id, name, status, version FROM docuplete_packages WHERE id = $1 AND account_id = $2 LIMIT 1`,
+          [numId, accountId],
+        );
+        pkgRow = (rows[0] as Record<string, unknown>) ?? null;
+      } else {
+        const { rows } = await db.query(
+          `SELECT id, name, status, version FROM docuplete_packages WHERE name ILIKE $1 AND account_id = $2 ORDER BY status DESC LIMIT 1`,
+          [`%${nameOrId}%`, accountId],
+        );
+        pkgRow = (rows[0] as Record<string, unknown>) ?? null;
+      }
+      if (!pkgRow) return `No package found matching "${nameOrId}" on this account. Use search_packages to find the right package name or ID.`;
+      if (String(pkgRow.status) !== "active") return `Package "${pkgRow.name}" is currently in draft status. It must be active before sessions can be created. Activate it in the package builder first.`;
+
+      const token = `df_${randomBytes(32).toString("base64url")}`;
+      const prefill: Record<string, string> = {};
+      if (firstName) prefill.firstName = firstName;
+      if (lastName)  prefill.lastName  = lastName;
+      if (email)     prefill.email     = email;
+
+      await db.query(
+        `INSERT INTO docuplete_interview_sessions
+           (token, package_id, package_version, transaction_scope, deal_id, source, status, test_mode,
+            prefill, answers, expires_at, account_id, locale, reminder_enabled, reminder_days, force_scroll_confirmation)
+         VALUES ($1, $2, $3, NULL, NULL, $4, 'draft', false,
+                 $5::jsonb, '{}'::jsonb, NOW() + INTERVAL '90 days', $6, 'en', false, 2, $7)`,
+        [token, pkgRow.id, pkgRow.version ?? 1, source, JSON.stringify(prefill), accountId, forceScroll],
+      );
+
+      // Resolve interview origin (custom domain if active)
+      const appOrigin = process.env.APP_ORIGIN
+        ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://docuplete.com");
+      let interviewOrigin = appOrigin;
+      try {
+        const { rows: domainRows } = await db.query<{ custom_domain: string | null; custom_domain_status: string }>(
+          `SELECT custom_domain, custom_domain_status FROM accounts WHERE id = $1`,
+          [accountId],
+        );
+        const dr = domainRows[0];
+        if (dr?.custom_domain && dr.custom_domain_status === "active") {
+          interviewOrigin = `https://${dr.custom_domain}`;
+        }
+      } catch { /* non-fatal */ }
+
+      const interviewUrl = `${interviewOrigin}/docuplete/public/${token}`;
+      const clientName = [firstName, lastName].filter(Boolean).join(" ") || "the client";
+      return [
+        `Session created for ${clientName} on "${pkgRow.name}".`,
+        ``,
+        `Interview link:`,
+        interviewUrl,
+        ``,
+        `This link is active for 90 days. Share it with ${email || "the client"} and they can complete the form at their own pace.`,
+        forceScroll ? `Mandatory scroll confirmation is enabled — they must scroll through every page before signing.` : "",
+      ].filter(Boolean).join("\n");
+    }
+
+    if (toolName === "get_morning_briefing") {
+      const statusFilter = typeof toolInput.status === "string" ? toolInput.status : "both";
+      const statusClause = statusFilter === "draft"
+        ? `s.status = 'draft'`
+        : statusFilter === "in_progress"
+        ? `s.status = 'in_progress'`
+        : `s.status IN ('draft', 'in_progress')`;
+
+      const { rows } = await db.query(
+        `SELECT s.token, s.status, s.created_at, s.expires_at, s.prefill,
+                s.signer_name, s.signer_email, p.name AS package_name
+           FROM docuplete_interview_sessions s
+           LEFT JOIN docuplete_packages p ON p.id = s.package_id
+          WHERE s.account_id = $1 AND ${statusClause} AND s.test_mode = false
+          ORDER BY p.name ASC, s.created_at ASC`,
+        [accountId],
+      );
+
+      if (rows.length === 0) return "Nothing pending — the queue is clear.";
+
+      // Group by package
+      const byPackage = new Map<string, typeof rows>();
+      for (const r of rows) {
+        const pkg = (r.package_name as string) ?? "Unknown package";
+        if (!byPackage.has(pkg)) byPackage.set(pkg, []);
+        byPackage.get(pkg)!.push(r);
+      }
+
+      const sections: string[] = [`${rows.length} pending session${rows.length === 1 ? "" : "s"}:\n`];
+      for (const [pkgName, sessions] of byPackage) {
+        sections.push(`${pkgName} (${sessions.length}):`);
+        for (const s of sessions) {
+          const prefill = typeof s.prefill === "object" && s.prefill ? s.prefill as Record<string, unknown> : {};
+          const name  = [prefill.firstName, prefill.lastName].filter(Boolean).join(" ") || s.signer_name || "—";
+          const email = (prefill.email as string) || s.signer_email || "";
+          const age   = Math.floor((Date.now() - new Date(s.created_at as string).getTime()) / 86400000);
+          const ageStr = age === 0 ? "today" : age === 1 ? "1 day ago" : `${age} days ago`;
+          sections.push(`  • ${name}${email ? ` (${email})` : ""} — ${s.status} — started ${ageStr}`);
+        }
+      }
+      return sections.join("\n");
+    }
+
+    if (toolName === "check_package_health") {
+      const filterPkgId = typeof toolInput.package_id === "number" ? toolInput.package_id : null;
+
+      const pkgCondition = filterPkgId ? "p.account_id = $1 AND p.id = $2" : "p.account_id = $1";
+      const pkgParams: unknown[] = filterPkgId ? [accountId, filterPkgId] : [accountId];
+
+      const { rows: pkgs } = await db.query(
+        `SELECT p.id, p.name, p.status, p.auth_level,
+                p.enable_interview, p.enable_customer_link, p.enable_embed,
+                jsonb_array_length(COALESCE(p.fields, '[]'::jsonb)) AS field_count,
+                (SELECT COUNT(*) FROM docuplete_package_documents d WHERE d.package_id = p.id) AS doc_count
+           FROM docuplete_packages p
+          WHERE ${pkgCondition}
+          ORDER BY p.name ASC`,
+        pkgParams,
+      );
+
+      if (pkgs.length === 0) return filterPkgId ? `Package ${filterPkgId} not found on this account.` : "No packages found on this account.";
+
+      const issues: string[] = [];
+      const healthy: string[] = [];
+
+      for (const p of pkgs) {
+        const flags: string[] = [];
+        const fieldCount = Number(p.field_count ?? 0);
+        const docCount   = Number(p.doc_count   ?? 0);
+        const hasDelivery = p.enable_interview || p.enable_customer_link || p.enable_embed;
+
+        if (fieldCount === 0)  flags.push("no fields configured");
+        if (docCount === 0)    flags.push("no PDFs uploaded");
+        if (!hasDelivery && p.status === "active") flags.push("active but no delivery method enabled (interview/customer link/embed are all off)");
+
+        if (flags.length) {
+          issues.push(`⚠ ${p.name} (ID ${p.id}, ${p.status}): ${flags.join("; ")}`);
+        } else {
+          healthy.push(`✓ ${p.name} (ID ${p.id}) — ${fieldCount} fields, ${docCount} doc(s)`);
+        }
+      }
+
+      const parts: string[] = [];
+      if (issues.length)  parts.push(`${issues.length} package${issues.length === 1 ? "" : "s"} with issues:\n${issues.join("\n")}`);
+      if (healthy.length) parts.push(`${healthy.length} healthy package${healthy.length === 1 ? "" : "s"}:\n${healthy.join("\n")}`);
+      return parts.join("\n\n");
+    }
+
+    if (toolName === "search_portal_sessions") {
+      const query = typeof toolInput.query === "string" ? toolInput.query.trim() : "";
+      if (!query) return "query is required — provide a client name or email.";
+      const limit = typeof toolInput.limit === "number" ? Math.min(toolInput.limit, 20) : 10;
+
+      const { rows } = await db.query(
+        `SELECT s.token, s.status, s.created_at, s.signed_at,
+                s.prefill, s.signer_name, s.signer_email,
+                p.name AS package_name
+           FROM docuplete_interview_sessions s
+           LEFT JOIN docuplete_packages p ON p.id = s.package_id
+          WHERE s.account_id = $1 AND s.status = 'generated'
+            AND (
+              s.signer_name ILIKE $2 OR s.signer_email ILIKE $2
+              OR s.prefill::text ILIKE $2
+            )
+          ORDER BY s.created_at DESC
+          LIMIT $3`,
+        [accountId, `%${query}%`, limit],
+      );
+
+      if (rows.length === 0) return `No completed sessions found for "${query}". They may not have submitted yet, or the name/email may not match what was recorded.`;
+
+      const lines = rows.map((r) => {
+        const prefill = typeof r.prefill === "object" && r.prefill ? r.prefill as Record<string, unknown> : {};
+        const name  = r.signer_name || [prefill.firstName, prefill.lastName].filter(Boolean).join(" ") || "—";
+        const email = r.signer_email || (prefill.email as string) || "—";
+        const date  = new Date(r.created_at as string).toLocaleDateString();
+        const signed = r.signed_at ? ` | Signed: ${new Date(r.signed_at as string).toLocaleDateString()}` : "";
+        return `• ${name} (${email}) — ${r.package_name ?? "?"} — submitted ${date}${signed}`;
+      });
+
+      return `Found ${rows.length} completed session${rows.length === 1 ? "" : "s"} for "${query}":\n\n${lines.join("\n")}`;
+    }
+
     return `Unknown tool: ${toolName}`;
   } catch (err) {
     logger.error({ err, toolName }, "[Merlin] Tool execution error");
@@ -662,7 +920,9 @@ router.post("/chat", async (req, res): Promise<void> => {
       "",
       DOCUPLETE_CONCEPTS,
       "",
-      "You have access to real-time data through tools. Always use tools to fetch live data rather than guessing. Present results readably — tables for lists, summaries for single records. When the user asks about specific sessions, packages, or stats, call the relevant tool first.",
+      "TOOL USE GUIDANCE: Use tools only for live data requests — when someone asks about specific sessions, packages, stats, library fields, team members, or asks you to create something. For conceptual questions ('how does X work?', 'what's the difference between Y and Z?'), how-to guidance, creative tasks (drafting labels, suggesting package structure, compliance advice), answer directly and conversationally from your knowledge without calling a tool. When you do fetch data, present it with context — don't just return raw rows. When you create something, confirm it clearly and surface the one thing the user needs next (the link, the ID, the next step).",
+      "",
+      "ADVISORY CAPABILITIES (no tool needed): You can suggest sensible field lists for any package type based on transaction category (IRA transfer, beneficiary update, etc.). You can draft clear, friendly form labels and question text. You can advise which fields should be marked sensitive based on field names and regulatory norms (SSN, DOB, account numbers, routing numbers). You can explain what a session status means and what the client still needs to do to complete it.",
       "",
       "This is the internal staff interface. You can look up anything on this account. If you don't know something, say so — do not invent data.",
     ].join("\n");
