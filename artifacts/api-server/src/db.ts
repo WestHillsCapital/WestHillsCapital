@@ -2115,6 +2115,21 @@ export async function initDb(): Promise<void> {
   // Stamped when the automated reminder email is sent so we don't re-send.
   await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ`);
 
+  // ── Status page incidents ──────────────────────────────────────────────────
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS status_incidents (
+      id          SERIAL PRIMARY KEY,
+      title       TEXT        NOT NULL,
+      status      TEXT        NOT NULL DEFAULT 'investigating',
+      severity    TEXT        NOT NULL DEFAULT 'minor',
+      components  TEXT[]      NOT NULL DEFAULT '{}',
+      body        TEXT        NOT NULL DEFAULT '',
+      updates     JSONB       NOT NULL DEFAULT '[]',
+      created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      resolved_at TIMESTAMPTZ
+    )
+  `);
+
   // ── Rename all docufill_* tables → docuplete_* ────────────────────────────
   // Rename the migration-state table first so the idempotency check below
   // works the same way on both existing and fresh installs.

@@ -27,6 +27,7 @@ import sandboxRouter from "./sandbox";
 import customDomainRouter from "./customDomain";
 import scimRouter from "./scim";
 import samlRouter from "./saml";
+import statusRouter from "./status";
 
 const router: IRouter = Router();
 
@@ -99,6 +100,7 @@ v1Router.use("/account/custom-domain", customDomainRouter);
 v1Router.use("/product/developer",     requireProductAuth, requireAccountId, developerRouter);
 v1Router.use("/sandbox",               sandboxRouter);
 v1Router.use("/saml",                  samlRouter);
+v1Router.use("/status",                statusRouter);
 
 router.use("/v1", v1Router);
 
