@@ -49,6 +49,7 @@ type FieldItem = {
   conditionOperator?: "and" | "or";
   required?: boolean;
   interviewVisible?: boolean;
+  sumGroup?: string;
 };
 
 type SessionData = {
@@ -327,6 +328,7 @@ export default function DocupleteCustomer() {
   const [errorMsg, setErrorMsg] = useState("");
   const [missingFields, setMissingFields] = useState<string[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [sumGroupErrors, setSumGroupErrors] = useState<Record<string, string>>({});
   const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
   const [isDownloading, setIsDownloading] = useState(false);
   const [showSandboxKeyModal, setShowSandboxKeyModal] = useState(false);
@@ -635,6 +637,25 @@ export default function DocupleteCustomer() {
       evaluateConditions(f, answers),
   );
 
+  // Sum group computation — groups visible percent/number fields by sumGroup label
+  const sumGroupFields = new Map<string, typeof visibleFields>();
+  for (const f of visibleFields) {
+    const sg = f.sumGroup;
+    if (!sg || f.interviewMode === "readonly") continue;
+    if (!sumGroupFields.has(sg)) sumGroupFields.set(sg, []);
+    sumGroupFields.get(sg)!.push(f);
+  }
+  const sumGroupTotals = new Map<string, number>();
+  for (const [sg, sgFields] of sumGroupFields) {
+    let total = 0;
+    for (const f of sgFields) {
+      const raw = currentValue(f, answers, session?.prefill ?? {}).replace(/[^0-9.]/g, "");
+      const num = parseFloat(raw);
+      if (!isNaN(num)) total += num;
+    }
+    sumGroupTotals.set(sg, Math.round(total * 1000) / 1000);
+  }
+
   function validate(): boolean {
     if (!session) return false;
     const newErrors: Record<string, string> = {};
@@ -651,7 +672,24 @@ export default function DocupleteCustomer() {
     }
     setFieldErrors(newErrors);
     setMissingFields(missing);
-    return Object.keys(newErrors).length === 0;
+
+    // Sum group validation — each group must total exactly 100 when any field is answered
+    const newSumGroupErrors: Record<string, string> = {};
+    for (const [sg, sgFields] of sumGroupFields) {
+      const anyAnswered = sgFields.some((f) => currentValue(f, answers, session.prefill).trim() !== "");
+      if (!anyAnswered) continue;
+      const total = sumGroupTotals.get(sg) ?? 0;
+      if (Math.round(total * 100) !== 10000) {
+        const label = sg.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        const rounded = Math.round(total * 10) / 10;
+        newSumGroupErrors[sg] = rounded > 100
+          ? `${label} shares are over-allocated (${rounded}%). Reduce some values until the total equals exactly 100%.`
+          : `${label} shares total ${rounded}% — they must reach exactly 100% before you can proceed.`;
+      }
+    }
+    setSumGroupErrors(newSumGroupErrors);
+
+    return Object.keys(newErrors).length === 0 && Object.keys(newSumGroupErrors).length === 0;
   }
 
   async function handleRequestOtp(emailOverride?: string) {
@@ -2072,6 +2110,61 @@ export default function DocupleteCustomer() {
             );
           })}
         </div>
+
+        {/* Sum group progress banners — live allocation tracker */}
+        {sumGroupFields.size > 0 && !merlinMode && Array.from(sumGroupFields.entries()).map(([sg, sgFields]) => {
+          const total = sumGroupTotals.get(sg) ?? 0;
+          const roundedTotal = Math.round(total * 10) / 10;
+          const isComplete = Math.round(total * 100) === 10000;
+          const isOver = total > 100.001;
+          const hasError = Boolean(sumGroupErrors[sg]);
+          const anyAnswered = sgFields.some((f) => currentValue(f, answers, session!.prefill).trim() !== "");
+          const label = sg.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+          return (
+            <div
+              key={sg}
+              className={`rounded-lg border px-4 py-3 space-y-2 transition-colors ${
+                isComplete
+                  ? "border-green-200 bg-green-50"
+                  : hasError || isOver
+                  ? "border-red-200 bg-red-50"
+                  : "border-amber-200 bg-amber-50"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <p className={`text-xs font-semibold ${isComplete ? "text-green-800" : isOver ? "text-red-800" : "text-amber-800"}`}>
+                  {label} — Allocation
+                </p>
+                <span className={`text-xs font-bold tabular-nums ${isComplete ? "text-green-700" : isOver ? "text-red-700" : "text-amber-700"}`}>
+                  {roundedTotal}% / 100%
+                </span>
+              </div>
+              <div className="w-full bg-white/60 rounded-full h-2 overflow-hidden border border-white/40">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    isComplete ? "bg-green-500" : isOver ? "bg-red-400" : "bg-amber-400"
+                  }`}
+                  style={{ width: `${Math.min(total, 100)}%` }}
+                />
+              </div>
+              {isComplete ? (
+                <p className="text-[11px] text-green-700 font-medium">All shares allocated — you're good to go.</p>
+              ) : isOver ? (
+                <p className="text-[11px] text-red-700">
+                  Over by {Math.round((total - 100) * 10) / 10}%. Reduce some shares until the total equals exactly 100%.
+                </p>
+              ) : anyAnswered ? (
+                <p className="text-[11px] text-amber-700">
+                  {Math.round((100 - total) * 10) / 10}% still unallocated. All {label.toLowerCase()} shares must total exactly 100% to continue.
+                </p>
+              ) : (
+                <p className="text-[11px] text-amber-700">
+                  Enter each beneficiary's share percentage. All {label.toLowerCase()} shares must total exactly 100%.
+                </p>
+              )}
+            </div>
+          );
+        })}
 
         {/* Sandbox engine progress widget — visible only when ?sandbox=1 */}
         {isSandbox && (

@@ -23,6 +23,7 @@ export type FieldEditorDraft = {
   condition: FieldCondition | null;
   condition2: FieldCondition | null;
   conditionOperator: "and" | "or";
+  sumGroup: string;
 };
 
 interface FieldEditorModalProps {
@@ -450,6 +451,36 @@ export function FieldEditorModal({
               <Input className="mt-2 text-sm" placeholder="Regex pattern, e.g. ^[A-Z]{2}$" value={draft.validationPattern} onChange={(e) => setDraft((d) => ({ ...d, validationPattern: e.target.value }))} />
             )}
           </div>
+
+          {/* Sum Group */}
+          {(draft.validationType === "percent" || draft.validationType === "number") && (
+            <div className="space-y-1.5 rounded border border-[#EFE8D8] bg-[#F8F6F0] px-3 py-3">
+              <div className="flex items-center gap-1.5">
+                <label className="text-xs font-medium text-[#6B7A99]">Sum Group</label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center text-[#8A9BB8] cursor-default"><Info className="w-3 h-3" /></span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs text-xs leading-snug space-y-1">
+                    <p><strong>What it does:</strong> Groups percentage fields together so their values must total exactly 100% before the client can proceed.</p>
+                    <p><strong>How to use:</strong> Give the same label to every share % field in the same group. For example, tag all primary beneficiary share fields <em>primary_beneficiary</em> and all contingent share fields <em>contingent_beneficiary</em>.</p>
+                    <p><strong>Live feedback:</strong> The client sees a running total and a progress bar while filling in the form, so they always know how much is left to allocate.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Input
+                value={draft.sumGroup}
+                onChange={(e) => setDraft((d) => ({ ...d, sumGroup: e.target.value }))}
+                placeholder="e.g. primary_beneficiary (optional)"
+                className="text-xs"
+              />
+              {draft.sumGroup.trim() && (
+                <p className="text-[10px] text-[#7A6A3A]">
+                  All visible fields tagged <strong>{draft.sumGroup.trim()}</strong> must sum to 100% before the client can advance.
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Package-only checkbox (add mode only) */}
           {modal.mode === "add" && (

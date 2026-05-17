@@ -25,6 +25,7 @@ export type FieldItem = {
   condition2?: FieldCondition | null;
   conditionOperator?: "and" | "or";
   nameMode?: "inherit" | "override";
+  sumGroup?: string;
 };
 
 export type MappingFormat =

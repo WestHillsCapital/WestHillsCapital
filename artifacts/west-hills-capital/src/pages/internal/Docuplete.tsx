@@ -600,7 +600,7 @@ export default function Docuplete() {
     document.addEventListener("touchcancel", onEnd);
     fieldEditorDragCleanupRef.current = cleanup;
   }, [fieldEditorPos.x, fieldEditorPos.y]);
-  const [fieldEditorDraft, setFieldEditorDraft] = useState<FieldEditorDraft>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false, condition: null, condition2: null, conditionOperator: "and" });
+  const [fieldEditorDraft, setFieldEditorDraft] = useState<FieldEditorDraft>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false, condition: null, condition2: null, conditionOperator: "and", sumGroup: "" });
   const sortSensors = useSensors(useSensor(SmartPointerSensor, { activationConstraint: { distance: 6 } }));
   const [session, setSession] = useState<Session | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -2828,7 +2828,7 @@ export default function Docuplete() {
       type: "text", options: [], interviewMode: "optional",
       hasDefault: false, defaultValue: "",
       validationType: "none", validationPattern: "", validationMessage: "",
-      packageOnly: false, condition: null, condition2: null, conditionOperator: "and",
+      packageOnly: false, condition: null, condition2: null, conditionOperator: "and", sumGroup: "",
     });
     setFieldEditorModal({ mode: "add", fieldId: null });
   }
@@ -2847,6 +2847,7 @@ export default function Docuplete() {
       validationPattern: field.validationPattern ?? "",
       validationMessage: field.validationMessage ?? "",
       packageOnly: false, condition: field.condition ?? null, condition2: field.condition2 ?? null, conditionOperator: field.conditionOperator ?? "and",
+      sumGroup: field.sumGroup ?? "",
     });
     setSelectedFieldId(fieldId);
     setFieldEditorModal({ mode: "edit", fieldId });
@@ -3142,7 +3143,7 @@ export default function Docuplete() {
 
   async function saveFieldFromModal() {
     if (!fieldEditorModal || !selectedPackage) return;
-    const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage, packageOnly, condition, condition2, conditionOperator } = fieldEditorDraft;
+    const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage, packageOnly, condition, condition2, conditionOperator, sumGroup } = fieldEditorDraft;
     const cleanOpts = options.filter(Boolean);
     const isChoiceType = type === "radio" || type === "checkbox";
 
@@ -3194,6 +3195,7 @@ export default function Docuplete() {
         condition2: condition2 ?? undefined,
         conditionOperator: conditionOperator,
         nameMode: "inherit",
+        ...(sumGroup.trim() ? { sumGroup: sumGroup.trim() } : {}),
       };
       setSelectedFieldId(field.id);
       const currentStoreMappings = useDocupleteStore.getState().mappings;
@@ -3226,6 +3228,7 @@ export default function Docuplete() {
           condition2: condition2 ?? undefined,
           conditionOperator: conditionOperator,
           nameMode,
+          sumGroup: sumGroup.trim() || undefined,
         } : f),
         mappings: [...currentStoreMappings, ...autoMappings],
       }));
