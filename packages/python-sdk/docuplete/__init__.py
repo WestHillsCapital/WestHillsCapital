@@ -52,7 +52,9 @@ from typing import Optional
 
 from .client import DocupleteClient
 from .exceptions import DocupleteError
+from .resources.account import AccountResource
 from .resources.packages import PackagesResource
+from .resources.sandbox import SandboxResource
 from .resources.sessions import SessionsResource
 from .webhooks import construct_webhook_event, verify_webhook_signature
 
@@ -84,7 +86,11 @@ class Docuplete:
     sessions : SessionsResource
         Create, list, manage, and audit sessions.
     packages : PackagesResource
-        List and retrieve packages.
+        List, retrieve, and inspect webhook deliveries for packages.
+    account : AccountResource
+        Retrieve the authenticated account's profile.
+    sandbox : SandboxResource
+        Start a no-key-required demo interview session.
 
     Example
     -------
@@ -101,7 +107,6 @@ class Docuplete:
     >>> print(result["interview_url"])
     >>>
     >>> # Bulk-create 50 sessions at once
-    >>> from docuplete import Docuplete
     >>> bulk = client.sessions.bulk_create([
     ...     {"package_id": 42, "prefill": {"email": c["email"]}}
     ...     for c in contacts
@@ -109,6 +114,14 @@ class Docuplete:
     >>> for r in bulk["results"]:
     ...     if r["ok"]:
     ...         print("Created:", r["session_token"])
+    >>>
+    >>> # Check account profile
+    >>> acct = client.account.get()
+    >>> print(acct["account_name"], acct["role"])
+    >>>
+    >>> # Start a sandbox demo (no real account needed)
+    >>> demo = client.sandbox.start(first_name="Jane", email="jane@example.com")
+    >>> print(demo["interview_url"])
     """
 
     def __init__(
@@ -120,6 +133,8 @@ class Docuplete:
         self._http = DocupleteClient(api_key=api_key, base_url=base_url, timeout=timeout)
         self.sessions = SessionsResource(self._http)
         self.packages = PackagesResource(self._http)
+        self.account  = AccountResource(self._http)
+        self.sandbox  = SandboxResource(self._http)
 
     def close(self) -> None:
         """Close the underlying HTTP connection pool."""

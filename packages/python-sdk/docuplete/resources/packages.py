@@ -56,3 +56,49 @@ class PackagesResource:
         data = self._client.get(f"/packages/{package_id}")
         pkg = data.get("package", data)
         return _snake(pkg)
+
+    def webhook_deliveries(
+        self,
+        package_id: int,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+    ) -> Dict[str, Any]:
+        """
+        Return the webhook delivery log for a package.
+
+        Deliveries are returned in descending creation order (most recent first).
+        Use ``limit`` and ``offset`` for pagination (max 200 per page).
+
+        Requires a ``dp_live_...`` API key.
+
+        Parameters
+        ----------
+        package_id : int
+            Numeric package ID.
+        limit : int, optional
+            Page size (1–200). Default: 50.
+        offset : int, optional
+            Pagination offset. Default: 0.
+
+        Returns
+        -------
+        dict
+            Keys: ``deliveries`` (list), ``total`` (int), ``limit`` (int),
+            ``offset`` (int).
+
+        Example
+        -------
+        >>> log = client.packages.webhook_deliveries(42, limit=25)
+        >>> for d in log["deliveries"]:
+        ...     print(d["event_type"], d["status_code"])
+        """
+        params: Dict[str, Any] = {}
+        if limit is not None:
+            params["limit"] = limit
+        if offset is not None:
+            params["offset"] = offset
+        data = self._client.get(
+            f"/packages/{package_id}/webhook-deliveries",
+            params or None,
+        )
+        return _snake(data)
