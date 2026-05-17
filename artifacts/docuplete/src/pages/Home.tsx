@@ -2,10 +2,9 @@ import { useEffect, useRef, useState } from "react";
 
 function VideoSection() {
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Once the modal is open, tell the iframe to start audio.
-  // We wait for the iframe's load event so the listener is registered.
   useEffect(() => {
     if (!open) return;
     const iframe = iframeRef.current;
@@ -16,64 +15,96 @@ function VideoSection() {
     return () => iframe.removeEventListener('load', send);
   }, [open]);
 
+  // Close modal on Escape
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open]);
+
   return (
     <section className="py-20 px-6 bg-white">
       <div className="max-w-4xl mx-auto text-center">
         <p className="text-[#1B4FD8] text-sm font-semibold uppercase tracking-widest mb-3">See it in action</p>
         <h2 className="text-3xl sm:text-4xl font-bold text-[#0B1220] mb-4">From chaos to done — in 60 seconds</h2>
-        <p className="text-[#4B5A7A] max-w-xl mx-auto mb-10">
+        <p className="text-[#4B5A7A] max-w-xl mx-auto mb-8">
           Meet Sally and Tom. See how one questionnaire replaces six documents, fifty fields, and hours of back-and-forth.
         </p>
 
-        {/* Thumbnail */}
-        <button
-          onClick={() => setOpen(true)}
-          className="group relative w-full max-w-3xl mx-auto rounded-2xl overflow-hidden shadow-2xl border border-[#E8EDF5] block focus:outline-none focus:ring-4 focus:ring-[#1B4FD8]/30"
-          aria-label="Play explainer video"
-        >
-          {/* Dark gradient thumbnail */}
-          <div className="relative w-full aspect-video bg-[#0B1220] flex items-center justify-center overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-[#1B4FD8]/30 via-[#0B1220] to-[#C49A38]/20" />
-            {/* Decorative floating elements */}
-            <div className="absolute top-8 left-10 w-24 h-32 bg-white/5 rounded-lg border border-white/10 rotate-[-8deg]" />
-            <div className="absolute top-6 left-20 w-24 h-32 bg-white/5 rounded-lg border border-white/10 rotate-[4deg]" />
-            <div className="absolute bottom-10 right-12 w-20 h-28 bg-[#1B4FD8]/20 rounded-lg border border-[#1B4FD8]/30 rotate-[6deg]" />
-            <div className="absolute bottom-8 right-20 w-20 h-28 bg-white/5 rounded-lg border border-white/10 rotate-[-3deg]" />
-            {/* Center label */}
-            <div className="relative z-10 flex flex-col items-center gap-5">
-              <div className="w-20 h-20 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/20 transition-all duration-300 group-hover:scale-110">
-                <svg className="w-8 h-8 text-white ml-1" viewBox="0 0 24 24" fill="currentColor">
+        {/* Collapsed bar — always visible */}
+        <div className="w-full max-w-3xl mx-auto">
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="w-full flex items-center justify-between gap-4 bg-[#0B1220] text-white px-6 py-4 rounded-2xl hover:bg-[#131e35] transition-colors focus:outline-none focus:ring-4 focus:ring-[#1B4FD8]/30"
+            aria-expanded={expanded}
+            aria-label={expanded ? "Collapse video preview" : "Expand video preview"}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-full bg-[#1B4FD8]/20 border border-[#1B4FD8]/30 flex items-center justify-center shrink-0">
+                <svg className="w-4 h-4 text-[#5B8DEF] ml-0.5" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M8 5v14l11-7z" />
                 </svg>
               </div>
-              <div className="text-center">
-                <p className="text-white font-bold text-xl">Sally &amp; Tom's Story</p>
+              <div className="text-left">
+                <p className="font-semibold text-sm">Sally &amp; Tom's Story</p>
+                <p className="text-white/50 text-xs">Watch the 60-second walkthrough</p>
               </div>
             </div>
-            {/* Bottom bar */}
-            <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-black/60 to-transparent flex items-end px-6 pb-3">
-              <div className="flex gap-1.5">
-                {[...Array(8)].map((_, i) => (
-                  <div
-                    key={i}
-                    className="h-1 rounded-full bg-white/30 flex-1"
-                    style={{ opacity: i === 0 ? 1 : 0.4 }}
-                  />
-                ))}
+            <svg
+              className={`w-5 h-5 text-white/50 shrink-0 transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
+              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* Expanded thumbnail — animates open */}
+          <div
+            className={`overflow-hidden transition-all duration-500 ease-in-out ${expanded ? "max-h-[600px] opacity-100 mt-3" : "max-h-0 opacity-0"}`}
+          >
+            <button
+              onClick={() => setOpen(true)}
+              className="group relative w-full rounded-2xl overflow-hidden shadow-2xl border border-[#E8EDF5] block focus:outline-none focus:ring-4 focus:ring-[#1B4FD8]/30"
+              aria-label="Play explainer video"
+            >
+              <div className="relative w-full aspect-video bg-[#0B1220] flex items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-[#1B4FD8]/30 via-[#0B1220] to-[#C49A38]/20" />
+                <div className="absolute top-8 left-10 w-24 h-32 bg-white/5 rounded-lg border border-white/10 rotate-[-8deg]" />
+                <div className="absolute top-6 left-20 w-24 h-32 bg-white/5 rounded-lg border border-white/10 rotate-[4deg]" />
+                <div className="absolute bottom-10 right-12 w-20 h-28 bg-[#1B4FD8]/20 rounded-lg border border-[#1B4FD8]/30 rotate-[6deg]" />
+                <div className="absolute bottom-8 right-20 w-20 h-28 bg-white/5 rounded-lg border border-white/10 rotate-[-3deg]" />
+                <div className="relative z-10 flex flex-col items-center gap-5">
+                  <div className="w-20 h-20 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/20 transition-all duration-300 group-hover:scale-110">
+                    <svg className="w-8 h-8 text-white ml-1" viewBox="0 0 24 24" fill="currentColor">
+                      <path d="M8 5v14l11-7z" />
+                    </svg>
+                  </div>
+                  <p className="text-white font-bold text-xl">Click to watch</p>
+                </div>
+                <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-black/60 to-transparent flex items-end px-6 pb-3">
+                  <div className="flex gap-1.5">
+                    {[...Array(8)].map((_, i) => (
+                      <div key={i} className="h-1 rounded-full bg-white/30 flex-1" style={{ opacity: i === 0 ? 1 : 0.4 }} />
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
+            </button>
           </div>
-        </button>
+        </div>
       </div>
 
-      {/* Fullscreen modal */}
+      {/* Fullscreen modal — properly constrained with safe-area padding */}
       {open && (
         <div
           className="fixed inset-0 z-[9999] bg-black flex flex-col"
+          style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           onClick={() => setOpen(false)}
         >
-          {/* Top bar with close button — sits above the video */}
-          <div className="shrink-0 flex items-center justify-end px-6 py-3 z-10">
+          {/* Top bar */}
+          <div className="shrink-0 flex items-center justify-between px-6 py-3">
+            <p className="text-white/50 text-sm">Sally &amp; Tom's Story</p>
             <button
               className="text-white/60 hover:text-white text-4xl leading-none font-light"
               onClick={() => setOpen(false)}
@@ -82,12 +113,20 @@ function VideoSection() {
               ×
             </button>
           </div>
-          {/* Video fills remaining space */}
+
+          {/* Video — constrained so it never overflows available height */}
           <div
-            className="flex-1 flex items-center justify-center px-4 pb-4"
+            className="flex-1 flex items-center justify-center px-4 pb-4 min-h-0"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="relative w-full max-w-7xl" style={{ aspectRatio: '16/9' }}>
+            <div
+              className="relative w-full"
+              style={{
+                /* Width must not produce a 16:9 height exceeding the flex container */
+                maxWidth: 'min(100%, calc((100vh - 80px) * (16 / 9)))',
+                aspectRatio: '16 / 9',
+              }}
+            >
               <iframe
                 ref={iframeRef}
                 src="/docuplete-explainer/"
