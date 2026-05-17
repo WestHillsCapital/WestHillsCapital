@@ -104,10 +104,16 @@ export default function Plans() {
       <p>A <strong>generation</strong> is the act of producing a filled PDF. On most plans, generation happens automatically when a client submits a session. On Developer, you can also trigger generation directly via the API without any client interview — for example, to fill a PDF programmatically from your own data source. Because of this, Developer counts <em>generations</em> rather than sessions: it's a broader unit that covers both paths.</p>
       <p>In short: every submitted session produces a generation, but not every generation comes from a client session.</p>
 
-      <h2>Quota counting</h2>
-      <p>On Starter and Pro, your quota counts <strong>submitted sessions</strong> — sessions a client successfully completes and submits. Draft, voided, and abandoned sessions do not count. Quota resets each billing period; overage is $0.50 per additional session.</p>
-      <p>On Developer, your quota counts <strong>generations</strong> — each filled PDF produced, regardless of origin. Overage is billed in blocks of 100 at $75 per block.</p>
+      <h2>Quota counting and overage</h2>
+      <p>On Starter and Pro, your quota counts <strong>submitted sessions</strong> — sessions a client successfully completes and submits. Draft, voided, and abandoned sessions do not count. Quota resets each billing period.</p>
+      <p>On Developer, your quota counts <strong>generations</strong> — each filled PDF produced, regardless of origin. Quota resets each billing period.</p>
       <p>On Enterprise, sessions and generations are unlimited.</p>
+      <p>Overage is billed automatically at the end of your billing period — there are no pre-purchased add-on packs. If you consistently exceed your quota, upgrading to a higher plan is more cost-effective than relying on overage.</p>
+
+      <h2>Developer overage pricing</h2>
+      <p>Developer overage is priced at <strong>$75 per 100 additional generations</strong> ($0.75 per generation). This is intentionally lower than the effective per-generation cost of the base plan ($499 ÷ 500 = ~$1.00/generation) — high-volume API usage is rewarded with a lower marginal rate.</p>
+      <p>Overage is billed in blocks of 100, not per individual generation. This keeps invoices predictable: if you produce 620 generations in a month, you pay for 500 (included) + 200 (two full blocks, whether or not you used all 200). There is no fractional block charge.</p>
+      <p>If you routinely exceed 500 generations per month, contact us about Enterprise pricing — unlimited generations are included at the $3,000/mo flat rate.</p>
 
       <h2>Seats</h2>
       <p>A seat is a user account within your organization. Admins, members, and read-only users each consume a seat.</p>
