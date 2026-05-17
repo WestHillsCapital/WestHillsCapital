@@ -172,7 +172,7 @@ function currentValue(field: FieldItem, answers: Record<string, string>, prefill
 
 function CheckIcon() {
   return (
-    <svg className="w-16 h-16 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+    <svg className="w-16 h-16 text-[#C49A38]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
       <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   );
@@ -193,7 +193,7 @@ function MaskedDateFormatGuide({ value, field }: { value: string; field: { valid
 
   if (isValid) {
     return (
-      <div className="mt-1.5 flex items-center gap-1 text-xs text-green-600" aria-hidden>
+      <div className="mt-1.5 flex items-center gap-1 text-xs text-[#C49A38]" aria-hidden>
         <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
         </svg>
@@ -216,7 +216,7 @@ function MaskedDateFormatGuide({ value, field }: { value: string; field: { valid
         }
         const isCorrect = isSep ? inputChar === "/" : /\d/.test(inputChar);
         return (
-          <span key={i} className={isCorrect ? "text-green-600" : "text-red-500"}>
+          <span key={i} className={isCorrect ? "text-[#C49A38]" : "text-red-500"}>
             {isSep ? inputChar : "•"}
           </span>
         );
@@ -1000,10 +1000,10 @@ export default function DocupleteCustomer() {
               <span className="ml-1 text-[10px] font-medium text-amber-400/60 uppercase tracking-widest">Sandbox</span>
             </div>
             <div className="flex items-center gap-1.5">
-              <svg className="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+              <svg className="w-4 h-4 text-[#C49A38]" fill="currentColor" viewBox="0 0 20 20">
                 <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
               </svg>
-              <span className="text-green-400 text-sm font-medium">Document generated</span>
+              <span className="text-[#C49A38] text-sm font-medium">Document generated</span>
             </div>
           </header>
 
@@ -1037,7 +1037,7 @@ export default function DocupleteCustomer() {
                   <p className="text-[10px] font-semibold text-[#8A9BB8] uppercase tracking-widest">SHA-256 integrity hash</p>
                   {pdfHash ? (
                     <div className="bg-[#111827] rounded-lg px-3 py-2.5">
-                      <p className="text-[10px] font-mono text-green-400 break-all leading-relaxed">{pdfHash}</p>
+                      <p className="text-[10px] font-mono text-[#C49A38] break-all leading-relaxed">{pdfHash}</p>
                     </div>
                   ) : (
                     <div className="bg-[#111827] rounded-lg px-3 py-2.5 flex items-center gap-2">
@@ -1447,8 +1447,8 @@ export default function DocupleteCustomer() {
             <div className="bg-white rounded-xl border border-[#DDD5C4] p-6 space-y-4">
               {/* Identity confirmed header */}
               <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center shrink-0 mt-0.5">
-                  <svg className="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <div className="w-8 h-8 rounded-full bg-[#FDF6E3] flex items-center justify-center shrink-0 mt-0.5">
+                  <svg className="w-4 h-4 text-[#C49A38]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
                 </div>
@@ -1647,14 +1647,14 @@ export default function DocupleteCustomer() {
                 <div className="flex-1 h-1.5 bg-[#EFE8D8] rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all duration-300"
-                    style={{ width: `${scrollDepthPct}%`, backgroundColor: scrollConfirmed ? "#22C55E" : brandColor }}
+                    style={{ width: `${scrollDepthPct}%`, backgroundColor: scrollConfirmed ? "#C49A38" : brandColor }}
                   />
                 </div>
                 <span className="text-[11px] text-[#6B7A99] shrink-0">
                   {scrollConfirmed ? "Document reviewed" : `${scrollDepthPct}% scrolled`}
                 </span>
                 {scrollConfirmed && (
-                  <svg className="w-4 h-4 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-4 h-4 text-[#C49A38] shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                   </svg>
                 )}
@@ -2125,30 +2125,30 @@ export default function DocupleteCustomer() {
               key={sg}
               className={`rounded-lg border px-4 py-3 space-y-2 transition-colors ${
                 isComplete
-                  ? "border-green-200 bg-green-50"
+                  ? "border-[#E8D5A3] bg-[#FDF6E3]"
                   : hasError || isOver
                   ? "border-red-200 bg-red-50"
                   : "border-amber-200 bg-amber-50"
               }`}
             >
               <div className="flex items-center justify-between gap-2">
-                <p className={`text-xs font-semibold ${isComplete ? "text-green-800" : isOver ? "text-red-800" : "text-amber-800"}`}>
+                <p className={`text-xs font-semibold ${isComplete ? "text-[#7A5E1A]" : isOver ? "text-red-800" : "text-amber-800"}`}>
                   {label} — Allocation
                 </p>
-                <span className={`text-xs font-bold tabular-nums ${isComplete ? "text-green-700" : isOver ? "text-red-700" : "text-amber-700"}`}>
+                <span className={`text-xs font-bold tabular-nums ${isComplete ? "text-[#8B6914]" : isOver ? "text-red-700" : "text-amber-700"}`}>
                   {roundedTotal}% / 100%
                 </span>
               </div>
               <div className="w-full bg-white/60 rounded-full h-2 overflow-hidden border border-white/40">
                 <div
                   className={`h-full rounded-full transition-all duration-300 ${
-                    isComplete ? "bg-green-500" : isOver ? "bg-red-400" : "bg-amber-400"
+                    isComplete ? "bg-[#C49A38]" : isOver ? "bg-red-400" : "bg-amber-400"
                   }`}
                   style={{ width: `${Math.min(total, 100)}%` }}
                 />
               </div>
               {isComplete ? (
-                <p className="text-[11px] text-green-700 font-medium">All shares allocated — you're good to go.</p>
+                <p className="text-[11px] text-[#8B6914] font-medium">All shares allocated — you're good to go.</p>
               ) : isOver ? (
                 <p className="text-[11px] text-red-700">
                   Over by {Math.round((total - 100) * 10) / 10}%. Reduce some shares until the total equals exactly 100%.

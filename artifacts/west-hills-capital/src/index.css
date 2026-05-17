@@ -112,10 +112,10 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Docuplete app portal — scoped navy primary so the West Hills marketing site keeps gold */
+/* Docuplete app portal — action blue for buttons/links, dark navy retained for nav/text */
 .docuplete-app {
-  --primary: 224 61% 15%;
-  --ring: 224 61% 15%;
+  --primary: 221 83% 53%;
+  --ring: 221 83% 53%;
 }
 
 /* Base custom utilities */
