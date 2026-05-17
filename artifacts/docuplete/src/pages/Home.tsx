@@ -313,57 +313,93 @@ const PAIN_POINTS = [
 
 const PERSONAS = [
   {
-    tab: "Solo & Small",
-    plan: "Starter",
-    headline: "You're the expert. Stop being the document processor.",
-    empathy: "You wear every hat. The last thing you need is paperwork slowing down the work that actually pays.",
-    pains: [
-      "I'm re-typing client info from emails into PDFs by hand",
-      "Clients ghost me waiting for forms — I chase, they delay",
-      "I'm spending an hour on intake for every new client",
-      "One signature missing can push a closing back days",
-    ],
-    resolutions: [
-      "Send one link — clients fill it themselves, no printing needed",
-      "Automated reminders keep clients moving without you lifting a finger",
-      "Intake takes minutes, not hours — your PDF comes back complete",
-      "Every submission is timestamped and logged the moment it lands",
-    ],
-  },
-  {
-    tab: "Growing Teams",
+    tab: "Financial Services",
     plan: "Pro",
-    headline: "Your team is growing. Your document chaos shouldn't be.",
-    empathy: "More clients, more staff, more moving parts — and the same broken intake process holding everything up.",
+    headline: "Client paperwork shouldn't slow down client relationships.",
+    empathy: "From new account opening to annual reviews, advisors spend too much time on forms and not enough on advice.",
     pains: [
-      "Different team members use different versions of the same form",
-      "There's no visibility into which clients have actually submitted",
-      "We're manually splitting CSV exports every time we need batch data",
-      "New hires take weeks to learn our intake process",
+      "New account paperwork takes 3+ days of email back-and-forth",
+      "Clients print, sign, scan — and still miss half the required fields",
+      "Every IRA transfer or beneficiary change triggers a documentation chase",
+      "No audit trail when a client disputes what they signed or when",
     ],
     resolutions: [
-      "One master template — every team member sends the exact same form",
-      "A live dashboard shows every submission status at a glance",
-      "Batch CSV import fills hundreds of documents in one click",
-      "Branded client links anyone can send from day one",
+      "Send one guided link — clients fill it from any device, no printing needed",
+      "Validation blocks submission until every required field is answered",
+      "Allocation fields enforce 100% totals automatically — no manual check needed",
+      "RFC 3161 timestamps and an immutable audit log satisfy compliance reviews",
     ],
   },
   {
-    tab: "Enterprise",
-    plan: "Enterprise",
-    headline: "High volume demands a system — not a workaround.",
-    empathy: "At your scale, a broken document process isn't just slow — it's a liability. Every gap is a compliance risk.",
+    tab: "Real Estate",
+    plan: "Starter",
+    headline: "Stop chasing signatures across email threads and fax machines.",
+    empathy: "Every transaction has a stack of disclosures, agreements, and applications. Getting them back complete and on time closes deals — or loses them.",
     pains: [
-      "We process hundreds of packages a month with zero automation",
-      "Auditors ask for a paper trail we don't have",
-      "Our current tool doesn't integrate with our CRM or internal systems",
-      "We have no SLA for document delivery — turnaround is unpredictable",
+      "Listing agreements and disclosures come back incomplete — every time",
+      "License renewal applications pile up in a shared inbox with no tracking",
+      "Clients miss signature lines on multi-page documents and nobody catches it",
+      "No proof of when a disclosure was delivered, reviewed, or returned",
     ],
     resolutions: [
-      "Webhooks and API access connect Docuplete to any system you run",
-      "Full audit logs with timestamps satisfy compliance requirements",
-      "Native HubSpot, Google Drive, and OneDrive sync keeps every record in place",
-      "Dedicated account manager and SLA guarantee predictable delivery",
+      "Clients can't submit until every required field and signature is complete",
+      "Batch renewal packets to all licensees at once from a single CSV upload",
+      "Every submission is timestamped the moment it lands — no disputes about delivery",
+      "Works in any browser — no Adobe, no printing, no faxing required",
+    ],
+  },
+  {
+    tab: "Legal & Professional",
+    plan: "Pro",
+    headline: "Intake shouldn't require a paralegal to babysit.",
+    empathy: "Your time bills by the hour. New matter intake, retainer agreements, and client disclosures don't have to consume it.",
+    pains: [
+      "New client intake takes multiple rounds before the matter can open",
+      "Engagement letters sit unsigned in a client's inbox for days",
+      "Staff retype client information from PDFs into practice management manually",
+      "Blank required fields on court or government forms cause delays and rework",
+    ],
+    resolutions: [
+      "Clients complete their own intake packet — matter opens same day",
+      "Retainer agreements are signed, timestamped, and filed immediately",
+      "Webhook delivery drops completed answers directly into your systems",
+      "Required fields are enforced before submission — incomplete forms never land",
+    ],
+  },
+  {
+    tab: "Insurance",
+    plan: "Pro",
+    headline: "Applications that come back complete — every time.",
+    empathy: "An incomplete application doesn't just delay a policy — it delays revenue. Clean submissions should be the floor, not the exception.",
+    pains: [
+      "Policy applications arrive with missing fields, stalling binding",
+      "Change requests and beneficiary updates get buried in email chains",
+      "No visibility into whether a client has opened or abandoned their application",
+      "Carrier forms change constantly and agents are never on the latest version",
+    ],
+    resolutions: [
+      "Validation prevents submission until every required field is answered",
+      "A live dashboard shows who's opened, in-progress, or submitted",
+      "One master template ensures every agent sends the current version",
+      "Conditional logic guides clients through complex carrier forms automatically",
+    ],
+  },
+  {
+    tab: "HR & Operations",
+    plan: "Starter",
+    headline: "Onboarding paperwork that doesn't require HR to chase it down.",
+    empathy: "New hire documents are due on day one. Spending the first week following up is not a good use of anyone's time.",
+    pains: [
+      "I-9s, direct deposit forms, and benefits elections arrive late or incomplete",
+      "New hires don't know which version of a form is current",
+      "HR spends the first week following up instead of onboarding",
+      "No record of when each document was completed or by whom",
+    ],
+    resolutions: [
+      "One onboarding link collects all forms in a single guided session",
+      "Required fields are enforced — incomplete submissions never land in HR's inbox",
+      "Every completed form is timestamped and archived automatically",
+      "Batch-import entire new hire cohorts from a single CSV upload",
     ],
   },
 ];
@@ -1110,9 +1146,9 @@ export default function Home() {
             <div>
               <p className="text-[#C49A38] text-xs font-semibold uppercase tracking-widest mb-2">Why we built this</p>
               <p className="text-white/70 text-sm leading-relaxed max-w-2xl">
-                Docuplete started as a problem we first noticed in 2015 — watching financial advisors retype the same client data into five different systems by hand, then chase wet signatures across fax machines.
-                We spent years convinced someone would build the right solution for regulated industries. Nobody did.
-                So we built it: deterministic, auditable, and designed from day one for the compliance requirements that make off-the-shelf tools a liability.
+                Docuplete started as a problem we first noticed in 2015 — watching professionals across finance, real estate, legal, and insurance retype the same client data into PDFs by hand, then chase signatures across email threads and fax machines.
+                We spent years convinced someone would build the right solution for document-intensive industries. Nobody did.
+                So we built it: deterministic, auditable, and designed from day one for the compliance and record-keeping requirements that make off-the-shelf tools a liability.
               </p>
             </div>
           </div>
