@@ -1100,6 +1100,23 @@ export default function Home() {
             </div>
           </div>
 
+          {/* Origin story */}
+          <div className="border border-white/10 rounded-xl px-8 py-6 mb-6 flex gap-5 items-start">
+            <div className="shrink-0 w-10 h-10 rounded-xl bg-[#C49A38]/15 flex items-center justify-center text-[#C49A38] mt-0.5">
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
+            </div>
+            <div>
+              <p className="text-[#C49A38] text-xs font-semibold uppercase tracking-widest mb-2">Why we built this</p>
+              <p className="text-white/70 text-sm leading-relaxed max-w-2xl">
+                Docuplete started as a problem we first noticed in 2015 — watching financial advisors retype the same client data into five different systems by hand, then chase wet signatures across fax machines.
+                We spent years convinced someone would build the right solution for regulated industries. Nobody did.
+                So we built it: deterministic, auditable, and designed from day one for the compliance requirements that make off-the-shelf tools a liability.
+              </p>
+            </div>
+          </div>
+
           {/* Two-step funnel */}
           <div className="border border-white/10 bg-white/5 rounded-2xl p-8 flex flex-col sm:flex-row items-center justify-between gap-6">
             <div>

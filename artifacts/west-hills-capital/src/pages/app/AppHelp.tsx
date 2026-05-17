@@ -216,6 +216,21 @@ const GUIDE: GuideSection[] = [
     ],
   },
   {
+    id: "sum-groups",
+    icon: "📊",
+    title: "Sum Groups — Allocation Fields",
+    summary: "Tag a set of percent or number fields with a shared Sum Group label so they must total exactly 100% before the client can submit.",
+    items: [
+      { label: "What it's for", detail: "Sum Groups are designed for beneficiary allocation, asset allocation splits, and any pattern where a set of percentage fields must add up to exactly 100%. The client sees a live progress bar while typing, and the form blocks submission until every group in the package reaches 100%." },
+      { label: "Setting up a Sum Group", detail: "Double-click a percent or number field to open its editor. Set validation type to Percent (or Number), then enter a Sum Group label in the field that appears below — for example 'primary_beneficiaries'. Assign the exact same label to every field in the group. The label is case-sensitive." },
+      { label: "Naming convention", detail: "Use lowercase with underscores for Sum Group labels (e.g. 'primary_beneficiaries', 'contingent_beneficiaries'). The label is automatically humanized in the client interview — 'primary_beneficiaries' displays as 'Primary Beneficiaries — Allocation'." },
+      { label: "What the client sees", detail: "A live banner appears below the field group showing a color-coded progress bar (amber = under 100%, red = over 100%, green = exactly 100%) and a running total like '45% / 100%'. The form blocks submission and highlights the banner in red if the total isn't exactly 100% when the client tries to proceed." },
+      { label: "Multiple groups", detail: "A single package can have multiple independent Sum Groups — e.g. 'primary_beneficiaries' and 'contingent_beneficiaries'. Each group has its own banner. The client must satisfy every group before submitting." },
+      { label: "Conditional fields in a group", detail: "Only fields that are currently visible in the interview count toward the group total. If a field is Omitted or hidden by a conditional logic rule, it is excluded. This lets you add optional extra beneficiary slots that only appear when the client indicates they need them." },
+      { label: "Partial answers", detail: "The progress banner and the 100% validation only activate once the client has typed a value into at least one field in the group. Completely empty groups don't block submission unless the individual fields are also marked Required." },
+    ],
+  },
+  {
     id: "sessions-tab",
     icon: "📋",
     title: "Sessions Dashboard",

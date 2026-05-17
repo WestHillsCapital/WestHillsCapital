@@ -47,6 +47,7 @@ export const NAV: NavItem[] = [
       { title: "Repeating Field Groups", slug: "common-patterns/repeating-field-groups" },
       { title: "Unmapped Routing Fields", slug: "common-patterns/unmapped-routing-fields" },
       { title: "Multi-Format Checkbox Fields", slug: "common-patterns/checkbox-options" },
+      { title: "Sum Groups (Allocation Fields)", slug: "common-patterns/sum-groups" },
     ],
   },
   {

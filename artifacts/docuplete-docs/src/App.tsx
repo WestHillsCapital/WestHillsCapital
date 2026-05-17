@@ -25,6 +25,7 @@ import ConditionalSections from "@/pages/docs/patterns/ConditionalSections";
 import RepeatingFieldGroups from "@/pages/docs/patterns/RepeatingFieldGroups";
 import UnmappedRoutingFields from "@/pages/docs/patterns/UnmappedRoutingFields";
 import CheckboxOptions from "@/pages/docs/patterns/CheckboxOptions";
+import SumGroups from "@/pages/docs/patterns/SumGroups";
 
 import FieldLibraryOverview from "@/pages/docs/field-library/FieldLibraryOverview";
 import AddingLibraryFields from "@/pages/docs/field-library/AddingLibraryFields";
@@ -131,6 +132,7 @@ function Router() {
         <Route path="/common-patterns/repeating-field-groups" component={RepeatingFieldGroups} />
         <Route path="/common-patterns/unmapped-routing-fields" component={UnmappedRoutingFields} />
         <Route path="/common-patterns/checkbox-options" component={CheckboxOptions} />
+        <Route path="/common-patterns/sum-groups" component={SumGroups} />
 
         {/* Field Library */}
         <Route path="/field-library/overview" component={FieldLibraryOverview} />
