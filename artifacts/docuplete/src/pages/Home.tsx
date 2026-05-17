@@ -1,5 +1,259 @@
 import { useEffect, useRef, useState } from "react";
 
+const GATE_KEY = "docuplete_compliance_unlocked";
+
+function ComplianceGateModal({ onClose }: { onClose: () => void }) {
+  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(GATE_KEY) === "1");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || !email.trim() || !company.trim()) {
+      setError("All fields are required.");
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setError("Please enter a valid work email.");
+      return;
+    }
+    setSubmitting(true);
+    setTimeout(() => {
+      sessionStorage.setItem(GATE_KEY, "1");
+      setUnlocked(true);
+      setSubmitting(false);
+      contentRef.current?.scrollTo({ top: 0 });
+    }, 600);
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div className="relative bg-[#0B1220] border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+        {/* Header */}
+        <div className="shrink-0 flex items-start justify-between px-8 pt-7 pb-5 border-b border-white/10">
+          <div>
+            <p className="text-[#1B4FD8] text-xs font-semibold uppercase tracking-widest mb-1">Enterprise</p>
+            <h2 className="text-white text-xl font-bold">Security &amp; Compliance Packet</h2>
+            {!unlocked && (
+              <p className="text-white/50 text-sm mt-1">
+                For procurement, legal, and IT reviews. Enter your details to access instantly.
+              </p>
+            )}
+          </div>
+          <button
+            onClick={onClose}
+            className="text-white/40 hover:text-white text-3xl leading-none font-light ml-6 mt-0.5 shrink-0"
+            aria-label="Close"
+          >×</button>
+        </div>
+
+        {!unlocked ? (
+          /* ── Gate form ── */
+          <form onSubmit={handleSubmit} className="p-8 flex flex-col gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs text-white/50 font-semibold uppercase tracking-wider mb-1.5">Your name</label>
+                <input
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Jane Smith"
+                  className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-white placeholder-white/25 text-sm focus:outline-none focus:border-[#1B4FD8]/70 focus:bg-white/8 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-white/50 font-semibold uppercase tracking-wider mb-1.5">Work email</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="jane@acmecorp.com"
+                  className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-white placeholder-white/25 text-sm focus:outline-none focus:border-[#1B4FD8]/70 transition-colors"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-white/50 font-semibold uppercase tracking-wider mb-1.5">Company</label>
+              <input
+                type="text"
+                value={company}
+                onChange={(e) => setCompany(e.target.value)}
+                placeholder="Acme Corp"
+                className="w-full bg-white/5 border border-white/15 rounded-xl px-4 py-3 text-white placeholder-white/25 text-sm focus:outline-none focus:border-[#1B4FD8]/70 transition-colors"
+              />
+            </div>
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="self-start inline-flex items-center gap-2 bg-[#1B4FD8] hover:bg-[#1740B8] disabled:opacity-60 text-white font-semibold px-6 py-3 rounded-xl transition-colors text-sm shadow-lg shadow-[#1B4FD8]/30"
+            >
+              {submitting ? (
+                <svg className="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                </svg>
+              ) : (
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 1 1 9 0v3.75M3.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H3.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+                </svg>
+              )}
+              {submitting ? "Verifying…" : "Get the Packet"}
+            </button>
+            <p className="text-white/25 text-xs">
+              No spam. We'll follow up once — only if your use case is a fit.
+            </p>
+          </form>
+        ) : (
+          /* ── Unlocked content ── */
+          <div ref={contentRef} className="overflow-y-auto flex-1 px-8 py-6 text-white/80 text-sm leading-relaxed space-y-6">
+            <div className="flex items-center gap-2 text-emerald-400 text-sm font-semibold mb-2">
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+              </svg>
+              Access granted — full packet below
+            </div>
+
+            {[
+              {
+                title: "Company Overview",
+                rows: [
+                  ["Product", "Docuplete — document automation & e-signature platform"],
+                  ["Primary use case", "Collecting filled, signed PDFs from clients via guided online interviews"],
+                  ["Cloud provider", "Amazon Web Services (AWS), us-east-1 (primary)"],
+                  ["Support", "Enterprise: dedicated account manager + priority SLA"],
+                  ["Status page", "status.docuplete.com"],
+                ],
+              },
+              {
+                title: "Encryption",
+                cols: ["Layer", "Standard", "Scope"],
+                rows: [
+                  ["In transit", "TLS 1.2+", "All API, dashboard, and client interview traffic; HTTPS enforced"],
+                  ["At rest", "AES-256", "Database, PDFs, uploaded source documents"],
+                  ["Application (answers)", "AES-256-GCM", "Interview answers — unique key per record; Starter Pro+ plans"],
+                  ["API key storage", "SHA-256 hash only", "Raw keys are never stored; shown only once at creation"],
+                ],
+              },
+              {
+                title: "Document Integrity & E-Signature",
+                rows: [
+                  ["Tamper detection", "SHA-256 hash computed at PDF generation; stored and returned in API/webhook responses"],
+                  ["Trusted timestamps", "RFC 3161 timestamps from a qualified TSA embedded in every e-signed PDF"],
+                  ["Signing certificate", "Certificate page appended to each signed PDF; records signer name, email, IP, user agent, OTP timestamp, and document hash"],
+                  ["E-sign identity verification", "Email OTP required before signature fields unlock; event logged in immutable session audit trail"],
+                  ["Webhook authenticity", "HMAC-SHA256 signature on every delivery via X-Docuplete-Signature header"],
+                ],
+              },
+              {
+                title: "Access Control",
+                rows: [
+                  ["Authentication", "API key (Bearer token, dp_live_ prefix, 64-char hex); dashboard login via email + password or SSO"],
+                  ["RBAC", "Admin and Member roles; Admins control security, billing, and API keys"],
+                  ["SSO / SAML 2.0", "Supported (Enterprise); compatible with Okta, Azure AD, OneLogin, Google Workspace"],
+                  ["SCIM 2.0", "Automated provisioning/deprovisioning from any SCIM-compatible IdP (Enterprise)"],
+                  ["MFA / 2FA", "TOTP-based 2FA available for all users; Admins can enforce for the entire org"],
+                  ["IP allowlisting", "CIDR-based API access restriction (Enterprise); requests outside allowlist → 403"],
+                  ["Rate limiting", "Failed API auth attempts: 10 per IP per 60 s; API requests: 1,000/min per org"],
+                ],
+              },
+              {
+                title: "Audit & Logging",
+                rows: [
+                  ["Session audit log", "Immutable per-session event trail (creation, link delivery, open, submission, void, PDF generation); available via API"],
+                  ["Management audit log", "Account-level admin actions retained 12+ months; accessible in dashboard"],
+                  ["Login history", "IP address, GeoIP location, and user agent logged for every login attempt"],
+                  ["Webhook delivery logs", "Full history of webhook attempts including status code, latency, and request/response bodies"],
+                ],
+              },
+              {
+                title: "Data Handling & Privacy",
+                rows: [
+                  ["Data residency", "US-East (AWS us-east-1) by default; EU and APAC residency available on Enterprise"],
+                  ["Backups", "Automated daily database backups; point-in-time recovery; 30-day retention; stored in separate AWS region"],
+                  ["Retention", "Configurable retention windows; data purged automatically at end of period"],
+                  ["Data export", "Full account export available on demand from Settings → Data → Export"],
+                  ["Right to erasure", "Admin-initiated deletion request; 30-day confirmation window; permanent purge of all records"],
+                  ["PII redaction", "Configurable field-level redaction in dashboard views (Enterprise)"],
+                  ["Sub-processors", "List available on request — legal@docuplete.com"],
+                ],
+              },
+              {
+                title: "Compliance & Legal",
+                cols: ["Framework", "Status", "Notes"],
+                rows: [
+                  ["GDPR", "Supported", "Data subject rights (access, erasure, portability); DPA available on request"],
+                  ["CCPA", "Supported", "Data deletion and opt-out workflows; DPA available on request"],
+                  ["ESIGN Act / UETA", "Compliant", "E-signatures meet ESIGN Act and UETA requirements"],
+                  ["eIDAS (EU)", "AdES compliant", "RFC 3161 timestamps satisfy Advanced Electronic Signature requirements"],
+                  ["HIPAA", "BAA available", "Enterprise customers only; consult your compliance team before transmitting PHI"],
+                ],
+              },
+              {
+                title: "Availability & Support",
+                rows: [
+                  ["Uptime SLA", "99.9% monthly (Enterprise plan)"],
+                  ["Incident response", "Security reports acknowledged within 48 hours; resolution timeline within 7 business days"],
+                  ["Vulnerability disclosure", "security@docuplete.com"],
+                  ["Enterprise support", "Dedicated account manager; priority ticket queue; onboarding assistance"],
+                  ["Legal / DPA requests", "legal@docuplete.com"],
+                ],
+              },
+            ].map((section) => (
+              <div key={section.title} className="overflow-x-auto">
+                <table className="w-full text-left text-sm border-collapse">
+                  <thead>
+                    <tr>
+                      <th colSpan={(section.cols ?? ["", ""]).length} className="bg-white/5 text-white font-semibold px-4 py-2.5 rounded-t-lg border border-white/10 text-left">
+                        {section.title}
+                      </th>
+                    </tr>
+                    {section.cols && (
+                      <tr>
+                        {section.cols.map((c) => (
+                          <th key={c} className="bg-white/[0.03] text-white/50 text-xs uppercase tracking-wider px-4 py-2 border border-white/10">{c}</th>
+                        ))}
+                      </tr>
+                    )}
+                  </thead>
+                  <tbody>
+                    {section.rows.map((row, i) => (
+                      <tr key={i} className="border-b border-white/5 last:border-0">
+                        {row.map((cell, j) => (
+                          <td key={j} className={`px-4 py-2.5 border border-white/8 ${j === 0 ? "text-white/70 font-medium whitespace-nowrap" : "text-white/55"}`}>
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ))}
+
+            <p className="text-white/25 text-xs pt-2 border-t border-white/10">
+              Last updated: May 2026 · Docuplete, Inc. · For contractual commitments, a signed Order Form or DPA is required. Contact legal@docuplete.com.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function VideoSection() {
   const [open, setOpen] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -478,6 +732,7 @@ const STEPS = [
 export default function Home() {
   const [annual, setAnnual] = useState(false);
   const [activePersona, setActivePersona] = useState(0);
+  const [gateOpen, setGateOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-white text-[#0B1220] font-sans">
@@ -1179,15 +1434,15 @@ export default function Home() {
                 </svg>
                 Try API Sandbox — No Key Needed
               </a>
-              <a
-                href="/docuplete-docs/enterprise/compliance-sheet"
+              <button
+                onClick={() => setGateOpen(true)}
                 className="inline-flex items-center justify-center gap-2 bg-[#1B4FD8] hover:bg-[#1740B8] text-white font-semibold px-5 py-2.5 rounded-xl transition-colors text-sm shadow-lg shadow-[#1B4FD8]/30 whitespace-nowrap"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m.75 12 3 3m0 0 3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
                 </svg>
-                Request Security & Compliance Packet
-              </a>
+                Request Security &amp; Compliance Packet
+              </button>
             </div>
           </div>
         </div>
@@ -1343,6 +1598,8 @@ export default function Home() {
           <p className="text-xs">&copy; {new Date().getFullYear()} Docuplete. All rights reserved.</p>
         </div>
       </footer>
+
+      {gateOpen && <ComplianceGateModal onClose={() => setGateOpen(false)} />}
     </div>
   );
 }
