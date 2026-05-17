@@ -302,7 +302,7 @@ export default function Calculator() {
             label="New clients per month"
             hint="average onboardings"
             value={clientsPerMonth}
-            min={1} max={100}
+            min={1} max={500}
             suffix=" clients"
             onChange={setClientsPerMonth}
           />
