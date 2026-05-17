@@ -10,7 +10,7 @@ export default function Mapper() {
       </div>
 
       <h2>Opening the Mapper</h2>
-      <p>From the package page, click the <strong>Mapper</strong> tab. You'll see the PDF pages rendered at full width. The left panel lists all your fields. The right panel shows formatting options for the selected mapping.</p>
+      <p>From the package page, click the <strong>Mapper</strong> tab. You'll see the PDF pages rendered at full width. The right column is the field panel — it lists all the fields available to place. Below the package fields and any reusable library fields, the panel includes a <strong>System Fields</strong> section.</p>
 
       <DocScreenshot
         src="/screenshots/mapper-overview.png"
@@ -44,6 +44,38 @@ export default function Mapper() {
 
       <h2>Checkbox and radio group mappings</h2>
       <p>For checkbox and radio group fields, each mapping is tied to a specific option value. When you add a mapping for a radio field, you select which option this box represents. If that option is selected by the client, a checkmark (or "X") is rendered in that box. This lets you map each radio option to a different checkbox on the PDF form.</p>
+
+      <h2>System fields</h2>
+      <p>At the bottom of the right-column field panel, below any reusable library fields, is a <strong>System Fields</strong> section. These are e-sign fields managed by Docuplete rather than created per-package:</p>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Field</th>
+            <th>What it captures</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Signature</strong></td>
+            <td>A full e-signature drawn or typed by the signer</td>
+          </tr>
+          <tr>
+            <td><strong>Initials</strong></td>
+            <td>An initials capture, typically placed on every page that requires acknowledgment</td>
+          </tr>
+          <tr>
+            <td><strong>Signer Date</strong></td>
+            <td>A read-only date auto-populated with the date of signing — cannot be edited by the signer</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <p>Drag any of these from the System Fields section onto the PDF canvas the same way you would a regular field. Placing a Signature or Initials field activates e-sign on the package — sessions created from it will require identity verification before the signer can proceed.</p>
+
+      <div className="callout callout-info">
+        <strong>Signer Date is paired with Signature and Initials.</strong> When you drag a Signature or Initials placement onto the PDF, Signer Date automatically becomes available in the System Fields panel as a separate field to place. You do not need to create it — it appears as soon as a signature or initials box exists on the canvas.
+      </div>
 
       <h2>Signature mappings</h2>
       <p>Signature and initials fields are mapped the same way as text fields — draw a bounding box at the signature line. The signature image is scaled to fit within the box while preserving its aspect ratio.</p>

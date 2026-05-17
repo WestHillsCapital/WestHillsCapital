@@ -17,7 +17,8 @@ export default function EsignFields() {
       </ul>
 
       <h2>Adding e-sign fields</h2>
-      <p>From the Fields tab, click <strong>Add Field</strong> and select <strong>Signature</strong> or <strong>Initials</strong>. E-sign fields behave like any other field — they appear in the interview at the position you place them in the field list, and they are mapped to the PDF in the Visual Mapper.</p>
+      <p>E-sign fields are added from the <strong>Visual Mapper</strong>, not the Fields tab. Open the Mapper and look at the bottom of the right-column field panel — below your package fields and any library fields is a <strong>System Fields</strong> section listing Signature, Initials, and Signer Date. Drag <strong>Signature</strong> or <strong>Initials</strong> from that section onto the PDF canvas to place it.</p>
+      <p>Once you place a Signature or Initials box, the <strong>Signer Date</strong> field becomes available in the same System Fields panel as a separate draggable item. Place it next to the signature line if the document requires a signed date.</p>
 
       <DocScreenshot
         src="/screenshots/esign-field-placed.png"
