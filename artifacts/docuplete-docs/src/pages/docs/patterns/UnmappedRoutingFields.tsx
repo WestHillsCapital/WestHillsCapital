@@ -62,16 +62,17 @@ export default function UnmappedRoutingFields() {
       </ol>
 
       <h2>Making a field required without a PDF placement</h2>
-      <p>The field editor lets you set Interview behavior independently of whether a field is mapped. However, you may notice that a newly created field defaults to Optional. To mark it Required and leave it unmapped, the deliberate workflow is:</p>
+      <p>The field editor lets you set Interview behavior independently of whether a field is mapped. The straightforward path is: set Interview behavior to <strong>Required</strong> in the field editor and save — done. The field will be required in the interview and will not write to the PDF.</p>
+
+      <p>There is a second way to arrive at the same result, useful when a field has already been placed in the Visual Mapper and you want to remove its PDF placement while keeping it Required:</p>
       <ol>
-        <li>In the field editor, set Interview behavior to <strong>Required</strong> and save.</li>
-        <li>Open the <strong>Visual Mapper</strong>. Drag the field onto the PDF to give it a placement — this is what activates the Required enforcement.</li>
-        <li>Right-click the placed field on the PDF and remove the mapping.</li>
-        <li>The field now has no PDF placement but remains Required in the interview.</li>
+        <li>Open the <strong>Visual Mapper</strong> and locate the field's placement on the PDF.</li>
+        <li>Right-click the placed field and remove the mapping.</li>
+        <li>The field retains its Required setting from the field editor but no longer writes to the PDF.</li>
       </ol>
 
       <div className="callout-tip">
-        <strong>This workflow is intentional.</strong> Placing and then removing the mapping is a deliberate step — it ensures you've thought through where the field sits in the document before deciding to leave it unmapped. A field that drives conditions without a placement is a purposeful design choice, not an accident.
+        <strong>Either approach produces the same result.</strong> Whether you set Required before ever opening the mapper, or place and then remove a mapping, the field ends up required in the interview with no PDF output. The second path is common when you've already done layout work and later decide a field should stay interview-only.
       </div>
 
       <div className="callout-info">
