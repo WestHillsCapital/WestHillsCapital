@@ -891,7 +891,8 @@ function fieldLibrarySelectSql(): string {
                  validation_type AS "validationType", validation_pattern AS "validationPattern",
                  validation_message AS "validationMessage", active, sort_order AS "sortOrder",
                  COALESCE(compliance_tags, '[]'::jsonb) AS "complianceTags",
-                 account_id IS NULL AS "isGlobal"
+                 account_id IS NULL AS "isGlobal",
+                 locked
             FROM docuplete_fields`;
 }
 
@@ -2567,19 +2568,16 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
     }
     const db = getDb();
     const accountId = acctId(req);
-    // Block writes to platform-level global fields (account_id IS NULL).
-    // These are seed fields shared across all accounts and cannot be edited per-account.
-    // Accounts should duplicate them (create their own copy) to customize.
-    { const { rows: globalRows } = await db.query(
-      `SELECT 1 FROM docuplete_fields WHERE id = $1 AND account_id IS NULL LIMIT 1`, [id]);
-      if (globalRows[0]) {
-        res.status(403).json({ error: "Platform fields are read-only. Use '+ Add' to create your own editable copy." });
-        return;
-      }
-    }
-    // Block writes to inherited (parent-owned) fields
-    { const { rows: parentRows } = await db.query(
-      `SELECT p.id FROM accounts a JOIN accounts p ON p.id = a.parent_account_id WHERE a.id = $1`, [accountId]);
+    // Detect whether this is a platform-level global field (account_id IS NULL).
+    // Global fields are editable by any account — they are defaults, not enforced platform policy.
+    // Only enterprise-locked inherited fields (pushed from a parent account with locked=true) are read-only.
+    const { rows: globalRows } = await db.query(
+      `SELECT locked FROM docuplete_fields WHERE id = $1 AND account_id IS NULL LIMIT 1`, [id]);
+    const isGlobalField = !!globalRows[0];
+    // Block writes to inherited (parent-owned) fields — still enforced for enterprise child accounts.
+    if (!isGlobalField) {
+      const { rows: parentRows } = await db.query(
+        `SELECT p.id FROM accounts a JOIN accounts p ON p.id = a.parent_account_id WHERE a.id = $1`, [accountId]);
       if (parentRows[0]) {
         const parentId = (parentRows[0] as { id: number }).id;
         const { rows: inh } = await db.query(`SELECT 1 FROM docuplete_fields WHERE id = $1 AND account_id = $2`, [id, parentId]);
@@ -2607,9 +2605,12 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
       await client.query("BEGIN");
       // Lock the row and capture pre-update state. We need this both to prevent
       // concurrent updates and to create a baseline version for first-edit recoverability.
+      // For global fields (account_id IS NULL) match on NULL; for account fields match on accountId.
       const { rows: priorRows } = await client.query(
-        `${fieldLibrarySelectSql()} WHERE id = $1 AND account_id = $2 FOR UPDATE`,
-        [id, accountId],
+        isGlobalField
+          ? `${fieldLibrarySelectSql()} WHERE id = $1 AND account_id IS NULL FOR UPDATE`
+          : `${fieldLibrarySelectSql()} WHERE id = $1 AND account_id = $2 FOR UPDATE`,
+        isGlobalField ? [id] : [id, accountId],
       );
       if (!priorRows[0]) {
         await client.query("ROLLBACK");
@@ -2623,7 +2624,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
             label=$1, category=$2, field_type=$3, source=$4, options=$5::jsonb,
             sensitive=$6, required=$7, validation_type=$8, validation_pattern=$9,
             validation_message=$10, active=$11, sort_order=$12, updated_at=NOW()
-          WHERE id=$13 AND account_id = $14
+          WHERE id=$13 AND ${isGlobalField ? "account_id IS NULL" : "account_id = $14"}
           RETURNING id, label, category, field_type AS type, source, options, sensitive, required,
                     validation_type AS "validationType", validation_pattern AS "validationPattern",
                     validation_message AS "validationMessage", active, sort_order AS "sortOrder"`,
@@ -2641,7 +2642,7 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
           body.active !== false,
           normalizeSortOrder(body.sortOrder),
           id,
-          accountId,
+          ...(isGlobalField ? [] : [accountId]),
         ],
       );
       if (!rows[0]) {
@@ -2927,25 +2928,28 @@ router.delete("/field-library/:id", requireAdminRole, async (req, res) => {
     }
     const db = getDb();
     const accountId = acctId(req);
-    // Block deletes of platform-level global fields (account_id IS NULL).
-    { const { rows: globalRows } = await db.query(
+    // Detect whether this is a platform-level global field (account_id IS NULL).
+    // Global fields are deletable by any account — they are defaults, not enforced platform policy.
+    const { rows: globalRows } = await db.query(
       `SELECT 1 FROM docuplete_fields WHERE id = $1 AND account_id IS NULL LIMIT 1`, [id]);
-      if (globalRows[0]) {
-        res.status(403).json({ error: "Platform fields are read-only and cannot be deleted." });
-        return;
-      }
-    }
-    // Block deletes of inherited (parent-owned) fields
-    { const { rows: parentRows } = await db.query(
-      `SELECT p.id FROM accounts a JOIN accounts p ON p.id = a.parent_account_id WHERE a.id = $1`, [accountId]);
+    const isGlobalField = !!globalRows[0];
+    // Block deletes of inherited (parent-owned) fields — still enforced for enterprise child accounts.
+    if (!isGlobalField) {
+      const { rows: parentRows } = await db.query(
+        `SELECT p.id FROM accounts a JOIN accounts p ON p.id = a.parent_account_id WHERE a.id = $1`, [accountId]);
       if (parentRows[0]) {
         const parentId = (parentRows[0] as { id: number }).id;
         const { rows: inh } = await db.query(`SELECT 1 FROM docuplete_fields WHERE id = $1 AND account_id = $2`, [id, parentId]);
         if (inh[0]) { res.status(403).json({ error: "Inherited fields are read-only and cannot be deleted from a child account." }); return; }
       }
     }
-    // Only allow deletion of fields owned by the requesting account.
-    await db.query(`DELETE FROM docuplete_fields WHERE id = $1 AND account_id = $2`, [id, accountId]);
+    // Delete: global fields use account_id IS NULL; account fields use account_id = $2.
+    await db.query(
+      isGlobalField
+        ? `DELETE FROM docuplete_fields WHERE id = $1 AND account_id IS NULL`
+        : `DELETE FROM docuplete_fields WHERE id = $1 AND account_id = $2`,
+      isGlobalField ? [id] : [id, accountId],
+    );
     res.json({ deletedFieldId: id });
   } catch (err) {
     logger.error({ err }, "[Docuplete] Failed to delete field library item");

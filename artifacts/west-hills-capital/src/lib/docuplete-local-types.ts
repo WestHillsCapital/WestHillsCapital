@@ -62,6 +62,7 @@ export type FieldLibraryItem = {
   complianceTags?: string[];
   inherited?: boolean;
   inheritedFrom?: string;
+  locked?: boolean;
 };
 
 export type FieldAnalytics = {
