@@ -10,9 +10,10 @@ export default function AuditLog() {
         </p>
       </div>
 
-      <div className="callout callout-enterprise">
-        <strong>Enterprise feature.</strong> Audit log access requires an Enterprise plan.{" "}
-        <a href="/getting-started/plans">Learn about plans →</a>
+      <div className="callout callout-info">
+        <strong>Developer plan and above.</strong> Audit log access is available on the Developer,
+        Scale, and Enterprise plans.{" "}
+        <a href="/getting-started/plans">Compare plans →</a>
       </div>
 
       <h2>Fetching the audit log</h2>

@@ -143,8 +143,9 @@ export default function Security() {
 
       <h4>Configuring your IdP</h4>
       <p>
-        Retrieve your account's SP values from <strong>Settings → Security → SSO / SAML</strong>
-        or from the API:
+        Open <strong>Settings → Security → SSO / SAML</strong> in the Docuplete dashboard
+        (available at <code>/settings/sso</code>) to configure your identity provider. You can
+        also retrieve the SP values programmatically from the API:
       </p>
       <pre>{`GET /api/v1/product/settings/saml
 Authorization: Bearer <session_token>
@@ -213,7 +214,14 @@ Content-Type: application/json
         <code>{`{ "hasSaml": true }`}</code> for your domain:
       </p>
       <pre>{`GET /api/v1/saml/check?email=you@company.com`}</pre>
-      <p>Then initiate a test login in a private browser window:</p>
+      <p>
+        Then initiate a test login in a private browser window by navigating to the SSO login
+        page at <code>/sso</code>, entering a work email on the verified domain. The page will
+        detect your SSO configuration and redirect to your IdP automatically.
+      </p>
+      <p>
+        You can also initiate the flow directly:
+      </p>
       <pre>{`GET /api/v1/saml/login?email=you@company.com`}</pre>
 
       <h4>Just-in-time (JIT) provisioning</h4>
