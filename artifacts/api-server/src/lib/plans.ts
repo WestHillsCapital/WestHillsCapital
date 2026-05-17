@@ -190,22 +190,22 @@ export interface GenerationPackTier {
 
 /**
  * Available generation pack sizes and their prices for Developer plan accounts.
- * Monthly price is 20% off the $0.75/generation overage rate.
+ * Monthly price equals the $0.75/generation overage rate — no monthly discount,
+ * just price predictability. The 20% discount applies to annual commitment only.
  * Annual = monthly × 12 × 0.8 (20% off), paid upfront.
- * Larger packs carry an additional bulk discount vs. the 100-pack baseline.
  *
- * | Pack  | Monthly  | $/gen (mo) | vs overage |
- * |-------|----------|------------|------------|
- * |   100 |  $60/mo  |   $0.60    |  −20%      |
- * |   500 | $275/mo  |   $0.55    |  −27%      |
- * |  1000 | $500/mo  |   $0.50    |  −33%      |
- * |  2500 |$1,125/mo |   $0.45    |  −40%      |
+ * | Pack  | Monthly    | Annual (paid upfront) | Annual /mo |
+ * |-------|------------|-----------------------|------------|
+ * |   100 |  $75/mo    |   $720/yr             |  $60/mo    |
+ * |   500 | $375/mo    | $3,600/yr             | $300/mo    |
+ * |  1000 | $750/mo    | $7,200/yr             | $600/mo    |
+ * |  2500 |$1,875/mo   |$18,000/yr             |$1,500/mo   |
  */
 export const GENERATION_PACKS: GenerationPackTier[] = [
-  { size:  100, monthly:    60, annual:    576, annualPerMo:   48 },
-  { size:  500, monthly:   275, annual:  2_640, annualPerMo:  220 },
-  { size: 1000, monthly:   500, annual:  4_800, annualPerMo:  400 },
-  { size: 2500, monthly: 1_125, annual: 10_800, annualPerMo:  900 },
+  { size:  100, monthly:    75, annual:    720, annualPerMo:    60 },
+  { size:  500, monthly:   375, annual:  3_600, annualPerMo:   300 },
+  { size: 1000, monthly:   750, annual:  7_200, annualPerMo:   600 },
+  { size: 2500, monthly: 1_875, annual: 18_000, annualPerMo: 1_500 },
 ];
 
 export function getGenerationPackTier(size: number): GenerationPackTier | undefined {
