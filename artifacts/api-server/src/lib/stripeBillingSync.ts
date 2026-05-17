@@ -10,6 +10,12 @@ import {
   getPackSubscription,
   removePackSubscription,
 } from "./submissionBank";
+import {
+  depositGenerations,
+  registerGenPackSubscription,
+  getGenPackSubscription,
+  removeGenPackSubscription,
+} from "./generationBank";
 
 type StripeSubscriptionObject = {
   id: string;
@@ -291,7 +297,7 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
     );
     logger.info({ customerId: inv.customer }, "[BillingSync] Subscription marked active on invoice.paid");
 
-    // Deposit recurring pack submissions if this invoice is for a pack subscription
+    // Deposit recurring pack submissions if this invoice is for a submission pack subscription
     const packSub = await getPackSubscription(inv.subscription);
     if (packSub) {
       const depositAmount = packSub.packType === "annual"
@@ -304,6 +310,24 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
         amount:     depositAmount,
         source:     packSub.packType === "annual" ? "annual_pack" : "monthly_pack",
         packSize:   packSub.packSize,
+        stripeRef:  inv.subscription,
+        expiresAt,
+      });
+    }
+
+    // Deposit recurring generation credits if this invoice is for a gen pack subscription
+    const genPackSub = await getGenPackSubscription(inv.subscription);
+    if (genPackSub) {
+      const depositAmount = genPackSub.packType === "annual"
+        ? genPackSub.packSize * 12
+        : genPackSub.packSize;
+      const expiresAt = new Date();
+      expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+      await depositGenerations({
+        accountId:  genPackSub.accountId,
+        amount:     depositAmount,
+        source:     genPackSub.packType === "annual" ? "annual_pack" : "monthly_pack",
+        packSize:   genPackSub.packSize,
         stripeRef:  inv.subscription,
         expiresAt,
       });
@@ -398,6 +422,39 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as StripeCheckoutSession;
     const meta = session.metadata ?? {};
+
+    // ── Generation pack (Developer plan) ──────────────────────────────────────
+    if (meta.type === "gen_pack_purchase" || meta.type === "gen_pack_subscription") {
+      const accountId = meta.account_id ? parseInt(meta.account_id, 10) : null;
+      const packSize  = meta.pack_size  ? parseInt(meta.pack_size,  10) : null;
+      const packType  = meta.pack_type  ?? null;
+      if (!accountId || !packSize || !packType) return;
+
+      if (session.mode === "payment") {
+        const expiresAt = new Date();
+        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+        await depositGenerations({
+          accountId,
+          amount:    packSize,
+          source:    "one_off",
+          packSize,
+          stripeRef: session.payment_intent ?? session.id,
+          expiresAt,
+        });
+        logger.info({ accountId, packSize }, "[BillingSync] One-off generation pack deposited");
+      } else if (session.mode === "subscription" && session.subscription) {
+        await registerGenPackSubscription({
+          accountId,
+          stripeSubscriptionId: session.subscription,
+          packSize,
+          packType: packType as "monthly" | "annual",
+        });
+        logger.info({ accountId, packSize, packType, subId: session.subscription }, "[BillingSync] Generation pack subscription registered");
+      }
+      return;
+    }
+
+    // ── Submission pack (Starter / Pro) ───────────────────────────────────────
     if (meta.type !== "pack_purchase" && meta.type !== "pack_subscription") return;
 
     const accountId = meta.account_id ? parseInt(meta.account_id, 10) : null;
@@ -436,6 +493,7 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
     const sub = event.data.object as StripeSubscriptionObject;
     if (sub.id) {
       await removePackSubscription(sub.id);
+      await removeGenPackSubscription(sub.id); // no-op if not a gen pack subscription
     }
     return;
   }

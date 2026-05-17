@@ -181,6 +181,40 @@ export function getPackTier(size: number): SubmissionPackTier | undefined {
   return SUBMISSION_PACKS.find((p) => p.size === size);
 }
 
+export interface GenerationPackTier {
+  size:        number; // number of extra PDF generations in the pack
+  monthly:     number; // monthly price in USD
+  annual:      number; // annual price in USD (paid upfront; 20% off monthly×12)
+  annualPerMo: number; // annual price expressed as per-month equivalent
+}
+
+/**
+ * Available generation pack sizes and their prices for Developer plan accounts.
+ * Monthly price is 20% off the $0.75/generation overage rate.
+ * Annual = monthly × 12 × 0.8 (20% off), paid upfront.
+ * Larger packs carry an additional bulk discount vs. the 100-pack baseline.
+ *
+ * | Pack  | Monthly  | $/gen (mo) | vs overage |
+ * |-------|----------|------------|------------|
+ * |   100 |  $60/mo  |   $0.60    |  −20%      |
+ * |   500 | $275/mo  |   $0.55    |  −27%      |
+ * |  1000 | $500/mo  |   $0.50    |  −33%      |
+ * |  2500 |$1,125/mo |   $0.45    |  −40%      |
+ */
+export const GENERATION_PACKS: GenerationPackTier[] = [
+  { size:  100, monthly:    60, annual:    576, annualPerMo:   48 },
+  { size:  500, monthly:   275, annual:  2_640, annualPerMo:  220 },
+  { size: 1000, monthly:   500, annual:  4_800, annualPerMo:  400 },
+  { size: 2500, monthly: 1_125, annual: 10_800, annualPerMo:  900 },
+];
+
+export function getGenerationPackTier(size: number): GenerationPackTier | undefined {
+  return GENERATION_PACKS.find((p) => p.size === size);
+}
+
+/** Number of PDF generations included in the Developer plan each billing period. */
+export const DEVELOPER_INCLUDED_GENERATIONS = 500;
+
 /**
  * Human-readable display names for plan tier slugs.
  * The internal slug "starter_esign" maps to "Starter Professional" for all

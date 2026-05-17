@@ -1930,6 +1930,45 @@ export async function initDb(): Promise<void> {
       ON pack_subscriptions (stripe_subscription_id)
   `);
 
+  // ── Generation bank (Developer plan pre-purchased generation credits) ────────
+  // Mirrors submission_bank but for API PDF generation usage.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS generation_bank (
+      id           SERIAL PRIMARY KEY,
+      account_id   INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      amount       INTEGER NOT NULL,
+      remaining    INTEGER NOT NULL,
+      source       TEXT    NOT NULL,
+      pack_size    INTEGER NOT NULL,
+      stripe_ref   TEXT,
+      deposited_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      expires_at   TIMESTAMPTZ NOT NULL
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS generation_bank_account_expiry_idx
+      ON generation_bank (account_id, expires_at)
+     WHERE remaining > 0
+  `);
+
+  // ── Generation pack subscriptions ────────────────────────────────────────────
+  // Tracks recurring generation pack subscriptions so invoice.paid can deposit
+  // the correct amount without an extra Stripe API call.
+  await db.query(`
+    CREATE TABLE IF NOT EXISTS generation_pack_subscriptions (
+      id                      SERIAL PRIMARY KEY,
+      account_id              INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
+      stripe_subscription_id  TEXT    NOT NULL UNIQUE,
+      pack_size               INTEGER NOT NULL,
+      pack_type               TEXT    NOT NULL,
+      created_at              TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+  await db.query(`
+    CREATE INDEX IF NOT EXISTS generation_pack_subscriptions_stripe_idx
+      ON generation_pack_subscriptions (stripe_subscription_id)
+  `);
+
   // ── Ensure all demo packages use email_otp auth (e-sign + OTP required) ────
   // Packages seeded before this migration defaulted to 'none'. Idempotent.
   await db.query(`

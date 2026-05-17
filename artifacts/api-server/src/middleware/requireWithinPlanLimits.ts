@@ -1,7 +1,8 @@
 import type { Request, Response, NextFunction } from "express";
 import { getDb } from "../db";
-import { getPlanLimits, getEffectiveSubmissionLimit } from "../lib/plans";
+import { getPlanLimits, getEffectiveSubmissionLimit, DEVELOPER_INCLUDED_GENERATIONS } from "../lib/plans";
 import { getBankBalance, drawOneFromBank } from "../lib/submissionBank";
+import { drawOneFromGenBank, getGenBankBalance } from "../lib/generationBank";
 import { logger } from "../lib/logger";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
 import { sendOrgAlertEmails } from "../lib/email";
@@ -312,10 +313,54 @@ export async function recordSubmissionEvent(accountId: number): Promise<void> {
 
 /**
  * Records a PDF generation usage event for the given account.
+ * If usage has exceeded the Developer plan's included quota, attempts to draw
+ * one credit from the account's generation bank (pre-purchased pack) before
+ * falling through to overage billing. Never hard-blocks — API consumers must
+ * not have their production traffic interrupted by billing state.
  * Call after a packet is successfully generated and the response sent.
  */
 export async function recordPdfGenerationEvent(accountId: number): Promise<void> {
   await recordUsageEvent(accountId, "pdf_generation");
+
+  void (async () => {
+    try {
+      const db = getDb();
+      const { rows: acctRows } = await db.query<{
+        plan_tier: string;
+        billing_period_start: Date | null;
+      }>(
+        `SELECT plan_tier, billing_period_start FROM accounts WHERE id = $1`,
+        [accountId],
+      );
+      const acct = acctRows[0];
+      if (!acct || acct.plan_tier !== "developer") return;
+
+      const period = billingPeriodStart(acct.billing_period_start);
+      const { rows: countRows } = await db.query<{ count: string }>(
+        `SELECT COUNT(*) AS count FROM usage_events
+          WHERE account_id = $1
+            AND event_type = 'pdf_generation'
+            AND created_at >= $2::date`,
+        [accountId, period],
+      );
+      const used = parseInt(countRows[0]?.count ?? "0", 10);
+
+      if (used <= DEVELOPER_INCLUDED_GENERATIONS) return;
+
+      // Over included quota — try to draw from pre-purchased generation bank
+      const drew = await drawOneFromGenBank(accountId);
+      if (!drew) {
+        // Bank empty — generation will be billed as overage via Stripe metered billing
+        const bank = await getGenBankBalance(accountId);
+        logger.info(
+          { accountId, used, included: DEVELOPER_INCLUDED_GENERATIONS, bankTotal: bank.total },
+          "[GenerationBank] Included quota exceeded with empty bank — generation billed as overage",
+        );
+      }
+    } catch (err) {
+      logger.error({ err, accountId }, "[GenerationBank] Failed to process post-generation bank draw");
+    }
+  })();
 }
 
 async function recordUsageEvent(accountId: number, eventType: string): Promise<void> {

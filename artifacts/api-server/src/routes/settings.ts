@@ -10,8 +10,9 @@ import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
 import { requirePlanFeature } from "../middleware/requirePlanFeature";
 import { brandColorRateLimit } from "../middleware/brandColorRateLimit";
 import { sendTeamInvitationEmail, sendDataExportEmail, sendEmailVerificationEmail, sendFeedbackEmail } from "../lib/email";
-import { getPlanLimits, getEffectiveSubmissionLimit, SUBMISSION_PACKS, getPackTier, getPlanDisplayName, normalizeStripeProductName, getPlanFeatures } from "../lib/plans";
+import { getPlanLimits, getEffectiveSubmissionLimit, SUBMISSION_PACKS, getPackTier, getPlanDisplayName, normalizeStripeProductName, getPlanFeatures, GENERATION_PACKS, getGenerationPackTier } from "../lib/plans";
 import { getBankBalance } from "../lib/submissionBank";
+import { getGenBankBalance } from "../lib/generationBank";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { isIpAllowed } from "../lib/cidr";
 import express from "express";
@@ -1627,10 +1628,20 @@ router.post("/billing/pack/checkout", requireAdminRole, async (req, res) => {
     }
 
     const db = getDb();
-    const { rows } = await db.query<{ stripe_customer_id: string | null }>(
-      `SELECT stripe_customer_id FROM accounts WHERE id = $1`,
+    const { rows } = await db.query<{ stripe_customer_id: string | null; plan_tier: string }>(
+      `SELECT stripe_customer_id, plan_tier FROM accounts WHERE id = $1`,
       [accountId],
     );
+
+    // Developer plan uses generation packs — session packs do not apply
+    if (rows[0]?.plan_tier === "developer") {
+      res.status(400).json({
+        error: "Developer plan accounts use generation packs, not session packs. Use POST /billing/generation-pack/checkout instead.",
+        use_endpoint: "/billing/generation-pack/checkout",
+      });
+      return;
+    }
+
     const customerId = rows[0]?.stripe_customer_id ?? null;
 
     const stripe = await getUncachableStripeClient();
@@ -1689,6 +1700,114 @@ router.post("/billing/pack/checkout", requireAdminRole, async (req, res) => {
     res.json({ url: session.url });
   } catch (err) {
     logger.error({ err }, "[Billing] Failed to create pack checkout session");
+    res.status(500).json({ error: "Failed to create checkout session" });
+  }
+});
+
+/** GET /billing/generation-bank — returns the generation bank balance and pack tiers (Developer plan) */
+router.get("/billing/generation-bank", async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const bank = await getGenBankBalance(accountId);
+    res.json({ bank, packs: GENERATION_PACKS });
+  } catch (err) {
+    logger.error({ err }, "[Billing] Failed to get generation bank balance");
+    res.status(500).json({ error: "Failed to get generation bank balance" });
+  }
+});
+
+/** POST /billing/generation-pack/checkout — Stripe Checkout for a Developer plan generation pack */
+router.post("/billing/generation-pack/checkout", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+
+    const db = getDb();
+    const { rows: acctRows } = await db.query<{ stripe_customer_id: string | null; plan_tier: string }>(
+      `SELECT stripe_customer_id, plan_tier FROM accounts WHERE id = $1`,
+      [accountId],
+    );
+    const acct = acctRows[0];
+
+    if (!acct || acct.plan_tier !== "developer") {
+      res.status(403).json({ error: "Generation packs are only available on the Developer plan." });
+      return;
+    }
+
+    const body = req.body as { packSize?: unknown; packType?: unknown };
+    const packSize = typeof body.packSize === "number" ? body.packSize : parseInt(String(body.packSize ?? ""), 10);
+    const packType = typeof body.packType === "string" ? body.packType : "";
+
+    if (!packSize || !packType) {
+      res.status(400).json({ error: "packSize and packType are required." });
+      return;
+    }
+    if (!["one_off", "monthly", "annual"].includes(packType)) {
+      res.status(400).json({ error: "packType must be one_off, monthly, or annual." });
+      return;
+    }
+    const pack = getGenerationPackTier(packSize);
+    if (!pack) {
+      res.status(400).json({ error: `Invalid packSize. Choose from: ${GENERATION_PACKS.map((p) => p.size).join(", ")}.` });
+      return;
+    }
+
+    const stripe = await getUncachableStripeClient();
+    const origin = process.env.APP_ORIGIN
+      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://app.docuplete.com");
+    const customerId = acct.stripe_customer_id ?? undefined;
+
+    const meta: Record<string, string> = {
+      type:       packType === "one_off" ? "gen_pack_purchase" : "gen_pack_subscription",
+      pack_size:  String(pack.size),
+      pack_type:  packType,
+      account_id: String(accountId),
+    };
+
+    let session;
+    if (packType === "one_off") {
+      session = await stripe.checkout.sessions.create({
+        mode: "payment",
+        ...(customerId ? { customer: customerId } : {}),
+        line_items: [{
+          quantity: 1,
+          price_data: {
+            currency:     "usd",
+            unit_amount:  pack.monthly * 100,
+            product_data: { name: `${pack.size} Generation Pack (One-time)` },
+          },
+        }],
+        metadata:            meta,
+        success_url:         `${origin}/app/settings?tab=billing&gen_pack_success=1`,
+        cancel_url:          `${origin}/app/settings?tab=billing`,
+        payment_intent_data: { metadata: meta },
+      });
+    } else {
+      const isAnnual  = packType === "annual";
+      const unitPrice = isAnnual ? pack.annual * 100 : pack.monthly * 100;
+      const interval  = isAnnual ? "year" : "month";
+      const label     = isAnnual ? "Annual" : "Monthly";
+      session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        ...(customerId ? { customer: customerId } : {}),
+        line_items: [{
+          quantity: 1,
+          price_data: {
+            currency:     "usd",
+            unit_amount:  unitPrice,
+            recurring:    { interval },
+            product_data: { name: `${pack.size} Generation Pack (${label})` },
+          },
+        }],
+        metadata:          meta,
+        subscription_data: { metadata: meta },
+        success_url:       `${origin}/app/settings?tab=billing&gen_pack_success=1`,
+        cancel_url:        `${origin}/app/settings?tab=billing`,
+      });
+    }
+
+    res.json({ url: session.url });
+  } catch (err) {
+    logger.error({ err }, "[Billing] Failed to create generation pack checkout session");
     res.status(500).json({ error: "Failed to create checkout session" });
   }
 });
