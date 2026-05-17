@@ -114,7 +114,7 @@ function ComplianceGateModal({ onClose }: { onClose: () => void }) {
               {submitting ? "Verifying…" : "Get the Packet"}
             </button>
             <p className="text-white/25 text-xs">
-              No spam. We'll follow up once — only if your use case is a fit.
+              No spam. Ever.
             </p>
           </form>
         ) : (

@@ -12,7 +12,7 @@ export default function Security() {
 
       <div className="callout callout-info">
         Need a single-page summary for your procurement or legal team?{" "}
-        <a href="/enterprise/compliance-sheet">Download the Enterprise Compliance Sheet →</a>
+        <a href="/docuplete-docs/enterprise/compliance-sheet">Download the Enterprise Compliance Sheet →</a>
       </div>
 
       <h2>Encryption</h2>

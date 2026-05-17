@@ -12,7 +12,7 @@ export default function ComplianceSheet() {
 
       <div className="callout callout-info">
         For the full security documentation, see the{" "}
-        <a href="/enterprise/security">Security & Compliance packet →</a>
+        <a href="/docuplete-docs/enterprise/security">Security & Compliance packet →</a>
         {"  "}To request a signed DPA, BAA, or custom contract, email{" "}
         <strong>legal@docuplete.com</strong>.
       </div>
