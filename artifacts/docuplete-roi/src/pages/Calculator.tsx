@@ -145,18 +145,36 @@ function MetricCard({ label, value, prefix = "", suffix = "", decimals = 0, acce
   );
 }
 
+const PLANS = [
+  { name: "Starter",    monthlyPrice: 69,   maxSessions: 150 },
+  { name: "Pro",        monthlyPrice: 249,  maxSessions: 400 },
+  { name: "Enterprise", monthlyPrice: 3000, maxSessions: Infinity },
+];
+const ANNUAL_DISCOUNT = 0.20;
+
+function recommendPlan(sessionsPerMonth: number) {
+  return PLANS.find(p => sessionsPerMonth <= p.maxSessions) ?? PLANS[PLANS.length - 1];
+}
+
 export default function Calculator() {
   const [hourlyRate, setHourlyRate] = useState(125);
   const [clientsPerMonth, setClientsPerMonth] = useState(12);
   const [docsPerClient, setDocsPerClient] = useState(5);
   const [minsPerDoc, setMinsPerDoc] = useState(40);
   const [followUpsPerDoc, setFollowUpsPerDoc] = useState(3);
+  const [annual, setAnnual] = useState(true);
 
   const hoursPerMonth = (clientsPerMonth * docsPerClient * minsPerDoc) / 60;
   const costPerMonth  = hoursPerMonth * hourlyRate;
   const hoursPerYear  = hoursPerMonth * 12;
   const costPerYear   = costPerMonth * 12;
   const emailsPerYear = clientsPerMonth * docsPerClient * followUpsPerDoc * 12;
+
+  const plan = recommendPlan(clientsPerMonth);
+  const planMonthly = annual ? plan.monthlyPrice * (1 - ANNUAL_DISCOUNT) : plan.monthlyPrice;
+  const planAnnual  = planMonthly * 12;
+  const netSavings  = costPerYear - planAnnual;
+  const roiMultiple = planAnnual > 0 ? costPerYear / planAnnual : 0;
 
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -386,6 +404,81 @@ export default function Calculator() {
             That's{" "}
             <strong><AnimatedNumber value={Math.round((hoursPerMonth / 160) * 100)} suffix="%" /></strong> of
             a full-time work month gone to follow-ups and chasing.
+          </div>
+
+          {/* Net savings / plan recommendation */}
+          <div style={{
+            background: "linear-gradient(135deg, #0a2010 0%, var(--bg-card) 100%)",
+            border: "1px solid #22c55e40",
+            borderRadius: "16px",
+            padding: "1.75rem",
+          }}>
+            {/* billing toggle */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem" }}>
+              <span style={{ fontSize: "0.75rem", fontWeight: 700, color: "#86efac", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Your net savings with Docuplete
+              </span>
+              <button
+                onClick={() => setAnnual(a => !a)}
+                style={{
+                  background: annual ? "#166534" : "var(--bg-muted)",
+                  border: "1px solid " + (annual ? "#22c55e60" : "var(--border)"),
+                  borderRadius: "99px",
+                  padding: "0.2rem 0.7rem",
+                  fontSize: "0.7rem",
+                  fontWeight: 700,
+                  color: annual ? "#86efac" : "var(--text-muted)",
+                  cursor: "pointer",
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                }}
+              >
+                {annual ? "Annual billing (20% off)" : "Monthly billing"}
+              </button>
+            </div>
+
+            {/* plan badge */}
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "1rem" }}>
+              <span style={{ fontSize: "0.72rem", color: "var(--text-muted)" }}>Recommended plan:</span>
+              <span style={{
+                background: "#1e3a5f",
+                border: "1px solid var(--blue)60",
+                borderRadius: "6px",
+                padding: "0.15rem 0.55rem",
+                fontSize: "0.72rem",
+                fontWeight: 700,
+                color: "var(--blue-light)",
+              }}>
+                {plan.name} — ${planMonthly.toFixed(0)}/mo
+              </span>
+            </div>
+
+            {/* big net figure */}
+            <div style={{ textAlign: "center", marginBottom: "1rem" }}>
+              <div style={{ fontSize: "clamp(2rem, 6vw, 3.2rem)", fontWeight: 900, lineHeight: 1, fontFamily: "'Space Grotesk', sans-serif", color: netSavings >= 0 ? "#22c55e" : "var(--red-loss)" }}>
+                <AnimatedNumber value={Math.abs(netSavings)} prefix={netSavings >= 0 ? "+$" : "-$"} />
+              </div>
+              <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginTop: "0.35rem" }}>
+                net saved per year after Docuplete cost
+              </p>
+            </div>
+
+            {/* breakdown row */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.5rem", fontSize: "0.75rem" }}>
+              <div style={{ background: "var(--bg-muted)", borderRadius: "8px", padding: "0.6rem 0.75rem" }}>
+                <div style={{ color: "var(--text-muted)", marginBottom: "0.2rem" }}>Chaos cost / yr</div>
+                <div style={{ fontWeight: 700, color: "var(--red-loss)" }}><AnimatedNumber value={costPerYear} prefix="$" /></div>
+              </div>
+              <div style={{ background: "var(--bg-muted)", borderRadius: "8px", padding: "0.6rem 0.75rem" }}>
+                <div style={{ color: "var(--text-muted)", marginBottom: "0.2rem" }}>Docuplete / yr</div>
+                <div style={{ fontWeight: 700, color: "var(--blue-light)" }}><AnimatedNumber value={planAnnual} prefix="$" /></div>
+              </div>
+            </div>
+            {roiMultiple > 1 && (
+              <p style={{ fontSize: "0.72rem", color: "#86efac", marginTop: "0.75rem", textAlign: "center" }}>
+                That's a <strong style={{ color: "#4ade80" }}>{roiMultiple.toFixed(1)}× return</strong> on your Docuplete investment.
+              </p>
+            )}
           </div>
 
           {/* CTA */}

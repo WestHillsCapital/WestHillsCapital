@@ -51,6 +51,16 @@ export default function SendingSessions() {
       <h2>Tracking sessions</h2>
       <p>After generating the link, the session appears in your <Link href="/sessions-dashboard/interviews">Sessions Dashboard</Link> with status <code>pending</code>. It transitions to <code>in_progress</code> when the client opens the link and to <code>generated</code> when they submit.</p>
 
+      <h2>Draft preview (watermarked)</h2>
+      <p>Before a session is submitted you can generate a watermarked draft PDF to verify the filled output — useful when testing prefill logic or checking how a document will look with specific values.</p>
+      <p>Draft previews are available via the API:</p>
+      <pre><code>POST /api/v1/sessions/:token/preview-pdf</code></pre>
+      <p>The response is a PDF stream with a "DRAFT — NOT EXECUTED" watermark stamped across each page. Draft previews do not count toward your generation quota, and they are not stored or surfaced in the dashboard.</p>
+
+      <div className="callout callout-info">
+        <strong>Not a substitute for the final PDF:</strong> The watermarked draft reflects the field values at the moment it is requested. It does not include e-sign certificates or RFC 3161 timestamps, which are only added after final submission and generation.
+      </div>
+
       <h2>One session per client per submission</h2>
       <p>Each session link is unique to one client interaction. If you need to send the same package to multiple clients, create a separate session for each client — do not share a single link across clients.</p>
     </div>

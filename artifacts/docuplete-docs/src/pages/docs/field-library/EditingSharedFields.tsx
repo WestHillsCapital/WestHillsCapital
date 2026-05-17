@@ -33,6 +33,19 @@ export default function EditingSharedFields() {
 
       <h2>Viewing usage</h2>
       <p>Each library field shows a list of packages that currently import it. Click <strong>Used in X packages</strong> to see the full list. This is useful before making any changes to understand downstream impact.</p>
+
+      <h2>Version history and rollback</h2>
+      <p>Every save to a library field creates a version entry automatically. To view the history for a field, open it and click the <strong>History</strong> tab. Each entry shows:</p>
+      <ul>
+        <li>What changed (label, validation rules, options list, etc.)</li>
+        <li>Who made the change</li>
+        <li>The timestamp of the save</li>
+      </ul>
+      <p>To roll back, select any prior version and click <strong>Restore this version</strong>. The rollback is immediate and applies to all future sessions from every package that uses the field. Submitted sessions are not affected — their captured values are frozen at submission time.</p>
+
+      <div className="callout callout-warning">
+        <strong>Rolling back option values:</strong> If clients have already selected options that were renamed or removed between the current version and the version you're restoring to, their saved selections are preserved as raw values. You may see data in the session that no longer matches any listed option on the restored field definition.
+      </div>
     </div>
   );
 }

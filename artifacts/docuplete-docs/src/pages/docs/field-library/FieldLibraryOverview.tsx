@@ -40,6 +40,20 @@ export default function FieldLibraryOverview() {
       <div className="callout callout-info">
         <strong>Permissions:</strong> Only Admins can create, edit, or delete library fields. Members can import library fields into packages they have edit access to.
       </div>
+
+      <h2>Compliance tagging</h2>
+      <p>Each library field can carry one or more compliance tags that classify the sensitivity of the data it collects. Common tags include:</p>
+      <ul>
+        <li><code>pii</code> — Personally Identifiable Information (name, email, date of birth, SSN)</li>
+        <li><code>financial</code> — Income, net worth, account numbers, routing numbers</li>
+        <li><code>sensitive</code> — Data subject to heightened regulatory requirements (health information, political affiliation, etc.)</li>
+      </ul>
+      <p>Tags are set per field in the library and propagate automatically to every package that imports that field. To add or change tags, open a field, go to the <strong>Compliance</strong> tab, and select the applicable tags.</p>
+      <p>Once fields are tagged, you can run a <strong>Compliance Audit</strong> from the Library's Compliance tab. The report shows every tagged field, which packages use it, how many sessions have collected that data, and when the field definition was last modified. This provides a structured view of your data collection footprint — useful for internal reviews, GDPR data mapping, and security questionnaires.</p>
+
+      <div className="callout callout-info">
+        <strong>Tags are metadata only:</strong> Compliance tags do not change how data is stored, encrypted, or transmitted. They are labels that help your team track which fields carry sensitive data — the controls that govern storage and encryption are configured at the account level (see <a href="/account/security">Security Settings</a>).
+      </div>
     </div>
   );
 }

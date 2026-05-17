@@ -28,11 +28,21 @@ export default function EsignSending() {
         <strong>One verification per session:</strong> The OTP is requested once per session, not once per signature field. After a successful verification, all signature and initials fields in the session are unlocked.
       </div>
 
+      <h2>Scroll-through confirmation</h2>
+      <p>If a package is configured to require scroll-through confirmation, the client must scroll to the bottom of the document before any signature or initials fields become active. This ensures the signer has at least viewed the full document before executing it — a meaningful assurance for long disclosures and agreements.</p>
+      <p>The scroll position is tracked on the client side. Signature fields remain visually present but cannot be interacted with until the scroll threshold is met. Once the client reaches the bottom, fields unlock instantly without any additional step.</p>
+
+      <div className="callout callout-info">
+        <strong>Enabling scroll-through:</strong> Toggle "Require scroll confirmation" on any package that contains signature fields. It applies to all sessions created from that package.
+      </div>
+
       <h2>Audit trail</h2>
       <p>Every completed e-sign session includes a Certificate of Completion appended to the generated PDF. It records:</p>
       <ul>
         <li>Signer's email address (as verified by OTP)</li>
         <li>Signer's IP address at time of signing</li>
+        <li>Signer's approximate location (city and country, resolved via GeoIP from the signing IP)</li>
+        <li>Signer's browser user-agent string</li>
         <li>OTP verification timestamp</li>
         <li>Signature applied timestamp (per signature/initials field)</li>
         <li>Session ID and package ID</li>

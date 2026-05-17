@@ -167,7 +167,7 @@ router.post("/onboard", async (req, res) => {
  *     summary: Get current account
  *     description: |
  *       Returns account and user information for the authenticated session.
- *       Accepts both Clerk JWTs and API keys (`sk_live_...`).
+ *       Accepts both Clerk JWTs and API keys (`dp_live_...`).
  *
  *       When authenticated via API key, `email` is `null` (keys are account-scoped,
  *       not user-scoped) and `role` is `"member"`.
@@ -195,7 +195,7 @@ router.post("/onboard", async (req, res) => {
  *               $ref: '#/components/schemas/Error'
  */
 router.get("/me", requireProductAuth, async (req, res) => {
-  // requireProductAuth handles both Clerk JWT and API key (sk_live_...) auth.
+  // requireProductAuth handles both Clerk JWT and API key (dp_live_...) auth.
   // After it runs, req.internalAccountId and req.productUserRole are guaranteed set.
   const accountId = req.internalAccountId!;
 
@@ -462,7 +462,7 @@ router.post("/verify-2fa", async (req, res) => {
  *     description: |
  *       Creates a new API key scoped to the authenticated account.
  *       The full plaintext key is returned **once** and cannot be retrieved again — store it securely.
- *       Keys are prefixed with `sk_live_` and are stored as a SHA-256 hash.
+ *       Keys are prefixed with `dp_live_` and are stored as a SHA-256 hash.
  *     security:
  *       - productAuth: []
  *       - apiKeyAuth: []
@@ -493,11 +493,11 @@ router.post("/verify-2fa", async (req, res) => {
  *                   type: string
  *                 key:
  *                   type: string
- *                   example: "sk_live_a1b2c3d4e5f6…"
+ *                   example: "dp_live_a1b2c3d4e5f6…"
  *                   description: Full plaintext API key. Store securely — not shown again.
  *                 keyPrefix:
  *                   type: string
- *                   example: "sk_live_a1b2c3"
+ *                   example: "dp_live_a1b2c3"
  *                 createdAt:
  *                   type: string
  *                   format: date-time

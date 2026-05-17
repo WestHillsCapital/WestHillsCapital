@@ -168,8 +168,9 @@ const PLANS = [
       "Team seats & shared templates",
       "Batch CSV import",
       "Custom branding & client links",
-      "Google Drive, Dropbox & OneDrive",
+      "Google Drive & OneDrive",
       "HubSpot integration",
+      "AES-256-GCM answer encryption",
       "Priority support",
     ],
     cta: "Start free trial",
@@ -207,7 +208,6 @@ const PLANS = [
       "SLA guarantee",
       "SSO / SAML + SCIM provisioning",
       "IP allowlisting",
-      "AES-256-GCM answer encryption",
       "Custom domain",
     ],
     cta: "Contact sales",
@@ -362,7 +362,7 @@ const PERSONAS = [
     resolutions: [
       "Webhooks and API access connect Docuplete to any system you run",
       "Full audit logs with timestamps satisfy compliance requirements",
-      "Native HubSpot, Google Drive, Dropbox Business, and OneDrive sync keeps every record in place",
+      "Native HubSpot, Google Drive, and OneDrive sync keeps every record in place",
       "Dedicated account manager and SLA guarantee predictable delivery",
     ],
   },
@@ -1069,7 +1069,7 @@ export default function Home() {
     prefill: { firstName: "Jane" } });
 // → send link, done.`}</pre>
               <p className="text-white/60 text-sm leading-relaxed">
-                Then lock it down: IP allowlisting, SAML SSO, SCIM provisioning, AES-256-GCM answer encryption. Start simple. Scale to your most demanding security review.
+                AES-256-GCM answer encryption ships on Pro and above. Scale further with IP allowlisting, SAML SSO, and SCIM provisioning for Enterprise deployments.
               </p>
             </div>
 
