@@ -17,14 +17,43 @@ export default function Billing() {
         <li>Payment method on file</li>
       </ul>
 
+      <h2>Session packs</h2>
+      <p>On Starter and Pro, you can purchase additional session packs from <strong>Settings → Billing → Buy Sessions</strong>. Packs add sessions to your balance on top of your monthly plan quota. Pack credits are drawn down before plan quota, oldest-expiry first, and all pack credits expire one year from purchase.</p>
+      <p>Packs are available in five sizes, on monthly subscription, annual subscription (20% off), or as a one-off purchase:</p>
+
+      <div className="overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Pack size</th>
+              <th>Monthly</th>
+              <th>Annual (per mo)</th>
+              <th>Annual (total)</th>
+              <th>One-off</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>50 sessions</td><td>$25/mo</td><td>$20/mo</td><td>$240</td><td>$25</td></tr>
+            <tr><td>100 sessions</td><td>$45/mo</td><td>$36/mo</td><td>$432</td><td>$45</td></tr>
+            <tr><td>300 sessions</td><td>$120/mo</td><td>$96/mo</td><td>$1,152</td><td>$120</td></tr>
+            <tr><td>500 sessions</td><td>$185/mo</td><td>$148/mo</td><td>$1,776</td><td>$185</td></tr>
+            <tr><td>1,000 sessions</td><td>$349/mo</td><td>$279/mo</td><td>$3,348</td><td>$349</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p><strong>Monthly subscription:</strong> sessions are deposited at the start of each billing cycle and expire one year from each deposit date.</p>
+      <p><strong>Annual subscription:</strong> the full year's sessions (12× the pack size) are deposited upfront at purchase. Annual packs are 20% cheaper than paying month-to-month.</p>
+      <p><strong>One-off purchase:</strong> sessions are deposited immediately and expire one year from purchase. Use this when you have a one-time volume spike and don't want an ongoing subscription.</p>
+
       <h2>Overage</h2>
-      <p>When you exceed your monthly session or generation quota, overage is calculated automatically and added to your next invoice — there are no pre-purchased add-on packs and nothing to configure.</p>
+      <p>When you exceed both your plan quota and any purchased pack credits, overage is billed automatically at the end of your billing period.</p>
       <ul>
-        <li><strong>Starter &amp; Pro:</strong> $0.50 per additional submitted session beyond your included quota.</li>
-        <li><strong>Developer:</strong> $75 per 100 additional generations, billed in full blocks. If you go over by 60 generations, you are charged for one full block of 100. There is no fractional block charge.</li>
+        <li><strong>Starter &amp; Pro:</strong> $0.50 per additional submitted session.</li>
+        <li><strong>Developer:</strong> $75 per 100 additional generations, billed in full blocks of 100. If you go over by 60, you are charged for one full block of 100.</li>
         <li><strong>Enterprise:</strong> Sessions and generations are unlimited — no overage applies.</li>
       </ul>
-      <p>If you find yourself regularly hitting your quota, upgrading your plan is more cost-effective than paying overage month over month. See <strong>Settings → Billing → Upgrade Plan</strong> to compare options.</p>
+      <p>If you're regularly hitting your quota, a recurring session pack is more cost-effective than overage — and upgrading your plan may be more cost-effective still. See <strong>Settings → Billing → Upgrade Plan</strong> to compare.</p>
 
       <h2>Adding or removing seats</h2>
       <p>Seats can be adjusted at any time from <strong>Settings → Billing → Manage Seats</strong>. Adding seats is immediate — billing is prorated to the end of the current billing cycle. Removing seats takes effect at the start of the next billing cycle.</p>

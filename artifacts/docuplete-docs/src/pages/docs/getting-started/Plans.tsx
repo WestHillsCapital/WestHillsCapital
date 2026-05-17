@@ -108,7 +108,7 @@ export default function Plans() {
       <p>On Starter and Pro, your quota counts <strong>submitted sessions</strong> — sessions a client successfully completes and submits. Draft, voided, and abandoned sessions do not count. Quota resets each billing period.</p>
       <p>On Developer, your quota counts <strong>generations</strong> — each filled PDF produced, regardless of origin. Quota resets each billing period.</p>
       <p>On Enterprise, sessions and generations are unlimited.</p>
-      <p>Overage is billed automatically at the end of your billing period — there are no pre-purchased add-on packs. If you consistently exceed your quota, upgrading to a higher plan is more cost-effective than relying on overage.</p>
+      <p>If you go over your base quota, you have two options: let overage bill automatically at the end of the period, or proactively purchase a <strong>session pack</strong> from Settings → Billing to top up your balance in advance. See the <a href="/account/billing">Seats &amp; Billing</a> page for pack sizes and pricing.</p>
 
       <h2>Developer overage pricing</h2>
       <p>Developer overage is priced at <strong>$75 per 100 additional generations</strong> ($0.75 per generation). This is intentionally lower than the effective per-generation cost of the base plan ($499 ÷ 500 = ~$1.00/generation) — high-volume API usage is rewarded with a lower marginal rate.</p>
