@@ -19,6 +19,7 @@ export const FEATURE_META: Record<PlanFeatureName, FeatureMeta> = {
   embeddedInterviews:       { plan: "developer", label: "Embedded interviews" },
   customDomain:             { plan: "enterprise", label: "Custom domain" },
   fieldLibraryInheritance:  { plan: "enterprise", label: "Field library inheritance" },
+  samlSso:                  { plan: "enterprise", label: "SAML SSO" },
 };
 
 const PLAN_LABEL: Record<"pro" | "developer" | "enterprise", string> = {

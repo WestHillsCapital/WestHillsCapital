@@ -119,11 +119,110 @@ export default function Security() {
         </table>
       </div>
 
-      <h3>SSO / SAML</h3>
+      <h3>SSO / SAML 2.0</h3>
       <p>
-        Enterprise accounts can enforce <strong>SAML 2.0 single sign-on</strong> with any compatible
-        IdP (Okta, Azure AD, OneLogin, Google Workspace, and others). When SSO is enforced, password
-        login is disabled for all users in the organization.
+        Enterprise accounts can configure <strong>SAML 2.0 single sign-on</strong> with any
+        compatible IdP — Okta, Azure AD / Entra ID, OneLogin, Google Workspace, and others.
+        When enforcement is enabled, all dashboard logins are routed through your IdP.
+      </p>
+
+      <h4>How the flow works</h4>
+      <ol>
+        <li>The user enters their work email on the Docuplete login page.</li>
+        <li>
+          Docuplete detects the email domain and redirects to your IdP's SSO URL
+          (SP-initiated flow).
+        </li>
+        <li>Your IdP authenticates the user and POSTs a signed assertion to the Docuplete ACS URL.</li>
+        <li>
+          Docuplete validates the assertion, provisions the user automatically if they don't yet
+          have an account (JIT provisioning), and creates a short-lived session.
+        </li>
+        <li>The user lands in the Docuplete dashboard.</li>
+      </ol>
+
+      <h4>Configuring your IdP</h4>
+      <p>
+        Retrieve your account's SP values from <strong>Settings → Security → SSO / SAML</strong>
+        or from the API:
+      </p>
+      <pre>{`GET /api/v1/product/settings/saml
+Authorization: Bearer <session_token>
+
+// Response
+{
+  "connection": null,          // null = not yet configured
+  "sp": {
+    "entity_id":    "https://api.docuplete.com/saml/<account_id>",
+    "acs_url":      "https://api.docuplete.com/api/v1/saml/callback/<account_id>",
+    "metadata_url": "https://api.docuplete.com/api/v1/saml/metadata/<account_id>"
+  }
+}`}</pre>
+      <p>Enter these values in your IdP:</p>
+      <div className="overflow-x-auto">
+        <table>
+          <thead>
+            <tr><th>IdP field</th><th>Value</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Single sign-on URL / ACS URL</td>
+              <td><code>https://api.docuplete.com/api/v1/saml/callback/&lt;account_id&gt;</code></td>
+            </tr>
+            <tr>
+              <td>Audience URI / SP Entity ID</td>
+              <td><code>https://api.docuplete.com/saml/&lt;account_id&gt;</code></td>
+            </tr>
+            <tr>
+              <td>Name ID format</td>
+              <td>Email address (<code>emailAddress</code>)</td>
+            </tr>
+            <tr>
+              <td>Name ID value</td>
+              <td>User email (e.g. <code>user.email</code> in Okta)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        You can also import the SP metadata XML directly — many IdPs support this:
+      </p>
+      <pre>{`GET https://api.docuplete.com/api/v1/saml/metadata/<account_id>`}</pre>
+
+      <h4>Saving the IdP configuration</h4>
+      <pre>{`PUT /api/v1/product/settings/saml
+Authorization: Bearer <session_token>
+Content-Type: application/json
+
+{
+  "domain":          "company.com",
+  "idp_entity_id":   "https://your-idp.example.com/saml",
+  "idp_sso_url":     "https://your-idp.example.com/sso/saml",
+  "idp_certificate": "<PEM or base64 X.509 certificate from your IdP>",
+  "enabled":         true,
+  "enforced":        false
+}`}</pre>
+      <p>
+        Set <code>enforced: true</code> to require SSO for all users — this disables
+        password-based login for members of the organization.
+      </p>
+
+      <h4>Testing the connection</h4>
+      <p>
+        Before enforcing SSO, verify the domain check endpoint returns{" "}
+        <code>{`{ "hasSaml": true }`}</code> for your domain:
+      </p>
+      <pre>{`GET /api/v1/saml/check?email=you@company.com`}</pre>
+      <p>Then initiate a test login in a private browser window:</p>
+      <pre>{`GET /api/v1/saml/login?email=you@company.com`}</pre>
+
+      <h4>Just-in-time (JIT) provisioning</h4>
+      <p>
+        Users who authenticate via SSO for the first time are automatically created as{" "}
+        <strong>Member</strong>-role accounts in your organization. You can promote them to Admin
+        from <strong>Settings → Team</strong> after their first login, or use{" "}
+        <a href="/docuplete-docs/enterprise/scim">SCIM provisioning</a> to manage roles
+        automatically from your IdP.
       </p>
 
       <h3>SCIM 2.0 provisioning</h3>

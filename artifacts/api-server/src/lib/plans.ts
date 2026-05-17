@@ -19,6 +19,7 @@ export interface PlanFeatures {
   embeddedInterviews:       boolean;
   customDomain:             boolean;
   fieldLibraryInheritance:  boolean;
+  samlSso:                  boolean;
 }
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
@@ -67,6 +68,7 @@ export const PLAN_FEATURES: Record<PlanTier, PlanFeatures> = {
     embeddedInterviews:       false,
     customDomain:             false,
     fieldLibraryInheritance:  false,
+    samlSso:                  false,
   },
   starter_esign: {
     clientLinks:              true,
@@ -80,6 +82,7 @@ export const PLAN_FEATURES: Record<PlanTier, PlanFeatures> = {
     embeddedInterviews:       false,
     customDomain:             false,
     fieldLibraryInheritance:  false,
+    samlSso:                  false,
   },
   pro: {
     clientLinks:              true,
@@ -93,6 +96,7 @@ export const PLAN_FEATURES: Record<PlanTier, PlanFeatures> = {
     embeddedInterviews:       false,
     customDomain:             false,
     fieldLibraryInheritance:  false,
+    samlSso:                  false,
   },
   developer: {
     clientLinks:              true,
@@ -106,6 +110,7 @@ export const PLAN_FEATURES: Record<PlanTier, PlanFeatures> = {
     embeddedInterviews:       true,
     customDomain:             false,
     fieldLibraryInheritance:  false,
+    samlSso:                  false,
   },
   enterprise: {
     clientLinks:              true,
@@ -119,6 +124,7 @@ export const PLAN_FEATURES: Record<PlanTier, PlanFeatures> = {
     embeddedInterviews:       true,
     customDomain:             true,
     fieldLibraryInheritance:  true,
+    samlSso:                  true,
   },
 };
 

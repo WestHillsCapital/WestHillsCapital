@@ -19,6 +19,7 @@
     "@anthropic-ai/sdk": "^0.78.0",
     "@clerk/express": "^2.1.9",
     "@google-cloud/storage": "^7.19.0",
+    "@node-saml/node-saml": "^5.1.0",
     "@sentry/node": "^10.50.0",
     "@types/cookie-parser": "^1.4.10",
     "@types/pdfkit": "^0.17.5",

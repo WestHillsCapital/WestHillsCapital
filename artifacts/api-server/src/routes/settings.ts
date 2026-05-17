@@ -5322,4 +5322,178 @@ router.delete("/inheritance/unlink-child/:childId", requireAdminRole, requirePla
   }
 });
 
+// ── SAML 2.0 SSO configuration ────────────────────────────────────────────────
+//
+// GET    /saml             → current IdP connection (or null if not configured)
+// PUT    /saml             → save / update IdP config
+// DELETE /saml             → remove IdP connection
+// GET    /saml/sp-metadata → SP metadata XML for IdP import
+//
+// All write operations require the Enterprise plan. The sp-metadata GET is
+// plan-gated too so it only reveals the ACS/entity IDs to enterprise admins.
+//
+// Public SSO flow endpoints (login, callback, metadata by account ID) live in
+// routes/saml.ts and are mounted at /api/v1/saml — no auth required.
+
+function samlApiBase(): string {
+  return (process.env["API_BASE_URL"] ?? "https://api.docuplete.com").replace(/\/$/, "");
+}
+
+interface SamlConnectionRow {
+  id:              number;
+  account_id:      number;
+  enabled:         boolean;
+  enforced:        boolean;
+  domain:          string;
+  idp_entity_id:   string;
+  idp_sso_url:     string;
+  idp_certificate: string;
+  sp_entity_id:    string;
+  created_at:      string;
+  updated_at:      string;
+}
+
+router.get("/saml/sp-metadata", requireAdminRole, requirePlanFeature("samlSso"), async (req, res) => {
+  const accountId = req.internalAccountId ?? 1;
+  const entityId  = `${samlApiBase()}/saml/${accountId}`;
+  const acsUrl    = `${samlApiBase()}/api/v1/saml/callback/${accountId}`;
+  const xml = [
+    `<?xml version="1.0"?>`,
+    `<md:EntityDescriptor`,
+    `    xmlns:md="urn:oasis:names:tc:SAML:2.0:metadata"`,
+    `    entityID="${entityId}">`,
+    `  <md:SPSSODescriptor`,
+    `      AuthnRequestsSigned="false"`,
+    `      WantAssertionsSigned="false"`,
+    `      protocolSupportEnumeration="urn:oasis:names:tc:SAML:2.0:protocol">`,
+    `    <md:NameIDFormat>`,
+    `      urn:oasis:names:tc:SAML:1.1:nameid-format:emailAddress`,
+    `    </md:NameIDFormat>`,
+    `    <md:AssertionConsumerService`,
+    `        Binding="urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST"`,
+    `        Location="${acsUrl}"`,
+    `        index="1"/>`,
+    `  </md:SPSSODescriptor>`,
+    `</md:EntityDescriptor>`,
+  ].join("\n");
+  res.set("Content-Type", "application/xml; charset=utf-8").send(xml);
+});
+
+router.get("/saml", requireAdminRole, requirePlanFeature("samlSso"), async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const base      = samlApiBase();
+    const { rows } = await getDb().query<SamlConnectionRow>(
+      `SELECT * FROM saml_connections WHERE account_id = $1 LIMIT 1`,
+      [accountId],
+    );
+    if (!rows[0]) {
+      return void res.json({
+        connection: null,
+        sp: {
+          entity_id:    `${base}/saml/${accountId}`,
+          acs_url:      `${base}/api/v1/saml/callback/${accountId}`,
+          metadata_url: `${base}/api/v1/saml/metadata/${accountId}`,
+        },
+      });
+    }
+    const c = rows[0];
+    res.json({
+      connection: {
+        id:                       c.id,
+        enabled:                  c.enabled,
+        enforced:                 c.enforced,
+        domain:                   c.domain,
+        idp_entity_id:            c.idp_entity_id,
+        idp_sso_url:              c.idp_sso_url,
+        idp_certificate_preview:  c.idp_certificate.slice(0, 64) + (c.idp_certificate.length > 64 ? "..." : ""),
+        created_at:               c.created_at,
+        updated_at:               c.updated_at,
+      },
+      sp: {
+        entity_id:    `${base}/saml/${accountId}`,
+        acs_url:      `${base}/api/v1/saml/callback/${accountId}`,
+        metadata_url: `${base}/api/v1/saml/metadata/${accountId}`,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[SAML Settings] Failed to fetch config");
+    res.status(500).json({ error: "Failed to load SAML configuration" });
+  }
+});
+
+router.put("/saml", requireAdminRole, requirePlanFeature("samlSso"), async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const body = req.body as Record<string, unknown>;
+
+    const domain         = String(body["domain"]          ?? "").trim().toLowerCase();
+    const idpEntityId    = String(body["idp_entity_id"]   ?? "").trim();
+    const idpSsoUrl      = String(body["idp_sso_url"]     ?? "").trim();
+    const idpCertificate = String(body["idp_certificate"] ?? "").trim();
+    const enabled        = body["enabled"]  !== false && body["enabled"]  !== "false";
+    const enforced       = body["enforced"] === true  || body["enforced"] === "true";
+
+    if (!domain || !domain.includes(".")) {
+      return void res.status(400).json({ error: "domain must be a valid email domain (e.g. company.com)" });
+    }
+    if (!idpEntityId) {
+      return void res.status(400).json({ error: "idp_entity_id is required" });
+    }
+    if (!idpSsoUrl || (!idpSsoUrl.startsWith("https://") && !idpSsoUrl.startsWith("http://"))) {
+      return void res.status(400).json({ error: "idp_sso_url must be a valid HTTPS URL" });
+    }
+    if (!idpCertificate) {
+      return void res.status(400).json({ error: "idp_certificate is required (PEM or base64)" });
+    }
+
+    const base      = samlApiBase();
+    const entityId  = `${base}/saml/${accountId}`;
+
+    await getDb().query(
+      `INSERT INTO saml_connections
+         (account_id, domain, idp_entity_id, idp_sso_url, idp_certificate, sp_entity_id, enabled, enforced)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (account_id) DO UPDATE
+           SET domain           = EXCLUDED.domain,
+               idp_entity_id    = EXCLUDED.idp_entity_id,
+               idp_sso_url      = EXCLUDED.idp_sso_url,
+               idp_certificate  = EXCLUDED.idp_certificate,
+               sp_entity_id     = EXCLUDED.sp_entity_id,
+               enabled          = EXCLUDED.enabled,
+               enforced         = EXCLUDED.enforced,
+               updated_at       = NOW()`,
+      [accountId, domain, idpEntityId, idpSsoUrl, idpCertificate, entityId, enabled, enforced],
+    );
+
+    logger.info({ accountId, domain, enabled, enforced }, "[SAML Settings] Connection saved");
+    res.json({
+      ok: true,
+      sp: {
+        entity_id:    entityId,
+        acs_url:      `${base}/api/v1/saml/callback/${accountId}`,
+        metadata_url: `${base}/api/v1/saml/metadata/${accountId}`,
+      },
+    });
+  } catch (err) {
+    logger.error({ err }, "[SAML Settings] Failed to save config");
+    res.status(500).json({ error: "Failed to save SAML configuration" });
+  }
+});
+
+router.delete("/saml", requireAdminRole, requirePlanFeature("samlSso"), async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    await getDb().query(
+      `DELETE FROM saml_connections WHERE account_id = $1`,
+      [accountId],
+    );
+    logger.info({ accountId }, "[SAML Settings] Connection deleted");
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "[SAML Settings] Failed to delete config");
+    res.status(500).json({ error: "Failed to delete SAML configuration" });
+  }
+});
+
 export default router;
