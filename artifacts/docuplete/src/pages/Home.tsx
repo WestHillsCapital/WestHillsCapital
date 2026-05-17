@@ -547,7 +547,7 @@ export default function Home() {
       </section>
 
       {/* ── PROOF BAR ───────────────────────────────────────── */}
-      <section className="bg-[#F9F7F2] border-y border-[#E8EDF5] py-5 px-6">
+      <section className="bg-[#F5F7FC] border-y border-[#E8EDF5] py-5 px-6">
         <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-sm text-[#4B5A7A]">
           <span className="flex items-center gap-2">
             <svg className="w-4 h-4 text-[#1B4FD8]" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292Z"/></svg>
@@ -578,7 +578,7 @@ export default function Home() {
           </div>
           <div className="grid sm:grid-cols-3 gap-8">
             {STEPS.map((step) => (
-              <div key={step.number} className="relative bg-[#F9F7F2] rounded-2xl p-8 border border-[#E8EDF5]">
+              <div key={step.number} className="relative bg-[#F5F7FC] rounded-2xl p-8 border border-[#E8EDF5]">
                 <div className="text-5xl font-black text-[#1B4FD8]/10 mb-4 leading-none select-none">{step.number}</div>
                 <h3 className="text-lg font-bold text-[#0B1220] mb-3">{step.title}</h3>
                 <p className="text-[#4B5A7A] text-sm leading-relaxed">{step.body}</p>
@@ -621,7 +621,7 @@ export default function Home() {
       </section>
 
       {/* ── WHO IT'S FOR ────────────────────────────────────── */}
-      <section className="py-24 px-6 bg-[#F9F7F2]">
+      <section className="py-24 px-6 bg-[#F5F7FC]">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-[#1B4FD8] text-sm font-semibold uppercase tracking-widest mb-3">Who it's for</p>
@@ -678,7 +678,7 @@ export default function Home() {
                     <ul className="space-y-4">
                       {persona.pains.map((pain) => (
                         <li key={pain} className="flex items-start gap-3 text-sm text-[#4B5A7A]">
-                          <span className="mt-0.5 w-5 h-5 rounded-full bg-[#F9F7F2] border border-[#E8EDF5] flex items-center justify-center shrink-0">
+                          <span className="mt-0.5 w-5 h-5 rounded-full bg-[#F5F7FC] border border-[#E8EDF5] flex items-center justify-center shrink-0">
                             <svg className="w-3 h-3 text-[#B0BCCE]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
                             </svg>
@@ -708,7 +708,7 @@ export default function Home() {
                 </div>
 
                 {/* Card footer CTA */}
-                <div className="px-8 py-5 bg-[#F9F7F2] border-t border-[#E8EDF5] flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="px-8 py-5 bg-[#F5F7FC] border-t border-[#E8EDF5] flex flex-col sm:flex-row items-center justify-between gap-4">
                   <p className="text-sm text-[#4B5A7A]">
                     Ready to see it live?{" "}
                     <a href="#pricing" className="text-[#1B4FD8] font-semibold hover:underline">
@@ -759,7 +759,7 @@ export default function Home() {
       </section>
 
       {/* ── SOCIAL PROOF ────────────────────────────────────── */}
-      <section className="py-20 px-6 bg-[#F9F7F2] border-y border-[#E8EDF5]">
+      <section className="py-20 px-6 bg-[#F5F7FC] border-y border-[#E8EDF5]">
         <div className="max-w-4xl mx-auto">
           <div className="grid sm:grid-cols-2 gap-8 items-center">
             <div>
@@ -789,7 +789,7 @@ export default function Home() {
       </section>
 
       {/* ── COMPETITOR COMPARISON ───────────────────────────── */}
-      <section className="py-24 px-6 bg-[#F9F7F2]">
+      <section className="py-24 px-6 bg-[#F5F7FC]">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <p className="text-[#1B4FD8] text-sm font-semibold uppercase tracking-widest mb-3">Why Docuplete</p>
@@ -833,7 +833,7 @@ export default function Home() {
               <tbody>
                 {COMPARISON_FEATURES.map((row, i) => {
                   const isLast = i === COMPARISON_FEATURES.length - 1;
-                  const rowBg = i % 2 === 0 ? "bg-white" : "bg-[#F9F7F2]";
+                  const rowBg = i % 2 === 0 ? "bg-white" : "bg-[#F5F7FC]";
                   const docupleteRowBg = i % 2 === 0 ? "bg-[#1740B8]" : "bg-[#1B4FD8]";
                   const borderClass = isLast ? "" : "border-b border-[#E8EDF5]";
                   const docupleteBorderClass = isLast ? "" : "border-b border-[#1533A0]";
@@ -1006,7 +1006,7 @@ export default function Home() {
                   },
                 ].map((row, i) => {
                   const isLast = i === 6;
-                  const rowBg = i % 2 === 0 ? "bg-white" : "bg-[#F9F7F2]";
+                  const rowBg = i % 2 === 0 ? "bg-white" : "bg-[#F5F7FC]";
                   const docBg = i % 2 === 0 ? "bg-[#1740B8]" : "bg-[#1B4FD8]";
                   const border = isLast ? "" : "border-b border-[#E8EDF5]";
                   const docBorder = isLast ? "" : "border-b border-[#1533A0]";
@@ -1045,7 +1045,7 @@ export default function Home() {
                 body: "Anvil provides solid e-signatures. Docuplete includes an RFC 3161 trusted timestamp from a qualified TSA on every signed document — standard, not an add-on. Your agreements are court-defensible worldwide, independent of our servers.",
               },
             ].map((card) => (
-              <div key={card.title} className="bg-[#F9F7F2] rounded-2xl p-6 border border-[#E8EDF5]">
+              <div key={card.title} className="bg-[#F5F7FC] rounded-2xl p-6 border border-[#E8EDF5]">
                 <p className="text-[#1B4FD8] text-xs font-bold uppercase tracking-widest mb-2">{card.label}</p>
                 <h3 className="text-[#0B1220] font-bold text-base mb-3">{card.title}</h3>
                 <p className="text-[#4B5A7A] text-sm leading-relaxed">{card.body}</p>
@@ -1271,7 +1271,7 @@ export default function Home() {
                     <p className={`text-sm ${plan.highlight ? "text-white/70" : "text-[#4B5A7A]"}`}>{plan.description}</p>
                   </div>
 
-                  <div className={`rounded-xl px-4 py-3 mb-6 text-xs space-y-1 ${plan.highlight ? "bg-white/10" : "bg-[#F9F7F2]"}`}>
+                  <div className={`rounded-xl px-4 py-3 mb-6 text-xs space-y-1 ${plan.highlight ? "bg-white/10" : "bg-[#F5F7FC]"}`}>
                     <p className={`font-semibold ${plan.highlight ? "text-white" : "text-[#0B1220]"}`}>{plan.submissions}</p>
                     <p className={plan.highlight ? "text-white/70" : "text-[#4B5A7A]"}>{plan.seats}</p>
                     <p className={plan.highlight ? "text-white/60" : "text-[#4B5A7A]"}>{plan.overage}</p>
@@ -1293,7 +1293,7 @@ export default function Home() {
                     className={`block text-center font-semibold py-3 rounded-xl transition-colors text-sm ${
                       plan.highlight
                         ? "bg-[#1B4FD8] text-white hover:bg-[#1740B8]"
-                        : "bg-[#F9F7F2] text-[#0B1220] border border-[#E8EDF5] hover:bg-[#EDF0F7]"
+                        : "bg-[#F5F7FC] text-[#0B1220] border border-[#E8EDF5] hover:bg-[#EDF0F7]"
                     }`}
                   >
                     {plan.cta}
