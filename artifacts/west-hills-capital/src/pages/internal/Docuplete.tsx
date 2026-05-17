@@ -315,9 +315,10 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
 
 function normalizeFieldLibrary(items: FieldLibraryItem[]): FieldLibraryItem[] {
   return Array.isArray(items) ? items.map((item) => {
-    // isGlobal means account_id IS NULL in the DB — these are platform-level fields
-    // editable by the platform owner. Only fields with item.inherited === true (set
-    // by the API when a true parent-account relationship exists) should be read-only.
+    // isGlobal means account_id IS NULL in the DB — platform-level seed fields.
+    // These are read-only for all accounts (PATCH/DELETE require account_id match).
+    // Treat them as inherited so the UI hides Save/Delete buttons for them.
+    const raw = item as FieldLibraryItem & { isGlobal?: boolean };
     return {
       ...item,
       category: item.category || "General",
@@ -331,8 +332,8 @@ function normalizeFieldLibrary(items: FieldLibraryItem[]): FieldLibraryItem[] {
       validationMessage: item.validationMessage ?? "",
       active: item.active !== false,
       sortOrder: Number(item.sortOrder ?? 100),
-      inherited: item.inherited === true,
-      inheritedFrom: item.inheritedFrom,
+      inherited: item.inherited === true || raw.isGlobal === true,
+      inheritedFrom: item.inheritedFrom ?? (raw.isGlobal === true ? "platform" : undefined),
     };
   }) : [];
 }

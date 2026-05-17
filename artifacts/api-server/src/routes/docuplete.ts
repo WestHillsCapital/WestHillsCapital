@@ -2567,6 +2567,16 @@ router.patch("/field-library/:id", requireAdminRole, async (req, res) => {
     }
     const db = getDb();
     const accountId = acctId(req);
+    // Block writes to platform-level global fields (account_id IS NULL).
+    // These are seed fields shared across all accounts and cannot be edited per-account.
+    // Accounts should duplicate them (create their own copy) to customize.
+    { const { rows: globalRows } = await db.query(
+      `SELECT 1 FROM docuplete_fields WHERE id = $1 AND account_id IS NULL LIMIT 1`, [id]);
+      if (globalRows[0]) {
+        res.status(403).json({ error: "Platform fields are read-only. Use '+ Add' to create your own editable copy." });
+        return;
+      }
+    }
     // Block writes to inherited (parent-owned) fields
     { const { rows: parentRows } = await db.query(
       `SELECT p.id FROM accounts a JOIN accounts p ON p.id = a.parent_account_id WHERE a.id = $1`, [accountId]);
@@ -2917,6 +2927,14 @@ router.delete("/field-library/:id", requireAdminRole, async (req, res) => {
     }
     const db = getDb();
     const accountId = acctId(req);
+    // Block deletes of platform-level global fields (account_id IS NULL).
+    { const { rows: globalRows } = await db.query(
+      `SELECT 1 FROM docuplete_fields WHERE id = $1 AND account_id IS NULL LIMIT 1`, [id]);
+      if (globalRows[0]) {
+        res.status(403).json({ error: "Platform fields are read-only and cannot be deleted." });
+        return;
+      }
+    }
     // Block deletes of inherited (parent-owned) fields
     { const { rows: parentRows } = await db.query(
       `SELECT p.id FROM accounts a JOIN accounts p ON p.id = a.parent_account_id WHERE a.id = $1`, [accountId]);

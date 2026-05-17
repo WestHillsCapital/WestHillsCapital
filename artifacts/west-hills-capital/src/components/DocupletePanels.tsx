@@ -1262,14 +1262,22 @@ export function FieldLibraryPanel({
               <div className="flex items-center justify-between pt-2 border-t border-[#EFE8D8]">
                 <span className="text-[10px] text-[#B0BCCE]">{item.id}</span>
                 <div className="flex gap-2">
-                  {onDelete && (
-                    <button type="button" onClick={() => void handleDelete(item)} disabled={deletingId === item.id} className="text-[11px] text-red-500 disabled:opacity-50">
-                      {deletingId === item.id ? "Deleting…" : "Delete"}
-                    </button>
+                  {itemIsInherited ? (
+                    <span className="text-[10px] text-[#8A9BB8] italic">
+                      {item.inheritedFrom === "platform" ? "Platform field · read-only" : "Inherited · read-only"}
+                    </span>
+                  ) : (
+                    <>
+                      {onDelete && (
+                        <button type="button" onClick={() => void handleDelete(item)} disabled={deletingId === item.id} className="text-[11px] text-red-500 disabled:opacity-50">
+                          {deletingId === item.id ? "Deleting…" : "Delete"}
+                        </button>
+                      )}
+                      <button type="button" onClick={() => void handleSave(item)} disabled={savingId === item.id} className="text-[11px] font-medium text-[#C49A38] disabled:opacity-50">
+                        {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
+                      </button>
+                    </>
                   )}
-                  <button type="button" onClick={() => void handleSave(item)} disabled={savingId === item.id} className="text-[11px] font-medium text-[#C49A38] disabled:opacity-50">
-                    {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
-                  </button>
                 </div>
               </div>
             </div>
