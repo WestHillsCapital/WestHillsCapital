@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 
 function VideoSection() {
   const [open, setOpen] = useState(false);
-  const [expanded, setExpanded] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
   useEffect(() => {
@@ -32,67 +31,37 @@ function VideoSection() {
           Meet Sally and Tom. See how one questionnaire replaces six documents, fifty fields, and hours of back-and-forth.
         </p>
 
-        {/* Collapsed bar — always visible */}
-        <div className="w-full max-w-3xl mx-auto">
-          <button
-            onClick={() => setExpanded((v) => !v)}
-            className="w-full flex items-center justify-between gap-4 bg-[#0B1220] text-white px-6 py-4 rounded-2xl hover:bg-[#131e35] transition-colors focus:outline-none focus:ring-4 focus:ring-[#1B4FD8]/30"
-            aria-expanded={expanded}
-            aria-label={expanded ? "Collapse video preview" : "Expand video preview"}
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-full bg-[#1B4FD8]/20 border border-[#1B4FD8]/30 flex items-center justify-center shrink-0">
-                <svg className="w-4 h-4 text-[#5B8DEF] ml-0.5" viewBox="0 0 24 24" fill="currentColor">
+        {/* Thumbnail — always visible */}
+        <button
+          onClick={() => setOpen(true)}
+          className="group relative w-full max-w-3xl mx-auto rounded-2xl overflow-hidden shadow-2xl border border-[#E8EDF5] block focus:outline-none focus:ring-4 focus:ring-[#1B4FD8]/30"
+          aria-label="Play explainer video"
+        >
+          <div className="relative w-full aspect-video bg-[#0B1220] flex items-center justify-center overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-[#1B4FD8]/30 via-[#0B1220] to-[#C49A38]/20" />
+            <div className="absolute top-8 left-10 w-24 h-32 bg-white/5 rounded-lg border border-white/10 rotate-[-8deg]" />
+            <div className="absolute top-6 left-20 w-24 h-32 bg-white/5 rounded-lg border border-white/10 rotate-[4deg]" />
+            <div className="absolute bottom-10 right-12 w-20 h-28 bg-[#1B4FD8]/20 rounded-lg border border-[#1B4FD8]/30 rotate-[6deg]" />
+            <div className="absolute bottom-8 right-20 w-20 h-28 bg-white/5 rounded-lg border border-white/10 rotate-[-3deg]" />
+            <div className="relative z-10 flex flex-col items-center gap-5">
+              <div className="w-20 h-20 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/20 transition-all duration-300 group-hover:scale-110">
+                <svg className="w-8 h-8 text-white ml-1" viewBox="0 0 24 24" fill="currentColor">
                   <path d="M8 5v14l11-7z" />
                 </svg>
               </div>
-              <div className="text-left">
-                <p className="font-semibold text-sm">Sally &amp; Tom's Story</p>
-                <p className="text-white/50 text-xs">Watch the 60-second walkthrough</p>
+              <div className="text-center">
+                <p className="text-white font-bold text-xl">Sally &amp; Tom's Story</p>
               </div>
             </div>
-            <svg
-              className={`w-5 h-5 text-white/50 shrink-0 transition-transform duration-300 ${expanded ? "rotate-180" : ""}`}
-              fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="m19 9-7 7-7-7" />
-            </svg>
-          </button>
-
-          {/* Expanded thumbnail — animates open */}
-          <div
-            className={`overflow-hidden transition-all duration-500 ease-in-out ${expanded ? "max-h-[600px] opacity-100 mt-3" : "max-h-0 opacity-0"}`}
-          >
-            <button
-              onClick={() => setOpen(true)}
-              className="group relative w-full rounded-2xl overflow-hidden shadow-2xl border border-[#E8EDF5] block focus:outline-none focus:ring-4 focus:ring-[#1B4FD8]/30"
-              aria-label="Play explainer video"
-            >
-              <div className="relative w-full aspect-video bg-[#0B1220] flex items-center justify-center overflow-hidden">
-                <div className="absolute inset-0 bg-gradient-to-br from-[#1B4FD8]/30 via-[#0B1220] to-[#C49A38]/20" />
-                <div className="absolute top-8 left-10 w-24 h-32 bg-white/5 rounded-lg border border-white/10 rotate-[-8deg]" />
-                <div className="absolute top-6 left-20 w-24 h-32 bg-white/5 rounded-lg border border-white/10 rotate-[4deg]" />
-                <div className="absolute bottom-10 right-12 w-20 h-28 bg-[#1B4FD8]/20 rounded-lg border border-[#1B4FD8]/30 rotate-[6deg]" />
-                <div className="absolute bottom-8 right-20 w-20 h-28 bg-white/5 rounded-lg border border-white/10 rotate-[-3deg]" />
-                <div className="relative z-10 flex flex-col items-center gap-5">
-                  <div className="w-20 h-20 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm flex items-center justify-center group-hover:bg-white/20 transition-all duration-300 group-hover:scale-110">
-                    <svg className="w-8 h-8 text-white ml-1" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M8 5v14l11-7z" />
-                    </svg>
-                  </div>
-                  <p className="text-white font-bold text-xl">Click to watch</p>
-                </div>
-                <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-black/60 to-transparent flex items-end px-6 pb-3">
-                  <div className="flex gap-1.5">
-                    {[...Array(8)].map((_, i) => (
-                      <div key={i} className="h-1 rounded-full bg-white/30 flex-1" style={{ opacity: i === 0 ? 1 : 0.4 }} />
-                    ))}
-                  </div>
-                </div>
+            <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-black/60 to-transparent flex items-end px-6 pb-3">
+              <div className="flex gap-1.5">
+                {[...Array(8)].map((_, i) => (
+                  <div key={i} className="h-1 rounded-full bg-white/30 flex-1" style={{ opacity: i === 0 ? 1 : 0.4 }} />
+                ))}
               </div>
-            </button>
+            </div>
           </div>
-        </div>
+        </button>
       </div>
 
       {/* Fullscreen modal — properly constrained with safe-area padding */}

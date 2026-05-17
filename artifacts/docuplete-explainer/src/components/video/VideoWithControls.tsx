@@ -305,7 +305,7 @@ export default function VideoWithControls() {
 
   // Control bar visibility
   const sensorRef = useRef<HTMLDivElement | null>(null);
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(true);
   const [hovering,  setHovering]  = useState(false);
   const [tapPinned, setTapPinned] = useState(false);
 
