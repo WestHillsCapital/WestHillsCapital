@@ -41,8 +41,9 @@ export default function Scim() {
       <h2>Setup</h2>
       <ol>
         <li>
-          In Docuplete, go to <strong>Settings → Security → SCIM</strong> and click{" "}
-          <strong>Generate SCIM Token</strong>. Copy the token — it is shown only once.
+          In Docuplete, go to{" "}
+          <a href="/settings/scim"><strong>Settings → Security → SCIM</strong></a> and click{" "}
+          <strong>Generate Token</strong>. Copy the token — it is shown only once.
         </li>
         <li>
           In your IdP, create a new SCIM application pointing to Docuplete (use a generic
@@ -158,8 +159,8 @@ export default function Scim() {
 
       <h2>Rotating the SCIM token</h2>
       <p>
-        Go to <strong>Settings → Security → SCIM</strong> and click <strong>Rotate Token</strong>.
-        The old token is immediately invalidated and a new one is issued.
+        Go to <a href="/settings/scim"><strong>Settings → Security → SCIM</strong></a>, revoke the
+        existing token, and generate a new one. The revoked token stops working immediately.
       </p>
       <div className="callout callout-warning">
         <strong>Update your IdP before rotating.</strong> Any provisioning requests in flight at the
