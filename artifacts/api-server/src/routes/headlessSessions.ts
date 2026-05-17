@@ -6,7 +6,8 @@ import { logger } from "../lib/logger";
 import { requireApiKeyAuth } from "../middleware/requireApiKeyAuth";
 import { requireAccountId } from "../middleware/requireAccountId";
 import { requireWithinPlanLimits } from "../middleware/requireWithinPlanLimits";
-import { enqueueDeliverWebhookJob } from "../lib/queue";
+import { enqueueDeliverWebhookJob, enqueueGeneratePdfJob, isQueueEnabled, generatePdfQueue } from "../lib/queue";
+import { sendInterviewLinkEmail, getOrgEmailSettings } from "../lib/email";
 
 const router = Router();
 
@@ -705,6 +706,230 @@ router.get(
     } catch (err) {
       logger.error({ err }, "[HeadlessSessions] Failed to get signers");
       return void res.status(500).json({ error: "Failed to retrieve signers." });
+    }
+  },
+);
+
+// ── POST /api/v1/sessions/:token/void ─────────────────────────────────────────
+
+/**
+ * POST /api/v1/sessions/:token/void
+ *
+ * Immediately invalidates the interview link. Voiding cannot be undone.
+ */
+router.post(
+  "/:token/void",
+  requireApiKeyAuth,
+  requireAccountId,
+  async (req, res) => {
+    try {
+      const accountId = req.internalAccountId!;
+      const token      = String(req.params.token);
+      const reason     = typeof req.body?.reason === "string" ? req.body.reason : null;
+      const db         = getDb();
+
+      const { rows } = await db.query<{ id: number; status: string }>(
+        `SELECT id, status FROM docuplete_interview_sessions
+          WHERE token = $1 AND account_id = $2 LIMIT 1`,
+        [token, accountId],
+      );
+      const session = rows[0];
+      if (!session) return void res.status(404).json({ error: "Session not found." });
+      if (session.status === "voided") return void res.status(409).json({ error: "Session is already voided." });
+      if (session.status === "generated") return void res.status(409).json({ error: "Session has already been submitted and cannot be voided." });
+
+      const { rows: updated } = await db.query<{ voided_at: Date }>(
+        `UPDATE docuplete_interview_sessions
+            SET status = 'voided', voided_at = NOW(), voided_reason = $1, updated_at = NOW()
+          WHERE token = $2 AND account_id = $3
+          RETURNING voided_at`,
+        [reason, token, accountId],
+      );
+
+      writeAuditLog({ sessionId: session.id, sessionToken: token, accountId, event: "session.voided", actorType: "api_key", metadata: { reason } }).catch(() => {});
+
+      return void res.json({ voided_at: updated[0]?.voided_at ?? new Date() });
+    } catch (err) {
+      logger.error({ err }, "[HeadlessSessions] Failed to void session");
+      return void res.status(500).json({ error: "Failed to void session." });
+    }
+  },
+);
+
+// ── POST /api/v1/sessions/:token/send-link ────────────────────────────────────
+
+/**
+ * POST /api/v1/sessions/:token/send-link
+ *
+ * Send (or resend) the interview link to a client by email.
+ */
+router.post(
+  "/:token/send-link",
+  requireApiKeyAuth,
+  requireAccountId,
+  async (req, res) => {
+    try {
+      const accountId      = req.internalAccountId!;
+      const token          = String(req.params.token);
+      const recipientEmail = typeof req.body?.recipientEmail === "string" ? req.body.recipientEmail.trim() : null;
+      const recipientName  = typeof req.body?.recipientName  === "string" ? req.body.recipientName.trim()  : "";
+      const customMessage  = typeof req.body?.customMessage  === "string" ? req.body.customMessage.trim()  : null;
+
+      if (!recipientEmail) return void res.status(400).json({ error: "recipientEmail is required." });
+
+      const db = getDb();
+
+      const { rows } = await db.query<{
+        id: number; status: string; custom_domain: string | null;
+      }>(
+        `SELECT dis.id, dis.status, a.custom_domain
+           FROM docuplete_interview_sessions dis
+           JOIN accounts a ON a.id = dis.account_id
+          WHERE dis.token = $1 AND dis.account_id = $2 LIMIT 1`,
+        [token, accountId],
+      );
+      const session = rows[0];
+      if (!session) return void res.status(404).json({ error: "Session not found." });
+      if (session.status === "voided")    return void res.status(409).json({ error: "Cannot send link for a voided session." });
+      if (session.status === "generated") return void res.status(409).json({ error: "Session has already been completed." });
+
+      const { rows: orgRows } = await db.query<{ name: string; logo_url: string | null; brand_color: string | null }>(
+        `SELECT name, logo_url, brand_color FROM accounts WHERE id = $1 LIMIT 1`,
+        [accountId],
+      );
+      const org = orgRows[0];
+      const emailSettings = await getOrgEmailSettings(accountId);
+      const interviewUrl  = buildInterviewUrl(token, session.custom_domain ?? null);
+
+      await sendInterviewLinkEmail({
+        recipientEmail,
+        recipientName,
+        interviewUrl,
+        orgName:       org?.name || "Docuplete",
+        orgLogoUrl:    org?.logo_url ?? null,
+        orgBrandColor: org?.brand_color ?? null,
+        customMessage: customMessage ?? null,
+        emailSettings,
+      });
+
+      await db.query(
+        `UPDATE docuplete_interview_sessions
+            SET link_emailed_at = NOW(), link_email_recipient = $1, updated_at = NOW()
+          WHERE token = $2 AND account_id = $3`,
+        [recipientEmail, token, accountId],
+      );
+
+      writeAuditLog({ sessionId: session.id, sessionToken: token, accountId, event: "session.link_sent", actorType: "api_key", metadata: { recipientEmail } }).catch(() => {});
+
+      return void res.json({ sent: true });
+    } catch (err) {
+      logger.error({ err }, "[HeadlessSessions] Failed to send link");
+      return void res.status(500).json({ error: "Failed to send interview link." });
+    }
+  },
+);
+
+// ── POST /api/v1/sessions/:token/generate ────────────────────────────────────
+
+/**
+ * POST /api/v1/sessions/:token/generate
+ *
+ * Trigger server-side PDF generation. Returns immediately with a jobId when
+ * the queue is available; falls back to a synchronous error when the session
+ * has not been submitted yet.
+ */
+router.post(
+  "/:token/generate",
+  requireApiKeyAuth,
+  requireAccountId,
+  async (req, res) => {
+    try {
+      const accountId = req.internalAccountId!;
+      const token     = String(req.params.token);
+      const db        = getDb();
+
+      const { rows } = await db.query<{ id: number; status: string }>(
+        `SELECT id, status FROM docuplete_interview_sessions
+          WHERE token = $1 AND account_id = $2 LIMIT 1`,
+        [token, accountId],
+      );
+      const session = rows[0];
+      if (!session) return void res.status(404).json({ error: "Session not found." });
+
+      if (session.status === "generated") {
+        return void res.json({
+          status:       "generated",
+          download_url: `/api/v1/sessions/${token}/packet.pdf`,
+        });
+      }
+      if (session.status === "voided") return void res.status(409).json({ error: "Cannot generate PDF for a voided session." });
+      if (session.status === "expired") return void res.status(409).json({ error: "Cannot generate PDF for an expired session." });
+
+      if (!isQueueEnabled()) {
+        return void res.status(503).json({ error: "PDF generation is temporarily unavailable.", code: "queue_unavailable" });
+      }
+
+      const jobId = await enqueueGeneratePdfJob({
+        sessionToken: token,
+        type:         "packet",
+        accountId:    String(accountId),
+      });
+
+      return void res.status(202).json({ status: "pending", job_id: jobId });
+    } catch (err) {
+      logger.error({ err }, "[HeadlessSessions] Failed to enqueue generate job");
+      return void res.status(500).json({ error: "Failed to start document generation." });
+    }
+  },
+);
+
+// ── GET /api/v1/sessions/:token/generate-status ───────────────────────────────
+
+/**
+ * GET /api/v1/sessions/:token/generate-status?jobId=<id>
+ *
+ * Poll the status of an async PDF generation job.
+ */
+router.get(
+  "/:token/generate-status",
+  requireApiKeyAuth,
+  requireAccountId,
+  async (req, res) => {
+    try {
+      const accountId = req.internalAccountId!;
+      const token     = String(req.params.token);
+      const jobId     = typeof req.query.jobId === "string" ? req.query.jobId : null;
+      const db        = getDb();
+
+      const { rows } = await db.query<{ status: string }>(
+        `SELECT status FROM docuplete_interview_sessions
+          WHERE token = $1 AND account_id = $2 LIMIT 1`,
+        [token, accountId],
+      );
+      if (!rows[0]) return void res.status(404).json({ error: "Session not found." });
+
+      if (rows[0].status === "generated") {
+        return void res.json({ status: "ready", download_url: `/api/v1/sessions/${token}/packet.pdf` });
+      }
+
+      if (jobId && generatePdfQueue) {
+        try {
+          const job = await generatePdfQueue.getJob(jobId);
+          if (job) {
+            const state = await job.getState();
+            if (state === "completed") return void res.json({ status: "ready", download_url: `/api/v1/sessions/${token}/packet.pdf` });
+            if (state === "failed")    return void res.json({ status: "failed", error: "Document generation failed." });
+            return void res.json({ status: state === "active" ? "processing" : "pending" });
+          }
+        } catch (qErr) {
+          logger.warn({ qErr, jobId }, "[HeadlessSessions] Failed to check BullMQ job state (non-fatal)");
+        }
+      }
+
+      return void res.json({ status: "pending" });
+    } catch (err) {
+      logger.error({ err }, "[HeadlessSessions] Failed to get generate status");
+      return void res.status(500).json({ error: "Failed to get generation status." });
     }
   },
 );

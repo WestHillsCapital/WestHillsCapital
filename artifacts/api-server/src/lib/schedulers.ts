@@ -18,6 +18,8 @@ import {
   sendShippingNotificationEmail,
   sendFollowUp7DayEmail,
   sendFollowUp30DayEmail,
+  sendSessionReminderEmail,
+  getOrgEmailSettings,
 } from "./email.js";
 import { getShippingStatus } from "./fiztrade.js";
 
@@ -309,5 +311,110 @@ export async function runTrackingSync(): Promise<void> {
   } catch (err) {
     logger.error({ err }, "[TrackingSync] Tracking sync run failed (non-fatal)");
     Sentry.captureException(err, { tags: { scheduler: "tracking-sync" } });
+  }
+}
+
+// ── Session expiry reminder ───────────────────────────────────────────────────
+// Finds pending/in-progress sessions expiring within 48 hours that have a
+// known client email and haven't been reminded yet, then sends one reminder
+// email per session and stamps reminder_sent_at.
+
+export async function sendExpiringSessionReminders(): Promise<void> {
+  try {
+    const db = getDb();
+
+    const { rows } = await db.query<{
+      id:                   number;
+      token:                string;
+      account_id:           number;
+      expires_at:           Date;
+      link_email_recipient: string;
+      prefill:              Record<string, unknown>;
+      custom_domain:        string | null;
+      org_name:             string;
+      org_logo_url:         string | null;
+      org_brand_color:      string | null;
+      app_origin:           string | null;
+    }>(
+      `SELECT
+         dis.id,
+         dis.token,
+         dis.account_id,
+         dis.expires_at,
+         dis.link_email_recipient,
+         dis.prefill,
+         a.custom_domain,
+         a.name          AS org_name,
+         a.logo_url      AS org_logo_url,
+         a.brand_color   AS org_brand_color,
+         a.app_origin
+       FROM docuplete_interview_sessions dis
+       JOIN accounts a ON a.id = dis.account_id
+      WHERE dis.status        IN ('draft', 'pending', 'in_progress')
+        AND dis.expires_at     > NOW() + INTERVAL '0 hours'
+        AND dis.expires_at    <= NOW() + INTERVAL '48 hours'
+        AND dis.reminder_sent_at IS NULL
+        AND dis.link_email_recipient IS NOT NULL
+        AND dis.link_email_recipient <> ''
+      LIMIT 500`,
+    );
+
+    if (rows.length === 0) return;
+
+    logger.info({ count: rows.length }, "[SessionReminders] Sending expiry reminder emails");
+
+    let sent = 0;
+    let failed = 0;
+
+    for (const row of rows) {
+      try {
+        const appOrigin =
+          row.app_origin ??
+          (process.env.APP_ORIGIN ??
+            (process.env.REPLIT_DEV_DOMAIN
+              ? `https://${process.env.REPLIT_DEV_DOMAIN}`
+              : "https://docuplete.com"));
+        const origin       = row.custom_domain ? `https://${row.custom_domain}` : appOrigin;
+        const interviewUrl = `${origin}/docuplete/public/${row.token}`;
+
+        const prefill      = typeof row.prefill === "object" && row.prefill !== null ? row.prefill : {};
+        const recipientName = String(
+          prefill["first_name"] && prefill["last_name"]
+            ? `${prefill["first_name"]} ${prefill["last_name"]}`
+            : prefill["first_name"] ?? prefill["name"] ?? row.link_email_recipient,
+        );
+
+        const emailSettings = await getOrgEmailSettings(row.account_id);
+
+        await sendSessionReminderEmail({
+          recipientEmail: row.link_email_recipient,
+          recipientName,
+          interviewUrl,
+          orgName:        row.org_name || "Docuplete",
+          orgLogoUrl:     row.org_logo_url,
+          orgBrandColor:  row.org_brand_color,
+          expiresAt:      row.expires_at,
+          emailSettings,
+        });
+
+        await db.query(
+          `UPDATE docuplete_interview_sessions
+              SET reminder_sent_at = NOW(), updated_at = NOW()
+            WHERE id = $1`,
+          [row.id],
+        );
+
+        sent++;
+        logger.debug({ sessionId: row.id, token: row.token }, "[SessionReminders] Reminder sent");
+      } catch (err) {
+        failed++;
+        logger.warn({ err, sessionId: row.id, token: row.token }, "[SessionReminders] Failed to send reminder (non-fatal)");
+      }
+    }
+
+    logger.info({ sent, failed }, "[SessionReminders] Expiry reminder run complete");
+  } catch (err) {
+    logger.error({ err }, "[SessionReminders] Reminder scheduler failed (non-fatal)");
+    Sentry.captureException(err, { tags: { scheduler: "session-reminders" } });
   }
 }

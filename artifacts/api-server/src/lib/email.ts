@@ -3195,3 +3195,142 @@ print(f"Interview link: {session.interview_url}")`;
     text,
   });
 }
+
+// ── Docuplete: session expiry reminder ────────────────────────────────────────
+
+export async function sendSessionReminderEmail(params: {
+  recipientEmail: string;
+  recipientName:  string;
+  interviewUrl:   string;
+  orgName:        string;
+  orgLogoUrl?:    string | null;
+  orgBrandColor?: string | null;
+  expiresAt:      Date;
+  emailSettings?: OrgEmailSettings | null;
+}): Promise<void> {
+  const brandColor = params.orgBrandColor ?? "#0F1C3F";
+  const orgName    = params.orgName || "Docuplete";
+  const firstName  = params.recipientName.split(" ")[0] || params.recipientName;
+
+  const expiresFormatted = params.expiresAt.toLocaleDateString("en-US", {
+    weekday: "long", month: "long", day: "numeric",
+  });
+
+  const logoBlock = params.orgLogoUrl
+    ? `<tr>
+         <td align="center" style="padding:28px 40px 20px;background:#f8f7f5;">
+           <img src="${params.orgLogoUrl}" alt="${orgName}" height="40"
+                style="display:block;max-height:40px;height:auto;border:0;">
+         </td>
+       </tr>
+       <tr><td style="padding:0 40px;background:#f8f7f5;"><div style="height:1px;background:#e5ddd0;"></div></td></tr>`
+    : `<tr>
+         <td align="center" style="padding:28px 40px 20px;background:#f8f7f5;">
+           <p style="margin:0;font-family:'Playfair Display',Georgia,serif;font-size:20px;font-weight:bold;color:#1a1a1a;">${orgName}</p>
+         </td>
+       </tr>
+       <tr><td style="padding:0 40px;background:#f8f7f5;"><div style="height:1px;background:#e5ddd0;"></div></td></tr>`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>Your document link is expiring soon</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Playfair+Display:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body style="margin:0;padding:0;background:#ece8dc;font-family:Arial,sans-serif;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ece8dc;">
+  <tr>
+    <td align="center" style="padding:32px 16px;">
+      <table role="presentation" width="560" cellpadding="0" cellspacing="0"
+             style="max-width:560px;width:100%;background:#ffffff;border-radius:4px;overflow:hidden;border:1px solid #ddd5c4;">
+
+        ${logoBlock}
+
+        <!-- Expiry alert banner -->
+        <tr>
+          <td style="padding:0 40px 0;">
+            <div style="background:#FEF3C7;border-left:3px solid #D97706;padding:10px 14px;margin-top:24px;border-radius:0 4px 4px 0;">
+              <p style="margin:0;font-family:Arial,sans-serif;font-size:13px;font-weight:600;color:#92400E;">
+                ⏰ This link expires on ${expiresFormatted}
+              </p>
+            </div>
+          </td>
+        </tr>
+
+        <!-- Headline -->
+        <tr>
+          <td style="padding:20px 40px 20px;">
+            <p style="margin:0 0 8px;font-family:'Playfair Display',Georgia,serif;font-size:22px;font-weight:bold;color:#1a1a1a;line-height:1.3;">
+              ${firstName ? `Hi ${firstName}, your` : "Your"} documents are still waiting.
+            </p>
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:14px;color:#6b7280;line-height:1.65;">
+              ${orgName} sent you paperwork to complete. The link will expire on <strong>${expiresFormatted}</strong> — use the button below to finish now.
+            </p>
+          </td>
+        </tr>
+
+        <!-- CTA Button -->
+        <tr>
+          <td style="padding:4px 40px 28px;">
+            <table role="presentation" cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="border-radius:4px;background:${brandColor};">
+                  <a href="${params.interviewUrl}" target="_blank"
+                     style="display:inline-block;padding:13px 28px;font-family:Arial,sans-serif;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:4px;">
+                    Complete My Documents &rarr;
+                  </a>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+
+        <!-- Link fallback -->
+        <tr>
+          <td style="padding:0 40px 28px;">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:12px;color:#9ca3af;">
+              Or copy this link into your browser:<br>
+              <span style="color:#374151;word-break:break-all;">${params.interviewUrl}</span>
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="padding:16px 40px;background:#f8f7f5;border-top:1px solid #e5ddd0;">
+            <p style="margin:0;font-family:Arial,sans-serif;font-size:11px;color:#9ca3af;line-height:1.6;">
+              This is a reminder sent on behalf of ${orgName} via Docuplete.
+              If you have already completed your documents, please disregard this message.
+            </p>
+          </td>
+        </tr>
+        ${buildEmailFooterRow(params.emailSettings?.footer ?? null, "#f8f7f5", "#e5ddd0")}
+
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>`;
+
+  const text = [
+    `Hi ${firstName || "there"},`,
+    "",
+    `${orgName} sent you documents to complete and the link expires on ${expiresFormatted}.`,
+    "",
+    `Complete your documents here: ${params.interviewUrl}`,
+    "",
+    "If you have already completed your documents, please disregard this message.",
+  ].join("\n");
+
+  await sendEmail({
+    to:       params.recipientEmail,
+    subject:  `Reminder: your documents from ${orgName} expire on ${expiresFormatted}`,
+    html,
+    text,
+    fromName: params.emailSettings?.senderName ?? undefined,
+    replyTo:  params.emailSettings?.replyTo    ?? undefined,
+  });
+}

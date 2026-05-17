@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "docuplete"
+version = "0.1.0"
+description = "The official Python client for the Docuplete API"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.8"
+dependencies = [
+    "httpx>=0.24.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-mock>=3.11",
+    "respx>=0.20",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["docuplete*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -10,8 +10,8 @@ export default function Sdk() {
         </p>
       </div>
 
-      <div className="callout callout-enterprise">
-        <strong>Enterprise feature.</strong> API access requires an Enterprise plan.{" "}
+      <div className="callout callout-info">
+        <strong>Developer plan feature.</strong> API access requires a Developer or Enterprise plan.{" "}
         <a href="/getting-started/plans">Learn about plans →</a>
       </div>
 

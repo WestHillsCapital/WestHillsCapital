@@ -13,7 +13,7 @@ import {
   pruneExpiredDocupleteSessions,
 } from "./db.js";
 import { schedulerQueue } from "./lib/queue.js";
-import { pruneInternalSessions, runFulfillmentScheduler, runTrackingSync } from "./lib/schedulers.js";
+import { pruneInternalSessions, runFulfillmentScheduler, runTrackingSync, sendExpiringSessionReminders } from "./lib/schedulers.js";
 import { registerGeneratePdfProcessor, registerDeliverWebhookProcessor } from "./routes/docuplete.js";
 
 if (!isQueueEnabled()) {
@@ -83,6 +83,7 @@ const shouldMigrate =
           case "expire:exports":            return purgeExpiredExports();
           case "scheduler:fulfillment":     return runFulfillmentScheduler();
           case "scheduler:tracking-sync":   return runTrackingSync();
+          case "remind:expiring-sessions":  return sendExpiringSessionReminders();
           default:
             logger.warn({ jobName: job.name }, "[Scheduler] Unknown scheduler job name — skipping");
         }
@@ -115,6 +116,7 @@ const shouldMigrate =
         "prune:submissions",
         "prune:session-data",
         "prune:expired-sessions",
+        "remind:expiring-sessions",
         "purge:scheduled-deletions",
         "purge:trial-data",
         "expire:exports",
@@ -144,6 +146,7 @@ const shouldMigrate =
         { id: "prune:submissions",         every: 24 * 60 * 60 * 1000  },
         { id: "prune:session-data",        every: 24 * 60 * 60 * 1000  },
         { id: "prune:expired-sessions",    every: 24 * 60 * 60 * 1000  },
+        { id: "remind:expiring-sessions",  every: 24 * 60 * 60 * 1000  },
         { id: "purge:scheduled-deletions", every:  6 * 60 * 60 * 1000  },
         { id: "purge:trial-data",          every:  6 * 60 * 60 * 1000  },
         { id: "expire:exports",            every:  6 * 60 * 60 * 1000  },

@@ -2111,6 +2111,10 @@ export async function initDb(): Promise<void> {
   // back into every subsequent system prompt so the name survives long sessions.
   await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS customer_first_name TEXT`);
 
+  // ── Session expiry reminder tracking ──────────────────────────────────────
+  // Stamped when the automated reminder email is sent so we don't re-send.
+  await db.query(`ALTER TABLE docuplete_interview_sessions ADD COLUMN IF NOT EXISTS reminder_sent_at TIMESTAMPTZ`);
+
   // ── Rename all docufill_* tables → docuplete_* ────────────────────────────
   // Rename the migration-state table first so the idempotency check below
   // works the same way on both existing and fresh installs.

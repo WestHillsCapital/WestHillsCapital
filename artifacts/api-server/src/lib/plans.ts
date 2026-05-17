@@ -125,13 +125,14 @@ export const PLAN_FEATURES: Record<PlanTier, PlanFeatures> = {
 /**
  * Normalize a raw DB plan_tier value to a canonical PlanTier.
  * "free" and any unknown value map to "starter" for backward compatibility.
+ * "starter_esign" is a terminated tier — existing accounts are silently
+ * treated as "starter" for limits and feature gating.
  */
 function normalizeTier(tier: string): PlanTier {
-  if (tier === "starter_esign") return "starter_esign";
-  if (tier === "pro")           return "pro";
-  if (tier === "developer")     return "developer";
-  if (tier === "enterprise")    return "enterprise";
-  return "starter";
+  if (tier === "pro")        return "pro";
+  if (tier === "developer")  return "developer";
+  if (tier === "enterprise") return "enterprise";
+  return "starter"; // covers "starter", "starter_esign", "free", and unknowns
 }
 
 export function getPlanLimits(tier: string): PlanLimits {
