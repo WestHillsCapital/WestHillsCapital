@@ -73,7 +73,7 @@ function resolveSubscriptionPlanTier(
   if (status !== "active" && status !== "trialing") {
     return "free";
   }
-  if (metadataTier === "starter" || metadataTier === "pro" || metadataTier === "enterprise") {
+  if (metadataTier === "starter" || metadataTier === "pro" || metadataTier === "developer" || metadataTier === "enterprise") {
     return metadataTier;
   }
   return "starter"; // default paid tier

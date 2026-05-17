@@ -5,20 +5,26 @@ import { logger } from "../lib/logger";
 
 export type PlanFeatureName = keyof PlanFeatures;
 
-type FeatureMeta = { plan: "pro" | "enterprise"; label: string };
+type FeatureMeta = { plan: "pro" | "developer" | "enterprise"; label: string };
 
 export const FEATURE_META: Record<PlanFeatureName, FeatureMeta> = {
-  clientLinks:              { plan: "pro",        label: "Client-facing links" },
-  csvBatch:                 { plan: "pro",        label: "CSV batch processing" },
-  googleDrive:              { plan: "pro",        label: "Google Drive integration" },
-  hubspot:                  { plan: "pro",        label: "HubSpot integration" },
-  eSign:                    { plan: "pro",        label: "eSign" },
-  emailBranding:            { plan: "pro",        label: "Custom email branding" },
-  webhooks:                 { plan: "enterprise", label: "Webhooks" },
-  apiAccess:                { plan: "enterprise", label: "API access" },
-  embeddedInterviews:       { plan: "enterprise", label: "Embedded interviews" },
+  clientLinks:              { plan: "pro",       label: "Client-facing links" },
+  csvBatch:                 { plan: "pro",       label: "CSV batch processing" },
+  googleDrive:              { plan: "pro",       label: "Google Drive integration" },
+  hubspot:                  { plan: "pro",       label: "HubSpot integration" },
+  eSign:                    { plan: "pro",       label: "eSign" },
+  emailBranding:            { plan: "pro",       label: "Custom email branding" },
+  webhooks:                 { plan: "developer", label: "Webhooks" },
+  apiAccess:                { plan: "developer", label: "API access" },
+  embeddedInterviews:       { plan: "developer", label: "Embedded interviews" },
   customDomain:             { plan: "enterprise", label: "Custom domain" },
   fieldLibraryInheritance:  { plan: "enterprise", label: "Field library inheritance" },
+};
+
+const PLAN_LABEL: Record<"pro" | "developer" | "enterprise", string> = {
+  pro:        "Pro",
+  developer:  "Developer",
+  enterprise: "Enterprise",
 };
 
 /**
@@ -29,11 +35,11 @@ export function planFeatureError(feature: PlanFeatureName): {
   error: string;
   upgrade_required: true;
   feature: PlanFeatureName;
-  required_plan: "pro" | "enterprise";
+  required_plan: "pro" | "developer" | "enterprise";
 } {
   const { plan, label } = FEATURE_META[feature];
   return {
-    error: `${label} requires the ${plan === "pro" ? "Pro" : "Enterprise"} plan or higher. Upgrade your plan to continue.`,
+    error: `${label} requires the ${PLAN_LABEL[plan]} plan or higher. Upgrade your plan to continue.`,
     upgrade_required: true,
     feature,
     required_plan: plan,

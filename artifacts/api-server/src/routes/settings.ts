@@ -1358,8 +1358,8 @@ router.post("/billing/checkout", requireAdminRole, async (req, res) => {
     const body = _parse.data;
 
     const planTier = typeof body.plan === "string" ? body.plan.toLowerCase() : "";
-    if (planTier !== "starter" && planTier !== "starter_esign" && planTier !== "pro" && planTier !== "enterprise") {
-      res.status(400).json({ error: "Invalid plan. Must be 'starter', 'starter_esign', 'pro', or 'enterprise'." });
+    if (planTier !== "starter" && planTier !== "starter_esign" && planTier !== "pro" && planTier !== "developer" && planTier !== "enterprise") {
+      res.status(400).json({ error: "Invalid plan. Must be 'starter', 'starter_esign', 'pro', 'developer', or 'enterprise'." });
       return;
     }
 
@@ -2817,7 +2817,7 @@ router.patch("/admin/accounts/:id", async (req, res) => {
   }
   const accountId = parseInt(rawId, 10);
 
-  const VALID_TIERS    = new Set(["free", "starter", "starter_esign", "pro", "enterprise"]);
+  const VALID_TIERS    = new Set(["free", "starter", "starter_esign", "pro", "developer", "enterprise"]);
   const VALID_STATUSES = new Set(["active", "trialing", "canceled", "past_due", "manual", "none"]);
 
   const _parse = AdminAccountBodySchema.safeParse(req.body);
@@ -2828,7 +2828,7 @@ router.patch("/admin/accounts/:id", async (req, res) => {
 
   if (body.plan_tier !== undefined) {
     if (typeof body.plan_tier !== "string" || !VALID_TIERS.has(body.plan_tier)) {
-      res.status(400).json({ error: "Invalid plan_tier. Must be free, starter, starter_esign, pro, or enterprise." });
+      res.status(400).json({ error: "Invalid plan_tier. Must be free, starter, starter_esign, pro, developer, or enterprise." });
       return;
     }
     params.push(body.plan_tier);
