@@ -22,7 +22,7 @@ export default function Plans() {
             <tr>
               <td colSpan={5} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Seats & Sessions</td>
             </tr>
-            <tr><td>Seats included</td><td>2</td><td>10</td><td>Org-wide</td><td>25</td></tr>
+            <tr><td>Seats included</td><td>2</td><td>10</td><td>Org-wide (unlimited)</td><td>25</td></tr>
             <tr><td>Sessions / generations included</td><td>150 sessions/mo</td><td>400 sessions/mo</td><td>500 generations/mo</td><td>Unlimited</td></tr>
             <tr><td>Overage</td><td>$0.50 / additional session</td><td>$0.50 / additional session</td><td>$75 / 100 generations</td><td>$15 / extra seat</td></tr>
 
@@ -99,13 +99,19 @@ export default function Plans() {
       <h2>Annual billing</h2>
       <p>All plans are available on annual billing at a 20% discount. Annual billing locks in your current introductory rate — prices will increase as Docuplete grows.</p>
 
-      <h2>Session and generation counting</h2>
-      <p>On Starter and Pro, a <strong>session</strong> is counted each time a client successfully completes and submits an interview. Draft sessions, voided sessions, and abandoned sessions do not count. Your quota resets each billing period.</p>
-      <p>On Developer, a <strong>generation</strong> is counted each time a filled PDF is produced — whether from a client session or a direct API call. Overage is billed in blocks of 100 at $75 per block.</p>
+      <h2>Sessions vs. generations</h2>
+      <p>A <strong>session</strong> is a single client interaction — a unique interview link created from a package and sent to one client. The session exists from the moment it's created until it is submitted, voided, or expired.</p>
+      <p>A <strong>generation</strong> is the act of producing a filled PDF. On most plans, generation happens automatically when a client submits a session. On Developer, you can also trigger generation directly via the API without any client interview — for example, to fill a PDF programmatically from your own data source. Because of this, Developer counts <em>generations</em> rather than sessions: it's a broader unit that covers both paths.</p>
+      <p>In short: every submitted session produces a generation, but not every generation comes from a client session.</p>
+
+      <h2>Quota counting</h2>
+      <p>On Starter and Pro, your quota counts <strong>submitted sessions</strong> — sessions a client successfully completes and submits. Draft, voided, and abandoned sessions do not count. Quota resets each billing period; overage is $0.50 per additional session.</p>
+      <p>On Developer, your quota counts <strong>generations</strong> — each filled PDF produced, regardless of origin. Overage is billed in blocks of 100 at $75 per block.</p>
       <p>On Enterprise, sessions and generations are unlimited.</p>
 
       <h2>Seats</h2>
-      <p>A seat is a user account within your organization. Admins, members, and read-only users each consume a seat. On Starter and Pro, seats beyond the included count cannot be purchased separately — upgrade to a higher plan for more seats. On Enterprise, extra seats are $15/seat/month.</p>
+      <p>A seat is a user account within your organization. Admins, members, and read-only users each consume a seat.</p>
+      <p>On <strong>Starter</strong> and <strong>Pro</strong>, seats beyond the included count cannot be purchased separately — upgrade to a higher plan for more. On <strong>Developer</strong>, seats are org-wide, meaning every member of your organization can have a seat at no additional per-seat cost. On <strong>Enterprise</strong>, the base plan includes 25 seats and extra seats are $15/seat/month.</p>
 
       <h2>Free trial</h2>
       <p>Every new account starts with a 14-day free trial — no credit card required. During the trial, you have access to all Pro-tier features. After the trial, choose a plan to continue.</p>
