@@ -5,6 +5,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/Home";
 import SsoLogin from "@/pages/SsoLogin";
 import SsoSettings from "@/pages/SsoSettings";
+import IpAllowlistSettings from "@/pages/IpAllowlistSettings";
+import ScimSettings from "@/pages/ScimSettings";
 import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
@@ -15,6 +17,8 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/sso" component={SsoLogin} />
       <Route path="/settings/sso" component={SsoSettings} />
+      <Route path="/settings/ip-allowlist" component={IpAllowlistSettings} />
+      <Route path="/settings/scim" component={ScimSettings} />
       <Route component={NotFound} />
     </Switch>
   );

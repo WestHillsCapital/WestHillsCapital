@@ -15,6 +15,7 @@ import { getBankBalance } from "../lib/submissionBank";
 import { getGenBankBalance } from "../lib/generationBank";
 import { getUncachableStripeClient } from "../lib/stripeClient";
 import { isIpAllowed } from "../lib/cidr";
+import { createScimToken } from "./scim";
 import express from "express";
 import { insertAuditLog, getActorEmail } from "../lib/auditLog";
 import { getUserEmailsToNotify, sendInAppNotifications } from "../lib/notificationPrefs";
@@ -5493,6 +5494,88 @@ router.delete("/saml", requireAdminRole, requirePlanFeature("samlSso"), async (r
   } catch (err) {
     logger.error({ err }, "[SAML Settings] Failed to delete config");
     res.status(500).json({ error: "Failed to delete SAML configuration" });
+  }
+});
+
+// ── SCIM token management (admin only) ────────────────────────────────────────
+//
+// GET    /scim-tokens       → { tokens: ScimToken[] }
+// POST   /scim-tokens       → { token: string; prefix: string; id: number; name: string }
+// DELETE /scim-tokens/:id   → { ok: true }
+//
+// The raw token is returned only on POST — it is never stored. All subsequent
+// references use the id and prefix fields for display.
+
+router.get("/scim-tokens", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const { rows } = await getDb().query<{
+      id: number;
+      name: string;
+      prefix: string;
+      created_at: string;
+      last_used_at: string | null;
+    }>(
+      `SELECT id, name, token_prefix AS prefix, created_at, last_used_at
+         FROM scim_tokens
+        WHERE account_id = $1 AND revoked_at IS NULL
+        ORDER BY created_at DESC`,
+      [accountId],
+    );
+    res.json({ tokens: rows });
+  } catch (err) {
+    logger.error({ err }, "[SCIM Tokens] Failed to list");
+    res.status(500).json({ error: "Failed to load SCIM tokens" });
+  }
+});
+
+router.post("/scim-tokens", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const name = typeof req.body?.name === "string" ? req.body.name.trim() : "";
+    if (!name) {
+      res.status(400).json({ error: "name is required" });
+      return;
+    }
+    const existing = await getDb().query<{ count: string }>(
+      `SELECT COUNT(*) AS count FROM scim_tokens WHERE account_id = $1 AND revoked_at IS NULL`,
+      [accountId],
+    );
+    if (parseInt(existing.rows[0]?.count ?? "0", 10) >= 5) {
+      res.status(400).json({ error: "Maximum of 5 active SCIM tokens per account. Revoke one before creating another." });
+      return;
+    }
+    const result = await createScimToken(accountId, name);
+    logger.info({ accountId, tokenId: result.id }, "[SCIM Tokens] Created");
+    res.status(201).json({ ...result, name });
+  } catch (err) {
+    logger.error({ err }, "[SCIM Tokens] Failed to create");
+    res.status(500).json({ error: "Failed to create SCIM token" });
+  }
+});
+
+router.delete("/scim-tokens/:id", requireAdminRole, async (req, res) => {
+  try {
+    const accountId = req.internalAccountId ?? 1;
+    const id = parseInt(String(req.params.id), 10);
+    if (isNaN(id)) {
+      res.status(400).json({ error: "Invalid token id" });
+      return;
+    }
+    const { rowCount } = await getDb().query(
+      `UPDATE scim_tokens SET revoked_at = NOW()
+        WHERE id = $1 AND account_id = $2 AND revoked_at IS NULL`,
+      [id, accountId],
+    );
+    if (!rowCount) {
+      res.status(404).json({ error: "Token not found" });
+      return;
+    }
+    logger.info({ accountId, tokenId: id }, "[SCIM Tokens] Revoked");
+    res.json({ ok: true });
+  } catch (err) {
+    logger.error({ err }, "[SCIM Tokens] Failed to revoke");
+    res.status(500).json({ error: "Failed to revoke SCIM token" });
   }
 });
 

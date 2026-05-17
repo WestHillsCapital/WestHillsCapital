@@ -239,12 +239,25 @@ Content-Type: application/json
         <a href="/enterprise/scim">SCIM 2.0</a>. Provisioning, deprovisioning, and display name
         updates flow automatically from your IdP — no manual seat management required.
       </p>
+      <p>
+        To connect your IdP, generate a SCIM bearer token from{" "}
+        <strong>Settings → Security → SCIM</strong> (
+        <a href="/settings/scim">open settings →</a>). The SCIM base URL is{" "}
+        <code>https://api.docuplete.com/api/scim/v2</code>. See the{" "}
+        <a href="/enterprise/scim">SCIM 2.0 provisioning guide</a> for full setup instructions.
+      </p>
 
       <h3>IP allowlisting</h3>
       <p>
         Enterprise admins can restrict API access to a list of allowed CIDR ranges. Requests
         originating from IPs outside the allowlist receive <code>403 Forbidden</code> regardless
         of the API key used. Dashboard access is not affected by API IP allowlists.
+      </p>
+      <p>
+        Manage your allowed IP ranges from{" "}
+        <strong>Settings → Security → IP Allowlist</strong> (
+        <a href="/settings/ip-allowlist">open settings →</a>). The API enforces a self-lockout
+        guard — your current IP must be included in any non-empty list before it can be saved.
       </p>
 
       <h3>Two-factor authentication (TOTP)</h3>
