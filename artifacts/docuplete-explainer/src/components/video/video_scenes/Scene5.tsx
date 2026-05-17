@@ -31,18 +31,18 @@ export function Scene5() {
 
   return (
     <motion.div
-      className="absolute inset-0 flex items-center justify-center px-16"
+      className="absolute inset-0 flex items-center justify-center px-10"
       initial={{ x: '100%', opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       exit={{ x: '-100%', opacity: 0 }}
       transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
     >
-      <div className="flex gap-16 items-start w-full max-w-5xl">
+      <div className="flex gap-10 items-start w-full max-w-5xl">
 
         {/* Left: Tom filling form */}
         <div className="flex-1">
           <motion.div
-            className="flex items-center gap-4 mb-8"
+            className="flex items-center gap-4 mb-4"
             initial={{ opacity: 0, x: -20 }}
             animate={phase >= 1 ? { opacity: 1, x: 0 } : { opacity: 0, x: -20 }}
             transition={{ duration: 0.5 }}
@@ -59,25 +59,25 @@ export function Scene5() {
 
           {/* Form card */}
           <motion.div
-            className="bg-white rounded-2xl p-6 shadow-2xl"
+            className="bg-white rounded-2xl p-4 shadow-2xl"
             initial={{ opacity: 0, y: 30 }}
             animate={phase >= 2 ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
             transition={{ duration: 0.5, type: 'spring', stiffness: 200, damping: 22 }}
           >
-            <div className="border-b border-gray-100 pb-4 mb-5">
+            <div className="border-b border-gray-100 pb-3 mb-3">
               <div className="text-xs font-mono text-[var(--color-primary)] uppercase tracking-widest mb-1">Docuplete</div>
               <h4 className="text-lg font-display font-bold text-gray-900">Client Questionnaire</h4>
               <p className="text-xs text-gray-400 font-body">Please fill in your information below</p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-2">
               {FIELDS.map((field, i) => (
                 <div key={field.label}>
-                  <label className="block text-xs font-body text-gray-400 mb-1 uppercase tracking-wide">
+                  <label className="block text-xs font-body text-gray-400 mb-0.5 uppercase tracking-wide">
                     {field.label}
                   </label>
                   <motion.div
-                    className="h-10 rounded-lg border-2 flex items-center px-3 relative overflow-hidden"
+                    className="h-8 rounded-lg border-2 flex items-center px-3 relative overflow-hidden"
                     style={{
                       borderColor: typedField >= i ? field.color + '66' : '#E5E7EB',
                       backgroundColor: typedField >= i ? field.color + '08' : '#F9FAFB',
@@ -115,7 +115,7 @@ export function Scene5() {
             </div>
 
             <motion.div
-              className="mt-5 bg-[var(--color-primary)] text-white text-center py-3 rounded-xl font-display font-bold text-sm"
+              className="mt-3 bg-[var(--color-primary)] text-white text-center py-2 rounded-xl font-display font-bold text-sm"
               initial={{ opacity: 0 }}
               animate={phase >= 4 ? { opacity: 1 } : { opacity: 0 }}
               transition={{ duration: 0.4 }}
@@ -126,7 +126,7 @@ export function Scene5() {
         </div>
 
         {/* Right: callout */}
-        <div className="w-72 flex flex-col gap-6 pt-20">
+        <div className="w-72 flex flex-col gap-4 pt-8">
           <motion.div
             className="bg-[var(--color-primary)]/10 border border-[var(--color-primary)]/30 rounded-2xl p-6"
             initial={{ opacity: 0, x: 30 }}
