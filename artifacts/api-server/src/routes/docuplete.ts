@@ -1665,7 +1665,13 @@ async function buildPacketPdfBuffer(
         const value = fieldAnswerValue(field, answers, prefill);
         const mappedValue = formatDocupleteMappedValue(value, mapping);
         if (!mappedValue) continue;
-        const fontSize = clampNumber(mapping.fontSize, 11, 5, 24);
+        // Checkbox/radio marks: auto-derive font size from box height so the mark
+        // fills the annotation regardless of how the box was sized in the mapper.
+        // Standard text fields use the stored font size (user-controlled).
+        const isCheckboxFormat = mapping.format === "checkbox-yes" || String(mapping.format ?? "").startsWith("checkbox-option:");
+        const fontSize = isCheckboxFormat
+          ? Math.max(6, Math.min(Math.round(boxHeight * 0.6), 14))
+          : clampNumber(mapping.fontSize, 11, 5, 24);
         const align = mapping.align === "center" || mapping.align === "right" ? mapping.align : "left";
         // yDraw is the pdf-lib baseline y for the first line of printed text.
         // pdf-lib uses a bottom-left origin; yTop is the top edge of the mapping box.
@@ -1678,7 +1684,6 @@ async function buildPacketPdfBuffer(
         //       Multiline values wrap downward from this baseline via drawWrappedText.
         //   • Checkbox (format === "checkbox-yes"): "X" vertically centred.
         //       Formula: yTop - boxHeight/2 - fontSize*0.35
-        const isCheckboxFormat = mapping.format === "checkbox-yes" || String(mapping.format ?? "").startsWith("checkbox-option:");
         const rawYDraw = isCheckboxFormat
           ? yTop - boxHeight / 2 - fontSize * 0.35
           : yTop - boxHeight + fontSize * 0.2 + 2;

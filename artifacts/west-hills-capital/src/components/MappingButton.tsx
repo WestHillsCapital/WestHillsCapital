@@ -49,7 +49,7 @@ export const MappingButton = memo(function MappingButton({
 
   const isCheckboxMark =
     m.format === "checkbox-yes" || isOptionMapping;
-  const flexJustify = isCheckboxMark && !isOptionMapping ? "justify-center" : "justify-end";
+  const flexJustify = isOptionMapping ? "justify-center" : isCheckboxMark ? "justify-center" : "justify-end";
 
   const borderStyle = mapperTextMode
     ? `1px ${isSelected ? "solid" : "dashed"} ${effectiveColor}${isSelected ? "" : "80"}`
@@ -86,14 +86,15 @@ export const MappingButton = memo(function MappingButton({
         top: `${m.y}%`,
         width: `${m.w}%`,
         height: `${m.h}%`,
-        minHeight: "20px",
+        minHeight: isOptionMapping ? "12px" : "20px",
+        minWidth: isOptionMapping ? "12px" : undefined,
         border: borderStyle,
         backgroundColor: bgColor,
-        fontSize: `${m.fontSize ?? 11}px`,
+        fontSize: `${(m.fontSize && m.fontSize > 0) ? m.fontSize : 11}px`,
         textAlign: m.align ?? "left",
         paddingBottom: !isCheckboxMark ? "2px" : undefined,
-        paddingLeft: "2px",
-        paddingRight: "2px",
+        paddingLeft: isOptionMapping ? undefined : "2px",
+        paddingRight: isOptionMapping ? undefined : "2px",
         zIndex: 2,
         transform: m.rotation ? `rotate(${m.rotation}deg)` : undefined,
       }}
@@ -109,19 +110,24 @@ export const MappingButton = memo(function MappingButton({
           <div style={{ borderBottom: `0.5px solid ${effectiveColor}80`, marginTop: "1px" }} />
         </>
       ) : isOptionMapping ? (
-        <div className="pointer-events-none w-full overflow-hidden px-0.5">
-          <div className="flex items-center gap-1 leading-tight">
-            <span
-              className={`flex-shrink-0 w-2.5 h-2.5 ${fieldType === "radio" ? "rounded-full" : "rounded-sm"} border-2 inline-flex items-center justify-center text-[7px] font-bold leading-none`}
-              style={{ borderColor: effectiveColor, color: effectiveColor }}
-            >
-              {m.mark ?? (fieldType === "radio" ? "●" : "X")}
-            </span>
-            <span className="block text-[10px] font-semibold truncate leading-tight" style={{ color: effectiveColor }}>
-              {optionLabel}
-            </span>
-          </div>
-          <span className="block text-[9px] text-[#9AAAC0] truncate leading-tight">{fieldName}</span>
+        <div
+          className="pointer-events-none w-full h-full flex items-center justify-center"
+          title={`${fieldName}: ${optionLabel}`}
+        >
+          <span
+            className={`${fieldType === "radio" ? "rounded-full" : "rounded-sm"} border-2 flex items-center justify-center font-bold leading-none select-none`}
+            style={{
+              borderColor: effectiveColor,
+              color: effectiveColor,
+              width: "72%",
+              height: "72%",
+              minWidth: "8px",
+              minHeight: "8px",
+              fontSize: "55%",
+            }}
+          >
+            {m.mark ?? (fieldType === "radio" ? "●" : "X")}
+          </span>
         </div>
       ) : (
         <div className="pointer-events-none w-full overflow-hidden">
