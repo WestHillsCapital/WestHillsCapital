@@ -2129,7 +2129,7 @@
           "Product Portal — Auth"
         ],
         "summary": "Get current account",
-        "description": "Returns account and user information for the authenticated session.\nAccepts both Clerk JWTs and API keys (`sk_live_...`).\n\nWhen authenticated via API key, `email` is `null` (keys are account-scoped,\nnot user-scoped) and `role` is `\"member\"`.\n",
+        "description": "Returns account and user information for the authenticated session.\nAccepts both Clerk JWTs and API keys (`dp_live_...`).\n\nWhen authenticated via API key, `email` is `null` (keys are account-scoped,\nnot user-scoped) and `role` is `\"member\"`.\n",
         "security": [
           {
             "productAuth": []
@@ -2178,7 +2178,7 @@
           "Product Portal — API Keys"
         ],
         "summary": "Create an API key",
-        "description": "Creates a new API key scoped to the authenticated account.\nThe full plaintext key is returned **once** and cannot be retrieved again — store it securely.\nKeys are prefixed with `sk_live_` and are stored as a SHA-256 hash.\n",
+        "description": "Creates a new API key scoped to the authenticated account.\nThe full plaintext key is returned **once** and cannot be retrieved again — store it securely.\nKeys are prefixed with `dp_live_` and are stored as a SHA-256 hash.\n",
         "security": [
           {
             "productAuth": []
@@ -2223,12 +2223,12 @@
                     },
                     "key": {
                       "type": "string",
-                      "example": "sk_live_a1b2c3d4e5f6…",
+                      "example": "dp_live_a1b2c3d4e5f6…",
                       "description": "Full plaintext API key. Store securely — not shown again."
                     },
                     "keyPrefix": {
                       "type": "string",
-                      "example": "sk_live_a1b2c3"
+                      "example": "dp_live_a1b2c3"
                     },
                     "createdAt": {
                       "type": "string",
