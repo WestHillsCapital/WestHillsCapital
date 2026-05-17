@@ -9,8 +9,8 @@ export default function DeveloperAuthentication() {
         </p>
       </div>
 
-      <div className="callout callout-enterprise">
-        <strong>Enterprise feature.</strong> API access is available on the Enterprise plan. Contact your account manager to enable it.
+      <div className="callout callout-info">
+        <strong>Developer plan and above.</strong> API access is available on the Developer ($499/mo) and Enterprise plans. <a href="/getting-started/plans">See all plans →</a>
       </div>
 
       <h2>API keys</h2>

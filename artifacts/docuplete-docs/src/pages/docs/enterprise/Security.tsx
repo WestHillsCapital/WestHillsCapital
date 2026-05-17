@@ -50,7 +50,7 @@ export default function Security() {
             </tr>
             <tr>
               <td>Application (answers)</td><td>AES-256-GCM</td>
-              <td>Interview answers — Starter Pro, Pro, Enterprise plans only</td>
+              <td>Interview answers — Starter Professional, Pro, Developer, and Enterprise plans</td>
             </tr>
           </tbody>
         </table>

@@ -60,8 +60,11 @@ import Billing from "@/pages/docs/account/Billing";
 import Branding from "@/pages/docs/account/Branding";
 import Channels from "@/pages/docs/account/Channels";
 import ApiKeys from "@/pages/docs/account/ApiKeys";
+import SecuritySettings from "@/pages/docs/account/SecuritySettings";
+import DataPrivacy from "@/pages/docs/account/DataPrivacy";
 
 import DeveloperAuthentication from "@/pages/docs/developer/Authentication";
+import EmbeddedInterviews from "@/pages/docs/developer/EmbeddedInterviews";
 import Sdk from "@/pages/docs/developer/Sdk";
 import PythonSdk from "@/pages/docs/developer/PythonSdk";
 import BulkSessions from "@/pages/docs/developer/BulkSessions";
@@ -168,6 +171,7 @@ function Router() {
         {/* Developer API */}
         <Route path="/developer/authentication" component={DeveloperAuthentication} />
         <Route path="/developer/quickstart-guide" component={QuickstartGuide} />
+        <Route path="/developer/embedded-interviews" component={EmbeddedInterviews} />
         <Route path="/developer/sdk" component={Sdk} />
         <Route path="/developer/python-sdk" component={PythonSdk} />
         <Route path="/developer/bulk-sessions" component={BulkSessions} />
@@ -188,6 +192,8 @@ function Router() {
         <Route path="/account/branding" component={Branding} />
         <Route path="/account/channels" component={Channels} />
         <Route path="/account/api-keys" component={ApiKeys} />
+        <Route path="/account/security-settings" component={SecuritySettings} />
+        <Route path="/account/data-privacy" component={DataPrivacy} />
 
         {/* Troubleshooting */}
         <Route path="/troubleshooting/common-errors" component={CommonErrors} />

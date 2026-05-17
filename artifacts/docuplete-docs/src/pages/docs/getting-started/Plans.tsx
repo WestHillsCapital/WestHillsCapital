@@ -30,7 +30,7 @@ export default function Plans() {
               <td colSpan={5} className="text-xs font-semibold uppercase tracking-widest text-white/30 pt-4 pb-1">Packages & Templates</td>
             </tr>
             <tr><td>PDF upload & visual mapping</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
-            <tr><td>Unlimited packages</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
+            <tr><td>Packages</td><td>Up to 5</td><td>Unlimited</td><td>Unlimited</td><td>Unlimited</td></tr>
             <tr><td>Field library (shared fields)</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
             <tr><td>Package groups & transaction types</td><td>✓</td><td>✓</td><td>✓</td><td>✓</td></tr>
 
@@ -88,7 +88,7 @@ export default function Plans() {
             </tr>
             <tr><td>SSO / SAML + SCIM provisioning</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
             <tr><td>IP allowlisting</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
-            <tr><td>AES-256-GCM answer encryption</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
+            <tr><td>AES-256-GCM answer encryption</td><td>—</td><td>✓</td><td>✓</td><td>✓</td></tr>
             <tr><td>Custom domain</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
             <tr><td>SLA guarantee</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
             <tr><td>Dedicated account manager</td><td>—</td><td>—</td><td>—</td><td>✓</td></tr>
@@ -108,7 +108,7 @@ export default function Plans() {
       <p>On Starter and Pro, your quota counts <strong>submitted sessions</strong> — sessions a client successfully completes and submits. Draft, voided, and abandoned sessions do not count. Quota resets each billing period.</p>
       <p>On Developer, your quota counts <strong>generations</strong> — each filled PDF produced, regardless of origin. Quota resets each billing period.</p>
       <p>On Enterprise, sessions and generations are unlimited.</p>
-      <p>If you go over your base quota, you have two options: let overage bill automatically at the end of the period, or proactively purchase a <strong>session pack</strong> from Settings → Billing to top up your balance in advance. See the <a href="/account/billing">Seats &amp; Billing</a> page for pack sizes and pricing.</p>
+      <p>If you go over your base quota, you have two options: let overage bill automatically at the end of the period, or proactively purchase usage packs from <strong>Settings → Billing</strong> to top up your balance in advance. Starter and Pro customers can buy <strong>session packs</strong>; Developer customers can buy <strong>generation packs</strong>. See the <a href="/account/billing">Seats &amp; Billing</a> page for pack sizes and pricing.</p>
 
       <h2>Developer overage pricing</h2>
       <p>Developer overage is priced at <strong>$75 per 100 additional generations</strong> ($0.75 per generation). This is intentionally lower than the effective per-generation cost of the base plan ($499 ÷ 500 = ~$1.00/generation) — high-volume API usage is rewarded with a lower marginal rate.</p>

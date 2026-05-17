@@ -115,6 +115,7 @@ export const NAV: NavItem[] = [
     children: [
       { title: "Authentication & API Keys", slug: "developer/authentication" },
       { title: "Developer Quickstart Guide", slug: "developer/quickstart-guide" },
+      { title: "Embedded & Headless Mode", slug: "developer/embedded-interviews" },
       { title: "Node.js SDK", slug: "developer/sdk" },
       { title: "Python SDK", slug: "developer/python-sdk" },
       { title: "Bulk Session Creation", slug: "developer/bulk-sessions" },
@@ -143,6 +144,8 @@ export const NAV: NavItem[] = [
       { title: "Organization Branding", slug: "account/branding" },
       { title: "Channel Defaults", slug: "account/channels" },
       { title: "API Keys", slug: "account/api-keys" },
+      { title: "Security Settings", slug: "account/security-settings" },
+      { title: "Data & Privacy", slug: "account/data-privacy" },
     ],
   },
   {

@@ -18,7 +18,7 @@ export default function Billing() {
       </ul>
 
       <h2>Session packs</h2>
-      <p>On Starter and Pro, you can purchase additional session packs from <strong>Settings → Billing → Buy Sessions</strong>. Packs add sessions to your balance on top of your monthly plan quota. Pack credits are drawn down before plan quota, oldest-expiry first, and all pack credits expire one year from purchase.</p>
+      <p>On Starter and Pro, you can purchase additional session packs from <strong>Settings → Billing → Buy Sessions</strong>. Packs add sessions to your balance on top of your monthly plan quota. Your included plan quota is consumed first; once it is exhausted, purchased pack credits cover the remainder, with the oldest-expiry credits drawn down first. All pack credits expire one year from purchase.</p>
       <p>Packs are available in five sizes, on monthly subscription, annual subscription (20% off), or as a one-off purchase:</p>
 
       <div className="overflow-x-auto">
@@ -46,6 +46,33 @@ export default function Billing() {
       <p><strong>Annual subscription:</strong> the full year's sessions (12× the pack size) are deposited upfront at purchase. Annual packs are 20% cheaper than paying month-to-month.</p>
       <p><strong>One-off purchase:</strong> sessions are deposited immediately and expire one year from purchase. Use this when you have a one-time volume spike and don't want an ongoing subscription.</p>
 
+      <h2>Generation packs</h2>
+      <p>On the Developer plan, you can pre-purchase additional generation packs from <strong>Settings → Billing → Buy Generations</strong>. Packs add generations to your balance on top of your monthly 500-generation quota. Your included plan quota is consumed first; once exhausted, pack credits cover the remainder, oldest-expiry first. All pack credits expire one year from purchase.</p>
+      <p>Packs are available in four sizes, on monthly or annual subscription (20% off):</p>
+
+      <div className="overflow-x-auto">
+        <table>
+          <thead>
+            <tr>
+              <th>Pack size</th>
+              <th>Monthly</th>
+              <th>Annual (per mo)</th>
+              <th>Annual (total)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>100 generations</td><td>$75/mo</td><td>$60/mo</td><td>$720</td></tr>
+            <tr><td>500 generations</td><td>$375/mo</td><td>$300/mo</td><td>$3,600</td></tr>
+            <tr><td>1,000 generations</td><td>$750/mo</td><td>$600/mo</td><td>$7,200</td></tr>
+            <tr><td>2,500 generations</td><td>$1,875/mo</td><td>$1,500/mo</td><td>$18,000</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p><strong>Monthly subscription:</strong> generations are deposited at the start of each billing cycle and expire one year from each deposit date. The monthly rate matches the standard overage rate ($0.75/gen) — the benefit is a fixed, predictable line-item rather than a variable end-of-period charge.</p>
+      <p><strong>Annual subscription:</strong> the full year's generations (12× the pack size) are deposited upfront at purchase. Annual packs are 20% cheaper per generation ($0.60/gen vs. $0.75/gen), rewarding the upfront commitment.</p>
+      <p>Unlike session packs, generation packs are not available as one-off purchases — only as monthly or annual subscriptions.</p>
+
       <h2>Overage</h2>
       <p>When you exceed both your plan quota and any purchased pack credits, overage is billed automatically at the end of your billing period.</p>
       <ul>
@@ -72,8 +99,16 @@ export default function Billing() {
       <p>Downgrades take effect at the end of the current billing period. During the period, you retain access to your current plan's features. At the start of the next period, access is adjusted to the new plan's limits.</p>
 
       <div className="callout callout-warning">
-        <strong>Feature access on downgrade:</strong> If you're on Enterprise and downgrade to Pro, webhook configurations are preserved but become inactive. They'll reactivate if you re-upgrade to Enterprise.
+        <strong>Feature access on downgrade:</strong> If you're on Developer or Enterprise and downgrade to Starter or Pro, webhook configurations are preserved but become inactive. They reactivate automatically if you re-upgrade to Developer or Enterprise.
       </div>
+
+      <h2>Payment method & billing portal</h2>
+      <p>To update your payment method or manage subscriptions directly, go to <strong>Settings → Billing → Manage Billing</strong>. This opens a secure Stripe-hosted portal where you can:</p>
+      <ul>
+        <li>Update or replace your credit card or bank account</li>
+        <li>View and manage active subscriptions (plan, session packs, generation packs)</li>
+        <li>Download PDF copies of past invoices</li>
+      </ul>
 
       <h2>Invoices</h2>
       <p>Invoices are available at <strong>Settings → Billing → Invoice History</strong>. Each invoice is downloadable as a PDF. You can also configure an invoice email address (separate from your account email) to receive invoice copies.</p>

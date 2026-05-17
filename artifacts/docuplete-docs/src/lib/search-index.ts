@@ -264,6 +264,24 @@ export const SEARCH_INDEX: SearchEntry[] = [
     section: "Account & Settings",
     headings: ["What you can do with the API", "Creating an API key", "Using an API key", "Key types", "Revoking a key", "Rate limits"],
   },
+  {
+    slug: "account/security-settings",
+    title: "Security Settings",
+    section: "Account & Settings",
+    headings: ["Two-factor authentication (2FA)", "Enabling 2FA", "Disabling 2FA", "Organization-wide 2FA enforcement", "Active sessions", "Trusted devices", "PDF access log"],
+  },
+  {
+    slug: "account/data-privacy",
+    title: "Data & Privacy",
+    section: "Account & Settings",
+    headings: ["Data retention settings", "Exporting your data", "Account deletion (right to erasure)", "Canceling a deletion request"],
+  },
+  {
+    slug: "developer/embedded-interviews",
+    title: "Embedded & Headless Mode",
+    section: "Developer API",
+    headings: ["Embedded interview (iframe)", "Step 1 — Create a session with embed mode enabled", "Step 2 — Render the iframe", "Step 3 — Listen for completion via postMessage", "Headless mode (API-only generation)", "Generate a PDF directly", "Quota and billing", "Differences from the standard interview link"],
+  },
 ];
 
 export function searchIndex(query: string): SearchEntry[] {

@@ -10,8 +10,8 @@ export default function WebhookSetup() {
         <p className="text-lg text-white/55 mt-2">Configure a webhook endpoint to receive real-time notifications when a client submits a session.</p>
       </div>
 
-      <div className="callout callout-enterprise">
-        <strong>Enterprise feature.</strong> Webhooks are available exclusively on the Enterprise plan ($3,000/mo). <Link href="/getting-started/plans">Learn about plans →</Link>
+      <div className="callout callout-info">
+        <strong>Developer plan and above.</strong> Webhooks are available on the Developer ($499/mo) and Enterprise plans. <Link href="/getting-started/plans">Learn about plans →</Link>
       </div>
 
       <h2>How webhooks work</h2>

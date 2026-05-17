@@ -9,8 +9,8 @@ export default function ApiKeys() {
         <p className="text-lg text-white/55 mt-2">Generate and manage API keys for programmatic access to Docuplete.</p>
       </div>
 
-      <div className="callout callout-enterprise">
-        <strong>Enterprise feature.</strong> API access is available exclusively on the Enterprise plan.
+      <div className="callout callout-info">
+        <strong>Developer plan and above.</strong> API access is available on the Developer ($499/mo) and Enterprise plans. <a href="/getting-started/plans">See all plans →</a>
       </div>
 
       <h2>What you can do with the API</h2>
