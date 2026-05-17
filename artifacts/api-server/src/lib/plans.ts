@@ -24,20 +24,20 @@ export interface PlanFeatures {
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
   starter: {
     maxPackages:            5,
-    maxSubmissionsPerMonth: 100,
-    submissionsPerSeat:     50,
+    maxSubmissionsPerMonth: 150,
+    submissionsPerSeat:     75,
     maxSeats:               2,
   },
   starter_esign: {
     maxPackages:            5,
-    maxSubmissionsPerMonth: 100,
-    submissionsPerSeat:     50,
+    maxSubmissionsPerMonth: 150,
+    submissionsPerSeat:     75,
     maxSeats:               2,
   },
   pro: {
     maxPackages:            null,
-    maxSubmissionsPerMonth: 500,
-    submissionsPerSeat:     50,
+    maxSubmissionsPerMonth: 400,
+    submissionsPerSeat:     40,
     maxSeats:               10,
   },
   developer: {
