@@ -868,6 +868,8 @@ export async function initDb(): Promise<void> {
   `);
   // Add compliance_tags JSONB column to docuplete_fields (array of tag names, e.g. ["KYC","AML"])
   await db.query(`ALTER TABLE docuplete_fields ADD COLUMN IF NOT EXISTS compliance_tags JSONB NOT NULL DEFAULT '[]'::jsonb`);
+  // Add locked boolean — prevents non-admin edits on select platform fields (enterprise gating).
+  await db.query(`ALTER TABLE docuplete_fields ADD COLUMN IF NOT EXISTS locked BOOLEAN NOT NULL DEFAULT false`);
 
   await db.query(`
     CREATE TABLE IF NOT EXISTS docuplete_packages (
