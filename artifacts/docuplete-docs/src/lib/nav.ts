@@ -164,3 +164,15 @@ export const NAV: NavItem[] = [
     ],
   },
 ];
+
+export function allPages(): { slug: string; title: string; section: string }[] {
+  const pages: { slug: string; title: string; section: string }[] = [];
+  for (const section of NAV) {
+    if (section.children) {
+      for (const page of section.children) {
+        pages.push({ slug: page.slug, title: page.title, section: section.title });
+      }
+    }
+  }
+  return pages;
+}
