@@ -69,7 +69,7 @@ type SortDir = "asc" | "desc";
 const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
   draft:       { label: "Draft",       cls: "bg-gray-100 text-gray-600" },
   in_progress: { label: "In Progress", cls: "bg-blue-50 text-blue-700" },
-  generated:   { label: "Complete",    cls: "bg-[#FDF6E3] text-[#8B6914]" },
+  generated:   { label: "Complete",    cls: "bg-green-50 text-green-700" },
   voided:      { label: "Voided",      cls: "bg-red-50 text-red-700" },
 };
 
@@ -323,7 +323,7 @@ function VerifyCell({ token }: { token: string }) {
         className="h-7 w-7"
       >
         {copied ? (
-          <svg className="w-3.5 h-3.5 text-[#C49A38]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
         ) : (
