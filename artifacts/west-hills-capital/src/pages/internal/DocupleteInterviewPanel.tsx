@@ -681,7 +681,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                   </select>
                 ) : field.type === "radio" ? (
                   <div className="space-y-2 pt-1">
-                    {((field.options ?? []).length ? field.options ?? [] : []).map((option) => (
+                    {((field.options ?? []).length ? field.options ?? [] : []).map((option, optIdx) => (
                       <label key={option} className="flex items-center gap-2.5 text-sm cursor-pointer">
                         <input
                           data-interview-input
@@ -689,6 +689,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                           name={field.id}
                           value={option}
                           checked={currentValue === option}
+                          tabIndex={currentValue === option || (!currentValue && optIdx === 0) ? 0 : -1}
                           onChange={() => { setAnswers((prev) => ({ ...prev, [field.id]: option })); handleInterviewFieldBlur(field, option); }}
                           className="w-4 h-4 accent-[#0F1C3F]"
                         />

@@ -312,13 +312,14 @@ export function DocupleteInterviewPanel({ token, getAuthHeaders }: Props) {
                     </select>
                   ) : field.type === "radio" ? (
                     <div className="space-y-1 pt-1">
-                      {(field.options ?? []).map((opt) => (
+                      {(field.options ?? []).map((opt, optIdx) => (
                         <label key={opt} className="flex items-center gap-2 text-sm cursor-pointer font-normal">
                           <input
                             type="radio"
                             name={field.id}
                             value={opt}
                             checked={currentValue === opt}
+                            tabIndex={currentValue === opt || (!currentValue && optIdx === 0) ? 0 : -1}
                             onChange={() => setAnswers((prev) => ({ ...prev, [field.id]: opt }))}
                           />
                           {opt}
