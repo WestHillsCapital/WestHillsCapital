@@ -1357,9 +1357,25 @@ function fieldIsRequired(field: DocupleteFieldItem): boolean {
 function evaluateFieldCondition(
   condition: DocupleteFieldCondition | null | undefined,
   answers: Record<string, unknown>,
+  fields?: DocupleteFieldItem[],
 ): boolean {
   if (!condition || !condition.fieldId) return true;
-  const triggerValue = String(answers[condition.fieldId] ?? "").trim();
+  let triggerValue = String(answers[condition.fieldId] ?? "").trim();
+  // Name-based fallback: if the stored field ID has no value in answers, check
+  // any field with the same name. Handles stale IDs after a field is re-added.
+  if (!triggerValue && fields) {
+    const named = fields.find((f) => f.id === condition.fieldId);
+    if (named?.name) {
+      const name = named.name.toLowerCase().trim();
+      for (const f of fields) {
+        if (f.id === condition.fieldId) continue;
+        if ((f.name ?? "").toLowerCase().trim() === name) {
+          const v = String(answers[f.id] ?? "").trim();
+          if (v) { triggerValue = v; break; }
+        }
+      }
+    }
+  }
   switch (condition.operator) {
     case "equals":          return triggerValue.toLowerCase() === (condition.value ?? "").toLowerCase();
     case "not_equals":      return triggerValue.toLowerCase() !== (condition.value ?? "").toLowerCase();
@@ -1375,7 +1391,7 @@ function validateSessionAnswers(session: Record<string, unknown>): { valid: bool
   const fields = parseFields(session.fields);
   const missingFields: string[] = [];
   const errors: string[] = [];
-  fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly" && evaluateFieldCondition(f.condition, answers) && evaluateFieldCondition(f.condition2, answers)).forEach((field) => {
+  fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly" && evaluateFieldCondition(f.condition, answers, fields) && evaluateFieldCondition(f.condition2, answers, fields)).forEach((field) => {
     const value = fieldAnswerValue(field, answers, prefill).trim();
     const fieldLabel = field.name ?? field.label ?? field.id;
     if (fieldIsRequired(field) && !value) {
@@ -1562,7 +1578,7 @@ async function buildPacketPdfBuffer(
       for (const mapping of documentMappings) {
         const field = mapping.fieldId ? fieldsById.get(mapping.fieldId) : undefined;
         if (!field) continue;
-        if (!evaluateFieldCondition(field.condition, answers) || !evaluateFieldCondition(field.condition2, answers)) continue;
+        if (!evaluateFieldCondition(field.condition, answers, fields) || !evaluateFieldCondition(field.condition2, answers, fields)) continue;
         const pageIndex = Math.max(Number(mapping.page ?? 1) - 1, 0);
         const page = merged.getPages()[merged.getPageCount() - copiedPages.length + pageIndex];
         if (!page) continue;

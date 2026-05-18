@@ -330,6 +330,14 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
   const isFiltered = showUnplacedOnly || fieldSort !== "default";
   const unplacedCount = selectedPackage.fields.filter((f) => !packageMappedFieldIds.has(f.id)).length;
 
+  // Orphaned mappings: placed slots whose target field no longer exists in the package.
+  // These render blank in generated PDFs. Computed once; re-checked whenever fields or
+  // mappings change (e.g. after a field is deleted and re-added with a new ID).
+  const orphanedMappings = useMemo(() => {
+    const knownFieldIds = new Set(selectedPackage.fields.map((f) => f.id));
+    return storeMappings.filter((m) => m.fieldId && !knownFieldIds.has(m.fieldId));
+  }, [storeMappings, selectedPackage.fields]);
+
   // Cancel click-to-place on Escape
   useEffect(() => {
     if (!clickToPlaceFieldId) return;
@@ -1061,6 +1069,26 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
             <h2 className="text-sm font-semibold">Fields</h2>
             <button onClick={openFieldEditorForAdd} className="text-xs text-[#C49A38]">Add</button>
           </div>
+          {/* Orphaned mapping warning */}
+          {orphanedMappings.length > 0 && (
+            <div className="mb-2 flex-shrink-0 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] leading-relaxed">
+              <p className="font-semibold text-amber-800">
+                {orphanedMappings.length} placed slot{orphanedMappings.length === 1 ? "" : "s"} point to a removed field
+              </p>
+              <p className="text-amber-700 mt-0.5">
+                {orphanedMappings.length === 1
+                  ? "This slot will be blank in generated PDFs."
+                  : "These slots will be blank in generated PDFs."}
+                {" "}Remove the slot(s) from the document canvas and re-place them using the current field.
+              </p>
+              <p className="text-amber-600 mt-1 font-medium">
+                Affected: {[...new Set(orphanedMappings.map((m) => {
+                  const doc = selectedPackage.documents.find((d) => d.id === m.documentId);
+                  return doc?.title ?? doc?.fileName ?? "Unknown doc";
+                }))].join(", ")}
+              </p>
+            </div>
+          )}
           {/* Filter / sort controls */}
           <div className="flex items-center gap-1.5 mb-2 flex-shrink-0 flex-wrap">
             <div className="flex items-center gap-3 text-[11px] font-medium border-b border-[#EFE8D8]">
