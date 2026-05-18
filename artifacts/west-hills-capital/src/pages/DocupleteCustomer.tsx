@@ -50,6 +50,7 @@ type FieldItem = {
   required?: boolean;
   interviewVisible?: boolean;
   sumGroup?: string;
+  copyFrom?: { fieldId: string; whenFieldId: string; whenValue: string } | null;
 };
 
 type SessionData = {
