@@ -4561,9 +4561,15 @@ router.post("/csv-batch", requireMemberRole, requirePlanFeature("csvBatch"), asy
     type BatchResult = { rowIndex: number; token: string | null; status: "created" | "error"; error?: string };
     const results: BatchResult[] = [];
     const batchRunId = randomBytes(16).toString("hex");
-    const csvBatchDek = isEncryptionEnabled()
-      ? await getOrCreateAccountDek(acctId(req), db)
-      : null;
+    let csvBatchDek: Buffer | null = null;
+    if (isEncryptionEnabled()) {
+      try {
+        csvBatchDek = await getOrCreateAccountDek(acctId(req), db);
+      } catch (encErr) {
+        logger.error({ err: encErr, accountId: acctId(req) },
+          "[Encryption] Failed to get DEK for CSV batch — sessions will be stored plaintext (investigate DEK)");
+      }
+    }
     for (let i = 0; i < body.rows.length; i++) {
       const row = body.rows[i] as Record<string, string>;
       try {
@@ -5459,9 +5465,14 @@ router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
     let answersParam: string = jsonParam(inputAnswers);
     let ciphertextParam: string | null = null;
     if (isEncryptionEnabled()) {
-      const dek = await getOrCreateAccountDek(accountId, db);
-      ciphertextParam = encryptAnswers(inputAnswers, dek);
-      answersParam = jsonParam({});
+      try {
+        const dek = await getOrCreateAccountDek(accountId, db);
+        ciphertextParam = encryptAnswers(inputAnswers, dek);
+        answersParam = jsonParam({});
+      } catch (encErr) {
+        logger.error({ err: encErr, accountId, tokenPrefix: String(req.params.token).slice(0, 12) },
+          "[Encryption] Failed to encrypt session answers on PATCH — storing plaintext (investigate DEK)");
+      }
     }
     const { rows } = await db.query(
       `UPDATE docuplete_interview_sessions SET
