@@ -23,6 +23,24 @@ export default function Changelog() {
             <span className="text-xs font-mono text-white/40">May 2025</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
           </div>
+          <h2 className="mt-0">"Hide unless" condition value is now a dropdown for choice fields</h2>
+          <p>When configuring a <strong>Hide this field unless</strong> condition, the <strong>Value</strong> input is now a dropdown of the trigger field's defined options when that field is a radio, dropdown, or checkbox type. This applies to both the primary condition and the optional second condition. Previously a free-form text box, this prevents conditions from silently never firing due to a typo or case difference in the entered value.</p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2025</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
+          </div>
+          <h2 className="mt-0">Sum Group field suggests existing groups as you type</h2>
+          <p>When assigning a Sum Group to a percent or number field, the Sum Group input now shows autocomplete suggestions populated from all other sum groups already defined in the same package. This makes it easy to join an existing group — like <code>primary_beneficiaries</code> — without retyping the label. Free-form entry still works for creating new groups.</p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2025</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
+          </div>
           <h2 className="mt-0">Auto-fill trigger value is now a dropdown for choice fields</h2>
           <p>When setting up an auto-fill rule, the <strong>Equals</strong> input for the trigger condition is now a dropdown of the trigger field's actual defined options when that field is a radio button, dropdown, or checkbox type. Previously a plain text box, this change prevents silent trigger failures caused by value mismatches — for example, typing "Yes" when the option label is "Yes, I agree".</p>
         </div>

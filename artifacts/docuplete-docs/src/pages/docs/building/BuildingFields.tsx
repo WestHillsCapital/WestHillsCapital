@@ -78,12 +78,16 @@ export default function BuildingFields() {
         <strong>Note:</strong> Fields with unresolved ⚠ repair badges still work in interviews — broken conditions are simply skipped. However, you should resolve them before making a package Active to ensure logic behaves as intended.
       </div>
 
-      <h2>Auto-fill trigger value</h2>
-      <p>When configuring an auto-fill rule, the <strong>Equals</strong> input for the trigger value behaves differently depending on the trigger field's type:</p>
+      <h2>Condition value — dropdown for choice fields</h2>
+      <p>When configuring a <strong>Hide this field unless</strong> condition, the <strong>Value</strong> input behaves differently depending on the trigger field's type:</p>
       <ul>
-        <li>For <strong>radio</strong>, <strong>dropdown</strong>, and <strong>checkbox</strong> fields, the value input is a dropdown showing the field's actual defined options. Select from the list — this prevents typos and case mismatches that would cause the trigger to never fire.</li>
+        <li>For <strong>radio</strong>, <strong>dropdown</strong>, and <strong>checkbox</strong> fields, the value input becomes a dropdown populated with that field's defined options. Selecting from the list prevents typos and case mismatches that would cause the condition to never evaluate correctly.</li>
         <li>For <strong>text</strong> and <strong>date</strong> fields, the value input remains free-form text.</li>
       </ul>
+      <p>This applies to both the primary condition and the optional second condition.</p>
+
+      <h2>Auto-fill trigger value</h2>
+      <p>When configuring an auto-fill rule, the <strong>Equals</strong> input for the trigger value behaves the same way — it becomes a dropdown of the trigger field's options for radio, dropdown, and checkbox fields, and remains free-form text for all other field types.</p>
     </div>
   );
 }

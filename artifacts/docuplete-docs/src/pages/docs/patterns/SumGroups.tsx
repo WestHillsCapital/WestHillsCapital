@@ -28,8 +28,8 @@ export default function SumGroups() {
         <li>Open a package in the builder and go to the <strong>Map Fields</strong> step.</li>
         <li>Double-click a percent or number field to open its editor.</li>
         <li>In the <strong>Validation</strong> section, set the validation type to <strong>Percent</strong> (or Number).</li>
-        <li>A <strong>Sum Group</strong> input appears below the validation settings. Enter a short label — for example, <code>primary_beneficiaries</code>.</li>
-        <li>Repeat for every field that belongs in the same group, using the exact same label.</li>
+        <li>A <strong>Sum Group</strong> input appears below the validation settings. If other fields in the package already have sum groups defined, the input shows autocomplete suggestions — start typing or click the field to see existing group names. Select one to join that group, or type a new label to create a new group.</li>
+        <li>Repeat for every field that belongs in the same group. The autocomplete makes it easy to pick the same label without retyping it.</li>
         <li>Save each field. The fields are now linked by their shared Sum Group label.</li>
       </ol>
 

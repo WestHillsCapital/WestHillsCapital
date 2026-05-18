@@ -82,6 +82,10 @@ export default function ConditionalSections() {
       <div className="callout-info">
         <strong>Conditions are enforced on the backend too.</strong> A field hidden by an unmet condition is skipped during PDF generation and ignored in validation — even if someone submits the form directly via the API.
       </div>
+
+      <h2>Value picker — dropdown for choice fields</h2>
+      <p>When the trigger field is a <strong>radio</strong>, <strong>dropdown</strong>, or <strong>checkbox</strong> type, the <strong>Value</strong> input in the condition editor becomes a dropdown of that field's defined options rather than a free-form text box. This prevents silent failures caused by value mismatches — for example, the option label is "Yes, I agree" but you typed "Yes". Selecting directly from the list ensures an exact match every time.</p>
+      <p>For text and date trigger fields the input remains free-form.</p>
     </div>
   );
 }
