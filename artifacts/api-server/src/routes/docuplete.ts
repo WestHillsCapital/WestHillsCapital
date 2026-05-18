@@ -1721,6 +1721,15 @@ async function buildPacketPdfBuffer(
           const digits = value.replace(/\D+/g, "");
           if (digits.length === 9) value = `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
         }
+        // Auto-format phone: 10-digit US → (NNN) NNN-NNNN; 11-digit starting with 1 → same.
+        if (field.validationType === "phone" && value) {
+          const digits = value.replace(/\D+/g, "");
+          if (digits.length === 10) {
+            value = `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+          } else if (digits.length === 11 && digits[0] === "1") {
+            value = `(${digits.slice(1, 4)}) ${digits.slice(4, 7)}-${digits.slice(7)}`;
+          }
+        }
         const mappedValue = formatDocupleteMappedValue(value, mapping);
         if (!mappedValue) continue;
         // Checkbox/radio marks: auto-derive font size from box height so the mark
@@ -6645,16 +6654,112 @@ publicDocupleteRouter.post("/sessions/:token/generate", async (req, res) => {
     const signerGeo = resolveGeo(signerIp);
     // When queue is unavailable (Redis down / degraded mode) fall back to
     // synchronous generation so the signer is never blocked.
+    // This path must be fully equivalent to the queue worker — cert page,
+    // DB update with signer metadata, object storage, and signer email.
     if (!isQueueEnabled()) {
-      const pdfBuffer = await buildPacketPdfBuffer(session, db, {
+      const sessionToken = String(req.params.token);
+      const pkgAccountIdSync = typeof session.package_account_id === "number" ? session.package_account_id : null;
+      const signedAt = esignEmail ? new Date() : null;
+
+      let pdfBuffer = await buildPacketPdfBuffer(session, db, {
         signatureImage: esignSignatureImage ?? undefined,
         signerName:     esignSignerName     ?? undefined,
         initialsImage:  esignInitialsImage  ?? undefined,
       });
+
+      // ── Cert page + TSA timestamp (e-sign only) ──────────────────────────
+      let pdfSha256:    string | null = null;
+      let tsaTokenB64:  string | null = null;
+      let tsaUrlUsed:   string | null = null;
+      let pdfStorageKey: string | null = null;
+
+      if (esignEmail && esignSignerName) {
+        try {
+          pdfBuffer = await appendSigningCertificatePage(pdfBuffer, {
+            signerName:     esignSignerName,
+            signerEmail:    esignEmail,
+            packageName:    String(session.package_name ?? "Document Package"),
+            signedAt:       signedAt!,
+            tsaUrl:         TSA_ENDPOINTS[0],
+            sessionToken,
+            signatureImage: esignSignatureImage,
+            signerIp,
+            signerUa,
+            signerGeo,
+          });
+        } catch (certErr) {
+          logger.warn({ certErr, sessionToken }, "[GeneratePdf/sync] Cert page failed — using base PDF");
+        }
+        pdfSha256 = hashPdfBuffer(pdfBuffer);
+        try {
+          const tsaResult = await requestTimestamp(pdfSha256);
+          tsaTokenB64 = tsaResult.tokenB64;
+          tsaUrlUsed  = tsaResult.tsaUrl;
+        } catch (tsaErr) {
+          logger.warn({ tsaErr, sessionToken }, "[GeneratePdf/sync] TSA timestamp failed — proceeding without");
+        }
+      }
+
+      // ── Object storage ───────────────────────────────────────────────────
+      try {
+        pdfStorageKey = await objectStorage.uploadBuffer(
+          `signed-pdfs/${sessionToken}.pdf`,
+          pdfBuffer,
+          "application/pdf",
+        );
+      } catch (storageErr) {
+        logger.warn({ storageErr, sessionToken }, "[GeneratePdf/sync] Object storage upload failed");
+      }
+
+      // ── DB update with full signer metadata ──────────────────────────────
       await db.query(
-        `UPDATE docuplete_interview_sessions SET status = 'generated', updated_at = NOW() WHERE token = $1`,
-        [String(req.params.token)],
+        `UPDATE docuplete_interview_sessions
+            SET status='generated',
+                submitted_at=CASE WHEN submitted_at IS NULL THEN NOW() ELSE submitted_at END,
+                signer_email=$2,
+                signer_name=$3,
+                signed_at=$4,
+                pdf_sha256=$5,
+                tsa_token_b64=$6,
+                tsa_url=$7,
+                generated_pdf_storage_key=$8,
+                signer_ip=COALESCE(signer_ip, $9),
+                signer_ua=COALESCE(signer_ua, $10),
+                signer_geo=COALESCE(signer_geo, $11),
+                updated_at=NOW()
+          WHERE token=$1`,
+        [sessionToken, esignEmail, esignSignerName, signedAt, pdfSha256, tsaTokenB64, tsaUrlUsed, pdfStorageKey,
+         esignEmail ? (signerIp ?? null) : null,
+         esignEmail ? (signerUa ?? null) : null,
+         esignEmail ? (signerGeo ?? null) : null],
       );
+
+      // ── Signer confirmation email (e-sign only) ──────────────────────────
+      if (esignEmail && esignSignerName && signedAt) {
+        db.query(
+          `INSERT INTO docuplete_signing_events (session_token, account_id, event_type, actor_email, actor_ip, actor_ua, metadata)
+           VALUES ($1, $2, 'signed', $3, $4, $5, $6::jsonb)`,
+          [sessionToken, pkgAccountIdSync, esignEmail, signerIp ?? null, signerUa ?? null,
+           JSON.stringify({ signerName: esignSignerName, packageName: session.package_name, pdfSha256, signedAt: signedAt.toISOString(), tsaUrl: tsaUrlUsed, tsaTokenObtained: tsaTokenB64 !== null })],
+        ).catch((err) => logger.warn({ err, sessionToken }, "[GeneratePdf/sync] Signing event insert failed"));
+
+        sendSignerConfirmationEmail({
+          signerEmail:   esignEmail,
+          signerName:    esignSignerName,
+          packageName:   String(session.package_name ?? "Document Package"),
+          signedAt,
+          pdfSha256:     pdfSha256 ?? "",
+          pdfBuffer,
+          orgName:       typeof session.org_name       === "string" ? session.org_name       : null,
+          orgBrandColor: typeof session.org_brand_color === "string" ? session.org_brand_color : null,
+        }).then(() => {
+          logger.info({ to: esignEmail, sessionToken }, "[GeneratePdf/sync] Confirmation email sent to signer");
+        }).catch((err) => {
+          logger.warn({ err, to: esignEmail, sessionToken }, "[GeneratePdf/sync] Confirmation email failed (non-fatal)");
+        });
+      }
+
+      // ── Webhooks ─────────────────────────────────────────────────────────
       const webhookUrl = typeof session.webhook_url === "string" ? session.webhook_url : null;
       if (session.webhook_enabled === true && webhookUrl) {
         const webhookPkgId  = typeof session.package_id         === "number" ? session.package_id         : Number(session.package_id);
@@ -6664,12 +6769,11 @@ publicDocupleteRouter.post("/sessions/:token/generate", async (req, res) => {
           generatedAt: new Date().toISOString(), downloadUrl: null,
         }), "pdf.generated");
       }
-      const tok = String(req.params.token);
-      const pkgAccountIdSync = typeof session.package_account_id === "number" ? session.package_account_id : null;
+
       if (pkgAccountIdSync) void recordPdfGenerationEvent(pkgAccountIdSync);
       res.json({
-        packet: { token: tok, status: "generated", byteSize: pdfBuffer.length },
-        downloadUrl: `/sessions/${tok}/packet.pdf`,
+        packet: { token: sessionToken, status: "generated", byteSize: pdfBuffer.length },
+        downloadUrl: `/sessions/${sessionToken}/packet.pdf`,
       });
       return;
     }
