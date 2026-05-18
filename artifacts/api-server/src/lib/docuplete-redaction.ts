@@ -199,6 +199,33 @@ const SEMANTIC_PREFILL_LABELS: Record<string, string> = {
   "zip": "zip", "zip code": "zip", "postal code": "zip",
 };
 
+/**
+ * Returns true when a stored answer looks like a browser-masked or display-masked
+ * value that should never reach the PDF for sensitive fields:
+ *
+ *  ● (U+25CF) — the BLACK CIRCLE character browsers render for each character in
+ *               a <input type="password"> field.  It can land in the DB when the
+ *               browser's own rendering character is somehow captured instead of
+ *               the real input value.
+ *
+ *  • (U+2022) — the BULLET character used by maskSensitiveValue() and
+ *               safeInterviewDisplayValue() to produce display strings like
+ *               "••••6789".  A legitimate answer for an SSN, DOB, account number,
+ *               etc. will never begin with this character.
+ *
+ * No real field answer (SSN, date, phone, account number …) should ever contain
+ * U+25CF or begin with U+2022, so this check is safe to apply to all sensitive
+ * fields without risking false positives.
+ */
+function isMaskedDisplayValue(value: string): boolean {
+  if (!value.trim()) return false;
+  // Any occurrence of the browser password-mask glyph
+  if (value.includes("\u25CF")) return true;
+  // Value that starts with the maskSensitiveValue / safeInterviewDisplayValue bullet
+  if (/^\u2022/.test(value.trim())) return true;
+  return false;
+}
+
 export function fieldAnswerValue(field: DocupleteFieldItem, answers: Record<string, unknown>, prefill: Record<string, unknown>): string {
   const synthesizedName = field.source === "clientName" || field.source === "fullName" || field.source === "name" ? combineNameParts(prefill) : "";
   // Case-insensitive prefill lookup mirrors the frontend currentValue() behaviour so that
@@ -213,8 +240,20 @@ export function fieldAnswerValue(field: DocupleteFieldItem, answers: Record<stri
     return match ? prefill[match] : undefined;
   };
   const labelKey = SEMANTIC_PREFILL_LABELS[(field.label ?? "").toLowerCase().trim()];
+
+  // For sensitive fields, if the stored answer looks like a masked display value
+  // (browser password glyph ● or maskSensitiveValue bullet •), skip it and fall
+  // through to the prefill so the PDF receives the real value.
+  const rawAnswer = answers[field.id];
+  const effectiveAnswer =
+    isSensitiveField(field) &&
+    rawAnswer != null &&
+    isMaskedDisplayValue(String(rawAnswer))
+      ? undefined
+      : rawAnswer;
+
   const candidates = [
-    answers[field.id],
+    effectiveAnswer,
     field.source ? prefill[field.source] : undefined,
     field.name ? prefill[field.name] : undefined,
     field.label ? prefill[field.label] : undefined,

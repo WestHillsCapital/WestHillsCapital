@@ -5496,7 +5496,14 @@ router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
     const accountId = acctId(req);
     const rawAnswers: Record<string, unknown> = getRecord(body.answers);
     const inputAnswers: Record<string, unknown> = Object.fromEntries(
-      Object.entries(rawAnswers).map(([k, v]) => [k, typeof v === "string" ? v.replace(/\u0000/g, "") : v]),
+      Object.entries(rawAnswers).map(([k, v]) => {
+        if (typeof v !== "string") return [k, v];
+        // Strip null bytes (pre-existing) and browser password-mask glyphs (U+25CF ●).
+        // U+25CF can only end up here if the browser's visual masking character was
+        // captured instead of the real input value — it is never a legitimate answer.
+        const cleaned = v.replace(/\u0000/g, "").replace(/\u25CF/g, "");
+        return [k, cleaned];
+      }),
     );
     let answersParam: string = jsonParam(inputAnswers);
     let ciphertextParam: string | null = null;
@@ -6237,7 +6244,17 @@ publicDocupleteRouter.patch("/sessions/:token", async (req, res) => {
       return;
     }
     const accountId = metaRows[0].account_id;
-    const inputAnswers: Record<string, unknown> = getRecord(body.answers);
+    const rawAnswers2: Record<string, unknown> = getRecord(body.answers);
+    const inputAnswers: Record<string, unknown> = Object.fromEntries(
+      Object.entries(rawAnswers2).map(([k, v]) => {
+        if (typeof v !== "string") return [k, v];
+        // Strip null bytes and browser password-mask glyphs (U+25CF ●).
+        // U+25CF can only end up here if the browser's visual masking character was
+        // captured instead of the real input value — it is never a legitimate answer.
+        const cleaned = v.replace(/\u0000/g, "").replace(/\u25CF/g, "");
+        return [k, cleaned];
+      }),
+    );
     let answersParam: string = jsonParam(inputAnswers);
     let ciphertextParam: string | null = null;
     if (isEncryptionEnabled() && accountId != null) {
