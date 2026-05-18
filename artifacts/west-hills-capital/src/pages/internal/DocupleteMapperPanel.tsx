@@ -8,7 +8,7 @@ import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-ki
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ESIGN_FIELD_ID_SIGNATURE, ESIGN_FIELD_ID_INITIALS, ESIGN_FIELD_ID_DATE, isSystemEsignFieldId } from "@/lib/docuplete-redaction";
-import { type FieldItem, type MappingItem, type MappingFormat, type RecipientItem } from "@/lib/docuplete-types";
+import { type FieldItem, type MappingItem, type MappingFormat, type RecipientItem, type BrokenReference, type BrokenReferenceKind } from "@/lib/docuplete-types";
 import type { DocItem, FieldLibraryItem, FieldGroup, PackageItem } from "@/lib/docuplete-local-types";
 import { MappingButton } from "@/components/MappingButton";
 import { FieldCard } from "@/components/FieldCard";
@@ -171,6 +171,15 @@ function buildMultiDocPageIndex(
   return items;
 }
 
+function brokenRefKindLabel(kind: BrokenReferenceKind): string {
+  switch (kind) {
+    case "condition":        return "visibility condition (primary)";
+    case "condition2":       return "visibility condition (secondary)";
+    case "copyFrom_trigger": return "auto-fill trigger";
+    case "copyFrom_source":  return "auto-fill source field";
+  }
+}
+
 export interface DocupleteMapperPanelProps {
   selectedPackage: PackageItem;
   selectedDocument: DocItem | null;
@@ -240,6 +249,7 @@ export interface DocupleteMapperPanelProps {
   updateFieldInPackage: (fieldId: string, patch: Partial<FieldItem>) => void;
   copyField: (fieldId: string) => void;
   addLibraryFieldToPackage: (item: FieldLibraryItem) => void;
+  brokenRefs?: BrokenReference[];
   fieldGroups: FieldGroup[];
   addGroupToPackage: (group: FieldGroup) => void;
   removeRecipient: (id: string) => void;
@@ -267,6 +277,7 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
     openFieldEditorForEdit, openFieldEditorForAdd, autoMapFromPdfFields, dropFieldOnPage, placeFieldAtCoords,
     updateFieldInPackage, copyField, addLibraryFieldToPackage, fieldGroups, addGroupToPackage, removeRecipient, updateRecipient,
     getAuthHeaders, docupleteApiPath, documentPreviewCache, documentPreviewCacheOrder,
+    brokenRefs,
   } = props;
 
   // ── Internal store subscriptions (these fire at 60fps during drag/resize) ─
@@ -290,6 +301,14 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
   );
 
   const packageMappedFieldIds = new Set(storeMappings.map((m) => m.fieldId));
+  const fieldBrokenRefMap = useMemo(() => {
+    const map = new Map<string, typeof brokenRefs>();
+    for (const ref of brokenRefs ?? []) {
+      const existing = map.get(ref.affectedFieldId) ?? [];
+      map.set(ref.affectedFieldId, [...existing, ref]);
+    }
+    return map;
+  }, [brokenRefs]);
 
   // ── Field list filter / sort / click-to-place ─────────────────────────────
   const [showUnplacedOnly, setShowUnplacedOnly] = useState(() => {
@@ -1227,6 +1246,22 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                                     {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
                                     {(field.condition?.fieldId || field.condition2?.fieldId) && <span className="text-[10px] uppercase tracking-wide rounded bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5">Conditional</span>}
                                     {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
+                                    {(fieldBrokenRefMap.get(field.id)?.length ?? 0) > 0 && (
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <button
+                                            type="button"
+                                            onClick={(e) => { e.stopPropagation(); openFieldEditorForEdit(field.id); }}
+                                            className="text-[10px] uppercase tracking-wide rounded bg-amber-50 text-amber-700 border border-amber-300 px-1.5 py-0.5 flex items-center gap-1"
+                                          >⚠ Repair</button>
+                                        </TooltipTrigger>
+                                        <TooltipContent side="left" className="text-xs max-w-52">
+                                          {fieldBrokenRefMap.get(field.id)!.map((r) => (
+                                            <div key={r.id}>{brokenRefKindLabel(r.kind)} references removed field "{r.deletedFieldName}"</div>
+                                          ))}
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    )}
                                   </div>
                                   <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
                                 </button>
@@ -1302,6 +1337,22 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                                         {field.sensitive && <span className="text-[10px] uppercase tracking-wide rounded bg-red-50 text-red-700 border border-red-200 px-1.5 py-0.5">Sensitive</span>}
                                         {(field.condition?.fieldId || field.condition2?.fieldId) && <span className="text-[10px] uppercase tracking-wide rounded bg-purple-50 text-purple-700 border border-purple-200 px-1.5 py-0.5">Conditional</span>}
                                         {!packageMappedFieldIds.has(field.id) && <span className="text-[10px] uppercase tracking-wide rounded bg-orange-50 text-orange-700 border border-orange-200 px-1.5 py-0.5">No placement</span>}
+                                        {(fieldBrokenRefMap.get(field.id)?.length ?? 0) > 0 && (
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <button
+                                                type="button"
+                                                onClick={(e) => { e.stopPropagation(); openFieldEditorForEdit(field.id); }}
+                                                className="text-[10px] uppercase tracking-wide rounded bg-amber-50 text-amber-700 border border-amber-300 px-1.5 py-0.5 flex items-center gap-1"
+                                              >⚠ Repair</button>
+                                            </TooltipTrigger>
+                                            <TooltipContent side="left" className="text-xs max-w-52">
+                                              {fieldBrokenRefMap.get(field.id)!.map((r) => (
+                                                <div key={r.id}>{brokenRefKindLabel(r.kind)} references removed field "{r.deletedFieldName}"</div>
+                                              ))}
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        )}
                                       </div>
                                       <div className="text-[11px] text-[#6B7A99]">{field.type} · {field.interviewMode ?? "optional"}{field.sensitive ? " · masked" : ""}</div>
                                     </button>

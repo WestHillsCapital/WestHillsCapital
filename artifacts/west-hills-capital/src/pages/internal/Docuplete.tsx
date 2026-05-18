@@ -25,6 +25,8 @@ import {
   type MappingFormat,
   type MappingItem,
   type RecipientItem,
+  type BrokenReference,
+  type BrokenReferenceKind,
 } from "@/lib/docuplete-types";
 import { useDocupletePointer } from "@/hooks/useDocupletePointer";
 import { MappingButton } from "@/components/MappingButton";
@@ -177,6 +179,45 @@ type Session = {
 
 function newId(prefix: string) {
   return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+}
+
+function brokenRefKindLabel(kind: BrokenReferenceKind): string {
+  switch (kind) {
+    case "condition":        return "visibility condition (primary)";
+    case "condition2":       return "visibility condition (secondary)";
+    case "copyFrom_trigger": return "auto-fill trigger";
+    case "copyFrom_source":  return "auto-fill source field";
+  }
+}
+
+function scanFieldDeps(fieldId: string, fieldName: string, fields: FieldItem[]): BrokenReference[] {
+  const refs: BrokenReference[] = [];
+  for (const f of fields) {
+    if (f.id === fieldId) continue;
+    if (f.condition?.fieldId === fieldId)
+      refs.push({ id: newId("bref"), deletedFieldId: fieldId, deletedFieldName: fieldName, kind: "condition",        affectedFieldId: f.id, affectedFieldName: f.name });
+    if (f.condition2?.fieldId === fieldId)
+      refs.push({ id: newId("bref"), deletedFieldId: fieldId, deletedFieldName: fieldName, kind: "condition2",       affectedFieldId: f.id, affectedFieldName: f.name });
+    if (f.copyFrom?.whenFieldId === fieldId)
+      refs.push({ id: newId("bref"), deletedFieldId: fieldId, deletedFieldName: fieldName, kind: "copyFrom_trigger", affectedFieldId: f.id, affectedFieldName: f.name });
+    if (f.copyFrom?.fieldId === fieldId)
+      refs.push({ id: newId("bref"), deletedFieldId: fieldId, deletedFieldName: fieldName, kind: "copyFrom_source",  affectedFieldId: f.id, affectedFieldName: f.name });
+  }
+  return refs;
+}
+
+function loadBrokenRefs(pkgId: number): BrokenReference[] {
+  try {
+    const s = localStorage.getItem(`docuplete:brokenRefs:${pkgId}`);
+    return s ? (JSON.parse(s) as BrokenReference[]) : [];
+  } catch { return []; }
+}
+
+function saveBrokenRefs(pkgId: number, refs: BrokenReference[]): void {
+  try {
+    if (refs.length === 0) localStorage.removeItem(`docuplete:brokenRefs:${pkgId}`);
+    else localStorage.setItem(`docuplete:brokenRefs:${pkgId}`, JSON.stringify(refs));
+  } catch {}
 }
 
 // ─── Field-name fuzzy scoring (shared by AcroForm auto-map + library match) ───
@@ -618,6 +659,10 @@ export default function Docuplete() {
   const [expandedDelivery, setExpandedDelivery] = useState<number | null>(null);
   const [retryingDelivery, setRetryingDelivery] = useState<number | null>(null);
   const [isDeletingPackage, setIsDeletingPackage] = useState(false);
+  const [brokenRefs, setBrokenRefs] = useState<BrokenReference[]>([]);
+  const [deleteGuard, setDeleteGuard] = useState<{
+    fieldId: string; fieldName: string; deps: BrokenReference[]; replacementFieldId: string;
+  } | null>(null);
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [isDocumentDropActive, setIsDocumentDropActive] = useState(false);
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null);
@@ -809,6 +854,28 @@ export default function Docuplete() {
   const selectedPackage = packages.find((pkg) => pkg.id === selectedPackageId) ?? packages[0] ?? null;
   const selectedDocument = selectedPackage?.documents.find((doc) => doc.id === selectedDocumentId) ?? selectedPackage?.documents[0] ?? null;
   const selectedField = selectedPackage?.fields.find((field) => field.id === selectedFieldId) ?? selectedPackage?.fields[0] ?? null;
+
+  useEffect(() => {
+    if (!selectedPackage) { setBrokenRefs([]); return; }
+    setBrokenRefs(loadBrokenRefs(selectedPackage.id));
+  }, [selectedPackage?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!selectedPackage || !brokenRefs.length) return;
+    const surviving = brokenRefs.filter((ref) => {
+      const f = selectedPackage.fields.find((ff) => ff.id === ref.affectedFieldId);
+      if (!f) return false;
+      if (ref.kind === "condition")        return f.condition?.fieldId === ref.deletedFieldId;
+      if (ref.kind === "condition2")       return f.condition2?.fieldId === ref.deletedFieldId;
+      if (ref.kind === "copyFrom_trigger") return f.copyFrom?.whenFieldId === ref.deletedFieldId;
+      if (ref.kind === "copyFrom_source")  return f.copyFrom?.fieldId === ref.deletedFieldId;
+      return false;
+    });
+    if (surviving.length !== brokenRefs.length) {
+      setBrokenRefs(surviving);
+      saveBrokenRefs(selectedPackage.id, surviving);
+    }
+  }); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedFieldIsShared = Boolean(selectedField?.libraryFieldId);
   const storeMappings = useDocupleteStore((s) => s.mappings);
   const storeRecipientList = useDocupleteStore((s) => s.recipientList);
@@ -3338,13 +3405,61 @@ export default function Docuplete() {
   }
 
   function removeField(fieldId: string) {
+    if (!selectedPackage) return;
+    const field = selectedPackage.fields.find((f) => f.id === fieldId);
+    if (!field) return;
+    const deps = scanFieldDeps(fieldId, field.name, selectedPackage.fields);
+    if (deps.length > 0) {
+      setDeleteGuard({ fieldId, fieldName: field.name, deps, replacementFieldId: "" });
+      return;
+    }
     useDocupleteStore.getState().removeMappingsForField(fieldId);
     updateSelectedPackage((pkg) => ({
       ...pkg,
-      fields: pkg.fields.filter((field) => field.id !== fieldId),
+      fields: pkg.fields.filter((f) => f.id !== fieldId),
     }));
     setSelectedFieldId(null);
     setSelectedMappingId(null);
+  }
+
+  function confirmDelete() {
+    if (!deleteGuard || !selectedPackage) return;
+    const { fieldId, deps, replacementFieldId } = deleteGuard;
+    if (replacementFieldId) {
+      const store = useDocupleteStore.getState();
+      store.setMappings(store.mappings.map((m) =>
+        m.fieldId === fieldId ? { ...m, fieldId: replacementFieldId } : m
+      ));
+      updateSelectedPackage((pkg) => ({
+        ...pkg,
+        fields: pkg.fields
+          .map((f) => {
+            let u = { ...f };
+            if (f.condition?.fieldId === fieldId)
+              u = { ...u, condition: { ...f.condition, fieldId: replacementFieldId } };
+            if (f.condition2?.fieldId === fieldId)
+              u = { ...u, condition2: { ...f.condition2, fieldId: replacementFieldId } };
+            if (f.copyFrom?.whenFieldId === fieldId)
+              u = { ...u, copyFrom: { ...f.copyFrom!, whenFieldId: replacementFieldId } };
+            if (f.copyFrom?.fieldId === fieldId)
+              u = { ...u, copyFrom: { ...f.copyFrom!, fieldId: replacementFieldId } };
+            return u;
+          })
+          .filter((f) => f.id !== fieldId),
+      }));
+    } else {
+      useDocupleteStore.getState().removeMappingsForField(fieldId);
+      updateSelectedPackage((pkg) => ({
+        ...pkg,
+        fields: pkg.fields.filter((f) => f.id !== fieldId),
+      }));
+      const newRefs = [...brokenRefs, ...deps];
+      setBrokenRefs(newRefs);
+      saveBrokenRefs(selectedPackage.id, newRefs);
+    }
+    setSelectedFieldId(null);
+    setSelectedMappingId(null);
+    setDeleteGuard(null);
   }
 
   function copyField(sourceFieldId: string) {
@@ -4375,6 +4490,7 @@ export default function Docuplete() {
             documentPreviewCache={documentPreviewCache}
             documentPreviewCacheOrder={documentPreviewCacheOrder}
             autoSaveStatus={autoSaveStatus}
+            brokenRefs={brokenRefs}
           />
         )
       )}
@@ -4831,6 +4947,60 @@ export default function Docuplete() {
         packageFields={selectedPackage?.fields ?? []}
         colorPalette={FIELD_COLOR_PALETTE}
       />
+
+      {deleteGuard && selectedPackage && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-[1px]">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-5 border border-[#DDD5C4] mx-4">
+            <h3 className="text-base font-semibold text-[#0F1C3F] mb-1">Remove "{deleteGuard.fieldName}"?</h3>
+            <p className="text-sm text-[#6B7A99] mb-3">
+              {deleteGuard.deps.length === 1 ? "1 other field references" : `${deleteGuard.deps.length} other fields reference`} this field.
+              Removing it without a replacement will leave those references broken.
+            </p>
+            <ul className="mb-4 space-y-1.5 max-h-48 overflow-y-auto">
+              {deleteGuard.deps.map((dep) => (
+                <li key={dep.id} className="flex items-start gap-2 text-sm rounded bg-amber-50 border border-amber-200 px-3 py-1.5">
+                  <span className="text-amber-600 mt-px shrink-0">⚠</span>
+                  <div>
+                    <span className="font-medium text-[#0F1C3F]">{dep.affectedFieldName}</span>
+                    <span className="text-[#6B7A99]"> — {brokenRefKindLabel(dep.kind)}</span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <div className="mb-4">
+              <label className="text-xs font-medium text-[#4A5568] mb-1.5 block">
+                Replace references with:
+                <span className="font-normal text-[#8A9BB8] ml-1">(leave blank to mark for manual repair)</span>
+              </label>
+              <select
+                value={deleteGuard.replacementFieldId}
+                onChange={(e) => setDeleteGuard((g) => g ? { ...g, replacementFieldId: e.target.value } : null)}
+                className="w-full border border-[#DDD5C4] rounded-md h-9 px-2.5 text-sm bg-white text-[#0F1C3F] focus:outline-none focus:border-[#C49A38]"
+              >
+                <option value="">— none, mark for repair later —</option>
+                {selectedPackage.fields
+                  .filter((f) => f.id !== deleteGuard.fieldId)
+                  .map((f) => <option key={f.id} value={f.id}>{f.name}</option>)
+                }
+              </select>
+            </div>
+            <div className="flex gap-2 justify-end">
+              <button
+                type="button"
+                onClick={() => setDeleteGuard(null)}
+                className="px-4 py-2 text-sm rounded-md border border-[#DDD5C4] text-[#6B7A99] hover:border-[#C49A38] hover:text-[#0F1C3F] transition-colors"
+              >Cancel</button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                className="px-4 py-2 text-sm rounded-md bg-red-600 text-white hover:bg-red-700 transition-colors font-medium"
+              >
+                {deleteGuard.replacementFieldId ? "Replace & Remove" : "Remove & Flag for Repair"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,5 +1,16 @@
 export type FieldInterviewMode = "required" | "optional" | "readonly" | "omitted";
 
+export type BrokenReferenceKind = "condition" | "condition2" | "copyFrom_trigger" | "copyFrom_source";
+
+export type BrokenReference = {
+  id: string;
+  deletedFieldId: string;
+  deletedFieldName: string;
+  kind: BrokenReferenceKind;
+  affectedFieldId: string;
+  affectedFieldName: string;
+};
+
 export type FieldCondition = {
   fieldId: string;
   operator: "equals" | "not_equals" | "is_answered" | "is_not_answered";
