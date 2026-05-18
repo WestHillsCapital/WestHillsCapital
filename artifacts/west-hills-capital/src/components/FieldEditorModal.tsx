@@ -446,7 +446,20 @@ export function FieldEditorModal({
                     <label className="text-xs text-[#6B7A99] mb-1 block">When this field</label>
                     <select
                       value={draft.copyFrom.whenFieldId}
-                      onChange={(e) => setDraft((d) => ({ ...d, copyFrom: d.copyFrom ? { ...d.copyFrom, whenFieldId: e.target.value } : null }))}
+                      onChange={(e) => {
+                        const newId = e.target.value;
+                        const newTrigger = packageFields.find((f) => f.id === newId);
+                        const newOpts = (newTrigger?.type === "radio" || newTrigger?.type === "dropdown" || newTrigger?.type === "checkbox")
+                          ? (newTrigger.options ?? []) : [];
+                        setDraft((d) => ({
+                          ...d,
+                          copyFrom: d.copyFrom ? {
+                            ...d.copyFrom,
+                            whenFieldId: newId,
+                            whenValue: newOpts.length > 0 && !newOpts.includes(d.copyFrom.whenValue) ? "" : d.copyFrom.whenValue,
+                          } : null,
+                        }));
+                      }}
                       className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
                     >
                       <option value="">— select trigger field —</option>
@@ -457,11 +470,27 @@ export function FieldEditorModal({
                   </div>
                   <div>
                     <label className="text-xs text-[#6B7A99] mb-1 block">Equals</label>
-                    <Input
-                      placeholder="e.g. Spouse"
-                      value={draft.copyFrom.whenValue}
-                      onChange={(e) => setDraft((d) => ({ ...d, copyFrom: d.copyFrom ? { ...d.copyFrom, whenValue: e.target.value } : null }))}
-                    />
+                    {(() => {
+                      const triggerField = packageFields.find((f) => f.id === draft.copyFrom!.whenFieldId);
+                      const triggerOpts = (triggerField?.type === "radio" || triggerField?.type === "dropdown" || triggerField?.type === "checkbox")
+                        ? (triggerField.options ?? []) : [];
+                      return triggerOpts.length > 0 ? (
+                        <select
+                          value={draft.copyFrom!.whenValue}
+                          onChange={(e) => setDraft((d) => ({ ...d, copyFrom: d.copyFrom ? { ...d.copyFrom, whenValue: e.target.value } : null }))}
+                          className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                        >
+                          <option value="">— select value —</option>
+                          {triggerOpts.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                        </select>
+                      ) : (
+                        <Input
+                          placeholder="e.g. Spouse"
+                          value={draft.copyFrom!.whenValue}
+                          onChange={(e) => setDraft((d) => ({ ...d, copyFrom: d.copyFrom ? { ...d.copyFrom, whenValue: e.target.value } : null }))}
+                        />
+                      );
+                    })()}
                   </div>
                 </div>
               )}

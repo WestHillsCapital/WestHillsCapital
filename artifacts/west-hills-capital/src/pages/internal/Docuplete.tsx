@@ -875,7 +875,7 @@ export default function Docuplete() {
       setBrokenRefs(surviving);
       saveBrokenRefs(selectedPackage.id, surviving);
     }
-  }); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selectedPackage, brokenRefs]); // eslint-disable-line react-hooks/exhaustive-deps
   const selectedFieldIsShared = Boolean(selectedField?.libraryFieldId);
   const storeMappings = useDocupleteStore((s) => s.mappings);
   const storeRecipientList = useDocupleteStore((s) => s.recipientList);
