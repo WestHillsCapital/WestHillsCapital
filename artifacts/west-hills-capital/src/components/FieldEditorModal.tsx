@@ -318,11 +318,27 @@ export function FieldEditorModal({
                   {(draft.condition.operator === "equals" || draft.condition.operator === "not_equals") && (
                     <div>
                       <label className="text-xs text-[#6B7A99] mb-1 block">Value</label>
-                      <Input
-                        placeholder="Enter expected value"
-                        value={draft.condition.value}
-                        onChange={(e) => setDraft((d) => ({ ...d, condition: d.condition ? { ...d.condition, value: e.target.value } : null }))}
-                      />
+                      {(() => {
+                        const triggerField = packageFields.find((f) => f.id === draft.condition!.fieldId);
+                        const triggerOpts = (triggerField?.type === "radio" || triggerField?.type === "dropdown" || triggerField?.type === "checkbox")
+                          ? (triggerField.options ?? []).filter(Boolean) : [];
+                        return triggerOpts.length > 0 ? (
+                          <select
+                            value={draft.condition!.value}
+                            onChange={(e) => setDraft((d) => ({ ...d, condition: d.condition ? { ...d.condition, value: e.target.value } : null }))}
+                            className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                          >
+                            <option value="">— select value —</option>
+                            {triggerOpts.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                          </select>
+                        ) : (
+                          <Input
+                            placeholder="Enter expected value"
+                            value={draft.condition!.value}
+                            onChange={(e) => setDraft((d) => ({ ...d, condition: d.condition ? { ...d.condition, value: e.target.value } : null }))}
+                          />
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -383,11 +399,27 @@ export function FieldEditorModal({
                       {(draft.condition2.operator === "equals" || draft.condition2.operator === "not_equals") && (
                         <div>
                           <label className="text-xs text-[#6B7A99] mb-1 block">Value</label>
-                          <Input
-                            placeholder="Enter expected value"
-                            value={draft.condition2.value}
-                            onChange={(e) => setDraft((d) => ({ ...d, condition2: d.condition2 ? { ...d.condition2, value: e.target.value } : null }))}
-                          />
+                          {(() => {
+                            const triggerField2 = packageFields.find((f) => f.id === draft.condition2!.fieldId);
+                            const triggerOpts2 = (triggerField2?.type === "radio" || triggerField2?.type === "dropdown" || triggerField2?.type === "checkbox")
+                              ? (triggerField2.options ?? []).filter(Boolean) : [];
+                            return triggerOpts2.length > 0 ? (
+                              <select
+                                value={draft.condition2!.value}
+                                onChange={(e) => setDraft((d) => ({ ...d, condition2: d.condition2 ? { ...d.condition2, value: e.target.value } : null }))}
+                                className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                              >
+                                <option value="">— select value —</option>
+                                {triggerOpts2.map((opt) => <option key={opt} value={opt}>{opt}</option>)}
+                              </select>
+                            ) : (
+                              <Input
+                                placeholder="Enter expected value"
+                                value={draft.condition2!.value}
+                                onChange={(e) => setDraft((d) => ({ ...d, condition2: d.condition2 ? { ...d.condition2, value: e.target.value } : null }))}
+                              />
+                            );
+                          })()}
                         </div>
                       )}
                     </div>
@@ -564,12 +596,30 @@ export function FieldEditorModal({
                   </TooltipContent>
                 </Tooltip>
               </div>
-              <Input
-                value={draft.sumGroup}
-                onChange={(e) => setDraft((d) => ({ ...d, sumGroup: e.target.value }))}
-                placeholder="e.g. primary_beneficiary (optional)"
-                className="text-xs"
-              />
+              {(() => {
+                const existingGroups = [...new Set(
+                  packageFields
+                    .filter((f) => f.id !== modal.fieldId && f.sumGroup?.trim())
+                    .map((f) => f.sumGroup!.trim())
+                )];
+                const listId = `sum-group-list-${modal.fieldId ?? "new"}`;
+                return (
+                  <>
+                    <input
+                      list={listId}
+                      value={draft.sumGroup}
+                      onChange={(e) => setDraft((d) => ({ ...d, sumGroup: e.target.value }))}
+                      placeholder={existingGroups.length > 0 ? "Select or type a group name…" : "e.g. primary_beneficiary (optional)"}
+                      className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                    />
+                    {existingGroups.length > 0 && (
+                      <datalist id={listId}>
+                        {existingGroups.map((g) => <option key={g} value={g} />)}
+                      </datalist>
+                    )}
+                  </>
+                );
+              })()}
               {draft.sumGroup.trim() && (
                 <p className="text-[10px] text-[#7A6A3A]">
                   All visible fields tagged <strong>{draft.sumGroup.trim()}</strong> must sum to 100% before the client can advance.
