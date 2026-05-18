@@ -885,23 +885,32 @@ export default function Docuplete() {
     if (!session) return;
     const prefill = (session.prefill ?? {}) as Record<string, string>;
     const updates: Record<string, string> = {};
+    const copyFromFields = session.fields.filter((f) => f.copyFrom?.fieldId && f.copyFrom.whenFieldId);
+    if (copyFromFields.length > 0) {
+      console.group("[copyFrom:staff] effect — answers keys:", Object.keys(answers).join(", ") || "(none)");
+      console.log("prefill keys:", Object.keys(prefill).join(", ") || "(none)");
+    }
     for (const field of session.fields) {
       if (!field.copyFrom?.fieldId || !field.copyFrom.whenFieldId) continue;
       const { fieldId, whenFieldId, whenValue } = field.copyFrom;
-      // Use interviewFieldValue() so readonly/prefill-sourced fields are resolved
-      // via semantic key lookup (e.g. prefill["addressLine1"]) not just by field ID.
       const whenField = session.fields.find((f) => f.id === whenFieldId);
       const triggerVal = whenField
         ? interviewFieldValue(whenField, answers, prefill)
         : (answers[whenFieldId] ?? String(prefill[whenFieldId] ?? ""));
       const conditionMet = triggerVal.toLowerCase().trim() === whenValue.toLowerCase().trim();
+      console.log(`  field "${field.name}" (${field.id}): whenField="${whenField?.name ?? "NOT FOUND (id="+whenFieldId+")"}" triggerVal="${triggerVal}" whenValue="${whenValue}" conditionMet=${conditionMet}`);
       if (conditionMet) {
         const sourceField = session.fields.find((f) => f.id === fieldId);
         const sourceVal = sourceField
           ? interviewFieldValue(sourceField, answers, prefill)
           : (answers[fieldId] ?? String(prefill[fieldId] ?? ""));
+        console.log(`    → sourceField="${sourceField?.name ?? "NOT FOUND (id="+fieldId+")"}" sourceVal="${sourceVal}" currentAnswer="${answers[field.id] ?? ""}" willUpdate=${sourceVal !== "" && answers[field.id] !== sourceVal}`);
         if (sourceVal && answers[field.id] !== sourceVal) updates[field.id] = sourceVal;
       }
+    }
+    if (copyFromFields.length > 0) {
+      console.log("  updates:", updates);
+      console.groupEnd();
     }
     if (Object.keys(updates).length > 0) {
       setAnswers((prev) => ({ ...prev, ...updates }));
