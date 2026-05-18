@@ -32,6 +32,7 @@ import FieldLibraryOverview from "@/pages/docs/field-library/FieldLibraryOvervie
 import AddingLibraryFields from "@/pages/docs/field-library/AddingLibraryFields";
 import EditingSharedFields from "@/pages/docs/field-library/EditingSharedFields";
 import FieldLibraryBestPractices from "@/pages/docs/field-library/FieldLibraryBestPractices";
+import FieldLibraryImportExport from "@/pages/docs/field-library/FieldLibraryImportExport";
 
 import SendingSessions from "@/pages/docs/sending/Sessions";
 import Experience from "@/pages/docs/sending/Experience";
@@ -140,6 +141,7 @@ function Router() {
         <Route path="/field-library/overview" component={FieldLibraryOverview} />
         <Route path="/field-library/adding" component={AddingLibraryFields} />
         <Route path="/field-library/editing" component={EditingSharedFields} />
+        <Route path="/field-library/import-export" component={FieldLibraryImportExport} />
         <Route path="/field-library/best-practices" component={FieldLibraryBestPractices} />
 
         {/* Sending to Clients */}

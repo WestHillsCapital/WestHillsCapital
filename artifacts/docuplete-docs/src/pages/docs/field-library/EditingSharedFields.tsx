@@ -34,6 +34,22 @@ export default function EditingSharedFields() {
       <h2>Viewing usage</h2>
       <p>Each library field shows a list of packages that currently import it. Click <strong>Used in X packages</strong> to see the full list. This is useful before making any changes to understand downstream impact.</p>
 
+      <h2>Bulk editing via CSV import</h2>
+      <p>When you need to update many fields at once — for example, marking a set of fields as required, toggling sensitive, or reorganizing sort order — the CSV round-trip is faster than editing each field individually:</p>
+      <ol>
+        <li>In the Library tab, click <strong>Export → CSV</strong> to download your current field library.</li>
+        <li>Open the file in Excel or Google Sheets. Each row is one field. Edit the columns you want to change (<code>required</code>, <code>sensitive</code>, <code>active</code>, <code>category</code>, <code>sortOrder</code>, <code>validationType</code>, etc.).</li>
+        <li>Save the file as CSV.</li>
+        <li>Click <strong>Import</strong> and select the saved file. A preview shows each row as <strong>Update</strong> (blue — something changed), <strong>No change</strong> (grey — identical to the current definition), or <strong>New</strong> (green — not yet in your library).</li>
+        <li>Review the list and click <strong>Import</strong> to apply. Only rows marked Update are written — unchanged rows are skipped automatically.</li>
+      </ol>
+
+      <div className="callout callout-info">
+        <strong>Booleans are case-insensitive.</strong> Spreadsheet apps like Excel and Google Sheets capitalize boolean values to <code>TRUE</code> / <code>FALSE</code> when saving a CSV. Docuplete accepts any capitalization for the <code>sensitive</code>, <code>required</code>, and <code>active</code> columns — <code>TRUE</code>, <code>true</code>, and <code>True</code> are all treated the same.
+      </div>
+
+      <p>For the full column reference and JSON import details, see <a href="/field-library/import-export">Importing &amp; Exporting Fields</a>.</p>
+
       <h2>Version history and rollback</h2>
       <p>Every save to a library field creates a version entry automatically. To view the history for a field, open it and click the <strong>History</strong> tab. Each entry shows:</p>
       <ul>

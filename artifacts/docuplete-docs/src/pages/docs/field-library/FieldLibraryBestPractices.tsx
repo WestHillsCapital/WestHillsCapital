@@ -60,6 +60,16 @@ export default function FieldLibraryBestPractices() {
       <div className="callout callout-info">
         <strong>Compliance tip:</strong> If your organization is subject to regulatory requirements about what questions are asked and how they are phrased, treat the field library as your source of truth for approved question text. Use version history as your audit trail for any changes.
       </div>
+
+      <h2>Bulk updates via CSV</h2>
+      <p>For changes that affect many fields at once — reclassifying a batch of fields as required, toggling sensitive on a whole category, reordering sort positions — use the export → edit → reimport workflow instead of editing fields one by one:</p>
+      <ol>
+        <li><strong>Export → CSV</strong> from the Library tab.</li>
+        <li>Edit the relevant columns in Excel or Google Sheets.</li>
+        <li><strong>Import</strong> the saved CSV. Only fields with actual differences are updated — identical rows are automatically skipped.</li>
+      </ol>
+      <p>This is also the recommended approach before any large structural change: export first as a backup, make your edits, then import. If anything looks wrong after import, you can roll back individual fields from their version history.</p>
+      <p>See <a href="/field-library/import-export">Importing &amp; Exporting Fields</a> for the full column reference and notes on JSON format.</p>
     </div>
   );
 }

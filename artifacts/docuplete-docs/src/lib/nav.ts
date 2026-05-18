@@ -58,6 +58,7 @@ export const NAV: NavItem[] = [
       { title: "What is the Field Library?", slug: "field-library/overview" },
       { title: "Adding Library Fields", slug: "field-library/adding" },
       { title: "Editing Shared Fields", slug: "field-library/editing" },
+      { title: "Importing & Exporting Fields", slug: "field-library/import-export" },
       { title: "Best Practices", slug: "field-library/best-practices" },
     ],
   },
