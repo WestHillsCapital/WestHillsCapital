@@ -66,6 +66,7 @@ import {
   FieldGroupCreateSchema,
   FieldGroupUpdateSchema,
   FieldLibraryImportSchema,
+  type FieldLibraryImportBody,
   ComplianceTagCreateSchema,
   ComplianceTagUpdateSchema,
   FieldComplianceTagsPatchSchema,
@@ -2353,7 +2354,45 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
     // can still be preserved if their ID already exists in the target library.
     const effectiveIdSet = new Set<string>(effectiveLibrary.map((f) => f.id));
 
+    // Fetch own fields (account_id = this account) for update comparison.
+    // Only own fields can be updated by import; global/inherited fields are always skipped.
+    const { rows: ownFieldRows } = await db.query<Record<string, unknown>>(
+      `SELECT id, lower(label) AS label_lower, category, field_type AS type, source,
+              options, sensitive, required,
+              validation_type AS "validationType",
+              validation_pattern AS "validationPattern",
+              validation_message AS "validationMessage",
+              active, sort_order AS "sortOrder",
+              COALESCE(compliance_tags, '[]'::jsonb) AS "complianceTags"
+         FROM docuplete_fields WHERE account_id = $1`,
+      [accountId],
+    );
+    const ownFieldByLabel = new Map<string, Record<string, unknown>>(
+      ownFieldRows.map((row) => [String(row.label_lower), row]),
+    );
+
+    // Returns true when the import data would change the stored field.
+    // Only compares properties that are explicitly present in the import object.
+    function importFieldChanged(existing: Record<string, unknown>, field: FieldLibraryImportBody["fields"][0]): boolean {
+      if (field.category !== undefined && (cleanText(field.category) || "General") !== String(existing.category ?? "General")) return true;
+      if (field.type !== undefined && normalizeFieldType(field.type) !== String(existing.type ?? "text")) return true;
+      if (field.source !== undefined && (cleanText(field.source) || "interview") !== String(existing.source ?? "interview")) return true;
+      if (field.options !== undefined) {
+        const incomOpts = parseOptions(field.options).slice().sort();
+        const existOpts = (Array.isArray(existing.options) ? existing.options as string[] : []).slice().sort();
+        if (JSON.stringify(incomOpts) !== JSON.stringify(existOpts)) return true;
+      }
+      if (field.sensitive !== undefined && field.sensitive !== (existing.sensitive === true)) return true;
+      if (field.required !== undefined && field.required !== (existing.required === true)) return true;
+      if (field.validationType !== undefined && normalizeValidationType(field.validationType) !== String(existing.validationType ?? "none")) return true;
+      if (field.validationPattern !== undefined && nullableText(field.validationPattern) !== (existing.validationPattern != null ? String(existing.validationPattern) : null)) return true;
+      if (field.validationMessage !== undefined && nullableText(field.validationMessage) !== (existing.validationMessage != null ? String(existing.validationMessage) : null)) return true;
+      if (field.active !== undefined && (field.active !== false) !== (existing.active !== false)) return true;
+      return false;
+    }
+
     let added = 0;
+    let updated = 0;
     let skipped = 0;
     const errors: string[] = [];
 
@@ -2361,7 +2400,56 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
       const label = field.label.trim();
       if (!label) { skipped++; continue; }
       const labelLower = label.toLowerCase();
-      if (existingLabels.has(labelLower)) { skipped++; continue; }
+      if (existingLabels.has(labelLower)) {
+        // Only own fields can be updated; global/inherited fields are skipped.
+        const ownField = ownFieldByLabel.get(labelLower);
+        if (ownField && importFieldChanged(ownField, field)) {
+          const ownId = String(ownField.id);
+          const complianceTags = Array.isArray(field.complianceTags)
+            ? field.complianceTags.filter((t): t is string => typeof t === "string")
+            : (Array.isArray(ownField.complianceTags) ? ownField.complianceTags as string[] : []);
+          try {
+            await db.query(
+              `UPDATE docuplete_fields
+                  SET category           = $2,
+                      field_type         = $3,
+                      source             = $4,
+                      options            = $5::jsonb,
+                      sensitive          = $6,
+                      required           = $7,
+                      validation_type    = $8,
+                      validation_pattern = $9,
+                      validation_message = $10,
+                      active             = $11,
+                      sort_order         = $12,
+                      compliance_tags    = $13::jsonb
+                WHERE id = $1 AND account_id = $14`,
+              [
+                ownId,
+                field.category !== undefined ? cleanText(field.category) || "General" : String(ownField.category ?? "General"),
+                field.type !== undefined ? normalizeFieldType(field.type) : String(ownField.type ?? "text"),
+                field.source !== undefined ? cleanText(field.source) || "interview" : String(ownField.source ?? "interview"),
+                JSON.stringify(field.options !== undefined ? parseOptions(field.options) : (Array.isArray(ownField.options) ? ownField.options : [])),
+                field.sensitive !== undefined ? field.sensitive === true : ownField.sensitive === true,
+                field.required !== undefined ? field.required === true : ownField.required === true,
+                field.validationType !== undefined ? normalizeValidationType(field.validationType) : String(ownField.validationType ?? "none"),
+                field.validationPattern !== undefined ? nullableText(field.validationPattern) : (ownField.validationPattern != null ? String(ownField.validationPattern) : null),
+                field.validationMessage !== undefined ? nullableText(field.validationMessage) : (ownField.validationMessage != null ? String(ownField.validationMessage) : null),
+                field.active !== undefined ? field.active !== false : ownField.active !== false,
+                field.sortOrder !== undefined ? normalizeSortOrder(field.sortOrder) : Number(ownField.sortOrder ?? 100),
+                JSON.stringify(complianceTags),
+                accountId,
+              ],
+            );
+            updated++;
+          } catch (updateErr) {
+            errors.push(`"${label}" (update): ${updateErr instanceof Error ? updateErr.message : String(updateErr)}`);
+          }
+        } else {
+          skipped++;
+        }
+        continue;
+      }
       try {
         let id = field.id ? cleanText(field.id) : fieldLibraryIdFromLabel(label);
         if (!id) id = fieldLibraryIdFromLabel(label);
@@ -2463,7 +2551,7 @@ router.post("/field-library/import", requireAdminRole, async (req, res) => {
       }
     }
 
-    res.json({ added, skipped, errors, groupsAdded, groupsSkipped });
+    res.json({ added, updated, skipped, errors, groupsAdded, groupsSkipped });
   } catch (err) {
     logger.error({ err }, "[Docuplete] Failed to import field library");
     res.status(500).json({ error: "Failed to import field library" });

@@ -44,6 +44,7 @@ export type FieldLibraryImportPayload = {
 
 export type FieldLibraryImportResult = {
   added: number;
+  updated: number;
   skipped: number;
   errors: string[];
   groupsAdded?: number;
@@ -776,6 +777,7 @@ export function FieldLibraryPanel({
   const [importPreview, setImportPreview] = useState<{
     payload: FieldLibraryImportPayload;
     newFields: FieldLibraryImportField[];
+    changedFields: FieldLibraryImportField[];
     dupFields: FieldLibraryImportField[];
   } | null>(null);
   const [importParseError, setImportParseError] = useState<string | null>(null);
@@ -881,17 +883,44 @@ export function FieldLibraryPanel({
           parsed = json;
         }
         const existingLabelSet = new Set(items.map((i) => i.label.trim().toLowerCase()));
+        const existingByLabel = new Map(items.map((i) => [i.label.trim().toLowerCase(), i]));
         const newFields: FieldLibraryImportField[] = [];
+        const changedFields: FieldLibraryImportField[] = [];
         const dupFields: FieldLibraryImportField[] = [];
+
+        function importHasDifferences(f: FieldLibraryImportField, ex: (typeof items)[0]): boolean {
+          if (f.category !== undefined && (f.category || "General").trim() !== (ex.category || "General")) return true;
+          if (f.type !== undefined && f.type !== ex.type) return true;
+          if (f.source !== undefined && (f.source || "interview") !== (ex.source || "interview")) return true;
+          if (f.sensitive !== undefined && f.sensitive !== ex.sensitive) return true;
+          if (f.required !== undefined && f.required !== ex.required) return true;
+          if (f.validationType !== undefined && f.validationType !== ex.validationType) return true;
+          if (f.validationPattern !== undefined && (f.validationPattern ?? null) !== (ex.validationPattern ?? null)) return true;
+          if (f.validationMessage !== undefined && (f.validationMessage ?? null) !== (ex.validationMessage ?? null)) return true;
+          if (f.active !== undefined && f.active !== ex.active) return true;
+          if (f.options !== undefined) {
+            const a = [...f.options].sort().join("|");
+            const b = [...(ex.options ?? [])].sort().join("|");
+            if (a !== b) return true;
+          }
+          return false;
+        }
+
         for (const f of parsed.fields) {
           if (!f.label?.trim()) continue;
-          if (existingLabelSet.has(f.label.trim().toLowerCase())) {
-            dupFields.push(f);
+          const key = f.label.trim().toLowerCase();
+          if (existingLabelSet.has(key)) {
+            const ex = existingByLabel.get(key)!;
+            if (!ex.inherited && !ex.locked && importHasDifferences(f, ex)) {
+              changedFields.push(f);
+            } else {
+              dupFields.push(f);
+            }
           } else {
             newFields.push(f);
           }
         }
-        setImportPreview({ payload: parsed, newFields, dupFields });
+        setImportPreview({ payload: parsed, newFields, changedFields, dupFields });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setImportParseError(isCsv
@@ -1019,13 +1048,18 @@ export function FieldLibraryPanel({
             <div className="px-5 pt-5 pb-3 border-b border-[#EFE8D8]">
               <h2 className="text-sm font-semibold text-[#0F1C3F]">Review import</h2>
               <p className="text-[11px] text-[#6B7A99] mt-0.5">
-                {importPreview.newFields.length} field{importPreview.newFields.length !== 1 ? "s" : ""} will be added
-                {importPreview.dupFields.length > 0 && `, ${importPreview.dupFields.length} already exist and will be skipped`}
-                {(importPreview.payload.fieldGroups ?? []).length > 0 && `, ${(importPreview.payload.fieldGroups ?? []).length} group${(importPreview.payload.fieldGroups ?? []).length !== 1 ? "s" : ""} included`}.
+                {importPreview.newFields.length > 0 && `${importPreview.newFields.length} field${importPreview.newFields.length !== 1 ? "s" : ""} will be added`}
+                {importPreview.newFields.length > 0 && (importPreview.changedFields.length > 0 || importPreview.dupFields.length > 0 || (importPreview.payload.fieldGroups ?? []).length > 0) && ", "}
+                {importPreview.changedFields.length > 0 && `${importPreview.changedFields.length} will be updated`}
+                {importPreview.changedFields.length > 0 && (importPreview.dupFields.length > 0 || (importPreview.payload.fieldGroups ?? []).length > 0) && ", "}
+                {importPreview.dupFields.length > 0 && `${importPreview.dupFields.length} unchanged (skipped)`}
+                {importPreview.dupFields.length > 0 && (importPreview.payload.fieldGroups ?? []).length > 0 && ", "}
+                {(importPreview.payload.fieldGroups ?? []).length > 0 && `${(importPreview.payload.fieldGroups ?? []).length} group${(importPreview.payload.fieldGroups ?? []).length !== 1 ? "s" : ""} included`}
+                {importPreview.newFields.length === 0 && importPreview.changedFields.length === 0 && importPreview.dupFields.length === 0 && (importPreview.payload.fieldGroups ?? []).length === 0 && "No fields found"}.
               </p>
             </div>
             <div className="overflow-y-auto flex-1 px-5 py-3 space-y-1">
-              {importPreview.newFields.length === 0 && importPreview.dupFields.length === 0 && (
+              {importPreview.newFields.length === 0 && importPreview.changedFields.length === 0 && importPreview.dupFields.length === 0 && (
                 <p className="text-[11px] text-[#8A9BB8]">No fields found in this file.</p>
               )}
               {importPreview.newFields.map((f, i) => (
@@ -1034,10 +1068,16 @@ export function FieldLibraryPanel({
                   <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] font-medium text-[10px]">New</span>
                 </div>
               ))}
+              {importPreview.changedFields.map((f, i) => (
+                <div key={i} className="flex items-center justify-between gap-2 text-[11px]">
+                  <span className="text-[#0F1C3F] truncate">{f.label}</span>
+                  <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#EFF6FF] text-[#1D4ED8] font-medium text-[10px]">Update</span>
+                </div>
+              ))}
               {importPreview.dupFields.map((f, i) => (
                 <div key={i} className="flex items-center justify-between gap-2 text-[11px] opacity-50">
                   <span className="text-[#0F1C3F] truncate">{f.label}</span>
-                  <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#F0F0F0] text-[#9CA3AF] font-medium text-[10px]">Duplicate</span>
+                  <span className="shrink-0 inline-flex items-center px-1.5 py-0.5 rounded-full bg-[#F0F0F0] text-[#9CA3AF] font-medium text-[10px]">No change</span>
                 </div>
               ))}
               {(importPreview.payload.fieldGroups ?? []).length > 0 && (
@@ -1053,15 +1093,17 @@ export function FieldLibraryPanel({
               <button type="button" onClick={() => setImportPreview(null)} disabled={importLoading} className="text-xs text-[#6B7A99] hover:text-[#0F1C3F] disabled:opacity-50">Cancel</button>
               <button
                 type="button"
-                disabled={importLoading || (importPreview.newFields.length === 0 && (importPreview.payload.fieldGroups ?? []).length === 0)}
+                disabled={importLoading || (importPreview.newFields.length === 0 && importPreview.changedFields.length === 0 && (importPreview.payload.fieldGroups ?? []).length === 0)}
                 onClick={() => void handleImportConfirm()}
                 className="text-xs bg-[#1B4FD8] text-white rounded px-3 py-1.5 disabled:opacity-50 hover:bg-[#1540B0] transition-colors"
               >
                 {importLoading
                   ? "Importing…"
-                  : importPreview.newFields.length > 0
-                    ? `Import ${importPreview.newFields.length} field${importPreview.newFields.length !== 1 ? "s" : ""}`
-                    : `Import ${(importPreview.payload.fieldGroups ?? []).length} group${(importPreview.payload.fieldGroups ?? []).length !== 1 ? "s" : ""}`}
+                  : (() => {
+                      const actionCount = importPreview.newFields.length + importPreview.changedFields.length;
+                      if (actionCount > 0) return `Import ${actionCount} field${actionCount !== 1 ? "s" : ""}`;
+                      return `Import ${(importPreview.payload.fieldGroups ?? []).length} group${(importPreview.payload.fieldGroups ?? []).length !== 1 ? "s" : ""}`;
+                    })()}
               </button>
             </div>
           </div>
@@ -1070,9 +1112,14 @@ export function FieldLibraryPanel({
       {importResult && (
         <div className="mb-2 rounded bg-[#ECFDF5] border border-[#A7F3D0] text-[#065F46] px-3 py-2 text-[11px] flex items-start justify-between gap-2">
           <span>
-            Added {importResult.added} field{importResult.added !== 1 ? "s" : ""}
-            {importResult.skipped > 0 && `, skipped ${importResult.skipped} duplicate${importResult.skipped !== 1 ? "s" : ""}`}
-            {(importResult.groupsAdded ?? 0) > 0 && `, added ${importResult.groupsAdded} group${(importResult.groupsAdded ?? 0) !== 1 ? "s" : ""}`}
+            {importResult.added > 0 && `Added ${importResult.added} field${importResult.added !== 1 ? "s" : ""}`}
+            {importResult.added > 0 && (importResult.updated > 0 || importResult.skipped > 0 || (importResult.groupsAdded ?? 0) > 0) && ", "}
+            {(importResult.updated ?? 0) > 0 && `updated ${importResult.updated}`}
+            {(importResult.updated ?? 0) > 0 && (importResult.skipped > 0 || (importResult.groupsAdded ?? 0) > 0) && ", "}
+            {importResult.skipped > 0 && `${importResult.skipped} unchanged (skipped)`}
+            {importResult.skipped > 0 && (importResult.groupsAdded ?? 0) > 0 && ", "}
+            {(importResult.groupsAdded ?? 0) > 0 && `added ${importResult.groupsAdded} group${(importResult.groupsAdded ?? 0) !== 1 ? "s" : ""}`}
+            {importResult.added === 0 && (importResult.updated ?? 0) === 0 && importResult.skipped === 0 && (importResult.groupsAdded ?? 0) === 0 && "Nothing to import"}
             {importResult.errors.length > 0 && ` — ${importResult.errors.length} error${importResult.errors.length !== 1 ? "s" : ""}`}.
           </span>
           <button type="button" onClick={() => setImportResult(null)} className="text-[#065F46] opacity-60 hover:opacity-100 shrink-0">✕</button>
