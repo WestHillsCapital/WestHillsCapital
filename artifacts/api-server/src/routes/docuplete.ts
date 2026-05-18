@@ -6187,7 +6187,7 @@ publicDocupleteRouter.patch("/sessions/:token", async (req, res) => {
     const inputAnswers: Record<string, unknown> = getRecord(body.answers);
     let answersParam: string = jsonParam(inputAnswers);
     let ciphertextParam: string | null = null;
-    if (isEncryptionEnabled()) {
+    if (isEncryptionEnabled() && accountId != null) {
       try {
         const dek = await getOrCreateAccountDek(accountId, db);
         ciphertextParam = encryptAnswers(inputAnswers, dek);
@@ -6195,7 +6195,7 @@ publicDocupleteRouter.patch("/sessions/:token", async (req, res) => {
       } catch (encErr) {
         // Log at ERROR so this is visible — but store plaintext rather than
         // failing with a 500. Answers are saved; encryption is degraded.
-        logger.error({ err: encErr, accountId, token: req.params.token },
+        logger.error({ err: encErr, accountId, tokenPrefix: String(req.params.token).slice(0, 12) },
           "[Encryption] Failed to encrypt session answers on PATCH — storing plaintext (investigate DEK)");
       }
     }
