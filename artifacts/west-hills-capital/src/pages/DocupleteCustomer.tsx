@@ -560,6 +560,31 @@ export default function DocupleteCustomer() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageStatus]);
 
+  // Auto-fill copyFrom fields: when a trigger condition is met (e.g. "primary
+  // beneficiary = spouse"), copy the configured source field value into the
+  // target field so the customer sees it pre-populated instead of blank.
+  useEffect(() => {
+    if (!session) return;
+    const updates: Record<string, string> = {};
+    for (const field of session.fields) {
+      if (!field.copyFrom?.fieldId || !field.copyFrom.whenFieldId) continue;
+      const { fieldId, whenFieldId, whenValue } = field.copyFrom;
+      const conditionMet = (answers[whenFieldId] ?? "").toLowerCase().trim() === whenValue.toLowerCase().trim();
+      if (conditionMet) {
+        const sourceVal = answers[fieldId] ?? String((session.prefill as Record<string, string>)?.[fieldId] ?? "");
+        if (sourceVal && answers[field.id] !== sourceVal) updates[field.id] = sourceVal;
+      }
+    }
+    if (Object.keys(updates).length > 0) {
+      setAnswers((prev) => {
+        const next = { ...prev, ...updates };
+        scheduleAutoSave(next);
+        return next;
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session, answers]);
+
   function lookupZip(zip: string) {
     if (zipCityLookup[zip] !== undefined) return; // already cached
     fetch(`https://api.zippopotam.us/us/${zip}`)
