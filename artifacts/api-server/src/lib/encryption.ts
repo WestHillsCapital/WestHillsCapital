@@ -110,7 +110,18 @@ export async function getOrCreateAccountDek(accountId: number, db: Pool | PoolCl
 
   let dek: Buffer;
   if (row.encrypted_dek) {
-    dek = decryptDek(row.encrypted_dek);
+    try {
+      dek = decryptDek(row.encrypted_dek);
+    } catch {
+      // The stored DEK was encrypted with a different master key (e.g. after a key
+      // rotation). Regenerate a fresh DEK encrypted with the current key so the
+      // account can resume encrypting new data. Existing ciphertexts encrypted under
+      // the old DEK will no longer be decryptable — they were stored as plaintext
+      // fallback anyway via the try-catch in the PATCH handler.
+      dek = generateDek();
+      const encryptedDek = encryptDek(dek);
+      await db.query(`UPDATE accounts SET encrypted_dek = $1 WHERE id = $2`, [encryptedDek, accountId]);
+    }
   } else {
     dek = generateDek();
     const encryptedDek = encryptDek(dek);
