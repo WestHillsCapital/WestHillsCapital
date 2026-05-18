@@ -1555,7 +1555,7 @@ async function buildPacketPdfBuffer(
         pdfBuffer = row ? await decryptPdfFromDb(row, pkgAccountId, client) : undefined;
       }
       if (!pdfBuffer) continue;
-      const sourcePdf = await PdfLibDocument.load(pdfBuffer, { ignoreEncryption: true });
+      const sourcePdf = await PdfLibDocument.load(pdfBuffer, { ignoreEncryption: true, throwOnInvalidObject: false });
       const copiedPages = await merged.copyPages(sourcePdf, sourcePdf.getPageIndices());
       copiedPages.forEach((page) => merged.addPage(page));
       const documentMappings = mappingsByDocument.get(sourceDoc.id) ?? [];
@@ -1804,7 +1804,7 @@ async function appendSigningCertificatePage(
     signerGeo?: string | null;
   },
 ): Promise<Buffer> {
-  const existing = await PdfLibDocument.load(pdfBytes, { ignoreEncryption: true });
+  const existing = await PdfLibDocument.load(pdfBytes, { ignoreEncryption: true, throwOnInvalidObject: false });
   const cert = await PdfLibDocument.create();
   const helv = await cert.embedFont(StandardFonts.Helvetica);
   const helvB = await cert.embedFont(StandardFonts.HelveticaBold);
