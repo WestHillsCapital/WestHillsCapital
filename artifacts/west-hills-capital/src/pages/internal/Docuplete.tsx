@@ -885,32 +885,45 @@ export default function Docuplete() {
     if (!session) return;
     const prefill = (session.prefill ?? {}) as Record<string, string>;
     const updates: Record<string, string> = {};
-    const copyFromFields = session.fields.filter((f) => f.copyFrom?.fieldId && f.copyFrom.whenFieldId);
-    if (copyFromFields.length > 0) {
-      console.group("[copyFrom:staff] effect — answers keys:", Object.keys(answers).join(", ") || "(none)");
-      console.log("prefill keys:", Object.keys(prefill).join(", ") || "(none)");
-    }
     for (const field of session.fields) {
       if (!field.copyFrom?.fieldId || !field.copyFrom.whenFieldId) continue;
       const { fieldId, whenFieldId, whenValue } = field.copyFrom;
       const whenField = session.fields.find((f) => f.id === whenFieldId);
-      const triggerVal = whenField
+      let triggerVal = whenField
         ? interviewFieldValue(whenField, answers, prefill)
         : (answers[whenFieldId] ?? String(prefill[whenFieldId] ?? ""));
+      // Fallback: if the stored field ID has no value, also check any field with
+      // the same name. This handles stale IDs when a field was re-added after
+      // copyFrom was configured (new ID assigned, old ID still in session.fields).
+      if (!triggerVal && whenField?.name) {
+        const whenName = whenField.name.toLowerCase().trim();
+        for (const f of session.fields) {
+          if (f.id === whenFieldId) continue;
+          if ((f.name ?? "").toLowerCase().trim() === whenName) {
+            const v = interviewFieldValue(f, answers, prefill);
+            if (v) { triggerVal = v; break; }
+          }
+        }
+      }
       const conditionMet = triggerVal.toLowerCase().trim() === whenValue.toLowerCase().trim();
-      console.log(`  field "${field.name}" (${field.id}): whenField="${whenField?.name ?? "NOT FOUND (id="+whenFieldId+")"}" triggerVal="${triggerVal}" whenValue="${whenValue}" conditionMet=${conditionMet}`);
       if (conditionMet) {
         const sourceField = session.fields.find((f) => f.id === fieldId);
-        const sourceVal = sourceField
+        let sourceVal = sourceField
           ? interviewFieldValue(sourceField, answers, prefill)
           : (answers[fieldId] ?? String(prefill[fieldId] ?? ""));
-        console.log(`    → sourceField="${sourceField?.name ?? "NOT FOUND (id="+fieldId+")"}" sourceVal="${sourceVal}" currentAnswer="${answers[field.id] ?? ""}" willUpdate=${sourceVal !== "" && answers[field.id] !== sourceVal}`);
+        // Same name-based fallback for source field.
+        if (!sourceVal && sourceField?.name) {
+          const srcName = sourceField.name.toLowerCase().trim();
+          for (const f of session.fields) {
+            if (f.id === fieldId) continue;
+            if ((f.name ?? "").toLowerCase().trim() === srcName) {
+              const v = interviewFieldValue(f, answers, prefill);
+              if (v) { sourceVal = v; break; }
+            }
+          }
+        }
         if (sourceVal && answers[field.id] !== sourceVal) updates[field.id] = sourceVal;
       }
-    }
-    if (copyFromFields.length > 0) {
-      console.log("  updates:", updates);
-      console.groupEnd();
     }
     if (Object.keys(updates).length > 0) {
       setAnswers((prev) => ({ ...prev, ...updates }));
