@@ -848,9 +848,24 @@ export default function Docuplete() {
     f.interviewMode ? f.interviewMode !== "omitted" : f.interviewVisible !== false;
   const fieldIsRequired = (f: { interviewMode?: string; required?: boolean; interviewVisible?: boolean }) =>
     f.interviewMode === "required" || (f.interviewMode === undefined && f.required === true && f.interviewVisible !== false);
-  function evaluateFieldCondition(condition: FieldCondition | null | undefined, ans: Record<string, string>): boolean {
+  function evaluateFieldCondition(condition: FieldCondition | null | undefined, ans: Record<string, string>, fields?: FieldItem[]): boolean {
     if (!condition || !condition.fieldId) return true;
-    const triggerValue = (ans[condition.fieldId] ?? "").trim();
+    let triggerValue = (ans[condition.fieldId] ?? "").trim();
+    // Name-based fallback: if the stored field ID has no value, check any field
+    // with the same name. Handles stale IDs after a field is re-added.
+    if (!triggerValue && fields) {
+      const named = fields.find((f) => f.id === condition.fieldId);
+      if (named?.name) {
+        const name = named.name.toLowerCase().trim();
+        for (const f of fields) {
+          if (f.id === condition.fieldId) continue;
+          if ((f.name ?? "").toLowerCase().trim() === name) {
+            const v = (ans[f.id] ?? "").trim();
+            if (v) { triggerValue = v; break; }
+          }
+        }
+      }
+    }
     switch (condition.operator) {
       case "equals":          return triggerValue.toLowerCase() === (condition.value ?? "").toLowerCase();
       case "not_equals":      return triggerValue.toLowerCase() !== (condition.value ?? "").toLowerCase();
@@ -859,14 +874,15 @@ export default function Docuplete() {
       default:                return true;
     }
   }
-  function evaluateFieldConditions(f: { condition?: FieldCondition | null; condition2?: FieldCondition | null; conditionOperator?: "and" | "or" }, ans: Record<string, string>): boolean {
-    const c1 = evaluateFieldCondition(f.condition, ans);
+  function evaluateFieldConditions(f: { condition?: FieldCondition | null; condition2?: FieldCondition | null; conditionOperator?: "and" | "or" }, ans: Record<string, string>, fields?: FieldItem[]): boolean {
+    const c1 = evaluateFieldCondition(f.condition, ans, fields);
     if (!f.condition2?.fieldId) return c1;
-    const c2 = evaluateFieldCondition(f.condition2, ans);
+    const c2 = evaluateFieldCondition(f.condition2, ans, fields);
     return (f.conditionOperator ?? "and") === "or" ? c1 || c2 : c1 && c2;
   }
   const visibleInterviewFields = useMemo(() => {
-    const fields = (session?.fields ?? []).filter((f) => fieldInInterview(f) && evaluateFieldConditions(f, answers));
+    const sessionFields = session?.fields ?? [];
+    const fields = sessionFields.filter((f) => fieldInInterview(f) && evaluateFieldConditions(f, answers, sessionFields));
     if (selectedPackage && selectedPackage.fields.length > 0) {
       const orderMap = new Map(selectedPackage.fields.map((f, i) => [f.id, i]));
       return [...fields].sort((a, b) => (orderMap.get(a.id) ?? 9999) - (orderMap.get(b.id) ?? 9999));

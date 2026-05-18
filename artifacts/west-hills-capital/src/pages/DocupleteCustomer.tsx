@@ -117,9 +117,25 @@ function isCityField(field: FieldItem): boolean {
 function evaluateCondition(
   condition: FieldCondition | null | undefined,
   answers: Record<string, string>,
+  fields?: FieldItem[],
 ): boolean {
   if (!condition || !condition.fieldId) return true;
-  const triggerValue = (answers[condition.fieldId] ?? "").trim();
+  let triggerValue = (answers[condition.fieldId] ?? "").trim();
+  // Name-based fallback: if the stored field ID has no value in answers, check
+  // any field with the same name. Handles stale IDs after a field is re-added.
+  if (!triggerValue && fields) {
+    const named = fields.find((f) => f.id === condition.fieldId);
+    if (named?.name) {
+      const name = named.name.toLowerCase().trim();
+      for (const f of fields) {
+        if (f.id === condition.fieldId) continue;
+        if ((f.name ?? "").toLowerCase().trim() === name) {
+          const v = (answers[f.id] ?? "").trim();
+          if (v) { triggerValue = v; break; }
+        }
+      }
+    }
+  }
   switch (condition.operator) {
     case "equals":         return triggerValue.toLowerCase() === (condition.value ?? "").toLowerCase();
     case "not_equals":     return triggerValue.toLowerCase() !== (condition.value ?? "").toLowerCase();
@@ -129,10 +145,10 @@ function evaluateCondition(
   }
 }
 
-function evaluateConditions(field: FieldItem, answers: Record<string, string>): boolean {
-  const c1 = evaluateCondition(field.condition, answers);
+function evaluateConditions(field: FieldItem, answers: Record<string, string>, fields?: FieldItem[]): boolean {
+  const c1 = evaluateCondition(field.condition, answers, fields);
   if (!field.condition2?.fieldId) return c1;
-  const c2 = evaluateCondition(field.condition2, answers);
+  const c2 = evaluateCondition(field.condition2, answers, fields);
   return (field.conditionOperator ?? "and") === "or" ? c1 || c2 : c1 && c2;
 }
 
@@ -699,7 +715,7 @@ export default function DocupleteCustomer() {
       !(hasInitialsStep && (f.type === "initials" || f.id === ESIGN_FIELD_ID_INITIALS)) &&
       // Signature fields are collected in the e-sign consent step — hide from interview
       !(session?.auth_level === "email_otp" && isEsignSignatureField(f)) &&
-      evaluateConditions(f, answers),
+      evaluateConditions(f, answers, session?.fields ?? []),
   );
 
   // Sum group computation — groups visible percent/number fields by sumGroup label
