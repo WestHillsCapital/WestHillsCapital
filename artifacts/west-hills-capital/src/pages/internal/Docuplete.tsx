@@ -883,20 +883,34 @@ export default function Docuplete() {
 
   useEffect(() => {
     if (!session) return;
+    const prefill = (session.prefill ?? {}) as Record<string, string>;
     const updates: Record<string, string> = {};
     for (const field of session.fields) {
       if (!field.copyFrom?.fieldId || !field.copyFrom.whenFieldId) continue;
       const { fieldId, whenFieldId, whenValue } = field.copyFrom;
-      const conditionMet = (answers[whenFieldId] ?? "").toLowerCase().trim() === whenValue.toLowerCase().trim();
+      const triggerVal = answers[whenFieldId] ?? String(prefill[whenFieldId] ?? "");
+      const conditionMet = triggerVal.toLowerCase().trim() === whenValue.toLowerCase().trim();
       if (conditionMet) {
-        const sourceVal = answers[fieldId] ?? String((session.prefill as Record<string, unknown>)?.[fieldId] ?? "");
-        if (answers[field.id] !== sourceVal) updates[field.id] = sourceVal;
+        const sourceVal = answers[fieldId] ?? String(prefill[fieldId] ?? "");
+        if (sourceVal && answers[field.id] !== sourceVal) updates[field.id] = sourceVal;
       }
     }
     if (Object.keys(updates).length > 0) {
       setAnswers((prev) => ({ ...prev, ...updates }));
     }
   }, [session, answers]);
+
+  // Pre-fill the "Send by email" email field from session prefill so the staff
+  // doesn't have to re-type the client email they already have on file.
+  useEffect(() => {
+    if (!session || sigSendEmail) return;
+    const prefillEmail = Object.entries(session.prefill ?? {})
+      .find(([k]) => k.toLowerCase().includes("email"))?.[1]?.trim() ?? "";
+    if (prefillEmail && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(prefillEmail)) {
+      setSigSendEmail(prefillEmail);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
 
   const sessionBasePath = isPublicSession ? "/api/v1/docuplete/public/sessions" : `${docupleteApiPath}/sessions`;
   const csvBatchFieldMap = useMemo<Map<string, FieldItem>>(() => {

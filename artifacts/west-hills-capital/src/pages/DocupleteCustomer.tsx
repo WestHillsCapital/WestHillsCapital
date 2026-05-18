@@ -139,6 +139,9 @@ function currentValue(field: FieldItem, answers: Record<string, string>, prefill
   const ans = answers[field.id];
   if (ans !== undefined) return ans;
 
+  // Check prefill by field.id — used when sendForSignature builds prefill keyed by field ID
+  if (prefill[field.id] !== undefined) return String(prefill[field.id]);
+
   // Check prefill for all field modes (not just readonly)
   const fieldNameLower = field.name.toLowerCase();
   const prefillKey = Object.keys(prefill).find((k) => k.toLowerCase() === fieldNameLower);
@@ -513,9 +516,13 @@ export default function DocupleteCustomer() {
           return;
         }
         setSession(s);
-        // Auto-populate signer-date fields with today's date if not already answered
+        // Build initial answers: start from saved answers, then seed any missing
+        // fields from prefill (sendForSignature stores staff answers by field.id).
         const initialAnswers: Record<string, string> = { ...(s.answers ?? {}) };
         (s.fields ?? []).forEach((f) => {
+          if (!initialAnswers[f.id] && s.prefill?.[f.id]) {
+            initialAnswers[f.id] = String(s.prefill[f.id]);
+          }
           if (isEsignDateField(f) && !initialAnswers[f.id]) {
             initialAnswers[f.id] = todayFormatted();
           }
@@ -565,11 +572,15 @@ export default function DocupleteCustomer() {
   // target field so the customer sees it pre-populated instead of blank.
   useEffect(() => {
     if (!session) return;
+    const prefill = session.prefill as Record<string, string> ?? {};
     const updates: Record<string, string> = {};
     for (const field of session.fields) {
       if (!field.copyFrom?.fieldId || !field.copyFrom.whenFieldId) continue;
       const { fieldId, whenFieldId, whenValue } = field.copyFrom;
-      const conditionMet = (answers[whenFieldId] ?? "").toLowerCase().trim() === whenValue.toLowerCase().trim();
+      // Check answers first, then fall back to prefill (customer sessions seeded
+      // from sendForSignature store staff answers in prefill keyed by field ID).
+      const triggerVal = answers[whenFieldId] ?? String(prefill[whenFieldId] ?? "");
+      const conditionMet = triggerVal.toLowerCase().trim() === whenValue.toLowerCase().trim();
       if (conditionMet) {
         const sourceVal = answers[fieldId] ?? String((session.prefill as Record<string, string>)?.[fieldId] ?? "");
         if (sourceVal && answers[field.id] !== sourceVal) updates[field.id] = sourceVal;

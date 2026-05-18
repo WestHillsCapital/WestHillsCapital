@@ -586,6 +586,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                     {field.sensitive && !isReadonly && (
                       <button
                         type="button"
+                        tabIndex={-1}
                         onClick={() => setDeferredFieldIds((prev) => {
                           const next = new Set(prev);
                           if (next.has(field.id)) next.delete(field.id); else next.add(field.id);

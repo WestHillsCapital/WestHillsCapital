@@ -5555,9 +5555,15 @@ router.post("/sessions/:token/send-link", requireMemberRole, requirePlanFeature(
       mode: emailMode,
     });
 
+    // Also store the recipient email in session prefill under the 'email' key so
+    // DocupleteCustomer can auto-send the OTP without asking the client to type
+    // their email again — they already received this link at that address.
     await db.query(
       `UPDATE docuplete_interview_sessions
-          SET link_emailed_at=NOW(), link_email_recipient=$1, updated_at=NOW()
+          SET link_emailed_at=NOW(),
+              link_email_recipient=$1,
+              prefill = COALESCE(prefill, '{}'::jsonb) || jsonb_build_object('email', $1::text),
+              updated_at=NOW()
         WHERE token=$2
           AND package_id IN (SELECT id FROM docuplete_packages WHERE account_id = $3)`,
       [recipientEmail, req.params.token, acctId(req)],
