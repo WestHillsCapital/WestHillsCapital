@@ -1378,9 +1378,15 @@ function evaluateFieldCondition(
   condition: DocupleteFieldCondition | null | undefined,
   answers: Record<string, unknown>,
   fields?: DocupleteFieldItem[],
+  prefill?: Record<string, unknown>,
 ): boolean {
   if (!condition || !condition.fieldId) return true;
   let triggerValue = String(answers[condition.fieldId] ?? "").trim();
+  // Prefill fallback: if the trigger field wasn't explicitly answered, check
+  // prefill (covers gateway fields whose source maps to a prefill key).
+  if (!triggerValue && prefill) {
+    triggerValue = String(prefill[condition.fieldId] ?? "").trim();
+  }
   // Name-based fallback: if the stored field ID has no value in answers, check
   // any field with the same name. Handles stale IDs after a field is re-added.
   if (!triggerValue && fields) {
@@ -1390,7 +1396,7 @@ function evaluateFieldCondition(
       for (const f of fields) {
         if (f.id === condition.fieldId) continue;
         if ((f.name ?? "").toLowerCase().trim() === name) {
-          const v = String(answers[f.id] ?? "").trim();
+          const v = String(answers[f.id] ?? "").trim() || String(prefill?.[f.id] ?? "").trim();
           if (v) { triggerValue = v; break; }
         }
       }
@@ -1411,7 +1417,13 @@ function validateSessionAnswers(session: Record<string, unknown>): { valid: bool
   const fields = parseFields(session.fields);
   const missingFields: string[] = [];
   const errors: string[] = [];
-  fields.filter((f) => fieldInInterview(f) && f.interviewMode !== "readonly" && evaluateFieldCondition(f.condition, answers, fields) && evaluateFieldCondition(f.condition2, answers, fields)).forEach((field) => {
+  fields.filter((f) => {
+    if (!fieldInInterview(f) || f.interviewMode === "readonly") return false;
+    const c1 = evaluateFieldCondition(f.condition, answers, fields, prefill);
+    const c2 = evaluateFieldCondition(f.condition2, answers, fields, prefill);
+    const op = (f as { conditionOperator?: string }).conditionOperator;
+    return op === "or" ? (c1 || c2) : (c1 && c2);
+  }).forEach((field) => {
     const value = fieldAnswerValue(field, answers, prefill).trim();
     const fieldLabel = field.name ?? field.label ?? field.id;
     if (fieldIsRequired(field) && !value) {
@@ -1598,7 +1610,11 @@ async function buildPacketPdfBuffer(
       for (const mapping of documentMappings) {
         const field = mapping.fieldId ? fieldsById.get(mapping.fieldId) : undefined;
         if (!field) continue;
-        if (!evaluateFieldCondition(field.condition, answers, fields) || !evaluateFieldCondition(field.condition2, answers, fields)) continue;
+        const c1 = evaluateFieldCondition(field.condition, answers, fields, prefill);
+        const c2 = evaluateFieldCondition(field.condition2, answers, fields, prefill);
+        const condOp = (field as { conditionOperator?: string }).conditionOperator;
+        const conditionPasses = condOp === "or" ? (c1 || c2) : (c1 && c2);
+        if (!conditionPasses) continue;
         const pageIndex = Math.max(Number(mapping.page ?? 1) - 1, 0);
         const page = merged.getPages()[merged.getPageCount() - copiedPages.length + pageIndex];
         if (!page) continue;
@@ -1698,7 +1714,13 @@ async function buildPacketPdfBuffer(
           continue;
         }
 
-        const value = fieldAnswerValue(field, answers, prefill);
+        let value = fieldAnswerValue(field, answers, prefill);
+        // Auto-format SSN: if the field has validationType "ssn" and the stored
+        // value is 9 raw digits (no dashes), reformat as NNN-NN-NNNN for the PDF.
+        if (field.validationType === "ssn" && value) {
+          const digits = value.replace(/\D+/g, "");
+          if (digits.length === 9) value = `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+        }
         const mappedValue = formatDocupleteMappedValue(value, mapping);
         if (!mappedValue) continue;
         // Checkbox/radio marks: auto-derive font size from box height so the mark
