@@ -781,6 +781,60 @@ export function FieldLibraryPanel({
   const [importParseError, setImportParseError] = useState<string | null>(null);
   const [importLoading, setImportLoading] = useState(false);
   const [importResult, setImportResult] = useState<FieldLibraryImportResult | null>(null);
+
+  function parseCsvLine(line: string): string[] {
+    const cols: string[] = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (inQuotes) {
+        if (ch === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+        else if (ch === '"') { inQuotes = false; }
+        else { cur += ch; }
+      } else {
+        if (ch === '"') { inQuotes = true; }
+        else if (ch === ',') { cols.push(cur); cur = ""; }
+        else { cur += ch; }
+      }
+    }
+    cols.push(cur);
+    return cols;
+  }
+
+  function parseCsvToFieldLibrary(csvText: string): FieldLibraryImportPayload {
+    const lines = csvText.split(/\r?\n/).filter((l) => l.trim());
+    if (lines.length < 2) throw new Error("CSV must have a header row and at least one data row.");
+    const headers = parseCsvLine(lines[0]).map((h) => h.trim().toLowerCase());
+    if (!headers.includes("label")) throw new Error("CSV is missing a required \"label\" column.");
+    const col = (name: string) => headers.indexOf(name);
+    const fields: FieldLibraryImportField[] = [];
+    for (let i = 1; i < lines.length; i++) {
+      const vals = parseCsvLine(lines[i]);
+      const get = (name: string) => (col(name) >= 0 ? (vals[col(name)] ?? "").trim() : "");
+      const label = get("label");
+      if (!label) continue;
+      const optStr = get("options");
+      const tagStr = get("compliancetags");
+      fields.push({
+        label,
+        ...(get("category")          && { category:          get("category") }),
+        ...(get("type")              && { type:              get("type") }),
+        ...(get("source")            && { source:            get("source") }),
+        ...(get("sensitive")         && { sensitive:         get("sensitive") === "true" }),
+        ...(get("required")          && { required:          get("required")  === "true" }),
+        ...(get("validationtype")    && { validationType:    get("validationtype") }),
+        ...(get("validationpattern") && { validationPattern: get("validationpattern") }),
+        ...(get("validationmessage") && { validationMessage: get("validationmessage") }),
+        ...(get("active") === "false" && { active: false }),
+        ...(get("sortorder")         && { sortOrder:         Number(get("sortorder")) || 100 }),
+        ...(optStr                   && { options:           optStr.split("|").map((s) => s.trim()).filter(Boolean) }),
+        ...(tagStr                   && { complianceTags:    tagStr.split("|").map((s) => s.trim()).filter(Boolean) }),
+      });
+    }
+    if (fields.length === 0) throw new Error("No valid field rows found in CSV.");
+    return { fields };
+  }
   const exportMenuRef = useRef<HTMLDivElement>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
   const [searchQuery, setSearchQuery] = useState("");
@@ -810,13 +864,21 @@ export function FieldLibraryPanel({
     setImportResult(null);
     const file = e.target.files?.[0];
     if (!file) return;
+    const isCsv = file.name.toLowerCase().endsWith(".csv") || file.type === "text/csv";
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const parsed = JSON.parse(ev.target?.result as string) as FieldLibraryImportPayload;
-        if (!parsed || !Array.isArray(parsed.fields)) {
-          setImportParseError("File does not contain a valid field library export (missing \"fields\" array).");
-          return;
+        const text = ev.target?.result as string;
+        let parsed: FieldLibraryImportPayload;
+        if (isCsv) {
+          parsed = parseCsvToFieldLibrary(text);
+        } else {
+          const json = JSON.parse(text) as FieldLibraryImportPayload;
+          if (!json || !Array.isArray(json.fields)) {
+            setImportParseError("File does not contain a valid field library export (missing \"fields\" array).");
+            return;
+          }
+          parsed = json;
         }
         const existingLabelSet = new Set(items.map((i) => i.label.trim().toLowerCase()));
         const newFields: FieldLibraryImportField[] = [];
@@ -830,8 +892,11 @@ export function FieldLibraryPanel({
           }
         }
         setImportPreview({ payload: parsed, newFields, dupFields });
-      } catch {
-        setImportParseError("Could not parse the file — make sure it is a valid JSON export.");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        setImportParseError(isCsv
+          ? `Could not parse CSV — ${msg}`
+          : "Could not parse the file — make sure it is a valid JSON or CSV export.");
       }
     };
     reader.readAsText(file);
@@ -1045,7 +1110,7 @@ export function FieldLibraryPanel({
         <div className="flex items-center gap-2">
           {onImport && (
             <>
-              <input ref={importFileRef} type="file" accept="application/json,.json" className="sr-only" onChange={handleImportFileChange} />
+              <input ref={importFileRef} type="file" accept="application/json,.json,.csv,text/csv" className="sr-only" onChange={handleImportFileChange} />
               <button
                 type="button"
                 onClick={() => { setImportParseError(null); setImportResult(null); importFileRef.current?.click(); }}

@@ -88,7 +88,7 @@ router.get("/source-keys", requireMemberRole, async (req, res) => {
         entry.fields.push({
           fieldId:       f.id,
           fieldLabel:    String(f.label ?? f.name ?? f.id),
-          fieldType:     String(f.field_type ?? "text"),
+          fieldType:     String(f.type ?? "text"),
           sensitive:     f.sensitive === true,
           packageId:     pkg.id,
           packageName:   pkg.name,
