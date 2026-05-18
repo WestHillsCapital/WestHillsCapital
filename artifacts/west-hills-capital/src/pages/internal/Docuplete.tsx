@@ -1703,7 +1703,7 @@ export default function Docuplete() {
     try {
       const res = await fetch(`${API_BASE}${docupleteApiPath}/packages/${pkg.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        headers: { "Content-Type": "application/json", ...getAuthHeadersRef.current() },
         body: JSON.stringify({
           name: pkg.name,
           groupIds: pkg.group_ids ?? [],
@@ -1752,7 +1752,7 @@ export default function Docuplete() {
     try {
       const res = await fetch(`${API_BASE}${docupleteApiPath}/packages/${pkg.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        headers: { "Content-Type": "application/json", ...getAuthHeadersRef.current() },
         body: JSON.stringify({
           name: pkg.name,
           groupIds: pkg.group_ids ?? [],
