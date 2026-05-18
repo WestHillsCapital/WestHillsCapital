@@ -828,7 +828,7 @@ export function FieldLibraryPanel({
         ...(get("validationtype")    && { validationType:    get("validationtype") }),
         ...(get("validationpattern") && { validationPattern: get("validationpattern") }),
         ...(get("validationmessage") && { validationMessage: get("validationmessage") }),
-        ...(get("active") === "false" && { active: false }),
+        ...(get("active") !== ""      && { active: get("active") !== "false" }),
         ...(get("sortorder")         && { sortOrder:         Number(get("sortorder")) || 100 }),
         ...(optStr                   && { options:           optStr.split("|").map((s) => s.trim()).filter(Boolean) }),
         ...(tagStr                   && { complianceTags:    tagStr.split("|").map((s) => s.trim()).filter(Boolean) }),
