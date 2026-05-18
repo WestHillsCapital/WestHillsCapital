@@ -26,6 +26,11 @@ export type FieldItem = {
   conditionOperator?: "and" | "or";
   nameMode?: "inherit" | "override";
   sumGroup?: string;
+  copyFrom?: {
+    fieldId: string;
+    whenFieldId: string;
+    whenValue: string;
+  } | null;
 };
 
 export type MappingFormat =

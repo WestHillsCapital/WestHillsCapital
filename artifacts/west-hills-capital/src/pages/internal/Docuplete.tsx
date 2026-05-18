@@ -600,7 +600,7 @@ export default function Docuplete() {
     document.addEventListener("touchcancel", onEnd);
     fieldEditorDragCleanupRef.current = cleanup;
   }, [fieldEditorPos.x, fieldEditorPos.y]);
-  const [fieldEditorDraft, setFieldEditorDraft] = useState<FieldEditorDraft>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false, condition: null, condition2: null, conditionOperator: "and", sumGroup: "" });
+  const [fieldEditorDraft, setFieldEditorDraft] = useState<FieldEditorDraft>({ name: "", color: "#C49A38", type: "text", options: [], interviewMode: "optional", hasDefault: false, defaultValue: "", validationType: "none", validationPattern: "", validationMessage: "", packageOnly: false, condition: null, condition2: null, conditionOperator: "and", sumGroup: "", copyFrom: null });
   const sortSensors = useSensors(useSensor(SmartPointerSensor, { activationConstraint: { distance: 6 } }));
   const [session, setSession] = useState<Session | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
@@ -880,6 +880,24 @@ export default function Docuplete() {
   const answeredFieldCount = visibleInterviewFields.filter((field) => field.interviewMode !== "readonly" && interviewFieldValue(field, answers, session?.prefill).trim()).length;
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   useEffect(() => { setFieldErrors({}); }, [session?.token]);
+
+  useEffect(() => {
+    if (!session) return;
+    const updates: Record<string, string> = {};
+    for (const field of session.fields) {
+      if (!field.copyFrom?.fieldId || !field.copyFrom.whenFieldId) continue;
+      const { fieldId, whenFieldId, whenValue } = field.copyFrom;
+      const conditionMet = (answers[whenFieldId] ?? "").toLowerCase().trim() === whenValue.toLowerCase().trim();
+      if (conditionMet) {
+        const sourceVal = answers[fieldId] ?? String((session.prefill as Record<string, unknown>)?.[fieldId] ?? "");
+        if (answers[field.id] !== sourceVal) updates[field.id] = sourceVal;
+      }
+    }
+    if (Object.keys(updates).length > 0) {
+      setAnswers((prev) => ({ ...prev, ...updates }));
+    }
+  }, [session, answers]);
+
   const sessionBasePath = isPublicSession ? "/api/v1/docuplete/public/sessions" : `${docupleteApiPath}/sessions`;
   const csvBatchFieldMap = useMemo<Map<string, FieldItem>>(() => {
     if (!csvBatchPackageId) return new Map();
@@ -2828,7 +2846,7 @@ export default function Docuplete() {
       type: "text", options: [], interviewMode: "optional",
       hasDefault: false, defaultValue: "",
       validationType: "none", validationPattern: "", validationMessage: "",
-      packageOnly: false, condition: null, condition2: null, conditionOperator: "and", sumGroup: "",
+      packageOnly: false, condition: null, condition2: null, conditionOperator: "and", sumGroup: "", copyFrom: null,
     });
     setFieldEditorModal({ mode: "add", fieldId: null });
   }
@@ -2848,6 +2866,7 @@ export default function Docuplete() {
       validationMessage: field.validationMessage ?? "",
       packageOnly: false, condition: field.condition ?? null, condition2: field.condition2 ?? null, conditionOperator: field.conditionOperator ?? "and",
       sumGroup: field.sumGroup ?? "",
+      copyFrom: field.copyFrom ?? null,
     });
     setSelectedFieldId(fieldId);
     setFieldEditorModal({ mode: "edit", fieldId });
@@ -3143,7 +3162,7 @@ export default function Docuplete() {
 
   async function saveFieldFromModal() {
     if (!fieldEditorModal || !selectedPackage) return;
-    const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage, packageOnly, condition, condition2, conditionOperator, sumGroup } = fieldEditorDraft;
+    const { name, color, type, options, interviewMode, hasDefault, defaultValue, validationType, validationPattern, validationMessage, packageOnly, condition, condition2, conditionOperator, sumGroup, copyFrom } = fieldEditorDraft;
     const cleanOpts = options.filter(Boolean);
     const isChoiceType = type === "radio" || type === "checkbox";
 
@@ -3196,6 +3215,7 @@ export default function Docuplete() {
         conditionOperator: conditionOperator,
         nameMode: "inherit",
         ...(sumGroup.trim() ? { sumGroup: sumGroup.trim() } : {}),
+        ...(copyFrom?.fieldId ? { copyFrom } : {}),
       };
       setSelectedFieldId(field.id);
       const currentStoreMappings = useDocupleteStore.getState().mappings;
@@ -3229,6 +3249,7 @@ export default function Docuplete() {
           conditionOperator: conditionOperator,
           nameMode,
           sumGroup: sumGroup.trim() || undefined,
+          copyFrom: copyFrom?.fieldId ? copyFrom : undefined,
         } : f),
         mappings: [...currentStoreMappings, ...autoMappings],
       }));

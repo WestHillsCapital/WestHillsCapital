@@ -24,6 +24,7 @@ export type FieldEditorDraft = {
   condition2: FieldCondition | null;
   conditionOperator: "and" | "or";
   sumGroup: string;
+  copyFrom: { fieldId: string; whenFieldId: string; whenValue: string } | null;
 };
 
 interface FieldEditorModalProps {
@@ -397,6 +398,72 @@ export function FieldEditorModal({
                 <p className="mt-1 text-[11px] text-[#7A6A3A] bg-[#FDF8EC] border border-[#E8D9A0] rounded px-2.5 py-1.5 leading-snug">
                   The trigger field doesn't need a PDF placement. A field used only to drive conditions can be left unmapped — it still gates the interview without writing to the document.
                 </p>
+              )}
+            </div>
+          )}
+
+          {/* Copy From — auto-fill from another field when condition is met */}
+          {draft.interviewMode !== "omitted" && draft.interviewMode !== "readonly" && (
+            <div className="space-y-2 rounded border border-[#EFE8D8] bg-[#F8F6F0] px-3 py-3">
+              <div className="flex items-center gap-2">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={draft.copyFrom !== null}
+                    onChange={(e) => setDraft((d) => ({
+                      ...d,
+                      copyFrom: e.target.checked ? { fieldId: "", whenFieldId: "", whenValue: "" } : null,
+                    }))}
+                    className="rounded"
+                  />
+                  <span className="text-sm">Auto-fill from another field when</span>
+                </label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex items-center text-[#8A9BB8] cursor-default"><Info className="w-3 h-3" /></span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs text-xs leading-snug">
+                    <p>When the trigger field equals the specified value, this field is automatically filled with the value from the source field. Useful for copying address fields when a beneficiary relationship is "Spouse".</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              {draft.copyFrom !== null && (
+                <div className="space-y-2 pt-1">
+                  <div>
+                    <label className="text-xs text-[#6B7A99] mb-1 block">Copy value from</label>
+                    <select
+                      value={draft.copyFrom.fieldId}
+                      onChange={(e) => setDraft((d) => ({ ...d, copyFrom: d.copyFrom ? { ...d.copyFrom, fieldId: e.target.value } : null }))}
+                      className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                    >
+                      <option value="">— select source field —</option>
+                      {packageFields
+                        .filter((f) => f.id !== modal.fieldId)
+                        .map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#6B7A99] mb-1 block">When this field</label>
+                    <select
+                      value={draft.copyFrom.whenFieldId}
+                      onChange={(e) => setDraft((d) => ({ ...d, copyFrom: d.copyFrom ? { ...d.copyFrom, whenFieldId: e.target.value } : null }))}
+                      className="w-full border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white"
+                    >
+                      <option value="">— select trigger field —</option>
+                      {packageFields
+                        .filter((f) => f.id !== modal.fieldId)
+                        .map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-[#6B7A99] mb-1 block">Equals</label>
+                    <Input
+                      placeholder="e.g. Spouse"
+                      value={draft.copyFrom.whenValue}
+                      onChange={(e) => setDraft((d) => ({ ...d, copyFrom: d.copyFrom ? { ...d.copyFrom, whenValue: e.target.value } : null }))}
+                    />
+                  </div>
+                </div>
               )}
             </div>
           )}

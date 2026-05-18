@@ -569,14 +569,6 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
               </div>
             </div>
           )}
-          <div className="rounded border border-[#DDD5C4] bg-[#F8F6F0] p-4">
-            <h3 className="text-sm font-semibold mb-2">Prefilled from Deal Builder</h3>
-            <div className="grid sm:grid-cols-2 gap-2 text-xs text-[#6B7A99]">
-              {Object.entries(session.prefill ?? {}).filter(([, value]) => String(value ?? "").trim()).map(([key, value]) => (
-                <div key={key}><span className="font-medium text-[#0F1C3F]">{key}:</span> {getDocupletePrefillDisplayValue(key, value, session.fields)}</div>
-              ))}
-            </div>
-          </div>
           <div className="space-y-3">
             {visibleInterviewFields.filter((f) => !SYSTEM_FIELD_IDS.has(f.id)).map((field) => {
               const mode = field.interviewMode ?? (fieldIsRequired(field) ? "required" : "optional");

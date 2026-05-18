@@ -5452,7 +5452,10 @@ router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
     const body = _parse.data as AnswersInput;
     const db = getDb();
     const accountId = acctId(req);
-    const inputAnswers: Record<string, unknown> = getRecord(body.answers);
+    const rawAnswers: Record<string, unknown> = getRecord(body.answers);
+    const inputAnswers: Record<string, unknown> = Object.fromEntries(
+      Object.entries(rawAnswers).map(([k, v]) => [k, typeof v === "string" ? v.replace(/\u0000/g, "") : v]),
+    );
     let answersParam: string = jsonParam(inputAnswers);
     let ciphertextParam: string | null = null;
     if (isEncryptionEnabled()) {
@@ -5480,7 +5483,8 @@ router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
     }
     res.json({ session });
   } catch (err) {
-    logger.error({ err }, "[Docuplete] Failed to save interview answers");
+    const detail = err instanceof Error ? err.message : String(err);
+    logger.error({ err, detail, token: req.params.token }, "[Docuplete] Failed to save interview answers");
     res.status(500).json({ error: "Failed to save interview answers" });
   }
 });
