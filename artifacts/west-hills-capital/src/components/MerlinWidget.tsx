@@ -4,6 +4,11 @@ const API_BASE = (import.meta.env.VITE_API_URL as string | undefined) ?? "";
 
 const SESSION_STORAGE_KEY = "merlin_widget_history";
 
+const DEFAULT_W = 380;
+const DEFAULT_H = 540;
+const MIN_W = 300;
+const MIN_H = 320;
+
 type Message = {
   id:       string;
   role:     "user" | "assistant";
@@ -14,18 +19,14 @@ type Message = {
 interface MerlinWidgetProps {
   getAuthHeaders: () => HeadersInit;
   brandColor?: string;
-  /** Override the chat endpoint URL. Defaults to the product (Clerk-auth) endpoint. */
   chatUrl?: string;
 }
 
 function WizardHatIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-      {/* Hat body — lower cone + upper section bent hard left so tip sits at x=8 */}
       <path d="M8 2.5C9 5 10 8 10 10C9 12 7.5 14.5 7 17H18C17.5 14.5 15.5 12 15 10C15 7 13 4 8 2.5Z" />
-      {/* Wide brim */}
       <path d="M1 17Q3.5 21.5 12 22Q20.5 21.5 23 17H1Z" />
-      {/* Bow knot */}
       <path d="M11 17L8.5 15.5L10 14.5L12 16L14 14.5L15.5 15.5L13 17L12.5 16.5H11.5L11 17Z" fillOpacity={0.5} />
     </svg>
   );
@@ -35,6 +36,15 @@ function SendIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="w-4 h-4">
       <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" />
+    </svg>
+  );
+}
+
+function GripIcon() {
+  return (
+    <svg viewBox="0 0 16 16" fill="currentColor" className="w-3 h-3 opacity-40">
+      <circle cx="5" cy="5" r="1.2" /><circle cx="11" cy="5" r="1.2" />
+      <circle cx="5" cy="11" r="1.2" /><circle cx="11" cy="11" r="1.2" />
     </svg>
   );
 }
@@ -70,12 +80,49 @@ function ToolCallBadge({ names }: { names: string[] }) {
   );
 }
 
+function renderMarkdown(text: string): React.ReactNode {
+  const parts = text.split(/(```(?:[^\n`]*)?\n[\s\S]*?```)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        const codeMatch = part.match(/^```([^\n]*)\n([\s\S]*)```$/);
+        if (codeMatch) {
+          const code = codeMatch[2].replace(/\n$/, "");
+          return (
+            <pre
+              key={i}
+              className="mt-1.5 mb-1 rounded-md bg-black/10 text-[11px] font-mono overflow-x-auto"
+              style={{ padding: "8px 10px", whiteSpace: "pre", wordBreak: "normal", maxWidth: "100%" }}
+            >
+              {code}
+            </pre>
+          );
+        }
+
+        const segments = part.split(/(\*\*[^*]+\*\*)/g);
+        return (
+          <span key={i} style={{ whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "break-word" }}>
+            {segments.map((seg, j) => {
+              const bold = seg.match(/^\*\*([^*]+)\*\*$/);
+              if (bold) return <strong key={j}>{bold[1]}</strong>;
+              return seg;
+            })}
+          </span>
+        );
+      })}
+    </>
+  );
+}
+
 function MessageBubble({ message, brandColor }: { message: Message; brandColor: string }) {
   const isUser = message.role === "user";
   if (isUser) {
     return (
       <div className="flex justify-end">
-        <div className="max-w-[80%] rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-sm text-white" style={{ backgroundColor: brandColor }}>
+        <div
+          className="max-w-[82%] rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-sm text-white"
+          style={{ backgroundColor: brandColor, wordBreak: "break-word", overflowWrap: "break-word" }}
+        >
           {message.content}
         </div>
       </div>
@@ -84,11 +131,14 @@ function MessageBubble({ message, brandColor }: { message: Message; brandColor: 
   return (
     <div className="flex items-start gap-2">
       <MerlinAvatar brandColor={brandColor} />
-      <div className="max-w-[80%] rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm bg-[#F0EDE8] text-[#0F1C3F]">
+      <div
+        className="min-w-0 flex-1 rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm bg-[#F0EDE8] text-[#0F1C3F] overflow-hidden"
+        style={{ maxWidth: "calc(100% - 36px)" }}
+      >
         {message.thinking ? (
           <span className="text-[#6B7A99]"><ThinkingDots /></span>
         ) : (
-          <span style={{ whiteSpace: "pre-wrap" }}>{message.content}</span>
+          renderMarkdown(message.content)
         )}
       </div>
     </div>
@@ -102,7 +152,6 @@ const SUGGESTED_PROMPTS = [
   "Find me the Gold IRA package",
 ];
 
-// Parse SSE stream and collect chunks/events
 async function* parseSSE(response: Response): AsyncGenerator<Record<string, unknown>> {
   const reader  = response.body!.getReader();
   const decoder = new TextDecoder();
@@ -137,11 +186,18 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
   const [input,        setInput]       = useState("");
   const [isLoading,    setIsLoading]   = useState(false);
   const [activeTools,  setActiveTools] = useState<string[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef       = useRef<HTMLInputElement | null>(null);
   const abortRef       = useRef<AbortController | null>(null);
+  const panelRef       = useRef<HTMLDivElement | null>(null);
 
-  // Derived: has the user ever seen the greeting?
+  const [pos,  setPos]  = useState<{ left: number; top: number } | null>(null);
+  const [size, setSize] = useState({ w: DEFAULT_W, h: DEFAULT_H });
+
+  const dragStateRef   = useRef<{ mx: number; my: number; left: number; top: number } | null>(null);
+  const resizeStateRef = useRef<{ mx: number; my: number; w: number; h: number } | null>(null);
+
   const hasGreeted = messages.length > 0;
 
   const textColor = (() => {
@@ -154,7 +210,6 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
     } catch { return "#ffffff"; }
   })();
 
-  // Persist conversation to sessionStorage
   useEffect(() => {
     const filtered = messages.filter((m) => !m.thinking);
     if (filtered.length > 0) {
@@ -162,7 +217,6 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
     }
   }, [messages]);
 
-  // Show greeting on first open
   useEffect(() => {
     if (open && !hasGreeted) {
       setMessages([{
@@ -180,6 +234,56 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 100);
   }, [open]);
+
+  function startDrag(e: React.MouseEvent) {
+    if (!panelRef.current) return;
+    e.preventDefault();
+    const rect = panelRef.current.getBoundingClientRect();
+    dragStateRef.current = { mx: e.clientX, my: e.clientY, left: rect.left, top: rect.top };
+
+    function onMove(ev: MouseEvent) {
+      if (!dragStateRef.current) return;
+      const newLeft = Math.max(0, Math.min(window.innerWidth  - size.w, dragStateRef.current.left + ev.clientX - dragStateRef.current.mx));
+      const newTop  = Math.max(0, Math.min(window.innerHeight - 60,     dragStateRef.current.top  + ev.clientY - dragStateRef.current.my));
+      setPos({ left: newLeft, top: newTop });
+    }
+
+    function onUp() {
+      dragStateRef.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup",   onUp);
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onUp);
+  }
+
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    resizeStateRef.current = { mx: e.clientX, my: e.clientY, w: size.w, h: size.h };
+
+    function onMove(ev: MouseEvent) {
+      if (!resizeStateRef.current) return;
+      setSize({
+        w: Math.max(MIN_W, resizeStateRef.current.w + ev.clientX - resizeStateRef.current.mx),
+        h: Math.max(MIN_H, resizeStateRef.current.h + ev.clientY - resizeStateRef.current.my),
+      });
+    }
+
+    function onUp() {
+      resizeStateRef.current = null;
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup",   onUp);
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup",   onUp);
+  }
+
+  const panelStyle: React.CSSProperties = pos
+    ? { position: "fixed", left: pos.left, top: pos.top, width: size.w, height: size.h, zIndex: 50 }
+    : { position: "fixed", bottom: 80, right: 20, width: size.w, height: size.h, zIndex: 50 };
 
   async function sendMessage(text?: string) {
     const userText = (text ?? input).trim();
@@ -209,11 +313,8 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
         signal:  abort.signal,
       });
 
-      if (!res.ok || !res.body) {
-        throw new Error("Request failed");
-      }
+      if (!res.ok || !res.body) throw new Error("Request failed");
 
-      // Streaming ID for the assistant reply
       const replyId = crypto.randomUUID();
       let replyText = "";
       let started   = false;
@@ -223,7 +324,6 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
 
         if (event.type === "tool" && Array.isArray(event.names)) {
           setActiveTools(event.names as string[]);
-          // Replace the thinking bubble with a tool-call indicator
           setMessages((prev) => [
             ...prev.filter((m) => m.id !== "thinking"),
             { id: "thinking", role: "assistant", content: "", thinking: true },
@@ -305,13 +405,15 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
       {/* Chat panel */}
       {open && (
         <div
-          className="fixed bottom-20 right-5 z-50 w-[360px] rounded-2xl shadow-2xl border border-[#DDD5C4] bg-white flex flex-col overflow-hidden"
-          style={{ maxHeight: "min(520px, calc(100vh - 120px))" }}
+          ref={panelRef}
+          className="rounded-2xl shadow-2xl border border-[#DDD5C4] bg-white flex flex-col overflow-hidden"
+          style={panelStyle}
         >
-          {/* Header */}
+          {/* Header — drag handle */}
           <div
-            className="px-4 py-3 flex items-center gap-2.5 shrink-0"
-            style={{ backgroundColor: brandColor, color: textColor }}
+            onMouseDown={startDrag}
+            className="px-4 py-3 flex items-center gap-2.5 shrink-0 select-none"
+            style={{ backgroundColor: brandColor, color: textColor, cursor: "grab" }}
           >
             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
               <WizardHatIcon />
@@ -321,8 +423,10 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
               <div className="text-[11px] opacity-70 leading-tight">Docuplete assistant</div>
             </div>
             <button
+              onMouseDown={(e) => e.stopPropagation()}
               onClick={clearConversation}
               className="ml-auto opacity-60 hover:opacity-100 transition-opacity p-1 rounded"
+              style={{ cursor: "pointer" }}
               title="Clear conversation"
               aria-label="Clear and close"
             >
@@ -341,7 +445,6 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
               <MessageBubble key={msg.id} message={msg} brandColor={brandColor} />
             ))}
 
-            {/* Suggested prompts — shown only before first user message */}
             {messages.length === 1 && messages[0].role === "assistant" && (
               <div className="space-y-1.5 pt-1">
                 {SUGGESTED_PROMPTS.map((p) => (
@@ -359,7 +462,7 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
           </div>
 
           {/* Input */}
-          <div className="px-3 pb-3 pt-2 border-t border-[#EFE8D8] shrink-0">
+          <div className="px-3 pb-2 pt-2 border-t border-[#EFE8D8] shrink-0">
             <div className="flex items-center gap-2 bg-[#F8F6F0] rounded-xl px-3 py-2 border border-[#DDD5C4] focus-within:border-[#8A9BB8] transition-colors">
               <input
                 ref={inputRef}
@@ -386,6 +489,16 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
                 <SendIcon />
               </button>
             </div>
+          </div>
+
+          {/* Resize handle */}
+          <div
+            onMouseDown={startResize}
+            className="absolute bottom-0 right-0 w-5 h-5 flex items-center justify-center cursor-se-resize"
+            style={{ cursor: "se-resize" }}
+            title="Drag to resize"
+          >
+            <GripIcon />
           </div>
         </div>
       )}
