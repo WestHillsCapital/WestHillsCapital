@@ -1756,7 +1756,13 @@ async function buildPacketPdfBuffer(
           : yTop - boxHeight + fontSize * 0.2 + 2;
         const yDraw = Math.max(fontSize + 2, Math.min(height - 2, rawYDraw));
         const anchor = resolveRotatedTextAnchor(rotationDeg, x, yDraw, yTop, boxHeight, maxWidth, fontSize);
-        drawWrappedText(page, mappedValue, anchor.x, anchor.y, fontSize, font, maxWidth, align, mappingRotation);
+        // Sanitize non-Latin-1 chars that are unsupported by standard PDF fonts
+        // (e.g. "●" U+25CF used as default radio mark). Replace with Latin-1 equivalent.
+        const safeMappedValue = mappedValue.replace(/[^\x20-\xFF]/g, (ch) => {
+          if (ch === "●" || ch === "•" || ch === "◆" || ch === "○") return "X";
+          return "?";
+        });
+        drawWrappedText(page, safeMappedValue, anchor.x, anchor.y, fontSize, font, maxWidth, align, mappingRotation);
       }
     }
     const sessionToken = typeof session.token === "string" ? session.token : "";
@@ -6580,6 +6586,8 @@ publicDocupleteRouter.post("/sessions/:token/generate", async (req, res) => {
       res.status(404).json({ error: "Interview session not found" });
       return;
     }
+    const origin = process.env.APP_ORIGIN
+      ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://docuplete.com");
     // ── E-sign v1: enforce identity verification when auth_level=email_otp ────
     // Test-mode / demo sessions skip the e-sign gate so the sandbox demo is never
     // blocked by real email OTP even if the package has auth_level=email_otp.
@@ -6649,7 +6657,7 @@ publicDocupleteRouter.post("/sessions/:token/generate", async (req, res) => {
       return;
     }
     // Capture signer context at request time — not available in the worker
-    const signerIp  = req.ip ?? req.headers["x-forwarded-for"]?.toString().split(",")[0]?.trim() ?? null;
+    const signerIp  = (req.headers["x-forwarded-for"] as string | undefined)?.split(",")[0]?.trim() ?? req.ip ?? null;
     const signerUa  = req.headers["user-agent"] ?? null;
     const signerGeo = resolveGeo(signerIp);
     // When queue is unavailable (Redis down / degraded mode) fall back to
@@ -6752,6 +6760,7 @@ publicDocupleteRouter.post("/sessions/:token/generate", async (req, res) => {
           pdfBuffer,
           orgName:       typeof session.org_name       === "string" ? session.org_name       : null,
           orgBrandColor: typeof session.org_brand_color === "string" ? session.org_brand_color : null,
+          orgLogoUrl:    typeof session.org_logo_url   === "string" ? `${origin}${session.org_logo_url}`   : null,
         }).then(() => {
           logger.info({ to: esignEmail, sessionToken }, "[GeneratePdf/sync] Confirmation email sent to signer");
         }).catch((err) => {
@@ -7164,6 +7173,8 @@ export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | 
       const db = getDb();
       const session = await getSession(sessionToken, db);
       if (!session) throw new Error(`[GeneratePdf] Session not found: ${sessionToken}`);
+      const origin = process.env.APP_ORIGIN
+        ?? (process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : "https://docuplete.com");
 
       // ── Preview mode: build draft PDF, store temporarily, skip all post-processing ──
       if (job.data.type === "preview") {
@@ -7363,6 +7374,7 @@ export function registerGeneratePdfProcessor(): Worker<GeneratePdfJobPayload> | 
           pdfBuffer,
           orgName:       typeof session.org_name       === "string" ? session.org_name       : null,
           orgBrandColor: typeof session.org_brand_color === "string" ? session.org_brand_color : null,
+          orgLogoUrl:    typeof session.org_logo_url   === "string" ? `${origin}${session.org_logo_url}`   : null,
         }).then(() => {
           logger.info({ to: esignEmail, sessionToken }, "[GeneratePdf] Confirmation email sent to signer");
         }).catch((err) => {

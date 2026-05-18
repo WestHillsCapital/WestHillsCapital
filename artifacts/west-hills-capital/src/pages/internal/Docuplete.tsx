@@ -3579,7 +3579,7 @@ export default function Docuplete() {
           align: "center",
           format: `checkbox-option:${opt}`,
           optionColor: OPTION_COLORS[i % OPTION_COLORS.length],
-          mark: field.type === "radio" ? "●" : "X",
+          mark: "X",
         });
       });
       setSelectedMappingId(lastId);

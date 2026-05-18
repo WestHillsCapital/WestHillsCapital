@@ -2447,6 +2447,7 @@ export async function sendSignerConfirmationEmail(params: {
   pdfBuffer:      Buffer;
   orgName?:       string | null;
   orgBrandColor?: string | null;
+  orgLogoUrl?:    string | null;
 }): Promise<void> {
   const shortHash  = params.pdfSha256.slice(-8).toUpperCase();
   const org        = params.orgName?.trim() || "Docuplete";
@@ -2515,7 +2516,10 @@ export async function sendSignerConfirmationEmail(params: {
       <!-- Header -->
       <tr>
         <td style="background:${brandColor};padding:24px 32px;">
-          <p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">${org}</p>
+          ${params.orgLogoUrl
+            ? `<img src="${params.orgLogoUrl}" alt="${org}" height="36" style="display:block;max-height:36px;height:auto;border:0;">`
+            : `<p style="margin:0;font-size:18px;font-weight:700;color:#ffffff;letter-spacing:-0.01em;">${org}</p>`
+          }
         </td>
       </tr>
       <!-- Body -->
