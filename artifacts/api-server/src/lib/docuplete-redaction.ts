@@ -153,7 +153,7 @@ export function hydratePackageFields(fields: unknown, library: Array<Record<stri
       type: String(libraryField.type ?? field.type ?? "text"),
       source: String(libraryField.source ?? field.source ?? "interview"),
       options: optionsMode === "inherit" ? Array.isArray(libraryField.options) ? libraryField.options : [] : Array.isArray(field.options) ? field.options : [],
-      sensitive: libraryField.sensitive === true,
+      sensitive: libraryField.sensitive === true || field.sensitive === true,
       required: libraryField.required === true,
       validationType: normalizeValidationType(libraryField.validationType ?? field.validationType),
       validationPattern: cleanText(libraryField.validationPattern),

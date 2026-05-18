@@ -91,6 +91,18 @@ export const SEARCH_INDEX: SearchEntry[] = [
     headings: ["General settings", "Branding", "Notifications", "Submission behavior", "Session settings", "Integrations"],
   },
   {
+    slug: "common-patterns/conditional-sections",
+    title: "Conditional Sections",
+    section: "Common Patterns",
+    headings: ["The pattern", "Beneficiary example", "Adding a second beneficiary", "Other uses of this pattern"],
+  },
+  {
+    slug: "common-patterns/auto-fill-fields",
+    title: "Auto-Fill Fields",
+    section: "Common Patterns",
+    headings: ["How it works", "Configuring auto-fill in the field editor", "Beneficiary same-address example", "Combining auto-fill with conditional display", "Other uses of this pattern"],
+  },
+  {
     slug: "field-library/overview",
     title: "What is the Field Library?",
     section: "Field Library",
