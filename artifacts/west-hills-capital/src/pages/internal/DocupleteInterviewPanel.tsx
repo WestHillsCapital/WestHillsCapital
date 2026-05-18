@@ -506,7 +506,6 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                               <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">PDF</th>
                               <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Sent</th>
                               <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Submitted</th>
-                              <th className="px-4 py-2" />
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-[#F0EDE6] bg-white">
@@ -553,17 +552,6 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                                       : isCompleted
                                         ? <span className="text-emerald-600 font-medium">Submitted</span>
                                         : <span className="text-[#C0CBDA]">Pending</span>}
-                                  </td>
-                                  <td className="px-4 py-2 text-right">
-                                    {!isTerminal && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => { e.stopPropagation(); openSession(s.token); }}
-                                        className="text-xs font-medium text-[#C49A38] hover:text-[#A07A28] underline underline-offset-2"
-                                      >
-                                        Resume →
-                                      </button>
-                                    )}
                                   </td>
                                 </tr>
                               );
