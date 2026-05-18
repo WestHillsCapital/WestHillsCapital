@@ -63,7 +63,7 @@ router.get("/source-keys", requireMemberRole, async (req, res) => {
     let libraryFields: LibraryRow[] = [];
     if (libraryIds.size > 0) {
       const { rows } = await db.query<LibraryRow>(
-        `SELECT id, label, category, type, source, options, sensitive, required
+        `SELECT id, label, category, field_type, source, options, sensitive, required
            FROM docuplete_fields
           WHERE id = ANY($1::text[])`,
         [Array.from(libraryIds)],
@@ -88,7 +88,7 @@ router.get("/source-keys", requireMemberRole, async (req, res) => {
         entry.fields.push({
           fieldId:       f.id,
           fieldLabel:    String(f.label ?? f.name ?? f.id),
-          fieldType:     String(f.type ?? "text"),
+          fieldType:     String(f.field_type ?? "text"),
           sensitive:     f.sensitive === true,
           packageId:     pkg.id,
           packageName:   pkg.name,

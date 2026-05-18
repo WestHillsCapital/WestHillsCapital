@@ -570,11 +570,11 @@ async function executeInternalTool(
       const params: unknown[] = [accountId];
       let idx = 2;
       if (query) { conditions.push(`label ILIKE $${idx++}`); params.push(`%${query}%`); }
-      if (type)  { conditions.push(`type = $${idx++}`);       params.push(type); }
+      if (type)  { conditions.push(`field_type = $${idx++}`);   params.push(type); }
       params.push(limit);
 
       const { rows } = await db.query(
-        `SELECT id, label, type, validation_type, sensitive, required, category, options, account_id
+        `SELECT id, label, field_type, validation_type, sensitive, required, category, options, account_id
            FROM docuplete_fields
           WHERE ${conditions.join(" AND ")}
           ORDER BY active DESC, label ASC
@@ -587,7 +587,7 @@ async function executeInternalTool(
         const scope = r.account_id ? "account" : "global";
         const flags = [r.sensitive ? "sensitive" : null, r.required ? "required" : null].filter(Boolean).join(", ");
         const opts = Array.isArray(r.options) && r.options.length ? ` options: [${(r.options as string[]).join(", ")}]` : "";
-        return `• ${r.id} | ${r.label} (${r.type}${r.validation_type ? `/${r.validation_type}` : ""})${flags ? ` [${flags}]` : ""}${opts} [${scope}]`;
+        return `• ${r.id} | ${r.label} (${r.field_type}${r.validation_type ? `/${r.validation_type}` : ""})${flags ? ` [${flags}]` : ""}${opts} [${scope}]`;
       });
       return `Found ${rows.length} library field(s):\n\n${lines.join("\n")}`;
     }
@@ -622,14 +622,14 @@ async function executeInternalTool(
       }
 
       const { rows } = await db.query(
-        `INSERT INTO docuplete_fields (id, label, type, sensitive, required, validation_type, category, options, account_id, active, sort_order, created_at, updated_at)
+        `INSERT INTO docuplete_fields (id, label, field_type, sensitive, required, validation_type, category, options, account_id, active, sort_order, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, true, 100, NOW(), NOW())
-         RETURNING id, label, type`,
+         RETURNING id, label, field_type`,
         [id, label, type, sensitive, required, validationType, category, options ? JSON.stringify(options) : null, accountId],
       );
 
       const f = rows[0] as Record<string, unknown>;
-      return `Created library field:\n• ID: ${f.id}\n• Label: ${f.label}\n• Type: ${f.type}\n\nIt is now available in the field library and can be added to packages via the package builder.`;
+      return `Created library field:\n• ID: ${f.id}\n• Label: ${f.label}\n• Type: ${f.field_type}\n\nIt is now available in the field library and can be added to packages via the package builder.`;
     }
 
     if (toolName === "list_field_groups") {
