@@ -572,17 +572,23 @@ export default function DocupleteCustomer() {
   // target field so the customer sees it pre-populated instead of blank.
   useEffect(() => {
     if (!session) return;
-    const prefill = session.prefill as Record<string, string> ?? {};
+    const prefill = (session.prefill as Record<string, string>) ?? {};
     const updates: Record<string, string> = {};
     for (const field of session.fields) {
       if (!field.copyFrom?.fieldId || !field.copyFrom.whenFieldId) continue;
       const { fieldId, whenFieldId, whenValue } = field.copyFrom;
-      // Check answers first, then fall back to prefill (customer sessions seeded
-      // from sendForSignature store staff answers in prefill keyed by field ID).
-      const triggerVal = answers[whenFieldId] ?? String(prefill[whenFieldId] ?? "");
+      // Use currentValue() so that readonly/prefill-sourced fields are resolved via
+      // semantic key lookup (e.g. prefill["addressLine1"]) and not just by field ID.
+      const whenField = session.fields.find((f) => f.id === whenFieldId);
+      const triggerVal = whenField
+        ? currentValue(whenField, answers, prefill)
+        : (answers[whenFieldId] ?? String(prefill[whenFieldId] ?? ""));
       const conditionMet = triggerVal.toLowerCase().trim() === whenValue.toLowerCase().trim();
       if (conditionMet) {
-        const sourceVal = answers[fieldId] ?? String((session.prefill as Record<string, string>)?.[fieldId] ?? "");
+        const sourceField = session.fields.find((f) => f.id === fieldId);
+        const sourceVal = sourceField
+          ? currentValue(sourceField, answers, prefill)
+          : (answers[fieldId] ?? String(prefill[fieldId] ?? ""));
         if (sourceVal && answers[field.id] !== sourceVal) updates[field.id] = sourceVal;
       }
     }

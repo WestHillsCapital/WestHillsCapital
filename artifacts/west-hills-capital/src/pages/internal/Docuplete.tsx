@@ -888,10 +888,18 @@ export default function Docuplete() {
     for (const field of session.fields) {
       if (!field.copyFrom?.fieldId || !field.copyFrom.whenFieldId) continue;
       const { fieldId, whenFieldId, whenValue } = field.copyFrom;
-      const triggerVal = answers[whenFieldId] ?? String(prefill[whenFieldId] ?? "");
+      // Use interviewFieldValue() so readonly/prefill-sourced fields are resolved
+      // via semantic key lookup (e.g. prefill["addressLine1"]) not just by field ID.
+      const whenField = session.fields.find((f) => f.id === whenFieldId);
+      const triggerVal = whenField
+        ? interviewFieldValue(whenField, answers, prefill)
+        : (answers[whenFieldId] ?? String(prefill[whenFieldId] ?? ""));
       const conditionMet = triggerVal.toLowerCase().trim() === whenValue.toLowerCase().trim();
       if (conditionMet) {
-        const sourceVal = answers[fieldId] ?? String(prefill[fieldId] ?? "");
+        const sourceField = session.fields.find((f) => f.id === fieldId);
+        const sourceVal = sourceField
+          ? interviewFieldValue(sourceField, answers, prefill)
+          : (answers[fieldId] ?? String(prefill[fieldId] ?? ""));
         if (sourceVal && answers[field.id] !== sourceVal) updates[field.id] = sourceVal;
       }
     }

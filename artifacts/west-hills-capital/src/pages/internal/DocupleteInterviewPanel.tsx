@@ -798,7 +798,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
                     <button
                       type="button"
                       onClick={() => setShowSigSendForm(true)}
-                      className="text-xs text-[#C49A38] underline hover:text-[#A07B2E]"
+                      className="block text-xs text-[#C49A38] underline hover:text-[#A07B2E]"
                     >
                       Send by email instead
                     </button>
