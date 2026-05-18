@@ -1210,8 +1210,28 @@ async function stampPdfAuditFooter(
   }
 }
 
+/**
+ * Replace characters outside the Windows-1252 / WinAnsi range so that
+ * pdf-lib's standard font embedder (Helvetica/Oblique) does not throw
+ * "WinAnsi cannot encode" errors.  Windows-1252 covers U+0000–U+00FF plus
+ * the small set of extra code-points listed below.  Anything else is replaced
+ * with '?' (masking bullet variants are replaced with '*').
+ */
+function sanitizeForWinAnsi(text: string): string {
+  return text.replace(
+    /[^\u0000-\u00FF\u0152\u0153\u0160\u0161\u0178\u017D\u017E\u0192\u02C6\u02DC\u2013\u2014\u2018\u2019\u201A\u201C\u201D\u201E\u2020\u2021\u2022\u2026\u2030\u2039\u203A\u20AC\u2122]/g,
+    (ch) => {
+      if (
+        ch === "\u25CF" || ch === "\u25E6" || ch === "\u2023" ||
+        ch === "\u2219" || ch === "\u29BF"
+      ) return "*";
+      return "?";
+    },
+  );
+}
+
 function drawWrappedText(page: PDFPage, text: string, x: number, y: number, size: number, font: PDFFont, maxWidth = 180, align: "left" | "center" | "right" = "left", rotate?: ReturnType<typeof degrees>) {
-  const words = text.split(/\s+/).filter(Boolean);
+  const words = sanitizeForWinAnsi(text).split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let line = "";
   words.forEach((word) => {
@@ -1620,7 +1640,7 @@ async function buildPacketPdfBuffer(
               });
             } catch {
               // fallback: draw the first few chars as italic text
-              const text = rawValue.slice(0, 6).trim() || (opts.signerName ?? "").split(/\s+/).map((p) => p[0] ?? "").join("").slice(0, 4);
+              const text = sanitizeForWinAnsi(rawValue.slice(0, 6).trim() || (opts.signerName ?? "").split(/\s+/).map((p) => p[0] ?? "").join("").slice(0, 4));
               if (text) {
                 const fontSize = clampNumber(mapping.fontSize, 11, 6, 18);
                 const rawYDraw = yTop - boxHeight + fontSize * 0.2 + 2;
@@ -1631,7 +1651,7 @@ async function buildPacketPdfBuffer(
             }
           } else if (rawValue.trim()) {
             // Typed initials — render as oblique text
-            const text = rawValue.trim().slice(0, 6);
+            const text = sanitizeForWinAnsi(rawValue.trim().slice(0, 6));
             const fontSize = clampNumber(mapping.fontSize, 11, 6, 18);
             const rawYDraw = yTop - boxHeight + fontSize * 0.2 + 2;
             const yDraw = Math.max(fontSize + 2, Math.min(height - 2, rawYDraw));
