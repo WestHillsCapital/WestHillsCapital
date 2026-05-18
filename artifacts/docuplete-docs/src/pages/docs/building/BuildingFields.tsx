@@ -54,6 +54,36 @@ export default function BuildingFields() {
       <div className="callout callout-tip">
         <strong>Tip:</strong> Common fields like Full Name, Date of Birth, SSN, and Address are typically in the Field Library. Import them for consistent labels, validation, and formatting across all your packages.
       </div>
+
+      <h2>Deleting a field</h2>
+      <p>Click the <strong>⋯</strong> menu on any field and choose <strong>Delete</strong>. If no other fields reference this field, it is removed immediately.</p>
+      <p>If the field is used in another field's <strong>Show if…</strong> condition or <strong>auto-fill trigger</strong>, Docuplete shows a dependency guard before deleting. You have two options:</p>
+      <ul>
+        <li><strong>Replace &amp; Remove</strong> — Choose a replacement field from the list. All conditions and auto-fill rules that pointed to the deleted field are automatically rewired to the replacement. No references are left broken.</li>
+        <li><strong>Remove &amp; Flag for Repair</strong> — Deletes the field immediately. Any field whose condition or auto-fill trigger referenced it is flagged with an amber <strong>⚠ Repair</strong> badge. You can fix those references at any time by opening the flagged field's editor.</li>
+      </ul>
+      <p>You can also click <strong>Cancel</strong> to abort the deletion and keep the field unchanged.</p>
+
+      <h2>Repair badge — fixing broken references</h2>
+      <p>A field shows an amber <strong>⚠ Repair</strong> badge when one of its rules (a "Show if…" condition or an auto-fill trigger) references a field that no longer exists. This can happen after a field is deleted with "Remove &amp; Flag for Repair".</p>
+      <p>To resolve it:</p>
+      <ol>
+        <li>Click the field with the ⚠ badge to open its editor.</li>
+        <li>Locate the condition or auto-fill rule that shows a missing field indicator.</li>
+        <li>Update the rule to reference a valid field (or delete the rule if it is no longer needed).</li>
+        <li>Save. Once all broken references are resolved, the badge disappears automatically.</li>
+      </ol>
+
+      <div className="callout callout-warning">
+        <strong>Note:</strong> Fields with unresolved ⚠ repair badges still work in interviews — broken conditions are simply skipped. However, you should resolve them before making a package Active to ensure logic behaves as intended.
+      </div>
+
+      <h2>Auto-fill trigger value</h2>
+      <p>When configuring an auto-fill rule, the <strong>Equals</strong> input for the trigger value behaves differently depending on the trigger field's type:</p>
+      <ul>
+        <li>For <strong>radio</strong>, <strong>dropdown</strong>, and <strong>checkbox</strong> fields, the value input is a dropdown showing the field's actual defined options. Select from the list — this prevents typos and case mismatches that would cause the trigger to never fire.</li>
+        <li>For <strong>text</strong> and <strong>date</strong> fields, the value input remains free-form text.</li>
+      </ul>
     </div>
   );
 }

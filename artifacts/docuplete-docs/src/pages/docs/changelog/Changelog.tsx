@@ -12,6 +12,24 @@ export default function Changelog() {
         <div>
           <div className="flex items-center gap-3 mb-3">
             <span className="text-xs font-mono text-white/40">May 2025</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-500/15 text-purple-400">New</span>
+          </div>
+          <h2 className="mt-0">Safe field deletion — dependency guard</h2>
+          <p>Deleting a field that is referenced by another field's <strong>Show if…</strong> condition or <strong>auto-fill trigger</strong> now shows a dependency guard modal before proceeding. You can choose to <strong>Replace &amp; Remove</strong> (pick a substitute field and have all references automatically rewired) or <strong>Remove &amp; Flag for Repair</strong> (delete immediately and mark dependent fields with a ⚠ Repair badge for later review). Fields with outstanding repair badges are highlighted in the field list so nothing gets silently lost.</p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2025</span>
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
+          </div>
+          <h2 className="mt-0">Auto-fill trigger value is now a dropdown for choice fields</h2>
+          <p>When setting up an auto-fill rule, the <strong>Equals</strong> input for the trigger condition is now a dropdown of the trigger field's actual defined options when that field is a radio button, dropdown, or checkbox type. Previously a plain text box, this change prevents silent trigger failures caused by value mismatches — for example, typing "Yes" when the option label is "Yes, I agree".</p>
+        </div>
+
+        <div>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-xs font-mono text-white/40">May 2025</span>
             <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-[#5B8DEF]/15 text-[#5B8DEF]">Improvement</span>
           </div>
           <h2 className="mt-0">Multi-document scroll view in the Visual Mapper</h2>
