@@ -221,9 +221,9 @@ export function FieldGroupsPanel({
           const memberCount = item.fieldIds.length;
           const usagePackages = item.usagePackages ?? [];
           return (
-            <div key={item.id} className="rounded border border-[#EFE8D8] bg-[#F8F6F0] p-2">
-              <div className="flex items-center justify-between gap-2">
-                <div className="min-w-0">
+            <div key={item.id} className="rounded border border-[#EFE8D8] bg-[#F8F6F0] p-2 overflow-hidden">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1 overflow-hidden">
                   {isExpanded ? (
                     <Input
                       value={item.name}
@@ -233,16 +233,11 @@ export function FieldGroupsPanel({
                   ) : (
                     <div className="text-xs font-medium text-[#0F1C3F] truncate">{item.name}</div>
                   )}
-                  <div className="text-[10px] text-[#8A9BB8] mt-0.5">
+                  <div className="text-[10px] text-[#8A9BB8] mt-0.5 truncate">
                     {memberCount} field{memberCount !== 1 ? "s" : ""}
-                    {memberCount > 0 && (
-                      <span className="ml-1 truncate">
-                        — {item.fieldIds.slice(0, 3).map((id) => fieldLibrary.find((f) => f.id === id)?.label ?? id).join(", ")}
-                        {memberCount > 3 ? ` +${memberCount - 3} more` : ""}
-                      </span>
-                    )}
+                    {memberCount > 0 && ` — ${item.fieldIds.slice(0, 3).map((id) => fieldLibrary.find((f) => f.id === id)?.label ?? id).join(", ")}${memberCount > 3 ? ` +${memberCount - 3} more` : ""}`}
                   </div>
-                  <div className="text-[10px] mt-0.5">
+                  <div className="text-[10px] mt-0.5 truncate">
                     {usagePackages.length === 0 ? (
                       <span className="text-[#B0BED4]">Not used in any packages</span>
                     ) : (
@@ -254,25 +249,15 @@ export function FieldGroupsPanel({
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {onUseGroup && (
-                    <button
-                      type="button"
-                      onClick={() => onUseGroup(item)}
-                      title="Add all group fields to current package"
-                      className="text-[11px] text-[#6B7A99] hover:text-[#1B4FD8] transition-colors"
-                    >
-                      Use
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                    className="text-[11px] text-[#8A9BB8] hover:text-[#4A5568]"
-                  >
-                    {isExpanded ? "▲" : "▾"}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setExpandedId(isExpanded ? null : item.id)}
+                  className="shrink-0 flex items-center justify-center w-8 h-8 rounded hover:bg-[#EFE8D8] text-[#8A9BB8] hover:text-[#4A5568] transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d={isExpanded ? "M5 15l7-7 7 7" : "M19 9l-7 7-7-7"} />
+                  </svg>
+                </button>
               </div>
               {isExpanded && (
                 <div className="mt-2 space-y-2">
@@ -321,14 +306,26 @@ export function FieldGroupsPanel({
                     >
                       {deletingId === item.id ? "Deleting…" : "Delete"}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSave(item)}
-                      disabled={savingId === item.id}
-                      className="text-[11px] text-[#C49A38] disabled:opacity-50"
-                    >
-                      {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
-                    </button>
+                    <div className="flex items-center gap-3">
+                      {onUseGroup && (
+                        <button
+                          type="button"
+                          onClick={() => onUseGroup(item)}
+                          title="Add all group fields to current package"
+                          className="text-[11px] text-[#1B4FD8] hover:underline"
+                        >
+                          Use
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleSave(item)}
+                        disabled={savingId === item.id}
+                        className="text-[11px] text-[#C49A38] disabled:opacity-50"
+                      >
+                        {savingId === item.id ? "Saving…" : savedId === item.id ? "✓ Saved" : "Save"}
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
