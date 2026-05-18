@@ -202,6 +202,7 @@ export interface DocupleteInterviewPanelProps {
   handleDownloadInterviewCsv: () => void;
   downloadGeneratedPacket: () => void;
   handleInterviewFieldBlur: (field: FieldItem, value: string) => void;
+  openSession: (token: string) => void;
   clearSession: () => void;
   sendForSignature: (deferredFieldIds: Set<string>) => void;
   sigLink: string | null;
@@ -252,7 +253,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
     goBuilderStep, setTab, launchStandaloneInterview, generateCustomerLink,
     copyCustomerLink, handleSendLinkByEmail, saveAnswers, generatePacket,
     handleDownloadInterviewCsv, downloadGeneratedPacket, handleInterviewFieldBlur,
-    clearSession, sendForSignature, sigLink, sigLinkCopied, isSendingForSig,
+    openSession, clearSession, sendForSignature, sigLink, sigLinkCopied, isSendingForSig,
     showSigSendForm, setShowSigSendForm,
     sigSendEmail, setSigSendEmail, sigSendName, setSigSendName,
     sigSendMessage, setSigSendMessage,
@@ -471,82 +472,112 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
               {!portalLoading && !portalError && portalSessions.length === 0 && (
                 <div className="text-center py-10 text-sm text-[#8A9BB8]">No interview sessions yet — start one from the Interviews tab.</div>
               )}
-              {!portalLoading && portalSessions.length > 0 && (
-                <div className="overflow-x-auto rounded-lg border border-[#DDD5C4]">
-                  <table className="min-w-full divide-y divide-[#F0EDE6]">
-                    <thead className="bg-[#F8F6F0]">
-                      <tr>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Package</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Recipient</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Status</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">PDF</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Sent</th>
-                        <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Submitted</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#F0EDE6] bg-white">
-                      {portalSessions.map((s) => {
-                        const recipient = s.signer_name || s.link_email_recipient || s.signer_email || "—";
-                        const statusMap: Record<string, { label: string; cls: string }> = {
-                          draft:     { label: "Draft",     cls: "bg-gray-100 text-gray-500" },
-                          generated: { label: "Completed", cls: "bg-emerald-50 text-emerald-700" },
-                          signed:    { label: "Signed",    cls: "bg-emerald-50 text-emerald-700" },
-                          submitted: { label: "Submitted", cls: "bg-violet-50 text-violet-700" },
-                          voided:    { label: "Voided",    cls: "bg-red-50 text-red-600" },
-                        };
-                        const statusInfo = statusMap[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-500" };
-                        const pdfUrl = `${API_BASE}${docupleteApiPath}/sessions/${s.token}/packet.pdf`;
-                        const isCompleted = s.status === "generated" || s.status === "signed";
-                        const signingScrollRequired = s.signing_scroll_required === true;
-                        const signingScrollConfirmed = signingScrollRequired && Boolean(s.signing_scroll_confirmed_at);
-                        const isTerminal = s.status === "generated" || s.status === "signed" || s.status === "voided";
-                        return (
-                          <tr key={s.token} className="hover:bg-[#FAFAF8]">
-                            <td className="px-4 py-2 text-xs text-[#0F1C3F] max-w-[160px] truncate" title={s.package_name}>{s.package_name}</td>
-                            <td className="px-4 py-2 text-sm text-[#0F1C3F] max-w-[180px] truncate" title={recipient}>{recipient}</td>
-                            <td className="px-4 py-2">
-                              <div className="flex flex-col gap-1 items-start">
-                                <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>{statusInfo.label}</span>
-                                {signingScrollRequired && signingScrollConfirmed && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
-                                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
-                                    Scroll confirmed
-                                  </span>
-                                )}
-                                {signingScrollRequired && !signingScrollConfirmed && isTerminal && (
-                                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-100">
-                                    <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
-                                    Scroll not confirmed
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-4 py-2">
-                              {isCompleted ? (
-                                <a href={pdfUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-xs text-[#0F1C3F] underline underline-offset-2 hover:text-[#C49A38]">
-                                  <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                                  PDF
-                                </a>
-                              ) : <span className="text-xs text-[#C0CBDA]">—</span>}
-                            </td>
-                            <td className="px-4 py-2 text-xs text-[#8A9BB8]">{s.link_emailed_at ? new Date(s.link_emailed_at).toLocaleDateString() : "—"}</td>
-                            <td className="px-4 py-2 text-xs">
-                              {s.submitted_at
-                                ? <span className="text-violet-700 font-medium">{new Date(s.submitted_at).toLocaleDateString()}</span>
-                                : isCompleted
-                                  ? <span className="text-emerald-600 font-medium">Submitted</span>
-                                  : <span className="text-[#C0CBDA]">Pending</span>}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                  {portalTotal > portalSessions.length && (
-                    <div className="px-4 py-2 text-xs text-[#8A9BB8] text-center border-t border-[#F0EDE6]">Showing {portalSessions.length} of {portalTotal} sessions</div>
-                  )}
-                </div>
-              )}
+              {!portalLoading && portalSessions.length > 0 && (() => {
+                const STATUS_MAP: Record<string, { label: string; cls: string }> = {
+                  draft:       { label: "Draft",       cls: "bg-gray-100 text-gray-500" },
+                  in_progress: { label: "In Progress", cls: "bg-blue-50 text-blue-700" },
+                  answered:    { label: "Answered",    cls: "bg-amber-50 text-amber-700" },
+                  generated:   { label: "Completed",   cls: "bg-emerald-50 text-emerald-700" },
+                  signed:      { label: "Signed",      cls: "bg-emerald-50 text-emerald-700" },
+                  submitted:   { label: "Submitted",   cls: "bg-violet-50 text-violet-700" },
+                  voided:      { label: "Voided",      cls: "bg-red-50 text-red-600" },
+                };
+                const TERMINAL = new Set(["generated", "signed", "voided"]);
+                const groups = Array.from(
+                  portalSessions.reduce((map, s) => {
+                    if (!map.has(s.package_name)) map.set(s.package_name, []);
+                    map.get(s.package_name)!.push(s);
+                    return map;
+                  }, new Map<string, typeof portalSessions>())
+                );
+                return (
+                  <div className="space-y-4">
+                    {groups.map(([packageName, sessions]) => (
+                      <div key={packageName} className="overflow-x-auto rounded-lg border border-[#DDD5C4]">
+                        <div className="px-4 py-2 bg-[#F8F6F0] border-b border-[#DDD5C4]">
+                          <span className="text-xs font-semibold text-[#0F1C3F] uppercase tracking-wide">{packageName}</span>
+                          <span className="ml-2 text-xs text-[#8A9BB8]">{sessions.length} session{sessions.length !== 1 ? "s" : ""}</span>
+                        </div>
+                        <table className="min-w-full divide-y divide-[#F0EDE6]">
+                          <thead className="bg-[#FAFAF8]">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Recipient</th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Status</th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">PDF</th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Sent</th>
+                              <th className="px-4 py-2 text-left text-xs font-semibold text-[#8A9BB8] uppercase tracking-wide">Submitted</th>
+                              <th className="px-4 py-2" />
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[#F0EDE6] bg-white">
+                            {sessions.map((s) => {
+                              const recipient = s.signer_name || s.link_email_recipient || s.signer_email || "—";
+                              const statusInfo = STATUS_MAP[s.status] ?? { label: s.status, cls: "bg-gray-100 text-gray-500" };
+                              const pdfUrl = `${API_BASE}${docupleteApiPath}/sessions/${s.token}/packet.pdf`;
+                              const isCompleted = s.status === "generated" || s.status === "signed";
+                              const isTerminal = TERMINAL.has(s.status);
+                              const signingScrollRequired = s.signing_scroll_required === true;
+                              const signingScrollConfirmed = signingScrollRequired && Boolean(s.signing_scroll_confirmed_at);
+                              return (
+                                <tr key={s.token} className={`hover:bg-[#FAFAF8] ${!isTerminal ? "cursor-pointer" : ""}`} onClick={!isTerminal ? () => openSession(s.token) : undefined}>
+                                  <td className="px-4 py-2 text-sm text-[#0F1C3F] max-w-[180px] truncate" title={recipient}>{recipient}</td>
+                                  <td className="px-4 py-2">
+                                    <div className="flex flex-col gap-1 items-start">
+                                      <span className={`inline-flex px-1.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.cls}`}>{statusInfo.label}</span>
+                                      {signingScrollRequired && signingScrollConfirmed && (
+                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-100">
+                                          <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                                          Scroll confirmed
+                                        </span>
+                                      )}
+                                      {signingScrollRequired && !signingScrollConfirmed && isTerminal && (
+                                        <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-100">
+                                          <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+                                          Scroll not confirmed
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+                                  <td className="px-4 py-2">
+                                    {isCompleted ? (
+                                      <a href={pdfUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()} className="inline-flex items-center gap-1 text-xs text-[#0F1C3F] underline underline-offset-2 hover:text-[#C49A38]">
+                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                                        PDF
+                                      </a>
+                                    ) : <span className="text-xs text-[#C0CBDA]">—</span>}
+                                  </td>
+                                  <td className="px-4 py-2 text-xs text-[#8A9BB8]">{s.link_emailed_at ? new Date(s.link_emailed_at).toLocaleDateString() : "—"}</td>
+                                  <td className="px-4 py-2 text-xs">
+                                    {s.submitted_at
+                                      ? <span className="text-violet-700 font-medium">{new Date(s.submitted_at).toLocaleDateString()}</span>
+                                      : isCompleted
+                                        ? <span className="text-emerald-600 font-medium">Submitted</span>
+                                        : <span className="text-[#C0CBDA]">Pending</span>}
+                                  </td>
+                                  <td className="px-4 py-2 text-right">
+                                    {!isTerminal && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); openSession(s.token); }}
+                                        className="text-xs font-medium text-[#C49A38] hover:text-[#A07A28] underline underline-offset-2"
+                                      >
+                                        Resume →
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    ))}
+                    {portalTotal > portalSessions.length && (
+                      <div className="text-xs text-[#8A9BB8] text-center py-2">Showing {portalSessions.length} of {portalTotal} sessions</div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           )}
           </>

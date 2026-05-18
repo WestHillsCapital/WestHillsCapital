@@ -4409,6 +4409,7 @@ export default function Docuplete() {
           handleDownloadInterviewCsv={handleDownloadInterviewCsv}
           downloadGeneratedPacket={downloadGeneratedPacket}
           handleInterviewFieldBlur={handleInterviewFieldBlur}
+          openSession={(token) => navigate(`${interviewBasePath}?session=${token}`)}
           savedAnswers={session?.answers ?? {}}
           clearSession={() => { setSession(null); navigate(interviewBasePath); }}
           sendForSignature={sendForSignature}
