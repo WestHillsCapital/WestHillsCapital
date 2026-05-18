@@ -5484,7 +5484,7 @@ router.patch("/sessions/:token", requireMemberRole, async (req, res) => {
     res.json({ session });
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
-    logger.error({ err, detail, token: req.params.token }, "[Docuplete] Failed to save interview answers");
+    logger.error({ err, detail, tokenPrefix: String(req.params.token).slice(0, 12) }, "[Docuplete] Failed to save interview answers");
     res.status(500).json({ error: "Failed to save interview answers" });
   }
 });
