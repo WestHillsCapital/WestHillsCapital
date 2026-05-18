@@ -71,11 +71,23 @@ function ThinkingDots() {
   );
 }
 
-function ToolCallBadge({ names }: { names: string[] }) {
-  const label = names.map((n) => n.replace(/_/g, " ")).join(", ");
+function ToolCallBadge({ names, nameCounts }: { names: string[]; nameCounts?: Record<string, number> }) {
+  let label: string;
+  if (nameCounts && Object.keys(nameCounts).length > 0) {
+    label = Object.entries(nameCounts)
+      .map(([name, count]) => {
+        const pretty = name.replace(/_/g, " ");
+        return count > 1 ? `${pretty} ×${count}` : pretty;
+      })
+      .join(", ");
+  } else {
+    const unique = [...new Set(names)];
+    label = unique.map((n) => n.replace(/_/g, " ")).join(", ");
+  }
+  const verb = names.some((n) => n.startsWith("create_") || n.startsWith("add_")) ? "Creating" : "Looking up";
   return (
     <div className="text-[10px] text-[#8A9BB8] italic px-3 py-1">
-      ✦ Looking up {label}…
+      ✦ {verb} {label}…
     </div>
   );
 }
@@ -136,7 +148,13 @@ function MessageBubble({ message, brandColor }: { message: Message; brandColor: 
         style={{ maxWidth: "calc(100% - 36px)" }}
       >
         {message.thinking ? (
-          <span className="text-[#6B7A99]"><ThinkingDots /></span>
+          <span className="text-[#6B7A99] flex items-center gap-1.5">
+            {message.content ? (
+              <><ThinkingDots /><span className="text-[11px]">{message.content}</span></>
+            ) : (
+              <ThinkingDots />
+            )}
+          </span>
         ) : (
           renderMarkdown(message.content)
         )}
@@ -186,6 +204,7 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
   const [input,        setInput]       = useState("");
   const [isLoading,    setIsLoading]   = useState(false);
   const [activeTools,  setActiveTools] = useState<string[]>([]);
+  const [toolCounts,   setToolCounts]  = useState<Record<string, number>>({});
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const inputRef       = useRef<HTMLInputElement | null>(null);
@@ -322,16 +341,33 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
       for await (const event of parseSSE(res)) {
         if (abort.signal.aborted) break;
 
+        if (event.type === "status" && typeof event.text === "string") {
+          setMessages((prev) => prev.map((m) =>
+            m.id === "thinking" ? { ...m, content: event.text as string } : m,
+          ));
+        }
+
         if (event.type === "tool" && Array.isArray(event.names)) {
+          const counts = (event.nameCounts ?? {}) as Record<string, number>;
+          const total  = typeof event.total === "number" ? event.total : (event.names as string[]).length;
           setActiveTools(event.names as string[]);
+          setToolCounts(counts);
+          const toolLabel = Object.entries(counts)
+            .map(([name, n]) => {
+              const pretty = name.replace(/_/g, " ");
+              return n > 1 ? `${pretty} ×${n}` : pretty;
+            })
+            .join(", ");
+          const verb = (event.names as string[]).some((n: string) => n.startsWith("create_") || n.startsWith("add_")) ? "Creating" : "Looking up";
           setMessages((prev) => [
             ...prev.filter((m) => m.id !== "thinking"),
-            { id: "thinking", role: "assistant", content: "", thinking: true },
+            { id: "thinking", role: "assistant", content: `${verb} ${toolLabel}${total > 1 ? ` (${total})` : ""}…`, thinking: true },
           ]);
         }
 
         if (event.type === "chunk" && typeof event.text === "string") {
           setActiveTools([]);
+          setToolCounts({});
           replyText += event.text;
           if (!started) {
             started = true;
@@ -369,6 +405,7 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
     } finally {
       setIsLoading(false);
       setActiveTools([]);
+      setToolCounts({});
       abortRef.current = null;
     }
   }
@@ -378,6 +415,7 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
     setMessages([]);
     setIsLoading(false);
     setActiveTools([]);
+    setToolCounts({});
     setInput("");
     try { sessionStorage.removeItem(SESSION_STORAGE_KEY); } catch { /* ignore */ }
     setOpen(false);
@@ -437,7 +475,7 @@ export function MerlinWidget({ getAuthHeaders, brandColor = "#0F1C3F", chatUrl }
           </div>
 
           {/* Active tool call indicator */}
-          {activeTools.length > 0 && <ToolCallBadge names={activeTools} />}
+          {activeTools.length > 0 && <ToolCallBadge names={activeTools} nameCounts={toolCounts} />}
 
           {/* Messages */}
           <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3 min-h-0">

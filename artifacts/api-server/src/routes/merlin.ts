@@ -913,6 +913,7 @@ router.post("/chat", async (req, res): Promise<void> => {
   }
 
   startSSE(res);
+  sseWrite(res, { type: "status", text: "On it…" });
 
   try {
     const client = getAnthropicClient();
@@ -926,6 +927,8 @@ router.post("/chat", async (req, res): Promise<void> => {
       "",
       "ADVISORY CAPABILITIES (no tool needed): You can suggest sensible field lists for any package type based on transaction category (IRA transfer, beneficiary update, etc.). You can draft clear, friendly form labels and question text. You can advise which fields should be marked sensitive based on field names and regulatory norms (SSN, DOB, account numbers, routing numbers). You can explain what a session status means and what the client still needs to do to complete it.",
       "",
+      "BATCH OPERATIONS: When asked to create or modify many items at once (e.g. 'create all 54 fields'), you MUST call the appropriate tool for EVERY item in a single response. Do not describe what you are about to do — just call the tools. Do not spread work across multiple turns when it can be done in one. Parallel tool calls in a single response are strongly preferred for bulk work.",
+      "",
       "This is the internal staff interface. You can look up anything on this account. If you don't know something, say so — do not invent data.",
     ].join("\n");
 
@@ -935,11 +938,11 @@ router.post("/chat", async (req, res): Promise<void> => {
     }));
 
     // Tool rounds (non-streaming) — send SSE tool events so the UI can show activity
-    const MAX_TOOL_ROUNDS = 4;
+    const MAX_TOOL_ROUNDS = 6;
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const response = await client.messages.create({
         model:      "claude-sonnet-4-6",
-        max_tokens: 2048,
+        max_tokens: 16384,
         system:     systemPrompt,
         tools:      INTERNAL_TOOLS,
         messages:   loopMessages,
@@ -954,10 +957,16 @@ router.post("/chat", async (req, res): Promise<void> => {
         (b) => b.type === "tool_use",
       ) as Anthropic.ToolUseBlock[];
 
-      // Notify the client which tools are being called
+      // Notify the client which tools are being called, with per-tool counts
+      const nameCounts = toolUseBlocks.reduce<Record<string, number>>((acc, b) => {
+        acc[b.name] = (acc[b.name] ?? 0) + 1;
+        return acc;
+      }, {});
       sseWrite(res, {
-        type: "tool",
-        names: toolUseBlocks.map((b) => b.name),
+        type:       "tool",
+        names:      toolUseBlocks.map((b) => b.name),
+        nameCounts,
+        total:      toolUseBlocks.length,
       });
 
       loopMessages.push({ role: "assistant", content: response.content });
@@ -978,12 +987,16 @@ router.post("/chat", async (req, res): Promise<void> => {
       );
 
       loopMessages.push({ role: "user", content: toolResults });
+
+      if (round < MAX_TOOL_ROUNDS - 1) {
+        sseWrite(res, { type: "status", text: "Reviewing results…" });
+      }
     }
 
     // Final streaming response
     const finalStream = client.messages.stream({
       model:      "claude-sonnet-4-6",
-      max_tokens: 2048,
+      max_tokens: 4096,
       system:     systemPrompt,
       tools:      INTERNAL_TOOLS,
       messages:   loopMessages,
