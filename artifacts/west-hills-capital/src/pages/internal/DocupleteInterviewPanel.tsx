@@ -178,6 +178,7 @@ export interface DocupleteInterviewPanelProps {
   portalError: string | null;
   portalTotal: number;
   answers: Record<string, string>;
+  savedAnswers: Record<string, string>;
   setAnswers: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   fieldErrors: Record<string, string>;
   visibleInterviewFields: FieldItem[];
@@ -196,7 +197,7 @@ export interface DocupleteInterviewPanelProps {
   generateCustomerLink: () => void;
   copyCustomerLink: () => void;
   handleSendLinkByEmail: () => void | Promise<void>;
-  saveAnswers: () => void;
+  saveAnswers: () => Promise<boolean>;
   generatePacket: () => void;
   handleDownloadInterviewCsv: () => void;
   downloadGeneratedPacket: () => void;
@@ -226,6 +227,8 @@ const SYSTEM_FIELD_IDS = new Set(["__signature__", "__initials__", "__signer_dat
 export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPanel(props: DocupleteInterviewPanelProps) {
   const [focusedFieldId, setFocusedFieldId] = useState<string | null>(null);
   const [deferredFieldIds, setDeferredFieldIds] = useState<Set<string>>(() => new Set());
+  const [confirmLeave, setConfirmLeave] = useState(false);
+  const [saveFeedback, setSaveFeedback] = useState<"idle" | "saved" | "error">("idle");
   const {
     session, isPublicSession, isSaving, activePackages, packages,
     standalonePackageId, setStandalonePackageId,
@@ -242,7 +245,7 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
     sendLinkMessage, setSendLinkMessage, linkEmailError, setLinkEmailError,
     isSendingLink, interviewSubTab, setInterviewSubTab,
     portalSessions, portalLoading, portalError, portalTotal,
-    answers, setAnswers, fieldErrors, visibleInterviewFields,
+    answers, savedAnswers, setAnswers, fieldErrors, visibleInterviewFields,
     missingRequiredFields, answeredFieldCount,
     generatedUrl, driveUrl, driveWarnings, isDownloading, docupleteApiPath,
     labelForTransactionScope, fieldIsRequired,
@@ -256,6 +259,10 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
     sigSendEmailSent, sigSendError, isSendingSigEmail,
     handleSigSendByEmail, copySigLink,
   } = props;
+
+  const isDirty = Object.keys({ ...answers, ...savedAnswers }).some(
+    (k) => (answers[k] ?? "") !== (savedAnswers[k] ?? "")
+  );
 
   // Sensitive fields available in the current session (excludes system fields)
   const sensitiveDeferrableFields = visibleInterviewFields.filter(
@@ -549,12 +556,38 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
           <div>
             <button
               type="button"
-              onClick={() => { clearSession(); setInterviewSubTab("interviews"); }}
+              onClick={() => { if (isDirty) { setConfirmLeave(true); } else { clearSession(); setInterviewSubTab("interviews"); } }}
               className="flex items-center gap-1 text-xs text-[#8A9BB8] hover:text-[#334155] mb-3 transition-colors"
             >
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
               Back to Sessions
             </button>
+            {confirmLeave && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setConfirmLeave(false)}>
+                <div className="bg-white rounded-xl shadow-xl p-6 w-80 space-y-4" onClick={(e) => e.stopPropagation()}>
+                  <h3 className="text-base font-semibold text-[#0F1C3F]">Unsaved changes</h3>
+                  <p className="text-sm text-[#6B7A99]">You have unsaved changes to this interview. What would you like to do?</p>
+                  <div className="flex flex-col gap-2">
+                    <Button
+                      onClick={async () => {
+                        setConfirmLeave(false);
+                        const ok = await saveAnswers();
+                        if (ok) { clearSession(); setInterviewSubTab("interviews"); }
+                      }}
+                      disabled={isSaving}
+                    >
+                      {isSaving ? "Saving…" : "Save & go back"}
+                    </Button>
+                    <Button variant="outline" onClick={() => { setConfirmLeave(false); clearSession(); setInterviewSubTab("interviews"); }}>
+                      Discard changes
+                    </Button>
+                    <button type="button" className="text-sm text-[#8A9BB8] hover:text-[#334155] transition-colors py-1" onClick={() => setConfirmLeave(false)}>
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             <h2 className="text-xl font-semibold">{session.package_name}</h2>
             <p className="text-sm text-[#6B7A99]">
               {[session.group_name, session.custodian_name, session.depository_name, labelForTransactionScope(session.transaction_scope)].filter(Boolean).join(" · ") || "No additional info"}
@@ -726,7 +759,19 @@ export const DocupleteInterviewPanel = React.memo(function DocupleteInterviewPan
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={() => saveAnswers()} disabled={isSaving} variant="outline">{isSaving ? "Saving…" : "Save Interview"}</Button>
+            <Button
+              onClick={async () => {
+                const ok = await saveAnswers();
+                setSaveFeedback(ok ? "saved" : "error");
+                setTimeout(() => setSaveFeedback("idle"), 2500);
+              }}
+              disabled={isSaving}
+              variant="outline"
+            >
+              {isSaving ? "Saving…" : "Save Interview"}
+            </Button>
+            {saveFeedback === "saved" && <span className="text-xs text-emerald-600 font-medium">✓ Saved</span>}
+            {saveFeedback === "error" && <span className="text-xs text-red-500">Save failed — try again</span>}
             <Button onClick={generatePacket} disabled={isSaving || missingRequiredFields.length > 0 || Object.keys(fieldErrors).length > 0} className="disabled:opacity-60">{isSaving ? "Generating…" : "Generate Packet"}</Button>
             <Button onClick={handleDownloadInterviewCsv} variant="outline" className="text-[#6B7A99] border-[#DDD5C4]">Download CSV</Button>
             {generatedUrl && (
