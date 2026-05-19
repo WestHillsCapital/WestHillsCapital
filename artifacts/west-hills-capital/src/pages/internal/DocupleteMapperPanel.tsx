@@ -289,6 +289,9 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
   const setSelectedMappingId = useDocupleteStore((s) => s.setSelectedMappingId);
   const selectedMapping = useDocupleteStore((s) => s.mappings.find((m) => m.id === s.selectedMappingId) ?? null);
   const storeMappings = useDocupleteStore((s) => s.mappings);
+  const storeRemoveMapping = useDocupleteStore((s) => s.removeMapping);
+  const storeSetMappings = useDocupleteStore((s) => s.setMappings);
+  const storePushUndo = useDocupleteStore((s) => s.pushUndo);
   const storeRecipientList = useDocupleteStore((s) => s.recipientList);
   const pageMappingIds = useDocupleteStore(
     useShallow((s): string[] => {
@@ -1099,9 +1102,8 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                   type="button"
                   onClick={() => {
                     const orphanIds = new Set(orphanedMappings.map((m) => m.id));
-                    useDocupleteStore.getState().setMappings(
-                      useDocupleteStore.getState().mappings.filter((m) => !orphanIds.has(m.id))
-                    );
+                    storePushUndo([...storeMappings]);
+                    storeSetMappings(storeMappings.filter((m) => !orphanIds.has(m.id)));
                   }}
                   className="shrink-0 rounded bg-amber-600 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-amber-700 transition-colors"
                 >
@@ -1127,9 +1129,10 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
                       </span>
                       <button
                         type="button"
-                        onClick={() => useDocupleteStore.getState().setMappings(
-                          useDocupleteStore.getState().mappings.filter((x) => x.id !== m.id)
-                        )}
+                        onClick={() => {
+                          storePushUndo([...storeMappings]);
+                          storeRemoveMapping(m.id);
+                        }}
                         className="shrink-0 text-amber-600 hover:text-red-600 transition-colors font-bold leading-none"
                         title="Remove this slot"
                       >×</button>
