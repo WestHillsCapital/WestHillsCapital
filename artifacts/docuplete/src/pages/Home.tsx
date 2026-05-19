@@ -771,21 +771,20 @@ export default function Home() {
             14-day free trial · No credit card required
           </div>
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold leading-tight tracking-tight mb-6">
-            Cut Cost.{" "}
-            <span className="text-[#5B8DEF]">Save Time.</span>
+            Cut Cost. Save Time.
             <br />
-            <span className="text-3xl sm:text-4xl md:text-5xl">Get It Right.</span>
+            <span className="text-[#F5A623]">Get It Right.</span>
           </h1>
-          <p className="text-lg sm:text-xl text-white/70 max-w-2xl mx-auto mb-3">
+          <p className="text-lg sm:text-xl text-white/85 font-medium max-w-2xl mx-auto mb-3">
             Upload your PDFs, send one link, and get documents back filled, signed, and tracked — without the follow-ups.
           </p>
-          <p className="text-base text-white/45 max-w-xl mx-auto mb-10">
+          <p className="text-base text-white/55 max-w-xl mx-auto mb-10">
             No chasing. No confusion. No delays.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <a
               href={NAV_SIGNUP}
-              className="inline-flex items-center justify-center gap-2 bg-[#1B4FD8] hover:bg-[#1740B8] text-white font-semibold px-7 py-3.5 rounded-xl transition-colors text-base shadow-lg shadow-[#1B4FD8]/30"
+              className="inline-flex items-center justify-center gap-2 bg-[#F5A623] hover:bg-[#e09510] text-[#0d1224] font-semibold px-7 py-3.5 rounded-xl transition-colors text-base shadow-lg shadow-[#F5A623]/30"
             >
               Start your free trial
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
