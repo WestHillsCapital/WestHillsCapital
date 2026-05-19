@@ -71,8 +71,8 @@ The background sync polls DG automatically, but if DG never marks the order as "
 ### Drive folder is flat (no sub-folder organization)
 All invoice PDFs are uploaded to the root of `GOOGLE_DRIVE_DEALS_FOLDER_ID` with no sub-folder structure by month, year, or client. This will become hard to navigate as deal volume grows.
 
-### No automated testing
-There are no unit tests, integration tests, or E2E tests. All validation is manual.
+### ~~No automated testing~~ ✅ Resolved
+Unit/integration tests, Playwright E2E specs, frontend component tests, and Checkly production monitoring are all in place. See `artifacts/api-server/src/tests/`, `artifacts/west-hills-capital/e2e/`, and `scripts/checkly-*.spec.ts`.
 
 ### Booking_attempts pruned after 90 days
 This is intentional but means audit trail for old booking attempts is lost after 3 months.

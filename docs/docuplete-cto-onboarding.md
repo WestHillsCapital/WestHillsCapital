@@ -137,7 +137,6 @@ Docuplete is in active SOC 2 preparation. What is in place:
 | **"Last rotated" dates unknown** for all API keys | Cannot demonstrate rotation cadence to auditors | High |
 | **MFA confirmation pending** on Replit, Railway, Clerk, Stripe, Resend consoles | SOC 2 CC6.1 gap | High |
 | **Several vendor DPAs unconfirmed** (Clerk, Sentry, Resend, Railway) | GDPR/SOC 2 CC9.2 gap | Medium |
-| **No automated test suite** | Regressions caught manually only | Medium |
 | **Penetration test not yet scheduled** | Required for SOC 2 CC7.1 | Medium |
 | **PDF AcroForm flatten** implemented (May 2026) — monitor for edge cases | Flat PDFs cannot be re-edited by recipients | Low |
 
