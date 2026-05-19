@@ -2996,30 +2996,55 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
         <p className="text-xs text-gray-500 mt-0.5">Create and manage API keys for programmatic access.</p>
       </div>
 
-      {/* New key banner — shown once after creation */}
+      {/* New key modal — shown once after creation */}
       {newKey && (
-        <div className="px-6 py-4 bg-green-50 border-b border-green-100">
-          <p className="text-sm font-medium text-green-800 mb-1">API key created — copy it now</p>
-          <p className="text-xs text-green-700 mb-3">This is the only time the full key will be shown. Store it securely.</p>
-          <div className="flex items-center gap-2">
-            <code className="flex-1 rounded-lg bg-white border border-green-200 px-3 py-2 text-xs font-mono text-gray-800 break-all select-all">
-              {newKey.key}
-            </code>
-            <button
-              type="button"
-              onClick={() => { void handleCopy(); }}
-              className="shrink-0 rounded-lg border border-green-200 bg-white px-3 py-2 text-xs font-medium text-green-800 hover:bg-green-50 transition-colors"
-            >
-              {copied ? "Copied!" : "Copy"}
-            </button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}>
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden">
+            {/* Header */}
+            <div className="px-6 py-5 border-b border-gray-100">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="w-7 h-7 rounded-full bg-green-100 flex items-center justify-center shrink-0">
+                  <svg className="w-3.5 h-3.5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                </div>
+                <p className="text-sm font-semibold text-gray-900">API key created — <span className="text-gray-500 font-normal">{newKey.name}</span></p>
+              </div>
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
+                <svg className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <p className="text-xs text-amber-800 font-medium leading-relaxed">For security, we will never show you this secret key again. Copy and store it safely now.</p>
+              </div>
+            </div>
+            {/* Key display */}
+            <div className="px-6 py-5">
+              <p className="text-[10px] text-gray-400 uppercase tracking-wide font-medium mb-2">Your secret key</p>
+              <div className="flex items-stretch gap-2">
+                <code className="flex-1 min-w-0 rounded-lg bg-gray-950 border border-gray-800 px-3 py-2.5 text-xs font-mono text-green-400 break-all select-all leading-relaxed">
+                  {newKey.key}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => { void handleCopy(); }}
+                  className={`shrink-0 rounded-lg px-3 py-2 text-xs font-medium transition-all ${copied ? "border border-green-200 bg-green-50 text-green-700" : "text-white"}`}
+                  style={copied ? {} : { backgroundColor: bc }}
+                >
+                  {copied ? "✓ Copied" : "Copy"}
+                </button>
+              </div>
+            </div>
+            {/* Footer */}
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end">
+              <button
+                type="button"
+                onClick={() => { setNewKey(null); setCopied(false); }}
+                className="rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-100 transition-colors"
+              >
+                I've saved it — close
+              </button>
+            </div>
           </div>
-          <button
-            type="button"
-            onClick={() => { setNewKey(null); setCopied(false); }}
-            className="mt-3 text-xs text-green-700 underline underline-offset-2"
-          >
-            I've saved the key, dismiss this
-          </button>
         </div>
       )}
 
@@ -3041,9 +3066,9 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
           />
           <button
             type="button"
-            disabled={isCreating}
+            disabled={isCreating || !newKeyName.trim()}
             onClick={() => { void handleCreate(); }}
-            className="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors brand-btn-hover"
+            className="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-white transition-all brand-btn-hover disabled:opacity-40 disabled:cursor-not-allowed"
             style={{ backgroundColor: bc }}
           >
             {isCreating ? "Creating…" : "Create"}
@@ -3119,12 +3144,12 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                           <TooltipContent side="top" className="max-w-xs">Grants full API access: read live pricing data, submit interview sessions, and manage Docuplete packages programmatically.</TooltipContent>
                         </Tooltip>
                       </div>
-                      <p className="text-xs text-gray-400 mt-0.5">
-                        <code className="font-mono">{key.keyPrefix}…</code>
-                        {" · "}
-                        Created {formatDate(key.createdAt)}
-                        {" · "}
-                        Last used: {key.lastUsedAt ? formatRelative(key.lastUsedAt) : "Never"}
+                      <p className="text-xs text-gray-400 mt-0.5 flex items-center flex-wrap gap-1">
+                        <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[10px] text-gray-600">{key.keyPrefix}…</code>
+                        <span className="text-gray-300 select-none">|</span>
+                        <span>Created {formatDate(key.createdAt)}</span>
+                        <span className="text-gray-300 select-none">|</span>
+                        <span>Last used: {key.lastUsedAt ? formatRelative(key.lastUsedAt) : "Never"}</span>
                       </p>
                     </div>
                     {confirmRevokeId === key.id ? (
@@ -3158,7 +3183,7 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                         <button
                           type="button"
                           onClick={() => setConfirmRevokeId(key.id)}
-                          className="text-xs text-gray-400 hover:text-red-600 transition-colors"
+                          className="rounded-lg border border-red-200 px-2.5 py-1 text-xs font-medium text-red-600 hover:bg-red-50 transition-colors"
                         >
                           Revoke
                         </button>
@@ -3181,11 +3206,11 @@ function ApiKeysSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
               <div key={key.id} className="flex items-center justify-between gap-4 px-6 py-3 opacity-60">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-700 truncate">{key.name}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
-                    <code className="font-mono">{key.keyPrefix}…</code>
-                    {" · "}
-                    Created {formatDate(key.createdAt)}
-                    {key.revokedAt ? ` · Revoked ${formatDate(key.revokedAt)}` : ""}
+                  <p className="text-xs text-gray-400 mt-0.5 flex items-center flex-wrap gap-1">
+                    <code className="font-mono bg-slate-100 px-1.5 py-0.5 rounded text-[10px] text-gray-500">{key.keyPrefix}…</code>
+                    <span className="text-gray-300 select-none">|</span>
+                    <span>Created {formatDate(key.createdAt)}</span>
+                    {key.revokedAt && <><span className="text-gray-300 select-none">|</span><span>Revoked {formatDate(key.revokedAt)}</span></>}
                   </p>
                 </div>
                 <span className="shrink-0 rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
