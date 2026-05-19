@@ -473,6 +473,7 @@ const PLANS = [
       "Custom domain",
     ],
     cta: "Contact sales",
+
     highlight: false,
   },
 ];
@@ -1547,7 +1548,7 @@ export default function Home() {
                     href={NAV_SIGNUP}
                     className={`block text-center font-semibold py-3 rounded-xl transition-colors text-sm ${
                       plan.highlight
-                        ? "bg-[#1B4FD8] text-white hover:bg-[#1740B8]"
+                        ? "bg-[#F5A623] hover:bg-[#e09510] text-[#0d1224] shadow-lg shadow-[#F5A623]/25"
                         : "bg-[#F5F7FC] text-[#0B1220] border border-[#E8EDF5] hover:bg-[#EDF0F7]"
                     }`}
                   >
@@ -1575,14 +1576,14 @@ export default function Home() {
           </p>
           <a
             href={NAV_SIGNUP}
-            className="inline-flex items-center gap-2 bg-[#1B4FD8] hover:bg-[#1740B8] text-white font-semibold px-8 py-4 rounded-xl transition-colors text-base shadow-lg shadow-[#1B4FD8]/30"
+            className="inline-flex items-center gap-2 bg-[#F5A623] hover:bg-[#e09510] text-[#0d1224] font-semibold px-8 py-4 rounded-xl transition-colors text-base shadow-lg shadow-[#F5A623]/30"
           >
             Start your free trial
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
             </svg>
           </a>
-          <p className="mt-5 text-white/30 text-sm">Most teams send their first document in under 3 minutes.</p>
+          <p className="mt-5 text-[#94A3B8] text-sm">Most teams send their first document in under 3 minutes.</p>
         </div>
       </section>
 
