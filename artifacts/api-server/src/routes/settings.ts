@@ -3379,7 +3379,8 @@ router.get("/audit-log", requireAdminRole, async (req, res) => {
 
 router.get("/audit-log/export", requireAdminRole, async (req, res) => {
   try {
-    const accountId = req.internalAccountId ?? 1;
+    const accountId = req.internalAccountId;
+    if (!accountId) return void res.status(403).json({ error: "No account context." });
     const actionFilter = typeof req.query.action === "string" && req.query.action ? req.query.action : null;
     const search = typeof req.query.search === "string" && req.query.search ? req.query.search.toLowerCase() : null;
     const after  = typeof req.query.after  === "string" && req.query.after  ? req.query.after  : null;
