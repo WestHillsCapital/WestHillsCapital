@@ -94,6 +94,43 @@ function CopyBadge({ value }: { value: string }) {
   );
 }
 
+function CopySnippet({ command, label = "Install" }: { command: string; label?: string }) {
+  const [copied, setCopied] = useState(false);
+  function handleCopy() {
+    void navigator.clipboard.writeText(command).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+  return (
+    <button
+      type="button"
+      onClick={handleCopy}
+      className="group relative w-full text-left rounded-lg bg-gray-50 border border-gray-100 px-3 py-2 hover:border-gray-300 hover:bg-gray-100 transition-colors focus:outline-none"
+      title="Click to copy"
+    >
+      <p className="text-[10px] text-gray-400 mb-1">{label}</p>
+      <div className="flex items-center justify-between gap-2">
+        <code className="text-xs font-mono text-gray-700">{command}</code>
+        <span className="shrink-0">
+          {copied ? (
+            <span className="text-[10px] font-medium text-green-600 whitespace-nowrap">✓ Copied</span>
+          ) : (
+            <svg className="w-3.5 h-3.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.991 1.057 1.991 2.176v1.5c0 .513-.406.957-.92.997a48.7 48.7 0 01-7.332.022 1.002 1.002 0 01-.92-.997v-1.5c0-1.12.891-2.048 1.991-2.176a48.424 48.424 0 011.927-.184" />
+            </svg>
+          )}
+        </span>
+      </div>
+      {copied && (
+        <span className="absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-gray-900 px-2 py-0.5 text-[10px] font-medium text-white whitespace-nowrap pointer-events-none z-10 shadow-sm">
+          ✓ Copied to clipboard
+        </span>
+      )}
+    </button>
+  );
+}
+
 function StyledSelect({ value, onChange, disabled, children, size = "sm" }: {
   value: string;
   onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
@@ -1529,10 +1566,7 @@ function DeveloperSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersIni
                 <p className="text-[10px] text-gray-400">Node.js · TypeScript</p>
               </div>
             </div>
-            <div className="rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
-              <p className="text-[10px] text-gray-400 mb-1">Install</p>
-              <code className="text-xs font-mono text-gray-700 select-all">npm install @docuplete/sdk</code>
-            </div>
+            <CopySnippet command="npm install @docuplete/sdk" />
             <p className="text-xs text-gray-500 leading-relaxed">
               Create sessions, fill answers, generate PDF packets, and verify webhook signatures — all from your own code.
             </p>
@@ -2014,7 +2048,9 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                 </div>
                 {status?.slack.connected
                   ? <span className="ml-auto inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Connected</span>
-                  : <span className="ml-auto inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">Not connected</span>
+                  : !status?.slack.available
+                    ? <span className="ml-auto inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-700">Requires Setup</span>
+                    : <span className="ml-auto inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">Not connected</span>
                 }
               </div>
 
@@ -2037,15 +2073,21 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                     type="button"
                     disabled={slackDisconnecting}
                     onClick={() => { void handleSlackDisconnect(); }}
-                    className="mt-auto pt-1 text-xs text-gray-400 hover:text-red-600 transition-colors text-left disabled:opacity-60"
+                    className="mt-auto w-fit rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-500 hover:border-red-200 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-60"
                   >
                     {slackDisconnecting ? "Disconnecting…" : "Disconnect Slack"}
                   </button>
                 </>
               ) : !status?.slack.available ? (
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  Slack integration is not enabled on this server. Contact your administrator to configure <code className="font-mono">SLACK_CLIENT_ID</code>.
-                </p>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
+                  <svg className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Not enabled on this server. Ask your administrator to configure{" "}
+                    <code className="font-mono font-medium">SLACK_CLIENT_ID</code>.
+                  </p>
+                </div>
               ) : (
                 <>
                   <p className="text-xs text-gray-500 leading-relaxed">
@@ -2115,7 +2157,7 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                     type="button"
                     disabled={storageDisconnecting}
                     onClick={() => { void handleStorageDisconnect(); }}
-                    className="text-xs text-gray-400 hover:text-red-600 transition-colors text-left disabled:opacity-60 w-fit"
+                    className="w-fit rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-500 hover:border-red-200 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-60"
                   >
                     {storageDisconnecting ? "Disconnecting…" : "Disconnect storage"}
                   </button>
@@ -2138,10 +2180,10 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-gray-900">Google Drive</p>
                         </div>
-                        {isConnected
-                          ? <span className="inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Active</span>
-                          : <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-400">—</span>
-                        }
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 shrink-0 transition-all ${isConnected ? "border-transparent" : !isAvailable || otherConnected ? "border-gray-300" : "border-[#0E1D4A]"}`}
+                          style={isConnected ? { backgroundColor: bc } : {}}
+                        />
                       </div>
                       {isConnected ? (
                         <p className="text-[11px] text-green-700">Connected as <span className="font-medium">{status?.storage?.email ?? "your account"}</span></p>
@@ -2182,10 +2224,10 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-gray-900">OneDrive</p>
                         </div>
-                        {isConnected
-                          ? <span className="inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Active</span>
-                          : <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-400">—</span>
-                        }
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 shrink-0 transition-all ${isConnected ? "border-transparent" : !isAvailable || otherConnected ? "border-gray-300" : "border-[#0E1D4A]"}`}
+                          style={isConnected ? { backgroundColor: bc } : {}}
+                        />
                       </div>
                       {isConnected ? (
                         <p className="text-[11px] text-green-700">Connected as <span className="font-medium">{status?.storage?.email ?? "your account"}</span></p>
@@ -2226,10 +2268,10 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                         <div className="flex-1 min-w-0">
                           <p className="text-xs font-medium text-gray-900">Dropbox</p>
                         </div>
-                        {isConnected
-                          ? <span className="inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Active</span>
-                          : <span className="inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-400">—</span>
-                        }
+                        <div
+                          className={`w-4 h-4 rounded-full border-2 shrink-0 transition-all ${isConnected ? "border-transparent" : !isAvailable || otherConnected ? "border-gray-300" : "border-[#0E1D4A]"}`}
+                          style={isConnected ? { backgroundColor: bc } : {}}
+                        />
                       </div>
                       {isConnected ? (
                         <p className="text-[11px] text-green-700">Connected as <span className="font-medium">{status?.storage?.email ?? "your account"}</span></p>
@@ -2270,7 +2312,9 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                 </div>
                 {status?.hubspot?.connected
                   ? <span className="ml-auto inline-flex items-center rounded-full bg-green-50 border border-green-200 px-2 py-0.5 text-[10px] font-medium text-green-700">Connected</span>
-                  : <span className="ml-auto inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">Not connected</span>
+                  : !status?.hubspot?.available
+                    ? <span className="ml-auto inline-flex items-center rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-700">Requires Setup</span>
+                    : <span className="ml-auto inline-flex items-center rounded-full bg-gray-100 border border-gray-200 px-2 py-0.5 text-[10px] font-medium text-gray-500">Not connected</span>
                 }
               </div>
 
@@ -2294,15 +2338,21 @@ function IntegrationsSection({ getAuthHeaders }: { getAuthHeaders: () => Headers
                     type="button"
                     disabled={hubspotDisconnecting}
                     onClick={() => { void handleHubSpotDisconnect(); }}
-                    className="mt-auto pt-1 text-xs text-gray-400 hover:text-red-600 transition-colors text-left disabled:opacity-60"
+                    className="mt-auto w-fit rounded-lg border border-gray-200 px-2.5 py-1 text-xs font-medium text-gray-500 hover:border-red-200 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-60"
                   >
                     {hubspotDisconnecting ? "Disconnecting…" : "Disconnect HubSpot"}
                   </button>
                 </>
               ) : !status?.hubspot?.available ? (
-                <p className="text-xs text-gray-400 leading-relaxed">
-                  HubSpot integration is not enabled on this server. Contact your administrator to configure <code className="font-mono">HUBSPOT_CLIENT_ID</code>.
-                </p>
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 flex items-start gap-2">
+                  <svg className="w-3.5 h-3.5 text-amber-500 mt-0.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                  <p className="text-[11px] text-amber-800 leading-relaxed">
+                    Not enabled on this server. Ask your administrator to configure{" "}
+                    <code className="font-mono font-medium">HUBSPOT_CLIENT_ID</code>.
+                  </p>
+                </div>
               ) : (
                 <>
                   <p className="text-xs text-gray-500 leading-relaxed">
