@@ -1091,21 +1091,52 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
           {/* Orphaned mapping warning */}
           {orphanedMappings.length > 0 && (
             <div className="mb-2 flex-shrink-0 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] leading-relaxed">
-              <p className="font-semibold text-amber-800">
-                {orphanedMappings.length} placed slot{orphanedMappings.length === 1 ? "" : "s"} point to a removed field
-              </p>
+              <div className="flex items-start justify-between gap-2">
+                <p className="font-semibold text-amber-800">
+                  {orphanedMappings.length} placed slot{orphanedMappings.length === 1 ? "" : "s"} point to a removed field
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const orphanIds = new Set(orphanedMappings.map((m) => m.id));
+                    useDocupleteStore.getState().setMappings(
+                      useDocupleteStore.getState().mappings.filter((m) => !orphanIds.has(m.id))
+                    );
+                  }}
+                  className="shrink-0 rounded bg-amber-600 px-2 py-0.5 text-[10px] font-semibold text-white hover:bg-amber-700 transition-colors"
+                >
+                  Remove all
+                </button>
+              </div>
               <p className="text-amber-700 mt-0.5">
                 {orphanedMappings.length === 1
                   ? "This slot will be blank in generated PDFs."
                   : "These slots will be blank in generated PDFs."}
-                {" "}Remove the slot(s) from the document canvas and re-place them using the current field.
+                {" "}Remove each slot below, then re-place it using the current field.
               </p>
-              <p className="text-amber-600 mt-1 font-medium">
-                Affected: {[...new Set(orphanedMappings.map((m) => {
+              <ul className="mt-1.5 space-y-1">
+                {orphanedMappings.map((m) => {
                   const doc = selectedPackage.documents.find((d) => d.id === m.documentId);
-                  return doc?.title ?? doc?.fileName ?? "Unknown doc";
-                }))].join(", ")}
-              </p>
+                  const docName = doc?.title ?? doc?.fileName ?? "Unknown doc";
+                  const formatLabel = labelForMappingFormat(m.format);
+                  return (
+                    <li key={m.id} className="flex items-center justify-between gap-2 rounded bg-amber-100 border border-amber-200 px-2 py-1">
+                      <span className="text-amber-900 truncate">
+                        <span className="font-medium">{docName}</span>
+                        <span className="text-amber-600"> · p.{m.page ?? 1} · {formatLabel}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => useDocupleteStore.getState().setMappings(
+                          useDocupleteStore.getState().mappings.filter((x) => x.id !== m.id)
+                        )}
+                        className="shrink-0 text-amber-600 hover:text-red-600 transition-colors font-bold leading-none"
+                        title="Remove this slot"
+                      >×</button>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           )}
           {/* Filter / sort controls */}
