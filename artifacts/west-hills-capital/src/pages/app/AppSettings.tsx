@@ -3397,18 +3397,25 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
             <label className="text-sm font-medium text-gray-800 block mb-1">Default link expiry</label>
             <p className="text-xs text-gray-500 mb-3">How long interview links stay active after creation.</p>
             <div className="flex flex-wrap items-center gap-2">
-              <select
-                value={expiryPreset}
-                onChange={(e) => handleExpiryPresetChange(e.target.value)}
-                disabled={!isAdmin}
-                className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20 disabled:opacity-60"
-              >
-                {EXPIRY_PRESETS.map((p) => (
-                  <option key={p.value} value={p.value}>{p.label}</option>
-                ))}
-              </select>
+              <div className="relative inline-flex">
+                <select
+                  value={expiryPreset}
+                  onChange={(e) => handleExpiryPresetChange(e.target.value)}
+                  disabled={!isAdmin}
+                  className="appearance-none rounded-lg border border-gray-200 bg-white px-3 py-1.5 pr-9 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20 disabled:opacity-60"
+                >
+                  {EXPIRY_PRESETS.map((p) => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+                <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
+                  <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                  </svg>
+                </div>
+              </div>
               {expiryPreset === "custom" && (
-                <div className="flex items-center gap-1.5">
+                <div className="inline-flex items-center rounded-lg border border-gray-200 overflow-hidden bg-white">
                   <input
                     type="number"
                     min={1}
@@ -3416,10 +3423,10 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
                     value={customExpiry}
                     onChange={(e) => handleCustomExpiryChange(e.target.value)}
                     disabled={!isAdmin}
-                    placeholder="days"
-                    className="w-20 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20 disabled:opacity-60"
+                    placeholder="—"
+                    className="w-16 border-0 bg-transparent px-2.5 py-1.5 text-sm text-center text-gray-700 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-60"
                   />
-                  <span className="text-xs text-gray-500">days (1–3650)</span>
+                  <span className="px-2.5 py-1.5 text-xs font-medium text-gray-500 bg-gray-100 border-l border-gray-200 whitespace-nowrap shrink-0">days</span>
                 </div>
               )}
             </div>
@@ -3441,34 +3448,37 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
                   role="switch"
                   aria-checked={reminderEnabled}
                   onClick={() => setReminderEnabled((v) => !v)}
-                  className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1"
-                  style={{ backgroundColor: reminderEnabled ? bc : "#e5e7eb" }}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 ${reminderEnabled ? "border-transparent" : "border-[#0E1D4A]"}`}
+                  style={{ backgroundColor: reminderEnabled ? bc : "transparent" }}
                 >
-                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${reminderEnabled ? "translate-x-4" : "translate-x-0"}`} />
+                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full transition-transform ${reminderEnabled ? "bg-white shadow-sm translate-x-4" : "bg-[#0E1D4A] translate-x-0"}`} />
                 </button>
               )}
               {!isAdmin && (
-                <div className="relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent opacity-60" style={{ backgroundColor: reminderEnabled ? bc : "#e5e7eb" }}>
-                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${reminderEnabled ? "translate-x-4" : "translate-x-0"}`} />
+                <div className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 opacity-60 ${reminderEnabled ? "border-transparent" : "border-[#0E1D4A]"}`} style={{ backgroundColor: reminderEnabled ? bc : "transparent" }}>
+                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full transition-transform ${reminderEnabled ? "bg-white shadow-sm translate-x-4" : "bg-[#0E1D4A] translate-x-0"}`} />
                 </div>
               )}
             </div>
             {reminderEnabled && (
-              <div className="mt-4 flex items-center gap-2">
+              <div className="mt-4 flex items-center gap-2 flex-wrap">
                 <label className="text-xs text-gray-600 shrink-0">Send reminder after</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={90}
-                  value={reminderDays}
-                  onChange={(e) => {
-                    const n = parseInt(e.target.value, 10);
-                    if (Number.isInteger(n) && n >= 1 && n <= 90) setReminderDays(n);
-                  }}
-                  disabled={!isAdmin}
-                  className="w-16 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20 disabled:opacity-60"
-                />
-                <span className="text-xs text-gray-500">days of inactivity</span>
+                <div className="inline-flex items-center rounded-lg border border-gray-200 overflow-hidden bg-white">
+                  <input
+                    type="number"
+                    min={1}
+                    max={90}
+                    value={reminderDays}
+                    onChange={(e) => {
+                      const n = parseInt(e.target.value, 10);
+                      if (Number.isInteger(n) && n >= 1 && n <= 90) setReminderDays(n);
+                    }}
+                    disabled={!isAdmin}
+                    className="w-12 border-0 bg-transparent px-2.5 py-1.5 text-sm text-center text-gray-700 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none disabled:opacity-60"
+                  />
+                  <span className="px-2.5 py-1.5 text-xs font-medium text-gray-500 bg-gray-100 border-l border-gray-200 whitespace-nowrap shrink-0">days</span>
+                </div>
+                <span className="text-xs text-gray-500">of inactivity</span>
               </div>
             )}
           </div>
@@ -3477,16 +3487,23 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
           <div className="px-6 py-5">
             <label className="text-sm font-medium text-gray-800 block mb-1">Default language</label>
             <p className="text-xs text-gray-500 mb-3">Language used for interview UI copy shown to recipients.</p>
-            <select
-              value={defaultLocale}
-              onChange={(e) => setDefaultLocale(e.target.value)}
-              disabled={!isAdmin}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20 disabled:opacity-60"
-            >
-              {LOCALE_OPTIONS.map((l) => (
-                <option key={l.value} value={l.value}>{l.label}</option>
-              ))}
-            </select>
+            <div className="relative inline-flex">
+              <select
+                value={defaultLocale}
+                onChange={(e) => setDefaultLocale(e.target.value)}
+                disabled={!isAdmin}
+                className="appearance-none rounded-lg border border-gray-200 bg-white px-3 py-1.5 pr-9 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20 disabled:opacity-60"
+              >
+                {LOCALE_OPTIONS.map((l) => (
+                  <option key={l.value} value={l.value}>{l.label}</option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
+                <svg className="w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                </svg>
+              </div>
+            </div>
           </div>
 
           {/* Summary card */}
@@ -3522,8 +3539,8 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
                 type="button"
                 disabled={isSaving}
                 onClick={() => { void handleSave(); }}
-                className="rounded-lg px-5 py-2 text-sm font-medium text-white transition-colors brand-btn-hover"
-                style={{ backgroundColor: bc }}
+                className="rounded-lg border px-5 py-2 text-sm font-medium transition-colors disabled:opacity-50"
+                style={{ borderColor: bc, color: bc, backgroundColor: "transparent" }}
               >
                 {isSaving ? "Saving…" : "Save changes"}
               </button>
@@ -3543,9 +3560,9 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
             )}
             {(
               [
-                { label: "Staff Interview",       desc: "Staff can launch guided interviews from the dashboard.", value: pkgDefaultInterview,    set: setPkgDefaultInterview },
-                { label: "Batch CSV",             desc: "Staff can fill many packets at once by uploading a CSV.", value: pkgDefaultCsv,          set: setPkgDefaultCsv },
-                { label: "Customer Link",         desc: "Send a branded link so customers can self-fill on their own device.", value: pkgDefaultCustomerLink, set: setPkgDefaultCustomerLink },
+                { label: "Staff Interview",       desc: "Staff can launch guided interviews from the dashboard", value: pkgDefaultInterview,    set: setPkgDefaultInterview },
+                { label: "Batch CSV",             desc: "Staff can fill many packets at once by uploading a CSV", value: pkgDefaultCsv,          set: setPkgDefaultCsv },
+                { label: "Customer Link",         desc: "Send a branded link so customers can self-fill on their own device", value: pkgDefaultCustomerLink, set: setPkgDefaultCustomerLink },
                 { label: "E-sign — Email Verify", desc: "Require customers to verify their email before submitting.", value: pkgDefaultEsign,        set: setPkgDefaultEsign },
                 { label: "Staff Notification",    desc: "Email all staff when a client submits.", value: pkgDefaultNotifyStaff,   set: setPkgDefaultNotifyStaff },
                 { label: "Client Confirmation",   desc: "Send the client a branded receipt after they submit.", value: pkgDefaultNotifyClient, set: setPkgDefaultNotifyClient },
@@ -3562,14 +3579,14 @@ function InterviewDefaultsSection({ getAuthHeaders, isAdmin }: { getAuthHeaders:
                     role="switch"
                     aria-checked={value}
                     onClick={() => set(!value)}
-                    className="relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none focus:ring-2 focus:ring-offset-1"
-                    style={{ backgroundColor: value ? bc : "#e5e7eb" }}
+                    className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 transition-all focus:outline-none focus:ring-2 focus:ring-offset-1 ${value ? "border-transparent" : "border-[#0E1D4A]"}`}
+                    style={{ backgroundColor: value ? bc : "transparent" }}
                   >
-                    <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${value ? "translate-x-4" : "translate-x-0"}`} />
+                    <span className={`pointer-events-none inline-block h-4 w-4 rounded-full transition-transform ${value ? "bg-white shadow-sm translate-x-4" : "bg-[#0E1D4A] translate-x-0"}`} />
                   </button>
                 ) : (
-                  <div className="relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent opacity-60" style={{ backgroundColor: value ? bc : "#e5e7eb" }}>
-                    <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${value ? "translate-x-4" : "translate-x-0"}`} />
+                  <div className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 opacity-60 ${value ? "border-transparent" : "border-[#0E1D4A]"}`} style={{ backgroundColor: value ? bc : "transparent" }}>
+                    <span className={`pointer-events-none inline-block h-4 w-4 rounded-full transition-transform ${value ? "bg-white shadow-sm translate-x-4" : "bg-[#0E1D4A] translate-x-0"}`} />
                   </div>
                 )}
               </div>
