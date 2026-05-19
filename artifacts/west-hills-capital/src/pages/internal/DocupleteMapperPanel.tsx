@@ -149,6 +149,190 @@ function GroupPicker({
   );
 }
 
+function LibraryFieldPicker({
+  availableLibraryFields,
+  availableEsignFields,
+  fieldGroups,
+  onSelect,
+}: {
+  availableLibraryFields: FieldLibraryItem[];
+  availableEsignFields: Array<{ id: string; name: string }>;
+  fieldGroups: FieldGroup[];
+  onSelect: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(() => new Set());
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const q = search.toLowerCase();
+  const matchesSearch = (label: string) => !q || label.toLowerCase().includes(q);
+
+  const ownFields = availableLibraryFields.filter((f) => !f.inherited);
+  const inheritedFields = availableLibraryFields.filter((f) => f.inherited);
+
+  const groupedFieldIdSet = new Set(fieldGroups.flatMap((g) => g.fieldIds));
+  const ungrouped = ownFields.filter((f) => !groupedFieldIdSet.has(f.id) && matchesSearch(f.label));
+  const groupSections = fieldGroups
+    .map((g) => ({ group: g, fields: ownFields.filter((f) => g.fieldIds.includes(f.id) && matchesSearch(f.label)) }))
+    .filter(({ fields }) => fields.length > 0);
+  const inheritedFiltered = inheritedFields.filter((f) => matchesSearch(f.label));
+  const esignFiltered = availableEsignFields.filter((f) => matchesSearch(f.name));
+
+  const hasAny = ungrouped.length > 0 || groupSections.length > 0 || inheritedFiltered.length > 0 || esignFiltered.length > 0;
+
+  const toggleGroup = (id: number) => {
+    setExpandedGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const handleSelect = (id: string) => {
+    onSelect(id);
+    setOpen(false);
+    setSearch("");
+  };
+
+  return (
+    <div ref={containerRef} className="relative mb-2 flex-shrink-0">
+      <span className="block text-[11px] text-[#6B7A99] mb-1">Add from shared library</span>
+      <button
+        type="button"
+        onClick={() => { setOpen((v) => !v); setSearch(""); }}
+        className="w-full flex items-center justify-between border border-[#D4C9B5] rounded px-2 py-1.5 text-xs bg-white text-[#6B7A99] hover:border-[#C49A38] transition-colors"
+      >
+        <span>Select reusable field</span>
+        <svg className={`w-3.5 h-3.5 text-[#8A9BB8] transition-transform ${open ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+      </button>
+
+      {open && (
+        <div className="absolute z-50 left-0 right-0 top-full mt-1 rounded border border-[#D4C9B5] bg-white shadow-lg max-h-72 flex flex-col overflow-hidden">
+          <div className="px-2 py-1.5 border-b border-[#EFE8D8] flex-shrink-0">
+            <input
+              autoFocus
+              type="text"
+              placeholder="Search fields…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full text-xs focus:outline-none bg-transparent placeholder:text-[#B0BCCF]"
+            />
+          </div>
+          <div className="overflow-y-auto flex-1">
+            {!hasAny && (
+              <div className="px-3 py-4 text-[11px] text-center text-[#8A9BB8]">
+                {search ? `No fields match "${search}"` : "No fields available to add."}
+              </div>
+            )}
+
+            {/* Ungrouped shared fields */}
+            {ungrouped.length > 0 && (
+              <div>
+                <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8A9BB8] bg-[#F8F6F0]">
+                  Shared Library
+                </div>
+                {ungrouped.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleSelect(item.id)}
+                    className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#FDF8EE] transition-colors"
+                  >
+                    <span className="font-medium text-[#0F1C3F]">{item.label}</span>
+                    <span className="ml-1.5 text-[#8A9BB8]">· {item.category}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Group sections */}
+            {groupSections.map(({ group, fields }) => {
+              const expanded = expandedGroups.has(group.id);
+              return (
+                <div key={group.id}>
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.id)}
+                    className="w-full flex items-center justify-between px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8A9BB8] bg-[#F8F6F0] hover:bg-[#F0EBE1] transition-colors"
+                  >
+                    <span>{group.name}</span>
+                    <span className="flex items-center gap-1 normal-case font-normal text-[#B0BCCF]">
+                      <span>{fields.length} field{fields.length !== 1 ? "s" : ""}</span>
+                      <svg className={`w-3 h-3 transition-transform ${expanded ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>
+                    </span>
+                  </button>
+                  {expanded && fields.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => handleSelect(item.id)}
+                      className="w-full text-left pl-5 pr-3 py-1.5 text-[11px] hover:bg-[#FDF8EE] transition-colors"
+                    >
+                      <span className="font-medium text-[#0F1C3F]">{item.label}</span>
+                      <span className="ml-1.5 text-[#8A9BB8]">· {item.category}</span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })}
+
+            {/* Inherited fields */}
+            {inheritedFiltered.length > 0 && (
+              <div>
+                <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8A9BB8] bg-[#F8F6F0]">
+                  Inherited Library (read-only)
+                </div>
+                {inheritedFiltered.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleSelect(item.id)}
+                    className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#FDF8EE] transition-colors"
+                  >
+                    <span className="font-medium text-[#0F1C3F]">{item.label}</span>
+                    <span className="ml-1.5 text-[#8A9BB8]">· {item.category}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* E-Sign fields */}
+            {esignFiltered.length > 0 && (
+              <div>
+                <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-[#8A9BB8] bg-[#F8F6F0]">
+                  E-Sign Fields
+                </div>
+                {esignFiltered.map((sf) => (
+                  <button
+                    key={sf.id}
+                    type="button"
+                    onClick={() => handleSelect(sf.id)}
+                    className="w-full text-left px-3 py-1.5 text-[11px] hover:bg-[#FDF8EE] transition-colors"
+                  >
+                    <span className="font-medium text-[#0F1C3F]">{sf.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Multi-doc scroll helpers ─────────────────────────────────────────────────
 const MDSCROLL_DOC_HEADER_H = 40;
 const MDSCROLL_PAGE_GAP = 16;
@@ -1182,68 +1366,29 @@ export const DocupleteMapperPanel = React.memo(function DocupleteMapperPanel(pro
             const availableEsignFields = SYSTEM_ESIGN_FIELDS.filter((sf) => !esignPkgIds.has(sf.id));
             if (availableLibraryFields.length === 0 && availableEsignFields.length === 0) return null;
             return (
-              <label className="block mb-2 flex-shrink-0">
-                <span className="block text-[11px] text-[#6B7A99] mb-1">Add from shared library</span>
-                <select
-                  value=""
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (!val) return;
-                    if (isSystemEsignFieldId(val)) {
-                      updateSelectedPackage((pkg) => {
-                        if (pkg.fields.find((f) => f.id === val)) return pkg;
-                        const newField = makeSystemEsignFieldItem(val);
-                        let fields = [newField, ...pkg.fields];
-                        const needsAutoDate = (val === ESIGN_FIELD_ID_SIGNATURE || val === ESIGN_FIELD_ID_INITIALS);
-                        if (needsAutoDate && !fields.find((f) => f.id === ESIGN_FIELD_ID_DATE)) {
-                          const autoDate = makeSystemEsignFieldItem(ESIGN_FIELD_ID_DATE);
-                          fields = [autoDate, ...fields];
-                        }
-                        return { ...pkg, fields, auth_level: "email_otp" };
-                      });
-                    } else {
-                      const libraryField = fieldLibrary.find((item) => item.id === val);
-                      if (libraryField) addLibraryFieldToPackage(libraryField);
-                    }
-                  }}
-                  className="w-full border border-[#D4C9B5] rounded px-2 py-1 text-xs bg-white"
-                >
-                  <option value="">Select reusable field</option>
-                  {availableLibraryFields.some((f) => f.inherited) && (
-                    <optgroup label="Inherited Library (read-only)">
-                      {availableLibraryFields.filter((f) => f.inherited).map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
-                    </optgroup>
-                  )}
-                  {(() => {
-                    const ownAvailable = availableLibraryFields.filter((f) => !f.inherited);
-                    if (ownAvailable.length === 0) return null;
-                    const groupedFieldIdSet = new Set(fieldGroups.flatMap((g) => g.fieldIds));
-                    const ungrouped = ownAvailable.filter((f) => !groupedFieldIdSet.has(f.id));
-                    const groupsWithFields = fieldGroups
-                      .map((g) => ({ group: g, fields: ownAvailable.filter((f) => g.fieldIds.includes(f.id)) }))
-                      .filter(({ fields }) => fields.length > 0);
-                    return (
-                      <>
-                        {ungrouped.length > 0 && (
-                          <optgroup label="Shared Library">
-                            {ungrouped.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
-                          </optgroup>
-                        )}
-                        {groupsWithFields.map(({ group, fields }) => (
-                          <optgroup key={group.id} label={group.name}>
-                            {fields.map((item) => <option key={item.id} value={item.id}>{item.label} · {item.category}</option>)}
-                          </optgroup>
-                        ))}
-                      </>
-                    );
-                  })()}
-                  {availableEsignFields.length > 0 && (
-                    <optgroup label="E-Sign Fields">
-                      {availableEsignFields.map((sf) => <option key={sf.id} value={sf.id}>{sf.name}</option>)}
-                    </optgroup>
-                  )}
-                </select>
-              </label>
+              <LibraryFieldPicker
+                availableLibraryFields={availableLibraryFields}
+                availableEsignFields={availableEsignFields}
+                fieldGroups={fieldGroups}
+                onSelect={(val) => {
+                  if (isSystemEsignFieldId(val)) {
+                    updateSelectedPackage((pkg) => {
+                      if (pkg.fields.find((f) => f.id === val)) return pkg;
+                      const newField = makeSystemEsignFieldItem(val);
+                      let fields = [newField, ...pkg.fields];
+                      const needsAutoDate = (val === ESIGN_FIELD_ID_SIGNATURE || val === ESIGN_FIELD_ID_INITIALS);
+                      if (needsAutoDate && !fields.find((f) => f.id === ESIGN_FIELD_ID_DATE)) {
+                        const autoDate = makeSystemEsignFieldItem(ESIGN_FIELD_ID_DATE);
+                        fields = [autoDate, ...fields];
+                      }
+                      return { ...pkg, fields, auth_level: "email_otp" };
+                    });
+                  } else {
+                    const libraryField = fieldLibrary.find((item) => item.id === val);
+                    if (libraryField) addLibraryFieldToPackage(libraryField);
+                  }
+                }}
+              />
             );
           })()}
           <GroupPicker
