@@ -329,9 +329,10 @@ function SubmissionBankSection({ getAuthHeaders }: { getAuthHeaders: () => Heade
                   onClick={() => setPackType(t)}
                   className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
                     packType === t
-                      ? "bg-white shadow text-gray-900"
+                      ? ""
                       : "text-gray-500 hover:text-gray-700"
                   }`}
+                  style={packType === t ? { backgroundColor: brandColor, color: textColor } : {}}
                 >
                   {t === "one_off" ? "One-time" : t === "annual" ? "Annual −20%" : "Monthly"}
                 </button>
@@ -622,17 +623,19 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     <button
                       type="button"
                       onClick={() => setBillingInterval("monthly")}
-                      className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${billingInterval === "monthly" ? "bg-white shadow text-gray-900" : "text-gray-500"}`}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${billingInterval === "monthly" ? "" : "text-gray-500"}`}
+                      style={billingInterval === "monthly" ? { backgroundColor: bc, color: getTextForBg(bc) } : {}}
                     >
                       Monthly
                     </button>
                     <button
                       type="button"
                       onClick={() => setBillingInterval("annual")}
-                      className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${billingInterval === "annual" ? "bg-white shadow text-gray-900" : "text-gray-500"}`}
+                      className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${billingInterval === "annual" ? "" : "text-gray-500"}`}
+                      style={billingInterval === "annual" ? { backgroundColor: bc, color: getTextForBg(bc) } : {}}
                     >
                       Annual
-                      <span className="text-[10px] font-semibold text-green-700">–20%</span>
+                      <span className={`text-[10px] font-semibold ${billingInterval === "annual" ? "text-green-300" : "text-green-700"}`}>–20%</span>
                     </button>
                   </div>
                   <select
