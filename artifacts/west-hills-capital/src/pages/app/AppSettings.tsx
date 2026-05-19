@@ -4465,7 +4465,7 @@ function DataPrivacySection({
         </div>
 
         {/* Privacy summary */}
-        <div className="px-6 py-4">
+        <div className="px-6 py-6">
           <p className="text-sm font-medium text-gray-900 mb-1">Privacy</p>
           <p className="text-sm text-gray-600 leading-relaxed">
             Docuplete processes document interview responses on your behalf. Your data is stored securely,
@@ -4492,50 +4492,62 @@ function DataPrivacySection({
         ) : (
           <>
             {/* Data export */}
-            <div className="px-6 py-4">
+            <div className="px-6 py-6">
               <p className="text-sm font-medium text-gray-900 mb-1">Data export</p>
               <p className="text-xs text-gray-500 mb-3">
                 Export all your organization&apos;s data — packages, submissions, team members, and settings — as a
                 ZIP archive. You&apos;ll receive the download link by email within a few minutes.
               </p>
-              {exportError   && <p className="mb-2 text-xs text-red-700">{exportError}</p>}
-              {exportSuccess && (
-                <p className="mb-2 text-xs text-green-700">
-                  Export requested! Check your email — your data file will arrive shortly.
-                </p>
-              )}
+              {exportError && <p className="mb-2 text-xs text-red-700">{exportError}</p>}
               {isAdmin ? (
-                <button
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => { void handleRequestExport(); }}
-                  className="rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
-                >
-                  {isExporting ? "Requesting…" : "Request data export"}
-                </button>
+                exportSuccess ? (
+                  <div className="inline-flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-4 py-1.5">
+                    <svg className="w-3.5 h-3.5 text-green-600 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                    <span className="text-sm font-medium text-green-700">Export link requested. Check your inbox in a few minutes.</span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={isExporting}
+                    onClick={() => { void handleRequestExport(); }}
+                    className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60 transition-colors"
+                  >
+                    {isExporting && (
+                      <div className="w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-700 rounded-full animate-spin" />
+                    )}
+                    {isExporting ? "Generating ZIP Archive…" : "Request data export"}
+                  </button>
+                )
               ) : (
                 <p className="text-xs text-gray-400 italic">Only admins can request a data export.</p>
               )}
             </div>
 
             {/* Submission retention */}
-            <div className="px-6 py-4">
+            <div className="px-6 py-6">
               <p className="text-sm font-medium text-gray-900 mb-1">Submission retention</p>
               <p className="text-xs text-gray-500 mb-3">
                 Automatically delete submission records after a set period. Deleted submissions cannot be recovered.
               </p>
               {retentionError && <p className="mb-2 text-xs text-red-700">{retentionError}</p>}
               <div className="flex items-center gap-3 flex-wrap">
-                <select
-                  value={pendingRetention === null ? "null" : String(pendingRetention)}
-                  disabled={!isAdmin}
-                  onChange={(e) => setPendingRetention(e.target.value === "null" ? null : Number(e.target.value))}
-                  className="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20 disabled:opacity-60"
-                >
-                  {RETENTION_OPTIONS.map((o) => (
-                    <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select
+                    value={pendingRetention === null ? "null" : String(pendingRetention)}
+                    disabled={!isAdmin}
+                    onChange={(e) => setPendingRetention(e.target.value === "null" ? null : Number(e.target.value))}
+                    className="appearance-none rounded-lg border border-gray-200 bg-white pl-3 pr-8 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20 disabled:opacity-60 cursor-pointer"
+                  >
+                    {RETENTION_OPTIONS.map((o) => (
+                      <option key={String(o.value)} value={String(o.value)}>{o.label}</option>
+                    ))}
+                  </select>
+                  <svg className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
                 {isAdmin && retentionChanged && (
                   <button
                     type="button"
@@ -4544,7 +4556,7 @@ function DataPrivacySection({
                     className="rounded-lg px-4 py-1.5 text-sm font-medium text-white transition-colors brand-btn-hover"
                     style={{ backgroundColor: bc }}
                   >
-                    {isSavingRetention ? "Saving…" : "Save"}
+                    {isSavingRetention ? "Saving…" : "Save retention changes"}
                   </button>
                 )}
                 {retentionSaved && <span className="text-xs text-green-700">Saved</span>}
@@ -4554,7 +4566,7 @@ function DataPrivacySection({
 
             {/* Account deletion — admin only */}
             {isAdmin && (
-              <div className="px-6 py-4">
+              <div className="px-6 py-6">
                 <p className="text-sm font-medium text-gray-900 mb-1">Delete account</p>
                 {deletionRequestedAt ? (
                   <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
@@ -4589,7 +4601,7 @@ function DataPrivacySection({
                     <button
                       type="button"
                       onClick={() => setShowDeleteDialog(true)}
-                      className="rounded-lg border border-red-200 bg-white px-4 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors"
+                      className="rounded-lg border border-red-500 bg-transparent px-4 py-1.5 text-sm font-medium text-red-600 hover:bg-red-600 hover:text-white transition-all"
                     >
                       Delete account…
                     </button>
