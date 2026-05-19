@@ -1748,9 +1748,9 @@ async function buildPacketPdfBuffer(
               fieldId: mapping.fieldId,
               fieldType: field.type,
               format: mapping.format,
-              answerValue: value,
-              rawAnswer: answers[field.id],
+              answerEmpty: !value,
               hasAnswerKey: Object.prototype.hasOwnProperty.call(answers, field.id),
+              answerLength: value ? value.length : 0,
             }, "[GeneratePdf] checkbox-option mapping produced empty value — answer empty or option mismatch");
           }
           continue;
