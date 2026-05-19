@@ -304,7 +304,7 @@ function VideoSection() {
                 </svg>
               </div>
               <div className="text-center">
-                <p className="text-white font-bold text-xl">Sally &amp; Tom's Story</p>
+                <p className="text-white font-bold text-xl">See Docuplete in Action (60s)</p>
               </div>
             </div>
             <div className="absolute bottom-0 inset-x-0 h-12 bg-gradient-to-t from-black/60 to-transparent flex items-end px-6 pb-3">
@@ -327,7 +327,7 @@ function VideoSection() {
         >
           {/* Top bar */}
           <div className="shrink-0 flex items-center justify-between px-6 py-3">
-            <p className="text-white/50 text-sm">Sally &amp; Tom's Story</p>
+            <p className="text-white/50 text-sm">See Docuplete in Action (60s)</p>
             <button
               className="text-white/60 hover:text-white text-4xl leading-none font-light"
               onClick={() => setOpen(false)}
@@ -473,6 +473,7 @@ const PLANS = [
       "Custom domain",
     ],
     cta: "Contact sales",
+
     highlight: false,
   },
 ];
@@ -669,7 +670,7 @@ const PERSONAS = [
 const COMPARISON_FEATURES = [
   {
     label: "Monthly price (2 users)",
-    docuplete: { value: "$69 / mo", note: "eSign + PDF filling included" },
+    docuplete: { value: "$69 / mo", note: "eSign + PDF Fills Included" },
     docusign: { value: "$50 / mo", note: "eSign only — filling not included" },
     pandadoc: { value: "$38 / mo", note: "eSign only — filling not included" },
     type: "price" as const,
@@ -748,7 +749,7 @@ export default function Home() {
             <a href="/docuplete-docs/" className="hidden sm:block text-sm text-[#4B5A7A] hover:text-[#0B1220] transition-colors">Docs</a>
             <a
               href={NAV_SIGNUP}
-              className="inline-flex items-center gap-1.5 bg-[#1B4FD8] text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1740B8] transition-colors"
+              className="inline-flex items-center gap-1.5 border border-[#1B4FD8] text-[#1B4FD8] text-sm font-medium px-4 py-2 rounded-lg hover:bg-[#1B4FD8]/10 transition-colors"
             >
               Start free trial
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -802,7 +803,7 @@ export default function Home() {
       </section>
 
       {/* ── PROOF BAR ───────────────────────────────────────── */}
-      <section className="bg-[#F5F7FC] border-y border-[#E8EDF5] py-5 px-6">
+      <section className="bg-[#F5F7FC] border-t-2 border-t-[#1B2B4A] border-b border-b-[#E8EDF5] py-5 px-6">
         <div className="max-w-5xl mx-auto flex flex-wrap items-center justify-center gap-x-10 gap-y-3 text-sm text-[#4B5A7A]">
           <span className="flex items-center gap-2">
             <svg className="w-4 h-4 text-[#1B4FD8]" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292Z"/></svg>
@@ -850,7 +851,7 @@ export default function Home() {
             <p className="text-[#5B8DEF] text-sm font-semibold uppercase tracking-widest mb-3">The problem</p>
             <h2 className="text-3xl sm:text-4xl font-bold">The cost of doing it manually.</h2>
             <p className="mt-4 text-white/60 max-w-lg mx-auto">
-              Every team thinks their document process is "fine." Until they add it up.
+              Every team thinks their document process is {"\u201C"}fine.{"\u201D"} Until they add it up.
             </p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-12">
@@ -972,7 +973,7 @@ export default function Home() {
                   </p>
                   <a
                     href={NAV_SIGNUP}
-                    className="inline-flex items-center gap-1.5 bg-[#1B4FD8] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#1740B8] transition-colors whitespace-nowrap"
+                    className="inline-flex items-center gap-1.5 bg-[#F5A623] hover:bg-[#e09510] text-[#0d1224] text-sm font-semibold px-5 py-2.5 rounded-xl transition-colors whitespace-nowrap shadow-lg shadow-[#F5A623]/25"
                   >
                     Start free trial
                     <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -1034,7 +1035,7 @@ export default function Home() {
               <div className="bg-[#1B4FD8] rounded-2xl p-6">
                 <div className="text-xl font-black text-white">Reduced resistance. Repeatable wins.</div>
               </div>
-              <div className="bg-white border border-[#E8EDF5] rounded-2xl p-6 col-span-2">
+              <div className="bg-[#EEF3FB] border border-[#C8D5EE] rounded-2xl p-6 col-span-2">
                 <div className="text-2xl font-black text-[#1B4FD8] mb-1">Zero chasing.</div>
                 <div className="text-sm text-[#4B5A7A]">Clients complete on their own time. You get a finished document.</div>
               </div>
@@ -1169,7 +1170,7 @@ export default function Home() {
           <div className="mt-10 text-center">
             <a
               href="#pricing"
-              className="inline-flex items-center gap-2 bg-[#1B4FD8] hover:bg-[#1740B8] text-white font-semibold px-7 py-3.5 rounded-xl transition-colors text-base shadow-lg shadow-[#1B4FD8]/25"
+              className="inline-flex items-center gap-2 border border-[#1B4FD8] text-[#1B4FD8] hover:bg-[#1B4FD8]/10 font-semibold px-7 py-3.5 rounded-xl transition-colors text-base"
             >
               See Docuplete pricing
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -1189,7 +1190,7 @@ export default function Home() {
               Both built for developers.<br className="hidden sm:block" /> Not built the same.
             </h2>
             <p className="mt-4 text-[#4B5A7A] max-w-2xl mx-auto">
-              Anvil is fast to set up. Docuplete is built for industries where a missed field or a misread timestamp is a liability — not a bug to fix later.
+              Anvil is fast to set up. But Docuplete is engineered for regulated industries where a missed form field or a skewed timestamp is a legal liability — not a software bug you patch later.
             </p>
           </div>
 
@@ -1335,7 +1336,7 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-lg font-bold text-white mb-2">Legally Defensible E-Signatures</h3>
-              <p className="text-white/60 text-sm leading-relaxed">
+              <p className="text-[#E2E8F0] text-sm leading-relaxed">
                 RFC 3161 cryptographic timestamps from a qualified Timestamping Authority are embedded in every signed PDF — proving the document existed in its exact form at that exact moment. Your e-signatures survive court scrutiny because the proof is independent of our servers.
               </p>
               <p className="text-[#5B8DEF] text-xs font-semibold mt-4 uppercase tracking-widest">ESIGN · UETA · eIDAS AdES compliant</p>
@@ -1349,7 +1350,7 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-lg font-bold text-white mb-2">Reliable Logic. Zero AI Hallucinations.</h3>
-              <p className="text-white/60 text-sm leading-relaxed">
+              <p className="text-[#E2E8F0] text-sm leading-relaxed">
                 Docuplete doesn't use a black-box AI to interpret or transform your data. Every field maps deterministically to exactly where it lands in the PDF — always. 100% predictable document output for high-compliance industries where surprises are liabilities.
               </p>
               <p className="text-[#5B8DEF] text-xs font-semibold mt-4 uppercase tracking-widest">Deterministic · Auditable · Repeatable</p>
@@ -1367,7 +1368,7 @@ export default function Home() {
   .sessions.create({ packageId: 42,
     prefill: { firstName: "Jane" } });
 // → send link, done.`}</pre>
-              <p className="text-white/60 text-sm leading-relaxed">
+              <p className="text-[#E2E8F0] text-sm leading-relaxed">
                 AES-256-GCM answer encryption ships on Pro and above. Scale further with IP allowlisting, SAML SSO, and SCIM provisioning for Enterprise deployments.
               </p>
             </div>
@@ -1393,7 +1394,7 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-              <p className="text-white/60 text-sm leading-relaxed">
+              <p className="text-[#E2E8F0] text-sm leading-relaxed">
                 Every action on every session is permanently logged with actor, IP address, and UTC timestamp. Your auditors will always have a clean paper trail.
               </p>
             </div>
@@ -1547,7 +1548,7 @@ export default function Home() {
                     href={NAV_SIGNUP}
                     className={`block text-center font-semibold py-3 rounded-xl transition-colors text-sm ${
                       plan.highlight
-                        ? "bg-[#1B4FD8] text-white hover:bg-[#1740B8]"
+                        ? "bg-[#F5A623] hover:bg-[#e09510] text-[#0d1224] shadow-lg shadow-[#F5A623]/25"
                         : "bg-[#F5F7FC] text-[#0B1220] border border-[#E8EDF5] hover:bg-[#EDF0F7]"
                     }`}
                   >
@@ -1575,14 +1576,14 @@ export default function Home() {
           </p>
           <a
             href={NAV_SIGNUP}
-            className="inline-flex items-center gap-2 bg-[#1B4FD8] hover:bg-[#1740B8] text-white font-semibold px-8 py-4 rounded-xl transition-colors text-base shadow-lg shadow-[#1B4FD8]/30"
+            className="inline-flex items-center gap-2 bg-[#F5A623] hover:bg-[#e09510] text-[#0d1224] font-semibold px-8 py-4 rounded-xl transition-colors text-base shadow-lg shadow-[#F5A623]/30"
           >
             Start your free trial
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
             </svg>
           </a>
-          <p className="mt-5 text-white/30 text-sm">Most teams send their first document in under 3 minutes.</p>
+          <p className="mt-5 text-[#94A3B8] text-sm">Most teams send their first document in under 3 minutes.</p>
         </div>
       </section>
 
