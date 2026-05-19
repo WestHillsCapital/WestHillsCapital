@@ -669,7 +669,7 @@ const PERSONAS = [
 const COMPARISON_FEATURES = [
   {
     label: "Monthly price (2 users)",
-    docuplete: { value: "$69 / mo", note: "eSign + PDF filling included" },
+    docuplete: { value: "$69 / mo", note: "eSign + PDF Fills Included" },
     docusign: { value: "$50 / mo", note: "eSign only — filling not included" },
     pandadoc: { value: "$38 / mo", note: "eSign only — filling not included" },
     type: "price" as const,
@@ -1169,7 +1169,7 @@ export default function Home() {
           <div className="mt-10 text-center">
             <a
               href="#pricing"
-              className="inline-flex items-center gap-2 bg-[#1B4FD8] hover:bg-[#1740B8] text-white font-semibold px-7 py-3.5 rounded-xl transition-colors text-base shadow-lg shadow-[#1B4FD8]/25"
+              className="inline-flex items-center gap-2 border border-[#1B4FD8] text-[#1B4FD8] hover:bg-[#1B4FD8]/10 font-semibold px-7 py-3.5 rounded-xl transition-colors text-base"
             >
               See Docuplete pricing
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -1189,7 +1189,7 @@ export default function Home() {
               Both built for developers.<br className="hidden sm:block" /> Not built the same.
             </h2>
             <p className="mt-4 text-[#4B5A7A] max-w-2xl mx-auto">
-              Anvil is fast to set up. Docuplete is built for industries where a missed field or a misread timestamp is a liability — not a bug to fix later.
+              Anvil is fast to set up. But Docuplete is engineered for regulated industries where a missed form field or a skewed timestamp is a legal liability — not a software bug you patch later.
             </p>
           </div>
 
@@ -1335,7 +1335,7 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-lg font-bold text-white mb-2">Legally Defensible E-Signatures</h3>
-              <p className="text-white/60 text-sm leading-relaxed">
+              <p className="text-[#E2E8F0] text-sm leading-relaxed">
                 RFC 3161 cryptographic timestamps from a qualified Timestamping Authority are embedded in every signed PDF — proving the document existed in its exact form at that exact moment. Your e-signatures survive court scrutiny because the proof is independent of our servers.
               </p>
               <p className="text-[#5B8DEF] text-xs font-semibold mt-4 uppercase tracking-widest">ESIGN · UETA · eIDAS AdES compliant</p>
@@ -1349,7 +1349,7 @@ export default function Home() {
                 </svg>
               </div>
               <h3 className="text-lg font-bold text-white mb-2">Reliable Logic. Zero AI Hallucinations.</h3>
-              <p className="text-white/60 text-sm leading-relaxed">
+              <p className="text-[#E2E8F0] text-sm leading-relaxed">
                 Docuplete doesn't use a black-box AI to interpret or transform your data. Every field maps deterministically to exactly where it lands in the PDF — always. 100% predictable document output for high-compliance industries where surprises are liabilities.
               </p>
               <p className="text-[#5B8DEF] text-xs font-semibold mt-4 uppercase tracking-widest">Deterministic · Auditable · Repeatable</p>
@@ -1367,7 +1367,7 @@ export default function Home() {
   .sessions.create({ packageId: 42,
     prefill: { firstName: "Jane" } });
 // → send link, done.`}</pre>
-              <p className="text-white/60 text-sm leading-relaxed">
+              <p className="text-[#E2E8F0] text-sm leading-relaxed">
                 AES-256-GCM answer encryption ships on Pro and above. Scale further with IP allowlisting, SAML SSO, and SCIM provisioning for Enterprise deployments.
               </p>
             </div>
@@ -1393,7 +1393,7 @@ export default function Home() {
                   </div>
                 ))}
               </div>
-              <p className="text-white/60 text-sm leading-relaxed">
+              <p className="text-[#E2E8F0] text-sm leading-relaxed">
                 Every action on every session is permanently logged with actor, IP address, and UTC timestamp. Your auditors will always have a clean paper trail.
               </p>
             </div>
