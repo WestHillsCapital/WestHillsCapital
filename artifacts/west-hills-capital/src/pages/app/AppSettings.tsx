@@ -332,7 +332,7 @@ function SubmissionBankSection({ getAuthHeaders }: { getAuthHeaders: () => Heade
                       ? ""
                       : "text-gray-500 hover:text-gray-700"
                   }`}
-                  style={packType === t ? { backgroundColor: brandColor, color: textColor } : {}}
+                  style={packType === t ? { backgroundColor: brandColor, color: "white" } : {}}
                 >
                   {t === "one_off" ? "One-time" : t === "annual" ? "Annual −20%" : "Monthly"}
                 </button>
@@ -347,7 +347,7 @@ function SubmissionBankSection({ getAuthHeaders }: { getAuthHeaders: () => Heade
               type="button"
               disabled={isBuying || !selectedPack}
               onClick={() => void handleBuy()}
-              style={{ backgroundColor: brandColor, color: textColor }}
+              style={{ backgroundColor: brandColor, color: "white" }}
               className="rounded-lg px-4 py-1.5 text-xs font-medium disabled:opacity-60 transition-opacity whitespace-nowrap"
             >
               {isBuying ? "Opening…" : `Buy — ${displayPrice ?? "…"}`}
@@ -624,7 +624,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                       type="button"
                       onClick={() => setBillingInterval("monthly")}
                       className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${billingInterval === "monthly" ? "" : "text-gray-500"}`}
-                      style={billingInterval === "monthly" ? { backgroundColor: bc, color: getTextForBg(bc) } : {}}
+                      style={billingInterval === "monthly" ? { backgroundColor: bc, color: "white" } : {}}
                     >
                       Monthly
                     </button>
@@ -632,7 +632,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                       type="button"
                       onClick={() => setBillingInterval("annual")}
                       className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all flex items-center gap-1 ${billingInterval === "annual" ? "" : "text-gray-500"}`}
-                      style={billingInterval === "annual" ? { backgroundColor: bc, color: getTextForBg(bc) } : {}}
+                      style={billingInterval === "annual" ? { backgroundColor: bc, color: "white" } : {}}
                     >
                       Annual
                       <span className={`text-[10px] font-semibold ${billingInterval === "annual" ? "text-green-300" : "text-green-700"}`}>–20%</span>
@@ -654,7 +654,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     disabled={isUpgrading}
                     onClick={() => { void handleUpgrade(); }}
                     className="rounded-lg px-4 py-1.5 text-sm font-medium transition-colors whitespace-nowrap brand-btn-hover"
-                    style={{ backgroundColor: bc, color: getTextForBg(bc) }}
+                    style={{ backgroundColor: bc, color: "white" }}
                   >
                     {isUpgrading ? "Opening…" : "Upgrade"}
                   </button>
@@ -675,7 +675,7 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                   disabled={isPortaling}
                   onClick={() => { void handlePortal(); }}
                   className="shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-colors brand-btn-hover disabled:opacity-60"
-                  style={{ backgroundColor: bc, color: getTextForBg(bc) }}
+                  style={{ backgroundColor: bc, color: "white" }}
                 >
                   {isPortaling ? "Opening…" : "Manage Billing"}
                 </button>
@@ -6790,7 +6790,7 @@ export default function AppSettings() {
                       ].join(" ")}
                       style={activeSection === item.id ? {
                         backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38",
-                        color: getTextForBg(/^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38"),
+                        color: "white",
                       } : undefined}
                     >
                       {item.label}
@@ -6829,7 +6829,7 @@ export default function AppSettings() {
                     ].join(" ")}
                     style={activeSection === item.id ? {
                       backgroundColor: /^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38",
-                      color: getTextForBg(/^#[0-9a-fA-F]{6}$/.test(brandColor) ? brandColor : "#C49A38"),
+                      color: "white",
                     } : undefined}
                   >
                     {item.label}
