@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { PLAN_DATA, annualMonthlyPrice, type PlanKey } from "@workspace/plan-data";
 import { useUser } from "@clerk/react";
 import { isClerkAPIResponseError } from "@clerk/react/errors";
 import { useUpgradeModal } from "@/hooks/useUpgradeModal";
@@ -424,24 +425,16 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
   const [selectedPlan, setSelectedPlan] = useState<"starter" | "pro" | "developer" | "enterprise">("pro");
   const [billingInterval, setBillingInterval] = useState<"monthly" | "annual">("monthly");
 
-  const PLAN_MONTHLY = { starter: 69, pro: 249, developer: 499, enterprise: 3000 } as const;
-  const PLAN_DISPLAY: Record<"starter" | "pro" | "developer" | "enterprise", string> = {
-    starter:   "Starter",
-    pro:       "Pro",
-    developer: "Developer",
-    enterprise: "Enterprise",
-  };
-  const planPrice = (key: "starter" | "pro" | "developer" | "enterprise") => {
-    const mo = PLAN_MONTHLY[key];
-    if (!mo) return null;
-    return billingInterval === "annual" ? Math.round(mo * 0.8) : mo;
-  };
-  const planLabel = (key: "starter" | "pro" | "developer" | "enterprise", seats: string, subs: string) => {
+  const planPrice = (key: "starter" | "pro" | "developer" | "enterprise") =>
+    billingInterval === "annual" ? annualMonthlyPrice(key) : PLAN_DATA[key].priceMonthly;
+
+  const planLabel = (key: "starter" | "pro" | "developer" | "enterprise") => {
+    const p = PLAN_DATA[key];
     const price = planPrice(key);
-    const label = PLAN_DISPLAY[key];
-    if (!price) return `${label} — ${seats} · ${subs}`;
-    const suffix = billingInterval === "annual" ? `/mo (billed $${Math.round(price * 12)}/yr)` : "/mo";
-    return `${label} — ${seats} · ${subs} ($${price}${suffix})`;
+    const suffix = billingInterval === "annual"
+      ? `/mo (billed $${Math.round(price * 12)}/yr)`
+      : "/mo";
+    return `${p.name} — ${p.seatsLabel} · ${p.submissionsLabel} ($${price}${suffix})`;
   };
 
   useEffect(() => {
@@ -648,10 +641,10 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     className="rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-900/20"
                   >
                     {(billing.plan_tier === "free" || billing.plan_tier === "starter") && (
-                      <option value="pro">{planLabel("pro", "10 seats", "400 sessions/mo")}</option>
+                      <option value="pro">{planLabel("pro")}</option>
                     )}
-                    <option value="developer">{planLabel("developer", "API access", "500 PDF gen/mo")}</option>
-                    <option value="enterprise">{planLabel("enterprise", "25 seats", "Unlimited")}</option>
+                    <option value="developer">{planLabel("developer")}</option>
+                    <option value="enterprise">{planLabel("enterprise")}</option>
                   </select>
                   <button
                     type="button"
@@ -703,82 +696,57 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    <tr>
-                      <td className="px-3 py-2.5 text-gray-700">
-                        Price / mo
-                        {billingInterval === "annual" && (
-                          <span className="ml-1 text-gray-400">(billed annually)</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 text-center text-gray-600">
-                        ${planPrice("starter")}
-                      </td>
-                      <td className="px-3 py-2.5 text-center text-indigo-700 font-medium">
-                        ${planPrice("pro")}
-                      </td>
-                      <td className="px-3 py-2.5 text-center text-blue-700 font-medium">
-                        ${planPrice("developer")}
-                      </td>
-                      <td className="px-3 py-2.5 text-center text-amber-700 font-medium">
-                        ${(planPrice("enterprise") ?? 0).toLocaleString()}
-                      </td>
-                    </tr>
-                    <tr className="bg-gray-50/50">
-                      <td className="px-3 py-2.5 text-gray-700">Packages</td>
-                      <td className="px-3 py-2.5 text-center text-gray-600">5</td>
-                      <td className="px-3 py-2.5 text-center text-indigo-700 font-medium">Unlimited</td>
-                      <td className="px-3 py-2.5 text-center text-blue-700 font-medium">Unlimited</td>
-                      <td className="px-3 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
-                    </tr>
-                    <tr>
-                      <td className="px-3 py-2.5 text-gray-700">Submissions / mo</td>
-                      <td className="px-3 py-2.5 text-center text-gray-600">150 sessions</td>
-                      <td className="px-3 py-2.5 text-center text-indigo-700 font-medium">400 sessions</td>
-                      <td className="px-3 py-2.5 text-center text-blue-700 font-medium">500 PDF gen</td>
-                      <td className="px-3 py-2.5 text-center text-amber-700 font-medium">Unlimited</td>
-                    </tr>
-                    <tr className="bg-gray-50/50">
-                      <td className="px-3 py-2.5 text-gray-700">Team seats</td>
-                      <td className="px-3 py-2.5 text-center text-gray-600">2</td>
-                      <td className="px-3 py-2.5 text-center text-indigo-700 font-medium">10</td>
-                      <td className="px-3 py-2.5 text-center text-blue-700 font-medium">Org-wide</td>
-                      <td className="px-3 py-2.5 text-center text-amber-700 font-medium">25</td>
-                    </tr>
-                    <tr>
-                      <td className="px-3 py-2.5 text-gray-700">eSign</td>
-                      <td className="px-3 py-2.5 text-center text-gray-600">✓</td>
-                      <td className="px-3 py-2.5 text-center text-indigo-600">✓</td>
-                      <td className="px-3 py-2.5 text-center text-blue-600">✓</td>
-                      <td className="px-3 py-2.5 text-center text-amber-600">✓</td>
-                    </tr>
-                    <tr className="bg-gray-50/50">
-                      <td className="px-3 py-2.5 text-gray-700">Client links &amp; branding</td>
-                      <td className="px-3 py-2.5 text-center text-gray-400">—</td>
-                      <td className="px-3 py-2.5 text-center text-indigo-600">✓</td>
-                      <td className="px-3 py-2.5 text-center text-blue-600">✓</td>
-                      <td className="px-3 py-2.5 text-center text-amber-600">✓</td>
-                    </tr>
-                    <tr>
-                      <td className="px-3 py-2.5 text-gray-700">CSV batch &amp; integrations</td>
-                      <td className="px-3 py-2.5 text-center text-gray-400">—</td>
-                      <td className="px-3 py-2.5 text-center text-indigo-600">✓</td>
-                      <td className="px-3 py-2.5 text-center text-blue-600">✓</td>
-                      <td className="px-3 py-2.5 text-center text-amber-600">✓</td>
-                    </tr>
-                    <tr className="bg-gray-50/50">
-                      <td className="px-3 py-2.5 text-gray-700">REST API &amp; Webhooks</td>
-                      <td className="px-3 py-2.5 text-center text-gray-400">—</td>
-                      <td className="px-3 py-2.5 text-center text-gray-400">—</td>
-                      <td className="px-3 py-2.5 text-center text-blue-600">✓</td>
-                      <td className="px-3 py-2.5 text-center text-amber-600">✓</td>
-                    </tr>
-                    <tr>
-                      <td className="px-3 py-2.5 text-gray-700">Programmatic PDF generation</td>
-                      <td className="px-3 py-2.5 text-center text-gray-400">—</td>
-                      <td className="px-3 py-2.5 text-center text-gray-400">—</td>
-                      <td className="px-3 py-2.5 text-center text-blue-600">✓</td>
-                      <td className="px-3 py-2.5 text-center text-amber-600">✓</td>
-                    </tr>
+                    {(() => {
+                      const cols: { key: PlanKey; cls: string }[] = [
+                        { key: "starter",    cls: "text-gray-600" },
+                        { key: "pro",        cls: "text-indigo-700 font-medium" },
+                        { key: "developer",  cls: "text-blue-700 font-medium" },
+                        { key: "enterprise", cls: "text-amber-700 font-medium" },
+                      ];
+                      function Cell({ val, cls }: { val: string | boolean; cls: string }) {
+                        if (typeof val === "boolean") {
+                          return (
+                            <td className={`px-3 py-2.5 text-center ${val ? cls.replace("font-medium", "") : "text-gray-400"}`}>
+                              {val ? "✓" : "—"}
+                            </td>
+                          );
+                        }
+                        return <td className={`px-3 py-2.5 text-center ${cls}`}>{val}</td>;
+                      }
+                      const rows: { label: string; get: (k: PlanKey) => string | boolean }[] = [
+                        {
+                          label: billingInterval === "annual" ? "Price / mo (billed annually)" : "Price / mo",
+                          get: (k) => `$${planPrice(k).toLocaleString()}`,
+                        },
+                        {
+                          label: "Packages",
+                          get: (k) => PLAN_DATA[k].maxPackages === null ? "Unlimited" : String(PLAN_DATA[k].maxPackages),
+                        },
+                        {
+                          label: "Sessions or generations / mo",
+                          get: (k) => PLAN_DATA[k].submissionsLabel,
+                        },
+                        {
+                          label: "Team seats",
+                          get: (k) => PLAN_DATA[k].seatsLabel,
+                        },
+                        { label: "eSign",                    get: (k) => PLAN_DATA[k].eSign },
+                        { label: "Client links & branding",  get: (k) => PLAN_DATA[k].clientLinks },
+                        { label: "CSV batch & integrations", get: (k) => PLAN_DATA[k].csvBatch },
+                        { label: "REST API & Webhooks",      get: (k) => PLAN_DATA[k].apiAccess },
+                        { label: "Programmatic PDF gen",     get: (k) => PLAN_DATA[k].apiAccess },
+                        { label: "Custom domain",            get: (k) => PLAN_DATA[k].customDomain },
+                        { label: "SSO / SAML",               get: (k) => PLAN_DATA[k].samlSso },
+                      ];
+                      return rows.map((row, i) => (
+                        <tr key={row.label} className={i % 2 === 1 ? "bg-gray-50/50" : ""}>
+                          <td className="px-3 py-2.5 text-gray-700">{row.label}</td>
+                          {cols.map(({ key, cls }) => (
+                            <Cell key={key} val={row.get(key)} cls={cls} />
+                          ))}
+                        </tr>
+                      ));
+                    })()}
                   </tbody>
                 </table>
               </div>

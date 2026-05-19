@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { PLAN_DATA } from "@workspace/plan-data";
 
 const GATE_KEY = "docuplete_compliance_unlocked";
 
@@ -400,12 +401,12 @@ function CheckIcon() {
 
 const PLANS = [
   {
-    name: "Starter",
-    price: 69,
+    ...PLAN_DATA.starter,
+    price: PLAN_DATA.starter.priceMonthly,
     description: "For solo practitioners getting started.",
-    submissions: "150 sessions / mo included",
-    seats: "2 seats included",
-    overage: "Overage: $0.50 / additional session",
+    submissions: `${PLAN_DATA.starter.submissionsLabel} included`,
+    seats: `${PLAN_DATA.starter.seatsLabel} included`,
+    overage: PLAN_DATA.starter.overage,
     features: [
       "Upload any PDF template",
       "Guided client interview",
@@ -419,12 +420,12 @@ const PLANS = [
     highlight: false,
   },
   {
-    name: "Pro",
-    price: 249,
+    ...PLAN_DATA.pro,
+    price: PLAN_DATA.pro.priceMonthly,
     description: "For growing teams handling real volume.",
-    submissions: "400 sessions / mo included",
-    seats: "10 seats included",
-    overage: "Overage: $0.50 / additional session",
+    submissions: `${PLAN_DATA.pro.submissionsLabel} included`,
+    seats: `${PLAN_DATA.pro.seatsLabel} included`,
+    overage: PLAN_DATA.pro.overage,
     features: [
       "Everything in Starter",
       "Team seats & shared templates",
@@ -439,12 +440,12 @@ const PLANS = [
     highlight: true,
   },
   {
-    name: "Developer",
-    price: 499,
+    ...PLAN_DATA.developer,
+    price: PLAN_DATA.developer.priceMonthly,
     description: "For teams embedding Docuplete in their product.",
-    submissions: "500 PDF generations / mo included",
-    seats: "Org-wide API access",
-    overage: "Overage: $75 / block of 100 generations",
+    submissions: `${PLAN_DATA.developer.submissionsLabel} included`,
+    seats: PLAN_DATA.developer.seatsLabel,
+    overage: PLAN_DATA.developer.overage,
     features: [
       "Everything in Pro",
       "REST API + TypeScript & Python SDKs",
@@ -458,12 +459,12 @@ const PLANS = [
     highlight: false,
   },
   {
-    name: "Enterprise",
-    price: 3000,
+    ...PLAN_DATA.enterprise,
+    price: PLAN_DATA.enterprise.priceMonthly,
     description: "For firms running high-volume, regulated intake.",
-    submissions: "Unlimited PDF generations",
-    seats: "25 seats included",
-    overage: "$15 / extra seat",
+    submissions: PLAN_DATA.enterprise.submissionsLabel,
+    seats: `${PLAN_DATA.enterprise.seatsLabel} included`,
+    overage: PLAN_DATA.enterprise.overage,
     features: [
       "Everything in Developer",
       "Dedicated account manager",
@@ -473,7 +474,6 @@ const PLANS = [
       "Custom domain",
     ],
     cta: "Contact sales",
-
     highlight: false,
   },
 ];
