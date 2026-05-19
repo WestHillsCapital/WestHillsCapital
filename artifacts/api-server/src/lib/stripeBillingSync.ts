@@ -1,7 +1,7 @@
 import { getDb } from "../db";
 import { logger } from "./logger";
 import { insertAuditLog } from "./auditLog";
-import { getPlanLimits } from "./plans";
+import { getPlanLimits, getPlanDisplayName } from "./plans";
 import { getUserEmailsToNotify, sendInAppNotifications } from "./notificationPrefs";
 import { sendOrgAlertEmails } from "./email";
 import {
@@ -199,20 +199,42 @@ export async function handleStripeSubscriptionEvent(event: StripeEvent): Promise
             `SELECT name FROM accounts WHERE id = $1`,
             [preAccount.id],
           );
-          const orgName = orgRows[0]?.name ?? "Docuplete";
-          const notifTitle = `Plan changed to ${planTier}`;
-          const notifBody  = `Your subscription was updated from ${preAccount.plan_tier} to ${planTier}.`;
+          const orgName    = orgRows[0]?.name ?? "Docuplete";
+          const fromLabel  = getPlanDisplayName(preAccount.plan_tier);
+          const toLabel    = getPlanDisplayName(planTier);
+          const isDowngradeToFree = planTier === "free";
+
+          const notifTitle = isDowngradeToFree
+            ? "Your subscription has ended"
+            : `Plan changed to ${toLabel}`;
+          const notifBody = isDowngradeToFree
+            ? `Your ${fromLabel} subscription has ended. Your account has been moved to the Free plan (1 package, 3 submissions/month).`
+            : `Your subscription was updated from ${fromLabel} to ${toLabel}.`;
+
           const [emails] = await Promise.all([
             getUserEmailsToNotify(preAccount.id, "billing_plan_change"),
             sendInAppNotifications(preAccount.id, "billing_plan_change", notifTitle, notifBody),
           ]);
-          await sendOrgAlertEmails({
-            recipientEmails: emails,
-            orgName,
-            subject:   `${orgName}: plan changed to ${planTier}`,
-            heading:   "Your plan has changed",
-            bodyHtml:  `<p>Your Docuplete subscription has been updated from <strong>${preAccount.plan_tier}</strong> to <strong>${planTier}</strong>.</p><p>If you didn't make this change or have questions, please contact your account administrator.</p>`,
-          });
+
+          if (isDowngradeToFree) {
+            await sendOrgAlertEmails({
+              recipientEmails: emails,
+              orgName,
+              subject:  `${orgName}: your ${fromLabel} subscription has ended`,
+              heading:  "Your subscription has ended",
+              bodyHtml: `<p>Your <strong>${fromLabel}</strong> subscription has ended and your account has been moved to the <strong>Free plan</strong>.</p><p>On the Free plan you have access to 1 package and up to 3 submissions per month. To restore full access, <a href="${(process.env.FRONTEND_URL ?? "").replace(/\/$/, "")}/app/settings#billing-section">upgrade your plan</a>.</p><p>If you believe this is an error, please contact your account administrator.</p>`,
+              ctaUrl:  `${(process.env.FRONTEND_URL ?? "").replace(/\/$/, "")}/app/settings#billing-section`,
+              ctaText: "Upgrade Plan",
+            });
+          } else {
+            await sendOrgAlertEmails({
+              recipientEmails: emails,
+              orgName,
+              subject:  `${orgName}: plan changed to ${toLabel}`,
+              heading:  "Your plan has changed",
+              bodyHtml: `<p>Your Docuplete subscription has been updated from <strong>${fromLabel}</strong> to <strong>${toLabel}</strong>.</p><p>If you didn't make this change or have questions, please contact your account administrator.</p>`,
+            });
+          }
         } catch (err) {
           logger.error({ err, accountId: preAccount.id }, "[BillingSync] Failed to send plan_change notification emails");
         }

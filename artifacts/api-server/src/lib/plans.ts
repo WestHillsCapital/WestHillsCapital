@@ -1,4 +1,4 @@
-export type PlanTier = "starter" | "starter_esign" | "pro" | "developer" | "enterprise";
+export type PlanTier = "free" | "starter" | "starter_esign" | "pro" | "developer" | "enterprise";
 
 export interface PlanLimits {
   maxPackages:            number | null;
@@ -23,6 +23,12 @@ export interface PlanFeatures {
 }
 
 export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
+  free: {
+    maxPackages:            1,
+    maxSubmissionsPerMonth: 3,
+    submissionsPerSeat:     3,
+    maxSeats:               1,
+  },
   starter: {
     maxPackages:            5,
     maxSubmissionsPerMonth: 150,
@@ -56,6 +62,20 @@ export const PLAN_LIMITS: Record<PlanTier, PlanLimits> = {
 };
 
 export const PLAN_FEATURES: Record<PlanTier, PlanFeatures> = {
+  free: {
+    clientLinks:              false,
+    csvBatch:                 false,
+    googleDrive:              false,
+    hubspot:                  false,
+    eSign:                    false,
+    emailBranding:            false,
+    webhooks:                 false,
+    apiAccess:                false,
+    embeddedInterviews:       false,
+    customDomain:             false,
+    fieldLibraryInheritance:  false,
+    samlSso:                  false,
+  },
   starter: {
     clientLinks:              false,
     csvBatch:                 false,
@@ -130,15 +150,17 @@ export const PLAN_FEATURES: Record<PlanTier, PlanFeatures> = {
 
 /**
  * Normalize a raw DB plan_tier value to a canonical PlanTier.
- * "free" and any unknown value map to "starter" for backward compatibility.
  * "starter_esign" is a terminated tier — existing accounts are silently
  * treated as "starter" for limits and feature gating.
+ * Any unknown value falls through to "free".
  */
 function normalizeTier(tier: string): PlanTier {
+  if (tier === "free")       return "free";
   if (tier === "pro")        return "pro";
   if (tier === "developer")  return "developer";
   if (tier === "enterprise") return "enterprise";
-  return "starter"; // covers "starter", "starter_esign", "free", and unknowns
+  if (tier === "starter" || tier === "starter_esign") return "starter";
+  return "free"; // unknown values default to free (most restrictive)
 }
 
 export function getPlanLimits(tier: string): PlanLimits {
@@ -148,12 +170,19 @@ export function getPlanLimits(tier: string): PlanLimits {
 /**
  * Returns the effective monthly submission limit for an account, factoring
  * in the actual number of seats (base plan seats + any purchased extra seats).
- * Returns null for Enterprise (unlimited).
+ * Returns null for Enterprise/Developer (unlimited).
+ * For plans with a maxSubmissionsPerMonth hard cap (e.g. Free), that cap is
+ * used directly regardless of seat count to prevent accidental overages.
  */
 export function getEffectiveSubmissionLimit(tier: string, actualSeatLimit: number): number | null {
   const limits = getPlanLimits(tier);
   if (limits.submissionsPerSeat === null) return null;
-  return actualSeatLimit * limits.submissionsPerSeat;
+  const seatBased = actualSeatLimit * limits.submissionsPerSeat;
+  // Respect a hard monthly cap when set (Free tier uses this to stay at 3)
+  if (limits.maxSubmissionsPerMonth !== null) {
+    return Math.min(seatBased, limits.maxSubmissionsPerMonth);
+  }
+  return seatBased;
 }
 
 export function getPlanFeatures(tier: string): PlanFeatures {
