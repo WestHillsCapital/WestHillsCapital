@@ -33,6 +33,8 @@ const DEFAULT_FILES = [
   "artifacts/west-hills-capital/src/pages/internal/DocuFill.tsx",
   "artifacts/west-hills-capital/src/pages/internal/Docuplete.tsx",
   "artifacts/west-hills-capital/src/pages/internal/DocupleteMapperPanel.tsx",
+  "artifacts/docuplete/src/pages/Home.tsx",
+  "artifacts/docuplete/index.html",
 ];
 
 const h = {
