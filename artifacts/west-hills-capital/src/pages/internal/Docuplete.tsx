@@ -3050,12 +3050,12 @@ export default function Docuplete() {
         fieldId,
         documentId: selectedDocument.id,
         page: selectedPage,
-        x: clampPercent(15, 0, 74),
-        y: clampPercent(15 + (existingCount + i) * 6, 0, 94),
-        w: 16,
-        h: 4,
-        fontSize: 11,
-        align: "left" as const,
+        x: clampPercent(15, 0, 96),
+        y: clampPercent(15 + (existingCount + i) * 5, 0, 96),
+        w: 3.5,
+        h: 3.5,
+        fontSize: 0,
+        align: "center" as const,
         format: `checkbox-option:${opt}`,
         optionColor: OPTION_COLORS[colorIndex % OPTION_COLORS.length],
         mark: defaultMark,
@@ -3380,13 +3380,10 @@ export default function Docuplete() {
       };
       setSelectedFieldId(field.id);
       const currentStoreMappings = useDocupleteStore.getState().mappings;
-      const autoMappings = isChoiceType ? autoPlacementsForOptions(field.id, cleanOpts, currentStoreMappings, cleanOpts, type) : [];
-      if (autoMappings.length > 0) pushUndo([...currentStoreMappings]);
-      autoMappings.forEach((m) => useDocupleteStore.getState().addMapping(m));
       updateSelectedPackage((pkg) => ({
         ...pkg,
         fields: [field, ...pkg.fields],
-        mappings: [...currentStoreMappings, ...autoMappings],
+        mappings: [...currentStoreMappings],
       }));
     } else if (fieldEditorModal.fieldId) {
       const fid = fieldEditorModal.fieldId;
