@@ -1801,10 +1801,18 @@ export default function Docuplete() {
       void autoSavePackage(pkg).then((ok) => {
         if (autoSaveFadeTimerRef.current) clearTimeout(autoSaveFadeTimerRef.current);
         setAutoSaveStatus(ok ? "saved" : "error");
-        autoSaveFadeTimerRef.current = setTimeout(
-          () => setAutoSaveStatus((s) => (s === "saved" || s === "error" ? "idle" : s)),
-          2500,
-        );
+        if (ok) {
+          // Fade the "saved" indicator after 2.5 s.
+          autoSaveFadeTimerRef.current = setTimeout(
+            () => setAutoSaveStatus((s) => (s === "saved" ? "idle" : s)),
+            2500,
+          );
+        } else {
+          // Keep the "error" badge visible and retry in 15 s so a temporary
+          // server restart doesn't silently discard unsaved mapper work.
+          if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+          autoSaveTimerRef.current = setTimeout(() => scheduleAutoSave(), 15_000);
+        }
       });
     }, 2000);
   }
