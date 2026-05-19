@@ -316,7 +316,7 @@ function normalizePackages(items: PackageItem[]): PackageItem[] {
       const legacyMode: FieldInterviewMode = (!raw.interviewVisible || raw.adminOnly) ? "omitted" : raw.required ? "required" : "optional";
       return {
         ...field,
-        libraryFieldId: field.libraryFieldId ?? "",
+        libraryFieldId: field.libraryFieldId ? String(field.libraryFieldId) : "",
         sensitive: field.sensitive === true,
         interviewMode: isSystemEsignFieldId(field.id) ? "omitted" : (validModes.includes(raw.interviewMode) ? raw.interviewMode : legacyMode),
         options: Array.isArray(field.options) ? field.options : undefined,
@@ -362,6 +362,9 @@ function normalizeFieldLibrary(items: FieldLibraryItem[]): FieldLibraryItem[] {
     const raw = item as FieldLibraryItem & { isGlobal?: boolean };
     return {
       ...item,
+      // Numeric DB ids (account-created fields) must be coerced to strings so that
+      // strict-equality comparisons against libraryFieldId (always a string) work.
+      id: String((item as FieldLibraryItem & { id: unknown }).id ?? ""),
       category: item.category || "General",
       type: ["text", "date", "radio", "checkbox", "dropdown"].includes(item.type) ? item.type : "text",
       source: item.source || "interview",
@@ -1801,10 +1804,18 @@ export default function Docuplete() {
       void autoSavePackage(pkg).then((ok) => {
         if (autoSaveFadeTimerRef.current) clearTimeout(autoSaveFadeTimerRef.current);
         setAutoSaveStatus(ok ? "saved" : "error");
-        autoSaveFadeTimerRef.current = setTimeout(
-          () => setAutoSaveStatus((s) => (s === "saved" || s === "error" ? "idle" : s)),
-          2500,
-        );
+        if (ok) {
+          // Fade the "saved" indicator after 2.5 s.
+          autoSaveFadeTimerRef.current = setTimeout(
+            () => setAutoSaveStatus((s) => (s === "saved" ? "idle" : s)),
+            2500,
+          );
+        } else {
+          // Keep the "error" badge visible and retry in 15 s so a temporary
+          // server restart doesn't silently discard unsaved mapper work.
+          if (autoSaveTimerRef.current) clearTimeout(autoSaveTimerRef.current);
+          autoSaveTimerRef.current = setTimeout(() => scheduleAutoSave(), 15_000);
+        }
       });
     }, 2000);
   }
@@ -2982,9 +2993,32 @@ export default function Docuplete() {
     const field = selectedPackage?.fields.find((f) => f.id === fieldId);
     if (!field) return;
     if (isSystemEsignFieldId(fieldId)) return; // system e-sign fields are read-only
+    // For library-linked fields, the real options may live in the library record.
+    // Strategy 1: exact ID match (IDs already coerced to strings by normalizers).
+    // Strategy 2: if ID lookup misses (stale/missing libraryFieldId) and the package
+    //             field has no options of its own, fall back to matching by label+type
+    //             so that fields like "Primary/Contingent" in new packages automatically
+    //             pick up the library options without the user having to re-enter them.
+    const packageOpts = field.options ?? [];
+    const isChoiceField = field.type === "radio" || field.type === "checkbox" || field.type === "dropdown";
+    let libField = field.libraryFieldId
+      ? fieldLibrary.find((f) => f.id === field.libraryFieldId)
+      : undefined;
+    if (!libField && isChoiceField && packageOpts.length === 0) {
+      libField = fieldLibrary.find(
+        (f) =>
+          f.label.toLowerCase() === field.name.toLowerCase() &&
+          f.type === field.type &&
+          (f.options?.length ?? 0) > 0,
+      );
+    }
+    const effectiveOptions =
+      libField?.options?.length && (field.optionsMode === "inherit" || packageOpts.length === 0)
+        ? libField.options
+        : packageOpts;
     setFieldEditorDraft({
       name: field.name, color: field.color, type: field.type,
-      options: field.options ?? [],
+      options: effectiveOptions,
       interviewMode: field.interviewMode,
       hasDefault: Boolean(field.defaultValue),
       defaultValue: field.defaultValue ?? "",
@@ -3561,9 +3595,25 @@ export default function Docuplete() {
     const opts = field.options?.filter(Boolean) ?? [];
 
     if (isChoiceType && opts.length > 0) {
-      pushUndo([...useDocupleteStore.getState().mappings]);
+      // Only create slots for options that don't already have a checkbox-option mapping
+      // on this document/page — avoids duplicating slots that were auto-placed when
+      // the field editor was saved.
+      const currentMappings = useDocupleteStore.getState().mappings;
+      const existingFormats = new Set(
+        currentMappings
+          .filter((m) => m.fieldId === field.id && m.documentId === selectedDocument!.id && m.page === targetPage)
+          .map((m) => m.format),
+      );
+      const newOpts = opts.filter((opt) => !existingFormats.has(`checkbox-option:${opt}`));
+      if (newOpts.length === 0) {
+        flashStatus(`All options for "${field.name}" are already placed on this page`);
+        setSelectedFieldId(field.id);
+        return;
+      }
+      pushUndo([...currentMappings]);
       let lastId = "";
-      opts.forEach((opt, i) => {
+      newOpts.forEach((opt, i) => {
+        const colorIndex = opts.indexOf(opt);
         const mappingId = newId("map");
         lastId = mappingId;
         useDocupleteStore.getState().addMapping({
@@ -3578,8 +3628,8 @@ export default function Docuplete() {
           fontSize: 0,
           align: "center",
           format: `checkbox-option:${opt}`,
-          optionColor: OPTION_COLORS[i % OPTION_COLORS.length],
-          mark: "X",
+          optionColor: OPTION_COLORS[colorIndex % OPTION_COLORS.length],
+          mark: field.type === "radio" ? "●" : "X",
         });
       });
       setSelectedMappingId(lastId);
