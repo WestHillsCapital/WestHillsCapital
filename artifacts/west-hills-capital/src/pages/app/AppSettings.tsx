@@ -6435,8 +6435,8 @@ function SourceKeyMappingSection({
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="border-b border-gray-100 bg-gray-50/80 text-[10px] text-gray-500 uppercase tracking-wide">
-                      <th className="px-4 py-2.5 text-left font-medium">Source Key</th>
-                      <th className="px-4 py-2.5 text-left font-medium">
+                      <th className="px-4 py-2.5 text-left font-medium w-1/4">Source Key</th>
+                      <th className="px-4 py-2.5 text-left font-medium w-[37.5%]">
                         <span className="flex items-center gap-1">
                           <svg className="w-3 h-3 text-[#f77f52]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -6444,7 +6444,7 @@ function SourceKeyMappingSection({
                           HubSpot Property
                         </span>
                       </th>
-                      <th className="px-4 py-2.5 text-left font-medium">CSV Column Header</th>
+                      <th className="px-4 py-2.5 text-left font-medium w-[37.5%]">CSV Column Header</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-50">
@@ -6452,7 +6452,7 @@ function SourceKeyMappingSection({
                       const customHs  = localMappings.hubspot[g.sourceKey] ?? "";
                       const customCsv = localMappings.csv[g.sourceKey]     ?? "";
                       return (
-                        <tr key={g.sourceKey} className="group even:bg-slate-50/40 hover:bg-slate-50 transition-colors">
+                        <tr key={g.sourceKey} className="group even:bg-slate-50/40 hover:bg-slate-50 focus-within:bg-slate-50/70 transition-colors">
                           <td className="px-4 py-2.5">
                             <code className="font-mono text-[11px] bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded text-slate-700">
                               {g.sourceKey}
@@ -6460,16 +6460,27 @@ function SourceKeyMappingSection({
                           </td>
                           <td className="px-4 py-2.5">
                             {isAdmin ? (
-                              <input
-                                type="text"
-                                value={customHs}
-                                onChange={(e) =>
-                                  setLocalMappings((m) => ({ ...m, hubspot: { ...m.hubspot, [g.sourceKey]: e.target.value } }))
-                                }
-                                placeholder={g.builtinHubspotProperty ? `${g.builtinHubspotProperty} (built-in)` : "e.g. firstname"}
-                                list="hs-props-list"
-                                className="rounded border border-gray-200 bg-white px-2 py-1 text-[11px] font-mono text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300 w-40"
-                              />
+                              <div className="relative">
+                                <input
+                                  type="text"
+                                  value={customHs}
+                                  onChange={(e) =>
+                                    setLocalMappings((m) => ({ ...m, hubspot: { ...m.hubspot, [g.sourceKey]: e.target.value } }))
+                                  }
+                                  placeholder={g.builtinHubspotProperty ? `${g.builtinHubspotProperty} (built-in)` : "e.g. firstname"}
+                                  list="hs-props-list"
+                                  className={`w-full rounded border px-2 py-1 pr-6 text-[11px] font-mono text-gray-700 focus:outline-none focus:ring-1 transition-colors ${
+                                    g.builtinHubspotProperty && !customHs
+                                      ? "bg-green-50 border-green-200 placeholder-green-700/60 focus:ring-green-300"
+                                      : "bg-white border-gray-200 placeholder-gray-300 focus:ring-gray-300"
+                                  }`}
+                                />
+                                {g.builtinHubspotProperty && !customHs && (
+                                  <svg className="absolute right-2 top-1/2 -translate-y-1/2 w-3 h-3 text-green-500 pointer-events-none" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                  </svg>
+                                )}
+                              </div>
                             ) : (
                               <span className="text-[11px] text-gray-600 font-mono">
                                 {customHs || g.builtinHubspotProperty || <span className="text-gray-300">—</span>}
@@ -6485,7 +6496,7 @@ function SourceKeyMappingSection({
                                   setLocalMappings((m) => ({ ...m, csv: { ...m.csv, [g.sourceKey]: e.target.value } }))
                                 }
                                 placeholder={g.fields[0]?.fieldLabel ?? g.sourceKey}
-                                className="rounded border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300 w-44"
+                                className="w-full rounded border border-gray-200 bg-white px-2 py-1 text-[11px] text-gray-700 placeholder-gray-300 focus:outline-none focus:ring-1 focus:ring-gray-300"
                               />
                             ) : (
                               <span className="text-[11px] text-gray-600">
@@ -6509,8 +6520,8 @@ function SourceKeyMappingSection({
                 <div className="px-4 py-3 border-t border-gray-100 flex items-center gap-3">
                   <button
                     onClick={() => void handleSaveMappings()}
-                    disabled={savingMaps}
-                    className="rounded-lg px-4 py-1.5 text-xs font-medium text-white transition-colors disabled:opacity-50 brand-btn-hover"
+                    disabled={savingMaps || JSON.stringify(localMappings) === JSON.stringify(mappings)}
+                    className="rounded-lg px-4 py-1.5 text-xs font-medium text-white transition-all brand-btn-hover disabled:opacity-40 disabled:cursor-not-allowed"
                     style={{ backgroundColor: bc }}
                   >
                     {savingMaps ? "Saving…" : "Save changes"}
@@ -6518,7 +6529,7 @@ function SourceKeyMappingSection({
                   {mapsSaved && <span className="text-xs text-green-600 font-medium">✓ Saved</span>}
                   <button
                     onClick={() => setLocalMappings(mappings)}
-                    className="ml-auto text-xs text-gray-400 hover:text-gray-600 transition-colors"
+                    className="ml-auto text-xs font-medium text-[#0E1D4A] hover:text-[#0E1D4A]/70 transition-colors"
                   >
                     Reset
                   </button>
