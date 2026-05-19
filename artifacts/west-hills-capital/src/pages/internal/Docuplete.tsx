@@ -2990,9 +2990,17 @@ export default function Docuplete() {
     const field = selectedPackage?.fields.find((f) => f.id === fieldId);
     if (!field) return;
     if (isSystemEsignFieldId(fieldId)) return; // system e-sign fields are read-only
+    // For library-linked fields with optionsMode:"inherit", the package-level options
+    // array is empty — the real options live in the library field. Load them so the
+    // editor shows what the field actually uses.
+    const libField = field.libraryFieldId ? fieldLibrary.find((f) => f.id === field.libraryFieldId) : undefined;
+    const effectiveOptions =
+      field.optionsMode === "inherit" && libField?.options?.length
+        ? libField.options
+        : (field.options ?? []);
     setFieldEditorDraft({
       name: field.name, color: field.color, type: field.type,
-      options: field.options ?? [],
+      options: effectiveOptions,
       interviewMode: field.interviewMode,
       hasDefault: Boolean(field.defaultValue),
       defaultValue: field.defaultValue ?? "",
@@ -3569,9 +3577,25 @@ export default function Docuplete() {
     const opts = field.options?.filter(Boolean) ?? [];
 
     if (isChoiceType && opts.length > 0) {
-      pushUndo([...useDocupleteStore.getState().mappings]);
+      // Only create slots for options that don't already have a checkbox-option mapping
+      // on this document/page — avoids duplicating slots that were auto-placed when
+      // the field editor was saved.
+      const currentMappings = useDocupleteStore.getState().mappings;
+      const existingFormats = new Set(
+        currentMappings
+          .filter((m) => m.fieldId === field.id && m.documentId === selectedDocument!.id && m.page === targetPage)
+          .map((m) => m.format),
+      );
+      const newOpts = opts.filter((opt) => !existingFormats.has(`checkbox-option:${opt}`));
+      if (newOpts.length === 0) {
+        flashStatus(`All options for "${field.name}" are already placed on this page`);
+        setSelectedFieldId(field.id);
+        return;
+      }
+      pushUndo([...currentMappings]);
       let lastId = "";
-      opts.forEach((opt, i) => {
+      newOpts.forEach((opt, i) => {
+        const colorIndex = opts.indexOf(opt);
         const mappingId = newId("map");
         lastId = mappingId;
         useDocupleteStore.getState().addMapping({
@@ -3586,8 +3610,8 @@ export default function Docuplete() {
           fontSize: 0,
           align: "center",
           format: `checkbox-option:${opt}`,
-          optionColor: OPTION_COLORS[i % OPTION_COLORS.length],
-          mark: "X",
+          optionColor: OPTION_COLORS[colorIndex % OPTION_COLORS.length],
+          mark: field.type === "radio" ? "●" : "X",
         });
       });
       setSelectedMappingId(lastId);
