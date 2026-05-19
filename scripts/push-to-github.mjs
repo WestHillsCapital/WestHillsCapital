@@ -38,6 +38,9 @@ const DEFAULT_FILES = [
   "artifacts/api-server/src/lib/plans.ts",
   "artifacts/api-server/src/lib/stripeBillingSync.ts",
   "artifacts/west-hills-capital/src/pages/app/AppSettings.tsx",
+  "artifacts/west-hills-capital/vite.config.ts",
+  "lib/plan-data/package.json",
+  "lib/plan-data/src/index.ts",
 ];
 
 const h = {
