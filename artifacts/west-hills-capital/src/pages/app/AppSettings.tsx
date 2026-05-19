@@ -121,27 +121,36 @@ function statusBadge(status: string | null) {
 }
 
 function UsageBar({ label, used, limit, unit = "" }: { label: string; used: number; limit: number | null; unit?: string }) {
+  const bc = useBrandColor();
   const pct = limit === null ? 0 : Math.min(100, Math.round((used / limit) * 100));
   const isOver = limit !== null && used >= limit;
+  const barColor = isOver ? "#EF4444" : pct > 80 ? "#F59E0B" : bc;
   return (
-    <div className="mb-3 last:mb-0">
-      <div className="flex items-center justify-between mb-1">
+    <div className="mb-3.5 last:mb-0">
+      <div className="flex items-center justify-between mb-1.5">
         <span className="text-xs text-gray-600">{label}</span>
         {limit === null ? (
-          <span className="text-xs font-medium text-gray-500 italic">Unlimited</span>
+          <span className="flex items-center gap-1 text-xs font-medium text-gray-400">
+            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round">
+              <path d="M12 12c-2-2.5-4-4-6-4a4 4 0 0 0 0 8c2 0 4-1.5 6-4zm0 0c2 2.5 4 4 6 4a4 4 0 0 0 0-8c-2 0-4 1.5-6 4z"/>
+            </svg>
+            Unlimited
+          </span>
         ) : (
-          <span className={`text-xs font-medium ${isOver ? "text-red-600" : "text-gray-700"}`}>
+          <span className={`text-xs font-medium tabular-nums ${isOver ? "text-red-600" : "text-gray-700"}`}>
             {`${used.toLocaleString()} / ${limit.toLocaleString()}${unit}`}
           </span>
         )}
       </div>
-      {limit !== null && (
+      {limit !== null ? (
         <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
           <div
-            className={`h-full rounded-full transition-all ${isOver ? "bg-red-500" : pct > 80 ? "bg-amber-400" : "bg-gray-900"}`}
-            style={{ width: `${pct}%` }}
+            className="h-full rounded-full transition-all duration-300"
+            style={{ width: `${pct}%`, backgroundColor: barColor }}
           />
         </div>
+      ) : (
+        <div className="h-1.5 rounded-full bg-gray-100" />
       )}
     </div>
   );
@@ -311,15 +320,16 @@ function SubmissionBankSection({ getAuthHeaders }: { getAuthHeaders: () => Heade
           {/* Type picker */}
           <div className="flex flex-col gap-1">
             <label className="text-[11px] text-gray-500">Purchase type</label>
-            <div className="flex items-center gap-1 p-0.5 bg-gray-100 rounded-lg">
+            <div className="flex items-center gap-0.5 p-0.5 bg-gray-100 rounded-lg">
               {(["monthly", "one_off", "annual"] as const).map((t) => (
                 <button
                   key={t}
                   type="button"
                   onClick={() => setPackType(t)}
-                  style={packType === t ? { backgroundColor: brandColor, color: textColor } : {}}
-              className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
-                    packType === t ? "shadow" : "text-gray-500 hover:text-gray-700"
+                  className={`px-2.5 py-1 text-xs font-medium rounded-md transition-all ${
+                    packType === t
+                      ? "bg-white shadow text-gray-900"
+                      : "text-gray-500 hover:text-gray-700"
                   }`}
                 >
                   {t === "one_off" ? "One-time" : t === "annual" ? "Annual −20%" : "Monthly"}
@@ -364,7 +374,13 @@ function SubmissionBankSection({ getAuthHeaders }: { getAuthHeaders: () => Heade
         <div className="px-6 py-4">
           <p className="text-[11px] text-gray-400 uppercase tracking-wide font-medium mb-2">Volume pricing</p>
           <div className="rounded-lg border border-gray-100 overflow-hidden text-xs">
-            <table className="w-full">
+            <table className="w-full table-fixed">
+              <colgroup>
+                <col className="w-1/4" />
+                <col className="w-1/4" />
+                <col className="w-1/4" />
+                <col className="w-1/4" />
+              </colgroup>
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">Pack</th>
@@ -374,12 +390,12 @@ function SubmissionBankSection({ getAuthHeaders }: { getAuthHeaders: () => Heade
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {packs.map((p) => (
-                  <tr key={p.size} className={selectedSize === p.size ? "bg-gray-50/80" : ""}>
-                    <td className="px-3 py-2 font-medium text-gray-800">{p.size}</td>
-                    <td className="px-3 py-2 text-center text-gray-600">${p.monthly}</td>
-                    <td className="px-3 py-2 text-center text-gray-600">${p.annual}</td>
-                    <td className="px-3 py-2 text-center text-gray-500">${(p.monthly / p.size).toFixed(2)}</td>
+                {packs.map((p, i) => (
+                  <tr key={p.size} className={selectedSize === p.size ? "bg-blue-50/40" : i % 2 === 1 ? "bg-slate-50/50" : ""}>
+                    <td className="px-3 py-2.5 font-medium text-gray-800">{p.size}</td>
+                    <td className="px-3 py-2.5 text-center text-gray-600">${p.monthly}</td>
+                    <td className="px-3 py-2.5 text-center text-gray-600">${p.annual}</td>
+                    <td className="px-3 py-2.5 text-center text-gray-500">${(p.monthly / p.size).toFixed(2)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -641,8 +657,8 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                     type="button"
                     disabled={isUpgrading}
                     onClick={() => { void handleUpgrade(); }}
-                    className="rounded-lg px-4 py-1.5 text-sm font-medium text-white transition-colors whitespace-nowrap brand-btn-hover"
-                    style={{ backgroundColor: bc }}
+                    className="rounded-lg px-4 py-1.5 text-sm font-medium transition-colors whitespace-nowrap brand-btn-hover"
+                    style={{ backgroundColor: bc, color: getTextForBg(bc) }}
                   >
                     {isUpgrading ? "Opening…" : "Upgrade"}
                   </button>
@@ -662,8 +678,8 @@ function BillingSection({ getAuthHeaders }: { getAuthHeaders: () => HeadersInit 
                   type="button"
                   disabled={isPortaling}
                   onClick={() => { void handlePortal(); }}
-                  className="shrink-0 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors brand-btn-hover disabled:opacity-60"
-                  style={{ backgroundColor: bc }}
+                  className="shrink-0 rounded-lg px-4 py-2 text-sm font-medium transition-colors brand-btn-hover disabled:opacity-60"
+                  style={{ backgroundColor: bc, color: getTextForBg(bc) }}
                 >
                   {isPortaling ? "Opening…" : "Manage Billing"}
                 </button>
