@@ -5961,7 +5961,7 @@ function UsageBadge({ packageCount, sessionCount }: { packageCount: number; sess
   const isHigh   = sessionCount >= 50;
   const isMedium = sessionCount >= 10 && !isHigh;
   return (
-    <div className="flex flex-col gap-0.5 min-w-[72px]">
+    <div className="flex flex-col gap-0.5 min-w-[72px] leading-relaxed">
       <span className="text-[10px] text-gray-500">
         {packageCount} {packageCount === 1 ? "pkg" : "pkgs"}
       </span>
@@ -5969,10 +5969,10 @@ function UsageBadge({ packageCount, sessionCount }: { packageCount: number; sess
         className={`inline-flex items-center gap-1 text-[10px] font-medium ${
           isHigh   ? "text-red-600"   :
           isMedium ? "text-amber-600" :
-          sessionCount > 0 ? "text-gray-500" : "text-gray-300"
+          sessionCount > 0 ? "text-amber-500" : "text-gray-300"
         }`}
       >
-        {(isHigh || isMedium) && (
+        {sessionCount > 0 && (
           <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
           </svg>
@@ -6178,9 +6178,9 @@ function SourceKeyMappingSection({
                     const isBuiltin  = !customHs && !!g.builtinHubspotProperty;
                     const pkgs       = Array.from(new Map(g.fields.map((f) => [f.packageId, f.packageName])));
                     return (
-                      <tr key={g.sourceKey} className="hover:bg-gray-50/50 transition-colors">
+                      <tr key={g.sourceKey} className="group even:bg-slate-50/40 hover:bg-slate-50 transition-colors">
                         <td className="px-4 py-2.5">
-                          <code className="font-mono text-[11px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-800 select-all">
+                          <code className="font-mono text-[11px] bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded text-slate-700 select-all">
                             {g.sourceKey}
                           </code>
                         </td>
@@ -6212,24 +6212,27 @@ function SourceKeyMappingSection({
                         <td className="px-4 py-2.5">
                           {hubspot ? (
                             <span
-                              className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                              className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
                                 isBuiltin
-                                  ? "bg-gray-100 text-gray-500 border border-gray-200"
-                                  : "bg-green-50 text-green-700 border border-green-100"
+                                  ? "bg-orange-50 text-orange-700 border border-orange-200"
+                                  : "bg-orange-50 text-orange-900 border border-orange-300"
                               }`}
                             >
-                              {isBuiltin && <span className="text-gray-400 font-normal">built-in ·</span>}
+                              <svg className="w-2.5 h-2.5 shrink-0 text-[#FF7A59]" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                              </svg>
+                              {isBuiltin && <span className="opacity-60 font-normal">built-in ·</span>}
                               <code className="font-mono">{hubspot}</code>
                             </span>
                           ) : (
-                            <span className="text-gray-300">—</span>
+                            <span className="text-[#64748B]">—</span>
                           )}
                         </td>
                         <td className="px-4 py-2.5">
                           <button
                             onClick={() => copyKey(g.sourceKey)}
                             title="Copy source key"
-                            className="rounded p-1 hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                            className="rounded p-1 hover:bg-gray-100 text-gray-400 group-hover:text-[#0E1D4A] hover:text-[#0E1D4A] transition-colors"
                           >
                             {copyId === g.sourceKey ? (
                               <svg className="w-3.5 h-3.5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -6302,7 +6305,7 @@ function SourceKeyMappingSection({
                       return (
                         <tr
                           key={f.fieldId}
-                          className={`transition-colors ${isEditing ? "bg-blue-50/30" : "hover:bg-gray-50/50"}`}
+                          className={`group transition-colors ${isEditing ? "bg-blue-50/30" : "even:bg-slate-50/40 hover:bg-slate-50"}`}
                         >
                           <td className="px-4 py-2.5">
                             <div className="flex items-center gap-1.5">
@@ -6428,9 +6431,9 @@ function SourceKeyMappingSection({
                       const customHs  = localMappings.hubspot[g.sourceKey] ?? "";
                       const customCsv = localMappings.csv[g.sourceKey]     ?? "";
                       return (
-                        <tr key={g.sourceKey} className="hover:bg-gray-50/50 transition-colors">
+                        <tr key={g.sourceKey} className="group even:bg-slate-50/40 hover:bg-slate-50 transition-colors">
                           <td className="px-4 py-2.5">
-                            <code className="font-mono text-[11px] bg-gray-100 px-1.5 py-0.5 rounded text-gray-800">
+                            <code className="font-mono text-[11px] bg-slate-50 border border-slate-200 px-1.5 py-0.5 rounded text-slate-700">
                               {g.sourceKey}
                             </code>
                           </td>
