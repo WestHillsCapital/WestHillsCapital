@@ -1609,8 +1609,18 @@ async function buildPacketPdfBuffer(
       copiedPages.forEach((page) => merged.addPage(page));
       const documentMappings = mappingsByDocument.get(sourceDoc.id) ?? [];
       for (const mapping of documentMappings) {
+        const isCheckboxOptionMapping = String(mapping.format ?? "").startsWith("checkbox-option:");
         const field = mapping.fieldId ? fieldsById.get(mapping.fieldId) : undefined;
-        if (!field) continue;
+        if (!field) {
+          if (isCheckboxOptionMapping) {
+            logger.warn({
+              fieldId: mapping.fieldId,
+              format: mapping.format,
+              knownFieldIds: [...fieldsById.keys()].slice(0, 10),
+            }, "[GeneratePdf] checkbox-option mapping skipped — fieldId not found in session.fields");
+          }
+          continue;
+        }
         const c1 = evaluateFieldCondition(field.condition, answers, fields, prefill);
         const c2 = evaluateFieldCondition(field.condition2, answers, fields, prefill);
         const condOp = (field as { conditionOperator?: string }).conditionOperator;
@@ -1732,7 +1742,19 @@ async function buildPacketPdfBuffer(
           }
         }
         const mappedValue = formatDocupleteMappedValue(value, mapping);
-        if (!mappedValue) continue;
+        if (!mappedValue) {
+          if (isCheckboxOptionMapping) {
+            logger.warn({
+              fieldId: mapping.fieldId,
+              fieldType: field.type,
+              format: mapping.format,
+              answerValue: value,
+              rawAnswer: answers[field.id],
+              hasAnswerKey: Object.prototype.hasOwnProperty.call(answers, field.id),
+            }, "[GeneratePdf] checkbox-option mapping produced empty value — answer empty or option mismatch");
+          }
+          continue;
+        }
         // Checkbox/radio marks: auto-derive font size from box height so the mark
         // fills the annotation regardless of how the box was sized in the mapper.
         // Standard text fields use the stored font size (user-controlled).
